@@ -1,0 +1,421 @@
+/**
+ * Common utility functions used across the casino bot
+ * This module contains frequently used helper functions to reduce code duplication
+ */
+
+const { EmbedBuilder } = require('discord.js');
+const logger = require('./logger');
+
+// ========================= MONEY FORMATTING =========================
+
+/**
+ * Format amount as currency string
+ * @param {number|string} amount - The amount to format
+ * @returns {string} Formatted currency string (e.g., "$1,234.56")
+ */
+function fmt(amount) {
+    try {
+        const num = parseFloat(amount);
+        
+        // For very large numbers, use abbreviated format
+        if (num >= 1_000_000_000_000) { // Trillions
+            return `$${(num / 1_000_000_000_000).toFixed(2)}T`;
+        } else if (num >= 1_000_000_000) { // Billions
+            return `$${(num / 1_000_000_000).toFixed(2)}B`;
+        } else if (num >= 1_000_000) { // Millions
+            return `$${(num / 1_000_000).toFixed(2)}M`;
+        } else if (num >= 1_000) { // Thousands
+            return `$${(num / 1_000).toFixed(2)}K`;
+        } else {
+            // For smaller amounts, use regular formatting
+            return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+    } catch (error) {
+        return `$${amount}`;
+    }
+}
+
+/**
+ * Format the difference between two amounts
+ * @param {number} after - The final amount
+ * @param {number} before - The initial amount
+ * @returns {string} Formatted difference string (e.g., "(+1,234.56)" or "(-1,234.56)")
+ */
+function fmtDelta(after, before) {
+    try {
+        const delta = parseFloat(after) - parseFloat(before);
+        const sign = delta >= 0 ? '+' : '-';
+        return `(${sign}${Math.abs(delta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+    } catch (error) {
+        return '';
+    }
+}
+
+/**
+ * Format the difference between two amounts with color codes
+ * @param {number} after - The final amount
+ * @param {number} before - The initial amount
+ * @returns {string} Colored difference string using Discord markdown
+ */
+function fmtDeltaColored(after, before) {
+    try {
+        const delta = parseFloat(after) - parseFloat(before);
+        if (delta >= 0) {
+            return `**+$${delta.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}**`;
+        } else {
+            return `**-$${Math.abs(delta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}**`;
+        }
+    } catch (error) {
+        return '';
+    }
+}
+
+// ========================= DISCORD HELPERS =========================
+
+/**
+ * Get guild ID from interaction
+ * @param {Interaction} interaction - Discord interaction
+ * @returns {string} Guild ID
+ */
+async function getGuildId(interaction) {
+    return interaction.guildId || interaction.guild?.id || 'dm';
+}
+
+/**
+ * Check if user has admin role
+ * @param {GuildMember} member - Guild member
+ * @param {string} guildId - Guild ID
+ * @returns {boolean} True if user has admin role
+ */
+async function hasAdminRole(member, guildId) {
+    // Check if user is server owner
+    if (member.guild.ownerId === member.id) {
+        return true;
+    }
+    
+    // Check for Administrator permission
+    if (member.permissions.has('Administrator')) {
+        return true;
+    }
+    
+    // Check for admin roles (you can add guild-specific logic here)
+    const adminRoles = ['admin', 'administrator', 'owner'];
+    return member.roles.cache.some(role => 
+        adminRoles.some(adminRole => 
+            role.name.toLowerCase().includes(adminRole)
+        )
+    );
+}
+
+/**
+ * Check if user has mod role
+ * @param {GuildMember} member - Guild member
+ * @param {string} guildId - Guild ID
+ * @returns {boolean} True if user has mod role
+ */
+async function hasModRole(member, guildId) {
+    // Admin users are also mods
+    if (await hasAdminRole(member, guildId)) {
+        return true;
+    }
+    
+    // Check for Moderate Members permission
+    if (member.permissions.has('ModerateMembers')) {
+        return true;
+    }
+    
+    // Check for mod roles
+    const modRoles = ['mod', 'moderator'];
+    return member.roles.cache.some(role => 
+        modRoles.some(modRole => 
+            role.name.toLowerCase().includes(modRole)
+        )
+    );
+}
+
+// ========================= EMBED BUILDERS =========================
+
+/**
+ * Create a standardized embed shown when an admin/mod stops a game and refunds
+ * @param {User} admin - Acting admin/mod user
+ * @param {User} target - Optional target player whose game was stopped
+ * @param {Array<string>} refunds - Optional list of refund summary strings
+ * @param {string} note - Optional extra note
+ * @returns {EmbedBuilder} Discord embed
+ */
+function buildStoppedRefundEmbed(admin, target = null, refunds = null, note = null) {
+    const title = '🛑 Game Stopped';
+    const description = target 
+        ? `The game for ${target} has been stopped by ${admin}. A refund has been sent.`
+        : `The game has been stopped by ${admin}. A refund has been sent.`;
+        
+    const embed = new EmbedBuilder()
+        .setTitle(title)
+        .setDescription(description)
+        .setColor(0xFF0000)
+        .setTimestamp();
+        
+    if (refunds && refunds.length > 0) {
+        embed.addFields({ name: '💰 Refunds', value: refunds.join('\n'), inline: false });
+    }
+    
+    if (note) {
+        embed.addFields({ name: 'ℹ️ Notes', value: note, inline: false });
+    }
+    
+    return embed;
+}
+
+/**
+ * Create error embed for insufficient funds
+ * @param {number} required - Required amount
+ * @param {number} available - Available amount
+ * @returns {EmbedBuilder} Discord embed
+ */
+function buildInsufficientFundsEmbed(required, available) {
+    return new EmbedBuilder()
+        .setTitle('❌ Insufficient Funds')
+        .setDescription(`You need ${fmt(required)} but only have ${fmt(available)} in your wallet.`)
+        .setColor(0xFF0000)
+        .setTimestamp();
+}
+
+/**
+ * Create error embed for invalid bet amount
+ * @param {string} reason - Reason for invalid bet
+ * @returns {EmbedBuilder} Discord embed
+ */
+function buildInvalidBetEmbed(reason) {
+    return new EmbedBuilder()
+        .setTitle('❌ Invalid Bet')
+        .setDescription(reason)
+        .setColor(0xFF0000)
+        .setTimestamp();
+}
+
+/**
+ * Create error embed for game already active
+ * @returns {EmbedBuilder} Discord embed
+ */
+function buildGameActiveEmbed() {
+    return new EmbedBuilder()
+        .setTitle('❌ Game Already Active')
+        .setDescription('You already have an active game. Please finish it before starting a new one.')
+        .setColor(0xFF0000)
+        .setTimestamp();
+}
+
+// ========================= AMOUNT PARSING =========================
+
+/**
+ * Parse amount string with K/M/B/A/H suffixes
+ * @param {string} amountStr - Amount string to parse
+ * @returns {number|null} Parsed amount or null if invalid
+ */
+function parseAmount(amountStr) {
+    if (!amountStr || typeof amountStr !== 'string') {
+        return null;
+    }
+    
+    const cleanStr = amountStr.trim().toLowerCase().replace(/[$]/g, '');
+    
+    // Handle special cases
+    if (cleanStr === 'all' || cleanStr === 'a') {
+        return 'all';
+    }
+    if (cleanStr === 'half' || cleanStr === 'h') {
+        return 'half';
+    }
+    
+    // Remove commas and handle numeric values with suffixes
+    const noCommas = cleanStr.replace(/,/g, '');
+    const match = noCommas.match(/^(\d+(?:\.\d+)?)\s*([kmbt]?)$/);
+    if (!match) {
+        return null;
+    }
+    
+    const [, numberStr, suffix] = match;
+    let amount = parseFloat(numberStr);
+    
+    if (isNaN(amount) || amount < 0) {
+        return null;
+    }
+    
+    // Apply suffix multipliers
+    switch (suffix) {
+        case 'k':
+            amount *= 1000;
+            break;
+        case 'm':
+            amount *= 1000000;
+            break;
+        case 'b':
+            amount *= 1000000000;
+            break;
+        case 't':
+            amount *= 1000000000000;
+            break;
+    }
+    
+    return Math.round(amount * 100) / 100; // Round to 2 decimal places
+}
+
+/**
+ * Resolve special amount keywords (all, half) to actual amounts
+ * @param {string|number} amount - Amount to resolve
+ * @param {number} walletAmount - Current wallet amount
+ * @returns {number|null} Resolved amount or null if invalid
+ */
+function resolveAmount(amount, walletAmount) {
+    if (typeof amount === 'number') {
+        return amount;
+    }
+    
+    if (amount === 'all') {
+        return walletAmount;
+    }
+    
+    if (amount === 'half') {
+        return Math.floor(walletAmount / 2 * 100) / 100; // Round down to 2 decimal places
+    }
+    
+    return parseAmount(amount);
+}
+
+// ========================= GAME REGISTRY =========================
+
+// Simple game registry for tracking active games
+const gameRegistry = new Map();
+
+/**
+ * Check if user has an active game
+ * @param {string} userId - Discord user ID
+ * @returns {boolean} True if user has active game
+ */
+function hasActiveGame(userId) {
+    return gameRegistry.has(userId);
+}
+
+/**
+ * Set user's active game
+ * @param {string} userId - Discord user ID
+ * @param {string} gameType - Type of game
+ */
+function setActiveGame(userId, gameType) {
+    gameRegistry.set(userId, gameType);
+}
+
+/**
+ * Clear user's active game or all active games
+ * @param {string|null} userId - Discord user ID, or null to clear all games
+ * @param {boolean} clearAll - If true, clear all active games
+ * @returns {number|boolean} Number of cleared games if clearAll is true, otherwise boolean success
+ */
+function clearActiveGame(userId, clearAll = false) {
+    if (clearAll || userId === null) {
+        const count = gameRegistry.size;
+        gameRegistry.clear();
+        return count;
+    } else {
+        return gameRegistry.delete(userId);
+    }
+}
+
+/**
+ * Get user's active game type
+ * @param {string} userId - Discord user ID
+ * @returns {string|null} Game type or null if no active game
+ */
+function getActiveGame(userId) {
+    return gameRegistry.get(userId) || null;
+}
+
+/**
+ * Get all active games
+ * @returns {Array} Array of { userId, gameType } objects
+ */
+function getAllActiveGames() {
+    const activeGames = [];
+    for (const [userId, gameType] of gameRegistry.entries()) {
+        activeGames.push({ userId, gameType });
+    }
+    return activeGames;
+}
+
+// ========================= LOGGING HELPERS =========================
+
+/**
+ * Send log message to designated logging channel
+ * @param {Client} bot - Discord bot client
+ * @param {string} level - Log level (info, warn, error)
+ * @param {string} message - Log message
+ * @param {string} userId - User ID (optional)
+ * @param {string} guildId - Guild ID (optional)
+ */
+async function sendLogMessage(bot, level, message, userId = null, guildId = null) {
+    const LOG_CHANNEL_ID = '1405096821512212521'; // From CLAUDE.md
+    
+    try {
+        const channel = await bot.channels.fetch(LOG_CHANNEL_ID);
+        if (!channel) {
+            logger.warn(`Log channel ${LOG_CHANNEL_ID} not found`);
+            return;
+        }
+        
+        const colors = {
+            info: 0x00FF00,    // Green
+            warn: 0xFFFF00,    // Yellow
+            error: 0xFF0000    // Red
+        };
+        
+        const embed = new EmbedBuilder()
+            .setTitle(`${level.toUpperCase()} Log`)
+            .setDescription(message)
+            .setColor(colors[level] || 0x808080)
+            .setTimestamp();
+            
+        if (userId) {
+            embed.addFields({ name: 'User ID', value: userId, inline: true });
+        }
+        
+        if (guildId) {
+            embed.addFields({ name: 'Guild ID', value: guildId, inline: true });
+        }
+        
+        await channel.send({ embeds: [embed] });
+    } catch (error) {
+        logger.error(`Failed to send log message: ${error.message}`);
+    }
+}
+
+module.exports = {
+    // Money formatting
+    fmt,
+    fmtDelta,
+    fmtDeltaColored,
+    
+    // Discord helpers
+    getGuildId,
+    hasAdminRole,
+    hasModRole,
+    
+    // Embed builders
+    buildStoppedRefundEmbed,
+    buildInsufficientFundsEmbed,
+    buildInvalidBetEmbed,
+    buildGameActiveEmbed,
+    
+    // Amount parsing
+    parseAmount,
+    resolveAmount,
+    
+    // Game registry
+    hasActiveGame,
+    setActiveGame,
+    clearActiveGame,
+    getActiveGame,
+    getAllActiveGames,
+    
+    // Logging
+    sendLogMessage
+};
