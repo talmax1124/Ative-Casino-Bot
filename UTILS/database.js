@@ -356,29 +356,64 @@ class DatabaseManager {
      */
     async getLotteryInfo(guildId) {
         try {
-            const docRef = this.db.collection('lottery_data').doc(guildId);
-            const doc = await docRef.get();
+            // Get main lottery data
+            const lotteryRef = this.db.collection('lottery').doc(guildId);
+            const lotteryDoc = await lotteryRef.get();
             
-            if (doc.exists) {
-                return doc.data();
+            // Get lottery data for participants
+            const dataRef = this.db.collection('lottery_data').doc(guildId);
+            const dataDoc = await dataRef.get();
+            
+            let lotteryData, participantData;
+            
+            if (lotteryDoc.exists) {
+                lotteryData = lotteryDoc.data();
             } else {
-                // Create default lottery data (matching Python structure)
-                const defaultLottery = {
-                    total_prize: 400000, // Base prize of $400,000
+                // Create default lottery data
+                lotteryData = {
+                    base_prize: 400000,
+                    tax_pool: 0,
+                    total_prize: 400000,
                     total_tickets: 0,
-                    currentWeekStart: new Date(),
-                    participants: {},
-                    lastDrawing: null,
+                    week_start: new Date()
+                };
+                await lotteryRef.set(lotteryData);
+            }
+            
+            if (dataDoc.exists) {
+                participantData = dataDoc.data();
+            } else {
+                // Create default participant data
+                participantData = {
                     created_at: new Date(),
+                    currentWeekStart: new Date(),
+                    lastDrawing: null,
+                    participants: {},
+                    totalPrize: lotteryData.total_prize,
+                    totalTickets: lotteryData.total_tickets,
                     updated_at: new Date()
                 };
-                
-                await docRef.set(defaultLottery);
-                return defaultLottery;
+                await dataRef.set(participantData);
             }
+            
+            // Combine data for compatibility with existing code
+            return {
+                base_prize: lotteryData.base_prize,
+                tax_pool: lotteryData.tax_pool,
+                total_prize: lotteryData.total_prize,
+                total_tickets: lotteryData.total_tickets,
+                week_start: lotteryData.week_start,
+                participants: participantData.participants || {},
+                lastDrawing: participantData.lastDrawing,
+                currentWeekStart: participantData.currentWeekStart,
+                created_at: participantData.created_at,
+                updated_at: participantData.updated_at
+            };
         } catch (error) {
             logger.error(`Error getting lottery info: ${error.message}`);
             return {
+                base_prize: 400000,
+                tax_pool: 0,
                 total_prize: 400000,
                 total_tickets: 0,
                 participants: {},
@@ -395,8 +430,16 @@ class DatabaseManager {
      */
     async getUserLotteryTickets(userId, guildId) {
         try {
-            const lotteryInfo = await this.getLotteryInfo(guildId);
-            return lotteryInfo.participants[userId] || 0;
+            // Get from lottery_tickets collection
+            const ticketRef = this.db.collection('lottery_tickets').doc(`${guildId}_${userId}`);
+            const ticketDoc = await ticketRef.get();
+            
+            if (ticketDoc.exists) {
+                const data = ticketDoc.data();
+                return data.tickets || 0;
+            }
+            
+            return 0;
         } catch (error) {
             logger.error(`Error getting user lottery tickets: ${error.message}`);
             return 0;
@@ -415,7 +458,9 @@ class DatabaseManager {
         try {
             // Start a transaction
             const userRef = this.db.collection('user_balances').doc(userId);
-            const lotteryRef = this.db.collection('lottery_data').doc(guildId);
+            const lotteryRef = this.db.collection('lottery').doc(guildId);
+            const dataRef = this.db.collection('lottery_data').doc(guildId);
+            const ticketRef = this.db.collection('lottery_tickets').doc(`${guildId}_${userId}`);
 
             await this.db.runTransaction(async (transaction) => {
                 // Get current user balance
@@ -428,12 +473,28 @@ class DatabaseManager {
 
                 // Get current lottery data
                 const lotteryDoc = await transaction.get(lotteryRef);
+                const dataDoc = await transaction.get(dataRef);
+                const ticketDoc = await transaction.get(ticketRef);
+                
                 const lotteryData = lotteryDoc.exists ? lotteryDoc.data() : {
+                    base_prize: 400000,
+                    tax_pool: 0,
                     total_prize: 400000,
                     total_tickets: 0,
-                    participants: {},
-                    currentWeekStart: new Date()
+                    week_start: new Date()
                 };
+                
+                const participantData = dataDoc.exists ? dataDoc.data() : {
+                    created_at: new Date(),
+                    currentWeekStart: new Date(),
+                    lastDrawing: null,
+                    participants: {},
+                    totalPrize: lotteryData.total_prize,
+                    totalTickets: 0,
+                    updated_at: new Date()
+                };
+                
+                const currentUserTickets = ticketDoc.exists ? ticketDoc.data().tickets : 0;
 
                 // Update user balance
                 transaction.update(userRef, {
@@ -441,13 +502,24 @@ class DatabaseManager {
                     updated_at: new Date()
                 });
 
-                // Update lottery data
-                const currentTickets = lotteryData.participants[userId] || 0;
-                lotteryData.participants[userId] = currentTickets + ticketCount;
+                // Update lottery collection
                 lotteryData.total_tickets += ticketCount;
-                lotteryData.updated_at = new Date();
-
                 transaction.set(lotteryRef, lotteryData, { merge: true });
+                
+                // Update lottery_data collection participants
+                participantData.participants[userId] = (participantData.participants[userId] || 0) + ticketCount;
+                participantData.totalTickets = lotteryData.total_tickets;
+                participantData.totalPrize = lotteryData.total_prize;
+                participantData.updated_at = new Date();
+                transaction.set(dataRef, participantData, { merge: true });
+                
+                // Update lottery_tickets collection
+                transaction.set(ticketRef, {
+                    guild_id: guildId,
+                    user_id: userId,
+                    tickets: currentUserTickets + ticketCount,
+                    last_updated: new Date()
+                }, { merge: true });
             });
 
             logger.info(`User ${userId} purchased ${ticketCount} lottery tickets for ${totalCost}`);
@@ -466,12 +538,27 @@ class DatabaseManager {
      */
     async addToLotteryPool(guildId, amount) {
         try {
-            const docRef = this.db.collection('lottery_data').doc(guildId);
+            const lotteryRef = this.db.collection('lottery').doc(guildId);
+            const dataRef = this.db.collection('lottery_data').doc(guildId);
+            
             const lotteryInfo = await this.getLotteryInfo(guildId);
             
-            await docRef.update({
-                total_prize: lotteryInfo.total_prize + amount,
-                updated_at: new Date()
+            // Update both collections in a transaction
+            await this.db.runTransaction(async (transaction) => {
+                const newTotalPrize = lotteryInfo.total_prize + amount;
+                const newTaxPool = lotteryInfo.tax_pool + amount;
+                
+                // Update lottery collection
+                transaction.update(lotteryRef, {
+                    total_prize: newTotalPrize,
+                    tax_pool: newTaxPool
+                });
+                
+                // Update lottery_data collection
+                transaction.update(dataRef, {
+                    totalPrize: newTotalPrize,
+                    updated_at: new Date()
+                });
             });
 
             logger.info(`Added ${amount} to lottery pool for guild ${guildId}`);
@@ -502,13 +589,24 @@ class DatabaseManager {
                 };
             }
 
-            // Create weighted list based on ticket counts
+            // Create weighted list based on ticket counts from lottery_tickets collection
             const weightedParticipants = [];
-            for (const [userId, ticketCount] of Object.entries(lotteryInfo.participants)) {
-                for (let i = 0; i < ticketCount; i++) {
-                    weightedParticipants.push(userId);
+            
+            // Get all lottery tickets for this guild
+            const ticketsSnapshot = await this.db.collection('lottery_tickets')
+                .where('guild_id', '==', guildId)
+                .get();
+                
+            const ticketData = {};
+            ticketsSnapshot.forEach(doc => {
+                const data = doc.data();
+                ticketData[data.user_id] = data.tickets;
+                
+                // Add user to weighted list based on ticket count
+                for (let i = 0; i < data.tickets; i++) {
+                    weightedParticipants.push(data.user_id);
                 }
-            }
+            });
 
             // Randomly select 3 winners (no duplicates)
             const winners = [];
@@ -583,19 +681,45 @@ class DatabaseManager {
      */
     async resetLotteryWeek(guildId, hadWinners = true) {
         try {
-            const docRef = this.db.collection('lottery_data').doc(guildId);
+            const lotteryRef = this.db.collection('lottery').doc(guildId);
+            const dataRef = this.db.collection('lottery_data').doc(guildId);
             const currentInfo = await this.getLotteryInfo(guildId);
             
-            const resetData = {
-                total_prize: hadWinners ? 400000 : currentInfo.total_prize, // Reset to base or keep current if no winners
-                total_tickets: 0,
-                participants: {},
-                currentWeekStart: new Date(),
-                lastDrawing: hadWinners ? new Date() : currentInfo.lastDrawing,
-                updated_at: new Date()
-            };
-
-            await docRef.set(resetData, { merge: true });
+            // Reset in a transaction
+            await this.db.runTransaction(async (transaction) => {
+                const newTotalPrize = hadWinners ? (currentInfo.base_prize + currentInfo.tax_pool) : currentInfo.total_prize;
+                const newTaxPool = hadWinners ? 0 : currentInfo.tax_pool; // Reset tax pool if there were winners
+                
+                // Update lottery collection
+                transaction.set(lotteryRef, {
+                    base_prize: currentInfo.base_prize,
+                    tax_pool: newTaxPool,
+                    total_prize: newTotalPrize,
+                    total_tickets: 0,
+                    week_start: new Date()
+                }, { merge: true });
+                
+                // Update lottery_data collection
+                transaction.set(dataRef, {
+                    participants: {},
+                    totalPrize: newTotalPrize,
+                    totalTickets: 0,
+                    currentWeekStart: new Date(),
+                    lastDrawing: hadWinners ? new Date() : currentInfo.lastDrawing,
+                    updated_at: new Date()
+                }, { merge: true });
+            });
+            
+            // Clear all lottery tickets for this guild
+            const ticketsSnapshot = await this.db.collection('lottery_tickets')
+                .where('guild_id', '==', guildId)
+                .get();
+                
+            const batch = this.db.batch();
+            ticketsSnapshot.forEach(doc => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
             
             logger.info(`Lottery week reset for guild ${guildId}, hadWinners: ${hadWinners}`);
             return true;

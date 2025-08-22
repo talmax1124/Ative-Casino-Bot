@@ -4,6 +4,7 @@
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const moment = require('moment-timezone');
 const dbManager = require('../UTILS/database');
 const { fmt, sendLogMessage } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
@@ -19,6 +20,7 @@ class LotteryGame {
         this.bot = bot;
         this.scheduledDrawing = null;
         this.isDrawingInProgress = false;
+        this.panelMessageId = null;
     }
 
     /**
@@ -71,29 +73,26 @@ class LotteryGame {
      */
     async scheduleHourlyPanelUpdates() {
         try {
-            const updateLotteryPanel = require('../UTILS/lottery').updateLotteryPanel;
-            
             // Update panel every hour
             const hourlyInterval = 60 * 60 * 1000; // 1 hour in milliseconds
-            
             setInterval(async () => {
                 try {
-                    await updateLotteryPanel(this.bot, DESIGNATED_SERVER_ID);
+                    await this.upsertLotteryPanel();
                     logger.info('Hourly lottery panel update completed');
                 } catch (error) {
                     logger.error(`Error in hourly lottery panel update: ${error.message}`);
                 }
             }, hourlyInterval);
             
-            // Also run initial update after 5 minutes
+            // Also run an immediate initial update
             setTimeout(async () => {
                 try {
-                    await updateLotteryPanel(this.bot, DESIGNATED_SERVER_ID);
+                    await this.upsertLotteryPanel();
                     logger.info('Initial lottery panel update completed');
                 } catch (error) {
                     logger.error(`Error in initial lottery panel update: ${error.message}`);
                 }
-            }, 5 * 60 * 1000); // 5 minutes
+            }, 10 * 1000); // after 10 seconds to allow bot caches
             
             logger.info('Hourly lottery panel updates scheduled');
         } catch (error) {
@@ -105,36 +104,71 @@ class LotteryGame {
      * Calculate next Sunday 10 AM EST timestamp
      */
     getNextSundayTimestamp() {
-        const now = new Date();
-        
-        // Convert to EST (UTC-5, or UTC-4 during DST)
-        // For simplicity, we'll use a fixed UTC-5 offset
-        const estOffset = -5 * 60; // EST is UTC-5 in minutes
-        const estTime = new Date(now.getTime() + (estOffset * 60 * 1000));
-        
-        // Find days until next Sunday (0 = Sunday, 6 = Saturday)
-        const daysUntilSunday = (7 - estTime.getDay()) % 7;
-        
-        let nextSunday;
-        if (daysUntilSunday === 0) {
-            // Today is Sunday
-            nextSunday = new Date(estTime);
-            nextSunday.setHours(10, 0, 0, 0);
-            
-            // If it's already past 10 AM, go to next Sunday
-            if (estTime.getHours() >= 10) {
-                nextSunday.setDate(nextSunday.getDate() + 7);
-            }
-        } else {
-            // Not Sunday, calculate next Sunday
-            nextSunday = new Date(estTime);
-            nextSunday.setDate(nextSunday.getDate() + daysUntilSunday);
-            nextSunday.setHours(10, 0, 0, 0);
+        const nowNY = moment.tz('America/New_York');
+        let next = nowNY.clone().day(0).hour(10).minute(0).second(0).millisecond(0);
+        if (nowNY.day() > 0 || (nowNY.day() === 0 && nowNY.hour() >= 10)) {
+            next = nowNY.clone().day(7).hour(10).minute(0).second(0).millisecond(0);
         }
-        
-        // Convert back to UTC for timestamp
-        const utcTimestamp = Math.floor((nextSunday.getTime() - (estOffset * 60 * 1000)) / 1000);
-        return utcTimestamp;
+        return next.tz('UTC').unix();
+    }
+
+    /**
+     * Create or update a public lottery panel with current info
+     */
+    async upsertLotteryPanel() {
+        try {
+            const channel = this.bot.channels.cache.get(LOTTERY_CHANNEL_ID);
+            if (!channel) {
+                logger.error(`Lottery channel not found: ${LOTTERY_CHANNEL_ID}`);
+                return;
+            }
+
+            const info = await dbManager.getLotteryInfo(DESIGNATED_SERVER_ID);
+            const nextTs = this.getNextSundayTimestamp();
+
+            const embed = new EmbedBuilder()
+                .setTitle('🎟️ Weekly Lottery System')
+                .setColor(0xFFD700)
+                .setDescription('Every Sunday at 10 AM Eastern (America/New_York), we draw 3 winners!')
+                .addFields(
+                    { name: '💰 Current Prize Pool', value: `**${fmt(info.total_prize || 400000)}**`, inline: true },
+                    { name: '🎫 Tickets Sold', value: `**${info.total_tickets || 0}**`, inline: true },
+                    { name: '⏰ Next Drawing', value: `<t:${nextTs}:F>\n<t:${nextTs}:R>`, inline: true },
+                    { name: 'How to Buy', value: 'Use `/purchaselottery [count]` • $12,000 per ticket • Max 7/week', inline: false },
+                    { name: 'Prize Distribution', value: '🥇 45% • 🥈 45% • 🥉 10%', inline: false }
+                )
+                .setFooter({ text: '🍀 Good luck! • Last updated' })
+                .setTimestamp();
+
+            const buy = new ButtonBuilder().setCustomId('lottery_buy_panel').setLabel('Buy Tickets').setEmoji('🎫').setStyle(ButtonStyle.Primary);
+            const status = new ButtonBuilder().setCustomId('lottery_status_panel').setLabel('My Status').setEmoji('📊').setStyle(ButtonStyle.Secondary);
+            const help = new ButtonBuilder().setCustomId('lottery_help_panel').setLabel('How It Works').setEmoji('❓').setStyle(ButtonStyle.Secondary);
+            const row = new ActionRowBuilder().addComponents(buy, status, help);
+
+            let message = null;
+            if (this.panelMessageId) {
+                try {
+                    message = await channel.messages.fetch(this.panelMessageId);
+                } catch {
+                    message = null;
+                }
+            }
+            if (!message) {
+                // Try to find an existing recent panel by title
+                const msgs = await channel.messages.fetch({ limit: 30 });
+                message = msgs.find(m => m.author.id === this.bot.user.id && m.embeds?.[0]?.title?.includes('Weekly Lottery System')) || null;
+            }
+
+            if (message) {
+                await message.edit({ embeds: [embed], components: [row] });
+                this.panelMessageId = message.id;
+            } else {
+                const sent = await channel.send({ embeds: [embed], components: [row] });
+                this.panelMessageId = sent.id;
+            }
+        } catch (error) {
+            logger.error(`upsertLotteryPanel error: ${error.message}`);
+        }
     }
 
     /**
