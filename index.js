@@ -54,13 +54,13 @@ client.commands = new Collection();
 async function loadCommands() {
     const commandsPath = path.join(__dirname, 'COMMANDS');
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-    
+
     const commands = [];
-    
+
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
-        
+
         if ('data' in command && 'execute' in command) {
             client.commands.set(command.data.name, command);
             commands.push(command.data.toJSON());
@@ -69,7 +69,7 @@ async function loadCommands() {
             logger.warn(`Command at ${filePath} is missing required "data" or "execute" property`);
         }
     }
-    
+
     return commands;
 }
 
@@ -79,17 +79,17 @@ async function registerCommands(commands) {
         logger.warn('CLIENT_ID not provided, skipping command registration');
         return;
     }
-    
+
     const rest = new REST({ version: '10' }).setToken(TOKEN);
-    
+
     try {
         logger.info('Started refreshing application (/) commands');
-        
+
         await rest.put(
             Routes.applicationCommands(CLIENT_ID),
             { body: commands }
         );
-        
+
         logger.info(`Successfully reloaded ${commands.length} application (/) commands`);
     } catch (error) {
         logger.error('Failed to register commands:', error);
@@ -99,25 +99,25 @@ async function registerCommands(commands) {
 // Send startup notification
 async function sendStartupNotification() {
     await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for bot to be ready
-    
+
     try {
         const startupType = '🚀 ATIVE Casino Bot Started';
         const commandCount = client.commands.size;
-        
+
         const embedDescription = `**Type**: ${startupType}\n` +
             `**Environment**: ${ENVIRONMENT.toUpperCase()}\n` +
             `**Bot User**: ${client.user} (\`${client.user.id}\`)\n` +
             `**Commands Loaded**: ${commandCount}\n` +
             `**Language**: JavaScript/Node.js\n` +
             `**Features**: Casino Games, Economy, Admin Tools`;
-        
+
         await sendLogMessage(
             client,
             'info',
             `✅ **ATIVE Casino Bot Started Successfully**\n${embedDescription}`,
             null
         );
-        
+
         logger.info('Startup notification sent successfully');
     } catch (error) {
         logger.error(`Failed to send startup notification: ${error.message}`);
@@ -144,7 +144,7 @@ async function handleLotteryButtons(interaction, customId) {
             case 'lottery_buy_new_week':
                 // Show modal for ticket count input
                 const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
-                
+
                 const modal = new ModalBuilder()
                     .setCustomId('lottery_buy_modal')
                     .setTitle('🎫 Buy Lottery Tickets');
@@ -214,9 +214,9 @@ async function handleLotteryButtons(interaction, customId) {
         }
     } catch (error) {
         logger.error(`Error handling lottery button ${customId}: ${error.message}`);
-        await interaction.reply({ 
-            content: 'An error occurred while processing your lottery request.', 
-            ephemeral: true 
+        await interaction.reply({
+            content: 'An error occurred while processing your lottery request.',
+            ephemeral: true
         });
     }
 }
@@ -224,7 +224,7 @@ async function handleLotteryButtons(interaction, customId) {
 // Event handlers
 client.once('clientReady', async () => {
     logger.info(`ATIVE Casino Bot logged in as ${client.user.tag} (ID: ${client.user.id})`);
-    
+
     // Initialize database
     try {
         await dbManager.initialize();
@@ -233,7 +233,7 @@ client.once('clientReady', async () => {
         logger.error('Failed to initialize database:', error);
         process.exit(1);
     }
-    
+
     // Load and register commands
     try {
         const commands = await loadCommands();
@@ -242,7 +242,7 @@ client.once('clientReady', async () => {
     } catch (error) {
         logger.error('Failed to load commands:', error);
     }
-    
+
     // Initialize lottery system
     try {
         client.lotteryGame = new LotteryGame(client);
@@ -251,10 +251,10 @@ client.once('clientReady', async () => {
     } catch (error) {
         logger.error('Failed to initialize lottery system:', error);
     }
-    
+
     // Send startup notification
     setTimeout(sendStartupNotification, 1000);
-    
+
     // Send online announcement to logs channel (ONLY in development)
     if (IS_DEVELOPMENT) {
         try {
@@ -275,17 +275,17 @@ client.on('interactionCreate', async interaction => {
     // Handle slash commands
     if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
-        
+
         if (!command) {
             logger.warn(`No command matching ${interaction.commandName} was found`);
             return;
         }
-        
+
         try {
             await command.execute(interaction);
         } catch (error) {
             logger.error(`Error executing command ${interaction.commandName}:`, error);
-            
+
             // Send error log to designated channel
             try {
                 await sendLogMessage(
@@ -301,14 +301,14 @@ client.on('interactionCreate', async interaction => {
             } catch (logError) {
                 logger.error(`Failed to send error log: ${logError.message}`);
             }
-            
+
             // Send user-friendly error message
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Command Error')
                 .setDescription('An error occurred while processing your command. The administrators have been notified.')
                 .setColor(0xFF0000)
                 .setTimestamp();
-            
+
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {
@@ -322,7 +322,7 @@ client.on('interactionCreate', async interaction => {
             if (interaction.customId === 'lottery_buy_modal') {
                 const ticketCountStr = interaction.fields.getTextInputValue('ticket_count');
                 const ticketCount = parseInt(ticketCountStr);
-                
+
                 // Validate input
                 if (isNaN(ticketCount) || ticketCount < 1 || ticketCount > 7) {
                     await interaction.reply({
@@ -331,7 +331,7 @@ client.on('interactionCreate', async interaction => {
                     });
                     return;
                 }
-                
+
                 // Execute lottery buy command
                 const lotteryCommand = client.commands.get('lottery');
                 if (lotteryCommand) {
@@ -345,7 +345,7 @@ client.on('interactionCreate', async interaction => {
                             }
                         }
                     };
-                    
+
                     // Use the purchaselottery command instead
                     const purchaseCommand = client.commands.get('purchaselottery');
                     if (purchaseCommand) {
@@ -369,83 +369,20 @@ client.on('interactionCreate', async interaction => {
                     });
                 }
             }
-            // Handle crash bet modal
+            // Handle crash bet modal centrally
             else if (interaction.customId === 'crash_bet_modal') {
-                const amountStr = interaction.fields.getTextInputValue('bet_amount');
-                
-                try {
-                    // Get the crash game for this channel
-                    const crashGame = require('./GAMES/crash');
-                    const game = crashGame.crashManager.getGame(interaction.channelId, interaction.guildId);
-                    
-                    if (!game.betting_phase) {
-                        await interaction.reply({
-                            content: '❌ Betting phase is over! Wait for the next round.',
-                            ephemeral: true
-                        });
-                        return;
-                    }
-                    
-                    // Check if user already has a bet
-                    if (game.players.has(interaction.user.id)) {
-                        await interaction.reply({
-                            content: '❌ You already have a bet in this round!',
-                            ephemeral: true
-                        });
-                        return;
-                    }
-                    
-                    // Parse amount
-                    const { parseAmount } = require('./UTILS/common');
-                    const guildId = interaction.guildId;
-                    const userBalance = await require('./UTILS/database').getUserBalance(interaction.user.id, guildId);
-                    const bet = parseAmount(amountStr, userBalance.wallet);
-                    
-                    // Validate bet
-                    if (bet < 10 || bet > 100000) {
-                        await interaction.reply({
-                            content: `❌ Bet must be between $10 and $100,000!`,
-                            ephemeral: true
-                        });
-                        return;
-                    }
-                    
-                    if (userBalance.wallet < bet) {
-                        await interaction.reply({
-                            content: `❌ Insufficient funds! You need ${require('./UTILS/common').fmt(bet)} but only have ${require('./UTILS/common').fmt(userBalance.wallet)}.`,
-                            ephemeral: true
-                        });
-                        return;
-                    }
-                    
-                    // Deduct bet and add player
-                    await require('./UTILS/database').decrementBalance(interaction.user.id, guildId, bet, 'wallet');
-                    game.addPlayer(interaction.user.id, interaction.user.displayName, bet);
-                    
-                    // Update the betting embed
-                    const embed = crashGame.buildBettingEmbed(game);
-                    await game.game_message.edit({ embeds: [embed], components: [crashGame.bettingButtons()] });
-                    
-                    await interaction.reply({ 
-                        content: `✅ Bet placed: **${require('./UTILS/common').fmt(bet)}**. Good luck!`, 
-                        ephemeral: true 
-                    });
-                    
-                } catch (error) {
-                    await interaction.reply({
-                        content: `❌ ${error.message || error}`,
-                        ephemeral: true
-                    });
-                }
+                const crashGame = require('./GAMES/crash');
+                const game = crashGame.crashManager.getGame(interaction.channelId, interaction.guildId);
+                await crashGame.handleModalSubmit(interaction, game);
             }
         } catch (error) {
             logger.error(`Error handling modal ${interaction.customId}: ${error.message}`);
-            
+
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Modal Error')
                 .setDescription('An error occurred while processing your submission.')
                 .setColor(0xFF0000);
-            
+
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
             } else {
@@ -486,12 +423,12 @@ client.on('interactionCreate', async interaction => {
             }
         } catch (error) {
             logger.error(`Error handling select menu ${interaction.customId}:`, error);
-            
+
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Menu Error')
                 .setDescription('An error occurred while processing your selection.')
                 .setColor(0xFF0000);
-            
+
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {
@@ -502,13 +439,13 @@ client.on('interactionCreate', async interaction => {
     // Handle button interactions
     else if (interaction.isButton()) {
         const customId = interaction.customId;
-        
+
         try {
             // Handle blackjack buttons (new namespace format: bj-{userId}:{action})
             if (customId.startsWith('bj-')) {
                 const [namespace, actionId] = customId.split(':');
                 const userId = namespace.split('-')[1];
-                
+
                 // Verify the user is the game owner
                 if (userId === interaction.user.id) {
                     const blackjackCommand = client.commands.get('blackjack');
@@ -516,11 +453,17 @@ client.on('interactionCreate', async interaction => {
                         await blackjackCommand.handleBlackjackAction(interaction, actionId);
                     }
                 } else {
-                    await interaction.reply({ 
-                        content: 'This is not your game!', 
-                        ephemeral: true 
+                    await interaction.reply({
+                        content: 'This is not your game!',
+                        ephemeral: true
                     });
                 }
+            }
+            // Handle crash buttons (namespace: crash:...)
+            else if (customId.startsWith('crash:')) {
+                const crashGame = require('./GAMES/crash');
+                const game = crashGame.crashManager.getGame(interaction.channelId, interaction.guildId);
+                await crashGame.handleButtonInteraction(interaction, game, client);
             }
             // Handle poll buttons
             else if (customId.startsWith('poll_')) {
@@ -535,12 +478,12 @@ client.on('interactionCreate', async interaction => {
             }
         } catch (error) {
             logger.error(`Error handling button ${customId}:`, error);
-            
+
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Button Error')
                 .setDescription('An error occurred while processing your action.')
                 .setColor(0xFF0000);
-            
+
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {
@@ -554,7 +497,7 @@ client.on('interactionCreate', async interaction => {
 client.on('messageCreate', async message => {
     // Ignore bot messages and system messages
     if (message.author.bot || message.system) return;
-    
+
     try {
         // Check if this message is a follow-up to a panel action
         await panelManager.processFollowUpAction(message);

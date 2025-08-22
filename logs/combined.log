@@ -1096,3 +1096,1837 @@ SyntaxError: Unexpected token ','
 2025-08-22 14:59:09 [INFO]: Sent development announcement to logs channel
 2025-08-22 14:59:13 [INFO]: Startup notification sent successfully
 2025-08-22 14:59:31 [ERROR]: /crash error: %s
+2025-08-22 15:02:23 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:02:27 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:02:28 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:02:28 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:02:28 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:02:28 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:02:28 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:02:28 [INFO]: Firebase database manager initialized
+2025-08-22 15:02:28 [INFO]: Database initialized successfully
+2025-08-22 15:02:28 [INFO]: Loaded command: addmoney
+2025-08-22 15:02:28 [INFO]: Loaded command: blackjack
+2025-08-22 15:02:28 [INFO]: Loaded command: crash
+2025-08-22 15:02:28 [INFO]: Loaded command: status
+2025-08-22 15:02:28 [INFO]: Loaded command: balance
+2025-08-22 15:02:28 [INFO]: Loaded command: lottery
+2025-08-22 15:02:28 [INFO]: Loaded command: panel
+2025-08-22 15:02:28 [INFO]: Loaded command: polls
+2025-08-22 15:02:28 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:02:28 [INFO]: Loaded command: sendmoney
+2025-08-22 15:02:28 [INFO]: Loaded command: slots
+2025-08-22 15:02:28 [INFO]: Loaded command: stopcrash
+2025-08-22 15:02:28 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:02:28 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:02:28 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:02:28 [INFO]: Loaded 13 commands
+2025-08-22 15:02:28 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:02:28 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:02:28 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:02:28 [INFO]: Lottery system initialized successfully
+2025-08-22 15:02:28 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:02:32 [INFO]: Startup notification sent successfully
+2025-08-22 15:02:45 [ERROR]: /crash error: %s
+2025-08-22 15:02:56 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:03:28 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:03:29 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:03:29 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:03:29 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:03:29 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:03:29 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:03:29 [INFO]: Firebase database manager initialized
+2025-08-22 15:03:29 [INFO]: Database initialized successfully
+2025-08-22 15:03:29 [INFO]: Loaded command: addmoney
+2025-08-22 15:03:29 [INFO]: Loaded command: blackjack
+2025-08-22 15:03:29 [INFO]: Loaded command: crash
+2025-08-22 15:03:29 [INFO]: Loaded command: status
+2025-08-22 15:03:29 [INFO]: Loaded command: balance
+2025-08-22 15:03:29 [INFO]: Loaded command: lottery
+2025-08-22 15:03:29 [INFO]: Loaded command: panel
+2025-08-22 15:03:29 [INFO]: Loaded command: polls
+2025-08-22 15:03:29 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:03:29 [INFO]: Loaded command: sendmoney
+2025-08-22 15:03:29 [INFO]: Loaded command: slots
+2025-08-22 15:03:29 [INFO]: Loaded command: stopcrash
+2025-08-22 15:03:29 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:03:29 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:03:29 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:03:29 [INFO]: Loaded 13 commands
+2025-08-22 15:03:29 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:03:29 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:03:29 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:03:29 [INFO]: Lottery system initialized successfully
+2025-08-22 15:03:30 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:03:33 [INFO]: Startup notification sent successfully
+2025-08-22 15:03:43 [ERROR]: /crash error: %s
+2025-08-22 15:05:07 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:05:29 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:05:30 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:05:30 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:05:30 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:05:30 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:05:30 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:05:30 [INFO]: Firebase database manager initialized
+2025-08-22 15:05:30 [INFO]: Database initialized successfully
+2025-08-22 15:05:30 [INFO]: Loaded command: addmoney
+2025-08-22 15:05:30 [INFO]: Loaded command: blackjack
+2025-08-22 15:05:30 [INFO]: Loaded command: crash
+2025-08-22 15:05:30 [INFO]: Loaded command: status
+2025-08-22 15:05:30 [INFO]: Loaded command: balance
+2025-08-22 15:05:30 [INFO]: Loaded command: lottery
+2025-08-22 15:05:30 [INFO]: Loaded command: panel
+2025-08-22 15:05:30 [INFO]: Loaded command: polls
+2025-08-22 15:05:30 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:05:30 [INFO]: Loaded command: sendmoney
+2025-08-22 15:05:30 [INFO]: Loaded command: slots
+2025-08-22 15:05:30 [INFO]: Loaded command: stopcrash
+2025-08-22 15:05:30 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:05:30 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:05:30 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:05:30 [INFO]: Loaded 13 commands
+2025-08-22 15:05:30 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:05:30 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:05:30 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:05:30 [INFO]: Lottery system initialized successfully
+2025-08-22 15:05:30 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:05:34 [INFO]: Startup notification sent successfully
+2025-08-22 15:05:43 [ERROR]: /crash error: %s
+2025-08-22 15:06:35 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:06:36 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:06:36 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:06:36 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:06:36 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:06:36 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:06:36 [INFO]: Firebase database manager initialized
+2025-08-22 15:06:36 [INFO]: Database initialized successfully
+2025-08-22 15:06:36 [INFO]: Loaded command: addmoney
+2025-08-22 15:06:36 [INFO]: Loaded command: blackjack
+2025-08-22 15:06:36 [INFO]: Loaded command: crash
+2025-08-22 15:06:36 [INFO]: Loaded command: status
+2025-08-22 15:06:36 [INFO]: Loaded command: balance
+2025-08-22 15:06:36 [INFO]: Loaded command: lottery
+2025-08-22 15:06:36 [INFO]: Loaded command: panel
+2025-08-22 15:06:36 [INFO]: Loaded command: polls
+2025-08-22 15:06:36 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:06:36 [INFO]: Loaded command: sendmoney
+2025-08-22 15:06:36 [INFO]: Loaded command: slots
+2025-08-22 15:06:36 [INFO]: Loaded command: stopcrash
+2025-08-22 15:06:36 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:06:36 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:06:36 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:06:36 [INFO]: Loaded 13 commands
+2025-08-22 15:06:36 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:06:36 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:06:36 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:06:36 [INFO]: Lottery system initialized successfully
+2025-08-22 15:06:36 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:06:40 [INFO]: Startup notification sent successfully
+2025-08-22 15:06:41 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:06:42 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:06:42 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:06:42 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:06:42 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:06:42 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:06:42 [INFO]: Firebase database manager initialized
+2025-08-22 15:06:42 [INFO]: Database initialized successfully
+2025-08-22 15:06:42 [INFO]: Loaded command: addmoney
+2025-08-22 15:06:42 [INFO]: Loaded command: blackjack
+2025-08-22 15:06:42 [INFO]: Loaded command: crash
+2025-08-22 15:06:42 [INFO]: Loaded command: status
+2025-08-22 15:06:42 [INFO]: Loaded command: balance
+2025-08-22 15:06:42 [INFO]: Loaded command: lottery
+2025-08-22 15:06:42 [INFO]: Loaded command: panel
+2025-08-22 15:06:42 [INFO]: Loaded command: polls
+2025-08-22 15:06:42 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:06:42 [INFO]: Loaded command: sendmoney
+2025-08-22 15:06:42 [INFO]: Loaded command: slots
+2025-08-22 15:06:42 [INFO]: Loaded command: stopcrash
+2025-08-22 15:06:42 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:06:42 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:06:42 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:06:42 [INFO]: Loaded 13 commands
+2025-08-22 15:06:42 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:06:42 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:06:42 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:06:42 [INFO]: Lottery system initialized successfully
+2025-08-22 15:06:42 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:06:46 [INFO]: Startup notification sent successfully
+2025-08-22 15:06:47 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:06:59 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:07:00 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:07:00 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:07:00 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:07:00 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:07:00 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:07:00 [INFO]: Firebase database manager initialized
+2025-08-22 15:07:00 [INFO]: Database initialized successfully
+2025-08-22 15:07:00 [INFO]: Loaded command: addmoney
+2025-08-22 15:07:00 [INFO]: Loaded command: blackjack
+2025-08-22 15:07:00 [INFO]: Loaded command: crash
+2025-08-22 15:07:00 [INFO]: Loaded command: status
+2025-08-22 15:07:00 [INFO]: Loaded command: balance
+2025-08-22 15:07:00 [INFO]: Loaded command: lottery
+2025-08-22 15:07:00 [INFO]: Loaded command: panel
+2025-08-22 15:07:00 [INFO]: Loaded command: polls
+2025-08-22 15:07:00 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:07:00 [INFO]: Loaded command: sendmoney
+2025-08-22 15:07:00 [INFO]: Loaded command: slots
+2025-08-22 15:07:00 [INFO]: Loaded command: stopcrash
+2025-08-22 15:07:00 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:07:00 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:07:36 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:07:36 [INFO]: Loaded 13 commands
+2025-08-22 15:07:36 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:07:36 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:07:36 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:07:36 [INFO]: Lottery system initialized successfully
+2025-08-22 15:07:36 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:07:40 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 15:07:40 [INFO]: Startup notification sent successfully
+2025-08-22 15:09:37 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:14:44 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:14:45 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:14:45 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:14:45 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:14:45 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:14:45 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:14:45 [INFO]: Firebase database manager initialized
+2025-08-22 15:14:45 [INFO]: Database initialized successfully
+2025-08-22 15:14:45 [INFO]: Loaded command: addmoney
+2025-08-22 15:14:45 [INFO]: Loaded command: blackjack
+2025-08-22 15:14:45 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:470
+class CrashGameState {
+
+SyntaxError: Identifier 'CrashGameState' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 15:14:45 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:14:45 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:14:45 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:14:45 [INFO]: Lottery system initialized successfully
+2025-08-22 15:14:45 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:14:49 [INFO]: Startup notification sent successfully
+2025-08-22 15:15:04 [WARN]: No command matching crash was found
+2025-08-22 15:15:29 [INFO]: Set balance for user 466050111680544798: wallet=10450282350.57293, bank=999393992872178.8
+2025-08-22 15:15:29 [INFO]: User 466050111680544798 placed bet of $10.00K for blackjack
+2025-08-22 15:15:37 [INFO]: Updated balance for user 466050111680544798: wallet_change=0, bank_change=0
+2025-08-22 15:15:51 [WARN]: No command matching crash was found
+2025-08-22 15:16:24 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:16:24 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:16:24 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:16:24 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:16:24 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:16:24 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:16:24 [INFO]: Firebase database manager initialized
+2025-08-22 15:16:24 [INFO]: Database initialized successfully
+2025-08-22 15:16:24 [INFO]: Loaded command: addmoney
+2025-08-22 15:16:24 [INFO]: Loaded command: blackjack
+2025-08-22 15:16:24 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:470
+class CrashGameState {
+
+SyntaxError: Identifier 'CrashGameState' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 15:16:24 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:16:24 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:16:24 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:16:24 [INFO]: Lottery system initialized successfully
+2025-08-22 15:16:24 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:16:28 [INFO]: Startup notification sent successfully
+2025-08-22 15:18:21 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:18:22 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:18:22 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:18:22 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:18:22 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:18:22 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:18:22 [INFO]: Firebase database manager initialized
+2025-08-22 15:18:22 [INFO]: Database initialized successfully
+2025-08-22 15:18:22 [INFO]: Loaded command: addmoney
+2025-08-22 15:18:22 [INFO]: Loaded command: blackjack
+2025-08-22 15:18:22 [ERROR]: ReferenceError: handleGameExecution is not defined
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:465:3)
+    at Module._compile (node:internal/modules/cjs/loader:1554:14)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 15:18:22 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:18:22 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:18:22 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:18:22 [INFO]: Lottery system initialized successfully
+2025-08-22 15:18:22 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:18:26 [INFO]: Startup notification sent successfully
+2025-08-22 15:19:11 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:19:12 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:19:12 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:19:12 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:19:12 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:19:12 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:19:12 [INFO]: Firebase database manager initialized
+2025-08-22 15:19:12 [INFO]: Database initialized successfully
+2025-08-22 15:19:12 [INFO]: Loaded command: addmoney
+2025-08-22 15:19:12 [INFO]: Loaded command: blackjack
+2025-08-22 15:19:12 [ERROR]: ReferenceError: handleGameExecution is not defined
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:465:3)
+    at Module._compile (node:internal/modules/cjs/loader:1554:14)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 15:19:12 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:19:12 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:19:12 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:19:12 [INFO]: Lottery system initialized successfully
+2025-08-22 15:19:12 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:19:16 [INFO]: Startup notification sent successfully
+2025-08-22 15:19:45 [INFO]: updateLotteryPanel called for guild 1403244656845787167
+2025-08-22 15:19:45 [INFO]: No lottery panel tracked for guild 1403244656845787167, trying to find existing one
+2025-08-22 15:19:45 [INFO]: No existing lottery panel found in channel 1406136478714826824
+2025-08-22 15:19:45 [INFO]: No lottery panel found or tracked for guild 1403244656845787167
+2025-08-22 15:19:45 [INFO]: Initial lottery panel update completed
+2025-08-22 15:21:01 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:21:02 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:21:02 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:21:02 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:21:02 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:21:02 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:21:02 [INFO]: Firebase database manager initialized
+2025-08-22 15:21:02 [INFO]: Database initialized successfully
+2025-08-22 15:21:02 [INFO]: Loaded command: addmoney
+2025-08-22 15:21:02 [INFO]: Loaded command: blackjack
+2025-08-22 15:21:02 [INFO]: Loaded command: crash
+2025-08-22 15:21:02 [INFO]: Loaded command: status
+2025-08-22 15:21:02 [INFO]: Loaded command: balance
+2025-08-22 15:21:02 [INFO]: Loaded command: lottery
+2025-08-22 15:21:02 [INFO]: Loaded command: panel
+2025-08-22 15:21:02 [INFO]: Loaded command: polls
+2025-08-22 15:21:02 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:21:02 [INFO]: Loaded command: sendmoney
+2025-08-22 15:21:02 [INFO]: Loaded command: slots
+2025-08-22 15:21:02 [INFO]: Loaded command: stopcrash
+2025-08-22 15:21:02 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:21:02 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:21:02 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:21:02 [INFO]: Loaded 13 commands
+2025-08-22 15:21:02 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:21:02 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:21:02 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:21:02 [INFO]: Lottery system initialized successfully
+2025-08-22 15:21:02 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:21:06 [INFO]: Startup notification sent successfully
+2025-08-22 15:21:24 [INFO]: updateLotteryPanel called for guild 1403244656845787167
+2025-08-22 15:21:24 [INFO]: No lottery panel tracked for guild 1403244656845787167, trying to find existing one
+2025-08-22 15:21:24 [INFO]: No existing lottery panel found in channel 1406136478714826824
+2025-08-22 15:21:24 [INFO]: No lottery panel found or tracked for guild 1403244656845787167
+2025-08-22 15:21:24 [INFO]: Initial lottery panel update completed
+2025-08-22 15:21:41 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:21:43 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:21:44 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:21:46 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:21:47 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:21:59 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:21:59 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:21:59 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:21:59 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:21:59 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:21:59 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:21:59 [INFO]: Firebase database manager initialized
+2025-08-22 15:21:59 [INFO]: Database initialized successfully
+2025-08-22 15:21:59 [INFO]: Loaded command: addmoney
+2025-08-22 15:21:59 [INFO]: Loaded command: blackjack
+2025-08-22 15:21:59 [INFO]: Loaded command: crash
+2025-08-22 15:21:59 [INFO]: Loaded command: status
+2025-08-22 15:21:59 [INFO]: Loaded command: balance
+2025-08-22 15:21:59 [INFO]: Loaded command: lottery
+2025-08-22 15:21:59 [INFO]: Loaded command: panel
+2025-08-22 15:21:59 [INFO]: Loaded command: polls
+2025-08-22 15:21:59 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:21:59 [INFO]: Loaded command: sendmoney
+2025-08-22 15:21:59 [INFO]: Loaded command: slots
+2025-08-22 15:21:59 [INFO]: Loaded command: stopcrash
+2025-08-22 15:21:59 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:21:59 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:22:00 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:22:00 [INFO]: Loaded 13 commands
+2025-08-22 15:22:00 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 48 hours)
+2025-08-22 15:22:00 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:22:00 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:22:00 [INFO]: Lottery system initialized successfully
+2025-08-22 15:22:00 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:22:04 [INFO]: Startup notification sent successfully
+2025-08-22 15:22:22 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 15:22:36 [INFO]: Updated balance for user 466050111680544798: wallet_change=48549, bank_change=0
+2025-08-22 15:27:00 [INFO]: updateLotteryPanel called for guild 1403244656845787167
+2025-08-22 15:27:00 [INFO]: No lottery panel tracked for guild 1403244656845787167, trying to find existing one
+2025-08-22 15:27:00 [INFO]: No existing lottery panel found in channel 1406136478714826824
+2025-08-22 15:27:00 [INFO]: No lottery panel found or tracked for guild 1403244656845787167
+2025-08-22 15:27:00 [INFO]: Initial lottery panel update completed
+2025-08-22 15:29:23 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:33:44 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:33:45 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:33:45 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:33:45 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:33:45 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:33:45 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:33:45 [INFO]: Firebase database manager initialized
+2025-08-22 15:33:45 [INFO]: Database initialized successfully
+2025-08-22 15:33:45 [INFO]: Loaded command: addmoney
+2025-08-22 15:33:45 [INFO]: Loaded command: blackjack
+2025-08-22 15:33:45 [INFO]: Loaded command: crash
+2025-08-22 15:33:45 [INFO]: Loaded command: status
+2025-08-22 15:33:45 [INFO]: Loaded command: balance
+2025-08-22 15:33:45 [INFO]: Loaded command: lottery
+2025-08-22 15:33:45 [INFO]: Loaded command: panel
+2025-08-22 15:33:45 [INFO]: Loaded command: polls
+2025-08-22 15:33:45 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:33:45 [INFO]: Loaded command: sendmoney
+2025-08-22 15:33:45 [INFO]: Loaded command: slots
+2025-08-22 15:33:45 [INFO]: Loaded command: stopcrash
+2025-08-22 15:33:45 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:33:45 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:33:46 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:33:46 [INFO]: Loaded 13 commands
+2025-08-22 15:33:46 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 15:33:46 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:33:46 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:33:46 [INFO]: Lottery system initialized successfully
+2025-08-22 15:33:46 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:33:50 [INFO]: Startup notification sent successfully
+2025-08-22 15:34:08 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:34:30 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:34:31 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:34:31 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:34:31 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:34:31 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:34:31 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:34:31 [INFO]: Firebase database manager initialized
+2025-08-22 15:34:31 [INFO]: Database initialized successfully
+2025-08-22 15:34:31 [INFO]: Loaded command: addmoney
+2025-08-22 15:34:31 [INFO]: Loaded command: blackjack
+2025-08-22 15:34:31 [INFO]: Loaded command: crash
+2025-08-22 15:34:31 [INFO]: Loaded command: status
+2025-08-22 15:34:31 [INFO]: Loaded command: balance
+2025-08-22 15:34:31 [INFO]: Loaded command: lottery
+2025-08-22 15:34:31 [INFO]: Loaded command: panel
+2025-08-22 15:34:31 [INFO]: Loaded command: polls
+2025-08-22 15:34:31 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:34:31 [INFO]: Loaded command: sendmoney
+2025-08-22 15:34:31 [INFO]: Loaded command: slots
+2025-08-22 15:34:31 [INFO]: Loaded command: stopcrash
+2025-08-22 15:34:31 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:34:31 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:34:31 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:34:31 [INFO]: Loaded 13 commands
+2025-08-22 15:34:31 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 15:34:31 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:34:31 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:34:31 [INFO]: Lottery system initialized successfully
+2025-08-22 15:34:32 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:34:35 [INFO]: Startup notification sent successfully
+2025-08-22 15:34:56 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 15:35:52 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:40:12 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:40:12 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:40:12 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:40:12 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:40:12 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:40:12 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:40:12 [INFO]: Firebase database manager initialized
+2025-08-22 15:40:12 [INFO]: Database initialized successfully
+2025-08-22 15:40:12 [INFO]: Loaded command: addmoney
+2025-08-22 15:40:12 [INFO]: Loaded command: blackjack
+2025-08-22 15:40:12 [INFO]: Loaded command: crash
+2025-08-22 15:40:12 [INFO]: Loaded command: status
+2025-08-22 15:40:12 [INFO]: Loaded command: balance
+2025-08-22 15:40:12 [INFO]: Loaded command: lottery
+2025-08-22 15:40:12 [INFO]: Loaded command: panel
+2025-08-22 15:40:12 [INFO]: Loaded command: polls
+2025-08-22 15:40:12 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:40:12 [INFO]: Loaded command: sendmoney
+2025-08-22 15:40:12 [INFO]: Loaded command: slots
+2025-08-22 15:40:12 [INFO]: Loaded command: stopcrash
+2025-08-22 15:40:12 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:40:12 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:40:13 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:40:13 [INFO]: Loaded 13 commands
+2025-08-22 15:40:13 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 15:40:13 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:40:13 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:40:13 [INFO]: Lottery system initialized successfully
+2025-08-22 15:40:13 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:40:17 [INFO]: Startup notification sent successfully
+2025-08-22 15:40:48 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:46:15 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:46:15 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:46:15 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:46:15 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:46:15 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:46:15 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:46:15 [INFO]: Firebase database manager initialized
+2025-08-22 15:46:15 [INFO]: Database initialized successfully
+2025-08-22 15:46:15 [INFO]: Loaded command: addmoney
+2025-08-22 15:46:15 [INFO]: Loaded command: blackjack
+2025-08-22 15:46:15 [INFO]: Loaded command: crash
+2025-08-22 15:46:15 [INFO]: Loaded command: status
+2025-08-22 15:46:15 [INFO]: Loaded command: balance
+2025-08-22 15:46:15 [INFO]: Loaded command: lottery
+2025-08-22 15:46:15 [INFO]: Loaded command: panel
+2025-08-22 15:46:15 [INFO]: Loaded command: polls
+2025-08-22 15:46:15 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:46:15 [INFO]: Loaded command: sendmoney
+2025-08-22 15:46:15 [INFO]: Loaded command: slots
+2025-08-22 15:46:15 [INFO]: Loaded command: stopcrash
+2025-08-22 15:46:15 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:46:15 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:46:16 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:46:16 [INFO]: Loaded 13 commands
+2025-08-22 15:46:16 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 15:46:16 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:46:16 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:46:16 [INFO]: Lottery system initialized successfully
+2025-08-22 15:46:16 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:46:20 [INFO]: Startup notification sent successfully
+2025-08-22 15:46:32 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:52:40 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:52:41 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:52:41 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:52:41 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:52:41 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:52:41 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:52:41 [INFO]: Firebase database manager initialized
+2025-08-22 15:52:41 [INFO]: Database initialized successfully
+2025-08-22 15:52:41 [INFO]: Loaded command: addmoney
+2025-08-22 15:52:41 [INFO]: Loaded command: blackjack
+2025-08-22 15:52:41 [INFO]: Loaded command: crash
+2025-08-22 15:52:41 [INFO]: Loaded command: status
+2025-08-22 15:52:41 [INFO]: Loaded command: balance
+2025-08-22 15:52:41 [INFO]: Loaded command: lottery
+2025-08-22 15:52:41 [INFO]: Loaded command: panel
+2025-08-22 15:52:41 [INFO]: Loaded command: polls
+2025-08-22 15:52:41 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:52:41 [INFO]: Loaded command: sendmoney
+2025-08-22 15:52:41 [INFO]: Loaded command: slots
+2025-08-22 15:52:41 [INFO]: Loaded command: stopcrash
+2025-08-22 15:52:41 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:52:41 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:52:41 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:52:41 [INFO]: Loaded 13 commands
+2025-08-22 15:52:41 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 15:52:41 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:52:41 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:52:41 [INFO]: Lottery system initialized successfully
+2025-08-22 15:52:41 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:52:45 [INFO]: Startup notification sent successfully
+2025-08-22 15:52:56 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:53:27 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:53:28 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:53:28 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:53:28 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:53:28 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:53:28 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:53:28 [INFO]: Firebase database manager initialized
+2025-08-22 15:53:28 [INFO]: Database initialized successfully
+2025-08-22 15:53:28 [INFO]: Loaded command: addmoney
+2025-08-22 15:53:28 [INFO]: Loaded command: blackjack
+2025-08-22 15:53:28 [INFO]: Loaded command: crash
+2025-08-22 15:53:28 [INFO]: Loaded command: status
+2025-08-22 15:53:28 [INFO]: Loaded command: balance
+2025-08-22 15:53:28 [INFO]: Loaded command: lottery
+2025-08-22 15:53:28 [INFO]: Loaded command: panel
+2025-08-22 15:53:28 [INFO]: Loaded command: polls
+2025-08-22 15:53:28 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:53:28 [INFO]: Loaded command: sendmoney
+2025-08-22 15:53:28 [INFO]: Loaded command: slots
+2025-08-22 15:53:28 [INFO]: Loaded command: stopcrash
+2025-08-22 15:53:28 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:53:28 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:53:28 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:53:28 [INFO]: Loaded 13 commands
+2025-08-22 15:53:28 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 15:53:28 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:53:28 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:53:28 [INFO]: Lottery system initialized successfully
+2025-08-22 15:53:29 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:53:33 [INFO]: Startup notification sent successfully
+2025-08-22 15:53:51 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 15:54:03 [INFO]: Updated balance for user 466050111680544798: wallet_change=34500, bank_change=0
+2025-08-22 15:57:58 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:57:59 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:57:59 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:57:59 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:57:59 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:57:59 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:57:59 [INFO]: Firebase database manager initialized
+2025-08-22 15:57:59 [INFO]: Database initialized successfully
+2025-08-22 15:57:59 [INFO]: Loaded command: addmoney
+2025-08-22 15:57:59 [INFO]: Loaded command: blackjack
+2025-08-22 15:57:59 [INFO]: Loaded command: crash
+2025-08-22 15:57:59 [INFO]: Loaded command: status
+2025-08-22 15:57:59 [INFO]: Loaded command: balance
+2025-08-22 15:57:59 [INFO]: Loaded command: lottery
+2025-08-22 15:57:59 [INFO]: Loaded command: panel
+2025-08-22 15:57:59 [INFO]: Loaded command: polls
+2025-08-22 15:57:59 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:57:59 [INFO]: Loaded command: sendmoney
+2025-08-22 15:57:59 [INFO]: Loaded command: slots
+2025-08-22 15:57:59 [INFO]: Loaded command: stopcrash
+2025-08-22 15:57:59 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:57:59 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:57:59 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:57:59 [INFO]: Loaded 13 commands
+2025-08-22 15:57:59 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 15:57:59 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:57:59 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:57:59 [INFO]: Lottery system initialized successfully
+2025-08-22 15:57:59 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:58:03 [INFO]: Startup notification sent successfully
+2025-08-22 15:58:14 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 15:58:14 [INFO]: Received SIGTERM, shutting down gracefully...
+2025-08-22 15:59:38 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 15:59:38 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 15:59:38 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 15:59:38 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 15:59:38 [INFO]: 🚀 Firebase app initialized
+2025-08-22 15:59:38 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 15:59:38 [INFO]: Firebase database manager initialized
+2025-08-22 15:59:38 [INFO]: Database initialized successfully
+2025-08-22 15:59:38 [INFO]: Loaded command: addmoney
+2025-08-22 15:59:38 [INFO]: Loaded command: blackjack
+2025-08-22 15:59:38 [INFO]: Loaded command: crash
+2025-08-22 15:59:38 [INFO]: Loaded command: status
+2025-08-22 15:59:38 [INFO]: Loaded command: balance
+2025-08-22 15:59:38 [INFO]: Loaded command: lottery
+2025-08-22 15:59:38 [INFO]: Loaded command: panel
+2025-08-22 15:59:38 [INFO]: Loaded command: polls
+2025-08-22 15:59:38 [INFO]: Loaded command: purchaselottery
+2025-08-22 15:59:38 [INFO]: Loaded command: sendmoney
+2025-08-22 15:59:38 [INFO]: Loaded command: slots
+2025-08-22 15:59:38 [INFO]: Loaded command: stopcrash
+2025-08-22 15:59:38 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 15:59:38 [INFO]: Started refreshing application (/) commands
+2025-08-22 15:59:39 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 15:59:39 [INFO]: Loaded 13 commands
+2025-08-22 15:59:39 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 15:59:39 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 15:59:39 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 15:59:39 [INFO]: Lottery system initialized successfully
+2025-08-22 15:59:39 [INFO]: Sent development announcement to logs channel
+2025-08-22 15:59:43 [INFO]: Startup notification sent successfully
+2025-08-22 15:59:56 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:00:20 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:00:21 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:00:21 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:00:21 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:00:21 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:00:21 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:00:21 [INFO]: Firebase database manager initialized
+2025-08-22 16:00:21 [INFO]: Database initialized successfully
+2025-08-22 16:00:21 [INFO]: Loaded command: addmoney
+2025-08-22 16:00:21 [INFO]: Loaded command: blackjack
+2025-08-22 16:00:21 [INFO]: Loaded command: crash
+2025-08-22 16:00:21 [INFO]: Loaded command: status
+2025-08-22 16:00:21 [INFO]: Loaded command: balance
+2025-08-22 16:00:21 [INFO]: Loaded command: lottery
+2025-08-22 16:00:21 [INFO]: Loaded command: panel
+2025-08-22 16:00:21 [INFO]: Loaded command: polls
+2025-08-22 16:00:21 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:00:21 [INFO]: Loaded command: sendmoney
+2025-08-22 16:00:21 [INFO]: Loaded command: slots
+2025-08-22 16:00:21 [INFO]: Loaded command: stopcrash
+2025-08-22 16:00:21 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:00:21 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:00:21 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:00:21 [INFO]: Loaded 13 commands
+2025-08-22 16:00:21 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:00:21 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:00:21 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:00:21 [INFO]: Lottery system initialized successfully
+2025-08-22 16:00:21 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:00:25 [INFO]: Startup notification sent successfully
+2025-08-22 16:00:49 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:01:13 [INFO]: Updated balance for user 466050111680544798: wallet_change=37345, bank_change=0
+2025-08-22 16:03:33 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:03:33 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:03:33 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:03:33 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:03:33 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:03:33 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:03:33 [INFO]: Firebase database manager initialized
+2025-08-22 16:03:33 [INFO]: Database initialized successfully
+2025-08-22 16:03:33 [INFO]: Loaded command: addmoney
+2025-08-22 16:03:33 [INFO]: Loaded command: blackjack
+2025-08-22 16:03:33 [INFO]: Loaded command: crash
+2025-08-22 16:03:33 [INFO]: Loaded command: status
+2025-08-22 16:03:33 [INFO]: Loaded command: balance
+2025-08-22 16:03:33 [INFO]: Loaded command: lottery
+2025-08-22 16:03:33 [INFO]: Loaded command: panel
+2025-08-22 16:03:33 [INFO]: Loaded command: polls
+2025-08-22 16:03:33 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:03:33 [INFO]: Loaded command: sendmoney
+2025-08-22 16:03:33 [INFO]: Loaded command: slots
+2025-08-22 16:03:33 [INFO]: Loaded command: stopcrash
+2025-08-22 16:03:33 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:03:33 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:03:34 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:03:34 [INFO]: Loaded 13 commands
+2025-08-22 16:03:34 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:03:34 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:03:34 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:03:34 [INFO]: Lottery system initialized successfully
+2025-08-22 16:03:34 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:03:38 [INFO]: Startup notification sent successfully
+2025-08-22 16:04:44 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:04:47 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:04:49 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:04:50 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:04:50 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:04:50 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:04:50 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:04:50 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:04:50 [INFO]: Firebase database manager initialized
+2025-08-22 16:04:50 [INFO]: Database initialized successfully
+2025-08-22 16:04:50 [INFO]: Loaded command: addmoney
+2025-08-22 16:04:50 [INFO]: Loaded command: blackjack
+2025-08-22 16:04:50 [INFO]: Loaded command: crash
+2025-08-22 16:04:50 [INFO]: Loaded command: status
+2025-08-22 16:04:50 [INFO]: Loaded command: balance
+2025-08-22 16:04:50 [INFO]: Loaded command: lottery
+2025-08-22 16:04:50 [INFO]: Loaded command: panel
+2025-08-22 16:04:50 [INFO]: Loaded command: polls
+2025-08-22 16:04:50 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:04:50 [INFO]: Loaded command: sendmoney
+2025-08-22 16:04:50 [INFO]: Loaded command: slots
+2025-08-22 16:04:50 [INFO]: Loaded command: stopcrash
+2025-08-22 16:04:50 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:04:50 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:04:50 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:04:50 [INFO]: Loaded 13 commands
+2025-08-22 16:04:50 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:04:50 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:04:50 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:04:50 [INFO]: Lottery system initialized successfully
+2025-08-22 16:04:50 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:04:54 [INFO]: Startup notification sent successfully
+2025-08-22 16:05:20 [INFO]: Updated balance for user 466050111680544798: wallet_change=-100, bank_change=0
+2025-08-22 16:07:37 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:07:38 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:07:38 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:07:38 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:07:38 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:07:38 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:07:38 [INFO]: Firebase database manager initialized
+2025-08-22 16:07:38 [INFO]: Database initialized successfully
+2025-08-22 16:07:38 [INFO]: Loaded command: addmoney
+2025-08-22 16:07:38 [INFO]: Loaded command: blackjack
+2025-08-22 16:07:38 [INFO]: Loaded command: crash
+2025-08-22 16:07:38 [INFO]: Loaded command: status
+2025-08-22 16:07:38 [INFO]: Loaded command: balance
+2025-08-22 16:07:38 [INFO]: Loaded command: lottery
+2025-08-22 16:07:38 [INFO]: Loaded command: panel
+2025-08-22 16:07:38 [INFO]: Loaded command: polls
+2025-08-22 16:07:38 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:07:38 [INFO]: Loaded command: sendmoney
+2025-08-22 16:07:38 [INFO]: Loaded command: slots
+2025-08-22 16:07:38 [INFO]: Loaded command: stopcrash
+2025-08-22 16:07:38 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:07:38 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:07:38 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:07:38 [INFO]: Loaded 13 commands
+2025-08-22 16:07:38 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:07:38 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:07:38 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:07:38 [INFO]: Lottery system initialized successfully
+2025-08-22 16:07:38 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:07:42 [INFO]: Startup notification sent successfully
+2025-08-22 16:08:47 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:08:49 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:08:51 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:08:51 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:08:51 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:08:51 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:08:51 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:08:51 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:08:51 [INFO]: Firebase database manager initialized
+2025-08-22 16:08:51 [INFO]: Database initialized successfully
+2025-08-22 16:08:51 [INFO]: Loaded command: addmoney
+2025-08-22 16:08:51 [INFO]: Loaded command: blackjack
+2025-08-22 16:08:51 [INFO]: Loaded command: crash
+2025-08-22 16:08:51 [INFO]: Loaded command: status
+2025-08-22 16:08:51 [INFO]: Loaded command: balance
+2025-08-22 16:08:51 [INFO]: Loaded command: lottery
+2025-08-22 16:08:51 [INFO]: Loaded command: panel
+2025-08-22 16:08:51 [INFO]: Loaded command: polls
+2025-08-22 16:08:51 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:08:51 [INFO]: Loaded command: sendmoney
+2025-08-22 16:08:51 [INFO]: Loaded command: slots
+2025-08-22 16:08:51 [INFO]: Loaded command: stopcrash
+2025-08-22 16:08:51 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:08:51 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:08:53 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:08:53 [INFO]: Loaded 13 commands
+2025-08-22 16:08:53 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:08:53 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:08:53 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:08:53 [INFO]: Lottery system initialized successfully
+2025-08-22 16:08:53 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:08:57 [INFO]: Startup notification sent successfully
+2025-08-22 16:09:08 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:11:34 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:11:34 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:11:34 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:11:34 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:11:34 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:11:34 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:11:34 [INFO]: Firebase database manager initialized
+2025-08-22 16:11:34 [INFO]: Database initialized successfully
+2025-08-22 16:11:34 [INFO]: Loaded command: addmoney
+2025-08-22 16:11:34 [INFO]: Loaded command: blackjack
+2025-08-22 16:11:34 [INFO]: Loaded command: crash
+2025-08-22 16:11:34 [INFO]: Loaded command: status
+2025-08-22 16:11:34 [INFO]: Loaded command: balance
+2025-08-22 16:11:34 [INFO]: Loaded command: lottery
+2025-08-22 16:11:34 [INFO]: Loaded command: panel
+2025-08-22 16:11:34 [INFO]: Loaded command: polls
+2025-08-22 16:11:34 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:11:34 [INFO]: Loaded command: sendmoney
+2025-08-22 16:11:34 [INFO]: Loaded command: slots
+2025-08-22 16:11:34 [INFO]: Loaded command: stopcrash
+2025-08-22 16:11:34 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:11:34 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:11:34 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:11:34 [INFO]: Loaded 13 commands
+2025-08-22 16:11:34 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:11:34 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:11:34 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:11:34 [INFO]: Lottery system initialized successfully
+2025-08-22 16:11:35 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:11:39 [INFO]: Startup notification sent successfully
+2025-08-22 16:12:13 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:12:17 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:12:21 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:12:22 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:12:22 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:12:22 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:12:22 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:12:22 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:12:22 [INFO]: Firebase database manager initialized
+2025-08-22 16:12:22 [INFO]: Database initialized successfully
+2025-08-22 16:12:22 [INFO]: Loaded command: addmoney
+2025-08-22 16:12:22 [INFO]: Loaded command: blackjack
+2025-08-22 16:12:22 [INFO]: Loaded command: crash
+2025-08-22 16:12:22 [INFO]: Loaded command: status
+2025-08-22 16:12:22 [INFO]: Loaded command: balance
+2025-08-22 16:12:22 [INFO]: Loaded command: lottery
+2025-08-22 16:12:22 [INFO]: Loaded command: panel
+2025-08-22 16:12:22 [INFO]: Loaded command: polls
+2025-08-22 16:12:22 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:12:22 [INFO]: Loaded command: sendmoney
+2025-08-22 16:12:22 [INFO]: Loaded command: slots
+2025-08-22 16:12:22 [INFO]: Loaded command: stopcrash
+2025-08-22 16:12:22 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:12:22 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:12:22 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:12:22 [INFO]: Loaded 13 commands
+2025-08-22 16:12:22 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:12:22 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:12:22 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:12:22 [INFO]: Lottery system initialized successfully
+2025-08-22 16:12:22 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:12:26 [INFO]: Startup notification sent successfully
+2025-08-22 16:12:38 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:12:48 [INFO]: Updated balance for user 466050111680544798: wallet_change=37705, bank_change=0
+2025-08-22 16:15:36 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:16:25 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:16:26 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:16:26 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:16:26 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:16:26 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:16:26 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:16:26 [INFO]: Firebase database manager initialized
+2025-08-22 16:16:26 [INFO]: Database initialized successfully
+2025-08-22 16:16:26 [INFO]: Loaded command: addmoney
+2025-08-22 16:16:26 [INFO]: Loaded command: blackjack
+2025-08-22 16:16:26 [INFO]: Loaded command: crash
+2025-08-22 16:16:26 [INFO]: Loaded command: status
+2025-08-22 16:16:26 [INFO]: Loaded command: balance
+2025-08-22 16:16:26 [INFO]: Loaded command: lottery
+2025-08-22 16:16:26 [INFO]: Loaded command: panel
+2025-08-22 16:16:26 [INFO]: Loaded command: polls
+2025-08-22 16:16:26 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:16:26 [INFO]: Loaded command: sendmoney
+2025-08-22 16:16:26 [INFO]: Loaded command: slots
+2025-08-22 16:16:26 [INFO]: Loaded command: stopcrash
+2025-08-22 16:16:26 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:16:26 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:16:26 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:16:26 [INFO]: Loaded 13 commands
+2025-08-22 16:16:26 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:16:26 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:16:26 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:16:26 [INFO]: Lottery system initialized successfully
+2025-08-22 16:16:27 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:16:30 [INFO]: Startup notification sent successfully
+2025-08-22 16:17:11 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:17:56 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:17:57 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:17:57 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:17:57 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:17:57 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:17:57 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:17:57 [INFO]: Firebase database manager initialized
+2025-08-22 16:17:57 [INFO]: Database initialized successfully
+2025-08-22 16:17:57 [INFO]: Loaded command: addmoney
+2025-08-22 16:17:57 [INFO]: Loaded command: blackjack
+2025-08-22 16:17:57 [INFO]: Loaded command: crash
+2025-08-22 16:17:57 [INFO]: Loaded command: status
+2025-08-22 16:17:57 [INFO]: Loaded command: balance
+2025-08-22 16:17:57 [INFO]: Loaded command: lottery
+2025-08-22 16:17:57 [INFO]: Loaded command: panel
+2025-08-22 16:17:57 [INFO]: Loaded command: polls
+2025-08-22 16:17:57 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:17:57 [INFO]: Loaded command: sendmoney
+2025-08-22 16:17:57 [INFO]: Loaded command: slots
+2025-08-22 16:17:57 [INFO]: Loaded command: stopcrash
+2025-08-22 16:17:57 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:17:57 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:17:57 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:17:57 [INFO]: Loaded 13 commands
+2025-08-22 16:17:57 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:17:57 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:17:57 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:17:57 [INFO]: Lottery system initialized successfully
+2025-08-22 16:17:57 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:18:01 [INFO]: Startup notification sent successfully
+2025-08-22 16:18:10 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:18:27 [INFO]: Updated balance for user 466050111680544798: wallet_change=40705, bank_change=0
+2025-08-22 16:19:53 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:20:17 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:20:18 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:20:18 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:20:18 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:20:18 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:20:18 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:20:18 [INFO]: Firebase database manager initialized
+2025-08-22 16:20:18 [INFO]: Database initialized successfully
+2025-08-22 16:20:18 [INFO]: Loaded command: addmoney
+2025-08-22 16:20:18 [INFO]: Loaded command: blackjack
+2025-08-22 16:20:18 [INFO]: Loaded command: crash
+2025-08-22 16:20:18 [INFO]: Loaded command: status
+2025-08-22 16:20:18 [INFO]: Loaded command: balance
+2025-08-22 16:20:18 [INFO]: Loaded command: lottery
+2025-08-22 16:20:18 [INFO]: Loaded command: panel
+2025-08-22 16:20:18 [INFO]: Loaded command: polls
+2025-08-22 16:20:18 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:20:18 [INFO]: Loaded command: sendmoney
+2025-08-22 16:20:18 [INFO]: Loaded command: slots
+2025-08-22 16:20:18 [INFO]: Loaded command: stopcrash
+2025-08-22 16:20:18 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:20:18 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:20:18 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:20:18 [INFO]: Loaded 13 commands
+2025-08-22 16:20:18 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:20:18 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:20:18 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:20:18 [INFO]: Lottery system initialized successfully
+2025-08-22 16:20:18 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:20:22 [INFO]: Startup notification sent successfully
+2025-08-22 16:20:42 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:21:05 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:21:05 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:21:05 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:21:05 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:21:05 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:21:05 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:21:05 [INFO]: Firebase database manager initialized
+2025-08-22 16:21:05 [INFO]: Database initialized successfully
+2025-08-22 16:21:05 [INFO]: Loaded command: addmoney
+2025-08-22 16:21:05 [INFO]: Loaded command: blackjack
+2025-08-22 16:21:05 [INFO]: Loaded command: crash
+2025-08-22 16:21:05 [INFO]: Loaded command: status
+2025-08-22 16:21:05 [INFO]: Loaded command: balance
+2025-08-22 16:21:05 [INFO]: Loaded command: lottery
+2025-08-22 16:21:05 [INFO]: Loaded command: panel
+2025-08-22 16:21:05 [INFO]: Loaded command: polls
+2025-08-22 16:21:05 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:21:05 [INFO]: Loaded command: sendmoney
+2025-08-22 16:21:05 [INFO]: Loaded command: slots
+2025-08-22 16:21:05 [INFO]: Loaded command: stopcrash
+2025-08-22 16:21:05 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:21:05 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:21:06 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:21:06 [INFO]: Loaded 13 commands
+2025-08-22 16:21:06 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:21:06 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:21:06 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:21:06 [INFO]: Lottery system initialized successfully
+2025-08-22 16:21:06 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:21:10 [INFO]: Startup notification sent successfully
+2025-08-22 16:21:23 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:21:35 [INFO]: Updated balance for user 466050111680544798: wallet_change=44935, bank_change=0
+2025-08-22 16:23:07 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:23:58 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:23:59 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:23:59 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:23:59 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:23:59 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:23:59 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:23:59 [INFO]: Firebase database manager initialized
+2025-08-22 16:23:59 [INFO]: Database initialized successfully
+2025-08-22 16:23:59 [INFO]: Loaded command: addmoney
+2025-08-22 16:23:59 [INFO]: Loaded command: blackjack
+2025-08-22 16:23:59 [INFO]: Loaded command: crash
+2025-08-22 16:23:59 [INFO]: Loaded command: status
+2025-08-22 16:23:59 [INFO]: Loaded command: balance
+2025-08-22 16:23:59 [INFO]: Loaded command: lottery
+2025-08-22 16:23:59 [INFO]: Loaded command: panel
+2025-08-22 16:23:59 [INFO]: Loaded command: polls
+2025-08-22 16:23:59 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:23:59 [INFO]: Loaded command: sendmoney
+2025-08-22 16:23:59 [INFO]: Loaded command: slots
+2025-08-22 16:23:59 [INFO]: Loaded command: stopcrash
+2025-08-22 16:23:59 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:23:59 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:24:01 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:24:01 [INFO]: Loaded 13 commands
+2025-08-22 16:24:01 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:24:01 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:24:01 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:24:01 [INFO]: Lottery system initialized successfully
+2025-08-22 16:24:01 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:24:05 [INFO]: Startup notification sent successfully
+2025-08-22 16:24:37 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:24:39 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:24:40 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:24:40 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:24:40 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:24:40 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:24:40 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:24:40 [INFO]: Firebase database manager initialized
+2025-08-22 16:24:40 [INFO]: Database initialized successfully
+2025-08-22 16:24:40 [INFO]: Loaded command: addmoney
+2025-08-22 16:24:40 [INFO]: Loaded command: blackjack
+2025-08-22 16:24:40 [INFO]: Loaded command: crash
+2025-08-22 16:24:40 [INFO]: Loaded command: status
+2025-08-22 16:24:40 [INFO]: Loaded command: balance
+2025-08-22 16:24:40 [INFO]: Loaded command: lottery
+2025-08-22 16:24:40 [INFO]: Loaded command: panel
+2025-08-22 16:24:40 [INFO]: Loaded command: polls
+2025-08-22 16:24:40 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:24:40 [INFO]: Loaded command: sendmoney
+2025-08-22 16:24:40 [INFO]: Loaded command: slots
+2025-08-22 16:24:40 [INFO]: Loaded command: stopcrash
+2025-08-22 16:24:40 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:24:40 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:24:40 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:24:40 [INFO]: Loaded 13 commands
+2025-08-22 16:24:40 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:24:40 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:24:40 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:24:40 [INFO]: Lottery system initialized successfully
+2025-08-22 16:24:40 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:24:44 [INFO]: Startup notification sent successfully
+2025-08-22 16:24:56 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:25:14 [INFO]: Updated balance for user 466050111680544798: wallet_change=89095, bank_change=0
+2025-08-22 16:28:42 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:28:43 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:28:43 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:28:43 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:28:43 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:28:43 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:28:43 [INFO]: Firebase database manager initialized
+2025-08-22 16:28:43 [INFO]: Database initialized successfully
+2025-08-22 16:28:43 [INFO]: Loaded command: addmoney
+2025-08-22 16:28:43 [INFO]: Loaded command: blackjack
+2025-08-22 16:28:43 [INFO]: Loaded command: crash
+2025-08-22 16:28:43 [INFO]: Loaded command: status
+2025-08-22 16:28:43 [INFO]: Loaded command: balance
+2025-08-22 16:28:43 [INFO]: Loaded command: lottery
+2025-08-22 16:28:43 [INFO]: Loaded command: panel
+2025-08-22 16:28:43 [INFO]: Loaded command: polls
+2025-08-22 16:28:43 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:28:43 [INFO]: Loaded command: sendmoney
+2025-08-22 16:28:43 [INFO]: Loaded command: slots
+2025-08-22 16:28:43 [INFO]: Loaded command: stopcrash
+2025-08-22 16:28:43 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:28:43 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:28:43 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:28:43 [INFO]: Loaded 13 commands
+2025-08-22 16:28:43 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:28:43 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:28:43 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:28:43 [INFO]: Lottery system initialized successfully
+2025-08-22 16:28:43 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:28:45 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:28:47 [INFO]: Startup notification sent successfully
+2025-08-22 16:29:02 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:29:24 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:29:25 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:29:25 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:29:25 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:29:25 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:29:25 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:29:25 [INFO]: Firebase database manager initialized
+2025-08-22 16:29:25 [INFO]: Database initialized successfully
+2025-08-22 16:29:25 [INFO]: Loaded command: addmoney
+2025-08-22 16:29:25 [INFO]: Loaded command: blackjack
+2025-08-22 16:29:25 [INFO]: Loaded command: crash
+2025-08-22 16:29:25 [INFO]: Loaded command: status
+2025-08-22 16:29:25 [INFO]: Loaded command: balance
+2025-08-22 16:29:25 [INFO]: Loaded command: lottery
+2025-08-22 16:29:25 [INFO]: Loaded command: panel
+2025-08-22 16:29:25 [INFO]: Loaded command: polls
+2025-08-22 16:29:25 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:29:25 [INFO]: Loaded command: sendmoney
+2025-08-22 16:29:25 [INFO]: Loaded command: slots
+2025-08-22 16:29:25 [INFO]: Loaded command: stopcrash
+2025-08-22 16:29:25 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:29:25 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:29:26 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:29:26 [INFO]: Loaded 13 commands
+2025-08-22 16:29:26 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 47 hours)
+2025-08-22 16:29:26 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:29:26 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:29:26 [INFO]: Lottery system initialized successfully
+2025-08-22 16:29:27 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:29:31 [INFO]: Startup notification sent successfully
+2025-08-22 16:29:45 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:30:29 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:31:03 [INFO]: Panel opened: developer by talmax1124 (466050111680544798)
+2025-08-22 16:31:13 [ERROR]: Failed to send log message: Received one or more errors
+2025-08-22 16:31:30 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:31:38 [INFO]: Updated balance for user 466050111680544798: wallet_change=41995, bank_change=0
+2025-08-22 16:33:52 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:35:01 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:35:01 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:35:01 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:35:01 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:35:01 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:35:01 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:35:01 [INFO]: Firebase database manager initialized
+2025-08-22 16:35:01 [INFO]: Database initialized successfully
+2025-08-22 16:35:01 [INFO]: Loaded command: addmoney
+2025-08-22 16:35:01 [INFO]: Loaded command: blackjack
+2025-08-22 16:35:01 [INFO]: Loaded command: crash
+2025-08-22 16:35:01 [INFO]: Loaded command: status
+2025-08-22 16:35:01 [INFO]: Loaded command: balance
+2025-08-22 16:35:01 [INFO]: Loaded command: lottery
+2025-08-22 16:35:01 [INFO]: Loaded command: panel
+2025-08-22 16:35:01 [INFO]: Loaded command: polls
+2025-08-22 16:35:01 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:35:01 [INFO]: Loaded command: sendmoney
+2025-08-22 16:35:01 [INFO]: Loaded command: slots
+2025-08-22 16:35:01 [INFO]: Loaded command: stopcrash
+2025-08-22 16:35:01 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:35:01 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:35:02 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:35:02 [INFO]: Loaded 13 commands
+2025-08-22 16:35:02 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 16:35:02 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:35:02 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:35:02 [INFO]: Lottery system initialized successfully
+2025-08-22 16:35:02 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:35:06 [INFO]: Startup notification sent successfully
+2025-08-22 16:35:33 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:35:34 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:35:35 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:35:35 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:35:35 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:35:35 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:35:35 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:35:35 [INFO]: Firebase database manager initialized
+2025-08-22 16:35:35 [INFO]: Database initialized successfully
+2025-08-22 16:35:35 [INFO]: Loaded command: addmoney
+2025-08-22 16:35:35 [INFO]: Loaded command: blackjack
+2025-08-22 16:35:35 [INFO]: Loaded command: crash
+2025-08-22 16:35:35 [INFO]: Loaded command: status
+2025-08-22 16:35:35 [INFO]: Loaded command: balance
+2025-08-22 16:35:35 [INFO]: Loaded command: lottery
+2025-08-22 16:35:35 [INFO]: Loaded command: panel
+2025-08-22 16:35:35 [INFO]: Loaded command: polls
+2025-08-22 16:35:35 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:35:35 [INFO]: Loaded command: sendmoney
+2025-08-22 16:35:35 [INFO]: Loaded command: slots
+2025-08-22 16:35:35 [INFO]: Loaded command: stopcrash
+2025-08-22 16:35:35 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:35:35 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:35:35 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:35:35 [INFO]: Loaded 13 commands
+2025-08-22 16:35:35 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 16:35:35 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:35:35 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:35:35 [INFO]: Lottery system initialized successfully
+2025-08-22 16:35:36 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:35:39 [INFO]: Startup notification sent successfully
+2025-08-22 16:35:55 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:40:35 [INFO]: updateLotteryPanel called for guild 1403244656845787167
+2025-08-22 16:40:35 [INFO]: No lottery panel tracked for guild 1403244656845787167, trying to find existing one
+2025-08-22 16:40:36 [INFO]: No existing lottery panel found in channel 1406136478714826824
+2025-08-22 16:40:36 [INFO]: No lottery panel found or tracked for guild 1403244656845787167
+2025-08-22 16:40:36 [INFO]: Initial lottery panel update completed
+2025-08-22 16:44:11 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:44:12 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:44:12 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:44:12 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:44:12 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:44:12 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:44:12 [INFO]: Firebase database manager initialized
+2025-08-22 16:44:12 [INFO]: Database initialized successfully
+2025-08-22 16:44:12 [INFO]: Loaded command: addmoney
+2025-08-22 16:44:12 [INFO]: Loaded command: blackjack
+2025-08-22 16:44:12 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:641
+  }, 50);
+  ^
+
+SyntaxError: Unexpected token '}'
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 16:44:12 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 16:44:12 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:44:12 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:44:12 [INFO]: Lottery system initialized successfully
+2025-08-22 16:44:12 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:44:16 [INFO]: Startup notification sent successfully
+2025-08-22 16:45:03 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:46:00 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:46:01 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:46:01 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:46:01 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:46:01 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:46:01 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:46:01 [INFO]: Firebase database manager initialized
+2025-08-22 16:46:01 [INFO]: Database initialized successfully
+2025-08-22 16:46:01 [INFO]: Loaded command: addmoney
+2025-08-22 16:46:01 [INFO]: Loaded command: blackjack
+2025-08-22 16:46:01 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:687
+
+
+
+SyntaxError: Unexpected end of input
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 16:46:02 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 16:46:02 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:46:02 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:46:02 [INFO]: Lottery system initialized successfully
+2025-08-22 16:46:02 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:46:06 [INFO]: Startup notification sent successfully
+2025-08-22 16:49:32 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:49:33 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:49:33 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:49:33 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:49:33 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:49:33 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:49:33 [INFO]: Firebase database manager initialized
+2025-08-22 16:49:33 [INFO]: Database initialized successfully
+2025-08-22 16:49:33 [INFO]: Loaded command: addmoney
+2025-08-22 16:49:33 [INFO]: Loaded command: blackjack
+2025-08-22 16:49:33 [INFO]: Loaded command: crash
+2025-08-22 16:49:33 [INFO]: Loaded command: status
+2025-08-22 16:49:33 [INFO]: Loaded command: balance
+2025-08-22 16:49:33 [INFO]: Loaded command: lottery
+2025-08-22 16:49:33 [INFO]: Loaded command: panel
+2025-08-22 16:49:33 [INFO]: Loaded command: polls
+2025-08-22 16:49:33 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:49:33 [INFO]: Loaded command: sendmoney
+2025-08-22 16:49:33 [INFO]: Loaded command: slots
+2025-08-22 16:49:33 [INFO]: Loaded command: stopcrash
+2025-08-22 16:49:33 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:49:33 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:49:33 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:49:33 [INFO]: Loaded 13 commands
+2025-08-22 16:49:33 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 16:49:33 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:49:33 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:49:33 [INFO]: Lottery system initialized successfully
+2025-08-22 16:49:34 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:49:35 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:49:37 [INFO]: Startup notification sent successfully
+2025-08-22 16:49:40 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:49:55 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:50:12 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:50:12 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:50:12 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:50:12 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:50:12 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:50:12 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:50:12 [INFO]: Firebase database manager initialized
+2025-08-22 16:50:12 [INFO]: Database initialized successfully
+2025-08-22 16:50:12 [INFO]: Loaded command: addmoney
+2025-08-22 16:50:12 [INFO]: Loaded command: blackjack
+2025-08-22 16:50:12 [INFO]: Loaded command: crash
+2025-08-22 16:50:12 [INFO]: Loaded command: status
+2025-08-22 16:50:12 [INFO]: Loaded command: balance
+2025-08-22 16:50:12 [INFO]: Loaded command: lottery
+2025-08-22 16:50:12 [INFO]: Loaded command: panel
+2025-08-22 16:50:12 [INFO]: Loaded command: polls
+2025-08-22 16:50:12 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:50:12 [INFO]: Loaded command: sendmoney
+2025-08-22 16:50:12 [INFO]: Loaded command: slots
+2025-08-22 16:50:12 [INFO]: Loaded command: stopcrash
+2025-08-22 16:50:12 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:50:12 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:50:13 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:50:13 [INFO]: Loaded 13 commands
+2025-08-22 16:50:13 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 16:50:13 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:50:13 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:50:13 [INFO]: Lottery system initialized successfully
+2025-08-22 16:50:13 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:50:17 [INFO]: Startup notification sent successfully
+2025-08-22 16:50:23 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:50:56 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:52:49 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:52:49 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:52:49 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:52:49 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:52:49 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:52:49 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:52:49 [INFO]: Firebase database manager initialized
+2025-08-22 16:52:49 [INFO]: Database initialized successfully
+2025-08-22 16:52:49 [INFO]: Loaded command: addmoney
+2025-08-22 16:52:49 [INFO]: Loaded command: blackjack
+2025-08-22 16:52:49 [INFO]: Loaded command: crash
+2025-08-22 16:52:49 [INFO]: Loaded command: status
+2025-08-22 16:52:49 [INFO]: Loaded command: balance
+2025-08-22 16:52:49 [INFO]: Loaded command: lottery
+2025-08-22 16:52:49 [INFO]: Loaded command: panel
+2025-08-22 16:52:49 [INFO]: Loaded command: polls
+2025-08-22 16:52:49 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:52:49 [INFO]: Loaded command: sendmoney
+2025-08-22 16:52:49 [INFO]: Loaded command: slots
+2025-08-22 16:52:49 [INFO]: Loaded command: stopcrash
+2025-08-22 16:52:49 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:52:49 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:52:49 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:52:49 [INFO]: Loaded 13 commands
+2025-08-22 16:52:49 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 16:52:49 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:52:49 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:52:49 [INFO]: Lottery system initialized successfully
+2025-08-22 16:52:50 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:52:54 [INFO]: Startup notification sent successfully
+2025-08-22 16:53:13 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 16:53:18 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 16:53:19 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 16:53:19 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 16:53:19 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 16:53:19 [INFO]: 🚀 Firebase app initialized
+2025-08-22 16:53:19 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 16:53:19 [INFO]: Firebase database manager initialized
+2025-08-22 16:53:19 [INFO]: Database initialized successfully
+2025-08-22 16:53:19 [INFO]: Loaded command: addmoney
+2025-08-22 16:53:19 [INFO]: Loaded command: blackjack
+2025-08-22 16:53:19 [INFO]: Loaded command: crash
+2025-08-22 16:53:19 [INFO]: Loaded command: status
+2025-08-22 16:53:19 [INFO]: Loaded command: balance
+2025-08-22 16:53:19 [INFO]: Loaded command: lottery
+2025-08-22 16:53:19 [INFO]: Loaded command: panel
+2025-08-22 16:53:19 [INFO]: Loaded command: polls
+2025-08-22 16:53:19 [INFO]: Loaded command: purchaselottery
+2025-08-22 16:53:19 [INFO]: Loaded command: sendmoney
+2025-08-22 16:53:19 [INFO]: Loaded command: slots
+2025-08-22 16:53:19 [INFO]: Loaded command: stopcrash
+2025-08-22 16:53:19 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 16:53:19 [INFO]: Started refreshing application (/) commands
+2025-08-22 16:53:20 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 16:53:20 [INFO]: Loaded 13 commands
+2025-08-22 16:53:20 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 16:53:20 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 16:53:20 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 16:53:20 [INFO]: Lottery system initialized successfully
+2025-08-22 16:53:20 [INFO]: Sent development announcement to logs channel
+2025-08-22 16:53:24 [INFO]: Startup notification sent successfully
+2025-08-22 16:53:34 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 16:54:42 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 17:05:45 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:05:45 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:05:45 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:05:45 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:05:45 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:05:45 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:05:45 [INFO]: Firebase database manager initialized
+2025-08-22 17:05:45 [INFO]: Database initialized successfully
+2025-08-22 17:05:45 [INFO]: Loaded command: addmoney
+2025-08-22 17:05:45 [INFO]: Loaded command: blackjack
+2025-08-22 17:05:45 [INFO]: Loaded command: crash
+2025-08-22 17:05:45 [INFO]: Loaded command: status
+2025-08-22 17:05:45 [INFO]: Loaded command: balance
+2025-08-22 17:05:45 [INFO]: Loaded command: lottery
+2025-08-22 17:05:45 [INFO]: Loaded command: panel
+2025-08-22 17:05:45 [INFO]: Loaded command: polls
+2025-08-22 17:05:45 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:05:45 [INFO]: Loaded command: sendmoney
+2025-08-22 17:05:45 [INFO]: Loaded command: slots
+2025-08-22 17:05:45 [INFO]: Loaded command: stopcrash
+2025-08-22 17:05:45 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:05:45 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:05:46 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:05:46 [INFO]: Loaded 13 commands
+2025-08-22 17:05:46 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 17:05:46 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:05:46 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:05:46 [INFO]: Lottery system initialized successfully
+2025-08-22 17:05:46 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:05:50 [INFO]: Startup notification sent successfully
+2025-08-22 17:06:20 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 17:06:25 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:06:25 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:06:25 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:06:25 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:06:25 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:06:25 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:06:25 [INFO]: Firebase database manager initialized
+2025-08-22 17:06:25 [INFO]: Database initialized successfully
+2025-08-22 17:06:25 [INFO]: Loaded command: addmoney
+2025-08-22 17:06:25 [INFO]: Loaded command: blackjack
+2025-08-22 17:06:25 [INFO]: Loaded command: crash
+2025-08-22 17:06:25 [INFO]: Loaded command: status
+2025-08-22 17:06:25 [INFO]: Loaded command: balance
+2025-08-22 17:06:25 [INFO]: Loaded command: lottery
+2025-08-22 17:06:25 [INFO]: Loaded command: panel
+2025-08-22 17:06:25 [INFO]: Loaded command: polls
+2025-08-22 17:06:25 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:06:25 [INFO]: Loaded command: sendmoney
+2025-08-22 17:06:25 [INFO]: Loaded command: slots
+2025-08-22 17:06:25 [INFO]: Loaded command: stopcrash
+2025-08-22 17:06:25 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:06:25 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:06:26 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:06:26 [INFO]: Loaded 13 commands
+2025-08-22 17:06:26 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 17:06:26 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:06:26 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:06:26 [INFO]: Lottery system initialized successfully
+2025-08-22 17:06:26 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:06:30 [INFO]: Startup notification sent successfully
+2025-08-22 17:06:40 [INFO]: Updated balance for user 466050111680544798: wallet_change=-1000, bank_change=0
+2025-08-22 17:06:41 [ERROR]: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:866:23)
+    at async _REST.request (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:1307:22)
+    at async ButtonInteraction.update (/Users/carlosdiazplaza/ative_casino_bot/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:361:22)
+    at async Object.handleButtonInteraction (/Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:538:7)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:461:17)
+2025-08-22 17:06:42 [ERROR]: DiscordAPIError[40060]: Interaction has already been acknowledged.
+    at handleErrors (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:866:23)
+    at async _REST.request (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:1307:22)
+    at async ButtonInteraction.reply (/Users/carlosdiazplaza/ative_casino_bot/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:200:22)
+    at async Object.handleButtonInteraction (/Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:567:7)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:461:17)
+2025-08-22 17:06:54 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 17:07:30 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:07:31 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:07:31 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:07:31 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:07:31 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:07:31 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:07:31 [INFO]: Firebase database manager initialized
+2025-08-22 17:07:31 [INFO]: Database initialized successfully
+2025-08-22 17:07:31 [INFO]: Loaded command: addmoney
+2025-08-22 17:07:31 [INFO]: Loaded command: blackjack
+2025-08-22 17:07:31 [INFO]: Loaded command: crash
+2025-08-22 17:07:31 [INFO]: Loaded command: status
+2025-08-22 17:07:31 [INFO]: Loaded command: balance
+2025-08-22 17:07:31 [INFO]: Loaded command: lottery
+2025-08-22 17:07:31 [INFO]: Loaded command: panel
+2025-08-22 17:07:31 [INFO]: Loaded command: polls
+2025-08-22 17:07:31 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:07:31 [INFO]: Loaded command: sendmoney
+2025-08-22 17:07:31 [INFO]: Loaded command: slots
+2025-08-22 17:07:31 [INFO]: Loaded command: stopcrash
+2025-08-22 17:07:31 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:07:31 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:07:31 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:07:31 [INFO]: Loaded 13 commands
+2025-08-22 17:07:31 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 17:07:31 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:07:31 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:07:31 [INFO]: Lottery system initialized successfully
+2025-08-22 17:07:31 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:07:35 [INFO]: Startup notification sent successfully
+2025-08-22 17:07:53 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 17:07:55 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:07:55 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:07:55 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:07:55 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:07:55 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:07:55 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:07:55 [INFO]: Firebase database manager initialized
+2025-08-22 17:07:55 [INFO]: Database initialized successfully
+2025-08-22 17:07:55 [INFO]: Loaded command: addmoney
+2025-08-22 17:07:55 [INFO]: Loaded command: blackjack
+2025-08-22 17:07:55 [INFO]: Loaded command: crash
+2025-08-22 17:07:55 [INFO]: Loaded command: status
+2025-08-22 17:07:55 [INFO]: Loaded command: balance
+2025-08-22 17:07:55 [INFO]: Loaded command: lottery
+2025-08-22 17:07:55 [INFO]: Loaded command: panel
+2025-08-22 17:07:55 [INFO]: Loaded command: polls
+2025-08-22 17:07:55 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:07:55 [INFO]: Loaded command: sendmoney
+2025-08-22 17:07:55 [INFO]: Loaded command: slots
+2025-08-22 17:07:55 [INFO]: Loaded command: stopcrash
+2025-08-22 17:07:55 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:07:55 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:07:56 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:07:56 [INFO]: Loaded 13 commands
+2025-08-22 17:07:56 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 17:07:56 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:07:56 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:07:56 [INFO]: Lottery system initialized successfully
+2025-08-22 17:07:56 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:07:59 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 17:08:00 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:08:00 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:08:00 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:08:00 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:08:00 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:08:00 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:08:00 [INFO]: Firebase database manager initialized
+2025-08-22 17:08:00 [INFO]: Database initialized successfully
+2025-08-22 17:08:00 [INFO]: Loaded command: addmoney
+2025-08-22 17:08:00 [INFO]: Loaded command: blackjack
+2025-08-22 17:08:00 [INFO]: Loaded command: crash
+2025-08-22 17:08:00 [INFO]: Loaded command: status
+2025-08-22 17:08:00 [INFO]: Loaded command: balance
+2025-08-22 17:08:00 [INFO]: Loaded command: lottery
+2025-08-22 17:08:00 [INFO]: Loaded command: panel
+2025-08-22 17:08:00 [INFO]: Loaded command: polls
+2025-08-22 17:08:00 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:08:00 [INFO]: Loaded command: sendmoney
+2025-08-22 17:08:00 [INFO]: Loaded command: slots
+2025-08-22 17:08:00 [INFO]: Loaded command: stopcrash
+2025-08-22 17:08:00 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:08:00 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:08:12 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 17:08:17 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:08:17 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:08:17 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:08:17 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:08:17 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:08:17 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:08:17 [INFO]: Firebase database manager initialized
+2025-08-22 17:08:17 [INFO]: Database initialized successfully
+2025-08-22 17:08:17 [INFO]: Loaded command: addmoney
+2025-08-22 17:08:17 [INFO]: Loaded command: blackjack
+2025-08-22 17:08:17 [INFO]: Loaded command: crash
+2025-08-22 17:08:17 [INFO]: Loaded command: status
+2025-08-22 17:08:17 [INFO]: Loaded command: balance
+2025-08-22 17:08:17 [INFO]: Loaded command: lottery
+2025-08-22 17:08:17 [INFO]: Loaded command: panel
+2025-08-22 17:08:17 [INFO]: Loaded command: polls
+2025-08-22 17:08:17 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:08:17 [INFO]: Loaded command: sendmoney
+2025-08-22 17:08:17 [INFO]: Loaded command: slots
+2025-08-22 17:08:17 [INFO]: Loaded command: stopcrash
+2025-08-22 17:08:17 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:08:17 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:08:18 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:08:18 [INFO]: Loaded 13 commands
+2025-08-22 17:08:18 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 17:08:18 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:08:18 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:08:18 [INFO]: Lottery system initialized successfully
+2025-08-22 17:08:18 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:08:22 [INFO]: Startup notification sent successfully
+2025-08-22 17:08:29 [INFO]: Updated balance for user 466050111680544798: wallet_change=-100, bank_change=0
+2025-08-22 17:09:01 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 17:19:17 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:19:18 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:19:18 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:19:18 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:19:18 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:19:18 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:19:18 [INFO]: Firebase database manager initialized
+2025-08-22 17:19:18 [INFO]: Database initialized successfully
+2025-08-22 17:19:18 [INFO]: Loaded command: addmoney
+2025-08-22 17:19:18 [INFO]: Loaded command: blackjack
+2025-08-22 17:19:18 [INFO]: Loaded command: crash
+2025-08-22 17:19:18 [INFO]: Loaded command: status
+2025-08-22 17:19:18 [INFO]: Loaded command: balance
+2025-08-22 17:19:18 [INFO]: Loaded command: lottery
+2025-08-22 17:19:18 [INFO]: Loaded command: panel
+2025-08-22 17:19:18 [INFO]: Loaded command: polls
+2025-08-22 17:19:18 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:19:18 [INFO]: Loaded command: sendmoney
+2025-08-22 17:19:18 [INFO]: Loaded command: slots
+2025-08-22 17:19:18 [INFO]: Loaded command: stopcrash
+2025-08-22 17:19:18 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:19:18 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:19:18 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:19:18 [INFO]: Loaded 13 commands
+2025-08-22 17:19:18 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 17:19:18 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:19:18 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:19:18 [INFO]: Lottery system initialized successfully
+2025-08-22 17:19:18 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:19:22 [INFO]: Startup notification sent successfully
+2025-08-22 17:19:40 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 17:19:41 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:19:42 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:19:42 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:19:42 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:19:42 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:19:42 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:19:42 [INFO]: Firebase database manager initialized
+2025-08-22 17:19:42 [INFO]: Database initialized successfully
+2025-08-22 17:19:42 [INFO]: Loaded command: addmoney
+2025-08-22 17:19:42 [INFO]: Loaded command: blackjack
+2025-08-22 17:19:42 [INFO]: Loaded command: crash
+2025-08-22 17:19:42 [INFO]: Loaded command: status
+2025-08-22 17:19:42 [INFO]: Loaded command: balance
+2025-08-22 17:19:42 [INFO]: Loaded command: lottery
+2025-08-22 17:19:42 [INFO]: Loaded command: panel
+2025-08-22 17:19:42 [INFO]: Loaded command: polls
+2025-08-22 17:19:42 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:19:42 [INFO]: Loaded command: sendmoney
+2025-08-22 17:19:42 [INFO]: Loaded command: slots
+2025-08-22 17:19:42 [INFO]: Loaded command: stopcrash
+2025-08-22 17:19:42 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:19:42 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:19:42 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:19:42 [INFO]: Loaded 13 commands
+2025-08-22 17:19:42 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 46 hours)
+2025-08-22 17:19:42 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:19:42 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:19:42 [INFO]: Lottery system initialized successfully
+2025-08-22 17:19:42 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:19:46 [INFO]: Startup notification sent successfully
+2025-08-22 17:19:52 [INFO]: Updated balance for user 466050111680544798: wallet_change=-20000, bank_change=0
+2025-08-22 17:19:59 [INFO]: Updated balance for user 466050111680544798: wallet_change=82703, bank_change=0
+2025-08-22 17:20:50 [INFO]: Updated balance for user 466050111680544798: wallet_change=-100, bank_change=0
+2025-08-22 17:24:42 [INFO]: updateLotteryPanel called for guild 1403244656845787167
+2025-08-22 17:24:42 [INFO]: No lottery panel tracked for guild 1403244656845787167, trying to find existing one
+2025-08-22 17:24:42 [INFO]: No existing lottery panel found in channel 1406136478714826824
+2025-08-22 17:24:42 [INFO]: No lottery panel found or tracked for guild 1403244656845787167
+2025-08-22 17:24:42 [INFO]: Initial lottery panel update completed
+2025-08-22 17:26:37 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 17:40:12 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:40:13 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:40:13 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:40:13 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:40:13 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:40:13 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:40:13 [INFO]: Firebase database manager initialized
+2025-08-22 17:40:13 [INFO]: Database initialized successfully
+2025-08-22 17:40:13 [INFO]: Loaded command: addmoney
+2025-08-22 17:40:13 [INFO]: Loaded command: blackjack
+2025-08-22 17:40:13 [INFO]: Loaded command: status
+2025-08-22 17:40:13 [INFO]: Loaded command: balance
+2025-08-22 17:40:13 [INFO]: Loaded command: lottery
+2025-08-22 17:40:13 [INFO]: Loaded command: panel
+2025-08-22 17:40:13 [INFO]: Loaded command: polls
+2025-08-22 17:40:13 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:40:13 [INFO]: Loaded command: sendmoney
+2025-08-22 17:40:13 [INFO]: Loaded command: slots
+2025-08-22 17:40:13 [INFO]: Loaded command: stopcrash
+2025-08-22 17:40:13 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:40:13 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:40:13 [INFO]: Successfully reloaded 12 application (/) commands
+2025-08-22 17:40:13 [INFO]: Loaded 12 commands
+2025-08-22 17:40:13 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 45 hours)
+2025-08-22 17:40:13 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:40:13 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:40:13 [INFO]: Lottery system initialized successfully
+2025-08-22 17:40:13 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:40:17 [INFO]: Startup notification sent successfully
+2025-08-22 17:41:52 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:41:53 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:41:53 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:41:53 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:41:53 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:41:53 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:41:53 [INFO]: Firebase database manager initialized
+2025-08-22 17:41:53 [INFO]: Database initialized successfully
+2025-08-22 17:41:53 [INFO]: Loaded command: addmoney
+2025-08-22 17:41:53 [INFO]: Loaded command: blackjack
+2025-08-22 17:41:53 [INFO]: Loaded command: crash
+2025-08-22 17:41:53 [INFO]: Loaded command: status
+2025-08-22 17:41:53 [INFO]: Loaded command: balance
+2025-08-22 17:41:53 [INFO]: Loaded command: lottery
+2025-08-22 17:41:53 [INFO]: Loaded command: panel
+2025-08-22 17:41:53 [INFO]: Loaded command: polls
+2025-08-22 17:41:53 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:41:53 [INFO]: Loaded command: sendmoney
+2025-08-22 17:41:53 [INFO]: Loaded command: slots
+2025-08-22 17:41:53 [INFO]: Loaded command: stopcrash
+2025-08-22 17:41:53 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:41:53 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:41:53 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:41:53 [INFO]: Loaded 13 commands
+2025-08-22 17:41:53 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 45 hours)
+2025-08-22 17:41:53 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:41:53 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:41:53 [INFO]: Lottery system initialized successfully
+2025-08-22 17:41:53 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:41:57 [INFO]: Startup notification sent successfully
+2025-08-22 17:42:29 [INFO]: Updated balance for user 466050111680544798: wallet_change=-100, bank_change=0
+2025-08-22 17:42:36 [INFO]: Updated balance for user 466050111680544798: wallet_change=482, bank_change=0
+2025-08-22 17:42:45 [INFO]: Updated balance for user 466050111680544798: wallet_change=-1000, bank_change=0
+2025-08-22 17:44:23 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:44:23 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:44:23 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:44:23 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:44:23 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:44:23 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:44:23 [INFO]: Firebase database manager initialized
+2025-08-22 17:44:23 [INFO]: Database initialized successfully
+2025-08-22 17:44:23 [INFO]: Loaded command: addmoney
+2025-08-22 17:44:23 [INFO]: Loaded command: blackjack
+2025-08-22 17:44:23 [INFO]: Loaded command: crash
+2025-08-22 17:44:23 [INFO]: Loaded command: status
+2025-08-22 17:44:23 [INFO]: Loaded command: balance
+2025-08-22 17:44:23 [INFO]: Loaded command: lottery
+2025-08-22 17:44:23 [INFO]: Loaded command: panel
+2025-08-22 17:44:23 [INFO]: Loaded command: polls
+2025-08-22 17:44:23 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:44:23 [INFO]: Loaded command: sendmoney
+2025-08-22 17:44:23 [INFO]: Loaded command: slots
+2025-08-22 17:44:23 [INFO]: Loaded command: stopcrash
+2025-08-22 17:44:23 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:44:23 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:44:23 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:44:23 [INFO]: Loaded 13 commands
+2025-08-22 17:44:24 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 45 hours)
+2025-08-22 17:44:24 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:44:24 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:44:24 [INFO]: Lottery system initialized successfully
+2025-08-22 17:44:24 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:44:25 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:44:25 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:44:25 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:44:25 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:44:25 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:44:25 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:44:25 [INFO]: Firebase database manager initialized
+2025-08-22 17:44:25 [INFO]: Database initialized successfully
+2025-08-22 17:44:25 [INFO]: Loaded command: addmoney
+2025-08-22 17:44:25 [INFO]: Loaded command: blackjack
+2025-08-22 17:44:25 [INFO]: Loaded command: crash
+2025-08-22 17:44:25 [INFO]: Loaded command: status
+2025-08-22 17:44:25 [INFO]: Loaded command: balance
+2025-08-22 17:44:25 [INFO]: Loaded command: lottery
+2025-08-22 17:44:25 [INFO]: Loaded command: panel
+2025-08-22 17:44:25 [INFO]: Loaded command: polls
+2025-08-22 17:44:25 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:44:25 [INFO]: Loaded command: sendmoney
+2025-08-22 17:44:25 [INFO]: Loaded command: slots
+2025-08-22 17:44:25 [INFO]: Loaded command: stopcrash
+2025-08-22 17:44:25 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:44:25 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:44:26 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:44:26 [INFO]: Loaded 13 commands
+2025-08-22 17:44:26 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 45 hours)
+2025-08-22 17:44:26 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:44:26 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:44:26 [INFO]: Lottery system initialized successfully
+2025-08-22 17:44:26 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:44:30 [INFO]: Startup notification sent successfully
+2025-08-22 17:44:37 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:44:37 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:44:37 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:44:37 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:44:37 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:44:37 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:44:37 [INFO]: Firebase database manager initialized
+2025-08-22 17:44:37 [INFO]: Database initialized successfully
+2025-08-22 17:44:37 [INFO]: Loaded command: addmoney
+2025-08-22 17:44:37 [INFO]: Loaded command: blackjack
+2025-08-22 17:44:37 [INFO]: Loaded command: crash
+2025-08-22 17:44:37 [INFO]: Loaded command: status
+2025-08-22 17:44:37 [INFO]: Loaded command: balance
+2025-08-22 17:44:37 [INFO]: Loaded command: lottery
+2025-08-22 17:44:37 [INFO]: Loaded command: panel
+2025-08-22 17:44:37 [INFO]: Loaded command: polls
+2025-08-22 17:44:37 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:44:37 [INFO]: Loaded command: sendmoney
+2025-08-22 17:44:37 [INFO]: Loaded command: slots
+2025-08-22 17:44:37 [INFO]: Loaded command: stopcrash
+2025-08-22 17:44:37 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:44:37 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:44:55 [INFO]: Updated balance for user 466050111680544798: wallet_change=-100, bank_change=0
+2025-08-22 17:45:06 [INFO]: Updated balance for user 466050111680544798: wallet_change=-1000, bank_change=0
+2025-08-22 17:45:16 [INFO]: Updated balance for user 466050111680544798: wallet_change=-10000, bank_change=0
+2025-08-22 17:45:20 [INFO]: Updated balance for user 466050111680544798: wallet_change=31133, bank_change=0
+2025-08-22 17:45:24 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:45:24 [INFO]: Loaded 13 commands
+2025-08-22 17:45:24 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 45 hours)
+2025-08-22 17:45:24 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:45:24 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:45:24 [INFO]: Lottery system initialized successfully
+2025-08-22 17:45:24 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:45:28 [INFO]: Startup notification sent successfully
+2025-08-22 17:45:30 [INFO]: Updated balance for user 466050111680544798: wallet_change=-100000, bank_change=0
+2025-08-22 17:47:09 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 17:47:10 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 17:47:10 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 17:47:10 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 17:47:10 [INFO]: 🚀 Firebase app initialized
+2025-08-22 17:47:10 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 17:47:10 [INFO]: Firebase database manager initialized
+2025-08-22 17:47:10 [INFO]: Database initialized successfully
+2025-08-22 17:47:10 [INFO]: Loaded command: addmoney
+2025-08-22 17:47:10 [INFO]: Loaded command: blackjack
+2025-08-22 17:47:10 [INFO]: Loaded command: crash
+2025-08-22 17:47:10 [INFO]: Loaded command: status
+2025-08-22 17:47:10 [INFO]: Loaded command: balance
+2025-08-22 17:47:10 [INFO]: Loaded command: lottery
+2025-08-22 17:47:10 [INFO]: Loaded command: panel
+2025-08-22 17:47:10 [INFO]: Loaded command: polls
+2025-08-22 17:47:10 [INFO]: Loaded command: purchaselottery
+2025-08-22 17:47:10 [INFO]: Loaded command: sendmoney
+2025-08-22 17:47:10 [INFO]: Loaded command: slots
+2025-08-22 17:47:10 [INFO]: Loaded command: stopcrash
+2025-08-22 17:47:10 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 17:47:10 [INFO]: Started refreshing application (/) commands
+2025-08-22 17:47:10 [INFO]: Successfully reloaded 13 application (/) commands
+2025-08-22 17:47:10 [INFO]: Loaded 13 commands
+2025-08-22 17:47:10 [INFO]: Next lottery drawing scheduled for 8/24/2025, 3:00:00 PM (in 45 hours)
+2025-08-22 17:47:10 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 17:47:10 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 17:47:10 [INFO]: Lottery system initialized successfully
+2025-08-22 17:47:10 [INFO]: Sent development announcement to logs channel
+2025-08-22 17:47:14 [INFO]: Startup notification sent successfully

@@ -74,3 +74,103 @@ SyntaxError: Unexpected token ','
     at require (node:internal/modules/helpers:136:16)
     at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/blackjack.js:10:27)
 2025-08-22 14:59:31 [ERROR]: /crash error: %s
+2025-08-22 15:02:45 [ERROR]: /crash error: %s
+2025-08-22 15:03:43 [ERROR]: /crash error: %s
+2025-08-22 15:05:43 [ERROR]: /crash error: %s
+2025-08-22 15:14:45 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:470
+class CrashGameState {
+
+SyntaxError: Identifier 'CrashGameState' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 15:16:24 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:470
+class CrashGameState {
+
+SyntaxError: Identifier 'CrashGameState' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 15:18:22 [ERROR]: ReferenceError: handleGameExecution is not defined
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:465:3)
+    at Module._compile (node:internal/modules/cjs/loader:1554:14)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 15:19:12 [ERROR]: ReferenceError: handleGameExecution is not defined
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:465:3)
+    at Module._compile (node:internal/modules/cjs/loader:1554:14)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 16:31:13 [ERROR]: Failed to send log message: Received one or more errors
+2025-08-22 16:44:12 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:641
+  }, 50);
+  ^
+
+SyntaxError: Unexpected token '}'
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 16:46:01 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:687
+
+
+
+SyntaxError: Unexpected end of input
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at Object.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/crash.js:7:19)
+2025-08-22 17:06:41 [ERROR]: DiscordAPIError[10062]: Unknown interaction
+    at handleErrors (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:866:23)
+    at async _REST.request (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:1307:22)
+    at async ButtonInteraction.update (/Users/carlosdiazplaza/ative_casino_bot/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:361:22)
+    at async Object.handleButtonInteraction (/Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:538:7)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:461:17)
+2025-08-22 17:06:42 [ERROR]: DiscordAPIError[40060]: Interaction has already been acknowledged.
+    at handleErrors (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async BurstHandler.runRequest (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:866:23)
+    at async _REST.request (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:1307:22)
+    at async ButtonInteraction.reply (/Users/carlosdiazplaza/ative_casino_bot/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:200:22)
+    at async Object.handleButtonInteraction (/Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:567:7)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:461:17)

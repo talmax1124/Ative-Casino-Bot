@@ -1,22 +1,38 @@
 /**
- * Crash multiplier game command for the casino bot
- * Players bet on a rising multiplier that can crash at any time
+ * Crash game command
+ * Starts or joins a Crash betting round and wires button/modal interactions
  */
 
-const { SlashCommandBuilder } = require('discord.js');
-const crashGame = require('../GAMES/crash');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const logger = require('../UTILS/logger');
 
 module.exports = {
-    data: new SlashCommandBuilder()
-        .setName('crash')
-        .setDescription('Start a new Crash multiplier game with your bet')
-        .addIntegerOption(option => option
-            .setName('minbet')
-            .setDescription('Your bet amount to start the game')
-            .setRequired(true)
-            .setMinValue(10)),
+  data: new SlashCommandBuilder()
+    .setName('crash')
+    .setDescription('Start or join a Crash round — bet and cash out before it crashes!')
+    .addStringOption(opt =>
+      opt.setName('minbet')
+        .setDescription('Your bet amount (e.g., 1000, 5k, 2m)')
+        .setRequired(true)
+    ),
 
-    async execute(interaction) {
-        await crashGame.handleGameExecution(interaction, interaction.client);
+  async execute(interaction) {
+    try {
+      const { handleGameExecution } = require('../GAMES/crash');
+      await handleGameExecution(interaction, interaction.client);
+    } catch (error) {
+      logger.error(`crash command failed: ${error?.stack || error}`);
+      const embed = new EmbedBuilder()
+        .setTitle('❌ Crash Error')
+        .setDescription('Failed to start or join the Crash game.')
+        .setColor(0xFF0000);
+
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      } else {
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      }
     }
+  }
 };
+

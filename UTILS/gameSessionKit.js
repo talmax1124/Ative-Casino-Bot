@@ -54,24 +54,29 @@ function buildSessionEmbed(ui) {
   // Add top fields with better formatting
   if (topFields.length) {
     topFields.forEach(field => {
-      // Style field values with code blocks for dark background effect
+      // For player lists and other content with markdown, don't wrap in code blocks
+      // For numeric/simple values, use code blocks for styling
+      const hasMarkdown = field.value.includes('**') || field.value.includes('•');
       const styledField = {
         name: `**${field.name}**`,
-        value: `\`\`\`\n${field.value}\n\`\`\``,
+        value: hasMarkdown ? field.value : `\`\`\`\n${field.value}\n\`\`\``,
         inline: field.inline || false
       };
       e.addFields(styledField);
     });
   }
-  
+
   if (bankFields.length) {
-    // Banking section with clean header (tighter spacing)
-    e.addFields({ name: "**BANKING**", value: "\u200B", inline: false });
-    
-    // Style banking fields with dark background
-    bankFields.forEach(field => {
+    // Banking section with separate header for proper alignment
+    e.addFields({
+      name: "**BANKING**",
+      value: "\u200B",
+      inline: false
+    });
+
+    bankFields.forEach((field) => {
       const styledBankField = {
-        name: field.name,
+        name: `**${field.name}**`,
         value: `\`\`\`fix\n${field.value}\n\`\`\``,
         inline: field.inline !== false // Default to inline for banking
       };
@@ -81,19 +86,19 @@ function buildSessionEmbed(ui) {
 
   if (stageText) {
     // Large game state text at bottom, matching reference design
-    e.addFields({ 
-      name: "\u200B", 
-      value: `## **${stageText}**`, 
-      inline: false 
+    e.addFields({
+      name: "\u200B",
+      value: `**${stageText}**`,
+      inline: false
     });
   }
 
   if (footer) {
-    e.setFooter({ 
+    e.setFooter({
       text: `${footer} • ATIVE Casino`
     });
   }
-  
+
   return e;
 }
 
@@ -156,18 +161,18 @@ class GameEngineContract {
    * @param {import("discord.js").GuildTextBasedChannel} ctx.channel
    * @param {Object} ctx.options - arbitrary options (bet, mode, etc.)
    */
-  constructor(ctx) { 
-    this.ctx = ctx; 
+  constructor(ctx) {
+    this.ctx = ctx;
   }
-  
-  async start() { 
-    throw new Error("Not implemented"); 
+
+  async start() {
+    throw new Error("Not implemented");
   }
-  
-  async handle(_actionId, _user) { 
-    throw new Error("Not implemented"); 
+
+  async handle(_actionId, _user) {
+    throw new Error("Not implemented");
   }
-  
+
   async stop() {
     // Optional cleanup
   }
