@@ -55,20 +55,29 @@ function createBaseCanvas(width, height, title) {
 
 function drawGridLabels(ctx, offsetX, offsetY) {
     ctx.fillStyle = COLORS.text;
-    ctx.font = '16px Arial';
+    ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'center';
 
-    // Columns A-J
+    // Column labels A-J with enhanced visibility
     for (let c = 0; c < GRID_SIZE; c++) {
         const x = offsetX + c * CELL_SIZE + CELL_SIZE / 2;
+        // Draw background for better visibility
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(x - 10, offsetY - 25, 20, 18);
+        ctx.fillStyle = COLORS.text;
         ctx.fillText(String.fromCharCode('A'.charCodeAt(0) + c), x, offsetY - 10);
     }
 
-    // Rows 1-10
-    ctx.textAlign = 'right';
+    // Row labels 1-10 with enhanced visibility
+    ctx.textAlign = 'center';
     for (let r = 0; r < GRID_SIZE; r++) {
-        const y = offsetY + r * CELL_SIZE + CELL_SIZE / 2 + 6;
-        ctx.fillText(String(r + 1), offsetX - 8, y);
+        const y = offsetY + r * CELL_SIZE + CELL_SIZE / 2;
+        const x = offsetX - 20;
+        // Draw background for better visibility
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(x - 12, y - 9, 24, 18);
+        ctx.fillStyle = COLORS.text;
+        ctx.fillText(String(r + 1), x, y + 6);
     }
 }
 
@@ -113,24 +122,44 @@ function drawBoard(ctx, board, options) {
             ctx.lineWidth = 1.5;
             ctx.strokeRect(x1, y1, CELL_SIZE, CELL_SIZE);
 
-            // Symbols for hits/misses
+            // Enhanced symbols for hits/misses/ships
             const cx = x1 + CELL_SIZE / 2;
             const cy = y1 + CELL_SIZE / 2;
+            
             if (cellState === 2) { // hit
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 18px Arial';
+                // Red X with white outline for better visibility
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.font = 'bold 24px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText('X', cx, cy + 6);
+                ctx.strokeText('X', cx, cy + 8);
+                ctx.fillStyle = '#ff0000';
+                ctx.fillText('X', cx, cy + 8);
             } else if (cellState === 3) { // miss
-                ctx.fillStyle = '#ffffff';
+                // White circle with dark outline
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
-                ctx.fill();
-            } else if (cellState === 4) { // sunk
+                ctx.arc(cx, cy, 8, 0, 2 * Math.PI);
                 ctx.fillStyle = '#ffffff';
-                ctx.font = '16px Arial';
+                ctx.fill();
+                ctx.stroke();
+            } else if (cellState === 4) { // sunk
+                // Skull with enhanced visibility
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.font = 'bold 20px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText('☠', cx, cy + 6);
+                ctx.strokeText('☠', cx, cy + 7);
+                ctx.fillStyle = '#ff0000';
+                ctx.fillText('☠', cx, cy + 7);
+            } else if (cellState === 1 && showShips) { // ship (when visible)
+                // Ship icon with better visibility
+                ctx.fillStyle = '#34495e';
+                ctx.fillRect(x1 + 8, y1 + 8, CELL_SIZE - 16, CELL_SIZE - 16);
+                ctx.strokeStyle = '#2c3e50';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x1 + 8, y1 + 8, CELL_SIZE - 16, CELL_SIZE - 16);
             }
         }
     }

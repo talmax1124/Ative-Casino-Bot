@@ -65,18 +65,36 @@ module.exports = {
                 last_work_ts: now
             });
 
-            const embed = new EmbedBuilder()
-                .setTitle('💼 Work Complete!')
-                .setDescription(`You worked as a ${scenario.job} and earned ${fmt(earning)}!`)
-                .addFields(
-                    { name: '💰 Earnings', value: fmt(earning), inline: true },
-                    { name: '💵 Previous Balance', value: fmt(balance.wallet), inline: true },
-                    { name: '💸 New Balance', value: fmt(newWallet), inline: true }
-                )
-                .setColor(0x0099FF)
-                .setThumbnail(interaction.user.displayAvatarURL())
-                .setFooter({ text: '💼 Work Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-                .setTimestamp();
+            // Use gameSessionKit for consistent UI styling
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            // Work details in topFields
+            const topFields = [{
+                name: '💼 WORK COMPLETED',
+                value: `**Job:** ${scenario.job}\n` +
+                       `\`\`\`fix\nEarnings: ${fmt(earning)}    Previous: ${fmt(balance.wallet)}    New Balance: ${fmt(newWallet)}\`\`\``,
+                inline: false
+            }];
+
+            // Balance information in bankFields
+            const bankFields = [
+                { name: 'Amount Earned', value: fmt(earning), inline: true },
+                { name: 'Current Balance', value: fmt(newWallet), inline: true },
+                { name: 'Next Work Available', value: 'In 1 hour', inline: true }
+            ];
+
+            // Stage text for current status
+            const stageText = 'WORK COMPLETE';
+            
+            // Build the embed using gameSessionKit
+            const embed = buildSessionEmbed({
+                title: '💼 Work Complete!',
+                topFields,
+                bankFields,
+                stageText,
+                color: 0x0099FF,
+                footer: '💼 Work • 1 hour cooldown • ATIVE Casino'
+            });
 
             await interaction.reply({ embeds: [embed] });
 

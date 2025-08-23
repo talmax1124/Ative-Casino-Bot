@@ -82,42 +82,39 @@ module.exports = {
             );
 
             if (transferResult.success) {
-                // Create success embed
-                const embed = new EmbedBuilder()
-                    .setTitle('💸 Money Transfer Successful!')
-                    .setColor(0x00FF00)
-                    .setDescription(`You sent ${fmt(amount)} to ${targetUser.displayName}`)
-                    .addFields(
-                        {
-                            name: '💰 Amount Sent',
-                            value: fmt(amount),
-                            inline: true
-                        },
-                        {
-                            name: '📦 Recipient Receives',
-                            value: fmt(netAmount),
-                            inline: true
-                        },
-                        {
-                            name: '💳 Tax (5%)',
-                            value: `${fmt(taxAmount)}\n*Goes to lottery pool*`,
-                            inline: true
-                        },
-                        {
-                            name: '💵 Your New Wallet',
-                            value: fmt(transferResult.newSenderBalance),
-                            inline: true
-                        },
-                        {
-                            name: '🎫 Lottery Pool Contribution',
-                            value: guildId === DESIGNATED_SERVER_ID ? 
-                                '✅ Added to this week\'s lottery!' : 
-                                '❌ Only applies in main server',
-                            inline: false
-                        }
-                    )
-                    .setFooter({ text: '5% of all money transfers supports the weekly lottery system!' })
-                    .setTimestamp();
+                // Get recipient's new balance for display
+                const recipientBalance = await dbManager.getUserBalance(targetUser.id, guildId);
+                
+                // Use gameSessionKit for consistent UI styling
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                // Transfer details in topFields
+                const topFields = [{
+                    name: '💸 TRANSFER DETAILS',
+                    value: `**${interaction.user.displayName}** ➜ **${targetUser.displayName}**\n` +
+                           `\`\`\`fix\nAmount Sent: ${fmt(amount)}    Recipient Gets: ${fmt(netAmount)}    Tax (5%): ${fmt(taxAmount)}\`\`\``,
+                    inline: false
+                }];
+
+                // Balance information in bankFields with horizontal layout
+                const bankFields = [
+                    { name: `${interaction.user.displayName}'s Balance`, value: fmt(transferResult.newSenderBalance), inline: true },
+                    { name: `${targetUser.displayName}'s Balance`, value: fmt(recipientBalance.wallet), inline: true },
+                    { name: 'Lottery Pool', value: guildId === DESIGNATED_SERVER_ID ? '✅ Tax Added' : '❌ Main Server Only', inline: true }
+                ];
+
+                // Stage text for current status
+                const stageText = 'TRANSFER COMPLETE';
+                
+                // Build the embed using gameSessionKit
+                const embed = buildSessionEmbed({
+                    title: '💸 Money Transfer Successful',
+                    topFields,
+                    bankFields,
+                    stageText,
+                    color: 0x00FF00,
+                    footer: '💸 SendMoney • 5% tax supports weekly lottery • ATIVE Casino'
+                });
 
                 await interaction.reply({ embeds: [embed] });
 

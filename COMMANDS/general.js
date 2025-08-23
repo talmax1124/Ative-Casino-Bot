@@ -38,20 +38,39 @@ module.exports = {
             const tier = getEconomicTier(totalBalance);
             const dailyInterest = calculateDailyInterest(balance.bank, totalBalance);
 
-            const embed = new EmbedBuilder()
-                .setTitle(`💰 ${targetUser.displayName}'s Balance`)
-                .setColor(tier.color)
-                .addFields(
-                    { name: '💵 Wallet', value: fmtFull(balance.wallet), inline: true },
-                    { name: '🏦 Bank', value: fmtFull(balance.bank), inline: true },
-                    { name: '💎 Total', value: fmtFull(totalBalance), inline: true },
-                    { name: '🎖️ Economic Tier', value: getTierDisplay(totalBalance), inline: true },
-                    { name: '💰 Daily Interest', value: dailyInterest > 0 ? fmtFull(dailyInterest) : 'None', inline: true },
-                    { name: '📊 Interest Rate', value: tier.interest > 0 ? `${(tier.interest * 100).toFixed(0)}% Annual` : 'N/A', inline: true }
-                )
-                .setThumbnail(targetUser.displayAvatarURL())
-                .setFooter({ text: '💰 Balance • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-                .setTimestamp();
+            // Use gameSessionKit for consistent UI styling
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            // Balance details in topFields
+            const topFields = [{
+                name: '💰 BALANCE OVERVIEW',
+                value: `**Player:** ${targetUser.displayName}\n` +
+                       `\`\`\`fix\nWallet: ${fmtFull(balance.wallet)}    Bank: ${fmtFull(balance.bank)}    Total: ${fmtFull(totalBalance)}\`\`\``,
+                inline: false
+            }];
+
+            // Financial information in bankFields
+            const bankFields = [
+                { name: '💵 Wallet Balance', value: fmtFull(balance.wallet), inline: true },
+                { name: '🏦 Bank Balance', value: fmtFull(balance.bank), inline: true },
+                { name: '💎 Total Worth', value: fmtFull(totalBalance), inline: true },
+                { name: '🎖️ Economic Tier', value: getTierDisplay(totalBalance), inline: true },
+                { name: '💰 Daily Interest', value: dailyInterest > 0 ? fmtFull(dailyInterest) : 'None', inline: true },
+                { name: '📊 Interest Rate', value: tier.interest > 0 ? `${(tier.interest * 100).toFixed(0)}% Annual` : 'N/A', inline: true }
+            ];
+
+            // Stage text for current status
+            const stageText = 'BALANCE CHECK';
+            
+            // Build the embed using gameSessionKit
+            const embed = buildSessionEmbed({
+                title: `💰 ${targetUser.displayName}'s Balance`,
+                topFields,
+                bankFields,
+                stageText,
+                color: tier.color,
+                footer: '💰 Balance • Economic Tier System • ATIVE Casino'
+            });
 
             await interaction.reply({ embeds: [embed] });
 

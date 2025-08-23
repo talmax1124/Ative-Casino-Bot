@@ -193,3 +193,48 @@ data.components[0].components[2].emoji.name[BUTTON_COMPONENT_INVALID_EMOJI]: Inv
     at async _REST.request (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:1307:22)
     at async registerCommands (/Users/carlosdiazplaza/ative_casino_bot/index.js:113:9)
     at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:265:9)
+2025-08-23 05:13:07 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 05:13:07 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:761:25)
+2025-08-23 05:13:10 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 05:13:10 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:767:25)
+2025-08-23 05:13:12 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 05:13:12 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:781:25)
+2025-08-23 13:52:24 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 13:52:24 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:774:25)
+2025-08-23 13:52:26 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 13:52:26 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:768:25)
+2025-08-23 18:43:37 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 18:43:37 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:768:25)
+2025-08-23 18:43:47 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 18:43:47 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:774:25)
+2025-08-23 18:49:33 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 18:49:33 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:768:25)
+2025-08-23 18:49:36 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 18:49:36 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:774:25)

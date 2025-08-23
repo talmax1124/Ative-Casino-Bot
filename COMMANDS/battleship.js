@@ -245,11 +245,36 @@ module.exports = {
                     const doneBtn = new ButtonBuilder().setCustomId('battleship_finish_placement').setLabel('Finish Placement').setStyle(ButtonStyle.Success).setDisabled(!board.allShipsPlaced());
                     const row = new ActionRowBuilder().addComponents(placeBtn, autoBtn, doneBtn);
 
-                    const embed = new EmbedBuilder()
-                        .setTitle('🚢 Ship Placement')
-                        .setDescription(currentShip ? `Select a coordinate and direction for your ${currentShip.name} (${currentShip.length}).` : 'All ships placed! Click Finish Placement.')
-                        .setImage('attachment://placement.png')
-                        .setColor(0x43A047);
+                    // Use gameSessionKit for consistent UI styling
+                    const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                    
+                    const topFields = [{
+                        name: '🚢 SHIP PLACEMENT PANEL',
+                        value: currentShip 
+                            ? `**Placing:** ${currentShip.name} (${currentShip.length} spaces)\n` +
+                              `**Instructions:** Select coordinate (A1-J10) and direction (H/V)\n` +
+                              `**Rules:** Ships cannot overlap but may touch`
+                            : `**Status:** All ships deployed successfully!\n` +
+                              `**Action:** Click Finish Placement to begin battle\n` +
+                              `**Ready:** Your fleet awaits orders`,
+                        inline: false
+                    }];
+
+                    const bankFields = [
+                        { name: '📍 Coordinate', value: 'A1 to J10\n(Letter + Number)', inline: true },
+                        { name: '🧭 Direction', value: 'H = Horizontal\nV = Vertical', inline: true },
+                        { name: '🎯 Options', value: 'Manual Place\nAuto-Place All\nFinish Setup', inline: true }
+                    ];
+
+                    const embed = buildSessionEmbed({
+                        title: '🚢 Private Ship Deployment',
+                        topFields,
+                        bankFields,
+                        stageText: currentShip ? `PLACING: ${currentShip.name.toUpperCase()}` : 'FLEET READY',
+                        color: 0x43A047,
+                        footer: 'Deploy your fleet strategically • Private placement panel • ATIVE Casino',
+                        imageUrl: 'attachment://placement.png'
+                    });
 
                     // Send ephemeral (reply if fresh, else ephemeral followUp)
                     await interaction.reply({ embeds: [embed], components: [row], files: [attachment], flags: MessageFlags.Ephemeral });
@@ -329,6 +354,12 @@ module.exports = {
                     break;
                 }
 
+                case 'help': {
+                    const helpEmbed = game.constructor.createHelpEmbed();
+                    await interaction.reply({ embeds: [helpEmbed], flags: MessageFlags.Ephemeral });
+                    break;
+                }
+
                 case 'view_board': {
                     const own = game.boards.get(user.id);
                     if (!own) {
@@ -344,7 +375,38 @@ module.exports = {
                         buffer = await renderSingleBoard(own, { title: 'Your Fleet', showShips: true });
                     }
                     const attachment = new AttachmentBuilder(buffer, { name: 'boards.png' });
-                    const embed = new EmbedBuilder().setTitle('📟 Current Boards').setImage('attachment://boards.png').setColor(0x1E88E5);
+                    
+                    // Use gameSessionKit for consistent UI styling
+                    const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                    
+                    const topFields = [{
+                        name: '📟 TACTICAL BOARD VIEW',
+                        value: opp 
+                            ? `**Left Board:** Your fleet (ships visible)\n` +
+                              `**Right Board:** Enemy waters (ships hidden)\n` +
+                              `**Symbols:** ■ = Ship, X = Hit, O = Miss, ☠ = Sunk`
+                            : `**Your Fleet:** Complete ship deployment view\n` +
+                              `**Status:** All ships positioned and ready\n` +
+                              `**Waiting:** For battle to commence`,
+                        inline: false
+                    }];
+
+                    const bankFields = [
+                        { name: '🚢 Your Fleet', value: 'Ships visible\nFull overview\nStrategic view', inline: true },
+                        { name: '🎯 Enemy Waters', value: opp ? 'Ships hidden\nAttack results shown\nTactical intel' : 'Awaiting opponent', inline: true },
+                        { name: '📊 Battle Status', value: game.state === 'playing' ? 'Combat active\nTurn-based battle\nReal-time updates' : 'Pre-battle\nDeployment phase\nStandby mode', inline: true }
+                    ];
+
+                    const embed = buildSessionEmbed({
+                        title: '📟 Tactical Command View',
+                        topFields,
+                        bankFields,
+                        stageText: 'BOARD OVERVIEW',
+                        color: 0x1E88E5,
+                        footer: 'Strategic overview • Real-time battle status • ATIVE Casino',
+                        imageUrl: 'attachment://boards.png'
+                    });
+
                     await interaction.reply({ embeds: [embed], files: [attachment], flags: MessageFlags.Ephemeral });
                     break;
                 }
@@ -391,7 +453,7 @@ module.exports = {
                 }
                 const ok = board.placeShip(currentShip, coord.row, coord.col, dir);
                 if (!ok) {
-                    await interaction.reply({ content: '❌ Cannot place ship there (out of bounds, overlap, or touching).', flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: '❌ Cannot place ship there (out of bounds or overlapping).', flags: MessageFlags.Ephemeral });
                     return;
                 }
                 board.advanceShip();
@@ -465,8 +527,12 @@ module.exports = {
                     return;
                 }
 
-                // Switch turn if miss; classic rules allow another shot on hit — we’ll keep one shot per turn for clarity
-                game.switchTurn();
+                // Switch turn only on miss (official Battleship rules)
+                // Per PDF: continue attacking after a hit
+                if (result === 'miss') {
+                    game.switchTurn();
+                }
+                // On hit or sunk, player continues their turn
 
                 const embed = game.createBattleEmbed();
                 const components = game.createGameButtons();

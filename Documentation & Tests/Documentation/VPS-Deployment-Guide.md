@@ -237,7 +237,54 @@ npm start
 # Check logs for any errors
 ```
 
-### 5.2 PM2 Process Management
+### 5.2 Screen Session Management (Recommended)
+
+Screen allows you to run the bot in a persistent terminal session that survives SSH disconnections.
+
+```bash
+# Install screen (if not already installed)
+sudo apt install screen
+
+# Create a new screen session for the bot
+screen -S ativebot
+
+# Inside the screen session, start the bot
+cd ~/ative_casino_bot
+npm start
+
+# Detach from screen session (bot keeps running)
+# Press: Ctrl+A, then D
+
+# List active screen sessions
+screen -ls
+
+# Reattach to the bot session
+screen -r ativebot
+
+# Kill a screen session (if needed)
+screen -S ativebot -X quit
+```
+
+**Screen Session Management Commands:**
+```bash
+# Start bot in a named screen session
+screen -S ativebot -dm bash -c 'cd ~/ative_casino_bot && npm start'
+
+# Check if bot is running
+screen -ls
+
+# View bot output (reattach to session)
+screen -r ativebot
+
+# Create multiple screen sessions for different purposes
+screen -S ativebot-main    # Main bot instance
+screen -S ativebot-logs    # Log monitoring
+screen -S ativebot-dev     # Development/testing
+```
+
+### 5.3 Alternative: PM2 Process Management
+
+If you prefer PM2 over screen sessions:
 
 ```bash
 # Create PM2 ecosystem file
@@ -266,8 +313,7 @@ module.exports = {
 };
 ```
 
-### 5.3 Start Production Service
-
+**PM2 Commands:**
 ```bash
 # Start bot with PM2
 pm2 start ecosystem.config.js
@@ -282,6 +328,12 @@ pm2 startup
 # Check status
 pm2 status
 pm2 logs ative-casino-bot
+
+# Restart bot
+pm2 restart ative-casino-bot
+
+# Stop bot
+pm2 stop ative-casino-bot
 ```
 
 ---
@@ -290,6 +342,25 @@ pm2 logs ative-casino-bot
 
 ### 6.1 Log Management
 
+**With Screen Sessions:**
+```bash
+# View real-time bot output (reattach to session)
+screen -r ativebot
+
+# Monitor log files in separate screen sessions
+screen -S ativebot-logs
+tail -f ~/ative_casino_bot/logs/combined.log
+
+# Detach and create another monitoring session
+# Ctrl+A, D
+screen -S ativebot-errors  
+tail -f ~/ative_casino_bot/logs/error.log
+
+# View all active monitoring sessions
+screen -ls
+```
+
+**With PM2 (Alternative):**
 ```bash
 # View real-time logs
 pm2 logs ative-casino-bot --lines 100
@@ -304,6 +375,19 @@ pm2 set pm2-logrotate:max_size 10M
 pm2 set pm2-logrotate:retain 7
 ```
 
+**General Log Commands:**
+```bash
+# Check log file sizes
+du -sh ~/ative_casino_bot/logs/*
+
+# Search for specific errors
+grep -i "error" ~/ative_casino_bot/logs/combined.log | tail -20
+
+# Monitor multiple logs simultaneously (use tmux or separate screen sessions)
+screen -S log-monitor
+# Split screen or use multiple sessions for different logs
+```
+
 ### 6.2 System Monitoring
 
 ```bash
@@ -312,11 +396,61 @@ htop
 df -h  # Disk usage
 free -h  # Memory usage
 
-# Monitor PM2 processes
+# Check if bot process is running (with screen)
+ps aux | grep node
+screen -ls | grep ativebot
+
+# Monitor PM2 processes (if using PM2)
 pm2 monit
 ```
 
-### 6.3 Bot Monitoring Commands
+### 6.3 Screen Session Management Best Practices
+
+```bash
+# Create a startup script for screen sessions
+nano ~/start-ativebot.sh
+```
+
+**start-ativebot.sh:**
+```bash
+#!/bin/bash
+cd ~/ative_casino_bot
+
+# Start main bot in screen session
+screen -S ativebot -dm bash -c 'npm start'
+
+# Start log monitoring sessions
+screen -S ativebot-logs -dm bash -c 'tail -f logs/combined.log'
+screen -S ativebot-errors -dm bash -c 'tail -f logs/error.log'
+
+echo "ATIVE Casino Bot started in screen sessions:"
+screen -ls
+```
+
+```bash
+# Make executable
+chmod +x ~/start-ativebot.sh
+
+# Create stop script
+nano ~/stop-ativebot.sh
+```
+
+**stop-ativebot.sh:**
+```bash
+#!/bin/bash
+# Kill all ativebot screen sessions
+screen -S ativebot -X quit 2>/dev/null
+screen -S ativebot-logs -X quit 2>/dev/null  
+screen -S ativebot-errors -X quit 2>/dev/null
+
+echo "All ATIVE Casino Bot screen sessions stopped"
+```
+
+```bash
+chmod +x ~/stop-ativebot.sh
+```
+
+### 6.4 Bot Monitoring Commands
 
 Use these Discord commands to monitor bot health:
 - `/dev status` - Bot status and uptime
@@ -325,9 +459,88 @@ Use these Discord commands to monitor bot health:
 
 ---
 
-## Step 7: SSL & Security (Optional)
+## Step 7: Boot Auto-Start Configuration
 
-### 7.1 Install Certbot for SSL
+### 7.1 Auto-Start with Screen Sessions (Recommended)
+
+Create a systemd service to automatically start screen sessions on boot:
+
+```bash
+# Create systemd service file
+sudo nano /etc/systemd/system/ativebot.service
+```
+
+**ativebot.service:**
+```ini
+[Unit]
+Description=ATIVE Casino Bot Screen Sessions
+After=network.target
+
+[Service]
+Type=forking
+User=ativebot
+WorkingDirectory=/home/ativebot/ative_casino_bot
+ExecStart=/home/ativebot/start-ativebot.sh
+ExecStop=/home/ativebot/stop-ativebot.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+# Enable and start the service
+sudo systemctl daemon-reload
+sudo systemctl enable ativebot.service
+sudo systemctl start ativebot.service
+
+# Check service status
+sudo systemctl status ativebot.service
+
+# Service management commands
+sudo systemctl restart ativebot.service
+sudo systemctl stop ativebot.service
+sudo systemctl disable ativebot.service
+```
+
+### 7.2 Alternative: PM2 Auto-Start
+
+If using PM2, auto-startup is built-in:
+
+```bash
+# PM2 auto-startup (already covered in Step 5.3)
+pm2 startup
+pm2 save
+```
+
+### 7.3 Screen vs PM2 Comparison
+
+**Screen Sessions (Recommended):**
+- ✅ Simple and lightweight
+- ✅ Direct access to bot output
+- ✅ Easy debugging and real-time monitoring
+- ✅ Multiple monitoring sessions
+- ✅ Manual control and transparency
+- ❌ Requires custom health checking
+- ❌ Manual restart after crashes
+
+**PM2 Process Manager:**
+- ✅ Automatic restart on crashes
+- ✅ Built-in monitoring and logging
+- ✅ Zero-downtime reloads
+- ✅ Built-in load balancing (multiple instances)
+- ❌ Additional complexity
+- ❌ Less direct access to output
+- ❌ Overhead for simple single-bot deployments
+
+**Recommendation**: Use **Screen sessions** for single bot deployments where you want direct control and easy debugging. Use **PM2** for production environments requiring high availability and automatic recovery.
+
+---
+
+## Step 8: SSL & Security (Optional)
+
+### 8.1 Install Certbot for SSL
 
 ```bash
 # Install certbot
@@ -337,7 +550,7 @@ sudo apt install certbot
 sudo certbot certonly --standalone -d your_domain.com
 ```
 
-### 7.2 Security Hardening
+### 8.2 Security Hardening
 
 ```bash
 # Disable root login
@@ -357,14 +570,16 @@ sudo systemctl enable fail2ban
 
 ---
 
-## Step 8: Automatic Updates & Backups
+## Step 9: Automatic Updates & Backups
 
-### 8.1 Update Script
+### 9.1 Update Script
 
 Create `/home/ativebot/update-bot.sh`:
 ```bash
 #!/bin/bash
 cd /home/ativebot/ative_casino_bot
+
+echo "Updating ATIVE Casino Bot..."
 
 # Pull latest changes
 git pull origin main
@@ -372,17 +587,30 @@ git pull origin main
 # Install/update dependencies
 npm install
 
-# Restart bot
-pm2 restart ative-casino-bot
-
-echo "Bot updated and restarted successfully!"
+# Restart bot based on deployment method
+if screen -ls | grep -q "ativebot"; then
+    echo "Stopping screen sessions..."
+    ~/stop-ativebot.sh
+    sleep 2
+    echo "Starting updated bot in screen..."
+    ~/start-ativebot.sh
+    echo "Bot updated and restarted in screen sessions!"
+elif command -v pm2 &> /dev/null && pm2 list | grep -q "ative-casino-bot"; then
+    echo "Restarting with PM2..."
+    pm2 restart ative-casino-bot
+    echo "Bot updated and restarted with PM2!"
+else
+    echo "No running bot instance found. Start manually with:"
+    echo "  Screen: ~/start-ativebot.sh"
+    echo "  PM2: pm2 start ecosystem.config.js"
+fi
 ```
 
 ```bash
 chmod +x update-bot.sh
 ```
 
-### 8.2 Backup Script
+### 9.2 Backup Script
 
 Create `/home/ativebot/backup-bot.sh`:
 ```bash
@@ -409,7 +637,7 @@ echo "Backup completed: bot_backup_$DATE.tar.gz"
 chmod +x backup-bot.sh
 ```
 
-### 8.3 Cron Jobs
+### 9.3 Cron Jobs
 
 ```bash
 # Edit crontab
@@ -419,15 +647,64 @@ crontab -e
 # Daily backup at 2 AM
 0 2 * * * /home/ativebot/backup-bot.sh
 
+# Check if bot is running every 5 minutes and restart if needed
+*/5 * * * * /home/ativebot/check-bot.sh
+
 # Weekly update check (optional - be careful with auto-updates)
 # 0 3 * * 0 /home/ativebot/update-bot.sh
 ```
 
+**Health Check Script** - Create `/home/ativebot/check-bot.sh`:
+```bash
+#!/bin/bash
+cd /home/ativebot/ative_casino_bot
+
+# Function to start bot with screen
+start_with_screen() {
+    echo "$(date): Starting bot with screen sessions..." >> ~/bot-health.log
+    ~/start-ativebot.sh
+}
+
+# Function to start bot with PM2
+start_with_pm2() {
+    echo "$(date): Starting bot with PM2..." >> ~/bot-health.log
+    pm2 start ecosystem.config.js
+}
+
+# Check if bot is running
+if screen -ls | grep -q "ativebot"; then
+    # Bot is running in screen - check if process is healthy
+    if ! ps aux | grep -v grep | grep -q "node.*index.js"; then
+        echo "$(date): Bot screen session exists but process not found. Restarting..." >> ~/bot-health.log
+        ~/stop-ativebot.sh
+        sleep 2
+        start_with_screen
+    fi
+elif command -v pm2 &> /dev/null && pm2 list | grep -q "ative-casino-bot"; then
+    # Bot is running with PM2 - PM2 handles health checks automatically
+    :
+else
+    # Bot is not running - start it
+    echo "$(date): Bot not running. Starting..." >> ~/bot-health.log
+    if [ -f ~/start-ativebot.sh ]; then
+        start_with_screen
+    elif [ -f ~/ative_casino_bot/ecosystem.config.js ]; then
+        start_with_pm2
+    else
+        echo "$(date): No startup method found!" >> ~/bot-health.log
+    fi
+fi
+```
+
+```bash
+chmod +x ~/check-bot.sh
+```
+
 ---
 
-## Step 9: Troubleshooting
+## Step 10: Troubleshooting
 
-### 9.1 Common Issues
+### 10.1 Common Issues
 
 **Bot won't start:**
 ```bash
@@ -437,11 +714,23 @@ node --version
 # Check permissions
 ls -la index.js
 
-# Check environment variables
-cat .env
+# Check environment variables (be careful not to expose secrets)
+ls -la .env
+# Check if .env exists and has content (don't cat it in logs)
 
 # Test Firebase connection
 node -e "console.log(require('./UTILS/firebase'))"
+
+# Check screen sessions
+screen -ls
+
+# If using screen, check what's happening in the bot session
+screen -r ativebot
+# Check for error messages, then detach with Ctrl+A, D
+
+# Check system logs
+journalctl -u ssh -f  # If having SSH issues
+dmesg | tail          # System messages
 ```
 
 **Permission errors:**
@@ -458,28 +747,71 @@ chmod 755 index.js
 ```bash
 # Check memory usage
 free -h
-pm2 show ative-casino-bot
+htop
 
-# Restart if needed
+# Check bot memory usage
+ps aux | grep node
+
+# If using screen sessions
+screen -r ativebot
+# Check for memory-related error messages
+
+# If using PM2
+pm2 show ative-casino-bot
 pm2 restart ative-casino-bot
+
+# If using screen, restart bot
+~/stop-ativebot.sh
+sleep 2
+~/start-ativebot.sh
 ```
 
-### 9.2 Log Analysis
+### 10.2 Log Analysis
 
 ```bash
 # Check for errors in logs
-grep -i "error" logs/combined.log
-grep -i "warn" logs/error.log
+grep -i "error" ~/ative_casino_bot/logs/combined.log | tail -20
+grep -i "warn" ~/ative_casino_bot/logs/error.log | tail -20
 
-# Monitor real-time errors
-tail -f logs/error.log | grep -i "error"
+# Monitor real-time errors (in separate screen sessions)
+screen -S error-monitor
+tail -f ~/ative_casino_bot/logs/error.log | grep -i "error"
+
+# Check health check logs
+tail -f ~/bot-health.log
+
+# Search for specific error patterns
+grep -i "discord" ~/ative_casino_bot/logs/combined.log | tail -10
+grep -i "firebase" ~/ative_casino_bot/logs/combined.log | tail -10
+grep -i "timeout" ~/ative_casino_bot/logs/combined.log | tail -10
+```
+
+### 10.3 Screen-Specific Troubleshooting
+
+```bash
+# List all screen sessions
+screen -ls
+
+# Check if screen sessions are orphaned
+screen -wipe
+
+# Force kill stuck screen sessions
+pkill -f "SCREEN.*ativebot"
+
+# Recreate sessions if needed
+~/stop-ativebot.sh
+~/start-ativebot.sh
+
+# Check screen session logs
+# Screen sessions don't have separate logs, check bot logs instead
+tail -f ~/ative_casino_bot/logs/combined.log
 ```
 
 ---
 
-## Step 10: Performance Optimization
+## Step 11: Performance Optimization
 
-### 10.1 Node.js Optimization
+### 11.1 Node.js Optimization
 
 ```javascript
 // Add to ecosystem.config.js
@@ -489,7 +821,7 @@ env: {
 }
 ```
 
-### 10.2 System Optimization
+### 11.2 System Optimization
 
 ```bash
 # Increase file descriptor limits
@@ -503,9 +835,9 @@ sudo sysctl -p
 
 ---
 
-## Step 11: Scaling Considerations
+## Step 12: Scaling Considerations
 
-### 11.1 Multiple Servers
+### 12.1 Multiple Servers
 
 For high-traffic bots, consider:
 - **Load Balancer**: NGINX or HAProxy
@@ -513,7 +845,7 @@ For high-traffic bots, consider:
 - **CDN**: CloudFlare for asset delivery
 - **Monitoring**: Prometheus + Grafana
 
-### 11.2 Database Optimization
+### 12.2 Database Optimization
 
 ```javascript
 // Firestore optimization

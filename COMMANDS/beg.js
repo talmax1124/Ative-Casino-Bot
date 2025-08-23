@@ -63,18 +63,36 @@ module.exports = {
                 last_beg_ts: now
             });
 
-            const embed = new EmbedBuilder()
-                .setTitle('🤲 Begging Success!')
-                .setDescription(`You approached ${scenario.person} and they ${scenario.message}!`)
-                .addFields(
-                    { name: '💰 Amount Received', value: fmt(earning), inline: true },
-                    { name: '💵 Previous Balance', value: fmt(balance.wallet), inline: true },
-                    { name: '💸 New Balance', value: fmt(newWallet), inline: true }
-                )
-                .setColor(0x32CD32)
-                .setThumbnail(interaction.user.displayAvatarURL())
-                .setFooter({ text: '🤲 Beg Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-                .setTimestamp();
+            // Use gameSessionKit for consistent UI styling
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            // Begging details in topFields
+            const topFields = [{
+                name: '🤲 BEGGING SUCCESS',
+                value: `**${scenario.person}** ${scenario.message}\n` +
+                       `\`\`\`fix\nReceived: ${fmt(earning)}    Previous: ${fmt(balance.wallet)}    New Balance: ${fmt(newWallet)}\`\`\``,
+                inline: false
+            }];
+
+            // Balance information in bankFields
+            const bankFields = [
+                { name: 'Amount Received', value: fmt(earning), inline: true },
+                { name: 'Current Balance', value: fmt(newWallet), inline: true },
+                { name: 'Next Beg Available', value: 'In 1 hour', inline: true }
+            ];
+
+            // Stage text for current status
+            const stageText = 'BEGGING SUCCESS';
+            
+            // Build the embed using gameSessionKit
+            const embed = buildSessionEmbed({
+                title: '🤲 Begging Success!',
+                topFields,
+                bankFields,
+                stageText,
+                color: 0x32CD32,
+                footer: '🤲 Beg • 1 hour cooldown • ATIVE Casino'
+            });
 
             await interaction.reply({ embeds: [embed] });
 

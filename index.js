@@ -718,6 +718,13 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('lottery_')) {
                 await handleLotteryButtons(interaction, customId);
             }
+            // Handle mystats buttons
+            else if (customId.startsWith('mystats_')) {
+                const mystatsCommand = client.commands.get('mystats');
+                if (mystatsCommand && mystatsCommand.handleButtonInteraction) {
+                    await mystatsCommand.handleButtonInteraction(interaction, customId);
+                }
+            }
             // Handle game help buttons
             else if (customId === 'slots_help') {
                 await showSlotsHelp(interaction);
@@ -742,44 +749,8 @@ client.on('interactionCreate', async interaction => {
             // Handle leaderboard buttons
             else if (customId.startsWith('leaderboard_')) {
                 const leaderboardCommand = client.commands.get('leaderboard');
-                if (leaderboardCommand) {
-                    const { getGuildId } = require('./UTILS/common');
-                    const guildId = await getGuildId(interaction);
-                    
-                    if (customId === 'leaderboard_money') {
-                        // Re-use the original command but specify category
-                        const tempInteraction = { ...interaction };
-                        tempInteraction.options = {
-                            getString: (name) => name === 'category' ? 'money' : null
-                        };
-                        await leaderboardCommand.execute(tempInteraction);
-                    } else if (customId === 'leaderboard_winloss') {
-                        const tempInteraction = { ...interaction };
-                        tempInteraction.options = {
-                            getString: (name) => name === 'category' ? 'winloss' : null
-                        };
-                        await leaderboardCommand.execute(tempInteraction);
-                    } else if (customId === 'leaderboard_tiers') {
-                        const tempInteraction = { ...interaction };
-                        tempInteraction.options = {
-                            getString: (name) => name === 'category' ? 'tiers' : null
-                        };
-                        await leaderboardCommand.execute(tempInteraction);
-                    } else if (customId === 'leaderboard_refresh') {
-                        // Get current category from embed title and refresh
-                        const embed = interaction.message.embeds[0];
-                        let category = 'money'; // default
-                        if (embed && embed.title) {
-                            if (embed.title.includes('Win/Loss')) category = 'winloss';
-                            else if (embed.title.includes('Tier')) category = 'tiers';
-                        }
-                        
-                        const tempInteraction = { ...interaction };
-                        tempInteraction.options = {
-                            getString: (name) => name === 'category' ? category : null
-                        };
-                        await leaderboardCommand.execute(tempInteraction);
-                    }
+                if (leaderboardCommand && leaderboardCommand.handleButtonInteraction) {
+                    await leaderboardCommand.handleButtonInteraction(interaction, customId);
                 }
             }
             // Handle help buttons

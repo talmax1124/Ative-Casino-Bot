@@ -62,18 +62,36 @@ module.exports = {
                 last_crime_ts: now
             });
 
-            const embed = new EmbedBuilder()
-                .setTitle('🦹 Crime Complete!')
-                .setDescription(`You successfully ${scenario.crime.toLowerCase()} and got away with ${fmt(earning)}!`)
-                .addFields(
-                    { name: '💰 Crime Earnings', value: fmt(earning), inline: true },
-                    { name: '💵 Previous Balance', value: fmt(balance.wallet), inline: true },
-                    { name: '💸 New Balance', value: fmt(newWallet), inline: true }
-                )
-                .setColor(0x8B0000)
-                .setThumbnail(interaction.user.displayAvatarURL())
-                .setFooter({ text: '🦹 Crime Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-                .setTimestamp();
+            // Use gameSessionKit for consistent UI styling
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            // Crime details in topFields
+            const topFields = [{
+                name: '🦹 CRIME COMPLETE',
+                value: `**${scenario.crime}**\n` +
+                       `\`\`\`fix\nEarnings: ${fmt(earning)}    Previous: ${fmt(balance.wallet)}    New Balance: ${fmt(newWallet)}\`\`\``,
+                inline: false
+            }];
+
+            // Balance information in bankFields
+            const bankFields = [
+                { name: 'Crime Earnings', value: fmt(earning), inline: true },
+                { name: 'Current Balance', value: fmt(newWallet), inline: true },
+                { name: 'Next Crime Available', value: 'In 30 minutes', inline: true }
+            ];
+
+            // Stage text for current status
+            const stageText = 'CRIME SUCCESS';
+            
+            // Build the embed using gameSessionKit
+            const embed = buildSessionEmbed({
+                title: '🦹 Crime Complete!',
+                topFields,
+                bankFields,
+                stageText,
+                color: 0x8B0000,
+                footer: '🦹 Crime • 30 minute cooldown • ATIVE Casino'
+            });
 
             await interaction.reply({ embeds: [embed] });
 

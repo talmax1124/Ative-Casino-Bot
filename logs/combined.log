@@ -6348,3 +6348,611 @@ data.components[0].components[2].emoji.name[BUTTON_COMPONENT_INVALID_EMOJI]: Inv
 2025-08-23 05:09:43 [INFO]: Lottery system initialized successfully
 2025-08-23 05:09:43 [INFO]: Sent development announcement to logs channel
 2025-08-23 05:09:47 [INFO]: Startup notification sent successfully
+2025-08-23 05:11:20 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-23 05:11:21 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-23 05:11:21 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-23 05:11:21 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-23 05:11:21 [INFO]: 🚀 Firebase app initialized
+2025-08-23 05:11:21 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-23 05:11:21 [INFO]: Firebase database manager initialized
+2025-08-23 05:11:21 [INFO]: Database initialized successfully
+2025-08-23 05:11:21 [INFO]: Loaded command: addmoney
+2025-08-23 05:11:21 [INFO]: Loaded command: battleship
+2025-08-23 05:11:21 [INFO]: Loaded command: beg
+2025-08-23 05:11:21 [INFO]: Loaded command: bingo
+2025-08-23 05:11:21 [INFO]: Loaded command: blackjack
+2025-08-23 05:11:21 [INFO]: Loaded command: crash
+2025-08-23 05:11:21 [INFO]: Loaded command: crime
+2025-08-23 05:11:21 [INFO]: Loaded command: deposit
+2025-08-23 05:11:21 [INFO]: Loaded command: status
+2025-08-23 05:11:21 [INFO]: Loaded command: reload
+2025-08-23 05:11:21 [INFO]: Loaded command: logs
+2025-08-23 05:11:21 [INFO]: Loaded command: cog
+2025-08-23 05:11:21 [INFO]: Loaded command: duck
+2025-08-23 05:11:21 [INFO]: Loaded command: fishing
+2025-08-23 05:11:21 [INFO]: Loaded command: balance
+2025-08-23 05:11:21 [INFO]: Loaded command: heist
+2025-08-23 05:11:21 [INFO]: Loaded command: help
+2025-08-23 05:11:21 [INFO]: Loaded command: leaderboard
+2025-08-23 05:11:21 [INFO]: Loaded command: lottery
+2025-08-23 05:11:21 [INFO]: Loaded command: multi-slots
+2025-08-23 05:11:21 [INFO]: Loaded command: panel
+2025-08-23 05:11:21 [INFO]: Loaded command: plinko
+2025-08-23 05:11:21 [INFO]: Loaded command: polls
+2025-08-23 05:11:21 [INFO]: Loaded command: purchaselottery
+2025-08-23 05:11:21 [INFO]: Loaded command: rob
+2025-08-23 05:11:21 [INFO]: Loaded command: rps
+2025-08-23 05:11:21 [INFO]: Loaded command: sendmoney
+2025-08-23 05:11:21 [INFO]: Loaded command: setup
+2025-08-23 05:11:21 [INFO]: Loaded command: slots
+2025-08-23 05:11:21 [INFO]: Loaded command: stopcrash
+2025-08-23 05:11:21 [INFO]: Loaded command: stopgame
+2025-08-23 05:11:21 [INFO]: Loaded command: uno
+2025-08-23 05:11:21 [INFO]: Loaded command: updatelotterypanel
+2025-08-23 05:11:21 [INFO]: Loaded command: withdraw
+2025-08-23 05:11:21 [INFO]: Loaded command: wordchain
+2025-08-23 05:11:21 [INFO]: Loaded command: work
+2025-08-23 05:11:21 [INFO]: Started refreshing application (/) commands
+2025-08-23 05:11:21 [INFO]: Successfully reloaded 36 application (/) commands
+2025-08-23 05:11:21 [INFO]: Loaded 36 commands
+2025-08-23 05:11:21 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 29 hours)
+2025-08-23 05:11:21 [INFO]: Hourly lottery panel updates scheduled
+2025-08-23 05:11:21 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-23 05:11:21 [INFO]: Lottery system initialized successfully
+2025-08-23 05:11:21 [INFO]: Sent development announcement to logs channel
+2025-08-23 05:11:25 [INFO]: Startup notification sent successfully
+2025-08-23 05:11:32 [INFO]: Initial lottery panel update completed
+2025-08-23 05:12:03 [INFO]: Updated balance for user 466050111680544798: wallet_change=[object Object], bank_change=0
+2025-08-23 05:12:03 [INFO]: Fishing game created for Creative with bet 10000
+2025-08-23 05:12:03 [INFO]: Fishing game started: Creative (466050111680544798) bet 10000
+2025-08-23 05:12:19 [INFO]: Creative stopped fishing with 5 catches and winnings 17200.301703173755
+2025-08-23 05:13:07 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 05:13:07 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:761:25)
+2025-08-23 05:13:10 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 05:13:10 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:767:25)
+2025-08-23 05:13:12 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 05:13:12 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:781:25)
+2025-08-23 13:49:16 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-23 13:49:17 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-23 13:49:17 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-23 13:49:17 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-23 13:49:17 [INFO]: 🚀 Firebase app initialized
+2025-08-23 13:49:17 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-23 13:49:17 [INFO]: Firebase database manager initialized
+2025-08-23 13:49:17 [INFO]: Database initialized successfully
+2025-08-23 13:49:17 [INFO]: Loaded command: addmoney
+2025-08-23 13:49:17 [INFO]: Loaded command: battleship
+2025-08-23 13:49:17 [INFO]: Loaded command: beg
+2025-08-23 13:49:17 [INFO]: Loaded command: bingo
+2025-08-23 13:49:17 [INFO]: Loaded command: blackjack
+2025-08-23 13:49:17 [INFO]: Loaded command: crash
+2025-08-23 13:49:17 [INFO]: Loaded command: crime
+2025-08-23 13:49:17 [INFO]: Loaded command: deposit
+2025-08-23 13:49:17 [INFO]: Loaded command: status
+2025-08-23 13:49:17 [INFO]: Loaded command: reload
+2025-08-23 13:49:17 [INFO]: Loaded command: logs
+2025-08-23 13:49:17 [INFO]: Loaded command: cog
+2025-08-23 13:49:17 [INFO]: Loaded command: duck
+2025-08-23 13:49:17 [INFO]: Loaded command: fishing
+2025-08-23 13:49:17 [INFO]: Loaded command: balance
+2025-08-23 13:49:17 [INFO]: Loaded command: heist
+2025-08-23 13:49:17 [INFO]: Loaded command: help
+2025-08-23 13:49:17 [INFO]: Loaded command: leaderboard
+2025-08-23 13:49:17 [INFO]: Loaded command: lottery
+2025-08-23 13:49:17 [INFO]: Loaded command: multi-slots
+2025-08-23 13:49:17 [INFO]: Loaded command: mystats
+2025-08-23 13:49:17 [INFO]: Loaded command: panel
+2025-08-23 13:49:17 [INFO]: Loaded command: plinko
+2025-08-23 13:49:17 [INFO]: Loaded command: polls
+2025-08-23 13:49:17 [INFO]: Loaded command: purchaselottery
+2025-08-23 13:49:17 [INFO]: Loaded command: rob
+2025-08-23 13:49:17 [INFO]: Loaded command: rps
+2025-08-23 13:49:17 [INFO]: Loaded command: sendmoney
+2025-08-23 13:49:17 [INFO]: Loaded command: setup
+2025-08-23 13:49:17 [INFO]: Loaded command: slots
+2025-08-23 13:49:17 [INFO]: Loaded command: stopcrash
+2025-08-23 13:49:17 [INFO]: Loaded command: stopgame
+2025-08-23 13:49:17 [INFO]: Loaded command: uno
+2025-08-23 13:49:17 [INFO]: Loaded command: updatelotterypanel
+2025-08-23 13:49:17 [INFO]: Loaded command: withdraw
+2025-08-23 13:49:17 [INFO]: Loaded command: wordchain
+2025-08-23 13:49:17 [INFO]: Loaded command: work
+2025-08-23 13:49:17 [INFO]: Started refreshing application (/) commands
+2025-08-23 13:49:17 [INFO]: Successfully reloaded 37 application (/) commands
+2025-08-23 13:49:17 [INFO]: Loaded 37 commands
+2025-08-23 13:49:17 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 20 hours)
+2025-08-23 13:49:17 [INFO]: Hourly lottery panel updates scheduled
+2025-08-23 13:49:17 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-23 13:49:17 [INFO]: Lottery system initialized successfully
+2025-08-23 13:49:17 [INFO]: Sent development announcement to logs channel
+2025-08-23 13:49:21 [INFO]: Startup notification sent successfully
+2025-08-23 13:50:08 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-23 13:50:08 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-23 13:50:08 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-23 13:50:08 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-23 13:50:08 [INFO]: 🚀 Firebase app initialized
+2025-08-23 13:50:08 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-23 13:50:08 [INFO]: Firebase database manager initialized
+2025-08-23 13:50:08 [INFO]: Database initialized successfully
+2025-08-23 13:50:08 [INFO]: Loaded command: addmoney
+2025-08-23 13:50:08 [INFO]: Loaded command: battleship
+2025-08-23 13:50:08 [INFO]: Loaded command: beg
+2025-08-23 13:50:08 [INFO]: Loaded command: bingo
+2025-08-23 13:50:08 [INFO]: Loaded command: blackjack
+2025-08-23 13:50:08 [INFO]: Loaded command: crash
+2025-08-23 13:50:08 [INFO]: Loaded command: crime
+2025-08-23 13:50:08 [INFO]: Loaded command: deposit
+2025-08-23 13:50:08 [INFO]: Loaded command: status
+2025-08-23 13:50:08 [INFO]: Loaded command: reload
+2025-08-23 13:50:08 [INFO]: Loaded command: logs
+2025-08-23 13:50:08 [INFO]: Loaded command: cog
+2025-08-23 13:50:08 [INFO]: Loaded command: duck
+2025-08-23 13:50:08 [INFO]: Loaded command: fishing
+2025-08-23 13:50:08 [INFO]: Loaded command: balance
+2025-08-23 13:50:08 [INFO]: Loaded command: heist
+2025-08-23 13:50:08 [INFO]: Loaded command: help
+2025-08-23 13:50:08 [INFO]: Loaded command: leaderboard
+2025-08-23 13:50:08 [INFO]: Loaded command: lottery
+2025-08-23 13:50:08 [INFO]: Loaded command: multi-slots
+2025-08-23 13:50:08 [INFO]: Loaded command: mystats
+2025-08-23 13:50:08 [INFO]: Loaded command: panel
+2025-08-23 13:50:08 [INFO]: Loaded command: plinko
+2025-08-23 13:50:08 [INFO]: Loaded command: polls
+2025-08-23 13:50:08 [INFO]: Loaded command: purchaselottery
+2025-08-23 13:50:08 [INFO]: Loaded command: rob
+2025-08-23 13:50:08 [INFO]: Loaded command: rps
+2025-08-23 13:50:08 [INFO]: Loaded command: sendmoney
+2025-08-23 13:50:08 [INFO]: Loaded command: setup
+2025-08-23 13:50:08 [INFO]: Loaded command: slots
+2025-08-23 13:50:08 [INFO]: Loaded command: stopcrash
+2025-08-23 13:50:08 [INFO]: Loaded command: stopgame
+2025-08-23 13:50:08 [INFO]: Loaded command: uno
+2025-08-23 13:50:08 [INFO]: Loaded command: updatelotterypanel
+2025-08-23 13:50:08 [INFO]: Loaded command: withdraw
+2025-08-23 13:50:08 [INFO]: Loaded command: wordchain
+2025-08-23 13:50:08 [INFO]: Loaded command: work
+2025-08-23 13:50:08 [INFO]: Started refreshing application (/) commands
+2025-08-23 13:50:08 [INFO]: Successfully reloaded 37 application (/) commands
+2025-08-23 13:50:08 [INFO]: Loaded 37 commands
+2025-08-23 13:50:08 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 20 hours)
+2025-08-23 13:50:08 [INFO]: Hourly lottery panel updates scheduled
+2025-08-23 13:50:08 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-23 13:50:08 [INFO]: Lottery system initialized successfully
+2025-08-23 13:50:09 [INFO]: Sent development announcement to logs channel
+2025-08-23 13:50:13 [INFO]: Startup notification sent successfully
+2025-08-23 13:50:19 [INFO]: Initial lottery panel update completed
+2025-08-23 13:50:56 [INFO]: Updated balance for user 466050111680544798: wallet_change=[object Object], bank_change=0
+2025-08-23 13:50:56 [INFO]: Fishing game created for Creative with bet 10000
+2025-08-23 13:50:57 [INFO]: Fishing game started: Creative (466050111680544798) bet 10000
+2025-08-23 13:51:10 [INFO]: Creative stopped fishing with 2 catches and winnings 10760.538117190747
+2025-08-23 13:52:24 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 13:52:24 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:774:25)
+2025-08-23 13:52:26 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 13:52:26 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:768:25)
+2025-08-23 13:52:32 [INFO]: Updated balance for user 1009220009739960411: wallet_change=-9995000, bank_change=9995000
+2025-08-23 13:52:32 [INFO]: User 045𖣂 (1009220009739960411) deposited $9,995,000.00 to bank
+2025-08-23 13:59:53 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-23 13:59:54 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-23 13:59:54 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-23 13:59:54 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-23 13:59:54 [INFO]: 🚀 Firebase app initialized
+2025-08-23 13:59:54 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-23 13:59:54 [INFO]: Firebase database manager initialized
+2025-08-23 13:59:54 [INFO]: Database initialized successfully
+2025-08-23 13:59:54 [INFO]: Loaded command: addmoney
+2025-08-23 13:59:54 [INFO]: Loaded command: battleship
+2025-08-23 13:59:54 [INFO]: Loaded command: beg
+2025-08-23 13:59:54 [INFO]: Loaded command: bingo
+2025-08-23 13:59:54 [INFO]: Loaded command: blackjack
+2025-08-23 13:59:54 [INFO]: Loaded command: crash
+2025-08-23 13:59:54 [INFO]: Loaded command: crime
+2025-08-23 13:59:54 [INFO]: Loaded command: deposit
+2025-08-23 13:59:54 [INFO]: Loaded command: status
+2025-08-23 13:59:54 [INFO]: Loaded command: reload
+2025-08-23 13:59:54 [INFO]: Loaded command: logs
+2025-08-23 13:59:54 [INFO]: Loaded command: cog
+2025-08-23 13:59:54 [INFO]: Loaded command: duck
+2025-08-23 13:59:54 [INFO]: Loaded command: fishing
+2025-08-23 13:59:54 [INFO]: Loaded command: balance
+2025-08-23 13:59:54 [INFO]: Loaded command: heist
+2025-08-23 13:59:54 [INFO]: Loaded command: help
+2025-08-23 13:59:54 [INFO]: Loaded command: leaderboard
+2025-08-23 13:59:54 [INFO]: Loaded command: lottery
+2025-08-23 13:59:54 [INFO]: Loaded command: multi-slots
+2025-08-23 13:59:54 [INFO]: Loaded command: mystats
+2025-08-23 13:59:54 [INFO]: Loaded command: panel
+2025-08-23 13:59:54 [INFO]: Loaded command: plinko
+2025-08-23 13:59:54 [INFO]: Loaded command: polls
+2025-08-23 13:59:54 [INFO]: Loaded command: purchaselottery
+2025-08-23 13:59:54 [INFO]: Loaded command: rob
+2025-08-23 13:59:54 [INFO]: Loaded command: rps
+2025-08-23 13:59:54 [INFO]: Loaded command: sendmoney
+2025-08-23 13:59:54 [INFO]: Loaded command: setup
+2025-08-23 13:59:54 [INFO]: Loaded command: slots
+2025-08-23 13:59:54 [INFO]: Loaded command: stopcrash
+2025-08-23 13:59:54 [INFO]: Loaded command: stopgame
+2025-08-23 13:59:54 [INFO]: Loaded command: uno
+2025-08-23 13:59:54 [INFO]: Loaded command: updatelotterypanel
+2025-08-23 13:59:54 [INFO]: Loaded command: withdraw
+2025-08-23 13:59:54 [INFO]: Loaded command: wordchain
+2025-08-23 13:59:54 [INFO]: Loaded command: work
+2025-08-23 13:59:54 [INFO]: Started refreshing application (/) commands
+2025-08-23 13:59:54 [INFO]: Successfully reloaded 37 application (/) commands
+2025-08-23 13:59:54 [INFO]: Loaded 37 commands
+2025-08-23 13:59:54 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 20 hours)
+2025-08-23 13:59:54 [INFO]: Hourly lottery panel updates scheduled
+2025-08-23 13:59:54 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-23 13:59:54 [INFO]: Lottery system initialized successfully
+2025-08-23 13:59:54 [INFO]: Sent development announcement to logs channel
+2025-08-23 13:59:58 [INFO]: Startup notification sent successfully
+2025-08-23 18:41:42 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-23 18:41:42 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-23 18:41:42 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-23 18:41:42 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-23 18:41:42 [INFO]: 🚀 Firebase app initialized
+2025-08-23 18:41:42 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-23 18:41:42 [INFO]: Firebase database manager initialized
+2025-08-23 18:41:42 [INFO]: Database initialized successfully
+2025-08-23 18:41:42 [INFO]: Loaded command: addmoney
+2025-08-23 18:41:42 [INFO]: Loaded command: battleship
+2025-08-23 18:41:42 [INFO]: Loaded command: beg
+2025-08-23 18:41:42 [INFO]: Loaded command: bingo
+2025-08-23 18:41:42 [INFO]: Loaded command: blackjack
+2025-08-23 18:41:42 [INFO]: Loaded command: crash
+2025-08-23 18:41:42 [INFO]: Loaded command: crime
+2025-08-23 18:41:42 [INFO]: Loaded command: deposit
+2025-08-23 18:41:42 [INFO]: Loaded command: status
+2025-08-23 18:41:42 [INFO]: Loaded command: reload
+2025-08-23 18:41:42 [INFO]: Loaded command: logs
+2025-08-23 18:41:42 [INFO]: Loaded command: cog
+2025-08-23 18:41:42 [INFO]: Loaded command: duck
+2025-08-23 18:41:42 [INFO]: Loaded command: fishing
+2025-08-23 18:41:42 [INFO]: Loaded command: balance
+2025-08-23 18:41:42 [INFO]: Loaded command: heist
+2025-08-23 18:41:42 [INFO]: Loaded command: help
+2025-08-23 18:41:42 [INFO]: Loaded command: leaderboard
+2025-08-23 18:41:42 [INFO]: Loaded command: lottery
+2025-08-23 18:41:42 [INFO]: Loaded command: multi-slots
+2025-08-23 18:41:42 [INFO]: Loaded command: mystats
+2025-08-23 18:41:42 [INFO]: Loaded command: panel
+2025-08-23 18:41:42 [INFO]: Loaded command: plinko
+2025-08-23 18:41:42 [INFO]: Loaded command: polls
+2025-08-23 18:41:42 [INFO]: Loaded command: purchaselottery
+2025-08-23 18:41:42 [INFO]: Loaded command: rob
+2025-08-23 18:41:42 [INFO]: Loaded command: rps
+2025-08-23 18:41:42 [INFO]: Loaded command: sendmoney
+2025-08-23 18:41:42 [INFO]: Loaded command: setup
+2025-08-23 18:41:42 [INFO]: Loaded command: slots
+2025-08-23 18:41:42 [INFO]: Loaded command: stopcrash
+2025-08-23 18:41:42 [INFO]: Loaded command: stopgame
+2025-08-23 18:41:42 [INFO]: Loaded command: uno
+2025-08-23 18:41:42 [INFO]: Loaded command: updatelotterypanel
+2025-08-23 18:41:42 [INFO]: Loaded command: withdraw
+2025-08-23 18:41:42 [INFO]: Loaded command: wordchain
+2025-08-23 18:41:42 [INFO]: Loaded command: work
+2025-08-23 18:41:42 [INFO]: Started refreshing application (/) commands
+2025-08-23 18:41:43 [INFO]: Successfully reloaded 37 application (/) commands
+2025-08-23 18:41:43 [INFO]: Loaded 37 commands
+2025-08-23 18:41:43 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 15 hours)
+2025-08-23 18:41:43 [INFO]: Hourly lottery panel updates scheduled
+2025-08-23 18:41:43 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-23 18:41:43 [INFO]: Lottery system initialized successfully
+2025-08-23 18:41:43 [INFO]: Sent development announcement to logs channel
+2025-08-23 18:41:47 [INFO]: Startup notification sent successfully
+2025-08-23 18:42:35 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-23 18:42:36 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-23 18:42:36 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-23 18:42:36 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-23 18:42:36 [INFO]: 🚀 Firebase app initialized
+2025-08-23 18:42:36 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-23 18:42:36 [INFO]: Firebase database manager initialized
+2025-08-23 18:42:36 [INFO]: Database initialized successfully
+2025-08-23 18:42:36 [INFO]: Loaded command: addmoney
+2025-08-23 18:42:36 [INFO]: Loaded command: battleship
+2025-08-23 18:42:36 [INFO]: Loaded command: beg
+2025-08-23 18:42:36 [INFO]: Loaded command: bingo
+2025-08-23 18:42:36 [INFO]: Loaded command: blackjack
+2025-08-23 18:42:36 [INFO]: Loaded command: crash
+2025-08-23 18:42:36 [INFO]: Loaded command: crime
+2025-08-23 18:42:36 [INFO]: Loaded command: deposit
+2025-08-23 18:42:36 [INFO]: Loaded command: status
+2025-08-23 18:42:36 [INFO]: Loaded command: reload
+2025-08-23 18:42:36 [INFO]: Loaded command: logs
+2025-08-23 18:42:36 [INFO]: Loaded command: cog
+2025-08-23 18:42:36 [INFO]: Loaded command: duck
+2025-08-23 18:42:36 [INFO]: Loaded command: fishing
+2025-08-23 18:42:36 [INFO]: Loaded command: balance
+2025-08-23 18:42:36 [INFO]: Loaded command: heist
+2025-08-23 18:42:36 [INFO]: Loaded command: help
+2025-08-23 18:42:36 [INFO]: Loaded command: leaderboard
+2025-08-23 18:42:36 [INFO]: Loaded command: lottery
+2025-08-23 18:42:36 [INFO]: Loaded command: multi-slots
+2025-08-23 18:42:36 [INFO]: Loaded command: mystats
+2025-08-23 18:42:36 [INFO]: Loaded command: panel
+2025-08-23 18:42:36 [INFO]: Loaded command: plinko
+2025-08-23 18:42:36 [INFO]: Loaded command: polls
+2025-08-23 18:42:36 [INFO]: Loaded command: purchaselottery
+2025-08-23 18:42:36 [INFO]: Loaded command: rob
+2025-08-23 18:42:36 [INFO]: Loaded command: rps
+2025-08-23 18:42:36 [INFO]: Loaded command: sendmoney
+2025-08-23 18:42:36 [INFO]: Loaded command: setup
+2025-08-23 18:42:36 [INFO]: Loaded command: slots
+2025-08-23 18:42:36 [INFO]: Loaded command: stopcrash
+2025-08-23 18:42:36 [INFO]: Loaded command: stopgame
+2025-08-23 18:42:36 [INFO]: Loaded command: uno
+2025-08-23 18:42:36 [INFO]: Loaded command: updatelotterypanel
+2025-08-23 18:42:36 [INFO]: Loaded command: withdraw
+2025-08-23 18:42:36 [INFO]: Loaded command: wordchain
+2025-08-23 18:42:36 [INFO]: Loaded command: work
+2025-08-23 18:42:36 [INFO]: Started refreshing application (/) commands
+2025-08-23 18:42:36 [INFO]: Successfully reloaded 37 application (/) commands
+2025-08-23 18:42:36 [INFO]: Loaded 37 commands
+2025-08-23 18:42:36 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 15 hours)
+2025-08-23 18:42:36 [INFO]: Hourly lottery panel updates scheduled
+2025-08-23 18:42:36 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-23 18:42:36 [INFO]: Lottery system initialized successfully
+2025-08-23 18:42:36 [INFO]: Sent development announcement to logs channel
+2025-08-23 18:42:40 [INFO]: Startup notification sent successfully
+2025-08-23 18:42:47 [INFO]: Initial lottery panel update completed
+2025-08-23 18:43:37 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 18:43:37 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:768:25)
+2025-08-23 18:43:47 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 18:43:47 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:774:25)
+2025-08-23 18:45:55 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-23 18:47:30 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-23 18:47:31 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-23 18:47:31 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-23 18:47:31 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-23 18:47:31 [INFO]: 🚀 Firebase app initialized
+2025-08-23 18:47:31 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-23 18:47:31 [INFO]: Firebase database manager initialized
+2025-08-23 18:47:31 [INFO]: Database initialized successfully
+2025-08-23 18:47:31 [INFO]: Loaded command: addmoney
+2025-08-23 18:47:31 [INFO]: Loaded command: battleship
+2025-08-23 18:47:31 [INFO]: Loaded command: beg
+2025-08-23 18:47:31 [INFO]: Loaded command: bingo
+2025-08-23 18:47:31 [INFO]: Loaded command: blackjack
+2025-08-23 18:47:31 [INFO]: Loaded command: crash
+2025-08-23 18:47:31 [INFO]: Loaded command: crime
+2025-08-23 18:47:31 [INFO]: Loaded command: deposit
+2025-08-23 18:47:31 [INFO]: Loaded command: status
+2025-08-23 18:47:31 [INFO]: Loaded command: reload
+2025-08-23 18:47:31 [INFO]: Loaded command: logs
+2025-08-23 18:47:31 [INFO]: Loaded command: cog
+2025-08-23 18:47:31 [INFO]: Loaded command: duck
+2025-08-23 18:47:31 [INFO]: Loaded command: fishing
+2025-08-23 18:47:31 [INFO]: Loaded command: balance
+2025-08-23 18:47:31 [INFO]: Loaded command: heist
+2025-08-23 18:47:31 [INFO]: Loaded command: help
+2025-08-23 18:47:31 [INFO]: Loaded command: leaderboard
+2025-08-23 18:47:31 [INFO]: Loaded command: lottery
+2025-08-23 18:47:31 [INFO]: Loaded command: multi-slots
+2025-08-23 18:47:31 [INFO]: Loaded command: mystats
+2025-08-23 18:47:31 [INFO]: Loaded command: panel
+2025-08-23 18:47:31 [INFO]: Loaded command: plinko
+2025-08-23 18:47:31 [INFO]: Loaded command: polls
+2025-08-23 18:47:31 [INFO]: Loaded command: purchaselottery
+2025-08-23 18:47:31 [INFO]: Loaded command: rob
+2025-08-23 18:47:31 [INFO]: Loaded command: rps
+2025-08-23 18:47:31 [INFO]: Loaded command: sendmoney
+2025-08-23 18:47:31 [INFO]: Loaded command: setup
+2025-08-23 18:47:31 [INFO]: Loaded command: slots
+2025-08-23 18:47:31 [INFO]: Loaded command: stopcrash
+2025-08-23 18:47:31 [INFO]: Loaded command: stopgame
+2025-08-23 18:47:31 [INFO]: Loaded command: uno
+2025-08-23 18:47:31 [INFO]: Loaded command: updatelotterypanel
+2025-08-23 18:47:31 [INFO]: Loaded command: withdraw
+2025-08-23 18:47:31 [INFO]: Loaded command: wordchain
+2025-08-23 18:47:31 [INFO]: Loaded command: work
+2025-08-23 18:47:31 [INFO]: Started refreshing application (/) commands
+2025-08-23 18:47:31 [INFO]: Successfully reloaded 37 application (/) commands
+2025-08-23 18:47:31 [INFO]: Loaded 37 commands
+2025-08-23 18:47:31 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 15 hours)
+2025-08-23 18:47:31 [INFO]: Hourly lottery panel updates scheduled
+2025-08-23 18:47:31 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-23 18:47:31 [INFO]: Lottery system initialized successfully
+2025-08-23 18:47:31 [INFO]: Sent development announcement to logs channel
+2025-08-23 18:47:35 [INFO]: Startup notification sent successfully
+2025-08-23 18:48:14 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-23 18:48:14 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-23 18:48:14 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-23 18:48:14 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-23 18:48:14 [INFO]: 🚀 Firebase app initialized
+2025-08-23 18:48:14 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-23 18:48:14 [INFO]: Firebase database manager initialized
+2025-08-23 18:48:14 [INFO]: Database initialized successfully
+2025-08-23 18:48:14 [INFO]: Loaded command: addmoney
+2025-08-23 18:48:14 [INFO]: Loaded command: battleship
+2025-08-23 18:48:14 [INFO]: Loaded command: beg
+2025-08-23 18:48:14 [INFO]: Loaded command: bingo
+2025-08-23 18:48:14 [INFO]: Loaded command: blackjack
+2025-08-23 18:48:14 [INFO]: Loaded command: crash
+2025-08-23 18:48:14 [INFO]: Loaded command: crime
+2025-08-23 18:48:14 [INFO]: Loaded command: deposit
+2025-08-23 18:48:14 [INFO]: Loaded command: status
+2025-08-23 18:48:14 [INFO]: Loaded command: reload
+2025-08-23 18:48:14 [INFO]: Loaded command: logs
+2025-08-23 18:48:14 [INFO]: Loaded command: cog
+2025-08-23 18:48:14 [INFO]: Loaded command: duck
+2025-08-23 18:48:14 [INFO]: Loaded command: fishing
+2025-08-23 18:48:14 [INFO]: Loaded command: balance
+2025-08-23 18:48:14 [INFO]: Loaded command: heist
+2025-08-23 18:48:14 [INFO]: Loaded command: help
+2025-08-23 18:48:14 [INFO]: Loaded command: leaderboard
+2025-08-23 18:48:14 [INFO]: Loaded command: lottery
+2025-08-23 18:48:14 [INFO]: Loaded command: multi-slots
+2025-08-23 18:48:14 [INFO]: Loaded command: mystats
+2025-08-23 18:48:14 [INFO]: Loaded command: panel
+2025-08-23 18:48:14 [INFO]: Loaded command: plinko
+2025-08-23 18:48:14 [INFO]: Loaded command: polls
+2025-08-23 18:48:14 [INFO]: Loaded command: purchaselottery
+2025-08-23 18:48:14 [INFO]: Loaded command: rob
+2025-08-23 18:48:14 [INFO]: Loaded command: rps
+2025-08-23 18:48:14 [INFO]: Loaded command: sendmoney
+2025-08-23 18:48:14 [INFO]: Loaded command: setup
+2025-08-23 18:48:14 [INFO]: Loaded command: slots
+2025-08-23 18:48:14 [INFO]: Loaded command: stopcrash
+2025-08-23 18:48:14 [INFO]: Loaded command: stopgame
+2025-08-23 18:48:14 [INFO]: Loaded command: uno
+2025-08-23 18:48:14 [INFO]: Loaded command: updatelotterypanel
+2025-08-23 18:48:14 [INFO]: Loaded command: withdraw
+2025-08-23 18:48:14 [INFO]: Loaded command: wordchain
+2025-08-23 18:48:14 [INFO]: Loaded command: work
+2025-08-23 18:48:14 [INFO]: Started refreshing application (/) commands
+2025-08-23 18:48:15 [INFO]: Successfully reloaded 37 application (/) commands
+2025-08-23 18:48:15 [INFO]: Loaded 37 commands
+2025-08-23 18:48:15 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 15 hours)
+2025-08-23 18:48:15 [INFO]: Hourly lottery panel updates scheduled
+2025-08-23 18:48:15 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-23 18:48:15 [INFO]: Lottery system initialized successfully
+2025-08-23 18:48:15 [INFO]: Sent development announcement to logs channel
+2025-08-23 18:48:19 [INFO]: Startup notification sent successfully
+2025-08-23 18:48:25 [INFO]: Initial lottery panel update completed
+2025-08-23 18:49:33 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 18:49:33 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:768:25)
+2025-08-23 18:49:36 [ERROR]: Error in leaderboard command: interaction.deferReply is not a function
+2025-08-23 18:49:36 [ERROR]: TypeError: Cannot read properties of undefined (reading 'user')
+    at Object.execute (/Users/carlosdiazplaza/ative_casino_bot/COMMANDS/leaderboard.js:55:96)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:774:25)
+2025-08-23 18:50:05 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-23 18:50:07 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-23 18:50:08 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-23 18:50:08 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-23 18:50:08 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-23 18:50:08 [INFO]: 🚀 Firebase app initialized
+2025-08-23 18:50:08 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-23 18:50:08 [INFO]: Firebase database manager initialized
+2025-08-23 18:50:08 [INFO]: Database initialized successfully
+2025-08-23 18:50:08 [INFO]: Loaded command: addmoney
+2025-08-23 18:50:08 [INFO]: Loaded command: battleship
+2025-08-23 18:50:08 [INFO]: Loaded command: beg
+2025-08-23 18:50:08 [INFO]: Loaded command: bingo
+2025-08-23 18:50:08 [INFO]: Loaded command: blackjack
+2025-08-23 18:50:08 [INFO]: Loaded command: crash
+2025-08-23 18:50:08 [INFO]: Loaded command: crime
+2025-08-23 18:50:08 [INFO]: Loaded command: deposit
+2025-08-23 18:50:08 [INFO]: Loaded command: status
+2025-08-23 18:50:08 [INFO]: Loaded command: reload
+2025-08-23 18:50:08 [INFO]: Loaded command: logs
+2025-08-23 18:50:08 [INFO]: Loaded command: cog
+2025-08-23 18:50:08 [INFO]: Loaded command: duck
+2025-08-23 18:50:08 [INFO]: Loaded command: fishing
+2025-08-23 18:50:08 [INFO]: Loaded command: balance
+2025-08-23 18:50:08 [INFO]: Loaded command: heist
+2025-08-23 18:50:08 [INFO]: Loaded command: help
+2025-08-23 18:50:08 [INFO]: Loaded command: leaderboard
+2025-08-23 18:50:08 [INFO]: Loaded command: lottery
+2025-08-23 18:50:08 [INFO]: Loaded command: multi-slots
+2025-08-23 18:50:08 [INFO]: Loaded command: mystats
+2025-08-23 18:50:08 [INFO]: Loaded command: panel
+2025-08-23 18:50:08 [INFO]: Loaded command: plinko
+2025-08-23 18:50:08 [INFO]: Loaded command: polls
+2025-08-23 18:50:08 [INFO]: Loaded command: purchaselottery
+2025-08-23 18:50:08 [INFO]: Loaded command: rob
+2025-08-23 18:50:08 [INFO]: Loaded command: rps
+2025-08-23 18:50:08 [INFO]: Loaded command: sendmoney
+2025-08-23 18:50:08 [INFO]: Loaded command: setup
+2025-08-23 18:50:08 [INFO]: Loaded command: slots
+2025-08-23 18:50:08 [INFO]: Loaded command: stopcrash
+2025-08-23 18:50:08 [INFO]: Loaded command: stopgame
+2025-08-23 18:50:08 [INFO]: Loaded command: uno
+2025-08-23 18:50:08 [INFO]: Loaded command: updatelotterypanel
+2025-08-23 18:50:08 [INFO]: Loaded command: withdraw
+2025-08-23 18:50:08 [INFO]: Loaded command: wordchain
+2025-08-23 18:50:08 [INFO]: Loaded command: work
+2025-08-23 18:50:08 [INFO]: Started refreshing application (/) commands
+2025-08-23 18:50:08 [INFO]: Successfully reloaded 37 application (/) commands
+2025-08-23 18:50:08 [INFO]: Loaded 37 commands
+2025-08-23 18:50:08 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 15 hours)
+2025-08-23 18:50:08 [INFO]: Hourly lottery panel updates scheduled
+2025-08-23 18:50:08 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-23 18:50:08 [INFO]: Lottery system initialized successfully
+2025-08-23 18:50:08 [INFO]: Sent development announcement to logs channel
+2025-08-23 18:50:12 [INFO]: Startup notification sent successfully
+2025-08-23 18:50:19 [INFO]: Initial lottery panel update completed
+2025-08-23 18:50:32 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-23 18:50:32 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-23 18:50:32 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-23 18:50:32 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-23 18:50:32 [INFO]: 🚀 Firebase app initialized
+2025-08-23 18:50:32 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-23 18:50:32 [INFO]: Firebase database manager initialized
+2025-08-23 18:50:32 [INFO]: Database initialized successfully
+2025-08-23 18:50:33 [INFO]: Loaded command: addmoney
+2025-08-23 18:50:33 [INFO]: Loaded command: battleship
+2025-08-23 18:50:33 [INFO]: Loaded command: beg
+2025-08-23 18:50:33 [INFO]: Loaded command: bingo
+2025-08-23 18:50:33 [INFO]: Loaded command: blackjack
+2025-08-23 18:50:33 [INFO]: Loaded command: crash
+2025-08-23 18:50:33 [INFO]: Loaded command: crime
+2025-08-23 18:50:33 [INFO]: Loaded command: deposit
+2025-08-23 18:50:33 [INFO]: Loaded command: status
+2025-08-23 18:50:33 [INFO]: Loaded command: reload
+2025-08-23 18:50:33 [INFO]: Loaded command: logs
+2025-08-23 18:50:33 [INFO]: Loaded command: cog
+2025-08-23 18:50:33 [INFO]: Loaded command: duck
+2025-08-23 18:50:33 [INFO]: Loaded command: fishing
+2025-08-23 18:50:33 [INFO]: Loaded command: balance
+2025-08-23 18:50:33 [INFO]: Loaded command: heist
+2025-08-23 18:50:33 [INFO]: Loaded command: help
+2025-08-23 18:50:33 [INFO]: Loaded command: leaderboard
+2025-08-23 18:50:33 [INFO]: Loaded command: lottery
+2025-08-23 18:50:33 [INFO]: Loaded command: multi-slots
+2025-08-23 18:50:33 [INFO]: Loaded command: mystats
+2025-08-23 18:50:33 [INFO]: Loaded command: panel
+2025-08-23 18:50:33 [INFO]: Loaded command: plinko
+2025-08-23 18:50:33 [INFO]: Loaded command: polls
+2025-08-23 18:50:33 [INFO]: Loaded command: purchaselottery
+2025-08-23 18:50:33 [INFO]: Loaded command: rob
+2025-08-23 18:50:33 [INFO]: Loaded command: rps
+2025-08-23 18:50:33 [INFO]: Loaded command: sendmoney
+2025-08-23 18:50:33 [INFO]: Loaded command: setup
+2025-08-23 18:50:33 [INFO]: Loaded command: slots
+2025-08-23 18:50:33 [INFO]: Loaded command: stopcrash
+2025-08-23 18:50:33 [INFO]: Loaded command: stopgame
+2025-08-23 18:50:33 [INFO]: Loaded command: uno
+2025-08-23 18:50:33 [INFO]: Loaded command: updatelotterypanel
+2025-08-23 18:50:33 [INFO]: Loaded command: withdraw
+2025-08-23 18:50:33 [INFO]: Loaded command: wordchain
+2025-08-23 18:50:33 [INFO]: Loaded command: work
+2025-08-23 18:50:33 [INFO]: Started refreshing application (/) commands
+2025-08-23 18:50:33 [INFO]: Successfully reloaded 37 application (/) commands
+2025-08-23 18:50:33 [INFO]: Loaded 37 commands
+2025-08-23 18:50:33 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 15 hours)
+2025-08-23 18:50:33 [INFO]: Hourly lottery panel updates scheduled
+2025-08-23 18:50:33 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-23 18:50:33 [INFO]: Lottery system initialized successfully
+2025-08-23 18:50:33 [INFO]: Sent development announcement to logs channel
+2025-08-23 18:50:37 [INFO]: Startup notification sent successfully
+2025-08-23 18:52:36 [INFO]: Updated balance for user 466050111680544798: wallet_change=[object Object], bank_change=0
+2025-08-23 18:52:36 [INFO]: Fishing game created for Creative with bet 10000
+2025-08-23 18:52:36 [INFO]: Fishing game started: Creative (466050111680544798) bet 10000
+2025-08-23 18:52:52 [INFO]: Creative caught red fish and lost everything on catch 5
+2025-08-23 18:57:55 [INFO]: Set balance for user 466050111680544798: wallet=10450244857.57293, bank=999393992872178.8
+2025-08-23 19:01:41 [INFO]: Set balance for user 466050111680544798: wallet=10450245861.57293, bank=999393992872178.8
+2025-08-23 19:02:54 [INFO]: Received SIGINT, shutting down gracefully...

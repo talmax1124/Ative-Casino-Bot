@@ -855,7 +855,7 @@ class DatabaseManager {
                 if (totalBalance > 0) { // Only include users with positive balance
                     users.push({
                         user_id: doc.id,
-                        username: data.username || 'Unknown',
+                        username: data.username || null, // Keep null to trigger Discord lookup
                         wallet: parseFloat(data.wallet) || 0,
                         bank: parseFloat(data.bank) || 0,
                         total_balance: totalBalance,
@@ -898,7 +898,7 @@ class DatabaseManager {
                 if (totalWins > 0 || totalLosses > 0) { // Only include users with game history
                     users.push({
                         user_id: doc.id,
-                        username: data.username || 'Unknown',
+                        username: data.username || null, // Keep null to trigger Discord lookup
                         total_wins: totalWins,
                         total_losses: totalLosses,
                         total_games: totalWins + totalLosses,

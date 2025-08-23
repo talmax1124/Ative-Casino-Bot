@@ -263,105 +263,9 @@ const logsCommand = {
 
 
 
-const stopCrashCommand = {
-    data: new SlashCommandBuilder()
-        .setName('stopcrash')
-        .setDescription('Stop active crash games (Developer only)')
-        .addChannelOption(option =>
-            option.setName('channel')
-                .setDescription('Channel to stop crash game in (optional - shows list if not provided)')
-                .setRequired(false)
-        ),
-
-    async execute(interaction) {
-        if (!isDeveloper(interaction.user.id)) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Permission Denied')
-                .setDescription('This command is restricted to the developer.')
-                .setColor(0xFF0000);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
-
-        const targetChannel = interaction.options.getChannel('channel');
-        const { getAllActiveCrashGames, stopCrashGame } = require('../GAMES/crash');
-        const activeGames = getAllActiveCrashGames();
-
-        if (activeGames.length === 0) {
-            const embed = new EmbedBuilder()
-                .setTitle('🚀 No Active Crash Games')
-                .setDescription('No crash games are currently running.')
-                .setColor(0xFFFF00);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
-
-        if (targetChannel) {
-            // Stop specific channel's crash game
-            const result = await stopCrashGame(interaction.guildId, targetChannel.id);
-            
-            if (!result.success) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ No Active Game')
-                    .setDescription(`No crash game found in ${targetChannel}.`)
-                    .setColor(0xFF0000);
-                
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            }
-
-            const embed = new EmbedBuilder()
-                .setTitle('🛑 Crash Game Stopped')
-                .setDescription(result.message)
-                .setColor(0x00FF00)
-                .setTimestamp();
-            
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            
-            logger.info(`Developer ${interaction.user.tag} stopped crash game in channel ${targetChannel.id}`);
-            
-        } else {
-            // Show list of active crash games for selection
-            if (activeGames.length > 25) {
-                const embed = new EmbedBuilder()
-                    .setTitle('⚠️ Too Many Active Games')
-                    .setDescription(`There are ${activeGames.length} active crash games. Please specify a channel directly.`)
-                    .setColor(0xFFFF00);
-                
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            }
-
-            const options = [];
-            for (const game of activeGames) {
-                const channel = await interaction.client.channels.fetch(game.channelId).catch(() => null);
-                const channelName = channel ? `#${channel.name}` : `Channel ${game.channelId}`;
-                
-                options.push({
-                    label: `${channelName} (${game.playersCount} players)`,
-                    description: `${game.state.toUpperCase()} - Stop crash game in ${channelName}`,
-                    value: game.regKey
-                });
-            }
-
-            const selectMenu = new StringSelectMenuBuilder()
-                .setCustomId('stop_crash_select')
-                .setPlaceholder('Select a crash game to stop')
-                .addOptions(options);
-
-            const row = new ActionRowBuilder().addComponents(selectMenu);
-
-            const embed = new EmbedBuilder()
-                .setTitle('🚀 Active Crash Games')
-                .setDescription(`Found ${activeGames.length} active crash game(s). Select one to stop:`)
-                .setColor(0x0099FF);
-
-            await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
-        }
-    }
-};
-
-// Interaction handler for stop crash select menu
-const stopCrashSelectHandler = {
-    customId: 'stop_crash_select',
+// Interaction handler for dev stop game select menu
+const devStopGameSelectHandler = {
+    customId: 'dev_stop_game_select',
     async execute(interaction) {
         if (!isDeveloper(interaction.user.id)) {
             const embed = new EmbedBuilder()
@@ -372,37 +276,69 @@ const stopCrashSelectHandler = {
             return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
-        const regKey = interaction.values[0];
-        const [guildId, channelId] = regKey.split(':');
-        const { stopCrashGame } = require('../GAMES/crash');
-        
-        const result = await stopCrashGame(guildId, channelId);
+        const [userId, gameType, channelId] = interaction.values[0].split(':');
+        const { getAllActiveGames, clearActiveGame } = require('../UTILS/common');
+        const activeGames = getAllActiveGames();
+        const userGame = activeGames.find(game => game.userId === userId);
 
-        if (!result.success) {
+        if (!userGame) {
             const embed = new EmbedBuilder()
                 .setTitle('❌ Game Not Found')
-                .setDescription('The selected crash game is no longer active.')
+                .setDescription('The selected user no longer has an active game.')
                 .setColor(0xFF0000);
             
             return await interaction.update({ embeds: [embed], components: [] });
         }
 
+        // Handle crash games specifically
+        if (gameType === 'crash' && channelId) {
+            try {
+                const { stopCrashGame } = require('../GAMES/crash');
+                await stopCrashGame(interaction.guildId, channelId);
+            } catch (error) {
+                logger.warn(`Failed to stop crash game: ${error.message}`);
+            }
+        }
+
+        // Try to stop wordchain instance if applicable
+        try {
+            if (gameType === 'wordchain') {
+                const wc = require('./wordchain');
+                if (wc && typeof wc.forceStop === 'function') {
+                    await wc.forceStop(userId);
+                }
+            }
+        } catch (e) {
+            logger.warn(`Failed to force stop wordchain: ${e.message}`);
+        }
+
+        clearActiveGame(userId);
+
+        let userName = `User ${userId}`;
+        try {
+            const user = await interaction.client.users.fetch(userId);
+            userName = user.displayName;
+        } catch (error) {
+            // Use fallback name if user not found
+        }
+
         const embed = new EmbedBuilder()
-            .setTitle('🛑 Crash Game Stopped')
-            .setDescription(result.message)
+            .setTitle('🛑 Game Stopped')
+            .setDescription(`Successfully stopped ${gameType} game for ${userName}.`)
             .setColor(0x00FF00)
             .setTimestamp();
         
         await interaction.update({ embeds: [embed], components: [] });
         
-        logger.info(`Developer ${interaction.user.tag} stopped crash game in channel ${channelId}`);
+        logger.info(`Developer ${interaction.user.tag} stopped ${gameType} game for user ${userId}`);
     }
 };
 
-const cogCommand = {
+// Add dev panel functionality for command management (formerly /cog)
+const devPanelCommand = {
     data: new SlashCommandBuilder()
-        .setName('cog')
-        .setDescription('Manage command cogs (Enable/Disable commands) (Developer only)')
+        .setName('dev')
+        .setDescription('Developer control panel')
         .addSubcommand(subcommand =>
             subcommand
                 .setName('disable')
@@ -427,8 +363,49 @@ const cogCommand = {
         )
         .addSubcommand(subcommand =>
             subcommand
-                .setName('list')
+                .setName('commands')
                 .setDescription('List all commands and their status')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('status')
+                .setDescription('Show bot status and system information')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('logs')
+                .setDescription('View recent logs')
+                .addIntegerOption(option =>
+                    option.setName('lines')
+                        .setDescription('Number of lines to show (default: 20)')
+                        .setMinValue(1)
+                        .setMaxValue(100)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('reload')
+                .setDescription('Reload a command')
+                .addStringOption(option =>
+                    option.setName('command')
+                        .setDescription('Command name to reload')
+                        .setRequired(true)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('updatelottery')
+                .setDescription('Update the lottery information panel in the lottery channel')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('stopgame')
+                .setDescription('Stop active games for users')
+                .addUserOption(option =>
+                    option.setName('user')
+                        .setDescription('User to stop game for (optional - shows list if not provided)')
+                        .setRequired(false)
+                )
         ),
 
     async execute(interaction) {
@@ -459,7 +436,7 @@ const cogCommand = {
                 }
 
                 // Prevent disabling essential commands
-                const protectedCommands = ['cog', 'status'];
+                const protectedCommands = ['dev', 'status'];
                 if (protectedCommands.includes(commandName)) {
                     const embed = new EmbedBuilder()
                         .setTitle('🔒 Protected Command')
@@ -517,7 +494,7 @@ const cogCommand = {
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 logger.info(`Developer ${interaction.user.tag} enabled command: ${commandName}`);
 
-            } else if (subcommand === 'list') {
+            } else if (subcommand === 'commands') {
                 const allCommands = Array.from(interaction.client.commands.keys()).sort();
                 const enabledCommands = allCommands.filter(cmd => !disabledCogs.has(cmd));
                 const disabledCommands = allCommands.filter(cmd => disabledCogs.has(cmd));
@@ -537,7 +514,7 @@ const cogCommand = {
                 }
 
                 const embed = new EmbedBuilder()
-                    .setTitle('⚙️ Command Cog Status')
+                    .setTitle('⚙️ Command Status')
                     .setDescription(description)
                     .setColor(0x0099FF)
                     .addFields(
@@ -548,14 +525,132 @@ const cogCommand = {
                     .setTimestamp();
 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+
+            } else if (subcommand === 'status') {
+                // Execute status command functionality
+                await statusCommand.execute(interaction);
+                
+            } else if (subcommand === 'logs') {
+                // Execute logs command functionality
+                await logsCommand.execute(interaction);
+                
+            } else if (subcommand === 'reload') {
+                // Execute reload command functionality
+                await reloadCommand.execute(interaction);
+                
+            } else if (subcommand === 'updatelottery') {
+                // Execute update lottery panel functionality
+                await updateLotteryPanelCommand.execute(interaction);
+                
+            } else if (subcommand === 'stopgame') {
+                // Execute stop game functionality
+                const targetUser = interaction.options.getUser('user');
+                const { getAllActiveGames, clearActiveGame } = require('../UTILS/common');
+                const activeGames = getAllActiveGames();
+
+                if (activeGames.length === 0) {
+                    const embed = new EmbedBuilder()
+                        .setTitle('🎮 No Active Games')
+                        .setDescription('There are currently no active games to stop.')
+                        .setColor(0x0099FF);
+                    
+                    return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                }
+
+                if (targetUser) {
+                    // Stop specific user's game
+                    const userActiveGame = activeGames.find(game => game.userId === targetUser.id);
+                    
+                    if (!userActiveGame) {
+                        const embed = new EmbedBuilder()
+                            .setTitle('❌ No Active Game')
+                            .setDescription(`${targetUser.displayName} does not have any active games.`)
+                            .setColor(0xFF0000);
+                        
+                        return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                    }
+
+                    // Handle crash games specifically
+                    if (userActiveGame.gameType === 'crash') {
+                        try {
+                            const { stopCrashGame } = require('../GAMES/crash');
+                            await stopCrashGame(interaction.guildId, userActiveGame.channelId);
+                        } catch (error) {
+                            logger.warn(`Failed to stop crash game: ${error.message}`);
+                        }
+                    }
+
+                    // Try to stop wordchain instance if applicable
+                    try {
+                        if (userActiveGame.gameType === 'wordchain') {
+                            const wc = require('./wordchain');
+                            if (wc && typeof wc.forceStop === 'function') {
+                                await wc.forceStop(targetUser.id);
+                            }
+                        }
+                    } catch (e) {
+                        logger.warn(`Failed to force stop wordchain: ${e.message}`);
+                    }
+
+                    clearActiveGame(targetUser.id);
+                    
+                    const embed = new EmbedBuilder()
+                        .setTitle('🛑 Game Stopped')
+                        .setDescription(`Successfully stopped ${userActiveGame.gameType} game for ${targetUser.displayName}.`)
+                        .setColor(0x00FF00)
+                        .setTimestamp();
+                    
+                    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                    
+                    logger.info(`Developer ${interaction.user.tag} stopped ${userActiveGame.gameType} game for user ${targetUser.id}`);
+                    
+                } else {
+                    // Show list of active games for selection
+                    const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+                    const options = [];
+                    
+                    for (const game of activeGames.slice(0, 25)) { // Discord limit
+                        try {
+                            const user = await interaction.client.users.fetch(game.userId);
+                            const channelInfo = game.channelId ? ` in <#${game.channelId}>` : '';
+                            options.push({
+                                label: `${user.displayName} - ${game.gameType}`,
+                                description: `Stop ${game.gameType} game for ${user.displayName}${channelInfo}`,
+                                value: `${game.userId}:${game.gameType}:${game.channelId || ''}`
+                            });
+                        } catch (error) {
+                            // User not found, use ID instead
+                            const channelInfo = game.channelId ? ` in <#${game.channelId}>` : '';
+                            options.push({
+                                label: `User ${game.userId} - ${game.gameType}`,
+                                description: `Stop ${game.gameType} game for user${channelInfo}`,
+                                value: `${game.userId}:${game.gameType}:${game.channelId || ''}`
+                            });
+                        }
+                    }
+
+                    const selectMenu = new StringSelectMenuBuilder()
+                        .setCustomId('dev_stop_game_select')
+                        .setPlaceholder('Select a game to stop')
+                        .addOptions(options);
+
+                    const row = new ActionRowBuilder().addComponents(selectMenu);
+
+                    const embed = new EmbedBuilder()
+                        .setTitle('🎮 Active Games')
+                        .setDescription(`Found ${activeGames.length} active game(s). Select a game to stop:`)
+                        .setColor(0x0099FF);
+
+                    await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
+                }
             }
 
         } catch (error) {
-            logger.error(`Error in cog command: ${error.message}`);
+            logger.error(`Error in dev command: ${error.message}`);
             
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Error')
-                .setDescription('An error occurred while managing command cogs.')
+                .setDescription('An error occurred in the dev panel.')
                 .setColor(0xFF0000);
 
             await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
@@ -567,33 +662,114 @@ const cogCommand = {
             return await interaction.respond([]);
         }
 
-        const focusedValue = interaction.options.getFocused().toLowerCase();
         const subcommand = interaction.options.getSubcommand();
         
-        let commandChoices = [];
-        const allCommands = Array.from(interaction.client.commands.keys());
+        if (subcommand === 'disable' || subcommand === 'enable') {
+            const focusedValue = interaction.options.getFocused().toLowerCase();
+            let commandChoices = [];
+            const allCommands = Array.from(interaction.client.commands.keys());
 
-        if (subcommand === 'disable') {
-            // Show only enabled commands (excluding protected ones)
-            const protectedCommands = ['cog', 'status'];
-            commandChoices = allCommands.filter(cmd => 
-                !disabledCogs.has(cmd) && 
-                !protectedCommands.includes(cmd) &&
+            if (subcommand === 'disable') {
+                // Show only enabled commands (excluding protected ones)
+                const protectedCommands = ['dev', 'status'];
+                commandChoices = allCommands.filter(cmd => 
+                    !disabledCogs.has(cmd) && 
+                    !protectedCommands.includes(cmd) &&
+                    cmd.toLowerCase().includes(focusedValue)
+                );
+            } else if (subcommand === 'enable') {
+                // Show only disabled commands
+                commandChoices = allCommands.filter(cmd => 
+                    disabledCogs.has(cmd) && 
+                    cmd.toLowerCase().includes(focusedValue)
+                );
+            }
+
+            const response = commandChoices
+                .slice(0, 25) // Discord limit
+                .map(cmd => ({ name: cmd, value: cmd }));
+
+            await interaction.respond(response);
+        } else if (subcommand === 'reload') {
+            // Show all commands for reload
+            const focusedValue = interaction.options.getFocused().toLowerCase();
+            const allCommands = Array.from(interaction.client.commands.keys());
+            const commandChoices = allCommands.filter(cmd => 
                 cmd.toLowerCase().includes(focusedValue)
             );
-        } else if (subcommand === 'enable') {
-            // Show only disabled commands
-            commandChoices = allCommands.filter(cmd => 
-                disabledCogs.has(cmd) && 
-                cmd.toLowerCase().includes(focusedValue)
-            );
+
+            const response = commandChoices
+                .slice(0, 25)
+                .map(cmd => ({ name: cmd, value: cmd }));
+
+            await interaction.respond(response);
+        }
+    }
+};
+
+// Add update lottery panel command to dev panel
+const updateLotteryPanelCommand = {
+    data: new SlashCommandBuilder()
+        .setName('updatelotterypanel')
+        .setDescription('Update the lottery information panel in the lottery channel (Developer only)'),
+
+    async execute(interaction) {
+        if (!isDeveloper(interaction.user.id)) {
+            const embed = new EmbedBuilder()
+                .setTitle('❌ Permission Denied')
+                .setDescription('This command is restricted to the developer.')
+                .setColor(0xFF0000);
+            
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
-        const response = commandChoices
-            .slice(0, 25) // Discord limit
-            .map(cmd => ({ name: cmd, value: cmd }));
+        const { updateLotteryPanel, LOTTERY_CHANNEL_ID, DESIGNATED_SERVER_ID } = require('../UTILS/lottery');
+        const dbManager = require('../UTILS/database');
+        const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
+        
+        const guildId = await getGuildId(interaction);
+        
+        // Only work in the designated server
+        if (guildId !== DESIGNATED_SERVER_ID) {
+            await interaction.reply({
+                content: '❌ This command can only be used in the designated lottery server.',
+                ephemeral: true
+            });
+            return;
+        }
 
-        await interaction.respond(response);
+        try {
+            await interaction.deferReply({ ephemeral: true });
+
+            // Get current lottery info
+            const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+            
+            // Import the updateLotteryPanel command functionality
+            const updateLotteryPanelModule = require('./updateLotteryPanel');
+            
+            // Create the lottery panel
+            await updateLotteryPanelModule.createLotteryPanel(interaction, lotteryInfo);
+
+            await interaction.editReply({
+                content: '✅ Lottery panel has been updated successfully in the lottery channel!'
+            });
+
+            // Log the action
+            await sendLogMessage(
+                interaction.client,
+                'admin',
+                `Lottery panel updated by ${interaction.user.displayName} in channel <#${LOTTERY_CHANNEL_ID}>`,
+                interaction.user.id,
+                guildId
+            );
+
+        } catch (error) {
+            logger.error(`Error updating lottery panel: ${error.message}`);
+            
+            await interaction.editReply({
+                content: '❌ An error occurred while updating the lottery panel. Please check the logs for details.'
+            });
+        }
     }
 };
 
@@ -602,20 +778,23 @@ function isCommandDisabled(commandName) {
     return disabledCogs.has(commandName);
 }
 
-// Export multiple commands
+// Export the unified dev command
 module.exports = {
-    data: statusCommand.data,
-    execute: statusCommand.execute,
+    data: devPanelCommand.data,
+    execute: devPanelCommand.execute,
+    autocomplete: devPanelCommand.autocomplete,
+    
+    // Keep individual commands for internal use
+    statusCommand,
     reloadCommand,
     logsCommand,
-    stopCrashCommand,
-    cogCommand,
+    updateLotteryPanelCommand,
     
     // Helper functions
     isCommandDisabled,
     
     // Interaction handlers
     selectMenuHandlers: {
-        stop_crash_select: stopCrashSelectHandler
+        dev_stop_game_select: devStopGameSelectHandler
     }
 };

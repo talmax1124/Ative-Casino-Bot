@@ -60,26 +60,92 @@ module.exports = {
                 await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
         }
+    },
+
+    /**
+     * Handle button interactions for leaderboard navigation
+     */
+    async handleButtonInteraction(interaction, customId) {
+        try {
+            await interaction.deferUpdate();
+            
+            const guildId = interaction.guildId || 'global';
+            
+            if (customId === 'leaderboard_money') {
+                await showMoneyLeaderboard(interaction, guildId, true);
+            } else if (customId === 'leaderboard_winloss') {
+                await showWinLossLeaderboard(interaction, guildId, true);
+            } else if (customId === 'leaderboard_tiers') {
+                await showTierInformation(interaction, true);
+            } else if (customId === 'leaderboard_refresh') {
+                // Get current category from embed title and refresh
+                const embed = interaction.message.embeds[0];
+                let category = 'money'; // default
+                if (embed && embed.title) {
+                    if (embed.title.includes('Win/Loss')) category = 'winloss';
+                    else if (embed.title.includes('Tier')) category = 'tiers';
+                }
+                
+                if (category === 'money') {
+                    await showMoneyLeaderboard(interaction, guildId, true);
+                } else if (category === 'winloss') {
+                    await showWinLossLeaderboard(interaction, guildId, true);
+                } else if (category === 'tiers') {
+                    await showTierInformation(interaction, true);
+                }
+            }
+        } catch (error) {
+            logger.error(`Error handling leaderboard button interaction: ${error.message}`);
+            
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Button Error')
+                .setDescription('Unable to process button action. Please try again.')
+                .setColor(0xFF0000)
+                .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+
+            try {
+                await interaction.editReply({ embeds: [errorEmbed], components: [] });
+            } catch {
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
+        }
     }
 };
 
 /**
  * Display money leaderboard organized by economic tiers
  */
-async function showMoneyLeaderboard(interaction, guildId) {
+async function showMoneyLeaderboard(interaction, guildId, isButtonUpdate = false) {
+    const DEVELOPER_ID = '466050111680544798'; // Exclude developer from money rankings
+    
     // Get all users with balances in this guild
     const users = await dbManager.getTopUsersByBalance(guildId, 50); // Get top 50 users
     
     if (!users || users.length === 0) {
-        const embed = new EmbedBuilder()
-            .setTitle('💰 Money Leaderboard')
-            .setDescription('No users found with balances in this server.')
-            .setColor(0xFFD700)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
-            .setFooter({ text: '💰 Money Rankings • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+        
+        const embed = buildSessionEmbed({
+            title: '💰 Money Leaderboard',
+            topFields: [{
+                name: '📊 NO DATA FOUND',
+                value: 'No users found with balances in this server.\nStart playing games to appear on the leaderboard!',
+                inline: false
+            }],
+            bankFields: [],
+            stageText: 'EMPTY LEADERBOARD',
+            color: 0xFFD700,
+            footer: 'Money Rankings • ATIVE Casino Bot'
+        });
 
-        return await interaction.editReply({ embeds: [embed] });
+        if (isButtonUpdate) {
+            return await interaction.editReply({ embeds: [embed] });
+        } else {
+            return await interaction.editReply({ embeds: [embed] });
+        }
     }
+
+    // Filter out developer from money leaderboard
+    const filteredUsers = users.filter(user => user.user_id !== DEVELOPER_ID);
 
     // Group users by economic tiers
     const tiers = getAllTiers().reverse(); // Start with highest tiers
@@ -91,7 +157,7 @@ async function showMoneyLeaderboard(interaction, guildId) {
     }
 
     // Categorize users by their economic tier
-    for (const user of users) {
+    for (const user of filteredUsers) {
         const totalBalance = (user.wallet || 0) + (user.bank || 0);
         const tier = getEconomicTier(totalBalance);
         
@@ -109,17 +175,15 @@ async function showMoneyLeaderboard(interaction, guildId) {
         tierGroups[tierKey].sort((a, b) => b.totalBalance - a.totalBalance);
     }
 
-    // Build embed
-    const embed = new EmbedBuilder()
-        .setTitle('💰 Money Leaderboard - Economic Tiers')
-        .setDescription('Rankings organized by economic tiers based on total balance (Wallet + Bank)')
-        .setColor(0xFFD700)
-        .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ text: '💰 Money Rankings • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-        .setTimestamp();
-
+    // Build embed using gameSessionKit for consistent styling
+    const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+    
+    const topFields = [];
+    const bankFields = [];
+    
     let overallRank = 1;
     let hasResults = false;
+    let totalPlayersShown = 0;
 
     // Add fields for each tier with users
     for (const tier of tiers) {
@@ -134,26 +198,68 @@ async function showMoneyLeaderboard(interaction, guildId) {
             const user = tierUsers[i];
             const medal = overallRank <= 3 ? ['🥇', '🥈', '🥉'][overallRank - 1] : `#${overallRank}`;
             
-            tierText += `${medal} **${user.username || 'Unknown'}**\n`;
-            tierText += `   💰 ${fmtFull(user.totalBalance)} (💵 ${fmt(user.wallet || 0)} | 🏦 ${fmt(user.bank || 0)})\n`;
+            // Try to get username from Discord if not available
+            let displayName = user.username;
+            if (!displayName || displayName === 'Unknown') {
+                try {
+                    const discordUser = await interaction.client.users.fetch(user.user_id);
+                    displayName = discordUser.displayName || discordUser.username || 'Unknown User';
+                } catch {
+                    displayName = `User ${user.user_id.slice(-4)}`;
+                }
+            }
+            
+            // More horizontal layout - players on same line where possible
+            tierText += `${medal} **${displayName}** - ${fmtFull(user.totalBalance)}`;
+            
+            // Add line break every 2 players for better organization
+            if ((i + 1) % 2 === 0 || i === Math.min(tierUsers.length, maxUsersPerTier) - 1) {
+                tierText += '\n';
+            } else {
+                tierText += '  •  ';
+            }
             
             overallRank++;
+            totalPlayersShown++;
         }
 
         if (tierUsers.length > maxUsersPerTier) {
-            tierText += `\n*...and ${tierUsers.length - maxUsersPerTier} more in this tier*`;
+            tierText += `*...and ${tierUsers.length - maxUsersPerTier} more in this tier*\n`;
         }
 
-        embed.addFields({
-            name: `${tier.emoji} ${tier.name} Tier (${fmtFull(tier.min)} - ${tier.max === Infinity ? '∞' : fmtFull(tier.max)})`,
-            value: tierText || 'No users in this tier',
+        // Add tier section with horizontal layout using codeblocks for better spacing
+        if (tierText.trim()) {
+            topFields.push({
+                name: `${tier.emoji} ${tier.name.toUpperCase()} TIER`,
+                value: `\`\`\`fix\n${fmtFull(tier.min)} - ${tier.max === Infinity ? '∞' : fmtFull(tier.max)} | ${tierUsers.length} players\n\`\`\`\n${tierText.trim()}`,
+                inline: false
+            });
+        }
+    }
+
+    // Add summary to banking section
+    bankFields.push(
+        { name: 'Total Players', value: totalPlayersShown.toString(), inline: true },
+        { name: 'Top Tier', value: hasResults ? tiers.find(t => tierGroups[t.key].length > 0)?.name || 'None' : 'None', inline: true },
+        { name: 'Total Tiers', value: tiers.filter(t => tierGroups[t.key].length > 0).length.toString(), inline: true }
+    );
+
+    if (!hasResults) {
+        topFields.push({
+            name: '📊 NO PLAYERS FOUND',
+            value: 'No users found with positive balances to display.\nStart playing games to appear on the leaderboard!',
             inline: false
         });
     }
 
-    if (!hasResults) {
-        embed.setDescription('No users found with positive balances to display.');
-    }
+    const embed = buildSessionEmbed({
+        title: '💰 Money Leaderboard - Economic Tiers',
+        topFields,
+        bankFields: hasResults ? bankFields : [],
+        stageText: hasResults ? 'MONEY RANKINGS' : 'EMPTY LEADERBOARD',
+        color: 0xFFD700, // Gold color for money leaderboard
+        footer: 'Money Rankings • Developer excluded • ATIVE Casino'
+    });
 
     // Add navigation buttons
     const buttons = new ActionRowBuilder()
@@ -172,51 +278,84 @@ async function showMoneyLeaderboard(interaction, guildId) {
                 .setStyle(ButtonStyle.Primary)
         );
 
-    await interaction.editReply({ embeds: [embed], components: [buttons] });
+    if (isButtonUpdate) {
+        await interaction.editReply({ embeds: [embed], components: [buttons] });
+    } else {
+        await interaction.editReply({ embeds: [embed], components: [buttons] });
+    }
 }
 
 /**
  * Display win/loss leaderboard
  */
-async function showWinLossLeaderboard(interaction, guildId) {
-    // Get users with game statistics
+async function showWinLossLeaderboard(interaction, guildId, isButtonUpdate = false) {
+    // Get users with game statistics (include developer for stats)
     const users = await dbManager.getTopUsersByWins(guildId, 20); // Get top 20 by wins
     
     if (!users || users.length === 0) {
-        const embed = new EmbedBuilder()
-            .setTitle('🏆 Win/Loss Leaderboard')
-            .setDescription('No game statistics found for users in this server.')
-            .setColor(0x00FF00)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
-            .setFooter({ text: '🏆 Win/Loss Records • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+        
+        const embed = buildSessionEmbed({
+            title: '🏆 Win/Loss Leaderboard',
+            topFields: [{
+                name: '📊 NO GAME DATA FOUND',
+                value: 'No game statistics found for users in this server.\nStart playing games to appear on the leaderboard!',
+                inline: false
+            }],
+            bankFields: [],
+            stageText: 'EMPTY STATS',
+            color: 0x2ECC71, // Green color for win/loss stats
+            footer: 'Win/Loss Records • ATIVE Casino Bot'
+        });
 
         return await interaction.editReply({ embeds: [embed] });
     }
 
-    const embed = new EmbedBuilder()
-        .setTitle('🏆 Win/Loss Leaderboard')
-        .setDescription('Top players ranked by game performance')
-        .setColor(0x00FF00)
-        .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ text: '🏆 Win/Loss Records • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-        .setTimestamp();
+    // Build embed using gameSessionKit with different color
+    const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+    const topFields = [];
+    const bankFields = [];
 
     // Most Wins section
     let winsText = '';
-    for (let i = 0; i < Math.min(users.length, 10); i++) {
+    let totalWins = 0;
+    let totalLosses = 0;
+    
+    for (let i = 0; i < Math.min(users.length, 8); i++) {
         const user = users[i];
         const medal = i < 3 ? ['🥇', '🥈', '🥉'][i] : `#${i + 1}`;
         const wins = user.total_wins || 0;
         const losses = user.total_losses || 0;
         const winRate = wins + losses > 0 ? ((wins / (wins + losses)) * 100).toFixed(1) : '0.0';
         
-        winsText += `${medal} **${user.username || 'Unknown'}**\n`;
-        winsText += `   ✅ ${wins} wins | ❌ ${losses} losses | 📊 ${winRate}% WR\n`;
+        totalWins += wins;
+        totalLosses += losses;
+        
+        // Try to get username from Discord if not available
+        let displayName = user.username;
+        if (!displayName || displayName === 'Unknown') {
+            try {
+                const discordUser = await interaction.client.users.fetch(user.user_id);
+                displayName = discordUser.displayName || discordUser.username || 'Unknown User';
+            } catch {
+                displayName = `User ${user.user_id.slice(-4)}`;
+            }
+        }
+        
+        // Horizontal layout for wins leaderboard
+        winsText += `${medal} **${displayName}** - ${wins}W/${losses}L (${winRate}%)`;
+        
+        // Add line break every 2 players for better organization
+        if ((i + 1) % 2 === 0 || i === Math.min(users.length, 8) - 1) {
+            winsText += '\n';
+        } else {
+            winsText += '  •  ';
+        }
     }
 
-    embed.addFields({
-        name: '🏆 Most Wins',
-        value: winsText || 'No wins recorded',
+    topFields.push({
+        name: '🏆 MOST WINS LEADERBOARD',
+        value: `\`\`\`css\n${winsText.trim() || 'No wins recorded'}\n\`\`\``,
         inline: false
     });
 
@@ -240,14 +379,55 @@ async function showWinLossLeaderboard(interaction, guildId) {
         const winRate = ((wins / (wins + losses)) * 100).toFixed(1);
         const totalGames = wins + losses;
         
-        winRateText += `${i + 1}. **${user.username || 'Unknown'}** - ${winRate}%\n`;
-        winRateText += `   📊 ${wins}W/${losses}L (${totalGames} games)\n`;
+        const medal = i < 3 ? ['🥇', '🥈', '🥉'][i] : `#${i + 1}`;
+        
+        // Try to get username from Discord if not available
+        let displayName = user.username;
+        if (!displayName || displayName === 'Unknown') {
+            try {
+                const discordUser = await interaction.client.users.fetch(user.user_id);
+                displayName = discordUser.displayName || discordUser.username || 'Unknown User';
+            } catch {
+                displayName = `User ${user.user_id.slice(-4)}`;
+            }
+        }
+        
+        // Horizontal layout for win rate
+        winRateText += `${medal} **${displayName}** - ${winRate}% (${wins}W/${losses}L)`;
+        
+        // Add line break every 2 players
+        if ((i + 1) % 2 === 0 || i === Math.min(qualifiedUsers.length, 5) - 1) {
+            winRateText += '\n';
+        } else {
+            winRateText += '  •  ';
+        }
     }
 
-    embed.addFields({
-        name: '📊 Best Win Rate (10+ games)',
-        value: winRateText || 'No qualified players',
-        inline: false
+    if (qualifiedUsers.length > 0) {
+        topFields.push({
+            name: '📊 BEST WIN RATES (10+ Games)',
+            value: `\`\`\`yaml\n${winRateText.trim()}\n\`\`\``,
+            inline: false
+        });
+    }
+
+    // Add banking/summary section
+    const overallWinRate = totalWins + totalLosses > 0 ? ((totalWins / (totalWins + totalLosses)) * 100).toFixed(1) : '0.0';
+    bankFields.push(
+        { name: 'Total Games', value: (totalWins + totalLosses).toString(), inline: true },
+        { name: 'Overall Win Rate', value: `${overallWinRate}%`, inline: true },
+        { name: 'Qualified Players', value: qualifiedUsers.length.toString(), inline: true },
+        { name: 'Total Wins', value: totalWins.toString(), inline: true },
+        { name: 'Total Losses', value: totalLosses.toString(), inline: true }
+    );
+
+    const embed = buildSessionEmbed({
+        title: '🏆 Win/Loss Leaderboard',
+        topFields,
+        bankFields,
+        stageText: 'GAME STATISTICS',
+        color: 0x2ECC71, // Green color for win/loss stats  
+        footer: 'Win/Loss Records • Developer included • ATIVE Casino'
     });
 
     // Add navigation buttons
@@ -273,38 +453,55 @@ async function showWinLossLeaderboard(interaction, guildId) {
 /**
  * Display economic tier information
  */
-async function showTierInformation(interaction) {
+async function showTierInformation(interaction, isButtonUpdate = false) {
     const tiers = getAllTiers().reverse(); // Show from highest to lowest
+    const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 
-    const embed = new EmbedBuilder()
-        .setTitle('🎖️ Economic Tier System')
-        .setDescription('Advance through tiers by accumulating wealth and earn exclusive benefits!')
-        .setColor(0x9B59B6)
-        .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ text: '🎖️ Economic Tiers • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-        .setTimestamp();
+    const topFields = [];
+    const bankFields = [];
 
+    // Add tier information in organized sections
     for (const tier of tiers) {
         const rangeText = tier.max === Infinity ? `${fmtFull(tier.min)}+` : `${fmtFull(tier.min)} - ${fmtFull(tier.max)}`;
-        const interestText = tier.interest > 0 ? `\n💰 **${(tier.interest * 100).toFixed(0)}% Annual Interest** on bank balance` : '';
+        const interestText = tier.interest > 0 ? `💰 **${(tier.interest * 100).toFixed(0)}% Annual Interest** on bank balance` : 'No interest earned';
         
-        let benefitsText = '';
-        if (tier.key === 'PLATINUM') benefitsText += '\n🎮 Access to exclusive games';
-        if (tier.key === 'DIAMOND') benefitsText += '\n🔝 Higher betting limits\n🖼️ GIF permissions';
-        if (tier.key === 'LEGENDARY') benefitsText += '\n🏷️ Custom bot profile badge';
-        if (tier.key === 'MYTHIC') benefitsText += '\n⚡ Priority support';
+        let benefitsText = 'Standard bot access';
+        if (tier.key === 'PLATINUM') benefitsText = '🎮 Access to exclusive games';
+        if (tier.key === 'DIAMOND') benefitsText = '🔝 Higher betting limits\n🖼️ GIF permissions';
+        if (tier.key === 'LEGENDARY') benefitsText = '🏷️ Custom bot profile badge';
+        if (tier.key === 'MYTHIC') benefitsText = '⚡ Priority support\n🌟 VIP status';
 
-        embed.addFields({
-            name: `${tier.emoji} ${tier.name} Tier`,
-            value: `💰 **Balance Range:** ${rangeText}${interestText}${benefitsText}`,
-            inline: true
+        topFields.push({
+            name: `${tier.emoji} ${tier.name.toUpperCase()} TIER`,
+            value: `**Balance Range:** ${rangeText}\n**Interest:** ${interestText}\n**Benefits:** ${benefitsText}`,
+            inline: false
         });
     }
 
-    embed.addFields({
-        name: '📋 Tier Rules',
-        value: '• Tiers based on **total balance** (wallet + bank)\n• Must maintain minimum balance for tier\n• Interest calculated daily on **bank balance only**\n• Inactivity over 10 days results in tier downgrade',
+    // Add tier rules and information to banking section
+    bankFields.push(
+        { name: 'Total Tiers', value: tiers.length.toString(), inline: true },
+        { name: 'Highest Tier', value: tiers[0].name, inline: true },
+        { name: 'Interest System', value: 'Bank only', inline: true }
+    );
+
+    topFields.push({
+        name: '📋 TIER SYSTEM RULES',
+        value: '• Tiers based on **total balance** (wallet + bank)\n' +
+               '• Must maintain minimum balance for tier\n' +
+               '• Interest calculated daily on **bank balance only**\n' +
+               '• Inactivity over 10 days results in tier downgrade\n' +
+               '• Higher tiers unlock exclusive features and benefits',
         inline: false
+    });
+
+    const embed = buildSessionEmbed({
+        title: '🎖️ Economic Tier System',
+        topFields,
+        bankFields,
+        stageText: 'TIER INFORMATION',
+        color: 0x9B59B6, // Purple color for tier system
+        footer: 'Economic Tiers • Advance by accumulating wealth • ATIVE Casino'
     });
 
     // Add navigation buttons

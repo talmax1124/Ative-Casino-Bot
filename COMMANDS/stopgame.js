@@ -61,6 +61,16 @@ module.exports = {
                 return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
+            // Handle crash games specifically
+            if (userActiveGame.gameType === 'crash') {
+                try {
+                    const { stopCrashGame } = require('../GAMES/crash');
+                    await stopCrashGame(interaction.guildId, userActiveGame.channelId);
+                } catch (error) {
+                    logger.warn(`Failed to stop crash game: ${error.message}`);
+                }
+            }
+
             // Try to stop wordchain instance if applicable
             try {
                 if (userActiveGame.gameType === 'wordchain') {
@@ -89,20 +99,22 @@ module.exports = {
             // Show list of active games for selection
             const options = [];
             
-            for (const game of activeGames) {
+            for (const game of activeGames.slice(0, 25)) { // Discord limit
                 try {
                     const user = await interaction.client.users.fetch(game.userId);
+                    const channelInfo = game.channelId ? ` in <#${game.channelId}>` : '';
                     options.push({
                         label: `${user.displayName} - ${game.gameType}`,
-                        description: `Stop ${game.gameType} game for ${user.displayName}`,
-                        value: game.userId
+                        description: `Stop ${game.gameType} game for ${user.displayName}${channelInfo}`,
+                        value: `${game.userId}:${game.gameType}:${game.channelId || ''}`
                     });
                 } catch (error) {
                     // User not found, use ID instead
+                    const channelInfo = game.channelId ? ` in <#${game.channelId}>` : '';
                     options.push({
                         label: `User ${game.userId} - ${game.gameType}`,
-                        description: `Stop ${game.gameType} game for user`,
-                        value: game.userId
+                        description: `Stop ${game.gameType} game for user${channelInfo}`,
+                        value: `${game.userId}:${game.gameType}:${game.channelId || ''}`
                     });
                 }
             }
@@ -134,7 +146,7 @@ module.exports = {
             return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
-        const userId = interaction.values[0];
+        const [userId, gameType, channelId] = interaction.values[0].split(':');
         const activeGames = getAllActiveGames();
         const userGame = activeGames.find(game => game.userId === userId);
 
@@ -147,9 +159,19 @@ module.exports = {
             return await interaction.update({ embeds: [embed], components: [] });
         }
 
+        // Handle crash games specifically
+        if (gameType === 'crash' && channelId) {
+            try {
+                const { stopCrashGame } = require('../GAMES/crash');
+                await stopCrashGame(interaction.guildId, channelId);
+            } catch (error) {
+                logger.warn(`Failed to stop crash game: ${error.message}`);
+            }
+        }
+
         // Try to stop wordchain instance if applicable
         try {
-            if (userGame.gameType === 'wordchain') {
+            if (gameType === 'wordchain') {
                 const wc = require('./wordchain');
                 if (wc && typeof wc.forceStop === 'function') {
                     await wc.forceStop(userId);
@@ -171,12 +193,12 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🛑 Game Stopped')
-            .setDescription(`Successfully stopped ${userGame.gameType} game for ${userName}.`)
+            .setDescription(`Successfully stopped ${gameType} game for ${userName}.`)
             .setColor(0x00FF00)
             .setTimestamp();
         
         await interaction.update({ embeds: [embed], components: [] });
         
-        logger.info(`Developer ${interaction.user.tag} stopped ${userGame.gameType} game for user ${userId}`);
+        logger.info(`Developer ${interaction.user.tag} stopped ${gameType} game for user ${userId}`);
     }
 };
