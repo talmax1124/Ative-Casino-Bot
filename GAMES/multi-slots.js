@@ -54,17 +54,17 @@ class BuffaloBonusSession {
     createBonusEmbed(matrix, result, user) {
         const topFields = [];
         
-        // Matrix display
+        // Matrix display (raw; formatting handled by buildSessionEmbed)
         const matrixDisplay = createMatrixDisplay(matrix);
         topFields.push({
-            name: '<� BONUS MATRIX RESULT',
-            value: `\`\`\`${matrixDisplay}\`\`\``,
+            name: '🎲 BONUS MATRIX RESULT',
+            value: matrixDisplay,
             inline: false
         });
 
         if (result.won) {
             topFields.push({
-                name: '<� BONUS WIN',
+                name: '🏆 BONUS WIN',
                 value: result.type,
                 inline: false
             });
@@ -72,14 +72,14 @@ class BuffaloBonusSession {
 
         // Banking fields
         const bankFields = [
-            { name: '>� Bonus Spins Left', value: this.spinsLeft.toString(), inline: true },
-            { name: '=� Bonus Bet (3x)', value: fmt(this.bonusBetAmount), inline: true },
-            { name: '<� Total Bonus Win', value: fmt(this.totalBonusWinnings), inline: true }
+            { name: '🔄 Bonus Spins Left', value: this.spinsLeft.toString(), inline: true },
+            { name: '💰 Bonus Bet (3x)', value: fmt(this.bonusBetAmount), inline: true },
+            { name: '💎 Total Bonus Win', value: fmt(this.totalBonusWinnings), inline: true }
         ];
 
         if (result.won) {
             bankFields.push(
-                { name: '<� This Spin', value: fmt(result.payout), inline: true }
+                { name: '💵 This Spin', value: fmt(result.payout), inline: true }
             );
         }
 
@@ -87,7 +87,7 @@ class BuffaloBonusSession {
         const color = result.won ? 0xFFD700 : (this.ended ? 0x00ff00 : 0xFF6600);
 
         return buildSessionEmbed({
-            title: `>� ${user.displayName}'s Buffalo Bonus`,
+            title: `🎰 ${user.displayName}'s Buffalo Bonus`,
             topFields,
             bankFields,
             stageText,
@@ -100,7 +100,7 @@ class BuffaloBonusSession {
         if (this.ended) return [];
 
         return buildButtons(`bonus-${this.userId}`, [
-            { id: 'spin', label: '<� Spin Bonus', style: 1 } // ButtonStyle.Success = 1
+            { id: 'spin', label: '🦬 Spin Bonus', style: 1 } // ButtonStyle.Success = 1
         ]);
     }
 }
@@ -111,17 +111,17 @@ class BuffaloBonusSession {
 function createMatrixEmbed(user, matrix, result, betAmount, userBalance, buffaloBonus = false) {
     const topFields = [];
     
-    // Matrix display
+    // Matrix display (raw; formatting handled by buildSessionEmbed)
     const matrixDisplay = createMatrixDisplay(matrix);
     topFields.push({
-        name: '<� MATRIX RESULT (3x3)',
-        value: `\`\`\`${matrixDisplay}\`\`\``,
+        name: '🎲 MATRIX RESULT (3x3)',
+        value: matrixDisplay,
         inline: false
     });
 
     if (result.won) {
         topFields.push({
-            name: '<� WINNING LINES',
+            name: '🏆 WINNING LINES',
             value: result.type,
             inline: false
         });
@@ -129,7 +129,7 @@ function createMatrixEmbed(user, matrix, result, betAmount, userBalance, buffalo
 
     if (buffaloBonus) {
         topFields.push({
-            name: '>� BUFFALO BONUS TRIGGERED!',
+            name: '🦬 BUFFALO BONUS TRIGGERED!',
             value: '**5 FREE SPINS with 3x multiplier!**',
             inline: false
         });
@@ -137,15 +137,15 @@ function createMatrixEmbed(user, matrix, result, betAmount, userBalance, buffalo
 
     // Banking fields
     const bankFields = [
-        { name: '=� Bet', value: fmt(betAmount), inline: true },
-        { name: '=� Wallet', value: fmt(userBalance.wallet), inline: true },
-        { name: '<� Bank', value: fmt(userBalance.bank), inline: true }
+        { name: '💰 Bet', value: fmt(betAmount), inline: true },
+        { name: '💵 Wallet', value: fmt(userBalance.wallet), inline: true },
+        { name: '🏦 Bank', value: fmt(userBalance.bank), inline: true }
     ];
 
     if (result.won) {
         bankFields.splice(1, 0, 
-            { name: '<� Multiplier', value: `x${result.multiplier.toFixed(2)}`, inline: true },
-            { name: '=� Payout', value: fmt(result.payout), inline: true }
+            { name: '🎯 Multiplier', value: `x${result.multiplier.toFixed(2)}`, inline: true },
+            { name: '💸 Payout', value: fmt(result.payout), inline: true }
         );
     }
 
@@ -173,7 +173,7 @@ function createMatrixEmbed(user, matrix, result, betAmount, userBalance, buffalo
     }
 
     return buildSessionEmbed({
-        title: `<� ${user.displayName}'s Matrix Slots`,
+        title: `🎰 ${user.displayName}'s Matrix Slots`,
         topFields,
         bankFields,
         stageText,
@@ -242,7 +242,8 @@ async function handleBuffaloBonusSpin(interaction) {
 
         const updateData = { 
             embeds: [bonusEmbed], 
-            components: bonusButtons.length > 0 ? [bonusButtons] : [] 
+            components: bonusButtons.length > 0 ? [bonusButtons] : [],
+            attachments: []
         };
 
         if (animatedGIF) {
@@ -264,7 +265,8 @@ async function handleBuffaloBonusSpin(interaction) {
 
                     const finalUpdateData = { 
                         embeds: [finalBonusEmbed], 
-                        components: finalBonusButtons.length > 0 ? [finalBonusButtons] : [] 
+                        components: finalBonusButtons.length > 0 ? [finalBonusButtons] : [],
+                        attachments: []
                     };
 
                     if (staticImage) {

@@ -41,8 +41,6 @@ const MATRIX_SYMBOLS = {
 const TWO_MATCH_MULTIPLIER = 0.75;
 const MATRIX_MIN_BET = 50000;
 
-// Animation symbols for spinning effect
-const ANIMATION_SYMBOLS = ['🎲', '🎯', '⚡', '⭐', '🌟', '💫', '🔥', '⚽', '🎊', '🎉'];
 
 /**
  * Load slot symbol image with fallback
@@ -81,12 +79,6 @@ function getWeightedSymbol(matrixMode = false) {
     return secureWeightedChoice(symbols, weights) || symbols[0];
 }
 
-/**
- * Generate random animation symbol for spinning effect
- */
-function getRandomAnimationSymbol() {
-    return ANIMATION_SYMBOLS[Math.floor(Math.random() * ANIMATION_SYMBOLS.length)];
-}
 
 /**
  * Generate regular slot result (3 symbols)
@@ -271,17 +263,6 @@ function createSlotDisplay(symbols) {
     return `[ ${emojis[0]} | ${emojis[1]} | ${emojis[2]} ]`;
 }
 
-/**
- * Create spinning animation display for slots (for animation phase)
- */
-function createSpinningDisplay() {
-    const spinSymbols = [
-        getRandomAnimationSymbol(),
-        getRandomAnimationSymbol(),
-        getRandomAnimationSymbol()
-    ];
-    return `[ ${spinSymbols[0]} | ${spinSymbols[1]} | ${spinSymbols[2]} ]`;
-}
 
 /**
  * Create visual display for matrix slots
@@ -293,20 +274,6 @@ function createMatrixDisplay(matrix) {
     return lines.join('\n');
 }
 
-/**
- * Create spinning matrix display (for animation phase)
- */
-function createSpinningMatrixDisplay() {
-    const lines = [];
-    for (let i = 0; i < 3; i++) {
-        const row = [];
-        for (let j = 0; j < 3; j++) {
-            row.push(getRandomAnimationSymbol());
-        }
-        lines.push(row.join(' | '));
-    }
-    return lines.join('\n');
-}
 
 /**
  * Generate slot machine image for regular slots
@@ -378,26 +345,30 @@ async function createSlotsImage(symbols, won = false) {
  */
 async function createMatrixImage(matrix, winningLines = [], won = false) {
     try {
-        const canvas = Canvas.createCanvas(800, 600);
+        // Canvas sized to keep full grid within bounds in Discord
+        const canvasWidth = 620;
+        const canvasHeight = 540;
+        const canvas = Canvas.createCanvas(canvasWidth, canvasHeight);
         const ctx = canvas.getContext('2d');
 
         // Background
-        const gradient = ctx.createLinearGradient(0, 0, 0, 600);
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
         gradient.addColorStop(0, '#1a1a1a');
         gradient.addColorStop(1, '#0a0a0a');
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 800, 600);
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-        // Matrix frame
+        // Layout constants
+        const cellSize = 120;
+        const cellSpacing = 25;
+        const gridSpan = cellSize * 3 + cellSpacing * 2; // 410
+        const startX = 105; // centers grid
+        const startY = 110; // leaves room for title
+
+        // Matrix frame around grid
         ctx.strokeStyle = won ? '#FFD700' : '#666666';
         ctx.lineWidth = 5;
-        ctx.strokeRect(100, 100, 600, 400);
-
-        // Draw 3x3 grid
-        const cellSize = 150;
-        const cellSpacing = 50;
-        const startX = 150;
-        const startY = 150;
+        ctx.strokeRect(startX - 15, startY - 15, gridSpan + 30, gridSpan + 30);
 
         for (let row = 0; row < 3; row++) {
             for (let col = 0; col < 3; col++) {
@@ -429,24 +400,25 @@ async function createMatrixImage(matrix, winningLines = [], won = false) {
 
         // Draw winning lines
         ctx.strokeStyle = '#FFD700';
-        ctx.lineWidth = 8;
+        ctx.lineWidth = 6;
         winningLines.forEach(line => {
-            const startX = 150 + (line.col * 200) + 75;
-            const startY = 150 + (line.row * 200) + 75;
-            const endX = 150 + (line.endCol * 200) + 75;
-            const endY = 150 + (line.endRow * 200) + 75;
+            const stride = cellSize + cellSpacing;
+            const sX = startX + (line.col * stride) + cellSize / 2;
+            const sY = startY + (line.row * stride) + cellSize / 2;
+            const eX = startX + (line.endCol * stride) + cellSize / 2;
+            const eY = startY + (line.endRow * stride) + cellSize / 2;
             
             ctx.beginPath();
-            ctx.moveTo(startX, startY);
-            ctx.lineTo(endX, endY);
+            ctx.moveTo(sX, sY);
+            ctx.lineTo(eX, eY);
             ctx.stroke();
         });
 
         // Title
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 28px Arial';
+        ctx.font = 'bold 24px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('🎰 SLOTS MATRIX 3x3 🎰', 400, 50);
+        ctx.fillText('🎰 SLOTS MATRIX 3x3 🎰', canvasWidth / 2, 60);
 
         return canvas.toBuffer('image/png');
     } catch (error) {
@@ -794,9 +766,7 @@ module.exports = {
     calculatePayout,
     calculateMatrixPayout,
     createSlotDisplay,
-    createSpinningDisplay,
     createMatrixDisplay,
-    createSpinningMatrixDisplay,
     createSlotsImage,
     createMatrixImage,
     createSpinningSlotGIF,

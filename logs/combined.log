@@ -5088,3 +5088,290 @@ SyntaxError: Unexpected end of input
 2025-08-22 22:11:21 [INFO]: Set balance for user 466050111680544798: wallet=10450486872.57293, bank=999393992872178.8
 2025-08-22 22:11:21 [INFO]: Updated stats for 466050111680544798_slots: wins=27, losses=29
 2025-08-22 22:11:21 [INFO]: Processed payout for 466050111680544798: $1.88K (win)
+2025-08-22 22:14:26 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 22:14:27 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 22:14:27 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 22:14:27 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 22:14:27 [INFO]: 🚀 Firebase app initialized
+2025-08-22 22:14:27 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 22:14:27 [INFO]: Firebase database manager initialized
+2025-08-22 22:14:27 [INFO]: Database initialized successfully
+2025-08-22 22:14:27 [INFO]: Loaded command: addmoney
+2025-08-22 22:14:27 [INFO]: Loaded command: blackjack
+2025-08-22 22:14:27 [INFO]: Loaded command: crash
+2025-08-22 22:14:27 [INFO]: Loaded command: status
+2025-08-22 22:14:27 [INFO]: Loaded command: duck
+2025-08-22 22:14:27 [INFO]: Loaded command: balance
+2025-08-22 22:14:27 [INFO]: Loaded command: lottery
+2025-08-22 22:14:27 [INFO]: Loaded command: multi-slots
+2025-08-22 22:14:27 [INFO]: Loaded command: panel
+2025-08-22 22:14:27 [INFO]: Loaded command: polls
+2025-08-22 22:14:27 [INFO]: Loaded command: purchaselottery
+2025-08-22 22:14:27 [INFO]: Loaded command: sendmoney
+2025-08-22 22:14:27 [INFO]: Loaded command: slots
+2025-08-22 22:14:27 [INFO]: Loaded command: stopcrash
+2025-08-22 22:14:27 [INFO]: Loaded command: stopgame
+2025-08-22 22:14:27 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 22:14:27 [INFO]: Started refreshing application (/) commands
+2025-08-22 22:14:27 [INFO]: Successfully reloaded 16 application (/) commands
+2025-08-22 22:14:27 [INFO]: Loaded 16 commands
+2025-08-22 22:14:27 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 36 hours)
+2025-08-22 22:14:27 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 22:14:27 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 22:14:27 [INFO]: Lottery system initialized successfully
+2025-08-22 22:14:27 [INFO]: Sent development announcement to logs channel
+2025-08-22 22:14:31 [INFO]: Startup notification sent successfully
+2025-08-22 22:14:57 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 22:14:57 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 22:14:57 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 22:14:57 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 22:14:57 [INFO]: 🚀 Firebase app initialized
+2025-08-22 22:14:57 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 22:14:57 [INFO]: Firebase database manager initialized
+2025-08-22 22:14:57 [INFO]: Database initialized successfully
+2025-08-22 22:14:57 [INFO]: Loaded command: addmoney
+2025-08-22 22:14:57 [INFO]: Loaded command: blackjack
+2025-08-22 22:14:57 [INFO]: Loaded command: crash
+2025-08-22 22:14:57 [INFO]: Loaded command: status
+2025-08-22 22:14:57 [INFO]: Loaded command: duck
+2025-08-22 22:14:57 [INFO]: Loaded command: balance
+2025-08-22 22:14:57 [INFO]: Loaded command: lottery
+2025-08-22 22:14:57 [INFO]: Loaded command: multi-slots
+2025-08-22 22:14:57 [INFO]: Loaded command: panel
+2025-08-22 22:14:57 [INFO]: Loaded command: polls
+2025-08-22 22:14:57 [INFO]: Loaded command: purchaselottery
+2025-08-22 22:14:57 [INFO]: Loaded command: sendmoney
+2025-08-22 22:14:57 [INFO]: Loaded command: slots
+2025-08-22 22:14:57 [INFO]: Loaded command: stopcrash
+2025-08-22 22:14:57 [INFO]: Loaded command: stopgame
+2025-08-22 22:14:57 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 22:14:57 [INFO]: Started refreshing application (/) commands
+2025-08-22 22:14:58 [INFO]: Successfully reloaded 16 application (/) commands
+2025-08-22 22:14:58 [INFO]: Loaded 16 commands
+2025-08-22 22:14:58 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 36 hours)
+2025-08-22 22:14:58 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 22:14:58 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 22:14:58 [INFO]: Lottery system initialized successfully
+2025-08-22 22:14:58 [INFO]: Sent development announcement to logs channel
+2025-08-22 22:15:02 [INFO]: Startup notification sent successfully
+2025-08-22 22:15:28 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 22:15:38 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 22:15:38 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 22:15:38 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 22:15:38 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 22:15:38 [INFO]: 🚀 Firebase app initialized
+2025-08-22 22:15:38 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 22:15:38 [INFO]: Firebase database manager initialized
+2025-08-22 22:15:38 [INFO]: Database initialized successfully
+2025-08-22 22:15:38 [INFO]: Loaded command: addmoney
+2025-08-22 22:15:38 [INFO]: Loaded command: blackjack
+2025-08-22 22:15:38 [INFO]: Loaded command: crash
+2025-08-22 22:15:38 [INFO]: Loaded command: status
+2025-08-22 22:15:38 [INFO]: Loaded command: duck
+2025-08-22 22:15:38 [INFO]: Loaded command: balance
+2025-08-22 22:15:38 [INFO]: Loaded command: lottery
+2025-08-22 22:15:38 [INFO]: Loaded command: multi-slots
+2025-08-22 22:15:38 [INFO]: Loaded command: panel
+2025-08-22 22:15:38 [INFO]: Loaded command: polls
+2025-08-22 22:15:38 [INFO]: Loaded command: purchaselottery
+2025-08-22 22:15:38 [INFO]: Loaded command: sendmoney
+2025-08-22 22:15:38 [INFO]: Loaded command: slots
+2025-08-22 22:15:38 [INFO]: Loaded command: stopcrash
+2025-08-22 22:15:38 [INFO]: Loaded command: stopgame
+2025-08-22 22:15:38 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 22:15:38 [INFO]: Started refreshing application (/) commands
+2025-08-22 22:15:39 [INFO]: Successfully reloaded 16 application (/) commands
+2025-08-22 22:15:39 [INFO]: Loaded 16 commands
+2025-08-22 22:15:39 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 36 hours)
+2025-08-22 22:15:39 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 22:15:39 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 22:15:39 [INFO]: Lottery system initialized successfully
+2025-08-22 22:15:39 [INFO]: Sent development announcement to logs channel
+2025-08-22 22:15:43 [INFO]: Startup notification sent successfully
+2025-08-22 22:15:49 [INFO]: Initial lottery panel update completed
+2025-08-22 22:15:58 [INFO]: Set balance for user 466050111680544798: wallet=10450476872.57293, bank=999393992872178.8
+2025-08-22 22:15:58 [INFO]: User 466050111680544798 placed bet of $10.00K for slots
+2025-08-22 22:15:58 [INFO]: Set balance for user 466050111680544798: wallet=10450476872.57293, bank=999393992872178.8
+2025-08-22 22:15:58 [INFO]: Updated stats for 466050111680544798_slots: wins=27, losses=30
+2025-08-22 22:15:58 [INFO]: Processed payout for 466050111680544798: $0.00 (loss)
+2025-08-22 22:19:53 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 22:19:55 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 22:19:55 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 22:19:55 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 22:19:55 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 22:19:55 [INFO]: 🚀 Firebase app initialized
+2025-08-22 22:19:55 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 22:19:55 [INFO]: Firebase database manager initialized
+2025-08-22 22:19:55 [INFO]: Database initialized successfully
+2025-08-22 22:19:55 [INFO]: Loaded command: addmoney
+2025-08-22 22:19:55 [INFO]: Loaded command: blackjack
+2025-08-22 22:19:55 [INFO]: Loaded command: crash
+2025-08-22 22:19:55 [INFO]: Loaded command: status
+2025-08-22 22:19:55 [INFO]: Loaded command: duck
+2025-08-22 22:19:55 [INFO]: Loaded command: balance
+2025-08-22 22:19:55 [INFO]: Loaded command: lottery
+2025-08-22 22:19:55 [INFO]: Loaded command: multi-slots
+2025-08-22 22:19:55 [INFO]: Loaded command: panel
+2025-08-22 22:19:55 [INFO]: Loaded command: polls
+2025-08-22 22:19:55 [INFO]: Loaded command: purchaselottery
+2025-08-22 22:19:55 [INFO]: Loaded command: sendmoney
+2025-08-22 22:19:55 [INFO]: Loaded command: slots
+2025-08-22 22:19:55 [INFO]: Loaded command: stopcrash
+2025-08-22 22:19:55 [INFO]: Loaded command: stopgame
+2025-08-22 22:19:55 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 22:19:55 [INFO]: Started refreshing application (/) commands
+2025-08-22 22:19:56 [INFO]: Successfully reloaded 16 application (/) commands
+2025-08-22 22:19:56 [INFO]: Loaded 16 commands
+2025-08-22 22:19:56 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 36 hours)
+2025-08-22 22:19:56 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 22:19:56 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 22:19:56 [INFO]: Lottery system initialized successfully
+2025-08-22 22:19:56 [INFO]: Sent development announcement to logs channel
+2025-08-22 22:20:00 [INFO]: Startup notification sent successfully
+2025-08-22 22:20:07 [INFO]: Initial lottery panel update completed
+2025-08-22 22:20:08 [INFO]: Set balance for user 466050111680544798: wallet=10450466872.57293, bank=999393992872178.8
+2025-08-22 22:20:08 [INFO]: User 466050111680544798 placed bet of $10.00K for slots
+2025-08-22 22:20:08 [INFO]: Set balance for user 466050111680544798: wallet=10450466872.57293, bank=999393992872178.8
+2025-08-22 22:20:08 [INFO]: Updated stats for 466050111680544798_slots: wins=27, losses=31
+2025-08-22 22:20:08 [INFO]: Processed payout for 466050111680544798: $0.00 (loss)
+2025-08-22 22:20:30 [INFO]: Set balance for user 466050111680544798: wallet=10450456872.57293, bank=999393992872178.8
+2025-08-22 22:20:30 [INFO]: User 466050111680544798 placed bet of $10.00K for slots
+2025-08-22 22:20:31 [INFO]: Set balance for user 466050111680544798: wallet=10450456872.57293, bank=999393992872178.8
+2025-08-22 22:20:31 [INFO]: Updated stats for 466050111680544798_slots: wins=27, losses=32
+2025-08-22 22:20:31 [INFO]: Processed payout for 466050111680544798: $0.00 (loss)
+2025-08-22 22:21:09 [INFO]: Set balance for user 466050111680544798: wallet=10450406872.57293, bank=999393992872178.8
+2025-08-22 22:21:09 [INFO]: User 466050111680544798 placed bet of $50.00K for multi_slots
+2025-08-22 22:21:10 [INFO]: Set balance for user 466050111680544798: wallet=10450506872.57293, bank=999393992872178.8
+2025-08-22 22:21:10 [INFO]: Updated stats for 466050111680544798_multi_slots: wins=1, losses=0
+2025-08-22 22:21:10 [INFO]: Processed payout for 466050111680544798: $100.00K (win)
+2025-08-22 22:21:17 [ERROR]: Error in multi-slots command: fmt is not defined
+2025-08-22 22:23:49 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 22:27:01 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 22:27:01 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 22:27:01 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 22:27:01 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 22:27:01 [INFO]: 🚀 Firebase app initialized
+2025-08-22 22:27:01 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 22:27:01 [INFO]: Firebase database manager initialized
+2025-08-22 22:27:01 [INFO]: Database initialized successfully
+2025-08-22 22:27:01 [INFO]: Loaded command: addmoney
+2025-08-22 22:27:01 [INFO]: Loaded command: blackjack
+2025-08-22 22:27:01 [INFO]: Loaded command: crash
+2025-08-22 22:27:01 [INFO]: Loaded command: status
+2025-08-22 22:27:01 [INFO]: Loaded command: duck
+2025-08-22 22:27:01 [INFO]: Loaded command: balance
+2025-08-22 22:27:01 [INFO]: Loaded command: lottery
+2025-08-22 22:27:01 [INFO]: Loaded command: multi-slots
+2025-08-22 22:27:01 [INFO]: Loaded command: panel
+2025-08-22 22:27:01 [INFO]: Loaded command: polls
+2025-08-22 22:27:01 [INFO]: Loaded command: purchaselottery
+2025-08-22 22:27:01 [INFO]: Loaded command: sendmoney
+2025-08-22 22:27:01 [INFO]: Loaded command: slots
+2025-08-22 22:27:01 [INFO]: Loaded command: stopcrash
+2025-08-22 22:27:01 [INFO]: Loaded command: stopgame
+2025-08-22 22:27:01 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 22:27:01 [INFO]: Started refreshing application (/) commands
+2025-08-22 22:27:02 [INFO]: Successfully reloaded 16 application (/) commands
+2025-08-22 22:27:02 [INFO]: Loaded 16 commands
+2025-08-22 22:27:02 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 36 hours)
+2025-08-22 22:27:02 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 22:27:02 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 22:27:02 [INFO]: Lottery system initialized successfully
+2025-08-22 22:27:02 [INFO]: Sent development announcement to logs channel
+2025-08-22 22:27:06 [INFO]: Startup notification sent successfully
+2025-08-22 22:27:13 [INFO]: Initial lottery panel update completed
+2025-08-22 22:27:31 [INFO]: Set balance for user 466050111680544798: wallet=10450456872.57293, bank=999393992872178.8
+2025-08-22 22:27:31 [INFO]: User 466050111680544798 placed bet of $50.00K for multi_slots
+2025-08-22 22:27:31 [INFO]: Set balance for user 466050111680544798: wallet=10450456872.57293, bank=999393992872178.8
+2025-08-22 22:27:31 [INFO]: Updated stats for 466050111680544798_multi_slots: wins=1, losses=1
+2025-08-22 22:27:31 [INFO]: Processed payout for 466050111680544798: $0.00 (loss)
+2025-08-22 22:31:32 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 22:31:33 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 22:31:33 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 22:31:33 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 22:31:33 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 22:31:33 [INFO]: 🚀 Firebase app initialized
+2025-08-22 22:31:33 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 22:31:33 [INFO]: Firebase database manager initialized
+2025-08-22 22:31:33 [INFO]: Database initialized successfully
+2025-08-22 22:31:33 [INFO]: Loaded command: addmoney
+2025-08-22 22:31:33 [INFO]: Loaded command: blackjack
+2025-08-22 22:31:33 [INFO]: Loaded command: crash
+2025-08-22 22:31:33 [INFO]: Loaded command: status
+2025-08-22 22:31:33 [INFO]: Loaded command: duck
+2025-08-22 22:31:33 [INFO]: Loaded command: balance
+2025-08-22 22:31:33 [INFO]: Loaded command: lottery
+2025-08-22 22:31:33 [INFO]: Loaded command: multi-slots
+2025-08-22 22:31:33 [INFO]: Loaded command: panel
+2025-08-22 22:31:33 [INFO]: Loaded command: polls
+2025-08-22 22:31:33 [INFO]: Loaded command: purchaselottery
+2025-08-22 22:31:33 [INFO]: Loaded command: sendmoney
+2025-08-22 22:31:33 [INFO]: Loaded command: slots
+2025-08-22 22:31:33 [INFO]: Loaded command: stopcrash
+2025-08-22 22:31:33 [INFO]: Loaded command: stopgame
+2025-08-22 22:31:33 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 22:31:33 [INFO]: Started refreshing application (/) commands
+2025-08-22 22:31:34 [INFO]: Successfully reloaded 16 application (/) commands
+2025-08-22 22:31:34 [INFO]: Loaded 16 commands
+2025-08-22 22:31:34 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 35 hours)
+2025-08-22 22:31:34 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 22:31:34 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 22:31:34 [INFO]: Lottery system initialized successfully
+2025-08-22 22:31:34 [INFO]: Sent development announcement to logs channel
+2025-08-22 22:31:38 [INFO]: Startup notification sent successfully
+2025-08-22 22:31:45 [INFO]: Initial lottery panel update completed
+2025-08-22 22:31:48 [INFO]: Set balance for user 466050111680544798: wallet=10450406872.57293, bank=999393992872178.8
+2025-08-22 22:31:48 [INFO]: User 466050111680544798 placed bet of $50.00K for multi_slots
+2025-08-22 22:31:48 [INFO]: Set balance for user 466050111680544798: wallet=10450406872.57293, bank=999393992872178.8
+2025-08-22 22:31:49 [INFO]: Updated stats for 466050111680544798_multi_slots: wins=1, losses=2
+2025-08-22 22:31:49 [INFO]: Processed payout for 466050111680544798: $0.00 (loss)
+2025-08-22 22:35:49 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-22 22:35:50 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-22 22:35:51 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-22 22:35:51 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-22 22:35:51 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-22 22:35:51 [INFO]: 🚀 Firebase app initialized
+2025-08-22 22:35:51 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-22 22:35:51 [INFO]: Firebase database manager initialized
+2025-08-22 22:35:51 [INFO]: Database initialized successfully
+2025-08-22 22:35:51 [INFO]: Loaded command: addmoney
+2025-08-22 22:35:51 [INFO]: Loaded command: blackjack
+2025-08-22 22:35:51 [INFO]: Loaded command: crash
+2025-08-22 22:35:51 [INFO]: Loaded command: status
+2025-08-22 22:35:51 [INFO]: Loaded command: duck
+2025-08-22 22:35:51 [INFO]: Loaded command: balance
+2025-08-22 22:35:51 [INFO]: Loaded command: lottery
+2025-08-22 22:35:51 [INFO]: Loaded command: multi-slots
+2025-08-22 22:35:51 [INFO]: Loaded command: panel
+2025-08-22 22:35:51 [INFO]: Loaded command: polls
+2025-08-22 22:35:51 [INFO]: Loaded command: purchaselottery
+2025-08-22 22:35:51 [INFO]: Loaded command: sendmoney
+2025-08-22 22:35:51 [INFO]: Loaded command: slots
+2025-08-22 22:35:51 [INFO]: Loaded command: stopcrash
+2025-08-22 22:35:51 [INFO]: Loaded command: stopgame
+2025-08-22 22:35:51 [INFO]: Loaded command: updatelotterypanel
+2025-08-22 22:35:51 [INFO]: Started refreshing application (/) commands
+2025-08-22 22:35:51 [INFO]: Successfully reloaded 16 application (/) commands
+2025-08-22 22:35:51 [INFO]: Loaded 16 commands
+2025-08-22 22:35:51 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 35 hours)
+2025-08-22 22:35:51 [INFO]: Hourly lottery panel updates scheduled
+2025-08-22 22:35:51 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-22 22:35:51 [INFO]: Lottery system initialized successfully
+2025-08-22 22:35:51 [INFO]: Sent development announcement to logs channel
+2025-08-22 22:35:55 [INFO]: Startup notification sent successfully
+2025-08-22 22:36:00 [INFO]: Set balance for user 466050111680544798: wallet=10450356872.57293, bank=999393992872178.8
+2025-08-22 22:36:00 [INFO]: User 466050111680544798 placed bet of $50.00K for multi_slots
+2025-08-22 22:36:01 [INFO]: Set balance for user 466050111680544798: wallet=10450356872.57293, bank=999393992872178.8
+2025-08-22 22:36:01 [INFO]: Updated stats for 466050111680544798_multi_slots: wins=1, losses=3
+2025-08-22 22:36:01 [INFO]: Processed payout for 466050111680544798: $0.00 (loss)
+2025-08-22 22:36:07 [INFO]: Initial lottery panel update completed
+2025-08-22 22:36:43 [INFO]: Set balance for user 466050111680544798: wallet=10450281872.57293, bank=999393992872178.8
+2025-08-22 22:36:43 [INFO]: User 466050111680544798 placed bet of $75.00K for multi_slots
+2025-08-22 22:36:43 [INFO]: Set balance for user 466050111680544798: wallet=10450281872.57293, bank=999393992872178.8
+2025-08-22 22:36:44 [INFO]: Updated stats for 466050111680544798_multi_slots: wins=1, losses=4
+2025-08-22 22:36:44 [INFO]: Processed payout for 466050111680544798: $0.00 (loss)
+2025-08-22 22:37:19 [INFO]: Set balance for user 466050111680544798: wallet=10450261872.57293, bank=999393992872178.8
+2025-08-22 22:37:19 [INFO]: User 466050111680544798 placed bet of $20.00K for slots
+2025-08-22 22:37:20 [INFO]: Set balance for user 466050111680544798: wallet=10450261872.57293, bank=999393992872178.8
+2025-08-22 22:37:20 [INFO]: Updated stats for 466050111680544798_slots: wins=27, losses=33
+2025-08-22 22:37:20 [INFO]: Processed payout for 466050111680544798: $0.00 (loss)

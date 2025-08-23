@@ -6,7 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
-const { spinSlots, calculatePayout, createSlotDisplay, createSpinningDisplay, createSlotsImage, createSpinningSlotGIF } = require('../GAMES/slots');
+const { spinSlots, calculatePayout, createSlotDisplay, createSlotsImage, createSpinningSlotGIF } = require('../GAMES/slots');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 
@@ -19,11 +19,11 @@ function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWall
     
     const topFields = [];
     
-    // Slot display
+    // Slot display (raw text; formatted by buildSessionEmbed)
     const slotDisplay = createSlotDisplay(symbols);
     topFields.push({
         name: '🎲 SLOT RESULT',
-        value: `\`\`\`${slotDisplay}\`\`\``,
+        value: slotDisplay,
         inline: false
     });
 
@@ -110,24 +110,7 @@ module.exports = {
             // Defer reply for animation and image generation
             await interaction.deferReply();
 
-            // Show spinning animation first
-            const spinningEmbed = new EmbedBuilder()
-                .setTitle('🎰 SLOT MACHINE 🎰')
-                .setColor(0xFFFF00)
-                .addFields({
-                    name: '🎲 SPINNING...',
-                    value: `\`\`\`${createSpinningDisplay()}\`\`\``,
-                    inline: false
-                })
-                .setDescription('🎰 **Spinning the reels...** 🎰')
-                .setFooter({ text: 'Good luck!' });
-
-            await interaction.editReply({ embeds: [spinningEmbed] });
-
-            // Wait for animation effect (2 seconds)
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Spin the slots for real result
+            // Spin the slots for real result immediately
             const symbols = spinSlots();
             const result = calculatePayout(symbols, betAmount);
 
@@ -161,31 +144,26 @@ module.exports = {
             // Get updated balance
             const finalBalance = await dbManager.getUserBalance(userId, guildId);
 
-            // PHASE 1: Show animated GIF first
+            // PHASE 1: Show animated GIF first (no result/bet fields yet)
             const animatedGIF = await createSpinningSlotGIF(symbols);
 
-            // Create result embed for animation phase
-            const animationEmbed = createSlotsEmbed(
-                interaction.user,
-                symbols,
-                result,
-                betAmount,
-                finalBalance,
-                oldWallet
-            );
+            // Build a minimal "spinning" embed so users see the GIF first
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            const spinningEmbed = buildSessionEmbed({
+                title: `🎰 ${interaction.user.displayName}'s Slots`,
+                topFields: [
+                    { name: 'Spinning', value: 'Reels are spinning... 🎞️', inline: false },
+                ],
+                bankFields: [],
+                stageText: 'SPINNING...',
+                color: 0xFFD700,
+                footer: 'Good luck!'
+            });
 
-            // Add booster bonus info if applicable
-            if (payoutResult.boosterBonus > 0) {
-                animationEmbed.addFields(
-                    { name: '🚀 Booster Bonus', value: fmt(payoutResult.boosterBonus), inline: true }
-                );
-            }
-
-            const animationData = { embeds: [animationEmbed] };
-
+            const animationData = { embeds: [spinningEmbed] };
             if (animatedGIF) {
                 animationData.files = [{ attachment: animatedGIF, name: 'slots-animation.gif' }];
-                animationEmbed.setImage('attachment://slots-animation.gif');
+                spinningEmbed.setImage('attachment://slots-animation.gif');
             }
 
             await interaction.editReply(animationData);
@@ -213,7 +191,7 @@ module.exports = {
                         );
                     }
 
-                    const finalData = { embeds: [finalEmbed] };
+                    const finalData = { embeds: [finalEmbed], attachments: [] };
 
                     if (staticImage) {
                         finalData.files = [{ attachment: staticImage, name: 'slots-result.png' }];

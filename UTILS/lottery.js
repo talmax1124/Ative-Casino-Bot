@@ -118,10 +118,12 @@ async function updateLotteryPanel(bot, guildId) {
         }
         
         // Get current lottery info
+        let currentPrize;
+        let ticketCount;
         try {
             const lotteryInfo = await dbManager.getLotteryInfo(guildId);
-            const currentPrize = lotteryInfo.total_prize || 400000;
-            const ticketCount = lotteryInfo.total_tickets || 0;
+            currentPrize = lotteryInfo.total_prize || 400000;
+            ticketCount = lotteryInfo.total_tickets || 0;
             logger.info(`Retrieved lottery info - Prize: ${currentPrize}, Tickets: ${ticketCount}`);
         } catch (error) {
             logger.error(`Error getting lottery info: ${error.message}`);
@@ -132,47 +134,47 @@ async function updateLotteryPanel(bot, guildId) {
         // Create updated embed (same as original but with current data)
         const { EmbedBuilder } = require('discord.js');
         const embed = new EmbedBuilder()
-            .setTitle('<� Weekly Lottery System')
+            .setTitle('🎟️ Weekly Lottery System')
             .setDescription('**Try your luck in our weekly lottery drawings!**\n\nEvery Sunday at 10 AM EST, we draw 3 lucky winners! 1st and 2nd place get 45% each, 3rd place gets 10%!')
             .setColor(0xFFD700)
             .addFields(
                 {
-                    name: '=� Current Prize Pool',
+                    name: '💰 Current Prize Pool',
                     value: `**${fmt(currentPrize)}**\n*Updates with each money transfer (5% tax goes to lottery)*`,
                     inline: true
                 },
                 {
-                    name: '<� Tickets Sold This Week',
+                    name: '🎫 Tickets Sold This Week',
                     value: `**${ticketCount}** tickets\n*Max 7 tickets per person*`,
                     inline: true
                 },
                 {
-                    name: '� Next Drawing',
+                    name: '🗓️ Next Drawing',
                     value: `<t:${getNextLotteryTimestamp()}:F>\n<t:${getNextLotteryTimestamp()}:R>\n*Every Sunday at 10 AM EST*`,
                     inline: true
                 },
                 {
-                    name: '<� How to Buy Tickets',
-                    value: 'Use `/lottery buy [count]` to purchase tickets\n" **$12,000** per ticket\n" Maximum **7 tickets** per person per week\n" Tickets reset after each drawing',
+                    name: '🛒 How to Buy Tickets',
+                    value: 'Use `/lottery buy [count]` to purchase tickets\n• Price: **$12,000** per ticket\n• Maximum: **7 tickets** per person per week\n• Tickets reset after each drawing',
                     inline: false
                 },
                 {
-                    name: '<� Prize Distribution',
-                    value: '>G **1st Winner:** 45% of total prize pool\n>H **2nd Winner:** 45% of total prize pool\n>I **3rd Winner:** 10% of total prize pool\n*Three winners with guaranteed prizes!*',
+                    name: '🏆 Prize Distribution',
+                    value: '• 1st Winner: 45% of total prize pool\n• 2nd Winner: 45% of total prize pool\n• 3rd Winner: 10% of total prize pool\n*Three winners with guaranteed prizes!*',
                     inline: false
                 },
                 {
-                    name: '=� How Prize Pool Grows',
-                    value: '" **Base Prize:** $400,000 every week\n" **Money Transfer Tax:** 5% of all `/sendmoney` transfers\n" **Ticket Sales:** All ticket money goes to next week\'s pool\n" **No Winner:** Prize rolls over to next week',
+                    name: '📈 How Prize Pool Grows',
+                    value: '• Base Prize: $400,000 every week\n• Money Transfer Tax: 5% of all `/sendmoney` transfers\n• Ticket Sales: All ticket money goes to next week\'s pool\n• No Winner: Prize rolls over to next week',
                     inline: false
                 },
                 {
-                    name: '=� Lottery Commands',
+                    name: '📋 Lottery Commands',
                     value: '`/lottery buy [count]` - Buy 1-7 lottery tickets\n`/lottery status` - Check current lottery status\n`/balance` - View your wallet and bank',
                     inline: false
                 }
             )
-            .setFooter({ text: '<@ Good luck! " Last Updated' })
+            .setFooter({ text: 'Good luck! • Last Updated' })
             .setTimestamp();
         
         // Update the message

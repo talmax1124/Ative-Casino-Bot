@@ -5,12 +5,11 @@
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
-const { getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { 
     spinMatrixSlots, 
     calculateMatrixPayout, 
     createMatrixImage,
-    createSpinningMatrixDisplay,
     createSpinningMatrixGIF,
     MATRIX_MIN_BET
 } = require('../GAMES/slots');
@@ -62,24 +61,7 @@ module.exports = {
             // Defer reply for animation and image generation
             await interaction.deferReply();
 
-            // Show spinning animation first
-            const spinningEmbed = new EmbedBuilder()
-                .setTitle('🎰 SLOTS MATRIX 3x3 🎰')
-                .setColor(0xFFFF00)
-                .addFields({
-                    name: '🎲 SPINNING MATRIX...',
-                    value: `\`\`\`${createSpinningMatrixDisplay()}\`\`\``,
-                    inline: false
-                })
-                .setDescription('🎰 **Spinning the 3x3 matrix...** 🎰')
-                .setFooter({ text: 'Buffalo bonus available!' });
-
-            await interaction.editReply({ embeds: [spinningEmbed] });
-
-            // Wait for animation effect (3 seconds for matrix)
-            await new Promise(resolve => setTimeout(resolve, 3000));
-
-            // Spin the matrix slots for real result
+            // Spin the matrix slots for real result immediately
             const matrix = spinMatrixSlots();
             const result = calculateMatrixPayout(matrix, betAmount);
 
@@ -115,24 +97,26 @@ module.exports = {
             // Get updated balance
             const finalBalance = await dbManager.getUserBalance(userId, guildId);
 
-            // PHASE 1: Show animated matrix GIF first
+            // PHASE 1: Show animated matrix GIF first (minimal spinning embed)
             const animatedGIF = await createSpinningMatrixGIF(matrix);
 
-            // Create result embed for animation phase
-            const animationEmbed = createMatrixEmbed(
-                interaction.user,
-                matrix,
-                result,
-                betAmount,
-                finalBalance,
-                buffaloBonus
-            );
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            const spinningEmbed = buildSessionEmbed({
+                title: `🎰 ${interaction.user.displayName}'s Matrix Slots`,
+                topFields: [
+                    { name: 'Spinning', value: 'Matrix reels are spinning... 🎞️', inline: false },
+                ],
+                bankFields: [],
+                stageText: 'MATRIX SPINNING...',
+                color: 0xFFD700,
+                footer: 'Good luck!'
+            });
 
-            const animationData = { embeds: [animationEmbed] };
+            const animationData = { embeds: [spinningEmbed] };
 
             if (animatedGIF) {
                 animationData.files = [{ attachment: animatedGIF, name: 'matrix-animation.gif' }];
-                animationEmbed.setImage('attachment://matrix-animation.gif');
+                spinningEmbed.setImage('attachment://matrix-animation.gif');
             }
 
             // If buffalo bonus triggered, add button and create bonus session
@@ -169,7 +153,7 @@ module.exports = {
                         buffaloBonus
                     );
 
-                    const finalData = { embeds: [finalEmbed] };
+                    const finalData = { embeds: [finalEmbed], attachments: [] };
 
                     if (staticImage) {
                         finalData.files = [{ attachment: staticImage, name: 'matrix-result.png' }];
