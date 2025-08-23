@@ -356,6 +356,90 @@ function getAllActiveGames() {
     return activeGames;
 }
 
+// ========================= ECONOMIC TIERS =========================
+
+/**
+ * Economic tier definitions based on total balance
+ */
+const ECONOMIC_TIERS = {
+    BRONZE: { min: 0, max: 9999, name: 'Bronze', emoji: '🥉', color: 0xCD7F32, interest: 0 },
+    SILVER: { min: 10000, max: 99999, name: 'Silver', emoji: '🥈', color: 0xC0C0C0, interest: 0 },
+    GOLD: { min: 100000, max: 999999, name: 'Gold', emoji: '🥇', color: 0xFFD700, interest: 0.02 },
+    PLATINUM: { min: 1000000, max: 9999999, name: 'Platinum', emoji: '💎', color: 0xE5E4E2, interest: 0.03 },
+    DIAMOND: { min: 10000000, max: 99999999, name: 'Diamond', emoji: '💠', color: 0xB9F2FF, interest: 0.05 },
+    LEGENDARY: { min: 100000000, max: 999999999, name: 'Legendary', emoji: '🌟', color: 0xFF6B35, interest: 0.07 },
+    MYTHIC: { min: 1000000000, max: Infinity, name: 'Mythic', emoji: '⚡', color: 0x9B59B6, interest: 0.10 }
+};
+
+/**
+ * Get economic tier based on total balance
+ * @param {number} totalBalance - Combined wallet + bank balance
+ * @returns {Object} Tier information object
+ */
+function getEconomicTier(totalBalance) {
+    for (const [key, tier] of Object.entries(ECONOMIC_TIERS)) {
+        if (totalBalance >= tier.min && totalBalance <= tier.max) {
+            return { ...tier, key };
+        }
+    }
+    return { ...ECONOMIC_TIERS.BRONZE, key: 'BRONZE' }; // Default fallback
+}
+
+/**
+ * Get tier emoji and name for display
+ * @param {number} totalBalance - Combined wallet + bank balance
+ * @returns {string} Formatted tier display string
+ */
+function getTierDisplay(totalBalance) {
+    const tier = getEconomicTier(totalBalance);
+    return `${tier.emoji} ${tier.name}`;
+}
+
+/**
+ * Calculate daily interest based on bank balance and tier
+ * @param {number} bankBalance - Bank balance amount
+ * @param {number} totalBalance - Total balance for tier calculation
+ * @returns {number} Daily interest amount
+ */
+function calculateDailyInterest(bankBalance, totalBalance) {
+    const tier = getEconomicTier(totalBalance);
+    if (tier.interest === 0) return 0;
+    
+    // Convert annual interest to daily (365 days)
+    const dailyRate = tier.interest / 365;
+    return Math.floor(bankBalance * dailyRate * 100) / 100; // Round down to 2 decimals
+}
+
+/**
+ * Get all tier information for leaderboard display
+ * @returns {Array} Array of tier objects
+ */
+function getAllTiers() {
+    return Object.entries(ECONOMIC_TIERS).map(([key, tier]) => ({
+        ...tier,
+        key
+    }));
+}
+
+/**
+ * Get tier benefits description
+ * @param {string} tierKey - Tier key (GOLD, PLATINUM, etc.)
+ * @returns {Array} Array of benefit strings
+ */
+function getTierBenefits(tierKey) {
+    const benefits = {
+        BRONZE: ['Basic economy access'],
+        SILVER: ['Basic economy access'],
+        GOLD: ['2% annual interest on bank balance'],
+        PLATINUM: ['3% annual interest on bank balance', 'Access to exclusive games'],
+        DIAMOND: ['5% annual interest on bank balance', 'Higher betting limits', 'GIF permissions'],
+        LEGENDARY: ['7% annual interest on bank balance', 'Custom bot profile badge'],
+        MYTHIC: ['10% annual interest on bank balance', 'Priority support']
+    };
+    
+    return benefits[tierKey] || benefits.BRONZE;
+}
+
 // ========================= LOGGING HELPERS =========================
 
 /**
@@ -430,6 +514,14 @@ module.exports = {
     clearActiveGame,
     getActiveGame,
     getAllActiveGames,
+    
+    // Economic tiers
+    ECONOMIC_TIERS,
+    getEconomicTier,
+    getTierDisplay,
+    calculateDailyInterest,
+    getAllTiers,
+    getTierBenefits,
     
     // Logging
     sendLogMessage

@@ -182,6 +182,10 @@ module.exports = {
                     case 'handle_card_click':
                         await this.handleCardClick(interaction, channelId, result.row, result.col, result.number);
                         break;
+                    case 'show_help':
+                        const helpEmbed = BingoGameSession.getHelpEmbed();
+                        await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
+                        break;
                 }
             } else {
                 await interaction.reply({

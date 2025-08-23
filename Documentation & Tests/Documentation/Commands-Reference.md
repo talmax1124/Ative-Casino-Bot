@@ -25,6 +25,35 @@ Check wallet and bank balances.
 - Bank amount (savings)
 - Total combined balance
 
+**Tiers:**
+- Bronze: $0 - $9,999
+- Silver: $10,000 - $99,999
+- Gold: $100,000 - $999,999
+- Platinum: $1,000,000+
+- Diamond: $10,000,000+
+- Legendary: $100,000,000+
+- Mythic: $1,000,000,000+
+
+** Rewards for each tier.**
+Gold: 
+- 2% interest on bank balance
+Platinum:
+- 3% interest on bank balance
+- Access to exclusive games
+Diamond:
+- 5% interest on bank balance
+- Higher betting limits
+- GIF PERMISSIONS
+Legendary:
+- 7% interest on bank balance
+- Custom bot profile badge
+Mythic:
+- 10% interest on bank balance
+- Priority support
+
+**Rules to maintain tiers:**
+- Must maintain minimum balance for tier
+- Inactivity over 10 days results in tier downgrade
 ---
 
 ### `/work`
@@ -393,6 +422,7 @@ Games use Discord buttons for actions:
 - **Slots**: Spin, Help, Settings
 - **Crash**: Bet, Cash Out, Auto-settings
 - **Duck**: Movement controls
+
 
 ### Visual Feedback
 Games provide rich visual feedback:

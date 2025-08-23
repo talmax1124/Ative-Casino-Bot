@@ -140,10 +140,8 @@ class LotteryGame {
                 .setFooter({ text: '🍀 Good luck! • Last updated' })
                 .setTimestamp();
 
-            const buy = new ButtonBuilder().setCustomId('lottery_buy_panel').setLabel('Buy Tickets').setEmoji('🎫').setStyle(ButtonStyle.Primary);
-            const status = new ButtonBuilder().setCustomId('lottery_status_panel').setLabel('My Status').setEmoji('📊').setStyle(ButtonStyle.Secondary);
             const help = new ButtonBuilder().setCustomId('lottery_help_panel').setLabel('How It Works').setEmoji('❓').setStyle(ButtonStyle.Secondary);
-            const row = new ActionRowBuilder().addComponents(buy, status, help);
+            const row = new ActionRowBuilder().addComponents(help);
 
             let message = null;
             if (this.panelMessageId) {

@@ -626,7 +626,15 @@ class UnoGameSession {
                     .setEmoji('=�')
             );
 
-        return [row1, row2];
+        const row3 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`uno_help_${this.channelId}`)
+                    .setLabel('?')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        return [row1, row2, row3];
     }
 
     createGameButtons(player) {
@@ -800,6 +808,9 @@ function handleUnoAction(interaction, action, ...params) {
                     return { success: false, error: 'Not your turn' };
                 }
                 return { success: true, action: 'play_selected_card', cardIndex, chosenColor };
+                
+            case 'help':
+                return { success: true, action: 'show_help' };
                 
             default:
                 return { success: false, error: 'Invalid action' };

@@ -197,6 +197,10 @@ module.exports = {
                     case 'play_selected_card':
                         await this.handlePlayCard(interaction, channelId, guildId, result.cardIndex, result.chosenColor);
                         break;
+                    case 'show_help':
+                        const helpEmbed = UnoGameSession.getHelpEmbed();
+                        await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
+                        break;
                 }
             } else {
                 await interaction.reply({

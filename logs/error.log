@@ -180,3 +180,16 @@ SyntaxError: Unexpected end of input
 2025-08-22 22:00:54 [ERROR]: Error creating spinning slot GIF: GIFEncoder is not a constructor
 2025-08-22 22:21:17 [ERROR]: Error in multi-slots command: fmt is not defined
 2025-08-22 22:56:37 [ERROR]: Failed to send log message: Received one or more errors
+2025-08-23 01:04:45 [ERROR]: Error executing fishing command: Invalid Form Body
+data.components[0].components[0].emoji.name[BUTTON_COMPONENT_INVALID_EMOJI]: Invalid emoji
+data.components[0].components[1].emoji.name[BUTTON_COMPONENT_INVALID_EMOJI]: Invalid emoji
+data.components[0].components[2].emoji.name[BUTTON_COMPONENT_INVALID_EMOJI]: Invalid emoji
+2025-08-23 04:58:04 [ERROR]: DiscordAPIError[50035]: Invalid Form Body
+33[APPLICATION_COMMANDS_DUPLICATE_NAME]: Application command names must be unique
+    at handleErrors (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:762:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async SequentialHandler.runRequest (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:1163:23)
+    at async SequentialHandler.queueRequest (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:994:14)
+    at async _REST.request (/Users/carlosdiazplaza/ative_casino_bot/node_modules/@discordjs/rest/dist/index.js:1307:22)
+    at async registerCommands (/Users/carlosdiazplaza/ative_casino_bot/index.js:113:9)
+    at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:265:9)

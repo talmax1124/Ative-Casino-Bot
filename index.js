@@ -65,6 +65,34 @@ async function loadCommands() {
             client.commands.set(command.data.name, command);
             commands.push(command.data.toJSON());
             logger.info(`Loaded command: ${command.data.name}`);
+
+            // Handle special case for dev.js which has multiple commands
+            if (file === 'dev.js') {
+                // Load additional commands from dev module
+                if (command.reloadCommand && command.reloadCommand.data) {
+                    client.commands.set(command.reloadCommand.data.name, command.reloadCommand);
+                    commands.push(command.reloadCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.reloadCommand.data.name}`);
+                }
+                if (command.logsCommand && command.logsCommand.data) {
+                    client.commands.set(command.logsCommand.data.name, command.logsCommand);
+                    commands.push(command.logsCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.logsCommand.data.name}`);
+                }
+                if (command.stopCrashCommand && command.stopCrashCommand.data) {
+                    // Skip loading stopcrash from dev.js since it exists as a separate file
+                    if (command.stopCrashCommand.data.name !== 'stopcrash') {
+                        client.commands.set(command.stopCrashCommand.data.name, command.stopCrashCommand);
+                        commands.push(command.stopCrashCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.stopCrashCommand.data.name}`);
+                    }
+                }
+                if (command.cogCommand && command.cogCommand.data) {
+                    client.commands.set(command.cogCommand.data.name, command.cogCommand);
+                    commands.push(command.cogCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.cogCommand.data.name}`);
+                }
+            }
         } else {
             logger.warn(`Command at ${filePath} is missing required "data" or "execute" property`);
         }
@@ -281,6 +309,17 @@ client.on('interactionCreate', async interaction => {
             return;
         }
 
+        // Check if command is disabled (import the helper function)
+        const devModule = require('./COMMANDS/dev');
+        if (devModule.isCommandDisabled && devModule.isCommandDisabled(interaction.commandName)) {
+            const embed = new EmbedBuilder()
+                .setTitle('🚫 Command Disabled')
+                .setDescription('This command has been temporarily disabled by an administrator.')
+                .setColor(0xFF6600);
+            
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
+
         try {
             await command.execute(interaction);
         } catch (error) {
@@ -389,6 +428,13 @@ client.on('interactionCreate', async interaction => {
                     await unoCommand.handleJoinModal(interaction);
                 }
             }
+            // Battleship modals
+            else if (interaction.customId === 'battleship_place_modal' || interaction.customId === 'battleship_attack_modal') {
+                const battleshipCommand = client.commands.get('battleship');
+                if (battleshipCommand && battleshipCommand.handleModal) {
+                    await battleshipCommand.handleModal(interaction);
+                }
+            }
         } catch (error) {
             logger.error(`Error handling modal ${interaction.customId}: ${error.message}`);
 
@@ -449,6 +495,18 @@ client.on('interactionCreate', async interaction => {
                 if (unoCommand && unoCommand.handleCardSelection) {
                     const cardIndex = interaction.values[0];
                     await unoCommand.handleCardSelection(interaction, cardIndex);
+                }
+            }
+            // Handle help category selection
+            else if (interaction.customId === 'help_category_select') {
+                const helpCommand = client.commands.get('help');
+                if (helpCommand) {
+                    const selectedCategory = interaction.values[0];
+                    const tempInteraction = { ...interaction };
+                    tempInteraction.options = {
+                        getString: (name) => name === 'category' ? selectedCategory : null
+                    };
+                    await helpCommand.execute(tempInteraction);
                 }
             }
             // Handle UNO color selection
@@ -660,6 +718,111 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('lottery_')) {
                 await handleLotteryButtons(interaction, customId);
             }
+            // Handle game help buttons
+            else if (customId === 'slots_help') {
+                await showSlotsHelp(interaction);
+            }
+            else if (customId === 'blackjack_help') {
+                await showBlackjackHelp(interaction);
+            }
+            else if (customId === 'fishing_help') {
+                await showFishingHelp(interaction);
+            }
+            else if (customId === 'close_help') {
+                await interaction.update({ content: '✅ Help closed!', embeds: [], components: [] });
+                // Delete the message after a short delay
+                setTimeout(async () => {
+                    try {
+                        await interaction.deleteReply();
+                    } catch (error) {
+                        // Ignore errors (message might already be deleted)
+                    }
+                }, 2000);
+            }
+            // Handle leaderboard buttons
+            else if (customId.startsWith('leaderboard_')) {
+                const leaderboardCommand = client.commands.get('leaderboard');
+                if (leaderboardCommand) {
+                    const { getGuildId } = require('./UTILS/common');
+                    const guildId = await getGuildId(interaction);
+                    
+                    if (customId === 'leaderboard_money') {
+                        // Re-use the original command but specify category
+                        const tempInteraction = { ...interaction };
+                        tempInteraction.options = {
+                            getString: (name) => name === 'category' ? 'money' : null
+                        };
+                        await leaderboardCommand.execute(tempInteraction);
+                    } else if (customId === 'leaderboard_winloss') {
+                        const tempInteraction = { ...interaction };
+                        tempInteraction.options = {
+                            getString: (name) => name === 'category' ? 'winloss' : null
+                        };
+                        await leaderboardCommand.execute(tempInteraction);
+                    } else if (customId === 'leaderboard_tiers') {
+                        const tempInteraction = { ...interaction };
+                        tempInteraction.options = {
+                            getString: (name) => name === 'category' ? 'tiers' : null
+                        };
+                        await leaderboardCommand.execute(tempInteraction);
+                    } else if (customId === 'leaderboard_refresh') {
+                        // Get current category from embed title and refresh
+                        const embed = interaction.message.embeds[0];
+                        let category = 'money'; // default
+                        if (embed && embed.title) {
+                            if (embed.title.includes('Win/Loss')) category = 'winloss';
+                            else if (embed.title.includes('Tier')) category = 'tiers';
+                        }
+                        
+                        const tempInteraction = { ...interaction };
+                        tempInteraction.options = {
+                            getString: (name) => name === 'category' ? category : null
+                        };
+                        await leaderboardCommand.execute(tempInteraction);
+                    }
+                }
+            }
+            // Handle help buttons
+            else if (customId.startsWith('help_')) {
+                const helpCommand = client.commands.get('help');
+                if (helpCommand) {
+                    if (customId === 'help_back_main') {
+                        // Show main help
+                        const tempInteraction = { ...interaction };
+                        tempInteraction.options = {
+                            getString: (name) => null
+                        };
+                        await helpCommand.execute(tempInteraction);
+                    } else if (customId === 'help_refresh') {
+                        // Refresh current category
+                        const embed = interaction.message.embeds[0];
+                        let category = null;
+                        if (embed && embed.title) {
+                            if (embed.title.includes('Games')) category = 'games';
+                            else if (embed.title.includes('Economy')) category = 'economy';
+                            else if (embed.title.includes('Lottery')) category = 'lottery';
+                            else if (embed.title.includes('Admin')) category = 'admin';
+                            else if (embed.title.includes('Tier')) category = 'tiers';
+                            else if (embed.title.includes('Security')) category = 'security';
+                        }
+                        
+                        const tempInteraction = { ...interaction };
+                        tempInteraction.options = {
+                            getString: (name) => name === 'category' ? category : null
+                        };
+                        await helpCommand.execute(tempInteraction);
+                    } else if (customId === 'help_commands_list') {
+                        // Show all commands list
+                        await showAllCommandsList(interaction);
+                    } else if (customId === 'help_getting_started') {
+                        // Show getting started guide
+                        await showGettingStartedGuide(interaction);
+                    } else if (customId === 'help_support') {
+                        // Show support information
+                        await showSupportInfo(interaction);
+                    }
+                }
+            }
         } catch (error) {
             logger.error(`Error handling button ${customId}:`, error);
 
@@ -673,6 +836,42 @@ client.on('interactionCreate', async interaction => {
             } else {
                 await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
+        }
+    }
+    // Handle Battleship buttons (namespace: battleship_{action})
+    else if (interaction.isButton() && interaction.customId.startsWith('battleship_')) {
+        try {
+            // Extract full action after prefix so multi-word actions work
+            const action = interaction.customId.substring('battleship_'.length);
+            const battleshipCommand = client.commands.get('battleship');
+            if (battleshipCommand && battleshipCommand.handleButtonInteraction) {
+                await battleshipCommand.handleButtonInteraction(interaction, action);
+            }
+        } catch (error) {
+            logger.error(`Error handling Battleship button: ${error.message}`);
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Button Error')
+                .setDescription('An error occurred while processing your action.')
+                .setColor(0xFF0000);
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            } else {
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
+        }
+    }
+    // Handle autocomplete interactions
+    else if (interaction.isAutocomplete()) {
+        const command = client.commands.get(interaction.commandName);
+
+        if (!command || !command.autocomplete) {
+            return;
+        }
+
+        try {
+            await command.autocomplete(interaction);
+        } catch (error) {
+            logger.error(`Error handling autocomplete for ${interaction.commandName}:`, error);
         }
     }
 });
@@ -708,6 +907,322 @@ process.on('uncaughtException', error => {
     logger.error('Uncaught exception:', error);
     process.exit(1);
 });
+
+// ========================= HELP SYSTEM HELPER FUNCTIONS =========================
+
+/**
+ * Show all commands list
+ */
+async function showAllCommandsList(interaction) {
+    const embed = new EmbedBuilder()
+        .setTitle('📋 All Available Commands')
+        .setDescription('**Complete list of all bot commands organized by category:**')
+        .addFields(
+            {
+                name: '🎰 Casino Games',
+                value: '`/slots` `/multi-slots` `/blackjack` `/crash` `/fishing` `/plinko` `/rps` `/duck` `/bingo` `/uno` `/battleship` `/wordchain`',
+                inline: false
+            },
+            {
+                name: '💰 Economy Commands',
+                value: '`/balance` `/work` `/beg` `/crime` `/heist` `/rob` `/sendmoney` `/leaderboard`',
+                inline: false
+            },
+            {
+                name: '🎟️ Lottery System',
+                value: '`/lottery` `/purchaselottery` `/updatelotterypanel`',
+                inline: false
+            },
+            {
+                name: '👑 Admin Commands',
+                value: '`/addmoney` `/setmoney` `/crasheco` `/setup` `/panel` `/backup` `/stopgame` `/stopcrash` `/polls`',
+                inline: false
+            },
+            {
+                name: '📊 Information & Help',
+                value: '`/help` `/status` `/leaderboard`',
+                inline: false
+            }
+        )
+        .setColor(0x3498DB)
+        .setThumbnail('📋')
+        .setFooter({ text: '📋 Commands List • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setTimestamp();
+
+    const backButton = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('help_back_main')
+                .setLabel('🔙 Back to Help')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+    await interaction.update({ embeds: [embed], components: [backButton] });
+}
+
+/**
+ * Show getting started guide
+ */
+async function showGettingStartedGuide(interaction) {
+    const embed = new EmbedBuilder()
+        .setTitle('🚀 Getting Started with ATIVE Casino Bot')
+        .setDescription('**New to the casino? Follow this step-by-step guide to get started!**')
+        .addFields(
+            {
+                name: '1️⃣ Check Your Starting Balance',
+                value: 'Use `/balance` to see your starting $1,000 wallet balance.\nYour wallet is for spending, your bank is for saving!',
+                inline: false
+            },
+            {
+                name: '2️⃣ Earn More Money',
+                value: '• `/work` - Work various jobs (5K-30K every hour)\n• `/beg` - Ask for handouts (1K-10K every hour)\n• `/crime` - Quick petty crimes (1K-5K every 30min)\n• `/heist` - Big score attempts (10K-30K every 2.5hrs)',
+                inline: false
+            },
+            {
+                name: '3️⃣ Try Your First Game',
+                value: '• `/slots 100` - Simple slot machine (great for beginners)\n• `/blackjack 500` - Classic card game with strategy\n• `/fishing 250` - Risk vs reward fishing game\n• Remember to click the **?** button for game help!',
+                inline: false
+            },
+            {
+                name: '4️⃣ Manage Your Money',
+                value: '• **Bank your earnings** to earn interest and protect from robbery\n• **Check your tier** - higher tiers get better benefits\n• **Send money** to friends with `/sendmoney`\n• **Rob others** with `/rob` (but be careful of the risks!)',
+                inline: false
+            },
+            {
+                name: '5️⃣ Join the Community',
+                value: '• Buy **lottery tickets** for weekly big prizes\n• Check the **leaderboard** to see top players\n• **Play PvP games** like Battleship and UNO\n• **Follow the rules** and have fun!',
+                inline: false
+            },
+            {
+                name: '💡 Pro Tips',
+                value: '• **Higher tiers** get interest on bank balance\n• **Can\'t rob 2+ tiers higher** - grow your wealth first\n• **All games have help buttons** - use them!\n• **Economy commands have cooldowns** - be patient',
+                inline: false
+            }
+        )
+        .setColor(0x2ECC71)
+        .setThumbnail('🚀')
+        .setFooter({ text: '🚀 Getting Started • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setTimestamp();
+
+    const backButton = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('help_back_main')
+                .setLabel('🔙 Back to Help')
+                .setStyle(ButtonStyle.Secondary)
+        );
+
+    await interaction.update({ embeds: [embed], components: [backButton] });
+}
+
+/**
+ * Show support information
+ */
+async function showSupportInfo(interaction) {
+    const embed = new EmbedBuilder()
+        .setTitle('💬 Support & Community')
+        .setDescription('**Need help? Found a bug? Want to give feedback?**\n\nHere are all the ways to get support and connect with the community.')
+        .addFields(
+            {
+                name: '🐛 Report Bugs & Issues',
+                value: '**GitHub Issues:** [claude-code/issues](https://github.com/anthropics/claude-code/issues)\nDetailed bug reports help us fix issues faster!',
+                inline: false
+            },
+            {
+                name: '📊 Bot Logs & Monitoring',
+                value: '**Logs Channel:** <#1405096821512212521>\nAll bot activities are logged here for transparency.',
+                inline: false
+            },
+            {
+                name: '👨‍💻 Developer Contact',
+                value: '**Developer ID:** `466050111680544798`\nFor critical issues or direct feedback.',
+                inline: false
+            },
+            {
+                name: '📚 Documentation',
+                value: '• Use `/help [category]` for specific help topics\n• Every game has a **?** help button\n• Check `/leaderboard tiers` for tier information\n• Use `/status` for bot health information',
+                inline: false
+            },
+            {
+                name: '🤝 Community Guidelines',
+                value: '• **Be respectful** to other players\n• **Don\'t exploit bugs** - report them instead\n• **Follow Discord TOS** at all times\n• **Have fun** and enjoy the games!',
+                inline: false
+            },
+            {
+                name: '⚡ Quick Support Commands',
+                value: '• `/help` - This help system\n• `/status` - Bot status and uptime\n• `/balance` - Check your account\n• `/setup` - Server setup (admins only)',
+                inline: false
+            }
+        )
+        .setColor(0x9B59B6)
+        .setThumbnail('💬')
+        .setFooter({ text: '💬 Support Info • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setTimestamp();
+
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('help_back_main')
+                .setLabel('🔙 Back to Help')
+                .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setURL('https://github.com/anthropics/claude-code/issues')
+                .setLabel('🐛 Report Bug')
+                .setStyle(ButtonStyle.Link)
+        );
+
+    await interaction.update({ embeds: [embed], components: [buttons] });
+}
+
+/**
+ * Show slots game help
+ */
+async function showSlotsHelp(interaction) {
+    const embed = new EmbedBuilder()
+        .setTitle('🎰 Slots - How to Play')
+        .setDescription('**Classic 3-reel slot machine with exciting payouts!**\n\nSpin the reels and match symbols for big wins!')
+        .addFields(
+            {
+                name: '🎯 How to Play',
+                value: '1. Use `/slots <amount>` to bet any amount\n2. Watch the reels spin with animation\n3. Match symbols across the payline to win\n4. Bigger matches = bigger multipliers!',
+                inline: false
+            },
+            {
+                name: '🍒 Symbol Payouts',
+                value: '🍒 **Cherries** - 2x payout\n🍋 **Lemon** - 3x payout\n🍊 **Orange** - 5x payout\n🍇 **Grapes** - 8x payout\n🍉 **Watermelon** - 12x payout\n💎 **Diamond** - 25x payout\n7️⃣ **Lucky 7** - 100x JACKPOT!',
+                inline: false
+            },
+            {
+                name: '💰 Winning Combinations',
+                value: '• **3 of the same symbol** = Full payout\n• **2 of the same symbol** = Partial payout\n• **Mixed fruits** = Small consolation prize\n• **Triple 7s** = MASSIVE JACKPOT!',
+                inline: false
+            },
+            {
+                name: '🚀 Special Features',
+                value: '• **Animated reels** for realistic experience\n• **Static result image** shows final outcome\n• **Booster bonus** for server boosters\n• **Fair RNG** ensures random results',
+                inline: false
+            },
+            {
+                name: '💡 Pro Tips',
+                value: '• Start with smaller bets to learn\n• Higher bets = higher potential wins\n• Look for fruit combinations\n• Triple 7s are rare but worth it!',
+                inline: false
+            }
+        )
+        .setColor(0xFFD700)
+        .setThumbnail('🎰')
+        .setFooter({ text: '🎰 Slots Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setTimestamp();
+
+    const closeButton = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('close_help')
+                .setLabel('✅ Got it!')
+                .setStyle(ButtonStyle.Success)
+        );
+
+    await interaction.reply({ embeds: [embed], components: [closeButton], ephemeral: true });
+}
+
+/**
+ * Show blackjack game help
+ */
+async function showBlackjackHelp(interaction) {
+    const embed = new EmbedBuilder()
+        .setTitle('🃏 Blackjack - How to Play')
+        .setDescription('**Beat the dealer by getting as close to 21 as possible without going over!**\n\nClassic casino card game with strategy and luck.')
+        .addFields(
+            {
+                name: '🎯 Objective',
+                value: '• Get your cards closer to 21 than the dealer\n• Don\'t go over 21 (that\'s a "bust")\n• Blackjack (21 with 2 cards) pays 3:2\n• Regular wins pay 1:1',
+                inline: false
+            },
+            {
+                name: '🃏 Card Values',
+                value: '• **Number cards** = Face value (2-10)\n• **Face cards** (J, Q, K) = 10 points\n• **Aces** = 1 or 11 (whichever is better)\n• **Soft hand** = Hand with Ace counting as 11',
+                inline: false
+            },
+            {
+                name: '🎮 Your Actions',
+                value: '**Hit** - Take another card\n**Stand** - Keep your current hand\n**Double Down** - Double bet, take exactly 1 card\n**Split** - Split pairs into 2 hands (coming soon)\n**Insurance** - Side bet when dealer shows Ace',
+                inline: false
+            },
+            {
+                name: '🏠 Dealer Rules',
+                value: '• Dealer hits on 16 or less\n• Dealer stands on 17 or more\n• Dealer checks for blackjack with Ace/10 showing\n• Dealer wins ties (push)',
+                inline: false
+            },
+            {
+                name: '💡 Strategy Tips',
+                value: '• **Hit** on 11 or less (can\'t bust)\n• **Stand** on 17 or more (risky to hit)\n• **Double down** on 10 or 11 vs weak dealer\n• **Consider dealer\'s up card** before deciding\n• **Insurance** is usually not worth it',
+                inline: false
+            }
+        )
+        .setColor(0x000000)
+        .setThumbnail('🃏')
+        .setFooter({ text: '🃏 Blackjack Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setTimestamp();
+
+    const closeButton = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('close_help')
+                .setLabel('✅ Got it!')
+                .setStyle(ButtonStyle.Success)
+        );
+
+    await interaction.reply({ embeds: [embed], components: [closeButton], ephemeral: true });
+}
+
+/**
+ * Show fishing game help
+ */
+async function showFishingHelp(interaction) {
+    const embed = new EmbedBuilder()
+        .setTitle('🎣 Fishing - How to Play')
+        .setDescription('**Cast your line and reel in multipliers!**\n\nA unique risk vs reward game where patience pays off.')
+        .addFields(
+            {
+                name: '🎯 How to Play',
+                value: '1. Use `/fishing <amount>` to cast your line\n2. Choose your fishing spot and strategy\n3. Wait for fish to bite\n4. Reel in for multiplier rewards!',
+                inline: false
+            },
+            {
+                name: '🐟 Fish Types',
+                value: '🐟 **Common Fish** - Small but reliable catches\n🐠 **Uncommon Fish** - Better rewards\n🐡 **Rare Fish** - Significant multipliers\n🐙 **Legendary Fish** - Massive payouts\n🦈 **Red Fish of Doom** - Highest risk, highest reward!',
+                inline: false
+            },
+            {
+                name: '⚖️ Risk vs Reward',
+                value: '• **Shallow water** = Safer, smaller fish\n• **Deep water** = Riskier, bigger fish\n• **Legendary spots** = Rare but incredible catches\n• **Weather affects** fish activity',
+                inline: false
+            },
+            {
+                name: '🎮 Strategy Elements',
+                value: '• Choose your **bait type** for different fish\n• **Patience** increases chances of rare fish\n• **Timing** your reel-in for bonus multipliers\n• **Location** affects what fish appear',
+                inline: false
+            },
+            {
+                name: '💡 Pro Tips',
+                value: '• Start with smaller bets to learn patterns\n• **Legendary fish** are worth the wait\n• Watch for **Red Fish warnings**\n• Use **weather** to your advantage\n• **Practice timing** for perfect catches',
+                inline: false
+            }
+        )
+        .setColor(0x1E90FF)
+        .setThumbnail('🎣')
+        .setFooter({ text: '🎣 Fishing Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setTimestamp();
+
+    const closeButton = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('close_help')
+                .setLabel('✅ Got it!')
+                .setStyle(ButtonStyle.Success)
+        );
+
+    await interaction.reply({ embeds: [embed], components: [closeButton], ephemeral: true });
+}
 
 // Graceful shutdown
 process.on('SIGINT', () => {

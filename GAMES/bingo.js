@@ -303,28 +303,28 @@ class BingoGameSession {
     async _sendCardUpdate(interaction, player) {
         try {
             const embed = new EmbedBuilder()
-                .setTitle('<¯ Your BINGO Card')
+                .setTitle('<ï¿½ Your BINGO Card')
                 .setDescription(player.card.getCardDisplay())
                 .setColor(0x0000FF);
 
             if (this.currentNumber) {
                 const column = this.getNumberColumn(this.currentNumber);
                 embed.addFields({
-                    name: '=â Just Called',
+                    name: '=ï¿½ Just Called',
                     value: `**${column}-${this.currentNumber}**`,
                     inline: true
                 });
             }
 
             embed.addFields({
-                name: '=Ê Game Status',
+                name: '=ï¿½ Game Status',
                 value: `Numbers Called: ${this.calledNumbers.length}/75\nPlayers: ${this.players.size}`,
                 inline: true
             });
 
             if (player.hasBingo) {
                 embed.addFields({
-                    name: '<Æ BINGO!',
+                    name: '<ï¿½ BINGO!',
                     value: 'You have BINGO! Waiting for game to end...',
                     inline: false
                 });
@@ -340,7 +340,7 @@ class BingoGameSession {
         if (this.gameChannel) {
             try {
                 const embed = new EmbedBuilder()
-                    .setTitle('<Æ BINGO! We have winner(s)!')
+                    .setTitle('<ï¿½ BINGO! We have winner(s)!')
                     .setColor(0xFFD700);
 
                 if (this.currentNumber) {
@@ -351,7 +351,7 @@ class BingoGameSession {
                 const totalPot = this.players.size * this.starterBet;
                 if (winners.length === 1) {
                     embed.addFields({
-                        name: '<Æ Winner',
+                        name: '<ï¿½ Winner',
                         value: `**${winners[0].username}** wins ${fmt(totalPot)}!`,
                         inline: false
                     });
@@ -359,14 +359,14 @@ class BingoGameSession {
                     const prizePerWinner = totalPot / winners.length;
                     const winnerNames = winners.map(w => `**${w.username}**`);
                     embed.addFields({
-                        name: `<Æ ${winners.length} Winners`,
+                        name: `<ï¿½ ${winners.length} Winners`,
                         value: `${winnerNames.join(', ')}\nEach wins ${fmt(prizePerWinner)}!`,
                         inline: false
                     });
                 }
 
                 embed.addFields({
-                    name: '=Ê Game Stats',
+                    name: '=ï¿½ Game Stats',
                     value: `Numbers Called: ${this.calledNumbers.length}/75\nTotal Players: ${this.players.size}`,
                     inline: false
                 });
@@ -395,7 +395,7 @@ class BingoGameSession {
     // Lobby embed
     getLobbyEmbed(notification = null) {
         const embed = new EmbedBuilder()
-            .setTitle('<¯ Multiplayer BINGO Lobby')
+            .setTitle('<ï¿½ Multiplayer BINGO Lobby')
             .setDescription('Join the BINGO game!')
             .setColor(0x00FF00);
 
@@ -427,14 +427,14 @@ class BingoGameSession {
             inline: false
         });
 
-        embed.setFooter({ text: '=Ý Enjoy your bingo game!' });
+        embed.setFooter({ text: '=ï¿½ Enjoy your bingo game!' });
         return embed;
     }
 
     // Game status embed
     getGameEmbed(notification = null) {
         const embed = new EmbedBuilder()
-            .setTitle('<¯ Multiplayer BINGO Game')
+            .setTitle('<ï¿½ Multiplayer BINGO Game')
             .setColor(0x0000FF);
 
         if (notification) {
@@ -444,21 +444,21 @@ class BingoGameSession {
         if (this.currentNumber) {
             const column = this.getNumberColumn(this.currentNumber);
             embed.addFields({
-                name: '=â Current Number',
+                name: '=ï¿½ Current Number',
                 value: `**${column}-${this.currentNumber}**`,
                 inline: true
             });
         }
 
         embed.addFields({
-            name: '=Ê Game Stats',
+            name: '=ï¿½ Game Stats',
             value: `Players: ${this.players.size}\nNumbers Called: ${this.calledNumbers.length}/75`,
             inline: true
         });
 
         const totalPot = this.players.size * this.starterBet;
         embed.addFields({
-            name: '=° Prize Pool',
+            name: '=ï¿½ Prize Pool',
             value: fmt(totalPot),
             inline: true
         });
@@ -467,7 +467,7 @@ class BingoGameSession {
             const recent = this.calledNumbers.slice(-5);
             const recentStr = recent.map(n => `${this.getNumberColumn(n)}-${n}`).join(' | ');
             embed.addFields({
-                name: '=Ý Recent Numbers',
+                name: '=ï¿½ Recent Numbers',
                 value: recentStr,
                 inline: false
             });
@@ -483,12 +483,12 @@ class BingoGameSession {
                     .setCustomId(`bingo_join_${this.channelId}`)
                     .setLabel('Join Game')
                     .setStyle(ButtonStyle.Success)
-                    .setEmoji('<¯'),
+                    .setEmoji('<ï¿½'),
                 new ButtonBuilder()
                     .setCustomId(`bingo_start_${this.channelId}`)
                     .setLabel('Start Game')
                     .setStyle(ButtonStyle.Primary)
-                    .setEmoji('=€')
+                    .setEmoji('=ï¿½')
             );
 
         const row2 = new ActionRowBuilder()
@@ -497,10 +497,18 @@ class BingoGameSession {
                     .setCustomId(`bingo_leave_${this.channelId}`)
                     .setLabel('Leave Game')
                     .setStyle(ButtonStyle.Danger)
-                    .setEmoji('=ª')
+                    .setEmoji('=ï¿½')
             );
 
-        return [row1, row2];
+        const row3 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`bingo_help_${this.channelId}`)
+                    .setLabel('?')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        return [row1, row2, row3];
     }
 
     createGameButtons() {
@@ -510,17 +518,17 @@ class BingoGameSession {
                     .setCustomId(`bingo_show_card_${this.channelId}`)
                     .setLabel('Show My Card')
                     .setStyle(ButtonStyle.Success)
-                    .setEmoji('<¯'),
+                    .setEmoji('<ï¿½'),
                 new ButtonBuilder()
                     .setCustomId(`bingo_interactive_card_${this.channelId}`)
                     .setLabel('Interactive Card')
                     .setStyle(ButtonStyle.Primary)
-                    .setEmoji('<®'),
+                    .setEmoji('<ï¿½'),
                 new ButtonBuilder()
                     .setCustomId(`bingo_game_status_${this.channelId}`)
                     .setLabel('Game Status')
                     .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('=Ê')
+                    .setEmoji('=ï¿½')
             );
 
         return [row];
@@ -528,39 +536,39 @@ class BingoGameSession {
 
     static getHelpEmbed() {
         const embed = new EmbedBuilder()
-            .setTitle('<¯ Multiplayer BINGO Guide')
+            .setTitle('<ï¿½ Multiplayer BINGO Guide')
             .setDescription('Learn how to play BINGO!')
             .setColor(0x0000FF);
 
         embed.addFields(
             {
-                name: '<® Game Overview',
+                name: '<ï¿½ Game Overview',
                 value: '" **Players**: 2-20 per game\n" **Buy-in**: $50 - $10,000 (set by game starter)\n" **Goal**: Get 5 numbers in a row on your card\n" **Prize**: Winner(s) split the total pot',
                 inline: false
             },
             {
-                name: '=€ How to Play',
+                name: '=ï¿½ How to Play',
                 value: '1. Use `/bingo <amount>` to start a game\n2. Other players click **Join Game** to enter\n3. Click **Start Game** when 2+ players joined\n4. Click **Interactive Card** to get your clickable BINGO card\n5. Numbers are called **automatically** every 3 seconds\n6. **Click the number buttons** to mark called numbers\n7. First to get BINGO wins the pot!',
                 inline: false
             },
             {
-                name: '<¯ BINGO Card Layout',
+                name: '<ï¿½ BINGO Card Layout',
                 value: '```\n B   I   N   G   O \n---+---+---+---+---\n 1 | 16| 31| 46| 61\n 2 | 17|FREE| 47| 62\n 3 | 18| 33| 48| 63\n```\n**B**: 1-15, **I**: 16-30, **N**: 31-45, **G**: 46-60, **O**: 61-75\nCenter space is **FREE** (always marked)',
                 inline: false
             },
             {
-                name: '<Æ Winning Patterns',
+                name: '<ï¿½ Winning Patterns',
                 value: 'Get **5 in a row** to win:\n" **Horizontal** - Any complete row\n" **Vertical** - Any complete column\n" **Diagonal** - Corner to corner\n\n*Multiple winners split the prize equally*',
                 inline: true
             },
             {
-                name: '=° Prize Structure',
-                value: '" **Single Winner**: Takes entire pot\n" **Multiple Winners**: Split pot equally\n" **No Winner**: Everyone refunded\n" **Example**: 4 players × $100 = $400 pot',
+                name: '=ï¿½ Prize Structure',
+                value: '" **Single Winner**: Takes entire pot\n" **Multiple Winners**: Split pot equally\n" **No Winner**: Everyone refunded\n" **Example**: 4 players ï¿½ $100 = $400 pot',
                 inline: true
             }
         );
 
-        embed.setFooter({ text: '=¡ Use /bingo <amount> to start playing! Good luck! <@' });
+        embed.setFooter({ text: '=ï¿½ Use /bingo <amount> to start playing! Good luck! <@' });
         return embed;
     }
 }
@@ -672,12 +680,12 @@ class BingoInteractiveCardView {
     async _updateCardDisplay(interaction, message = null) {
         try {
             const embed = new EmbedBuilder()
-                .setTitle('<® Your Interactive BINGO Card')
+                .setTitle('<ï¿½ Your Interactive BINGO Card')
                 .setDescription(message || 'Click the number buttons below to mark them when called!')
                 .setColor(0x00FF00);
 
             embed.addFields({
-                name: '<¯ Your Card',
+                name: '<ï¿½ Your Card',
                 value: this.player.card.getCardDisplay(),
                 inline: false
             });
@@ -685,21 +693,21 @@ class BingoInteractiveCardView {
             if (this.game.currentNumber) {
                 const column = this.game.getNumberColumn(this.game.currentNumber);
                 embed.addFields({
-                    name: '=â Last Called',
+                    name: '=ï¿½ Last Called',
                     value: `**${column}-${this.game.currentNumber}**`,
                     inline: true
                 });
             }
 
             embed.addFields({
-                name: '=Ê Game Status',
+                name: '=ï¿½ Game Status',
                 value: `Numbers Called: ${this.game.calledNumbers.length}/75\nPlayers: ${this.game.players.size}`,
                 inline: true
             });
 
             if (this.player.hasBingo) {
                 embed.addFields({
-                    name: '<Æ BINGO!',
+                    name: '<ï¿½ BINGO!',
                     value: `You got BINGO with: ${this.player.winningPatterns.join(', ')}`,
                     inline: false
                 });
@@ -718,12 +726,12 @@ class BingoInteractiveCardView {
             if (!this.storedInteraction) return;
 
             const embed = new EmbedBuilder()
-                .setTitle('<® Your Interactive BINGO Card')
+                .setTitle('<ï¿½ Your Interactive BINGO Card')
                 .setDescription('Click the number buttons below to mark them when called!')
                 .setColor(0x00FF00);
 
             embed.addFields({
-                name: '<¯ Your Card',
+                name: '<ï¿½ Your Card',
                 value: this.player.card.getCardDisplay(),
                 inline: false
             });
@@ -731,28 +739,28 @@ class BingoInteractiveCardView {
             if (this.game.currentNumber) {
                 const column = this.game.getNumberColumn(this.game.currentNumber);
                 embed.addFields({
-                    name: '=â Just Called',
+                    name: '=ï¿½ Just Called',
                     value: `**${column}-${this.game.currentNumber}**`,
                     inline: true
                 });
             }
 
             embed.addFields({
-                name: '=Ê Game Status',
+                name: '=ï¿½ Game Status',
                 value: `Numbers Called: ${this.game.calledNumbers.length}/75\nPlayers: ${this.game.players.size}`,
                 inline: true
             });
 
             if (this.player.hasBingo) {
                 embed.addFields({
-                    name: '<Æ BINGO!',
+                    name: '<ï¿½ BINGO!',
                     value: `You got BINGO with: ${this.player.winningPatterns.join(', ')}`,
                     inline: false
                 });
             }
 
             if (this.game.gameEnded) {
-                embed.setTitle('<Á BINGO Game Ended');
+                embed.setTitle('<ï¿½ BINGO Game Ended');
                 embed.setColor(0xFF0000);
                 await this.storedInteraction.editReply({ embeds: [embed], components: [] });
             } else {
@@ -845,6 +853,9 @@ function handleBingoAction(interaction, action, ...params) {
                     return { success: false, error: 'You are not in this game' };
                 }
                 return { success: true, action: 'handle_card_click', row, col, number };
+                
+            case 'help':
+                return { success: true, action: 'show_help' };
                 
             default:
                 return { success: false, error: 'Invalid action' };

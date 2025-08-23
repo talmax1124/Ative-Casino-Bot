@@ -296,7 +296,10 @@ class DatabaseManager {
      */
     async ensureUser(userId, username = null) {
         // Firebase handler automatically creates users when needed
-        // This is a no-op for compatibility
+        // Update username if provided
+        if (username) {
+            await this.updateUsername(userId, username);
+        }
     }
 
     /**
@@ -825,6 +828,184 @@ class DatabaseManager {
             ...balance,
             lastTransaction: null // Add this when we implement transaction tracking
         };
+    }
+
+    // ========================= LEADERBOARD OPERATIONS =========================
+
+    /**
+     * Get top users by total balance (wallet + bank) with usernames
+     * @param {string} guildId - Guild ID
+     * @param {number} limit - Number of users to return
+     * @returns {Array} Array of user balance data with usernames
+     */
+    async getTopUsersByBalance(guildId, limit = 10) {
+        try {
+            // Get all user balances
+            const balancesSnapshot = await this.db.collection('user_balances')
+                .orderBy('updated_at', 'desc')
+                .limit(Math.min(limit * 2, 100)) // Get more than needed in case some have 0 balance
+                .get();
+            
+            const users = [];
+            
+            for (const doc of balancesSnapshot.docs) {
+                const data = doc.data();
+                const totalBalance = (parseFloat(data.wallet) || 0) + (parseFloat(data.bank) || 0);
+                
+                if (totalBalance > 0) { // Only include users with positive balance
+                    users.push({
+                        user_id: doc.id,
+                        username: data.username || 'Unknown',
+                        wallet: parseFloat(data.wallet) || 0,
+                        bank: parseFloat(data.bank) || 0,
+                        total_balance: totalBalance,
+                        updated_at: data.updated_at
+                    });
+                }
+            }
+            
+            // Sort by total balance (descending)
+            users.sort((a, b) => b.total_balance - a.total_balance);
+            
+            return users.slice(0, limit);
+        } catch (error) {
+            logger.error(`Error getting top users by balance: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Get top users by wins with game statistics
+     * @param {string} guildId - Guild ID 
+     * @param {number} limit - Number of users to return
+     * @returns {Array} Array of user game statistics
+     */
+    async getTopUsersByWins(guildId, limit = 10) {
+        try {
+            // Get all user stats
+            const statsSnapshot = await this.db.collection('user_stats')
+                .orderBy('total_wins', 'desc')
+                .limit(Math.min(limit * 2, 100))
+                .get();
+            
+            const users = [];
+            
+            for (const doc of statsSnapshot.docs) {
+                const data = doc.data();
+                const totalWins = parseInt(data.total_wins) || 0;
+                const totalLosses = parseInt(data.total_losses) || 0;
+                
+                if (totalWins > 0 || totalLosses > 0) { // Only include users with game history
+                    users.push({
+                        user_id: doc.id,
+                        username: data.username || 'Unknown',
+                        total_wins: totalWins,
+                        total_losses: totalLosses,
+                        total_games: totalWins + totalLosses,
+                        win_rate: totalWins + totalLosses > 0 ? (totalWins / (totalWins + totalLosses)) * 100 : 0,
+                        updated_at: data.updated_at
+                    });
+                }
+            }
+            
+            // Sort by total wins (descending)
+            users.sort((a, b) => b.total_wins - a.total_wins);
+            
+            return users.slice(0, limit);
+        } catch (error) {
+            logger.error(`Error getting top users by wins: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Update user game statistics
+     * @param {string} userId - Discord user ID
+     * @param {boolean} won - Whether the user won the game
+     * @param {string} gameType - Type of game played
+     * @param {number} amount - Amount won/lost
+     * @returns {boolean} Success status
+     */
+    async updateGameStats(userId, won, gameType = 'unknown', amount = 0) {
+        try {
+            const docRef = this.db.collection('user_stats').doc(userId);
+            
+            // Get current stats or create new
+            const doc = await docRef.get();
+            const currentStats = doc.exists ? doc.data() : {
+                total_wins: 0,
+                total_losses: 0,
+                total_games_played: 0,
+                total_winnings: 0,
+                total_losses_amount: 0,
+                games_by_type: {},
+                created_at: new Date()
+            };
+            
+            // Update stats
+            const updateData = {
+                total_games_played: (currentStats.total_games_played || 0) + 1,
+                updated_at: new Date(),
+                username: currentStats.username || 'Unknown' // Preserve username if exists
+            };
+            
+            if (won) {
+                updateData.total_wins = (currentStats.total_wins || 0) + 1;
+                updateData.total_winnings = (currentStats.total_winnings || 0) + amount;
+            } else {
+                updateData.total_losses = (currentStats.total_losses || 0) + 1;
+                updateData.total_losses_amount = (currentStats.total_losses_amount || 0) + amount;
+            }
+            
+            // Update game type stats
+            const gameStats = currentStats.games_by_type || {};
+            if (!gameStats[gameType]) {
+                gameStats[gameType] = { wins: 0, losses: 0, total: 0 };
+            }
+            
+            if (won) {
+                gameStats[gameType].wins++;
+            } else {
+                gameStats[gameType].losses++;
+            }
+            gameStats[gameType].total++;
+            
+            updateData.games_by_type = gameStats;
+            
+            // Use set to create or update the document
+            await docRef.set({ ...currentStats, ...updateData }, { merge: true });
+            
+            logger.info(`Updated game stats for user ${userId}: ${won ? 'win' : 'loss'} in ${gameType}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error updating game stats: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Update username in user records (called when user uses commands)
+     * @param {string} userId - Discord user ID
+     * @param {string} username - Discord username
+     */
+    async updateUsername(userId, username) {
+        try {
+            // Update in balances collection
+            const balanceRef = this.db.collection('user_balances').doc(userId);
+            await balanceRef.set({ username }, { merge: true });
+            
+            // Update in stats collection if it exists
+            const statsRef = this.db.collection('user_stats').doc(userId);
+            const statsDoc = await statsRef.get();
+            if (statsDoc.exists) {
+                await statsRef.set({ username }, { merge: true });
+            }
+            
+            return true;
+        } catch (error) {
+            logger.error(`Error updating username: ${error.message}`);
+            return false;
+        }
     }
 }
 

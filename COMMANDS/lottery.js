@@ -127,32 +127,12 @@ module.exports = {
 
     // Helper method to get next Sunday at 10 AM EST timestamp
     getNextSundayTimestamp() {
-        const now = new Date();
-        const estOffset = -5 * 60; // EST is UTC-5 in minutes
-        const estTime = new Date(now.getTime() + (estOffset * 60 * 1000));
-        
-        // Find days until next Sunday (0 = Sunday, 6 = Saturday)
-        const daysUntilSunday = (7 - estTime.getDay()) % 7;
-        
-        let nextSunday;
-        if (daysUntilSunday === 0) {
-            // Today is Sunday
-            nextSunday = new Date(estTime);
-            nextSunday.setHours(10, 0, 0, 0);
-            
-            // If it's already past 10 AM, go to next Sunday
-            if (estTime.getHours() >= 10) {
-                nextSunday.setDate(nextSunday.getDate() + 7);
-            }
-        } else {
-            // Not Sunday, calculate next Sunday
-            nextSunday = new Date(estTime);
-            nextSunday.setDate(nextSunday.getDate() + daysUntilSunday);
-            nextSunday.setHours(10, 0, 0, 0);
+        const moment = require('moment-timezone');
+        const nowNY = moment.tz('America/New_York');
+        let next = nowNY.clone().day(0).hour(10).minute(0).second(0).millisecond(0);
+        if (nowNY.day() > 0 || (nowNY.day() === 0 && nowNY.hour() >= 10)) {
+            next = nowNY.clone().day(7).hour(10).minute(0).second(0).millisecond(0);
         }
-        
-        // Convert back to UTC for timestamp
-        const utcTimestamp = Math.floor((nextSunday.getTime() - (estOffset * 60 * 1000)) / 1000);
-        return utcTimestamp;
+        return next.tz('UTC').unix();
     }
 };

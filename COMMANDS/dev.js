@@ -11,6 +11,9 @@ const path = require('path');
 const logger = require('../UTILS/logger');
 const { getAllActiveGames, clearActiveGame } = require('../UTILS/common');
 
+// Store disabled commands (cogs)
+const disabledCogs = new Set();
+
 const execAsync = promisify(exec);
 
 // Developer user ID from environment or hardcoded
@@ -396,6 +399,209 @@ const stopCrashSelectHandler = {
     }
 };
 
+const cogCommand = {
+    data: new SlashCommandBuilder()
+        .setName('cog')
+        .setDescription('Manage command cogs (Enable/Disable commands) (Developer only)')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('disable')
+                .setDescription('Disable a command')
+                .addStringOption(option =>
+                    option.setName('command')
+                        .setDescription('Command name to disable')
+                        .setRequired(true)
+                        .setAutocomplete(true)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('enable')
+                .setDescription('Enable a command')
+                .addStringOption(option =>
+                    option.setName('command')
+                        .setDescription('Command name to enable')
+                        .setRequired(true)
+                        .setAutocomplete(true)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('list')
+                .setDescription('List all commands and their status')
+        ),
+
+    async execute(interaction) {
+        if (!isDeveloper(interaction.user.id)) {
+            const embed = new EmbedBuilder()
+                .setTitle('❌ Permission Denied')
+                .setDescription('This command is restricted to the developer.')
+                .setColor(0xFF0000);
+            
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
+
+        const subcommand = interaction.options.getSubcommand();
+
+        try {
+            if (subcommand === 'disable') {
+                const commandName = interaction.options.getString('command');
+                
+                // Check if command exists
+                const command = interaction.client.commands.get(commandName);
+                if (!command) {
+                    const embed = new EmbedBuilder()
+                        .setTitle('❌ Command Not Found')
+                        .setDescription(`Command \`${commandName}\` does not exist.`)
+                        .setColor(0xFF0000);
+                    
+                    return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                }
+
+                // Prevent disabling essential commands
+                const protectedCommands = ['cog', 'status'];
+                if (protectedCommands.includes(commandName)) {
+                    const embed = new EmbedBuilder()
+                        .setTitle('🔒 Protected Command')
+                        .setDescription(`Command \`${commandName}\` cannot be disabled as it's essential for bot management.`)
+                        .setColor(0xFF0000);
+                    
+                    return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                }
+
+                // Add to disabled set
+                disabledCogs.add(commandName);
+
+                const embed = new EmbedBuilder()
+                    .setTitle('🚫 Command Disabled')
+                    .setDescription(`Command \`${commandName}\` has been disabled.`)
+                    .setColor(0xFF6600)
+                    .setTimestamp();
+
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                logger.info(`Developer ${interaction.user.tag} disabled command: ${commandName}`);
+
+            } else if (subcommand === 'enable') {
+                const commandName = interaction.options.getString('command');
+                
+                // Check if command exists
+                const command = interaction.client.commands.get(commandName);
+                if (!command) {
+                    const embed = new EmbedBuilder()
+                        .setTitle('❌ Command Not Found')
+                        .setDescription(`Command \`${commandName}\` does not exist.`)
+                        .setColor(0xFF0000);
+                    
+                    return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                }
+
+                // Check if command is disabled
+                if (!disabledCogs.has(commandName)) {
+                    const embed = new EmbedBuilder()
+                        .setTitle('✅ Command Already Enabled')
+                        .setDescription(`Command \`${commandName}\` is already enabled.`)
+                        .setColor(0x00FF00);
+                    
+                    return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                }
+
+                // Remove from disabled set
+                disabledCogs.delete(commandName);
+
+                const embed = new EmbedBuilder()
+                    .setTitle('✅ Command Enabled')
+                    .setDescription(`Command \`${commandName}\` has been enabled.`)
+                    .setColor(0x00FF00)
+                    .setTimestamp();
+
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                logger.info(`Developer ${interaction.user.tag} enabled command: ${commandName}`);
+
+            } else if (subcommand === 'list') {
+                const allCommands = Array.from(interaction.client.commands.keys()).sort();
+                const enabledCommands = allCommands.filter(cmd => !disabledCogs.has(cmd));
+                const disabledCommands = allCommands.filter(cmd => disabledCogs.has(cmd));
+
+                let description = '';
+                
+                if (enabledCommands.length > 0) {
+                    description += `**✅ Enabled Commands (${enabledCommands.length}):**\n`;
+                    description += enabledCommands.map(cmd => `\`${cmd}\``).join(', ') + '\n\n';
+                }
+
+                if (disabledCommands.length > 0) {
+                    description += `**🚫 Disabled Commands (${disabledCommands.length}):**\n`;
+                    description += disabledCommands.map(cmd => `\`${cmd}\``).join(', ');
+                } else {
+                    description += `**🚫 Disabled Commands:** None`;
+                }
+
+                const embed = new EmbedBuilder()
+                    .setTitle('⚙️ Command Cog Status')
+                    .setDescription(description)
+                    .setColor(0x0099FF)
+                    .addFields(
+                        { name: 'Total Commands', value: allCommands.length.toString(), inline: true },
+                        { name: 'Enabled', value: enabledCommands.length.toString(), inline: true },
+                        { name: 'Disabled', value: disabledCommands.length.toString(), inline: true }
+                    )
+                    .setTimestamp();
+
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            }
+
+        } catch (error) {
+            logger.error(`Error in cog command: ${error.message}`);
+            
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Error')
+                .setDescription('An error occurred while managing command cogs.')
+                .setColor(0xFF0000);
+
+            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        }
+    },
+
+    async autocomplete(interaction) {
+        if (!isDeveloper(interaction.user.id)) {
+            return await interaction.respond([]);
+        }
+
+        const focusedValue = interaction.options.getFocused().toLowerCase();
+        const subcommand = interaction.options.getSubcommand();
+        
+        let commandChoices = [];
+        const allCommands = Array.from(interaction.client.commands.keys());
+
+        if (subcommand === 'disable') {
+            // Show only enabled commands (excluding protected ones)
+            const protectedCommands = ['cog', 'status'];
+            commandChoices = allCommands.filter(cmd => 
+                !disabledCogs.has(cmd) && 
+                !protectedCommands.includes(cmd) &&
+                cmd.toLowerCase().includes(focusedValue)
+            );
+        } else if (subcommand === 'enable') {
+            // Show only disabled commands
+            commandChoices = allCommands.filter(cmd => 
+                disabledCogs.has(cmd) && 
+                cmd.toLowerCase().includes(focusedValue)
+            );
+        }
+
+        const response = commandChoices
+            .slice(0, 25) // Discord limit
+            .map(cmd => ({ name: cmd, value: cmd }));
+
+        await interaction.respond(response);
+    }
+};
+
+// Helper function to check if a command is disabled
+function isCommandDisabled(commandName) {
+    return disabledCogs.has(commandName);
+}
+
 // Export multiple commands
 module.exports = {
     data: statusCommand.data,
@@ -403,6 +609,10 @@ module.exports = {
     reloadCommand,
     logsCommand,
     stopCrashCommand,
+    cogCommand,
+    
+    // Helper functions
+    isCommandDisabled,
     
     // Interaction handlers
     selectMenuHandlers: {

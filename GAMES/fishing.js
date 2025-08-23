@@ -12,7 +12,7 @@ const logger = require('../UTILS/logger');
 // Fish data with probabilities and multipliers
 const FISH_TYPES = {
     'common': {
-        emoji: '=',
+        emoji: '🐟',
         name: 'Common Fish',
         multiplier_min: 1.01,
         multiplier_max: 1.05,
@@ -21,7 +21,7 @@ const FISH_TYPES = {
         description: 'A regular fish found in most waters'
     },
     'uncommon': {
-        emoji: '= ',
+        emoji: '🐠',
         name: 'Uncommon Fish',
         multiplier_min: 1.06,
         multiplier_max: 1.15,
@@ -30,7 +30,7 @@ const FISH_TYPES = {
         description: 'A colorful fish that\'s a bit harder to find'
     },
     'rare': {
-        emoji: '<',
+        emoji: '🐡',
         name: 'Rare Fish',
         multiplier_min: 1.16,
         multiplier_max: 1.35,
@@ -39,7 +39,7 @@ const FISH_TYPES = {
         description: 'A sparkling rare catch!'
     },
     'legendary': {
-        emoji: '<�',
+        emoji: '🐙',
         name: 'Legendary Fish',
         multiplier_min: 1.4,
         multiplier_max: 1.8,
@@ -48,13 +48,13 @@ const FISH_TYPES = {
         description: 'An incredibly rare legendary fish!'
     },
     'red': {
-        emoji: '=4',
+        emoji: '🦈',
         name: 'Red Fish of Doom',
         multiplier_min: 0.0,
         multiplier_max: 0.0,
         probability: 7,
         color: 0xE74C3C, // Red
-        description: '=� This cursed fish steals all your catch!'
+        description: '🔥 This cursed fish steals all your catch!'
     }
 };
 
@@ -129,7 +129,7 @@ class FishingGame {
         if (fishType === 'red') {
             this.currentWinnings = 0.0; // Lose everything
             this.gameEnded = true;
-            this.fishCaught.push(`${fishData.emoji} ${fishData.name} (=� DOOM!)`);
+            this.fishCaught.push(`${fishData.emoji} ${fishData.name} (🔥 DOOM!)`);
             
             logger.info(`${this.username} caught red fish and lost everything on catch ${this.totalCatches}`);
             
@@ -205,9 +205,9 @@ class FishingGame {
         }
 
         embed.addFields(
-            { name: '<� Catches', value: `${this.totalCatches}/${this.maxCatches}`, inline: true },
-            { name: '=� Current Winnings', value: `**${fmt(this.currentWinnings)}**`, inline: true },
-            { name: '=� Multiplier', value: `${(this.currentWinnings / this.initialBet).toFixed(2)}x`, inline: true }
+            { name: '🎣 Catches', value: `${this.totalCatches}/${this.maxCatches}`, inline: true },
+            { name: '🔥 Current Winnings', value: `**${fmt(this.currentWinnings)}**`, inline: true },
+            { name: '🔥 Multiplier', value: `${(this.currentWinnings / this.initialBet).toFixed(2)}x`, inline: true }
         );
 
         // Show recent fish caught
@@ -216,7 +216,7 @@ class FishingGame {
             embed.addFields({ name: '= Recent Catches', value: recentFish, inline: false });
         }
 
-        embed.setFooter({ text: '<� Keep fishing for bigger multipliers, or stop to secure your winnings!' });
+        embed.setFooter({ text: '🎣 Keep fishing for bigger multipliers, or stop to secure your winnings!' });
 
         return embed;
     }
@@ -231,48 +231,48 @@ class FishingGame {
         let title, description, color, resultEmoji;
 
         if (endType === 'red') {
-            title = '=� Red Fish of Doom!';
+            title = '🔥 Red Fish of Doom!';
             description = `**${this.username}** caught the cursed red fish and lost everything!`;
             color = 0xE74C3C; // Red
-            resultEmoji = '=�';
+            resultEmoji = '🔥';
         } else if (endType === 'limit') {
-            title = '<� Fishing Limit Reached!';
+            title = '🎣 Fishing Limit Reached!';
             description = `**${this.username}** completed a full fishing session! (20/20 catches)`;
             
             if (this.currentWinnings >= this.initialBet * 3) {
                 color = 0xF1C40F; // Gold
-                resultEmoji = '<�';
-                title = '<� Master Angler!';
+                resultEmoji = '🎣';
+                title = '🎣 Master Angler!';
             } else if (this.currentWinnings >= this.initialBet * 2) {
                 color = 0x2ECC71; // Green
-                resultEmoji = '<�';
-                title = '<� Expert Fisher!';
+                resultEmoji = '🎣';
+                title = '🎣 Expert Fisher!';
             } else {
                 color = 0x3498DB; // Blue
-                resultEmoji = '<�';
+                resultEmoji = '🎣';
             }
         } else {
             // Voluntary stop
             if (this.currentWinnings >= this.initialBet * 5) {
-                title = '<� Amazing Fishing Session!';
+                title = '🎣 Amazing Fishing Session!';
                 description = `**${this.username}** had an incredible fishing trip!`;
                 color = 0xF1C40F; // Gold
-                resultEmoji = '<�';
+                resultEmoji = '🎣';
             } else if (this.currentWinnings >= this.initialBet * 2) {
-                title = '<� Great Fishing Session!';
+                title = '🎣 Great Fishing Session!';
                 description = `**${this.username}** had a profitable fishing trip!`;
                 color = 0x2ECC71; // Green
-                resultEmoji = '<�';
+                resultEmoji = '🎣';
             } else if (this.currentWinnings >= this.initialBet) {
-                title = ' Successful Fishing!';
+                title = '🎣 Successful Fishing!';
                 description = `**${this.username}** made a profit fishing!`;
                 color = 0x3498DB; // Blue
                 resultEmoji = '';
             } else {
-                title = '=� Fishing Loss';
+                title = '🔥 Fishing Loss';
                 description = `**${this.username}** didn't catch enough to cover the bait cost!`;
                 color = 0xE67E22; // Orange
-                resultEmoji = '=�';
+                resultEmoji = '🔥';
             }
         }
 
@@ -282,12 +282,12 @@ class FishingGame {
             .setColor(color);
 
         embed.addFields(
-            { name: '<� Total Catches', value: this.totalCatches.toString(), inline: true },
-            { name: '=� Initial Bet', value: fmt(this.initialBet), inline: true },
-            { name: '<� Final Winnings', value: `**${fmt(this.currentWinnings)}**`, inline: true },
-            { name: '=� Wallet', value: `${fmt(this.walletBefore)} � **${fmt(finalWallet)}**`, inline: true },
-            { name: '<� Bank Balance', value: fmt(bankBalance), inline: true },
-            { name: '=� Net Change', value: `**${netChange >= 0 ? '+' : ''}${fmt(netChange)}**`, inline: true }
+            { name: '🎣 Total Catches', value: this.totalCatches.toString(), inline: true },
+            { name: '🔥 Initial Bet', value: fmt(this.initialBet), inline: true },
+            { name: '🎣 Final Winnings', value: `**${fmt(this.currentWinnings)}**`, inline: true },
+            { name: '🔥 Wallet', value: `${fmt(this.walletBefore)} � **${fmt(finalWallet)}**`, inline: true },
+            { name: '🎣 Bank Balance', value: fmt(bankBalance), inline: true },
+            { name: '🔥 Net Change', value: `**${netChange >= 0 ? '+' : ''}${fmt(netChange)}**`, inline: true }
         );
 
         // Show all fish caught (last 10 if too many)
@@ -299,7 +299,7 @@ class FishingGame {
             embed.addFields({ name: '= Fish Caught', value: fishList, inline: false });
         }
 
-        embed.setFooter({ text: '<� Thanks for fishing! Cast your line again anytime.' });
+        embed.setFooter({ text: '🎣 Thanks for fishing! Cast your line again anytime.' });
 
         return embed;
     }
@@ -310,23 +310,23 @@ class FishingGame {
     createButtons(disabled = false) {
         const fishButton = new ButtonBuilder()
             .setCustomId(`fishing-${this.userId}:fish`)
-            .setLabel('<� FISH')
+            .setLabel('FISH')
             .setStyle(ButtonStyle.Primary)
-            .setEmoji('<�')
+            .setEmoji('🎣')
             .setDisabled(disabled);
 
         const stopButton = new ButtonBuilder()
             .setCustomId(`fishing-${this.userId}:stop`)
-            .setLabel('=� Stop Fishing')
+            .setLabel('Stop Fishing')
             .setStyle(ButtonStyle.Danger)
-            .setEmoji('=�')
+            .setEmoji('🛑')
             .setDisabled(disabled || this.totalCatches === 0);
 
         const helpButton = new ButtonBuilder()
             .setCustomId(`fishing-${this.userId}:help`)
-            .setLabel('S')
+            .setLabel('Help')
             .setStyle(ButtonStyle.Secondary)
-            .setEmoji('S')
+            .setEmoji('❓')
             .setDisabled(disabled);
 
         return new ActionRowBuilder().addComponents(fishButton, stopButton, helpButton);
@@ -337,30 +337,30 @@ class FishingGame {
      */
     getInitialEmbed(bankBalance) {
         const embed = new EmbedBuilder()
-            .setTitle('<� Fishing Adventure Begins!')
+            .setTitle('🎣 Fishing Adventure Begins!')
             .setDescription(`**${this.username}** casts their line into the water...`)
             .setColor(0x3498DB);
 
         embed.addFields(
-            { name: '=� Bait Cost', value: `**${fmt(this.initialBet)}**`, inline: true },
-            { name: '=� Remaining Wallet', value: fmt(this.walletAfter), inline: true },
-            { name: '<� Bank Balance', value: fmt(bankBalance), inline: true }
+            { name: '🔥 Bait Cost', value: `**${fmt(this.initialBet)}**`, inline: true },
+            { name: '🔥 Remaining Wallet', value: fmt(this.walletAfter), inline: true },
+            { name: '🎣 Bank Balance', value: fmt(bankBalance), inline: true }
         );
 
         // Add fish type information
         const fishInfo = '= **Common** (50%): 1.01x-1.05x\n' +
-                        '=  **Uncommon** (25%): 1.06x-1.15x\n' +
+                        '🐠 **Uncommon** (25%): 1.06x-1.15x\n' +
                         '< **Rare** (15%): 1.16x-1.35x\n' +
-                        '<� **Legendary** (2%): 1.4x-1.8x\n' +
-                        '=4 **Red Fish** (7%): =� LOSE ALL';
+                        '🐙 **Legendary** (2%): 1.4x-1.8x\n' +
+                        '🦈 **Red Fish** (7%): 🔥 LOSE ALL';
 
         embed.addFields(
             { name: '= Fish Types', value: fishInfo, inline: false },
-            { name: '<� Current Winnings', value: `**${fmt(this.initialBet)}**`, inline: true },
-            { name: '<� Strategy', value: 'Keep fishing for higher multipliers, or stop to secure winnings!', inline: true }
+            { name: '🎣 Current Winnings', value: `**${fmt(this.initialBet)}**`, inline: true },
+            { name: '🎣 Strategy', value: 'Keep fishing for higher multipliers, or stop to secure winnings!', inline: true }
         );
 
-        embed.setFooter({ text: '=� Warning: Red fish will steal all your catch! Fish responsibly.' });
+        embed.setFooter({ text: '🔥 Warning: Red fish will steal all your catch! Fish responsibly.' });
 
         return embed;
     }
@@ -370,56 +370,56 @@ class FishingGame {
      */
     static getHelpEmbed() {
         const embed = new EmbedBuilder()
-            .setTitle('<� Fishing Game Help')
+            .setTitle('🎣 Fishing Game Help')
             .setDescription('Cast your line to catch fish with multipliers!')
             .setColor(0x3498DB);
 
         embed.addFields(
             {
-                name: '<� How to Play',
-                value: '`/fishing [amount]` - Start fishing with your bet!\nClick **<� FISH** to catch fish and multiply winnings.\nClick **=� Stop Fishing** anytime to keep your current winnings.',
+                name: '🎣 How to Play',
+                value: '`/fishing [amount]` - Start fishing with your bet!\nClick **🎣 FISH** to catch fish and multiply winnings.\nClick **🔥 Stop Fishing** anytime to keep your current winnings.',
                 inline: false
             },
             {
                 name: '= Fish Types & Multipliers',
-                value: '= **Common Fish** (50% chance)\n" Multiplier: 1.01x - 1.05x\n" Barely profitable catches\n\n' +
-                       '=  **Uncommon Fish** (25% chance)\n" Multiplier: 1.06x - 1.15x\n" Small but steady gains\n\n' +
-                       '< **Rare Fish** (15% chance)\n" Multiplier: 1.16x - 1.35x\n" Decent rewards for the patient\n\n' +
-                       '<� **Legendary Fish** (2% chance)\n" Multiplier: 1.4x - 1.8x\n" Rare catches for masters\n\n' +
-                       '=4 **Red Fish of Doom** (7% chance)\n" =� **LOSE EVERYTHING!**\n" The cursed fish that steals all your catch',
+                value: '= **Common Fish** (50% chance)\n• Multiplier: 1.01x - 1.05x\n• Barely profitable catches\n\n' +
+                       '🐠 **Uncommon Fish** (25% chance)\n• Multiplier: 1.06x - 1.15x\n• Small but steady gains\n\n' +
+                       '< **Rare Fish** (15% chance)\n• Multiplier: 1.16x - 1.35x\n• Decent rewards for the patient\n\n' +
+                       '🐙 **Legendary Fish** (2% chance)\n• Multiplier: 1.4x - 1.8x\n• Rare catches for masters\n\n' +
+                       '🦈 **Red Fish of Doom** (7% chance)\n• 🔥 **LOSE EVERYTHING!**\n• The cursed fish that steals all your catch',
                 inline: false
             },
             {
-                name: '=� Strategy Tips',
-                value: '" **Start small** - Test your luck before big bets\n' +
-                       '" **Know when to stop** - Greed leads to the red fish\n' +
-                       '" **Compound effect** - Each catch multiplies your total winnings\n' +
-                       '" **Risk vs Reward** - More catches = higher multipliers but more red fish risk',
+                name: '💡 Strategy Tips',
+                value: '• **Start small** - Test your luck before big bets\n' +
+                       '• **Know when to stop** - Greed leads to the red fish\n' +
+                       '• **Compound effect** - Each catch multiplies your total winnings\n' +
+                       '• **Risk vs Reward** - More catches = higher multipliers but more red fish risk',
                 inline: false
             },
             {
-                name: '<� Game Mechanics',
-                value: '" Your bet becomes your starting winnings\n' +
-                       '" Each fish multiplies your **current** winnings\n' +
-                       '" Stop anytime to secure your current winnings\n' +
-                       '" Red fish resets winnings to $0.00\n' +
-                       '" **Maximum 20 catches per session**\n' +
-                       '" Game auto-ends at 20 catches\n' +
-                       '" Use shortcuts like "1k", "all", "half"',
+                name: '🎣 Game Mechanics',
+                value: '• Your bet becomes your starting winnings\n' +
+                       '• Each fish multiplies your **current** winnings\n' +
+                       '• Stop anytime to secure your current winnings\n' +
+                       '• Red fish resets winnings to $0.00\n' +
+                       '• **Maximum 20 catches per session**\n' +
+                       '• Game auto-ends at 20 catches\n' +
+                       '• Use shortcuts like "1k", "all", "half"',
                 inline: false
             },
             {
-                name: '<� Example Session',
-                value: 'Bet: $100 � Catch =  (1.1x) � $110\n' +
+                name: '🎣 Example Session',
+                value: 'Bet: $100 � Catch 🐟 (1.1x) � $110\n' +
                        'Catch < (1.2x) � $132\n' +
-                       'Catch <� (1.5x) � $198\n' +
+                       'Catch 🐙 (1.5x) � $198\n' +
                        '**Stop here** = Win $98 profit!\n' +
-                       'OR keep fishing and risk the =4 red fish...',
+                       'OR keep fishing and risk the 🦈 red fish...',
                 inline: false
             }
         );
 
-        embed.setFooter({ text: '=� Remember: The red fish appears randomly and steals everything! Fish responsibly.' });
+        embed.setFooter({ text: '🔥 Remember: The red fish appears randomly and steals everything! Fish responsibly.' });
 
         return embed;
     }
@@ -503,7 +503,7 @@ async function handleFishingAction(interaction, action) {
 async function handleFishAction(interaction, game) {
     if (game.gameEnded) {
         await interaction.reply({
-            content: '=� This fishing session has already ended!',
+            content: '🔥 This fishing session has already ended!',
             ephemeral: true
         });
         return;
@@ -516,9 +516,9 @@ async function handleFishAction(interaction, game) {
         if (lostToRedFish) {
             // Red fish caught - game over
             const embed = game.createGameEmbed(
-                '=� Red Fish of Doom!',
+                '🔥 Red Fish of Doom!',
                 fishData.color,
-                `=� **You caught the cursed red fish and lost everything!**\n\nAll your catch has been stolen by the red fish of doom!`
+                `🔥 **You caught the cursed red fish and lost everything!**\n\nAll your catch has been stolen by the red fish of doom!`
             );
 
             const buttons = game.createButtons(true); // Disabled buttons
@@ -534,9 +534,9 @@ async function handleFishAction(interaction, game) {
         } else if (reachedLimit) {
             // Reached catch limit
             const embed = game.createGameEmbed(
-                `<� Final catch! ${fishData.emoji} **${fishData.name}**!`,
+                `🎣 Final catch! ${fishData.emoji} **${fishData.name}**!`,
                 fishData.color,
-                `Multiplier: **${multiplier.toFixed(2)}x**\nWinnings: ${fmt(oldWinnings)} � **${fmt(newWinnings)}**\n\n<� **FISHING SESSION COMPLETED!** (20/20 catches)\nYou've reached the maximum catch limit!`
+                `Multiplier: **${multiplier.toFixed(2)}x**\nWinnings: ${fmt(oldWinnings)} � **${fmt(newWinnings)}**\n\n🎣 **FISHING SESSION COMPLETED!** (20/20 catches)\nYou've reached the maximum catch limit!`
             );
 
             const buttons = game.createButtons(true); // Disabled buttons
@@ -551,7 +551,7 @@ async function handleFishAction(interaction, game) {
         } else {
             // Normal catch
             const embed = game.createGameEmbed(
-                `<� You caught a ${fishData.emoji} **${fishData.name}**!`,
+                `🎣 You caught a ${fishData.emoji} **${fishData.name}**!`,
                 fishData.color,
                 `Multiplier: **${multiplier.toFixed(2)}x**\nWinnings: ${fmt(oldWinnings)} � **${fmt(newWinnings)}**`
             );
@@ -581,7 +581,7 @@ async function handleFishAction(interaction, game) {
 async function handleStopAction(interaction, game) {
     if (game.gameEnded) {
         await interaction.reply({
-            content: '=� This fishing session has already ended!',
+            content: '🔥 This fishing session has already ended!',
             ephemeral: true
         });
         return;
@@ -589,7 +589,7 @@ async function handleStopAction(interaction, game) {
 
     if (game.totalCatches === 0) {
         await interaction.reply({
-            content: '=� You haven\'t caught any fish yet! Cast your line first with the FISH button.',
+            content: '🔥 You haven\'t caught any fish yet! Cast your line first with the FISH button.',
             ephemeral: true
         });
         return;
@@ -599,13 +599,13 @@ async function handleStopAction(interaction, game) {
         game.stopFishing();
 
         const embed = new EmbedBuilder()
-            .setTitle('=� Fishing Session Ended')
+            .setTitle('🔥 Fishing Session Ended')
             .setDescription(`**${game.username}** decided to stop fishing and secure their winnings!`)
             .setColor(0x2ECC71)
             .addFields(
-                { name: '<� Total Catches', value: game.totalCatches.toString(), inline: true },
-                { name: '<� Final Winnings', value: `**${fmt(game.currentWinnings)}**`, inline: true },
-                { name: '=� Final Multiplier', value: `${(game.currentWinnings / game.initialBet).toFixed(2)}x`, inline: true }
+                { name: '🎣 Total Catches', value: game.totalCatches.toString(), inline: true },
+                { name: '🎣 Final Winnings', value: `**${fmt(game.currentWinnings)}**`, inline: true },
+                { name: '🔥 Final Multiplier', value: `${(game.currentWinnings / game.initialBet).toFixed(2)}x`, inline: true }
             );
 
         const buttons = game.createButtons(true); // Disabled buttons

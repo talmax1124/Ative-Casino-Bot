@@ -90,6 +90,134 @@
         "documentation": {}
     },
     {
+        "label": "app_commands",
+        "importPath": "discord",
+        "description": "discord",
+        "isExtraImport": true,
+        "detail": "discord",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "View",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "Button",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "Modal",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "TextInput",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "Select",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
         "label": "View",
         "importPath": "discord.ui",
         "description": "discord.ui",
@@ -266,155 +394,518 @@
         "documentation": {}
     },
     {
-        "label": "commands",
-        "importPath": "discord.ext",
-        "description": "discord.ext",
+        "label": "asyncio",
+        "kind": 6,
         "isExtraImport": true,
-        "detail": "discord.ext",
+        "importPath": "asyncio",
+        "description": "asyncio",
+        "detail": "asyncio",
         "documentation": {}
     },
     {
-        "label": "commands",
-        "importPath": "discord.ext",
-        "description": "discord.ext",
+        "label": "Image",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "commands",
-        "importPath": "discord.ext",
-        "description": "discord.ext",
+        "label": "ImageDraw",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "commands",
-        "importPath": "discord.ext",
-        "description": "discord.ext",
+        "label": "ImageFont",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "commands",
-        "importPath": "discord.ext",
-        "description": "discord.ext",
+        "label": "Image",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "commands",
-        "importPath": "discord.ext",
-        "description": "discord.ext",
+        "label": "ImageDraw",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "commands",
-        "importPath": "discord.ext",
-        "description": "discord.ext",
+        "label": "ImageFont",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "commands",
-        "importPath": "discord.ext",
-        "description": "discord.ext",
+        "label": "Image",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "commands",
-        "importPath": "discord.ext",
-        "description": "discord.ext",
+        "label": "ImageDraw",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "commands",
-        "importPath": "discord.ext",
-        "description": "discord.ext",
+        "label": "Image",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "Cog",
-        "importPath": "discord.ext.commands",
-        "description": "discord.ext.commands",
+        "label": "ImageDraw",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext.commands",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "Cog",
-        "importPath": "discord.ext.commands",
-        "description": "discord.ext.commands",
+        "label": "ImageFont",
+        "importPath": "PIL",
+        "description": "PIL",
         "isExtraImport": true,
-        "detail": "discord.ext.commands",
+        "detail": "PIL",
         "documentation": {}
     },
     {
-        "label": "Cog",
-        "importPath": "discord.ext.commands",
-        "description": "discord.ext.commands",
+        "label": "io",
+        "kind": 6,
         "isExtraImport": true,
-        "detail": "discord.ext.commands",
+        "importPath": "io",
+        "description": "io",
+        "detail": "io",
         "documentation": {}
     },
     {
-        "label": "Cog",
-        "importPath": "discord.ext.commands",
-        "description": "discord.ext.commands",
+        "label": "BytesIO",
+        "importPath": "io",
+        "description": "io",
         "isExtraImport": true,
-        "detail": "discord.ext.commands",
+        "detail": "io",
         "documentation": {}
     },
     {
-        "label": "Cog",
-        "importPath": "discord.ext.commands",
-        "description": "discord.ext.commands",
+        "label": "logging",
+        "kind": 6,
         "isExtraImport": true,
-        "detail": "discord.ext.commands",
+        "importPath": "logging",
+        "description": "logging",
+        "detail": "logging",
         "documentation": {}
     },
     {
-        "label": "Cog",
-        "importPath": "discord.ext.commands",
-        "description": "discord.ext.commands",
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
         "isExtraImport": true,
-        "detail": "discord.ext.commands",
+        "detail": "typing",
         "documentation": {}
     },
     {
-        "label": "Cog",
-        "importPath": "discord.ext.commands",
-        "description": "discord.ext.commands",
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
         "isExtraImport": true,
-        "detail": "discord.ext.commands",
+        "detail": "typing",
         "documentation": {}
     },
     {
-        "label": "Cog",
-        "importPath": "discord.ext.commands",
-        "description": "discord.ext.commands",
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
         "isExtraImport": true,
-        "detail": "discord.ext.commands",
+        "detail": "typing",
         "documentation": {}
     },
     {
-        "label": "Cog",
-        "importPath": "discord.ext.commands",
-        "description": "discord.ext.commands",
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
         "isExtraImport": true,
-        "detail": "discord.ext.commands",
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Set",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Set",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Union",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Iterable",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Set",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "parse_amount",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "parse_amount",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "fmt",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "get_guild_id",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "game_registry",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "check_maintenance_mode",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
         "documentation": {}
     },
     {
@@ -762,83 +1253,132 @@
         "documentation": {}
     },
     {
-        "label": "db_manager",
-        "importPath": "utils.firebase_database",
-        "description": "utils.firebase_database",
+        "label": "upload_frame_and_get_url",
+        "importPath": "utils.image_generator",
+        "description": "utils.image_generator",
         "isExtraImport": true,
-        "detail": "utils.firebase_database",
+        "detail": "utils.image_generator",
         "documentation": {}
     },
     {
-        "label": "parse_amount",
-        "importPath": "utils.firebase_database",
-        "description": "utils.firebase_database",
+        "label": "generate_duck_game_image",
+        "importPath": "utils.image_generator",
+        "description": "utils.image_generator",
         "isExtraImport": true,
-        "detail": "utils.firebase_database",
+        "detail": "utils.image_generator",
         "documentation": {}
     },
     {
-        "label": "db_manager",
-        "importPath": "utils.firebase_database",
-        "description": "utils.firebase_database",
+        "label": "upload_frame_and_get_url",
+        "importPath": "utils.image_generator",
+        "description": "utils.image_generator",
         "isExtraImport": true,
-        "detail": "utils.firebase_database",
+        "detail": "utils.image_generator",
         "documentation": {}
     },
     {
-        "label": "parse_amount",
-        "importPath": "utils.firebase_database",
-        "description": "utils.firebase_database",
+        "label": "Enum",
+        "importPath": "enum",
+        "description": "enum",
         "isExtraImport": true,
-        "detail": "utils.firebase_database",
+        "detail": "enum",
         "documentation": {}
     },
     {
-        "label": "db_manager",
-        "importPath": "utils.firebase_database",
-        "description": "utils.firebase_database",
+        "label": "Enum",
+        "importPath": "enum",
+        "description": "enum",
         "isExtraImport": true,
-        "detail": "utils.firebase_database",
+        "detail": "enum",
         "documentation": {}
     },
     {
-        "label": "db_manager",
-        "importPath": "utils.firebase_database",
-        "description": "utils.firebase_database",
+        "label": "random",
+        "kind": 6,
         "isExtraImport": true,
-        "detail": "utils.firebase_database",
+        "importPath": "random",
+        "description": "random",
+        "detail": "random",
         "documentation": {}
     },
     {
-        "label": "db_manager",
-        "importPath": "utils.firebase_database",
-        "description": "utils.firebase_database",
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
         "isExtraImport": true,
-        "detail": "utils.firebase_database",
+        "detail": "discord.ext",
         "documentation": {}
     },
     {
-        "label": "db_manager",
-        "importPath": "utils.firebase_database",
-        "description": "utils.firebase_database",
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
         "isExtraImport": true,
-        "detail": "utils.firebase_database",
+        "detail": "discord.ext",
         "documentation": {}
     },
     {
-        "label": "db_manager",
-        "importPath": "utils.firebase_database",
-        "description": "utils.firebase_database",
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
         "isExtraImport": true,
-        "detail": "utils.firebase_database",
+        "detail": "discord.ext",
         "documentation": {}
     },
     {
-        "label": "db_manager",
-        "importPath": "utils.firebase_database",
-        "description": "utils.firebase_database",
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
         "isExtraImport": true,
-        "detail": "utils.firebase_database",
+        "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
+        "isExtraImport": true,
+        "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
+        "isExtraImport": true,
+        "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
+        "isExtraImport": true,
+        "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
+        "isExtraImport": true,
+        "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
+        "isExtraImport": true,
+        "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
+        "isExtraImport": true,
+        "detail": "discord.ext",
         "documentation": {}
     },
     {
@@ -866,15 +1406,6 @@
         "documentation": {}
     },
     {
-        "label": "asyncio",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "asyncio",
-        "description": "asyncio",
-        "detail": "asyncio",
-        "documentation": {}
-    },
-    {
         "label": "secrets",
         "kind": 6,
         "isExtraImport": true,
@@ -884,262 +1415,12 @@
         "documentation": {}
     },
     {
-        "label": "logging",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "logging",
-        "description": "logging",
-        "detail": "logging",
-        "documentation": {}
-    },
-    {
         "label": "time",
         "kind": 6,
         "isExtraImport": true,
         "importPath": "time",
         "description": "time",
         "detail": "time",
-        "documentation": {}
-    },
-    {
-        "label": "random",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "random",
-        "description": "random",
-        "detail": "random",
-        "documentation": {}
-    },
-    {
-        "label": "List",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Tuple",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Dict",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Set",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Union",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Dict",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Dict",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "List",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Tuple",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "List",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Dict",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Iterable",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Tuple",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Tuple",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "List",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Dict",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Tuple",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "List",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Tuple",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Dict",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "List",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Optional",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
-        "documentation": {}
-    },
-    {
-        "label": "Set",
-        "importPath": "typing",
-        "description": "typing",
-        "isExtraImport": true,
-        "detail": "typing",
         "documentation": {}
     },
     {
@@ -1207,103 +1488,6 @@
         "importPath": "math",
         "description": "math",
         "detail": "math",
-        "documentation": {}
-    },
-    {
-        "label": "io",
-        "kind": 6,
-        "isExtraImport": true,
-        "importPath": "io",
-        "description": "io",
-        "detail": "io",
-        "documentation": {}
-    },
-    {
-        "label": "BytesIO",
-        "importPath": "io",
-        "description": "io",
-        "isExtraImport": true,
-        "detail": "io",
-        "documentation": {}
-    },
-    {
-        "label": "Image",
-        "importPath": "PIL",
-        "description": "PIL",
-        "isExtraImport": true,
-        "detail": "PIL",
-        "documentation": {}
-    },
-    {
-        "label": "ImageDraw",
-        "importPath": "PIL",
-        "description": "PIL",
-        "isExtraImport": true,
-        "detail": "PIL",
-        "documentation": {}
-    },
-    {
-        "label": "ImageFont",
-        "importPath": "PIL",
-        "description": "PIL",
-        "isExtraImport": true,
-        "detail": "PIL",
-        "documentation": {}
-    },
-    {
-        "label": "Image",
-        "importPath": "PIL",
-        "description": "PIL",
-        "isExtraImport": true,
-        "detail": "PIL",
-        "documentation": {}
-    },
-    {
-        "label": "ImageDraw",
-        "importPath": "PIL",
-        "description": "PIL",
-        "isExtraImport": true,
-        "detail": "PIL",
-        "documentation": {}
-    },
-    {
-        "label": "Image",
-        "importPath": "PIL",
-        "description": "PIL",
-        "isExtraImport": true,
-        "detail": "PIL",
-        "documentation": {}
-    },
-    {
-        "label": "ImageDraw",
-        "importPath": "PIL",
-        "description": "PIL",
-        "isExtraImport": true,
-        "detail": "PIL",
-        "documentation": {}
-    },
-    {
-        "label": "ImageFont",
-        "importPath": "PIL",
-        "description": "PIL",
-        "isExtraImport": true,
-        "detail": "PIL",
-        "documentation": {}
-    },
-    {
-        "label": "generate_duck_game_image",
-        "importPath": "utils.image_generator",
-        "description": "utils.image_generator",
-        "isExtraImport": true,
-        "detail": "utils.image_generator",
-        "documentation": {}
-    },
-    {
-        "label": "upload_frame_and_get_url",
-        "importPath": "utils.image_generator",
-        "description": "utils.image_generator",
-        "isExtraImport": true,
-        "detail": "utils.image_generator",
         "documentation": {}
     },
     {
@@ -1437,14 +1621,6 @@
         "documentation": {}
     },
     {
-        "label": "Enum",
-        "importPath": "enum",
-        "description": "enum",
-        "isExtraImport": true,
-        "detail": "enum",
-        "documentation": {}
-    },
-    {
         "label": "aiohttp",
         "kind": 6,
         "isExtraImport": true,
@@ -1487,6 +1663,168 @@
         "description": "node_modules.flatted.python.flatted",
         "peekOfCode": "def stringify(value, *args, **kwargs):\n    known = _Known()\n    input = []\n    output = []\n    i = int(_index(known, input, value))\n    while i < len(input):\n        output.append(_transform(known, input, input[i]))\n        i += 1\n    return _json.dumps(output, *args, **kwargs)",
         "detail": "node_modules.flatted.python.flatted",
+        "documentation": {}
+    },
+    {
+        "label": "CellState",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class CellState(Enum):\n    EMPTY = \"empty\"\n    SHIP = \"ship\"\n    HIT = \"hit\"\n    MISS = \"miss\"\n    SUNK = \"sunk\"\nclass Direction(Enum):\n    HORIZONTAL = \"horizontal\"\n    VERTICAL = \"vertical\"\n# ========================= GAME CLASSES =========================",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "Direction",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class Direction(Enum):\n    HORIZONTAL = \"horizontal\"\n    VERTICAL = \"vertical\"\n# ========================= GAME CLASSES =========================\nclass Ship:\n    \"\"\"Represents a ship on the battleship board.\"\"\"\n    def __init__(self, name: str, length: int):\n        self.name = name\n        self.length = length\n        self.positions: List[Tuple[int, int]] = []",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "Ship",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class Ship:\n    \"\"\"Represents a ship on the battleship board.\"\"\"\n    def __init__(self, name: str, length: int):\n        self.name = name\n        self.length = length\n        self.positions: List[Tuple[int, int]] = []\n        self.hits: Set[Tuple[int, int]] = set()\n        self.placed = False\n    def place(self, start_row: int, start_col: int, direction: Direction):\n        \"\"\"Place the ship on the board.\"\"\"",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "BattleshipBoard",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class BattleshipBoard:\n    \"\"\"Represents a player's battleship board.\"\"\"\n    def __init__(self, player_id: int):\n        self.player_id = player_id\n        self.grid = [[CellState.EMPTY for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]\n        self.ships: List[Ship] = [Ship(name, length) for name, length in SHIPS]\n        self.ship_positions: Dict[Tuple[int, int], Ship] = {}\n        self.current_ship_index = 0\n    def can_place_ship(self, ship: Ship, start_row: int, start_col: int, direction: Direction) -> bool:\n        \"\"\"Check if a ship can be placed at the given position.\"\"\"",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "BattleshipGame",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class BattleshipGame:\n    \"\"\"Main battleship game state manager.\"\"\"\n    def __init__(self, channel_id: str, guild_id: str, host: discord.User):\n        self.channel_id = channel_id\n        self.guild_id = guild_id\n        self.host = host\n        self.players: Dict[int, discord.User] = {host.id: host}\n        self.boards: Dict[int, BattleshipBoard] = {host.id: BattleshipBoard(host.id)}\n        self.state = \"waiting\"  # waiting, placing, playing, finished\n        self.current_turn = None  # player_id whose turn it is",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "BattleshipManager",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class BattleshipManager:\n    \"\"\"Manages battleship game sessions.\"\"\"\n    def __init__(self):\n        self.games: Dict[str, BattleshipGame] = {}\n        self.user_games: Dict[int, str] = {}  # user_id -> channel_id\n    def get_or_create_game(self, channel_id: str, guild_id: str, host: discord.User) -> BattleshipGame:\n        \"\"\"Get existing game or create new one.\"\"\"\n        if channel_id not in self.games:\n            game = BattleshipGame(channel_id, guild_id, host)\n            self.games[channel_id] = game",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "AttackModal",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class AttackModal(Modal):\n    \"\"\"Modal for entering attack coordinates.\"\"\"\n    def __init__(self, game: BattleshipGame):\n        super().__init__(title=\"Choose Your Target\")\n        self.game = game\n        self.coordinate_input = TextInput(\n            label=\"Enter coordinates (e.g., A5, B10, J1)\",\n            placeholder=\"A5\",\n            min_length=2,\n            max_length=3",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "PotSettingsModal",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class PotSettingsModal(Modal):\n    \"\"\"Modal for setting pot amount.\"\"\"\n    def __init__(self, view):\n        super().__init__(title=\"Pot Settings\")\n        self.view = view\n        self.pot_input = TextInput(\n            label=\"Pot Amount (0 to disable)\",\n            placeholder=\"e.g., 100, 500, 1000\",\n            default=str(int(view.game.pot_amount)),\n            min_length=1,",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "ShipPlacementView",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class ShipPlacementView(View):\n    \"\"\"View for placing ships on the board using modal input.\"\"\"\n    def __init__(self, game: BattleshipGame, player_id: int):\n        super().__init__(timeout=300)  # 5 minute timeout\n        self.game = game\n        self.player_id = player_id\n        self.direction = Direction.HORIZONTAL\n        self._setup_buttons()\n    def _setup_buttons(self):\n        \"\"\"Setup placement buttons.\"\"\"",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "BattleshipGameView",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class BattleshipGameView(View):\n    \"\"\"Main view for battleship game.\"\"\"\n    def __init__(self, game: BattleshipGame):\n        super().__init__(timeout=1800)  # 30 minute timeout\n        self.game = game\n        self.game.view = self  # Store reference for updates\n        self._setup_buttons()\n    def _setup_buttons(self):\n        \"\"\"Setup buttons based on game state.\"\"\"\n        self.clear_items()",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "BattleshipCommands",
+        "kind": 6,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "class BattleshipCommands(Cog):\n    \"\"\"Battleship game commands.\"\"\"\n    def __init__(self, bot):\n        self.bot = bot\n        # Register this game with the registry\n        game_registry.register_game(\"Battleship\", self.__class__, \"Classic naval strategy - sink all enemy ships!\")\n    @app_commands.command(name=\"battleship\", description=\"⚓ Start a Battleship game!\")\n    @app_commands.describe(pot=\"Optional pot amount per player\")\n    async def battleship_command(self, interaction: discord.Interaction, pot: float = 0.0):\n        \"\"\"Start a new Battleship game.\"\"\"",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "generate_board_image",
+        "kind": 2,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "def generate_board_image(board: BattleshipBoard, show_ships: bool = True, attacking: bool = False) -> Image.Image:\n    \"\"\"Generate a visual representation of the battleship board.\"\"\"\n    # Create image with padding\n    padding = 30\n    total_size = BOARD_PIXEL_SIZE + padding * 2\n    img = Image.new('RGB', (total_size, total_size), color='#2C3E50')\n    draw = ImageDraw.Draw(img)\n    # Try to load a font\n    try:\n        font = ImageFont.truetype(\"/System/Library/Fonts/Arial.ttf\", 16)",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "LOG",
+        "kind": 5,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "LOG = logging.getLogger(\"battleship\")\n# ========================= CONSTANTS =========================\nBOARD_SIZE = 10\nCELL_SIZE = 40\nBOARD_PIXEL_SIZE = BOARD_SIZE * CELL_SIZE\n# Ship definitions: (name, length)\nSHIPS = [\n    (\"Carrier\", 5),\n    (\"Battleship\", 4),\n    (\"Cruiser\", 3),",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "BOARD_SIZE",
+        "kind": 5,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "BOARD_SIZE = 10\nCELL_SIZE = 40\nBOARD_PIXEL_SIZE = BOARD_SIZE * CELL_SIZE\n# Ship definitions: (name, length)\nSHIPS = [\n    (\"Carrier\", 5),\n    (\"Battleship\", 4),\n    (\"Cruiser\", 3),\n    (\"Submarine\", 3),\n    (\"Destroyer\", 2)",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "CELL_SIZE",
+        "kind": 5,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "CELL_SIZE = 40\nBOARD_PIXEL_SIZE = BOARD_SIZE * CELL_SIZE\n# Ship definitions: (name, length)\nSHIPS = [\n    (\"Carrier\", 5),\n    (\"Battleship\", 4),\n    (\"Cruiser\", 3),\n    (\"Submarine\", 3),\n    (\"Destroyer\", 2)\n]",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "BOARD_PIXEL_SIZE",
+        "kind": 5,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "BOARD_PIXEL_SIZE = BOARD_SIZE * CELL_SIZE\n# Ship definitions: (name, length)\nSHIPS = [\n    (\"Carrier\", 5),\n    (\"Battleship\", 4),\n    (\"Cruiser\", 3),\n    (\"Submarine\", 3),\n    (\"Destroyer\", 2)\n]\nclass CellState(Enum):",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "SHIPS",
+        "kind": 5,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "SHIPS = [\n    (\"Carrier\", 5),\n    (\"Battleship\", 4),\n    (\"Cruiser\", 3),\n    (\"Submarine\", 3),\n    (\"Destroyer\", 2)\n]\nclass CellState(Enum):\n    EMPTY = \"empty\"\n    SHIP = \"ship\"",
+        "detail": "previousBotCode.battleship",
+        "documentation": {}
+    },
+    {
+        "label": "battleship_manager",
+        "kind": 5,
+        "importPath": "previousBotCode.battleship",
+        "description": "previousBotCode.battleship",
+        "peekOfCode": "battleship_manager = BattleshipManager()\n# ========================= MODALS =========================\nclass AttackModal(Modal):\n    \"\"\"Modal for entering attack coordinates.\"\"\"\n    def __init__(self, game: BattleshipGame):\n        super().__init__(title=\"Choose Your Target\")\n        self.game = game\n        self.coordinate_input = TextInput(\n            label=\"Enter coordinates (e.g., A5, B10, J1)\",\n            placeholder=\"A5\",",
+        "detail": "previousBotCode.battleship",
         "documentation": {}
     },
     {

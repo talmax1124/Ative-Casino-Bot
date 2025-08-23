@@ -3,7 +3,7 @@
  * Classic slot machine with various symbols and multipliers
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { spinSlots, calculatePayout, createSlotDisplay, createSlotsImage, createSpinningSlotGIF } = require('../GAMES/slots');
@@ -191,7 +191,20 @@ module.exports = {
                         );
                     }
 
-                    const finalData = { embeds: [finalEmbed], attachments: [] };
+                    // Add help button
+                    const helpButton = new ActionRowBuilder()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setCustomId('slots_help')
+                                .setLabel('❓ How to Play')
+                                .setStyle(ButtonStyle.Secondary)
+                        );
+
+                    const finalData = { 
+                        embeds: [finalEmbed], 
+                        attachments: [], 
+                        components: [helpButton] 
+                    };
 
                     if (staticImage) {
                         finalData.files = [{ attachment: staticImage, name: 'slots-result.png' }];

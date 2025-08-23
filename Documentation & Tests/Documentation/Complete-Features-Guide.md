@@ -76,7 +76,15 @@ The ATIVE Casino Bot is a comprehensive Discord casino system built with **JavaS
 - **UNO**: Card game with Discord integration
 - **Battleship**: Naval strategy game
 - **Plinko**: Ball-dropping chance game
-
+- **Roulette**: Classic casino wheel game
+- **Dice**: Simple high-low betting game
+- **Tic Tac Toe**: Quick strategic game
+- **Connect 4**: Vertical alignment game
+- **Hangman**: Word guessing game
+- **Trivia**: Quiz-based game
+- **Minesweeper**: Classic puzzle game
+- **Slots Tournament**: Competitive slot play with leaderboards
+- **Chess Tournament**: Competitive chess matches with rankings
 ---
 
 ## 🎫 Lottery System
