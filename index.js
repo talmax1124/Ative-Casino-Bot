@@ -375,6 +375,20 @@ client.on('interactionCreate', async interaction => {
                 const game = crashGame.crashManager.getGame(interaction.channelId, interaction.guildId);
                 await crashGame.handleModalSubmit(interaction, game);
             }
+            // Handle bingo join modal
+            else if (interaction.customId === 'bingo_join_modal') {
+                const bingoCommand = client.commands.get('bingo');
+                if (bingoCommand && bingoCommand.handleJoinModal) {
+                    await bingoCommand.handleJoinModal(interaction);
+                }
+            }
+            // Handle uno join modal
+            else if (interaction.customId === 'uno_join_modal') {
+                const unoCommand = client.commands.get('uno');
+                if (unoCommand && unoCommand.handleJoinModal) {
+                    await unoCommand.handleJoinModal(interaction);
+                }
+            }
         } catch (error) {
             logger.error(`Error handling modal ${interaction.customId}: ${error.message}`);
 
@@ -428,6 +442,24 @@ client.on('interactionCreate', async interaction => {
             // Handle panel stop game user select menu
             else if (interaction.customId === 'stop_game_user_select') {
                 await panelManager.handleStopGameUserSelect(interaction);
+            }
+            // Handle UNO card selection
+            else if (interaction.customId.startsWith('uno_card_select_')) {
+                const unoCommand = client.commands.get('uno');
+                if (unoCommand && unoCommand.handleCardSelection) {
+                    const cardIndex = interaction.values[0];
+                    await unoCommand.handleCardSelection(interaction, cardIndex);
+                }
+            }
+            // Handle UNO color selection
+            else if (interaction.customId.startsWith('uno_color_select_')) {
+                const unoCommand = client.commands.get('uno');
+                if (unoCommand && unoCommand.handleColorSelection) {
+                    const parts = interaction.customId.split('_');
+                    const cardIndex = parts[3]; // uno_color_select_{channelId}_{cardIndex}
+                    const chosenColor = interaction.values[0];
+                    await unoCommand.handleColorSelection(interaction, cardIndex, chosenColor);
+                }
             }
         } catch (error) {
             logger.error(`Error handling select menu ${interaction.customId}:`, error);
@@ -552,6 +584,76 @@ client.on('interactionCreate', async interaction => {
                             });
                         }
                     }
+                }
+            }
+            // Handle fishing buttons (namespace: fishing-{userId}:{action})
+            else if (customId.startsWith('fishing-')) {
+                const [namespace, actionId] = customId.split(':');
+                const userId = namespace.split('-')[1];
+                
+                if (userId === interaction.user.id) {
+                    const fishingCommand = client.commands.get('fishing');
+                    if (fishingCommand && fishingCommand.handleButtonInteraction) {
+                        await fishingCommand.handleButtonInteraction(interaction, actionId);
+                    }
+                } else {
+                    await interaction.reply({
+                        content: 'This is not your fishing session!',
+                        ephemeral: true
+                    });
+                }
+            }
+            // Handle RPS buttons (namespace: rps-{channelId}:{action})
+            else if (customId.startsWith('rps-')) {
+                const [namespace, actionId] = customId.split(':');
+                const rpsCommand = client.commands.get('rps');
+                if (rpsCommand && rpsCommand.handleButtonInteraction) {
+                    await rpsCommand.handleButtonInteraction(interaction, actionId);
+                }
+            }
+            // Handle Plinko buttons (namespace: plinko_{action}_{value}_{channelId})
+            else if (customId.startsWith('plinko_')) {
+                const parts = customId.split('_');
+                const action = parts[1]; // mode or drop
+                const value = parts[2];  // mode name or drop position
+                
+                const plinkoCommand = client.commands.get('plinko');
+                if (plinkoCommand && plinkoCommand.handleButtonInteraction) {
+                    await plinkoCommand.handleButtonInteraction(interaction, action, value);
+                }
+            }
+            // Handle Bingo buttons (namespace: bingo_{action}_{channelId})
+            else if (customId.startsWith('bingo_')) {
+                const parts = customId.split('_');
+                
+                if (parts[1] === 'card' && parts.length >= 6) {
+                    // Interactive card button click: bingo_card_{userId}_{row}_{col}_{number}
+                    const row = parseInt(parts[3]);
+                    const col = parseInt(parts[4]);
+                    const number = parseInt(parts[5]);
+                    
+                    const bingoCommand = client.commands.get('bingo');
+                    if (bingoCommand && bingoCommand.handleButtonInteraction) {
+                        await bingoCommand.handleButtonInteraction(interaction, 'card_click', row, col, number);
+                    }
+                } else {
+                    // Regular bingo buttons: bingo_{action}_{channelId}
+                    const action = parts[1]; // join, start, leave, show_card, interactive_card, game_status
+                    
+                    const bingoCommand = client.commands.get('bingo');
+                    if (bingoCommand && bingoCommand.handleButtonInteraction) {
+                        await bingoCommand.handleButtonInteraction(interaction, action);
+                    }
+                }
+            }
+            // Handle UNO buttons (namespace: uno_{action}_{channelId})
+            else if (customId.startsWith('uno_')) {
+                const parts = customId.split('_');
+                const action = parts[1]; // join, start, leave, hand, draw, play, uno, status
+                
+                const unoCommand = client.commands.get('uno');
+                if (unoCommand && unoCommand.handleButtonInteraction) {
+                    await unoCommand.handleButtonInteraction(interaction, action);
                 }
             }
             // Handle lottery buttons

@@ -1,387 +1,649 @@
-// fishing.js — Discord.js v14 implementation of a Fishing economy minigame
-// Tech: JavaScript (Node.js), discord.js v14, Firebase via your UTILS/database.js, Winston via UTILS/logger.js
-// Placement: This file can live in COMMANDS/ as a self-contained command module. Game data persists per-user.
+/**
+ * Fishing Game Logic for ATIVE Casino Bot
+ * Cast your line to catch fish with multipliers, but beware of the red fish!
+ * Players can stop fishing at any time to keep their accumulated winnings.
+ */
 
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from "discord.js";
-import { getLogger } from "../UTILS/logger.js";
-import { incrementBalance, decrementBalance } from "../UTILS/database.js";
-import { formatCurrency, ensureNumber } from "../UTILS/common.js";
-import { secureRandomInt } from "../UTILS/rng.js";
+const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+const { secureWeightedChoice, secureRandomFloat } = require('../UTILS/rng');
+const { fmt } = require('../UTILS/common');
+const logger = require('../UTILS/logger');
 
-// If you already expose helpers in database.js for arbitrary JSON blobs,
-// implement these there and keep the same function signatures:
-//   - getUserGameData(userId, gameKey)
-//   - setUserGameData(userId, gameKey, data)
-import { getUserGameData, setUserGameData } from "../UTILS/database.js";
-
-const log = getLogger("FISHING");
-const ERROR_CHANNEL_ID = "1405096821512212521"; // centralized error channel
-const DEV_ID = "466050111680544798"; // owner override
-
-function isDev(id) { return id === DEV_ID; }
-
-async function sendError(client, msg) {
-  try {
-    const ch = await client.channels.fetch(ERROR_CHANNEL_ID);
-    await ch?.send({ content: msg });
-  } catch (e) { log.error("sendError failed: %s", e?.stack || e); }
-}
-
-// ====== Game Data Model ======
-// Stored per-user under gameKey = "fishing".
-// {
-//   rod: { key: "basic"|"advanced"|"pro", durability: number },
-//   bait: { key: "none"|"worm"|"minnow"|"lure", qty: number },
-//   inv: [{ name, rarity, value, weight } ...],
-//   lastCastAt: epoch_ms,
-//   stats: { casts, catches, biggestWeight, totalValue },
-// }
-
-const DEFAULT_DATA = () => ({
-  rod: { key: "basic", durability: 100 },
-  bait: { key: "none", qty: 0 },
-  inv: [],
-  lastCastAt: 0,
-  stats: { casts: 0, catches: 0, biggestWeight: 0, totalValue: 0 },
-});
-
-// Rods
-const RODS = {
-  basic:    { name: "Basic Rod",    price: 0,   maxDur: 100, repairPer: 50, repairCost: 100 },
-  advanced: { name: "Advanced Rod", price: 1500, maxDur: 200, repairPer: 80, repairCost: 250 },
-  pro:      { name: "Pro Rod",      price: 5000, maxDur: 350, repairPer: 120, repairCost: 600 },
+// Fish data with probabilities and multipliers
+const FISH_TYPES = {
+    'common': {
+        emoji: '=',
+        name: 'Common Fish',
+        multiplier_min: 1.01,
+        multiplier_max: 1.05,
+        probability: 50,
+        color: 0x3498DB, // Blue
+        description: 'A regular fish found in most waters'
+    },
+    'uncommon': {
+        emoji: '= ',
+        name: 'Uncommon Fish',
+        multiplier_min: 1.06,
+        multiplier_max: 1.15,
+        probability: 25,
+        color: 0x2ECC71, // Green
+        description: 'A colorful fish that\'s a bit harder to find'
+    },
+    'rare': {
+        emoji: '<',
+        name: 'Rare Fish',
+        multiplier_min: 1.16,
+        multiplier_max: 1.35,
+        probability: 15,
+        color: 0xF1C40F, // Gold
+        description: 'A sparkling rare catch!'
+    },
+    'legendary': {
+        emoji: '<�',
+        name: 'Legendary Fish',
+        multiplier_min: 1.4,
+        multiplier_max: 1.8,
+        probability: 2,
+        color: 0x9B59B6, // Purple
+        description: 'An incredibly rare legendary fish!'
+    },
+    'red': {
+        emoji: '=4',
+        name: 'Red Fish of Doom',
+        multiplier_min: 0.0,
+        multiplier_max: 0.0,
+        probability: 7,
+        color: 0xE74C3C, // Red
+        description: '=� This cursed fish steals all your catch!'
+    }
 };
 
-// Bait
-const BAIT = {
-  none:   { name: "No Bait",   rarityBoost: 0,   price: 0 },
-  worm:   { name: "Worm",       rarityBoost: 2,   price: 25 },
-  minnow: { name: "Minnow",     rarityBoost: 4,   price: 60 },
-  lure:   { name: "Shiny Lure", rarityBoost: 6,   price: 120 },
-};
+// Create weighted arrays for fish selection
+const fishTypes = Object.keys(FISH_TYPES);
+const fishWeights = fishTypes.map(type => FISH_TYPES[type].probability);
 
-// Fish tables by rarity
-const FISH_TABLE = [
-  // weight in kg, value in credits
-  { rarity: "common",    base: 70,  list: [
-    { name: "Bluegill", value: [20, 40], weight: [0.2, 1.1] },
-    { name: "Crappie", value: [20, 45], weight: [0.3, 1.4] },
-    { name: "Carp", value: [15, 35], weight: [0.8, 4.0] },
-    { name: "Perch", value: [22, 45], weight: [0.2, 1.2] },
-  ]},
-  { rarity: "uncommon", base: 22,  list: [
-    { name: "Trout", value: [40, 90], weight: [0.5, 2.5] },
-    { name: "Catfish", value: [45, 100], weight: [1.0, 6.0] },
-    { name: "Bass", value: [50, 110], weight: [0.7, 3.5] },
-  ]},
-  { rarity: "rare",      base: 7,   list: [
-    { name: "Salmon", value: [90, 160], weight: [1.5, 7.0] },
-    { name: "Pike", value: [100, 200], weight: [2.0, 9.0] },
-  ]},
-  { rarity: "legendary", base: 1,   list: [
-    { name: "Golden Koi", value: [450, 900], weight: [3.0, 12.0] },
-    { name: "Ancient Sturgeon", value: [600, 1200], weight: [6.0, 20.0] },
-  ]},
-];
-
-function weightedChoice(boost = 0) {
-  const total = FISH_TABLE.reduce((acc, r) => acc + r.base, 0) + boost;
-  let roll = secureRandomInt(1, total);
-  for (const tier of FISH_TABLE) {
-    const w = tier.base + Math.floor(boost * (tier.rarity === "legendary" ? 0.5 : tier.rarity === "rare" ? 0.35 : tier.rarity === "uncommon" ? 0.15 : 0));
-    if (roll <= w) return tier;
-    roll -= w;
-  }
-  return FISH_TABLE[0];
-}
-
-function randBetween(min, max) {
-  return Math.random() * (max - min) + min;
-}
-
-function rollFrom([a, b], digits = 2) {
-  const v = randBetween(a, b);
-  const m = Math.pow(10, digits);
-  return Math.round(v * m) / m;
-}
-
-function catchFish(currentBaitKey = "none") {
-  const boost = BAIT[currentBaitKey]?.rarityBoost || 0;
-  const tier = weightedChoice(boost);
-  const pool = tier.list;
-  const pick = pool[secureRandomInt(0, pool.length - 1)];
-  const weight = rollFrom(pick.weight, 2);
-  const value = Math.floor(rollFrom(pick.value, 0));
-  return { name: pick.name, rarity: tier.rarity, weight, value };
-}
-
-const COOLDOWN_MS = 15_000; // 15s per cast
-const DURABILITY_LOSS = 3;  // per cast
-
-async function withUserData(userId, mutate) {
-  let data = await getUserGameData(userId, "fishing");
-  if (!data) data = DEFAULT_DATA();
-  const after = await mutate(data) || data;
-  await setUserGameData(userId, "fishing", after);
-  return after;
-}
-
-// ===== Embeds =====
-function fishToLine(f) {
-  const icon = f.rarity === "legendary" ? "🌟" : f.rarity === "rare" ? "💎" : f.rarity === "uncommon" ? "✨" : "🐟";
-  return `${icon} **${f.name}** — ${f.weight}kg — +${formatCurrency(f.value)} (${f.rarity})`;
-}
-
-function invEmbed(user, data) {
-  const value = data.inv.reduce((s, f) => s + f.value, 0);
-  const lines = data.inv.slice(0, 20).map(fishToLine).join("\n") || "(empty)";
-  const extra = data.inv.length > 20 ? `\n…and ${data.inv.length - 20} more` : "";
-  return new EmbedBuilder()
-    .setTitle(`🎣 ${user.username}'s Tackle Box`)
-    .addFields(
-      { name: "Rod", value: `${RODS[data.rod.key].name} — ${data.rod.durability}/${RODS[data.rod.key].maxDur} durability`, inline: false },
-      { name: "Bait", value: `${BAIT[data.bait.key].name} (x${data.bait.qty})`, inline: true },
-      { name: "Total Value", value: formatCurrency(value), inline: true },
-    )
-    .setDescription(lines + extra)
-    .setColor(0x4ac1ff);
-}
-
-function statsEmbed(user, data) {
-  return new EmbedBuilder()
-    .setTitle(`📊 ${user.username}'s Fishing Stats`)
-    .addFields(
-      { name: "Casts", value: String(data.stats.casts), inline: true },
-      { name: "Catches", value: String(data.stats.catches), inline: true },
-      { name: "Biggest", value: `${data.stats.biggestWeight}kg`, inline: true },
-      { name: "Rod", value: `${RODS[data.rod.key].name} (${data.rod.durability}/${RODS[data.rod.key].maxDur})`, inline: false },
-      { name: "Bait", value: `${BAIT[data.bait.key].name} (x${data.bait.qty})`, inline: true },
-    )
-    .setColor(0x33e676);
-}
-
-// ===== Slash Command Definition =====
-export const data = new SlashCommandBuilder()
-  .setName("fishing")
-  .setDescription("Go fishing for loot and sell your catch!")
-  .addSubcommand(sc => sc
-    .setName("cast")
-    .setDescription("Cast your line and try to catch a fish!"))
-  .addSubcommand(sc => sc
-    .setName("inventory")
-    .setDescription("View your caught fish"))
-  .addSubcommand(sc => sc
-    .setName("sell")
-    .setDescription("Sell fish from your inventory")
-    .addStringOption(o => o.setName("what").setDescription("all | common | uncommon | rare | legendary").setRequired(true)))
-  .addSubcommandGroup(g => g
-    .setName("rod")
-    .setDescription("Manage your fishing rod")
-    .addSubcommand(sc => sc.setName("buy").setDescription("Buy a new rod").addStringOption(o => o.setName("type").setDescription("basic|advanced|pro").setRequired(true)))
-    .addSubcommand(sc => sc.setName("repair").setDescription("Repair your current rod"))
-    .addSubcommand(sc => sc.setName("info").setDescription("Show rod info")))
-  .addSubcommandGroup(g => g
-    .setName("bait")
-    .setDescription("Manage bait")
-    .addSubcommand(sc => sc.setName("buy").setDescription("Buy bait").addStringOption(o => o.setName("type").setDescription("worm|minnow|lure").setRequired(true)).addIntegerOption(o => o.setName("qty").setDescription("Quantity").setRequired(true)))
-    .addSubcommand(sc => sc.setName("equip").setDescription("Equip bait").addStringOption(o => o.setName("type").setDescription("worm|minnow|lure|none").setRequired(true)))
-    .addSubcommand(sc => sc.setName("info").setDescription("Show bait info")))
-  .addSubcommand(sc => sc
-    .setName("stats")
-    .setDescription("View your fishing stats"))
-  .addSubcommand(sc => sc
-    .setName("help")
-    .setDescription("How to play"));
-
-export async function execute(interaction, client) {
-  try {
-    const sub = interaction.options.getSubcommand(false);
-    const subGroup = interaction.options.getSubcommandGroup(false);
-
-    // ===== CAST =====
-    if (sub === "cast") {
-      const data = await withUserData(interaction.user.id, d => d);
-      const now = Date.now();
-      const cdLeft = Math.max(0, data.lastCastAt + COOLDOWN_MS - now);
-      if (cdLeft > 0) {
-        const secs = Math.ceil(cdLeft / 1000);
-        return interaction.reply({ content: `⏳ Cooldown: **${secs}s**`, ephemeral: true });
-      }
-
-      if (data.rod.durability <= 0) {
-        return interaction.reply({ content: "Your rod is broken. Repair it with **/fishing rod repair**.", ephemeral: true });
-      }
-
-      // Perform catch
-      const fish = catchFish(data.bait.key);
-      data.inv.push(fish);
-      data.stats.casts += 1;
-      data.stats.catches += 1;
-      data.stats.biggestWeight = Math.max(data.stats.biggestWeight, fish.weight);
-      data.stats.totalValue += fish.value;
-      data.rod.durability = Math.max(0, data.rod.durability - DURABILITY_LOSS);
-      data.lastCastAt = now;
-
-      // Consume bait (25% chance to consume)
-      if (data.bait.key !== "none" && data.bait.qty > 0) {
-        if (Math.random() < 0.25) data.bait.qty -= 1;
-        if (data.bait.qty <= 0) data.bait.key = "none";
-      }
-
-      await setUserGameData(interaction.user.id, "fishing", data);
-
-      const icon = fish.rarity === "legendary" ? "🌟" : fish.rarity === "rare" ? "💎" : fish.rarity === "uncommon" ? "✨" : "🐟";
-      const embed = new EmbedBuilder()
-        .setTitle(`${icon} You caught a ${fish.name}!`)
-        .setDescription(`${fish.rarity.toUpperCase()} — **${fish.weight}kg** — worth **${formatCurrency(fish.value)}**`)
-        .addFields(
-          { name: "Rod", value: `${RODS[data.rod.key].name} — ${data.rod.durability}/${RODS[data.rod.key].maxDur} durability`, inline: false },
-          { name: "Bait", value: `${BAIT[data.bait.key].name} (x${data.bait.qty})`, inline: true },
-        )
-        .setColor(fish.rarity === "legendary" ? 0xffc107 : fish.rarity === "rare" ? 0x9c27b0 : fish.rarity === "uncommon" ? 0x03a9f4 : 0x4caf50);
-
-      return interaction.reply({ embeds: [embed] });
-    }
-
-    // ===== INVENTORY =====
-    if (sub === "inventory") {
-      const data = await withUserData(interaction.user.id, d => d);
-      return interaction.reply({ embeds: [invEmbed(interaction.user, data)], ephemeral: true });
-    }
-
-    // ===== SELL =====
-    if (sub === "sell") {
-      const what = interaction.options.getString("what", true).toLowerCase();
-      const data = await withUserData(interaction.user.id, d => d);
-
-      let filter;
-      if (what === "all") filter = () => true;
-      else if (["common","uncommon","rare","legendary"].includes(what)) filter = f => f.rarity === what;
-      else return interaction.reply({ content: "Choose: all | common | uncommon | rare | legendary", ephemeral: true });
-
-      const sellList = data.inv.filter(filter);
-      if (sellList.length === 0) return interaction.reply({ content: "No fish to sell for that selection.", ephemeral: true });
-
-      const total = sellList.reduce((s, f) => s + f.value, 0);
-      data.inv = data.inv.filter(f => !filter(f));
-      await setUserGameData(interaction.user.id, "fishing", data);
-      await incrementBalance(interaction.user.id, total);
-
-      return interaction.reply({ content: `🪙 Sold **${sellList.length}** fish for **${formatCurrency(total)}**.` });
-    }
-
-    // ===== ROD GROUP =====
-    if (subGroup === "rod") {
-      const sub2 = interaction.options.getSubcommand();
-      const data = await withUserData(interaction.user.id, d => d);
-
-      if (sub2 === "buy") {
-        const type = interaction.options.getString("type", true).toLowerCase();
-        if (!RODS[type]) return interaction.reply({ content: "Rod types: basic | advanced | pro", ephemeral: true });
-        const rod = RODS[type];
-        if (data.rod.key === type) return interaction.reply({ content: "You already have that rod equipped.", ephemeral: true });
-        if (rod.price > 0) await decrementBalance(interaction.user.id, rod.price);
-        data.rod = { key: type, durability: rod.maxDur };
-        await setUserGameData(interaction.user.id, "fishing", data);
-        return interaction.reply({ content: `Purchased **${rod.name}** for ${formatCurrency(rod.price)}.` });
-      }
-
-      if (sub2 === "repair") {
-        const rod = RODS[data.rod.key];
-        const need = rod.maxDur - data.rod.durability;
-        if (need <= 0) return interaction.reply({ content: "Your rod is already at full durability.", ephemeral: true });
-        await decrementBalance(interaction.user.id, rod.repairCost);
-        data.rod.durability = Math.min(rod.maxDur, data.rod.durability + rod.repairPer);
-        await setUserGameData(interaction.user.id, "fishing", data);
-        return interaction.reply({ content: `🔧 Repaired **${rod.name}** (+${rod.repairPer}). Durability: ${data.rod.durability}/${rod.maxDur}. Cost: ${formatCurrency(rod.repairCost)}.` });
-      }
-
-      if (sub2 === "info") {
-        const rod = RODS[data.rod.key];
-        return interaction.reply({ embeds: [new EmbedBuilder()
-          .setTitle("🎣 Rod Info")
-          .setDescription(`${rod.name} — Durability ${data.rod.durability}/${rod.maxDur}`)
-          .addFields(
-            { name: "Repair", value: `+${rod.repairPer} for ${formatCurrency(rod.repairCost)}`, inline: true },
-            { name: "Upgrade", value: `basic → advanced → pro`, inline: true },
-          )
-          .setColor(0x90caf9)
-        ], ephemeral: true });
-      }
-    }
-
-    // ===== BAIT GROUP =====
-    if (subGroup === "bait") {
-      const sub2 = interaction.options.getSubcommand();
-      const data = await withUserData(interaction.user.id, d => d);
-
-      if (sub2 === "buy") {
-        const type = interaction.options.getString("type", true).toLowerCase();
-        const qty = interaction.options.getInteger("qty", true);
-        if (!BAIT[type] || type === "none") return interaction.reply({ content: "Bait types: worm | minnow | lure", ephemeral: true });
-        const cost = BAIT[type].price * qty;
-        await decrementBalance(interaction.user.id, cost);
-        if (data.bait.key === type) data.bait.qty += qty; else { data.bait.key = type; data.bait.qty = (data.bait.qty || 0) + qty; }
-        await setUserGameData(interaction.user.id, "fishing", data);
-        return interaction.reply({ content: `Bought **${qty}× ${BAIT[type].name}** for ${formatCurrency(cost)}.` });
-      }
-
-      if (sub2 === "equip") {
-        const type = interaction.options.getString("type", true).toLowerCase();
-        if (!BAIT[type]) return interaction.reply({ content: "Bait types: worm | minnow | lure | none", ephemeral: true });
-        if (type !== "none" && data.bait.key !== type && data.bait.qty <= 0) {
-          return interaction.reply({ content: `You have no ${BAIT[type].name}. Buy some with **/fishing bait buy**.`, ephemeral: true });
+/**
+ * Generate a random fish type and multiplier using secure randomness
+ * @returns {Object} {fishType, multiplier}
+ */
+function generateRandomFish() {
+    try {
+        // Select fish type using weighted random choice
+        const fishType = secureWeightedChoice(fishTypes, fishWeights) || 'common';
+        const fishData = FISH_TYPES[fishType];
+        
+        // Generate random multiplier within the fish's range
+        let multiplier;
+        if (fishData.multiplier_min === fishData.multiplier_max) {
+            multiplier = fishData.multiplier_min;
+        } else {
+            multiplier = secureRandomFloat(fishData.multiplier_min, fishData.multiplier_max);
         }
-        data.bait.key = type;
-        await setUserGameData(interaction.user.id, "fishing", data);
-        return interaction.reply({ content: `Equipped **${BAIT[type].name}**.` });
-      }
-
-      if (sub2 === "info") {
-        const lines = Object.entries(BAIT)
-          .filter(([k]) => k !== "none")
-          .map(([k, v]) => `• **${v.name}** — ${formatCurrency(v.price)} each — rarity boost +${v.rarityBoost}`)
-          .join("\n");
-        return interaction.reply({ embeds: [new EmbedBuilder()
-          .setTitle("🪱 Bait Info")
-          .setDescription(lines || "No bait types defined.")
-          .addFields({ name: "Equipped", value: `${BAIT[data.bait.key].name} (x${data.bait.qty})` })
-          .setColor(0xa5d6a7)
-        ], ephemeral: true });
-      }
+        
+        return { fishType, multiplier };
+    } catch (error) {
+        logger.error('Error generating random fish:', error);
+        return { fishType: 'common', multiplier: 1.05 };
     }
-
-    // ===== STATS =====
-    if (sub === "stats") {
-      const data = await withUserData(interaction.user.id, d => d);
-      return interaction.reply({ embeds: [statsEmbed(interaction.user, data)], ephemeral: true });
-    }
-
-    // ===== HELP =====
-    if (sub === "help") {
-      return interaction.reply({ ephemeral: true, embeds: [new EmbedBuilder()
-        .setTitle("📘 Fishing — Help")
-        .setDescription("Cast your line, catch fish of varying rarities, then sell them for credits. Upgrade rods and equip bait to improve your odds.")
-        .addFields(
-          { name: "Basics", value: "/fishing cast — 15s cooldown. Each cast reduces durability. Repair via /fishing rod repair." },
-          { name: "Inventory", value: "/fishing inventory — View fish. /fishing sell all|<rarity> — Sell fish for credits." },
-          { name: "Gear", value: "/fishing rod buy <type> — basic|advanced|pro. /fishing bait buy|equip|info" },
-          { name: "Rarities", value: "common < uncommon < rare < legendary" },
-        )
-        .setColor(0x64b5f6)
-      ]});
-    }
-
-    // Fallback
-    return interaction.reply({ content: "Unknown subcommand. Use /fishing help", ephemeral: true });
-
-  } catch (err) {
-    log.error("/fishing error: %s", err?.stack || err);
-    try { await sendError(interaction.client, `[/fishing] ${err?.message || err}`); } catch {}
-    if (interaction.deferred || interaction.replied) {
-      return interaction.followUp({ content: "An error occurred.", ephemeral: true });
-    } else {
-      return interaction.reply({ content: "An error occurred.", ephemeral: true });
-    }
-  }
 }
+
+/**
+ * Fishing Game Session Class
+ */
+class FishingGame {
+    constructor(userId, username, initialBet, walletAfter) {
+        this.userId = userId;
+        this.username = username;
+        this.initialBet = initialBet;
+        this.walletAfter = walletAfter;
+        this.walletBefore = walletAfter + initialBet;
+        
+        // Game state
+        this.currentWinnings = initialBet; // Start with bet amount
+        this.fishCaught = [];
+        this.totalCatches = 0;
+        this.gameEnded = false;
+        this.maxCatches = 20; // Maximum catches allowed
+        this.gameStarted = false;
+        
+        logger.info(`Fishing game created for ${username} with bet ${initialBet}`);
+    }
+
+    /**
+     * Process a fish catch
+     * @returns {Object} Game state after catch
+     */
+    catchFish() {
+        if (this.gameEnded) {
+            throw new Error('Game has already ended');
+        }
+
+        this.gameStarted = true;
+        const { fishType, multiplier } = generateRandomFish();
+        const fishData = FISH_TYPES[fishType];
+        this.totalCatches++;
+
+        const oldWinnings = this.currentWinnings;
+
+        // Check if it's the red fish of doom
+        if (fishType === 'red') {
+            this.currentWinnings = 0.0; // Lose everything
+            this.gameEnded = true;
+            this.fishCaught.push(`${fishData.emoji} ${fishData.name} (=� DOOM!)`);
+            
+            logger.info(`${this.username} caught red fish and lost everything on catch ${this.totalCatches}`);
+            
+            return {
+                fishType,
+                fishData,
+                multiplier,
+                oldWinnings,
+                newWinnings: this.currentWinnings,
+                gameEnded: true,
+                reachedLimit: false,
+                lostToRedFish: true
+            };
+        }
+
+        // Apply multiplier to current winnings
+        this.currentWinnings *= multiplier;
+        this.fishCaught.push(`${fishData.emoji} ${fishData.name} (${multiplier.toFixed(2)}x)`);
+
+        // Check if reached catch limit
+        const reachedLimit = this.totalCatches >= this.maxCatches;
+        if (reachedLimit) {
+            this.gameEnded = true;
+            logger.info(`${this.username} reached fishing limit with winnings ${this.currentWinnings}`);
+        }
+
+        return {
+            fishType,
+            fishData,
+            multiplier,
+            oldWinnings,
+            newWinnings: this.currentWinnings,
+            gameEnded: reachedLimit,
+            reachedLimit,
+            lostToRedFish: false
+        };
+    }
+
+    /**
+     * Stop fishing and end the game
+     * @returns {Object} Final game state
+     */
+    stopFishing() {
+        if (this.gameEnded) {
+            throw new Error('Game has already ended');
+        }
+
+        if (this.totalCatches === 0) {
+            throw new Error('Cannot stop without catching any fish');
+        }
+
+        this.gameEnded = true;
+        logger.info(`${this.username} stopped fishing with ${this.totalCatches} catches and winnings ${this.currentWinnings}`);
+
+        return {
+            gameEnded: true,
+            reachedLimit: false,
+            lostToRedFish: false,
+            voluntaryStop: true
+        };
+    }
+
+    /**
+     * Create game state embed for current status
+     */
+    createGameEmbed(title, color, description = null) {
+        const embed = new EmbedBuilder()
+            .setTitle(title)
+            .setColor(color);
+
+        if (description) {
+            embed.setDescription(description);
+        }
+
+        embed.addFields(
+            { name: '<� Catches', value: `${this.totalCatches}/${this.maxCatches}`, inline: true },
+            { name: '=� Current Winnings', value: `**${fmt(this.currentWinnings)}**`, inline: true },
+            { name: '=� Multiplier', value: `${(this.currentWinnings / this.initialBet).toFixed(2)}x`, inline: true }
+        );
+
+        // Show recent fish caught
+        if (this.fishCaught.length > 0) {
+            const recentFish = this.fishCaught.slice(-5).join('\n'); // Show last 5 fish
+            embed.addFields({ name: '= Recent Catches', value: recentFish, inline: false });
+        }
+
+        embed.setFooter({ text: '<� Keep fishing for bigger multipliers, or stop to secure your winnings!' });
+
+        return embed;
+    }
+
+    /**
+     * Create final game result embed
+     */
+    createFinalEmbed(bankBalance, endType = 'stop') {
+        const finalWallet = this.walletAfter + this.currentWinnings;
+        const netChange = this.currentWinnings - this.initialBet;
+
+        let title, description, color, resultEmoji;
+
+        if (endType === 'red') {
+            title = '=� Red Fish of Doom!';
+            description = `**${this.username}** caught the cursed red fish and lost everything!`;
+            color = 0xE74C3C; // Red
+            resultEmoji = '=�';
+        } else if (endType === 'limit') {
+            title = '<� Fishing Limit Reached!';
+            description = `**${this.username}** completed a full fishing session! (20/20 catches)`;
+            
+            if (this.currentWinnings >= this.initialBet * 3) {
+                color = 0xF1C40F; // Gold
+                resultEmoji = '<�';
+                title = '<� Master Angler!';
+            } else if (this.currentWinnings >= this.initialBet * 2) {
+                color = 0x2ECC71; // Green
+                resultEmoji = '<�';
+                title = '<� Expert Fisher!';
+            } else {
+                color = 0x3498DB; // Blue
+                resultEmoji = '<�';
+            }
+        } else {
+            // Voluntary stop
+            if (this.currentWinnings >= this.initialBet * 5) {
+                title = '<� Amazing Fishing Session!';
+                description = `**${this.username}** had an incredible fishing trip!`;
+                color = 0xF1C40F; // Gold
+                resultEmoji = '<�';
+            } else if (this.currentWinnings >= this.initialBet * 2) {
+                title = '<� Great Fishing Session!';
+                description = `**${this.username}** had a profitable fishing trip!`;
+                color = 0x2ECC71; // Green
+                resultEmoji = '<�';
+            } else if (this.currentWinnings >= this.initialBet) {
+                title = ' Successful Fishing!';
+                description = `**${this.username}** made a profit fishing!`;
+                color = 0x3498DB; // Blue
+                resultEmoji = '';
+            } else {
+                title = '=� Fishing Loss';
+                description = `**${this.username}** didn't catch enough to cover the bait cost!`;
+                color = 0xE67E22; // Orange
+                resultEmoji = '=�';
+            }
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle(`${resultEmoji} ${title}`)
+            .setDescription(description)
+            .setColor(color);
+
+        embed.addFields(
+            { name: '<� Total Catches', value: this.totalCatches.toString(), inline: true },
+            { name: '=� Initial Bet', value: fmt(this.initialBet), inline: true },
+            { name: '<� Final Winnings', value: `**${fmt(this.currentWinnings)}**`, inline: true },
+            { name: '=� Wallet', value: `${fmt(this.walletBefore)} � **${fmt(finalWallet)}**`, inline: true },
+            { name: '<� Bank Balance', value: fmt(bankBalance), inline: true },
+            { name: '=� Net Change', value: `**${netChange >= 0 ? '+' : ''}${fmt(netChange)}**`, inline: true }
+        );
+
+        // Show all fish caught (last 10 if too many)
+        if (this.fishCaught.length > 0) {
+            let fishList = this.fishCaught.slice(-10).join('\n');
+            if (this.fishCaught.length > 10) {
+                fishList = `...\n${fishList}`;
+            }
+            embed.addFields({ name: '= Fish Caught', value: fishList, inline: false });
+        }
+
+        embed.setFooter({ text: '<� Thanks for fishing! Cast your line again anytime.' });
+
+        return embed;
+    }
+
+    /**
+     * Create game control buttons
+     */
+    createButtons(disabled = false) {
+        const fishButton = new ButtonBuilder()
+            .setCustomId(`fishing-${this.userId}:fish`)
+            .setLabel('<� FISH')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('<�')
+            .setDisabled(disabled);
+
+        const stopButton = new ButtonBuilder()
+            .setCustomId(`fishing-${this.userId}:stop`)
+            .setLabel('=� Stop Fishing')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('=�')
+            .setDisabled(disabled || this.totalCatches === 0);
+
+        const helpButton = new ButtonBuilder()
+            .setCustomId(`fishing-${this.userId}:help`)
+            .setLabel('S')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('S')
+            .setDisabled(disabled);
+
+        return new ActionRowBuilder().addComponents(fishButton, stopButton, helpButton);
+    }
+
+    /**
+     * Get initial game embed
+     */
+    getInitialEmbed(bankBalance) {
+        const embed = new EmbedBuilder()
+            .setTitle('<� Fishing Adventure Begins!')
+            .setDescription(`**${this.username}** casts their line into the water...`)
+            .setColor(0x3498DB);
+
+        embed.addFields(
+            { name: '=� Bait Cost', value: `**${fmt(this.initialBet)}**`, inline: true },
+            { name: '=� Remaining Wallet', value: fmt(this.walletAfter), inline: true },
+            { name: '<� Bank Balance', value: fmt(bankBalance), inline: true }
+        );
+
+        // Add fish type information
+        const fishInfo = '= **Common** (50%): 1.01x-1.05x\n' +
+                        '=  **Uncommon** (25%): 1.06x-1.15x\n' +
+                        '< **Rare** (15%): 1.16x-1.35x\n' +
+                        '<� **Legendary** (2%): 1.4x-1.8x\n' +
+                        '=4 **Red Fish** (7%): =� LOSE ALL';
+
+        embed.addFields(
+            { name: '= Fish Types', value: fishInfo, inline: false },
+            { name: '<� Current Winnings', value: `**${fmt(this.initialBet)}**`, inline: true },
+            { name: '<� Strategy', value: 'Keep fishing for higher multipliers, or stop to secure winnings!', inline: true }
+        );
+
+        embed.setFooter({ text: '=� Warning: Red fish will steal all your catch! Fish responsibly.' });
+
+        return embed;
+    }
+
+    /**
+     * Get help embed
+     */
+    static getHelpEmbed() {
+        const embed = new EmbedBuilder()
+            .setTitle('<� Fishing Game Help')
+            .setDescription('Cast your line to catch fish with multipliers!')
+            .setColor(0x3498DB);
+
+        embed.addFields(
+            {
+                name: '<� How to Play',
+                value: '`/fishing [amount]` - Start fishing with your bet!\nClick **<� FISH** to catch fish and multiply winnings.\nClick **=� Stop Fishing** anytime to keep your current winnings.',
+                inline: false
+            },
+            {
+                name: '= Fish Types & Multipliers',
+                value: '= **Common Fish** (50% chance)\n" Multiplier: 1.01x - 1.05x\n" Barely profitable catches\n\n' +
+                       '=  **Uncommon Fish** (25% chance)\n" Multiplier: 1.06x - 1.15x\n" Small but steady gains\n\n' +
+                       '< **Rare Fish** (15% chance)\n" Multiplier: 1.16x - 1.35x\n" Decent rewards for the patient\n\n' +
+                       '<� **Legendary Fish** (2% chance)\n" Multiplier: 1.4x - 1.8x\n" Rare catches for masters\n\n' +
+                       '=4 **Red Fish of Doom** (7% chance)\n" =� **LOSE EVERYTHING!**\n" The cursed fish that steals all your catch',
+                inline: false
+            },
+            {
+                name: '=� Strategy Tips',
+                value: '" **Start small** - Test your luck before big bets\n' +
+                       '" **Know when to stop** - Greed leads to the red fish\n' +
+                       '" **Compound effect** - Each catch multiplies your total winnings\n' +
+                       '" **Risk vs Reward** - More catches = higher multipliers but more red fish risk',
+                inline: false
+            },
+            {
+                name: '<� Game Mechanics',
+                value: '" Your bet becomes your starting winnings\n' +
+                       '" Each fish multiplies your **current** winnings\n' +
+                       '" Stop anytime to secure your current winnings\n' +
+                       '" Red fish resets winnings to $0.00\n' +
+                       '" **Maximum 20 catches per session**\n' +
+                       '" Game auto-ends at 20 catches\n' +
+                       '" Use shortcuts like "1k", "all", "half"',
+                inline: false
+            },
+            {
+                name: '<� Example Session',
+                value: 'Bet: $100 � Catch =  (1.1x) � $110\n' +
+                       'Catch < (1.2x) � $132\n' +
+                       'Catch <� (1.5x) � $198\n' +
+                       '**Stop here** = Win $98 profit!\n' +
+                       'OR keep fishing and risk the =4 red fish...',
+                inline: false
+            }
+        );
+
+        embed.setFooter({ text: '=� Remember: The red fish appears randomly and steals everything! Fish responsibly.' });
+
+        return embed;
+    }
+}
+
+// Active fishing games storage
+const activeFishingGames = new Map();
+
+/**
+ * Start a new fishing game
+ */
+function startFishingGame(userId, username, bet, walletAfter) {
+    const game = new FishingGame(userId, username, bet, walletAfter);
+    activeFishingGames.set(userId, game);
+    return game;
+}
+
+/**
+ * Get active fishing game for user
+ */
+function getFishingGame(userId) {
+    return activeFishingGames.get(userId);
+}
+
+/**
+ * End and remove fishing game
+ */
+function endFishingGame(userId) {
+    const game = activeFishingGames.get(userId);
+    if (game) {
+        activeFishingGames.delete(userId);
+        logger.info(`Fishing game ended for user ${userId}`);
+    }
+    return game;
+}
+
+/**
+ * Handle fishing button interactions
+ */
+async function handleFishingAction(interaction, action) {
+    const userId = interaction.user.id;
+    const game = getFishingGame(userId);
+
+    if (!game) {
+        await interaction.reply({
+            content: 'L No active fishing game found! Use `/fishing` to start a new game.',
+            ephemeral: true
+        });
+        return;
+    }
+
+    try {
+        switch (action) {
+            case 'fish':
+                await handleFishAction(interaction, game);
+                break;
+            case 'stop':
+                await handleStopAction(interaction, game);
+                break;
+            case 'help':
+                await handleHelpAction(interaction);
+                break;
+            default:
+                await interaction.reply({
+                    content: 'L Unknown fishing action.',
+                    ephemeral: true
+                });
+        }
+    } catch (error) {
+        logger.error(`Error handling fishing action ${action}:`, error);
+        await interaction.reply({
+            content: 'L An error occurred while processing your fishing action.',
+            ephemeral: true
+        });
+    }
+}
+
+/**
+ * Handle fish button click
+ */
+async function handleFishAction(interaction, game) {
+    if (game.gameEnded) {
+        await interaction.reply({
+            content: '=� This fishing session has already ended!',
+            ephemeral: true
+        });
+        return;
+    }
+
+    try {
+        const result = game.catchFish();
+        const { fishData, multiplier, oldWinnings, newWinnings, reachedLimit, lostToRedFish } = result;
+
+        if (lostToRedFish) {
+            // Red fish caught - game over
+            const embed = game.createGameEmbed(
+                '=� Red Fish of Doom!',
+                fishData.color,
+                `=� **You caught the cursed red fish and lost everything!**\n\nAll your catch has been stolen by the red fish of doom!`
+            );
+
+            const buttons = game.createButtons(true); // Disabled buttons
+
+            await interaction.update({
+                embeds: [embed],
+                components: [buttons]
+            });
+
+            // End the game (will be handled by the command handler)
+            return { gameEnded: true, lostToRedFish: true };
+
+        } else if (reachedLimit) {
+            // Reached catch limit
+            const embed = game.createGameEmbed(
+                `<� Final catch! ${fishData.emoji} **${fishData.name}**!`,
+                fishData.color,
+                `Multiplier: **${multiplier.toFixed(2)}x**\nWinnings: ${fmt(oldWinnings)} � **${fmt(newWinnings)}**\n\n<� **FISHING SESSION COMPLETED!** (20/20 catches)\nYou've reached the maximum catch limit!`
+            );
+
+            const buttons = game.createButtons(true); // Disabled buttons
+
+            await interaction.update({
+                embeds: [embed],
+                components: [buttons]
+            });
+
+            return { gameEnded: true, reachedLimit: true };
+
+        } else {
+            // Normal catch
+            const embed = game.createGameEmbed(
+                `<� You caught a ${fishData.emoji} **${fishData.name}**!`,
+                fishData.color,
+                `Multiplier: **${multiplier.toFixed(2)}x**\nWinnings: ${fmt(oldWinnings)} � **${fmt(newWinnings)}**`
+            );
+
+            const buttons = game.createButtons();
+
+            await interaction.update({
+                embeds: [embed],
+                components: [buttons]
+            });
+
+            return { gameEnded: false };
+        }
+    } catch (error) {
+        logger.error('Error in handleFishAction:', error);
+        await interaction.reply({
+            content: 'L An error occurred while catching fish.',
+            ephemeral: true
+        });
+        return { gameEnded: false };
+    }
+}
+
+/**
+ * Handle stop button click
+ */
+async function handleStopAction(interaction, game) {
+    if (game.gameEnded) {
+        await interaction.reply({
+            content: '=� This fishing session has already ended!',
+            ephemeral: true
+        });
+        return;
+    }
+
+    if (game.totalCatches === 0) {
+        await interaction.reply({
+            content: '=� You haven\'t caught any fish yet! Cast your line first with the FISH button.',
+            ephemeral: true
+        });
+        return;
+    }
+
+    try {
+        game.stopFishing();
+
+        const embed = new EmbedBuilder()
+            .setTitle('=� Fishing Session Ended')
+            .setDescription(`**${game.username}** decided to stop fishing and secure their winnings!`)
+            .setColor(0x2ECC71)
+            .addFields(
+                { name: '<� Total Catches', value: game.totalCatches.toString(), inline: true },
+                { name: '<� Final Winnings', value: `**${fmt(game.currentWinnings)}**`, inline: true },
+                { name: '=� Final Multiplier', value: `${(game.currentWinnings / game.initialBet).toFixed(2)}x`, inline: true }
+            );
+
+        const buttons = game.createButtons(true); // Disabled buttons
+
+        await interaction.update({
+            embeds: [embed],
+            components: [buttons]
+        });
+
+        return { gameEnded: true, voluntaryStop: true };
+    } catch (error) {
+        logger.error('Error in handleStopAction:', error);
+        await interaction.reply({
+            content: 'L An error occurred while stopping the fishing session.',
+            ephemeral: true
+        });
+        return { gameEnded: false };
+    }
+}
+
+/**
+ * Handle help button click
+ */
+async function handleHelpAction(interaction) {
+    const helpEmbed = FishingGame.getHelpEmbed();
+    await interaction.reply({
+        embeds: [helpEmbed],
+        ephemeral: true
+    });
+}
+
+module.exports = {
+    FishingGame,
+    FISH_TYPES,
+    generateRandomFish,
+    startFishingGame,
+    getFishingGame,
+    endFishingGame,
+    handleFishingAction,
+    activeFishingGames
+};

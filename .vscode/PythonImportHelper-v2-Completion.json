@@ -58,6 +58,38 @@
         "documentation": {}
     },
     {
+        "label": "app_commands",
+        "importPath": "discord",
+        "description": "discord",
+        "isExtraImport": true,
+        "detail": "discord",
+        "documentation": {}
+    },
+    {
+        "label": "app_commands",
+        "importPath": "discord",
+        "description": "discord",
+        "isExtraImport": true,
+        "detail": "discord",
+        "documentation": {}
+    },
+    {
+        "label": "app_commands",
+        "importPath": "discord",
+        "description": "discord",
+        "isExtraImport": true,
+        "detail": "discord",
+        "documentation": {}
+    },
+    {
+        "label": "app_commands",
+        "importPath": "discord",
+        "description": "discord",
+        "isExtraImport": true,
+        "detail": "discord",
+        "documentation": {}
+    },
+    {
         "label": "View",
         "importPath": "discord.ui",
         "description": "discord.ui",
@@ -130,6 +162,22 @@
         "documentation": {}
     },
     {
+        "label": "View",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "Button",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
         "label": "Button",
         "importPath": "discord.ui",
         "description": "discord.ui",
@@ -154,6 +202,102 @@
         "documentation": {}
     },
     {
+        "label": "View",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "Button",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "View",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "Button",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "View",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "Button",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "Modal",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "TextInput",
+        "importPath": "discord.ui",
+        "description": "discord.ui",
+        "isExtraImport": true,
+        "detail": "discord.ui",
+        "documentation": {}
+    },
+    {
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
+        "isExtraImport": true,
+        "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
+        "isExtraImport": true,
+        "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
+        "isExtraImport": true,
+        "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
+        "label": "commands",
+        "importPath": "discord.ext",
+        "description": "discord.ext",
+        "isExtraImport": true,
+        "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
         "label": "commands",
         "importPath": "discord.ext",
         "description": "discord.ext",
@@ -199,6 +343,38 @@
         "description": "discord.ext",
         "isExtraImport": true,
         "detail": "discord.ext",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
+        "documentation": {}
+    },
+    {
+        "label": "Cog",
+        "importPath": "discord.ext.commands",
+        "description": "discord.ext.commands",
+        "isExtraImport": true,
+        "detail": "discord.ext.commands",
         "documentation": {}
     },
     {
@@ -386,7 +562,111 @@
         "documentation": {}
     },
     {
+        "label": "game_registry",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
         "label": "fmt",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "fmt_delta_colored",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "get_guild_id",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "AutoRefundGameView",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "fmt",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "get_guild_id",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "game_registry",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "fmt",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "fmt_delta_colored",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "get_guild_id",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "game_registry",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "fmt",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "fmt_delta_colored",
         "importPath": "utils.common",
         "description": "utils.common",
         "isExtraImport": true,
@@ -450,6 +730,38 @@
         "documentation": {}
     },
     {
+        "label": "fmt",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "get_guild_id",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "game_registry",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
+        "label": "check_maintenance_mode",
+        "importPath": "utils.common",
+        "description": "utils.common",
+        "isExtraImport": true,
+        "detail": "utils.common",
+        "documentation": {}
+    },
+    {
         "label": "db_manager",
         "importPath": "utils.firebase_database",
         "description": "utils.firebase_database",
@@ -475,6 +787,38 @@
     },
     {
         "label": "parse_amount",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
+        "importPath": "utils.firebase_database",
+        "description": "utils.firebase_database",
+        "isExtraImport": true,
+        "detail": "utils.firebase_database",
+        "documentation": {}
+    },
+    {
+        "label": "db_manager",
         "importPath": "utils.firebase_database",
         "description": "utils.firebase_database",
         "isExtraImport": true,
@@ -655,6 +999,30 @@
         "documentation": {}
     },
     {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
         "label": "Iterable",
         "importPath": "typing",
         "description": "typing",
@@ -679,7 +1047,47 @@
         "documentation": {}
     },
     {
+        "label": "Tuple",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
         "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Tuple",
         "importPath": "typing",
         "description": "typing",
         "isExtraImport": true,
@@ -703,6 +1111,38 @@
         "documentation": {}
     },
     {
+        "label": "Dict",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "List",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Optional",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "Set",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
         "label": "defaultdict",
         "importPath": "collections",
         "description": "collections",
@@ -716,6 +1156,22 @@
         "isExtraImport": true,
         "importPath": "datetime",
         "description": "datetime",
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "timedelta",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
         "detail": "datetime",
         "documentation": {}
     },
@@ -804,6 +1260,30 @@
     },
     {
         "label": "ImageDraw",
+        "importPath": "PIL",
+        "description": "PIL",
+        "isExtraImport": true,
+        "detail": "PIL",
+        "documentation": {}
+    },
+    {
+        "label": "Image",
+        "importPath": "PIL",
+        "description": "PIL",
+        "isExtraImport": true,
+        "detail": "PIL",
+        "documentation": {}
+    },
+    {
+        "label": "ImageDraw",
+        "importPath": "PIL",
+        "description": "PIL",
+        "isExtraImport": true,
+        "detail": "PIL",
+        "documentation": {}
+    },
+    {
+        "label": "ImageFont",
         "importPath": "PIL",
         "description": "PIL",
         "isExtraImport": true,
@@ -930,6 +1410,47 @@
         "description": "utils.game_utils",
         "isExtraImport": true,
         "detail": "utils.game_utils",
+        "documentation": {}
+    },
+    {
+        "label": "AdminUtils",
+        "importPath": "utils.game_utils",
+        "description": "utils.game_utils",
+        "isExtraImport": true,
+        "detail": "utils.game_utils",
+        "documentation": {}
+    },
+    {
+        "label": "GameType",
+        "importPath": "utils.game_utils",
+        "description": "utils.game_utils",
+        "isExtraImport": true,
+        "detail": "utils.game_utils",
+        "documentation": {}
+    },
+    {
+        "label": "GameEmbeds",
+        "importPath": "utils.game_utils",
+        "description": "utils.game_utils",
+        "isExtraImport": true,
+        "detail": "utils.game_utils",
+        "documentation": {}
+    },
+    {
+        "label": "Enum",
+        "importPath": "enum",
+        "description": "enum",
+        "isExtraImport": true,
+        "detail": "enum",
+        "documentation": {}
+    },
+    {
+        "label": "aiohttp",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "aiohttp",
+        "description": "aiohttp",
+        "detail": "aiohttp",
         "documentation": {}
     },
     {
@@ -1347,6 +1868,105 @@
         "documentation": {}
     },
     {
+        "label": "FishingGameView",
+        "kind": 6,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "class FishingGameView(AutoRefundGameView):\n    \"\"\"Interactive fishing game view with FISH and Stop Fishing buttons.\"\"\"\n    def __init__(self, user, initial_bet: float, wallet_after: float, username: str):\n        super().__init__(timeout=45)  # 45 second timeout with auto-refund\n        self.user = user\n        self.initial_bet = initial_bet\n        self.wallet_after = wallet_after\n        self.wallet_before = wallet_after + initial_bet\n        self.username = username\n        # Setup auto-refund",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
+        "label": "Fishing",
+        "kind": 6,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "class Fishing(Cog):\n    def __init__(self, bot):\n        self.bot = bot\n        # Register this game with the registry\n        game_registry.register_game(\"Fishing\", self.__class__, \"Cast your line to catch fish with multipliers!\")\n    @app_commands.command(name=\"fishing\", description=\"🎣 Go fishing! Catch fish with multipliers, but beware the red fish!\")\n    @app_commands.describe(amount=\"Bet amount (use K/M/B suffixes, 'A' for all, 'H' for half)\")\n    async def fishing_command(self, interaction: discord.Interaction, amount: str):\n        # Defer the response to prevent timeout\n        await interaction.response.defer()",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
+        "label": "FishingManager",
+        "kind": 6,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "class FishingManager:\n    def __init__(self):\n        self.games = {}\n    def remove_game(self, user_id):\n        pass\n# Global manager instance for compatibility with general.py\nfishing_manager = FishingManager()\n# Setup function for bot integration\nasync def setup(bot):\n    import inspect",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
+        "label": "generate_random_fish",
+        "kind": 2,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "def generate_random_fish() -> Tuple[str, float]:\n    \"\"\"\n    Generate a random fish type and multiplier using secure randomness.\n    Returns (fish_type, multiplier)\n    \"\"\"\n    # Generate secure random number\n    random_num = secrets.randbelow(TOTAL_PROBABILITY)\n    # Find which fish type this corresponds to\n    fish_type = None\n    for i, cumulative_prob in enumerate(_cumulative_probs):",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
+        "label": "LOG",
+        "kind": 5,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "LOG = logging.getLogger(\"fishing\")\n# --- Fish Data ---------------------------------------------------------------\nFISH_TYPES = {\n    \"common\": {\n        \"emoji\": \"🐟\",\n        \"name\": \"Common Fish\",\n        \"multiplier_min\": 1.01,\n        \"multiplier_max\": 1.05,\n        \"probability\": 50,\n        \"color\": discord.Color.blue(),",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
+        "label": "FISH_TYPES",
+        "kind": 5,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "FISH_TYPES = {\n    \"common\": {\n        \"emoji\": \"🐟\",\n        \"name\": \"Common Fish\",\n        \"multiplier_min\": 1.01,\n        \"multiplier_max\": 1.05,\n        \"probability\": 50,\n        \"color\": discord.Color.blue(),\n        \"description\": \"A regular fish found in most waters\"\n    },",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
+        "label": "_cumulative_probs",
+        "kind": 5,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "_cumulative_probs = []\n_fish_types = []\ncumulative = 0\nfor fish_type, data in FISH_TYPES.items():\n    cumulative += data[\"probability\"]\n    _cumulative_probs.append(cumulative)\n    _fish_types.append(fish_type)\nTOTAL_PROBABILITY = cumulative  # Should be 100\ndef generate_random_fish() -> Tuple[str, float]:\n    \"\"\"",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
+        "label": "_fish_types",
+        "kind": 5,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "_fish_types = []\ncumulative = 0\nfor fish_type, data in FISH_TYPES.items():\n    cumulative += data[\"probability\"]\n    _cumulative_probs.append(cumulative)\n    _fish_types.append(fish_type)\nTOTAL_PROBABILITY = cumulative  # Should be 100\ndef generate_random_fish() -> Tuple[str, float]:\n    \"\"\"\n    Generate a random fish type and multiplier using secure randomness.",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
+        "label": "cumulative",
+        "kind": 5,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "cumulative = 0\nfor fish_type, data in FISH_TYPES.items():\n    cumulative += data[\"probability\"]\n    _cumulative_probs.append(cumulative)\n    _fish_types.append(fish_type)\nTOTAL_PROBABILITY = cumulative  # Should be 100\ndef generate_random_fish() -> Tuple[str, float]:\n    \"\"\"\n    Generate a random fish type and multiplier using secure randomness.\n    Returns (fish_type, multiplier)",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
+        "label": "TOTAL_PROBABILITY",
+        "kind": 5,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "TOTAL_PROBABILITY = cumulative  # Should be 100\ndef generate_random_fish() -> Tuple[str, float]:\n    \"\"\"\n    Generate a random fish type and multiplier using secure randomness.\n    Returns (fish_type, multiplier)\n    \"\"\"\n    # Generate secure random number\n    random_num = secrets.randbelow(TOTAL_PROBABILITY)\n    # Find which fish type this corresponds to\n    fish_type = None",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
+        "label": "fishing_manager",
+        "kind": 5,
+        "importPath": "previousBotCode.fishing",
+        "description": "previousBotCode.fishing",
+        "peekOfCode": "fishing_manager = FishingManager()\n# Setup function for bot integration\nasync def setup(bot):\n    import inspect\n    cog = Fishing(bot)\n    add_cog = getattr(bot, \"add_cog\")\n    if inspect.iscoroutinefunction(add_cog):\n        await add_cog(cog)\n    else:\n        add_cog(cog)",
+        "detail": "previousBotCode.fishing",
+        "documentation": {}
+    },
+    {
         "label": "ExampleGameCog",
         "kind": 6,
         "importPath": "previousBotCode.game_utils_examples",
@@ -1518,12 +2138,201 @@
         "documentation": {}
     },
     {
+        "label": "PlinkoModeSelectView",
+        "kind": 6,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "class PlinkoModeSelectView(View):\n    \"\"\"Mode picker for Easy/Medium/Hard Plinko.\"\"\"\n    def __init__(self, user, amount, wallet_after, username):\n        super().__init__(timeout=None)\n        self.user = user\n        self.amount = float(amount)\n        self.wallet_after = wallet_after\n        self.wallet_before = float(wallet_after) + float(amount)\n        self.username = username\n        self.started = False",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "Plinko",
+        "kind": 6,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "class Plinko(Cog):\n    def __init__(self, bot):\n        self.bot = bot\n        # Register this game with the registry\n        game_registry.register_game(\n            \"Plinko\", self.__class__, \"Drop a ball through pegs to win multipliers!\")\n    @app_commands.command(name=\"plinko\", description=\"🎯 Play the Plinko game! Drop a ball through pegs for multipliers.\")\n    @app_commands.describe(amount=\"Bet amount (use K/M/B suffixes, 'A' for all, 'H' for half)\")\n    async def plinko_command(self, interaction: discord.Interaction, amount: str):\n        # Check maintenance mode first",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "PlinkoDropSelectView",
+        "kind": 6,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "class PlinkoDropSelectView(View):\n    \"\"\"View that presents slot buttons for the player to choose the drop column.\"\"\"\n    def __init__(self, user: discord.User, amount: float, wallet_after: float, username: str,\n                 mode_name: str, mode_color: discord.Color, rows: int, multipliers: List[float], slots: int):\n        super().__init__(timeout=300)\n        self.user = user\n        self.amount = float(amount)\n        self.wallet_after = wallet_after\n        self.username = username\n        self.mode_name = mode_name",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "PlinkoManager",
+        "kind": 6,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "class PlinkoManager:\n    def __init__(self):\n        self.games = {}\n    def remove_game(self, user_id):\n        pass\n# Global manager instance for compatibility with general.py\nplinko_manager = PlinkoManager()\n# Setup function for bot integration\nasync def setup(bot):\n    import inspect",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "randomize_multipliers",
+        "kind": 2,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "def randomize_multipliers(base_multipliers: List[float]) -> List[float]:\n    \"\"\"\n    Randomize the position of multipliers while maintaining game balance.\n    Keeps the same multipliers but shuffles their positions.\n    \"\"\"\n    # Create a copy to avoid modifying the original\n    multipliers = base_multipliers.copy()\n    # Shuffle the multipliers randomly\n    random.shuffle(multipliers)\n    return multipliers",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "create_plinko_image",
+        "kind": 2,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "def create_plinko_image(rows: int, slots: int, multipliers: List[float], ball_path: List[float] = None,\n                        ball_row: int = -1, mode_name: str = \"Easy\", winning_slot: int = None) -> io.BytesIO:\n    \"\"\"\n    Create a perfectly aligned visual Plinko board using Pillow with enhanced readability.\n    \"\"\"\n    # Enhanced image dimensions for better clarity\n    width = 900\n    height = 700\n    peg_radius = 10\n    ball_radius = 15",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "create_plinko_animation_frames_visual",
+        "kind": 2,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "def create_plinko_animation_frames_visual(rows: int, slots: int, path: List[float],\n                                          multipliers: List[float], mode_name: str, final_slot: int = None) -> List[io.BytesIO]:\n    \"\"\"\n    Create multiple visual frames for Plinko animation using Pillow with perfect alignment.\n    \"\"\"\n    frames = []\n    # Initial frame - ball ready to drop\n    frame = create_plinko_image(rows, slots, multipliers, None, -1, mode_name)\n    frames.append(frame)\n    # Animation frames showing ball movement through pegs",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "simulate_plinko_drop",
+        "kind": 2,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "def simulate_plinko_drop(rows: int, slots: int, start_position: float = None) -> Tuple[int, List[float]]:\n    \"\"\"\n    Simulate a Plinko ball drop with path tracking that perfectly aligns with visual slots.\n    Returns (final_slot_index, path_positions).\n    \"\"\"\n    # Start position in slot coordinate system (center if not provided)\n    position = 0.0 if start_position is None else float(start_position)\n    path = [position]  # Track the ball's path\n    # Maximum deviation should align with slot boundaries\n    max_deviation = (slots - 1) / 2  # Can reach from slot 0 to slot N-1",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "create_plinko_animation_frames",
+        "kind": 2,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "def create_plinko_animation_frames(rows: int, slots: int, path: List[int], multipliers: List[float]) -> List[str]:\n    \"\"\"\n    Create multiple frames for Plinko animation.\n    \"\"\"\n    frames = []\n    # Frame 1: Initial setup\n    frame1 = create_plinko_frame(\n        rows, slots, multipliers, -1, None, \"🔴 Ball Ready to Drop!\")\n    frames.append(frame1)\n    # Animation frames showing ball movement",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "create_plinko_frame",
+        "kind": 2,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "def create_plinko_frame(rows: int, slots: int, multipliers: List[float], ball_row: int, ball_pos: float,\n                        status: str, winning_slot: int = None) -> str:\n    \"\"\"\n    Create a single frame of the Plinko board.\n    \"\"\"\n    lines = []\n    # Header - more compact\n    lines.append(\"```ansi\")\n    lines.append(\"🎯 \\u001b[1;36mPLINKO\\u001b[0m 🎯\")\n    lines.append(f\"{status}\")",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "PLINKO_MODES",
+        "kind": 5,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "PLINKO_MODES = {\n    \"Easy\": {\n        \"rows\": 8,\n        \"multipliers\": [0.1, 0.3, 0.5, 0.8, 1.5, 0.8, 0.5, 0.3, 0.1],\n        \"description\": \"Safest option with lower win potential. 75% house edge.\",\n        \"color\": discord.Color.green(),\n        \"emoji\": \"🟢\",\n        \"house_edge\": 0.75\n    },\n    \"Medium\": {",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "LOG",
+        "kind": 5,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "LOG = logging.getLogger(\"plinko\")\ndef randomize_multipliers(base_multipliers: List[float]) -> List[float]:\n    \"\"\"\n    Randomize the position of multipliers while maintaining game balance.\n    Keeps the same multipliers but shuffles their positions.\n    \"\"\"\n    # Create a copy to avoid modifying the original\n    multipliers = base_multipliers.copy()\n    # Shuffle the multipliers randomly\n    random.shuffle(multipliers)",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "LOG",
+        "kind": 5,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "LOG = logging.getLogger(\"plinko\")\n# --- Plinko Simulation Logic ------------------------------------------------\ndef simulate_plinko_drop(rows: int, slots: int, start_position: float = None) -> Tuple[int, List[float]]:\n    \"\"\"\n    Simulate a Plinko ball drop with path tracking that perfectly aligns with visual slots.\n    Returns (final_slot_index, path_positions).\n    \"\"\"\n    # Start position in slot coordinate system (center if not provided)\n    position = 0.0 if start_position is None else float(start_position)\n    path = [position]  # Track the ball's path",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
+        "label": "plinko_manager",
+        "kind": 5,
+        "importPath": "previousBotCode.plinko",
+        "description": "previousBotCode.plinko",
+        "peekOfCode": "plinko_manager = PlinkoManager()\n# Setup function for bot integration\nasync def setup(bot):\n    import inspect\n    cog = Plinko(bot)\n    add_cog = getattr(bot, \"add_cog\")\n    if inspect.iscoroutinefunction(add_cog):\n        await add_cog(cog)\n    else:\n        add_cog(cog)",
+        "detail": "previousBotCode.plinko",
+        "documentation": {}
+    },
+    {
         "label": "get_secure_hazard",
         "kind": 2,
         "importPath": "previousBotCode.rng",
         "description": "previousBotCode.rng",
         "peekOfCode": "def get_secure_hazard(total_lanes: int = 5) -> int:\n    \"\"\"\n    Return a cryptographically secure hazard lane index in [0, total_lanes-1].\n    This is lane-count aware so it works for all modes:\n      - Easy   -> total_lanes = 7\n      - Medium -> total_lanes = 5\n      - Hard   -> total_lanes = 3\n    Notes:\n    - The finish lane is NOT part of this range. Callers should treat the\n      finish (with graphic at /assets/road/end.png) as the lane AFTER the",
         "detail": "previousBotCode.rng",
+        "documentation": {}
+    },
+    {
+        "label": "Choice",
+        "kind": 6,
+        "importPath": "previousBotCode.rockpaperscissors",
+        "description": "previousBotCode.rockpaperscissors",
+        "peekOfCode": "class Choice(Enum):\n    ROCK = \"🪨\"\n    PAPER = \"📄\"\n    SCISSORS = \"✂️\"\nCHOICE_NAMES = {\n    Choice.ROCK: \"Rock\",\n    Choice.PAPER: \"Paper\", \n    Choice.SCISSORS: \"Scissors\"\n}\nCHOICE_ANIMATIONS = {",
+        "detail": "previousBotCode.rockpaperscissors",
+        "documentation": {}
+    },
+    {
+        "label": "RPSGameSession",
+        "kind": 6,
+        "importPath": "previousBotCode.rockpaperscissors",
+        "description": "previousBotCode.rockpaperscissors",
+        "peekOfCode": "class RPSGameSession:\n    def __init__(self, player1_id: int, player1_name: str, pot_amount: float):\n        self.player1_id = player1_id\n        self.player1_name = player1_name\n        self.player2_id: Optional[int] = None\n        self.player2_name: Optional[str] = None\n        self.pot_amount = pot_amount\n        self.total_pot = pot_amount * 2  # Both players contribute\n        self.player1_choice: Optional[Choice] = None\n        self.player2_choice: Optional[Choice] = None",
+        "detail": "previousBotCode.rockpaperscissors",
+        "documentation": {}
+    },
+    {
+        "label": "RPSGameView",
+        "kind": 6,
+        "importPath": "previousBotCode.rockpaperscissors",
+        "description": "previousBotCode.rockpaperscissors",
+        "peekOfCode": "class RPSGameView(View):\n    def __init__(self, game_session: RPSGameSession, cog):\n        super().__init__(timeout=300)\n        self.game_session = game_session\n        self.cog = cog\n        self.update_buttons()\n    def update_buttons(self):\n        \"\"\"Update button states based on game state\"\"\"\n        for item in self.children:\n            if isinstance(item, Button):",
+        "detail": "previousBotCode.rockpaperscissors",
+        "documentation": {}
+    },
+    {
+        "label": "RockPaperScissors",
+        "kind": 6,
+        "importPath": "previousBotCode.rockpaperscissors",
+        "description": "previousBotCode.rockpaperscissors",
+        "peekOfCode": "class RockPaperScissors(Cog):\n    def __init__(self, bot):\n        self.bot = bot\n    @app_commands.command(name=\"rps\", description=\"⚔️ Start a Rock Paper Scissors game\")\n    @app_commands.describe(amount=\"Amount to bet (supports K/M/B, commas, A=all, H=half)\")\n    async def rps(self, interaction: discord.Interaction, amount: str):\n        user_id = str(interaction.user.id)\n        guild_id = await get_guild_id(interaction)\n        # Check for existing game in this channel\n        if interaction.channel.id in active_games:",
+        "detail": "previousBotCode.rockpaperscissors",
+        "documentation": {}
+    },
+    {
+        "label": "LOG",
+        "kind": 5,
+        "importPath": "previousBotCode.rockpaperscissors",
+        "description": "previousBotCode.rockpaperscissors",
+        "peekOfCode": "LOG = logging.getLogger(\"rockpaperscissors\")\nclass Choice(Enum):\n    ROCK = \"🪨\"\n    PAPER = \"📄\"\n    SCISSORS = \"✂️\"\nCHOICE_NAMES = {\n    Choice.ROCK: \"Rock\",\n    Choice.PAPER: \"Paper\", \n    Choice.SCISSORS: \"Scissors\"\n}",
+        "detail": "previousBotCode.rockpaperscissors",
+        "documentation": {}
+    },
+    {
+        "label": "CHOICE_NAMES",
+        "kind": 5,
+        "importPath": "previousBotCode.rockpaperscissors",
+        "description": "previousBotCode.rockpaperscissors",
+        "peekOfCode": "CHOICE_NAMES = {\n    Choice.ROCK: \"Rock\",\n    Choice.PAPER: \"Paper\", \n    Choice.SCISSORS: \"Scissors\"\n}\nCHOICE_ANIMATIONS = {\n    Choice.ROCK: [\"🤛\", \"✊\", \"🪨\"],\n    Choice.PAPER: [\"🤚\", \"✋\", \"📄\"],\n    Choice.SCISSORS: [\"✌️\", \"✂️\", \"✂️\"]\n}",
+        "detail": "previousBotCode.rockpaperscissors",
+        "documentation": {}
+    },
+    {
+        "label": "CHOICE_ANIMATIONS",
+        "kind": 5,
+        "importPath": "previousBotCode.rockpaperscissors",
+        "description": "previousBotCode.rockpaperscissors",
+        "peekOfCode": "CHOICE_ANIMATIONS = {\n    Choice.ROCK: [\"🤛\", \"✊\", \"🪨\"],\n    Choice.PAPER: [\"🤚\", \"✋\", \"📄\"],\n    Choice.SCISSORS: [\"✌️\", \"✂️\", \"✂️\"]\n}\nclass RPSGameSession:\n    def __init__(self, player1_id: int, player1_name: str, pot_amount: float):\n        self.player1_id = player1_id\n        self.player1_name = player1_name\n        self.player2_id: Optional[int] = None",
+        "detail": "previousBotCode.rockpaperscissors",
         "documentation": {}
     },
     {
@@ -1695,6 +2504,96 @@
         "description": "previousBotCode.slots",
         "peekOfCode": "slots_manager = SlotsManager()\n# Setup function for bot integration\nasync def setup(bot):\n    import inspect\n    cog = Slots(bot)\n    add_cog = getattr(bot, \"add_cog\")\n    if inspect.iscoroutinefunction(add_cog):\n        await add_cog(cog)\n    else:\n        add_cog(cog)",
         "detail": "previousBotCode.slots",
+        "documentation": {}
+    },
+    {
+        "label": "WordValidator",
+        "kind": 6,
+        "importPath": "previousBotCode.wordchain",
+        "description": "previousBotCode.wordchain",
+        "peekOfCode": "class WordValidator:\n    \"\"\"Validates words using dictionary API.\"\"\"\n    def __init__(self):\n        self.session = None\n        self.cache = {}  # Simple word cache to avoid repeated API calls\n    async def get_session(self):\n        if self.session is None or self.session.closed:\n            self.session = aiohttp.ClientSession()\n        return self.session\n    async def is_valid_word(self, word: str) -> bool:",
+        "detail": "previousBotCode.wordchain",
+        "documentation": {}
+    },
+    {
+        "label": "WordChainPlayer",
+        "kind": 6,
+        "importPath": "previousBotCode.wordchain",
+        "description": "previousBotCode.wordchain",
+        "peekOfCode": "class WordChainPlayer:\n    \"\"\"Represents a player in the word chain game.\"\"\"\n    def __init__(self, user: discord.User, paid_pot: bool = False):\n        self.user = user\n        self.lives = 3  # Default lives, will be set by host\n        self.paid_pot = paid_pot\n        self.is_eliminated = False\n        self.words_used = []\n        self.last_active = datetime.now()\n    @property",
+        "detail": "previousBotCode.wordchain",
+        "documentation": {}
+    },
+    {
+        "label": "WordChainGame",
+        "kind": 6,
+        "importPath": "previousBotCode.wordchain",
+        "description": "previousBotCode.wordchain",
+        "peekOfCode": "class WordChainGame:\n    \"\"\"Manages a word chain game session.\"\"\"\n    def __init__(self, channel_id: str, guild_id: str, host: discord.User):\n        self.channel_id = channel_id\n        self.guild_id = guild_id\n        self.host = host\n        self.players: Dict[int, WordChainPlayer] = {}\n        self.state = \"waiting\"  # waiting, playing, finished\n        self.pot_amount = 0.0\n        self.pot_enabled = False",
+        "detail": "previousBotCode.wordchain",
+        "documentation": {}
+    },
+    {
+        "label": "WordChainManager",
+        "kind": 6,
+        "importPath": "previousBotCode.wordchain",
+        "description": "previousBotCode.wordchain",
+        "peekOfCode": "class WordChainManager:\n    \"\"\"Manages word chain game sessions.\"\"\"\n    def __init__(self):\n        self.games: Dict[str, WordChainGame] = {}\n        self.user_games: Dict[int, str] = {}  # user_id -> channel_id\n    def get_or_create_game(self, channel_id: str, guild_id: str, host: discord.User) -> WordChainGame:\n        \"\"\"Get existing game or create new one.\"\"\"\n        if channel_id not in self.games:\n            game = WordChainGame(channel_id, guild_id, host)\n            self.games[channel_id] = game",
+        "detail": "previousBotCode.wordchain",
+        "documentation": {}
+    },
+    {
+        "label": "GameSettingsModal",
+        "kind": 6,
+        "importPath": "previousBotCode.wordchain",
+        "description": "previousBotCode.wordchain",
+        "peekOfCode": "class GameSettingsModal(Modal):\n    \"\"\"Modal for configuring game settings.\"\"\"\n    def __init__(self, view):\n        super().__init__(title=\"Game Settings\")\n        self.view = view\n        self.pot_input = TextInput(\n            label=\"Pot Amount (0 to disable)\",\n            placeholder=\"e.g., 100, 500, 1000\",\n            default=str(int(view.game.pot_amount)),\n            min_length=1,",
+        "detail": "previousBotCode.wordchain",
+        "documentation": {}
+    },
+    {
+        "label": "WordChainGameView",
+        "kind": 6,
+        "importPath": "previousBotCode.wordchain",
+        "description": "previousBotCode.wordchain",
+        "peekOfCode": "class WordChainGameView(View):\n    \"\"\"Main view for word chain game.\"\"\"\n    def __init__(self, game: WordChainGame):\n        super().__init__(timeout=1800)  # 30 minute timeout\n        self.game = game\n        self.game.view = self  # Store reference for updates\n        self._setup_buttons()\n    def _setup_buttons(self):\n        \"\"\"Setup buttons based on game state.\"\"\"\n        self.clear_items()",
+        "detail": "previousBotCode.wordchain",
+        "documentation": {}
+    },
+    {
+        "label": "WordChainCommands",
+        "kind": 6,
+        "importPath": "previousBotCode.wordchain",
+        "description": "previousBotCode.wordchain",
+        "peekOfCode": "class WordChainCommands(Cog):\n    \"\"\"Word Chain game commands.\"\"\"\n    def __init__(self, bot):\n        self.bot = bot\n        # Register this game with the registry\n        game_registry.register_game(\"Word Chain\", self.__class__, \"Say words that start with the last letter!\")\n    @commands.Cog.listener()\n    async def on_message(self, message):\n        \"\"\"Listen for word submissions in channels with active games.\"\"\"\n        # Ignore bot messages",
+        "detail": "previousBotCode.wordchain",
+        "documentation": {}
+    },
+    {
+        "label": "LOG",
+        "kind": 5,
+        "importPath": "previousBotCode.wordchain",
+        "description": "previousBotCode.wordchain",
+        "peekOfCode": "LOG = logging.getLogger(\"wordchain\")\n# ========================= WORD VALIDATION =========================\nclass WordValidator:\n    \"\"\"Validates words using dictionary API.\"\"\"\n    def __init__(self):\n        self.session = None\n        self.cache = {}  # Simple word cache to avoid repeated API calls\n    async def get_session(self):\n        if self.session is None or self.session.closed:\n            self.session = aiohttp.ClientSession()",
+        "detail": "previousBotCode.wordchain",
+        "documentation": {}
+    },
+    {
+        "label": "word_validator",
+        "kind": 5,
+        "importPath": "previousBotCode.wordchain",
+        "description": "previousBotCode.wordchain",
+        "peekOfCode": "word_validator = WordValidator()\n# ========================= GAME CLASSES =========================\nclass WordChainPlayer:\n    \"\"\"Represents a player in the word chain game.\"\"\"\n    def __init__(self, user: discord.User, paid_pot: bool = False):\n        self.user = user\n        self.lives = 3  # Default lives, will be set by host\n        self.paid_pot = paid_pot\n        self.is_eliminated = False\n        self.words_used = []",
+        "detail": "previousBotCode.wordchain",
+        "documentation": {}
+    },
+    {
+        "label": "wordchain_manager",
+        "kind": 5,
+        "importPath": "previousBotCode.wordchain",
+        "description": "previousBotCode.wordchain",
+        "peekOfCode": "wordchain_manager = WordChainManager()\n# ========================= MODALS =========================\n# Removed WordSubmissionModal - game is now channel-based\nclass GameSettingsModal(Modal):\n    \"\"\"Modal for configuring game settings.\"\"\"\n    def __init__(self, view):\n        super().__init__(title=\"Game Settings\")\n        self.view = view\n        self.pot_input = TextInput(\n            label=\"Pot Amount (0 to disable)\",",
+        "detail": "previousBotCode.wordchain",
         "documentation": {}
     }
 ]

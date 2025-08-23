@@ -61,6 +61,18 @@ module.exports = {
                 return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
+            // Try to stop wordchain instance if applicable
+            try {
+                if (userActiveGame.gameType === 'wordchain') {
+                    const wc = require('./wordchain');
+                    if (wc && typeof wc.forceStop === 'function') {
+                        await wc.forceStop(targetUser.id);
+                    }
+                }
+            } catch (e) {
+                logger.warn(`Failed to force stop wordchain: ${e.message}`);
+            }
+
             clearActiveGame(targetUser.id);
             
             const embed = new EmbedBuilder()
@@ -133,6 +145,18 @@ module.exports = {
                 .setColor(0xFF0000);
             
             return await interaction.update({ embeds: [embed], components: [] });
+        }
+
+        // Try to stop wordchain instance if applicable
+        try {
+            if (userGame.gameType === 'wordchain') {
+                const wc = require('./wordchain');
+                if (wc && typeof wc.forceStop === 'function') {
+                    await wc.forceStop(userId);
+                }
+            }
+        } catch (e) {
+            logger.warn(`Failed to force stop wordchain: ${e.message}`);
         }
 
         clearActiveGame(userId);

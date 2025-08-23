@@ -179,3 +179,4 @@ SyntaxError: Unexpected end of input
 2025-08-22 22:00:40 [ERROR]: Error creating spinning slot GIF: GIFEncoder is not a constructor
 2025-08-22 22:00:54 [ERROR]: Error creating spinning slot GIF: GIFEncoder is not a constructor
 2025-08-22 22:21:17 [ERROR]: Error in multi-slots command: fmt is not defined
+2025-08-22 22:56:37 [ERROR]: Failed to send log message: Received one or more errors

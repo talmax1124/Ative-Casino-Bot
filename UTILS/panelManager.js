@@ -317,7 +317,7 @@ class PanelManager {
             }
         } catch (error) {
             logger.error(`Developer panel action error: ${error.message}`);
-            await sendLogMessage(interaction.client, `Developer panel error: ${error.message}`);
+            await sendLogMessage(interaction.client, 'error', `Developer panel error: ${error.message}`);
             
             return await interaction.reply({
                 embeds: [new EmbedBuilder()
@@ -480,7 +480,7 @@ class PanelManager {
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        await sendLogMessage(interaction.client, `Bot restart initiated by ${interaction.user.tag}`);
+        await sendLogMessage(interaction.client, 'warn', `Bot restart initiated by ${interaction.user.tag}`);
 
         setTimeout(() => {
             process.exit(0);
@@ -510,7 +510,7 @@ class PanelManager {
                 .setTimestamp();
 
             await interaction.editReply({ embeds: [embed] });
-            await sendLogMessage(interaction.client, `Database backup created by ${interaction.user.tag}`);
+            await sendLogMessage(interaction.client, 'info', `Database backup created by ${interaction.user.tag}`);
 
         } catch (error) {
             const errorEmbed = new EmbedBuilder()
@@ -571,7 +571,7 @@ class PanelManager {
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        await sendLogMessage(interaction.client, `Emergency shutdown initiated by ${interaction.user.tag}`);
+        await sendLogMessage(interaction.client, 'error', `Emergency shutdown initiated by ${interaction.user.tag}`);
 
         process.exit(1);
     }
@@ -592,7 +592,7 @@ class PanelManager {
                 .setTimestamp();
 
             await interaction.editReply({ embeds: [embed] });
-            await sendLogMessage(interaction.client, `All active games cleared by ${interaction.user.tag}`);
+            await sendLogMessage(interaction.client, 'warn', `All active games cleared by ${interaction.user.tag}`);
 
         } catch (error) {
             const errorEmbed = new EmbedBuilder()
@@ -665,7 +665,7 @@ class PanelManager {
                 .setTimestamp();
 
             await message.reply({ embeds: [embed] });
-            await sendLogMessage(message.client, `${message.author.tag} added ${fmt(amount)} to user ${userId}`);
+            await sendLogMessage(message.client, 'admin', `${message.author.tag} added ${fmt(amount)} to user ${userId}`);
 
         } catch (error) {
             throw new Error(`Failed to add money: ${error.message}`);
@@ -694,7 +694,7 @@ class PanelManager {
                 .setTimestamp();
 
             await message.reply({ embeds: [embed] });
-            await sendLogMessage(message.client, `${message.author.tag} refunded ${fmt(refundAmount)} to user ${userId}`);
+            await sendLogMessage(message.client, 'admin', `${message.author.tag} refunded ${fmt(refundAmount)} to user ${userId}`);
 
         } catch (error) {
             throw new Error(`Failed to process refund: ${error.message}`);
@@ -706,6 +706,20 @@ class PanelManager {
      */
     async executeStopGame(message, userId) {
         try {
+            // Attempt to stop the runtime game if it's Word Chain
+            try {
+                const activeGames = getAllActiveGames();
+                const g = activeGames.find(x => x.userId === userId);
+                if (g && g.gameType === 'wordchain') {
+                    const wc = require('../COMMANDS/wordchain');
+                    if (wc && typeof wc.forceStop === 'function') {
+                        await wc.forceStop(userId);
+                    }
+                }
+            } catch (e) {
+                // ignore
+            }
+
             const cleared = await clearActiveGame(userId);
             
             const embed = new EmbedBuilder()
@@ -718,7 +732,7 @@ class PanelManager {
 
             await message.reply({ embeds: [embed] });
             if (cleared) {
-                await sendLogMessage(message.client, `${message.author.tag} stopped game for user ${userId}`);
+                await sendLogMessage(message.client, 'admin', `${message.author.tag} stopped game for user ${userId}`);
             }
 
         } catch (error) {
