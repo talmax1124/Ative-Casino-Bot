@@ -39,7 +39,9 @@ const GameType = {
     SPADES: 'spades',
     THIRTYONE: '31',
     ROCKPAPERSCISSORS: 'rps',
-    MATRIX_SLOTS: 'matrix_slots'
+    MATRIX_SLOTS: 'matrix_slots',
+    DUCK_GAME: 'duck_game',
+    MULTI_SLOTS: 'multi_slots'
 };
 
 // ========================= DATA CLASSES =========================

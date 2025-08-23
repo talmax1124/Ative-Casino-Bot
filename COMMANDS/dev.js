@@ -258,157 +258,7 @@ const logsCommand = {
     }
 };
 
-const stopGameCommand = {
-    data: new SlashCommandBuilder()
-        .setName('stopgame')
-        .setDescription('Stop active game for a user (Developer only)')
-        .addUserOption(option =>
-            option.setName('user')
-                .setDescription('User to stop game for (optional - shows list if not provided)')
-                .setRequired(false)
-        ),
 
-    async execute(interaction) {
-        if (!isDeveloper(interaction.user.id)) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Permission Denied')
-                .setDescription('This command is restricted to the developer.')
-                .setColor(0xFF0000);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
-
-        const targetUser = interaction.options.getUser('user');
-        const activeGames = getAllActiveGames();
-
-        if (activeGames.length === 0) {
-            const embed = new EmbedBuilder()
-                .setTitle('🎮 No Active Games')
-                .setDescription('No users currently have active games.')
-                .setColor(0xFFFF00);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
-
-        if (targetUser) {
-            // Stop specific user's game
-            const userActiveGame = activeGames.find(game => game.userId === targetUser.id);
-            
-            if (!userActiveGame) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ No Active Game')
-                    .setDescription(`${targetUser.displayName} does not have an active game.`)
-                    .setColor(0xFF0000);
-                
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            }
-
-            clearActiveGame(targetUser.id);
-            
-            const embed = new EmbedBuilder()
-                .setTitle('🛑 Game Stopped')
-                .setDescription(`Successfully stopped ${userActiveGame.gameType} game for ${targetUser.displayName}.`)
-                .setColor(0x00FF00)
-                .setTimestamp();
-            
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            
-            logger.info(`Developer ${interaction.user.tag} stopped ${userActiveGame.gameType} game for user ${targetUser.id}`);
-            
-        } else {
-            // Show list of active games for selection
-            if (activeGames.length > 25) {
-                const embed = new EmbedBuilder()
-                    .setTitle('⚠️ Too Many Active Games')
-                    .setDescription(`There are ${activeGames.length} active games. Please specify a user directly.`)
-                    .setColor(0xFFFF00);
-                
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            }
-
-            const options = [];
-            for (const game of activeGames) {
-                try {
-                    const user = await interaction.client.users.fetch(game.userId);
-                    options.push({
-                        label: `${user.displayName} - ${game.gameType}`,
-                        description: `Stop ${game.gameType} game for ${user.displayName}`,
-                        value: game.userId
-                    });
-                } catch (error) {
-                    // User not found, use ID instead
-                    options.push({
-                        label: `User ${game.userId} - ${game.gameType}`,
-                        description: `Stop ${game.gameType} game for user`,
-                        value: game.userId
-                    });
-                }
-            }
-
-            const selectMenu = new StringSelectMenuBuilder()
-                .setCustomId('stop_game_select')
-                .setPlaceholder('Select a user to stop their game')
-                .addOptions(options);
-
-            const row = new ActionRowBuilder().addComponents(selectMenu);
-
-            const embed = new EmbedBuilder()
-                .setTitle('🎮 Active Games')
-                .setDescription(`Found ${activeGames.length} active game(s). Select a user to stop their game:`)
-                .setColor(0x0099FF);
-
-            await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
-        }
-    }
-};
-
-// Interaction handler for stop game select menu
-const stopGameSelectHandler = {
-    customId: 'stop_game_select',
-    async execute(interaction) {
-        if (!isDeveloper(interaction.user.id)) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Permission Denied')
-                .setDescription('This action is restricted to the developer.')
-                .setColor(0xFF0000);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
-
-        const userId = interaction.values[0];
-        const activeGames = getAllActiveGames();
-        const userGame = activeGames.find(game => game.userId === userId);
-
-        if (!userGame) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Game Not Found')
-                .setDescription('The selected user no longer has an active game.')
-                .setColor(0xFF0000);
-            
-            return await interaction.update({ embeds: [embed], components: [] });
-        }
-
-        clearActiveGame(userId);
-        
-        let userName = userId;
-        try {
-            const user = await interaction.client.users.fetch(userId);
-            userName = user.displayName;
-        } catch (error) {
-            // Keep userId as fallback
-        }
-
-        const embed = new EmbedBuilder()
-            .setTitle('🛑 Game Stopped')
-            .setDescription(`Successfully stopped ${userGame.gameType} game for ${userName}.`)
-            .setColor(0x00FF00)
-            .setTimestamp();
-        
-        await interaction.update({ embeds: [embed], components: [] });
-        
-        logger.info(`Developer ${interaction.user.tag} stopped ${userGame.gameType} game for user ${userId}`);
-    }
-};
 
 const stopCrashCommand = {
     data: new SlashCommandBuilder()
@@ -552,12 +402,10 @@ module.exports = {
     execute: statusCommand.execute,
     reloadCommand,
     logsCommand,
-    stopGameCommand,
     stopCrashCommand,
     
     // Interaction handlers
     selectMenuHandlers: {
-        stop_game_select: stopGameSelectHandler,
         stop_crash_select: stopCrashSelectHandler
     }
 };

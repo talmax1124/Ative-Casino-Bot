@@ -174,3 +174,7 @@ SyntaxError: Unexpected end of input
     at async ButtonInteraction.reply (/Users/carlosdiazplaza/ative_casino_bot/node_modules/discord.js/src/structures/interfaces/InteractionResponses.js:200:22)
     at async Object.handleButtonInteraction (/Users/carlosdiazplaza/ative_casino_bot/GAMES/crash.js:567:7)
     at async Client.<anonymous> (/Users/carlosdiazplaza/ative_casino_bot/index.js:461:17)
+2025-08-22 21:49:01 [ERROR]: Failed to send log message: Received one or more errors
+2025-08-22 22:00:29 [ERROR]: Error creating spinning slot GIF: GIFEncoder is not a constructor
+2025-08-22 22:00:40 [ERROR]: Error creating spinning slot GIF: GIFEncoder is not a constructor
+2025-08-22 22:00:54 [ERROR]: Error creating spinning slot GIF: GIFEncoder is not a constructor

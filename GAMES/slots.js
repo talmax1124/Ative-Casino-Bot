@@ -1,139 +1,804 @@
 /**
- * Slots Game Logic
- * Contains all slot machine game mechanics and calculations
+ * Slots game mechanics for ATIVE Casino Bot
+ * Includes both regular 3-slot and 3x3 matrix modes with animation
  */
 
-const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
+const Canvas = require('canvas');
+const GIFEncoder = require('gif-encoder-2');
+const path = require('path');
+const logger = require('../UTILS/logger');
+const { secureWeightedChoice } = require('../UTILS/rng');
 
-// Slot symbols with their weights and multipliers
+// Regular slot symbols with rarities and payouts (matching assets)
 const SLOT_SYMBOLS = {
-    '🍒': { weight: 30, multiplier: 2 },   // Cherry - common, low payout
-    '🍋': { weight: 25, multiplier: 3 },   // Lemon
-    '🍊': { weight: 20, multiplier: 4 },   // Orange
-    '🍇': { weight: 15, multiplier: 5 },   // Grapes
-    '🔔': { weight: 8, multiplier: 10 },   // Bell
-    '💎': { weight: 2, multiplier: 50 },   // Diamond - rare, high payout
-    '🎰': { weight: 1, multiplier: 100 }   // Jackpot - very rare
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 35, payout: 2.0 },
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 30, payout: 2.5 },
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 25, payout: 3.0 },
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 20, payout: 4.0 },
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 15, payout: 5.0 },
+    'bar': { name: 'Bar', emoji: '📊', rarity: 12, payout: 6.0 },
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 8, payout: 10.0 },
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 5, payout: 20.0 },
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 3, payout: 50.0 },
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.5, payout: 200.0 }
+};
+
+// Matrix mode symbols (increased win probability by 3%)
+const MATRIX_SYMBOLS = {
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 33, payout: 2.0 },
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 28, payout: 2.5 },
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 25, payout: 3.0 },
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 21, payout: 4.0 },
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 18, payout: 5.0 },
+    'bar': { name: 'Bar', emoji: '📊', rarity: 15, payout: 6.0 },
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 11, payout: 10.0 },
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 9, payout: 20.0 },
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 7, payout: 50.0 },
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 3.5, payout: 200.0 }
 };
 
 // Special combinations
-const SPECIAL_COMBINATIONS = {
-    '777': { symbols: ['🎰', '🎰', '🎰'], multiplier: 1000, name: 'MEGA JACKPOT' },
-    'diamonds': { symbols: ['💎', '💎', '💎'], multiplier: 200, name: 'DIAMOND JACKPOT' },
-    'bells': { symbols: ['🔔', '🔔', '🔔'], multiplier: 50, name: 'BELL BONUS' }
-};
+const TWO_MATCH_MULTIPLIER = 0.75;
+const MATRIX_MIN_BET = 50000;
+
+// Animation symbols for spinning effect
+const ANIMATION_SYMBOLS = ['🎲', '🎯', '⚡', '⭐', '🌟', '💫', '🔥', '⚽', '🎊', '🎉'];
+
+/**
+ * Load slot symbol image with fallback
+ */
+async function loadSymbolImage(symbol) {
+    try {
+        const assetsPath = path.join(__dirname, '..', 'assets', 'slots');
+        const imagePath = path.join(assetsPath, `${symbol}.png`);
+        const image = await Canvas.loadImage(imagePath);
+        return image;
+    } catch (error) {
+        logger.warn(`Failed to load symbol image for ${symbol}, using fallback`);
+        // Create colored fallback square
+        const canvas = Canvas.createCanvas(100, 100);
+        const ctx = canvas.getContext('2d');
+        const colors = {
+            'cherries': '#FF69B4', 'lemon': '#FFFF00', 'orange': '#FFA500',
+            'grapes': '#800080', 'watermelon': '#90EE90', 'bar': '#4B0082',
+            'seven': '#FFD700', 'diamond': '#00BFFF', 'buffalo': '#8B4513',
+            'jackpot': '#FF4500'
+        };
+        ctx.fillStyle = colors[symbol] || '#808080';
+        ctx.fillRect(0, 0, 100, 100);
+        return canvas;
+    }
+}
 
 /**
  * Get weighted random symbol
  */
-function getRandomSymbol() {
-    const symbols = Object.keys(SLOT_SYMBOLS);
-    const weights = symbols.map(symbol => SLOT_SYMBOLS[symbol].weight);
+function getWeightedSymbol(matrixMode = false) {
+    const symbolDict = matrixMode ? MATRIX_SYMBOLS : SLOT_SYMBOLS;
+    const symbols = Object.keys(symbolDict);
+    const weights = symbols.map(symbol => symbolDict[symbol].rarity);
     
-    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-    const randomValue = secureRandomInt(0, totalWeight);
-    
-    let currentWeight = 0;
-    for (let i = 0; i < symbols.length; i++) {
-        currentWeight += weights[i];
-        if (randomValue < currentWeight) {
-            return symbols[i];
-        }
-    }
-    
-    return symbols[0]; // Fallback
+    return secureWeightedChoice(symbols, weights) || symbols[0];
 }
 
 /**
- * Spin the slot machine
+ * Generate random animation symbol for spinning effect
+ */
+function getRandomAnimationSymbol() {
+    return ANIMATION_SYMBOLS[Math.floor(Math.random() * ANIMATION_SYMBOLS.length)];
+}
+
+/**
+ * Generate regular slot result (3 symbols)
  */
 function spinSlots() {
     return [
-        getRandomSymbol(),
-        getRandomSymbol(),
-        getRandomSymbol()
+        getWeightedSymbol(),
+        getWeightedSymbol(),
+        getWeightedSymbol()
     ];
 }
 
 /**
- * Calculate payout based on slot results
+ * Generate matrix slot result (3x3 grid)
+ */
+function spinMatrixSlots() {
+    return [
+        [getWeightedSymbol(true), getWeightedSymbol(true), getWeightedSymbol(true)],
+        [getWeightedSymbol(true), getWeightedSymbol(true), getWeightedSymbol(true)],
+        [getWeightedSymbol(true), getWeightedSymbol(true), getWeightedSymbol(true)]
+    ];
+}
+
+/**
+ * Calculate payout for regular slots
  */
 function calculatePayout(symbols, betAmount) {
-    const [symbol1, symbol2, symbol3] = symbols;
-    
-    // Check for special combinations first
-    for (const [key, combo] of Object.entries(SPECIAL_COMBINATIONS)) {
-        if (symbols.every((symbol, index) => symbol === combo.symbols[index])) {
-            return {
-                payout: betAmount * combo.multiplier,
-                multiplier: combo.multiplier,
-                type: combo.name,
-                won: true
-            };
-        }
-    }
-    
     // Check for three of a kind
-    if (symbol1 === symbol2 && symbol2 === symbol3) {
-        const multiplier = SLOT_SYMBOLS[symbol1].multiplier;
+    if (symbols[0] === symbols[1] && symbols[1] === symbols[2]) {
+        const symbol = symbols[0];
+        const symbolData = SLOT_SYMBOLS[symbol];
+        const multiplier = symbolData.payout;
+        const payout = betAmount * multiplier;
+        
         return {
-            payout: betAmount * multiplier,
+            won: true,
+            payout: payout,
             multiplier: multiplier,
-            type: 'THREE OF A KIND',
-            won: true
+            type: `🎰 JACKPOT! Three ${symbolData.name}s!`
         };
     }
-    
+
     // Check for two of a kind
-    let matchedSymbol = null;
-    let matchCount = 0;
-    
-    if (symbol1 === symbol2 || symbol1 === symbol3) {
-        matchedSymbol = symbol1;
-        matchCount = 2;
-    } else if (symbol2 === symbol3) {
-        matchedSymbol = symbol2;
-        matchCount = 2;
-    }
-    
-    if (matchedSymbol && matchCount === 2) {
-        const baseMultiplier = SLOT_SYMBOLS[matchedSymbol].multiplier;
-        const multiplier = baseMultiplier * 0.5; // Half payout for two of a kind
-        
-        if (multiplier >= 1) {
+    const symbolCounts = {};
+    symbols.forEach(symbol => {
+        symbolCounts[symbol] = (symbolCounts[symbol] || 0) + 1;
+    });
+
+    for (const [symbol, count] of Object.entries(symbolCounts)) {
+        if (count === 2) {
+            const symbolData = SLOT_SYMBOLS[symbol];
+            const baseMultiplier = symbolData.payout;
+            const multiplier = baseMultiplier * TWO_MATCH_MULTIPLIER;
+            const payout = betAmount * multiplier;
+            
             return {
-                payout: betAmount * multiplier,
+                won: true,
+                payout: payout,
                 multiplier: multiplier,
-                type: 'TWO OF A KIND',
-                won: true
+                type: `🎊 Two ${symbolData.name}s!`
             };
         }
     }
-    
-    // No win
+
+    // No matches
     return {
+        won: false,
         payout: 0,
         multiplier: 0,
-        type: 'NO MATCH',
-        won: false
+        type: '💥 No matches - Try again!'
     };
 }
 
 /**
- * Create slot display for Discord
+ * Calculate payout for matrix slots
+ */
+function calculateMatrixPayout(matrix, betAmount) {
+    let totalPayout = 0;
+    const resultMessages = [];
+    const winningLines = [];
+    let buffaloBonus = false;
+
+    // Check horizontal lines
+    for (let row = 0; row < 3; row++) {
+        const line = [matrix[row][0], matrix[row][1], matrix[row][2]];
+        if (line[0] === line[1] && line[1] === line[2]) {
+            const symbol = line[0];
+            const symbolData = MATRIX_SYMBOLS[symbol];
+            
+            if (symbol === 'buffalo') {
+                const bonusPayout = betAmount * 3; // 3x for buffalo bonus in matrix
+                totalPayout += bonusPayout;
+                resultMessages.push(`🦬 BUFFALO BONUS! Line: +${bonusPayout.toLocaleString()}`);
+                winningLines.push({ type: 'horizontal', row, col: 0, endRow: row, endCol: 2 });
+                buffaloBonus = true;
+            } else {
+                const linePayout = betAmount * symbolData.payout;
+                totalPayout += linePayout;
+                resultMessages.push(`${symbolData.name} Line: +${linePayout.toLocaleString()}`);
+                winningLines.push({ type: 'horizontal', row, col: 0, endRow: row, endCol: 2 });
+            }
+        }
+    }
+
+    // Check vertical lines
+    for (let col = 0; col < 3; col++) {
+        const line = [matrix[0][col], matrix[1][col], matrix[2][col]];
+        if (line[0] === line[1] && line[1] === line[2]) {
+            const symbol = line[0];
+            const symbolData = MATRIX_SYMBOLS[symbol];
+            
+            if (symbol === 'buffalo') {
+                const bonusPayout = betAmount * 3;
+                totalPayout += bonusPayout;
+                resultMessages.push(`🦬 BUFFALO BONUS! Column: +${bonusPayout.toLocaleString()}`);
+                winningLines.push({ type: 'vertical', row: 0, col, endRow: 2, endCol: col });
+                buffaloBonus = true;
+            } else {
+                const linePayout = betAmount * symbolData.payout;
+                totalPayout += linePayout;
+                resultMessages.push(`${symbolData.name} Column: +${linePayout.toLocaleString()}`);
+                winningLines.push({ type: 'vertical', row: 0, col, endRow: 2, endCol: col });
+            }
+        }
+    }
+
+    // Check diagonals
+    const diagonal1 = [matrix[0][0], matrix[1][1], matrix[2][2]];
+    if (diagonal1[0] === diagonal1[1] && diagonal1[1] === diagonal1[2]) {
+        const symbol = diagonal1[0];
+        const symbolData = MATRIX_SYMBOLS[symbol];
+        
+        if (symbol === 'buffalo') {
+            const bonusPayout = betAmount * 3;
+            totalPayout += bonusPayout;
+            resultMessages.push(`🦬 BUFFALO BONUS! Diagonal: +${bonusPayout.toLocaleString()}`);
+            winningLines.push({ type: 'diagonal1', row: 0, col: 0, endRow: 2, endCol: 2 });
+            buffaloBonus = true;
+        } else {
+            const linePayout = betAmount * symbolData.payout;
+            totalPayout += linePayout;
+            resultMessages.push(`${symbolData.name} Diagonal: +${linePayout.toLocaleString()}`);
+            winningLines.push({ type: 'diagonal1', row: 0, col: 0, endRow: 2, endCol: 2 });
+        }
+    }
+
+    const diagonal2 = [matrix[0][2], matrix[1][1], matrix[2][0]];
+    if (diagonal2[0] === diagonal2[1] && diagonal2[1] === diagonal2[2]) {
+        const symbol = diagonal2[0];
+        const symbolData = MATRIX_SYMBOLS[symbol];
+        
+        if (symbol === 'buffalo') {
+            const bonusPayout = betAmount * 3;
+            totalPayout += bonusPayout;
+            resultMessages.push(`🦬 BUFFALO BONUS! Diagonal: +${bonusPayout.toLocaleString()}`);
+            winningLines.push({ type: 'diagonal2', row: 0, col: 2, endRow: 2, endCol: 0 });
+            buffaloBonus = true;
+        } else {
+            const linePayout = betAmount * symbolData.payout;
+            totalPayout += linePayout;
+            resultMessages.push(`${symbolData.name} Diagonal: +${linePayout.toLocaleString()}`);
+            winningLines.push({ type: 'diagonal2', row: 0, col: 2, endRow: 2, endCol: 0 });
+        }
+    }
+
+    return {
+        won: totalPayout > 0,
+        payout: totalPayout,
+        multiplier: totalPayout > 0 ? totalPayout / betAmount : 0,
+        type: totalPayout > 0 ? resultMessages.join('; ') : '💥 No winning lines - Try again!',
+        winningLines,
+        buffaloBonus,
+        freeSpins: buffaloBonus ? 5 : 0
+    };
+}
+
+/**
+ * Create animated visual display for regular slots
  */
 function createSlotDisplay(symbols) {
-    return `
-╔═══════════════╗
-║ ${symbols[0]} ║ ${symbols[1]} ║ ${symbols[2]} ║
-╚═══════════════╝
-    `;
+    const emojis = symbols.map(symbol => SLOT_SYMBOLS[symbol].emoji);
+    return `[ ${emojis[0]} | ${emojis[1]} | ${emojis[2]} ]`;
+}
+
+/**
+ * Create spinning animation display for slots (for animation phase)
+ */
+function createSpinningDisplay() {
+    const spinSymbols = [
+        getRandomAnimationSymbol(),
+        getRandomAnimationSymbol(),
+        getRandomAnimationSymbol()
+    ];
+    return `[ ${spinSymbols[0]} | ${spinSymbols[1]} | ${spinSymbols[2]} ]`;
+}
+
+/**
+ * Create visual display for matrix slots
+ */
+function createMatrixDisplay(matrix) {
+    const lines = matrix.map(row => 
+        row.map(symbol => MATRIX_SYMBOLS[symbol].emoji).join(' | ')
+    );
+    return lines.join('\n');
+}
+
+/**
+ * Create spinning matrix display (for animation phase)
+ */
+function createSpinningMatrixDisplay() {
+    const lines = [];
+    for (let i = 0; i < 3; i++) {
+        const row = [];
+        for (let j = 0; j < 3; j++) {
+            row.push(getRandomAnimationSymbol());
+        }
+        lines.push(row.join(' | '));
+    }
+    return lines.join('\n');
+}
+
+/**
+ * Generate slot machine image for regular slots
+ */
+async function createSlotsImage(symbols, won = false) {
+    try {
+        const canvas = Canvas.createCanvas(600, 300);
+        const ctx = canvas.getContext('2d');
+
+        // Background
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, '#1a1a1a');
+        gradient.addColorStop(1, '#0a0a0a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 600, 300);
+
+        // Slot frame
+        ctx.strokeStyle = won ? '#FFD700' : '#666666';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(50, 50, 500, 200);
+
+        // Draw symbols
+        const symbolSize = 120;
+        const symbolSpacing = 150;
+        const startX = 100;
+        const startY = 90;
+
+        for (let i = 0; i < symbols.length; i++) {
+            const symbol = symbols[i];
+            const x = startX + (i * symbolSpacing);
+            const y = startY;
+
+            // Symbol background
+            ctx.fillStyle = won ? '#2a4a2a' : '#2a2a2a';
+            ctx.fillRect(x, y, symbolSize, symbolSize);
+            
+            // Symbol border
+            ctx.strokeStyle = won ? '#4a8a4a' : '#4a4a4a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, symbolSize, symbolSize);
+
+            try {
+                const symbolImage = await loadSymbolImage(symbol);
+                ctx.drawImage(symbolImage, x + 10, y + 10, symbolSize - 20, symbolSize - 20);
+            } catch (error) {
+                // Fallback to emoji
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = '60px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(SLOT_SYMBOLS[symbol].emoji, x + symbolSize/2, y + symbolSize/2 + 20);
+            }
+        }
+
+        // Title
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('🎰 SLOT MACHINE 🎰', 300, 30);
+
+        return canvas.toBuffer('image/png');
+    } catch (error) {
+        logger.error(`Error creating slots image: ${error.message}`);
+        return null;
+    }
+}
+
+/**
+ * Generate 3x3 matrix slots image
+ */
+async function createMatrixImage(matrix, winningLines = [], won = false) {
+    try {
+        const canvas = Canvas.createCanvas(800, 600);
+        const ctx = canvas.getContext('2d');
+
+        // Background
+        const gradient = ctx.createLinearGradient(0, 0, 0, 600);
+        gradient.addColorStop(0, '#1a1a1a');
+        gradient.addColorStop(1, '#0a0a0a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 800, 600);
+
+        // Matrix frame
+        ctx.strokeStyle = won ? '#FFD700' : '#666666';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(100, 100, 600, 400);
+
+        // Draw 3x3 grid
+        const cellSize = 150;
+        const cellSpacing = 50;
+        const startX = 150;
+        const startY = 150;
+
+        for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 3; col++) {
+                const symbol = matrix[row][col];
+                const x = startX + (col * (cellSize + cellSpacing));
+                const y = startY + (row * (cellSize + cellSpacing));
+
+                // Cell background
+                ctx.fillStyle = won ? '#2a4a2a' : '#2a2a2a';
+                ctx.fillRect(x, y, cellSize, cellSize);
+                
+                // Cell border
+                ctx.strokeStyle = won ? '#4a8a4a' : '#4a4a4a';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, cellSize, cellSize);
+
+                try {
+                    const symbolImage = await loadSymbolImage(symbol);
+                    ctx.drawImage(symbolImage, x + 10, y + 10, cellSize - 20, cellSize - 20);
+                } catch (error) {
+                    // Fallback to emoji
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.font = '60px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(MATRIX_SYMBOLS[symbol].emoji, x + cellSize/2, y + cellSize/2 + 20);
+                }
+            }
+        }
+
+        // Draw winning lines
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 8;
+        winningLines.forEach(line => {
+            const startX = 150 + (line.col * 200) + 75;
+            const startY = 150 + (line.row * 200) + 75;
+            const endX = 150 + (line.endCol * 200) + 75;
+            const endY = 150 + (line.endRow * 200) + 75;
+            
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+        });
+
+        // Title
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('🎰 SLOTS MATRIX 3x3 🎰', 400, 50);
+
+        return canvas.toBuffer('image/png');
+    } catch (error) {
+        logger.error(`Error creating matrix image: ${error.message}`);
+        return null;
+    }
+}
+
+/**
+ * Create animated GIF of spinning slot machine with assets
+ */
+async function createSpinningSlotGIF(finalSymbols) {
+    try {
+        const canvas = Canvas.createCanvas(800, 400);
+        const ctx = canvas.getContext('2d');
+        const encoder = new GIFEncoder(800, 400);
+        
+        encoder.start();
+        encoder.setRepeat(0);
+        encoder.setQuality(10);
+
+        // Pre-load all symbol images
+        const symbolKeys = Object.keys(SLOT_SYMBOLS);
+        const symbolImages = {};
+        for (const symbol of symbolKeys) {
+            symbolImages[symbol] = await loadSymbolImage(symbol);
+        }
+
+        // Animation parameters
+        const totalFrames = 50; // More frames for smooth animation
+        const slotWidth = 180;
+        const slotHeight = 160;
+        const startX = 120;
+        const startY = 120;
+        
+        // Create reel strips for each slot (long list of symbols that will spin)
+        const reelStrips = [];
+        for (let i = 0; i < 3; i++) {
+            const strip = [];
+            // Add random symbols before the final result
+            for (let j = 0; j < 15; j++) {
+                strip.push(symbolKeys[Math.floor(Math.random() * symbolKeys.length)]);
+            }
+            // Add the final result at the end
+            strip.push(finalSymbols[i]);
+            reelStrips.push(strip);
+        }
+
+        // Generate frames
+        for (let frame = 0; frame < totalFrames; frame++) {
+            // Variable delay - start fast, slow down at the end
+            const progress = frame / (totalFrames - 1);
+            const delay = Math.floor(50 + (progress * progress * 200)); // 50ms to 250ms
+            encoder.setDelay(delay);
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, 800, 400);
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, '#1a2a3a');
+            gradient.addColorStop(1, '#0a1a2a');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 800, 400);
+            
+            // Header with glow effect
+            ctx.shadowColor = '#FFD700';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 32px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🎰 SLOT MACHINE 🎰', 400, 50);
+            ctx.shadowBlur = 0;
+            
+            // Slot machine frame with metallic look
+            const frameGradient = ctx.createLinearGradient(100, 100, 700, 300);
+            frameGradient.addColorStop(0, '#4a5a6a');
+            frameGradient.addColorStop(0.5, '#2a3a4a');
+            frameGradient.addColorStop(1, '#1a2a3a');
+            ctx.fillStyle = frameGradient;
+            ctx.fillRect(90, 90, 620, 220);
+            
+            // Frame border
+            ctx.strokeStyle = '#8a9aaa';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(90, 90, 620, 220);
+            
+            // Draw each reel
+            for (let i = 0; i < 3; i++) {
+                const x = startX + (i * (slotWidth + 20));
+                const y = startY;
+                
+                // Reel background
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(x, y, slotWidth, slotHeight);
+                
+                // Reel border
+                ctx.strokeStyle = '#666666';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x, y, slotWidth, slotHeight);
+                
+                // Calculate which symbol to show based on animation progress
+                const strip = reelStrips[i];
+                let symbolIndex;
+                
+                if (frame < totalFrames - 10) {
+                    // Spinning phase - each reel stops at different times
+                    const reelStopFrame = totalFrames - 15 + (i * 3); // Reels stop sequentially
+                    if (frame < reelStopFrame) {
+                        // Still spinning - show cycling symbols
+                        const cycleSpeed = Math.max(1, Math.floor((totalFrames - frame) / 5));
+                        symbolIndex = Math.floor(frame / cycleSpeed) % (strip.length - 1);
+                    } else {
+                        // This reel has stopped - show final symbol
+                        symbolIndex = strip.length - 1;
+                    }
+                } else {
+                    // All reels stopped - show final result
+                    symbolIndex = strip.length - 1;
+                }
+                
+                const symbolKey = strip[symbolIndex];
+                const symbolImage = symbolImages[symbolKey];
+                
+                if (symbolImage) {
+                    // Draw the symbol image, properly sized
+                    const imageSize = Math.min(slotWidth - 20, slotHeight - 20);
+                    const imageX = x + (slotWidth - imageSize) / 2;
+                    const imageY = y + (slotHeight - imageSize) / 2;
+                    ctx.drawImage(symbolImage, imageX, imageY, imageSize, imageSize);
+                } else {
+                    // Fallback to emoji if image loading failed
+                    ctx.fillStyle = '#333333';
+                    ctx.font = 'bold 60px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(SLOT_SYMBOLS[symbolKey].emoji, x + slotWidth/2, y + slotHeight/2 + 20);
+                }
+                
+                // Add reel glass effect
+                const glassGradient = ctx.createLinearGradient(x, y, x + slotWidth, y + slotHeight);
+                glassGradient.addColorStop(0, 'rgba(255,255,255,0.3)');
+                glassGradient.addColorStop(0.3, 'rgba(255,255,255,0.1)');
+                glassGradient.addColorStop(0.7, 'rgba(255,255,255,0.05)');
+                glassGradient.addColorStop(1, 'rgba(255,255,255,0.2)');
+                ctx.fillStyle = glassGradient;
+                ctx.fillRect(x, y, slotWidth, slotHeight);
+            }
+            
+            // Add spinning indicator during spin phases
+            if (frame < totalFrames - 10) {
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('SPINNING...', 400, 350);
+            }
+            
+            encoder.addFrame(ctx);
+        }
+        
+        encoder.finish();
+        return encoder.out.getData();
+        
+    } catch (error) {
+        logger.error(`Error creating spinning slot GIF: ${error.message}`);
+        return null;
+    }
+}
+
+/**
+ * Create animated GIF of spinning matrix slots with assets
+ */
+async function createSpinningMatrixGIF(finalMatrix) {
+    try {
+        const canvas = Canvas.createCanvas(800, 800);
+        const ctx = canvas.getContext('2d');
+        const encoder = new GIFEncoder(800, 800);
+        
+        encoder.start();
+        encoder.setRepeat(0);
+        encoder.setQuality(10);
+
+        // Pre-load all symbol images
+        const symbolKeys = Object.keys(MATRIX_SYMBOLS);
+        const symbolImages = {};
+        for (const symbol of symbolKeys) {
+            symbolImages[symbol] = await loadSymbolImage(symbol);
+        }
+
+        // Animation parameters
+        const totalFrames = 60; // More frames for matrix animation
+        const cellSize = 200;
+        const cellSpacing = 15;
+        const startX = 100;
+        const startY = 150;
+        
+        // Create reel strips for each matrix cell
+        const matrixStrips = [];
+        for (let row = 0; row < 3; row++) {
+            matrixStrips[row] = [];
+            for (let col = 0; col < 3; col++) {
+                const strip = [];
+                // Add random symbols before the final result
+                for (let j = 0; j < 20; j++) {
+                    strip.push(symbolKeys[Math.floor(Math.random() * symbolKeys.length)]);
+                }
+                // Add the final result at the end
+                strip.push(finalMatrix[row][col]);
+                matrixStrips[row][col] = strip;
+            }
+        }
+
+        // Generate frames
+        for (let frame = 0; frame < totalFrames; frame++) {
+            // Variable delay - start fast, slow down at the end
+            const progress = frame / (totalFrames - 1);
+            const delay = Math.floor(80 + (progress * progress * 250)); // 80ms to 330ms
+            encoder.setDelay(delay);
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, 800, 800);
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, 800);
+            gradient.addColorStop(0, '#2a1a3a');
+            gradient.addColorStop(1, '#0a0a2a');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 800, 800);
+            
+            // Header with glow effect
+            ctx.shadowColor = '#FFD700';
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 36px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🎰 MATRIX SLOTS 3x3 🎰', 400, 60);
+            ctx.shadowBlur = 0;
+            
+            // Matrix frame with premium look
+            const frameGradient = ctx.createLinearGradient(50, 100, 750, 750);
+            frameGradient.addColorStop(0, '#5a4a6a');
+            frameGradient.addColorStop(0.5, '#3a2a4a');
+            frameGradient.addColorStop(1, '#2a1a3a');
+            ctx.fillStyle = frameGradient;
+            ctx.fillRect(70, 120, 660, 660);
+            
+            // Frame border with glow
+            ctx.shadowColor = '#8a7aaa';
+            ctx.shadowBlur = 8;
+            ctx.strokeStyle = '#aa9acc';
+            ctx.lineWidth = 8;
+            ctx.strokeRect(70, 120, 660, 660);
+            ctx.shadowBlur = 0;
+            
+            // Draw 3x3 matrix
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    const x = startX + (col * (cellSize + cellSpacing));
+                    const y = startY + (row * (cellSize + cellSpacing));
+                    
+                    // Cell background with depth
+                    const cellGradient = ctx.createLinearGradient(x, y, x + cellSize, y + cellSize);
+                    cellGradient.addColorStop(0, '#ffffff');
+                    cellGradient.addColorStop(1, '#f0f0f0');
+                    ctx.fillStyle = cellGradient;
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                    
+                    // Cell border
+                    ctx.strokeStyle = '#888888';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(x, y, cellSize, cellSize);
+                    
+                    // Calculate which symbol to show based on animation progress
+                    const strip = matrixStrips[row][col];
+                    let symbolIndex;
+                    
+                    // Each cell stops at different times for cascading effect
+                    const cellStopFrame = totalFrames - 20 + (row * 3 + col) * 2; // Cascade from top-left to bottom-right
+                    
+                    if (frame < cellStopFrame) {
+                        // Still spinning - show cycling symbols
+                        const cycleSpeed = Math.max(1, Math.floor((totalFrames - frame) / 4));
+                        symbolIndex = Math.floor(frame / cycleSpeed) % (strip.length - 1);
+                    } else {
+                        // This cell has stopped - show final symbol
+                        symbolIndex = strip.length - 1;
+                    }
+                    
+                    const symbolKey = strip[symbolIndex];
+                    const symbolImage = symbolImages[symbolKey];
+                    
+                    if (symbolImage) {
+                        // Draw the symbol image, properly sized
+                        const imageSize = Math.min(cellSize - 30, cellSize - 30);
+                        const imageX = x + (cellSize - imageSize) / 2;
+                        const imageY = y + (cellSize - imageSize) / 2;
+                        ctx.drawImage(symbolImage, imageX, imageY, imageSize, imageSize);
+                    } else {
+                        // Fallback to emoji if image loading failed
+                        ctx.fillStyle = '#333333';
+                        ctx.font = 'bold 80px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(MATRIX_SYMBOLS[symbolKey].emoji, x + cellSize/2, y + cellSize/2 + 25);
+                    }
+                    
+                    // Add cell glass effect
+                    const glassGradient = ctx.createLinearGradient(x, y, x + cellSize, y + cellSize);
+                    glassGradient.addColorStop(0, 'rgba(255,255,255,0.4)');
+                    glassGradient.addColorStop(0.3, 'rgba(255,255,255,0.1)');
+                    glassGradient.addColorStop(0.7, 'rgba(255,255,255,0.05)');
+                    glassGradient.addColorStop(1, 'rgba(255,255,255,0.3)');
+                    ctx.fillStyle = glassGradient;
+                    ctx.fillRect(x, y, cellSize, cellSize);
+                }
+            }
+            
+            // Add spinning indicator during spin phases
+            if (frame < totalFrames - 15) {
+                ctx.shadowColor = '#FFD700';
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
+                ctx.font = 'bold 28px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('MATRIX SPINNING...', 400, 750);
+                ctx.shadowBlur = 0;
+            }
+            
+            encoder.addFrame(ctx);
+        }
+        
+        encoder.finish();
+        return encoder.out.getData();
+        
+    } catch (error) {
+        logger.error(`Error creating spinning matrix GIF: ${error.message}`);
+        return null;
+    }
 }
 
 module.exports = {
     SLOT_SYMBOLS,
-    SPECIAL_COMBINATIONS,
+    MATRIX_SYMBOLS,
+    MATRIX_MIN_BET,
     spinSlots,
+    spinMatrixSlots,
     calculatePayout,
-    createSlotDisplay
+    calculateMatrixPayout,
+    createSlotDisplay,
+    createSpinningDisplay,
+    createMatrixDisplay,
+    createSpinningMatrixDisplay,
+    createSlotsImage,
+    createMatrixImage,
+    createSpinningSlotGIF,
+    createSpinningMatrixGIF
 };

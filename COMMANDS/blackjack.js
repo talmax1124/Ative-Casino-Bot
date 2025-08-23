@@ -448,6 +448,11 @@ module.exports = {
 
     endGame: async function(interaction, game, userId, guildId) {
         try {
+            // Safety check - ensure game still exists
+            if (!activeGames.has(userId) || activeGames.get(userId) !== game) {
+                logger.warn(`endGame called but game no longer exists or differs for user ${userId}`);
+                return;
+            }
             const results = game.getResults();
             let totalPayout = 0;
             let winnings = 0;
@@ -467,12 +472,7 @@ module.exports = {
                 await dbManager.updateUserBalance(userId, guildId, 0, 0, { game_active: false });
             }
 
-            // Clean up
-            activeGames.delete(userId);
-            clearActiveGame(userId);
-            TimeoutManager.clearTimeout(userId);
-
-            // Create final embed and table
+            // Create final embed and table (before cleanup)
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             const finalEmbed = createGameEmbed(game, interaction.user, true, userBalance);
             const finalTable = await createGameTableImage(game, true);
@@ -505,7 +505,18 @@ module.exports = {
                 finalEmbed.setImage('attachment://blackjack-final.png');
             }
 
-            await interaction.update(finalData);
+            try {
+                await interaction.update(finalData);
+                logger.info(`Blackjack game successfully ended for user ${userId}`);
+            } catch (interactionError) {
+                logger.error(`Failed to update interaction for blackjack endGame: ${interactionError.message}`);
+                // Still clean up the game even if interaction update fails
+            }
+
+            // Clean up after interaction update (success or failure)
+            activeGames.delete(userId);
+            clearActiveGame(userId);
+            TimeoutManager.clearTimeout(userId);
 
             // Log game end
             await sendLogMessage(

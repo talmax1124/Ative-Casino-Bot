@@ -9,9 +9,9 @@ const logger = require('./logger');
 // ========================= MONEY FORMATTING =========================
 
 /**
- * Format amount as currency string
+ * Format amount as currency string (abbreviated for game panels)
  * @param {number|string} amount - The amount to format
- * @returns {string} Formatted currency string (e.g., "$1,234.56")
+ * @returns {string} Formatted currency string (e.g., "$1.23K", "$4.56M")
  */
 function fmt(amount) {
     try {
@@ -30,6 +30,20 @@ function fmt(amount) {
             // For smaller amounts, use regular formatting
             return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         }
+    } catch (error) {
+        return `$${amount}`;
+    }
+}
+
+/**
+ * Format amount as full currency string (no abbreviation)
+ * @param {number|string} amount - The amount to format
+ * @returns {string} Formatted full currency string (e.g., "$1,234,567.89")
+ */
+function fmtFull(amount) {
+    try {
+        const num = parseFloat(amount);
+        return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     } catch (error) {
         return `$${amount}`;
     }
@@ -391,6 +405,7 @@ async function sendLogMessage(bot, level, message, userId = null, guildId = null
 module.exports = {
     // Money formatting
     fmt,
+    fmtFull,
     fmtDelta,
     fmtDeltaColored,
     

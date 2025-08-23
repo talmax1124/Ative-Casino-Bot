@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { secureRandomInt, secureRandomFloat, secureRandomChance } = require('../UTILS/rng');
 const logger = require('../UTILS/logger');
 
@@ -38,9 +38,9 @@ module.exports = {
                 .setTitle(`💰 ${targetUser.displayName}'s Balance`)
                 .setColor(0x00FF00)
                 .addFields(
-                    { name: '💵 Wallet', value: fmt(balance.wallet), inline: true },
-                    { name: '🏦 Bank', value: fmt(balance.bank), inline: true },
-                    { name: '💎 Total', value: fmt(balance.wallet + balance.bank), inline: true }
+                    { name: '💵 Wallet', value: fmtFull(balance.wallet), inline: true },
+                    { name: '🏦 Bank', value: fmtFull(balance.bank), inline: true },
+                    { name: '💎 Total', value: fmtFull(balance.wallet + balance.bank), inline: true }
                 )
                 .setThumbnail(targetUser.displayAvatarURL())
                 .setTimestamp();

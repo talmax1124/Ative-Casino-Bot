@@ -407,11 +407,11 @@ client.on('interactionCreate', async interaction => {
                     await blackjackCommand.handleSelectMenu(interaction);
                 }
             }
-            // Handle dev select menus
+            // Handle stop game select menu
             else if (interaction.customId === 'stop_game_select') {
-                const devCommand = client.commands.get('status'); // dev.js is exported as status command
-                if (devCommand && devCommand.selectMenuHandlers && devCommand.selectMenuHandlers[interaction.customId]) {
-                    await devCommand.selectMenuHandlers[interaction.customId].execute(interaction);
+                const stopGameCommand = client.commands.get('stopgame');
+                if (stopGameCommand && stopGameCommand.handleSelectMenu) {
+                    await stopGameCommand.handleSelectMenu(interaction);
                 }
             }
             // Handle crash stop select menu
@@ -420,6 +420,14 @@ client.on('interactionCreate', async interaction => {
                 if (stopCrashCommand && stopCrashCommand.handleSelectMenu) {
                     await stopCrashCommand.handleSelectMenu(interaction);
                 }
+            }
+            // Handle panel refund user select menu
+            else if (interaction.customId === 'refund_user_select') {
+                await panelManager.handleRefundUserSelect(interaction);
+            }
+            // Handle panel stop game user select menu
+            else if (interaction.customId === 'stop_game_user_select') {
+                await panelManager.handleStopGameUserSelect(interaction);
             }
         } catch (error) {
             logger.error(`Error handling select menu ${interaction.customId}:`, error);
@@ -459,6 +467,49 @@ client.on('interactionCreate', async interaction => {
                     });
                 }
             }
+            // Handle duck game buttons
+            else if (customId.startsWith('duck-mode-') || customId.startsWith('duck-cancel-') || customId.startsWith('duck-')) {
+                const duckCommand = client.commands.get('duck');
+                if (duckCommand) {
+                    if (customId.startsWith('duck-mode-')) {
+                        const parts = customId.split('-');
+                        const userId = parts[2];
+                        const mode = parts[3];
+                        
+                        if (userId === interaction.user.id) {
+                            await duckCommand.handleModeSelect(interaction, mode);
+                        } else {
+                            await interaction.reply({
+                                content: 'This is not your game!',
+                                ephemeral: true
+                            });
+                        }
+                    } else if (customId.startsWith('duck-cancel-')) {
+                        const userId = customId.split('-')[2];
+                        
+                        if (userId === interaction.user.id) {
+                            await duckCommand.handleCancel(interaction);
+                        } else {
+                            await interaction.reply({
+                                content: 'This is not your game!',
+                                ephemeral: true
+                            });
+                        }
+                    } else if (customId.startsWith('duck-')) {
+                        const [namespace, actionId] = customId.split(':');
+                        const userId = namespace.split('-')[1];
+                        
+                        if (userId === interaction.user.id) {
+                            await duckCommand.handleGameAction(interaction, actionId);
+                        } else {
+                            await interaction.reply({
+                                content: 'This is not your game!',
+                                ephemeral: true
+                            });
+                        }
+                    }
+                }
+            }
             // Handle crash buttons (namespace: crash:...)
             else if (customId.startsWith('crash:')) {
                 const crashGame = require('./GAMES/crash');
@@ -470,6 +521,37 @@ client.on('interactionCreate', async interaction => {
                 const pollCommand = client.commands.get('polls');
                 if (pollCommand && pollCommand.buttonHandlers && pollCommand.buttonHandlers[customId]) {
                     await pollCommand.buttonHandlers[customId](interaction);
+                }
+            }
+            // Handle buffalo bonus buttons
+            else if (customId.startsWith('buffalo-bonus-') || customId.startsWith('bonus-')) {
+                const multiSlotsCommand = client.commands.get('multi-slots');
+                if (multiSlotsCommand) {
+                    if (customId.startsWith('buffalo-bonus-')) {
+                        const userId = customId.split('-')[2];
+                        if (userId === interaction.user.id) {
+                            await multiSlotsCommand.handleBuffaloBonus(interaction);
+                        } else {
+                            await interaction.reply({
+                                content: 'This is not your bonus game!',
+                                ephemeral: true
+                            });
+                        }
+                    } else if (customId.startsWith('bonus-')) {
+                        const [namespace, actionId] = customId.split(':');
+                        const userId = namespace.split('-')[1];
+                        
+                        if (userId === interaction.user.id) {
+                            if (actionId === 'spin') {
+                                await multiSlotsCommand.handleBonusSpin(interaction);
+                            }
+                        } else {
+                            await interaction.reply({
+                                content: 'This is not your bonus game!',
+                                ephemeral: true
+                            });
+                        }
+                    }
                 }
             }
             // Handle lottery buttons

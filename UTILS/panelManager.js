@@ -7,7 +7,7 @@ const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, 
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const dbManager = require('./database');
-const { clearActiveGame, fmt, fmtDelta, sendLogMessage, getGuildId } = require('./common');
+const { clearActiveGame, getAllActiveGames, fmt, fmtDelta, sendLogMessage, getGuildId } = require('./common');
 const logger = require('./logger');
 
 const execAsync = promisify(exec);
@@ -350,32 +350,123 @@ class PanelManager {
      * Handle Refund Action
      */
     async handleRefund(interaction) {
-        await interaction.reply({
-            content: 'Please provide the user ID to refund their last transaction:',
-            flags: MessageFlags.Ephemeral
-        });
-
-        this.activeActions.set(interaction.user.id, {
-            action: 'refund',
-            channelId: interaction.channelId,
-            timestamp: Date.now()
-        });
+        try {
+            // Get active games to show users who might need refunds
+            const activeGames = getAllActiveGames();
+            
+            // For now, we'll create a simple user dropdown. In a full implementation,
+            // this would query recent transactions from the database
+            const options = [];
+            
+            if (activeGames.length > 0) {
+                for (const game of activeGames.slice(0, 25)) { // Limit to 25 options
+                    try {
+                        const user = await interaction.client.users.fetch(game.userId);
+                        options.push({
+                            label: `${user.displayName} - ${game.gameType}`,
+                            description: `Refund transaction for ${user.displayName}`,
+                            value: game.userId
+                        });
+                    } catch (error) {
+                        // User not found, skip
+                    }
+                }
+            }
+            
+            if (options.length === 0) {
+                await interaction.reply({
+                    content: '❌ No users with recent activity found. Refund functionality requires recent game activity to identify users.',
+                    flags: MessageFlags.Ephemeral
+                });
+                return;
+            }
+            
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('refund_user_select')
+                .setPlaceholder('Select a user to refund their transaction')
+                .addOptions(options);
+                
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+            
+            const embed = new EmbedBuilder()
+                .setTitle('💸 Refund Transaction')
+                .setDescription(`Select a user to refund their last transaction:`)
+                .setColor(0x0099FF);
+                
+            await interaction.reply({ 
+                embeds: [embed], 
+                components: [row], 
+                flags: MessageFlags.Ephemeral 
+            });
+            
+        } catch (error) {
+            logger.error(`Error in handleRefund: ${error.message}`);
+            await interaction.reply({
+                content: 'An error occurred while loading user list.',
+                flags: MessageFlags.Ephemeral
+            });
+        }
     }
 
     /**
      * Handle Stop Game Action
      */
     async handleStopGame(interaction) {
-        await interaction.reply({
-            content: 'Please provide the user ID to stop their active game:',
-            flags: MessageFlags.Ephemeral
-        });
-
-        this.activeActions.set(interaction.user.id, {
-            action: 'stop_game',
-            channelId: interaction.channelId,
-            timestamp: Date.now()
-        });
+        try {
+            const activeGames = getAllActiveGames();
+            
+            if (activeGames.length === 0) {
+                await interaction.reply({
+                    content: '❌ No active games found to stop.',
+                    flags: MessageFlags.Ephemeral
+                });
+                return;
+            }
+            
+            const options = [];
+            for (const game of activeGames.slice(0, 25)) { // Limit to 25 options
+                try {
+                    const user = await interaction.client.users.fetch(game.userId);
+                    options.push({
+                        label: `${user.displayName} - ${game.gameType}`,
+                        description: `Stop ${game.gameType} game for ${user.displayName}`,
+                        value: game.userId
+                    });
+                } catch (error) {
+                    // User not found, use ID instead
+                    options.push({
+                        label: `User ${game.userId} - ${game.gameType}`,
+                        description: `Stop ${game.gameType} game for user`,
+                        value: game.userId
+                    });
+                }
+            }
+            
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('stop_game_user_select')
+                .setPlaceholder('Select a user to stop their active game')
+                .addOptions(options);
+                
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+            
+            const embed = new EmbedBuilder()
+                .setTitle('🛑 Stop Active Game')
+                .setDescription(`Found ${activeGames.length} active game(s). Select a user to stop their game:`)
+                .setColor(0x0099FF);
+                
+            await interaction.reply({ 
+                embeds: [embed], 
+                components: [row], 
+                flags: MessageFlags.Ephemeral 
+            });
+            
+        } catch (error) {
+            logger.error(`Error in handleStopGame: ${error.message}`);
+            await interaction.reply({
+                content: 'An error occurred while loading active games.',
+                flags: MessageFlags.Ephemeral
+            });
+        }
     }
 
     /**
@@ -632,6 +723,110 @@ class PanelManager {
 
         } catch (error) {
             throw new Error(`Failed to stop game: ${error.message}`);
+        }
+    }
+
+    /**
+     * Handle Refund User Select Menu
+     */
+    async handleRefundUserSelect(interaction) {
+        try {
+            const userId = interaction.values[0];
+            
+            // For now, we'll show a confirmation message
+            // In a full implementation, this would query and refund the user's last transaction
+            const embed = new EmbedBuilder()
+                .setTitle('💸 Refund Processing')
+                .setDescription(`Refund functionality for user <@${userId}> would be processed here.\n\n**Note:** Full refund functionality requires transaction history implementation.`)
+                .setColor(0xFFA500)
+                .setTimestamp();
+                
+            await interaction.update({ embeds: [embed], components: [] });
+            
+            // Log the action
+            logger.info(`${interaction.user.tag} initiated refund process for user ${userId}`);
+            await sendLogMessage(
+                interaction.client, 
+                'admin',
+                `${interaction.user.tag} initiated refund process for user ${userId}`,
+                interaction.user.id,
+                interaction.guildId
+            );
+            
+        } catch (error) {
+            logger.error(`Error in handleRefundUserSelect: ${error.message}`);
+            
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Refund Error')
+                .setDescription('An error occurred while processing the refund.')
+                .setColor(0xFF0000);
+                
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+            } else {
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            }
+        }
+    }
+
+    /**
+     * Handle Stop Game User Select Menu
+     */
+    async handleStopGameUserSelect(interaction) {
+        try {
+            const userId = interaction.values[0];
+            const activeGames = getAllActiveGames();
+            const userGame = activeGames.find(game => game.userId === userId);
+
+            if (!userGame) {
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Game Not Found')
+                    .setDescription('The selected user no longer has an active game.')
+                    .setColor(0xFF0000);
+                
+                return await interaction.update({ embeds: [embed], components: [] });
+            }
+
+            clearActiveGame(userId);
+
+            let userName = `User ${userId}`;
+            try {
+                const user = await interaction.client.users.fetch(userId);
+                userName = user.displayName;
+            } catch (error) {
+                // Use fallback name if user not found
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('🛑 Game Stopped')
+                .setDescription(`Successfully stopped ${userGame.gameType} game for ${userName}.`)
+                .setColor(0x00FF00)
+                .setTimestamp();
+            
+            await interaction.update({ embeds: [embed], components: [] });
+            
+            logger.info(`${interaction.user.tag} stopped ${userGame.gameType} game for user ${userId}`);
+            await sendLogMessage(
+                interaction.client,
+                'admin', 
+                `${interaction.user.tag} stopped ${userGame.gameType} game for user ${userId}`,
+                interaction.user.id,
+                interaction.guildId
+            );
+            
+        } catch (error) {
+            logger.error(`Error in handleStopGameUserSelect: ${error.message}`);
+            
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Stop Game Error')
+                .setDescription('An error occurred while stopping the game.')
+                .setColor(0xFF0000);
+                
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+            } else {
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            }
         }
     }
 }

@@ -5,53 +5,70 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
-const { fmt, fmtDelta } = require('../UTILS/common');
-const { spinSlots, calculatePayout, createSlotDisplay } = require('../GAMES/slots');
+const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { spinSlots, calculatePayout, createSlotDisplay, createSpinningDisplay, createSlotsImage, createSpinningSlotGIF } = require('../GAMES/slots');
+const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 
 
 /**
- * Create slots result embed
+ * Create slots result embed using gameSessionKit style
  */
-function createSlotsEmbed(user, symbols, result, betAmount, newWallet, oldWallet) {
-    const embed = new EmbedBuilder()
-        .setTitle('🎰 SLOT MACHINE 🎰')
-        .setColor(result.won ? 0x00FF00 : 0xFF0000)
-        .setTimestamp();
+function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWallet) {
+    const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+    
+    const topFields = [];
     
     // Slot display
     const slotDisplay = createSlotDisplay(symbols);
-    
-    embed.addFields(
-        { name: '🎲 Result', value: `\`\`\`${slotDisplay}\`\`\``, inline: false }
-    );
-    
+    topFields.push({
+        name: '🎲 SLOT RESULT',
+        value: `\`\`\`${slotDisplay}\`\`\``,
+        inline: false
+    });
+
+    // Banking fields
+    const bankFields = [
+        { name: '💰 Bet', value: fmt(betAmount), inline: true },
+        { name: '💵 Wallet', value: fmt(userBalance.wallet), inline: true },
+        { name: '🏦 Bank', value: fmt(userBalance.bank), inline: true }
+    ];
+
     if (result.won) {
-        embed.setDescription(`🎉 **${result.type}!** 🎉`);
-        embed.addFields(
-            { name: '💰 Bet', value: fmt(betAmount), inline: true },
-            { name: '🎯 Multiplier', value: `${result.multiplier}x`, inline: true },
-            { name: '💸 Payout', value: fmt(result.payout), inline: true },
-            { name: '💵 New Balance', value: `${fmt(newWallet)} ${fmtDelta(newWallet, oldWallet)}`, inline: false }
+        bankFields.splice(1, 0, 
+            { name: '🎯 Multiplier', value: `x${result.multiplier.toFixed(2)}`, inline: true },
+            { name: '💸 Payout', value: fmt(result.payout), inline: true }
         );
-        
-        // Special jackpot message
+    }
+
+    // Determine game state and color
+    let stageText = '';
+    let color = 0x00ff00; // Default green
+
+    if (result.won) {
         if (result.multiplier >= 100) {
-            embed.setFooter({ text: '🎊 INCREDIBLE WIN! 🎊' });
+            stageText = 'INCREDIBLE WIN!';
+            color = 0xFFD700; // Gold
         } else if (result.multiplier >= 50) {
-            embed.setFooter({ text: '✨ AMAZING WIN! ✨' });
+            stageText = 'AMAZING WIN!';
+            color = 0x00ff00; // Green
+        } else {
+            stageText = 'WINNER!';
+            color = 0x00ff00; // Green
         }
     } else {
-        embed.setDescription('😔 **No match this time!**');
-        embed.addFields(
-            { name: '💰 Bet', value: fmt(betAmount), inline: true },
-            { name: '💸 Lost', value: fmt(betAmount), inline: true },
-            { name: '💵 New Balance', value: `${fmt(newWallet)} ${fmtDelta(newWallet, oldWallet)}`, inline: true }
-        );
-        embed.setFooter({ text: 'Better luck next time!' });
+        stageText = 'TRY AGAIN';
+        color = 0xff0000; // Red
     }
-    
-    return embed;
+
+    return buildSessionEmbed({
+        title: `🎰 ${user.displayName}'s Slots`,
+        topFields,
+        bankFields,
+        stageText,
+        color,
+        footer: result.won ? result.type : 'Better luck next time!'
+    });
 }
 
 module.exports = {
@@ -67,8 +84,13 @@ module.exports = {
     async execute(interaction) {
         const userId = interaction.user.id;
         const amount = interaction.options.getString('amount');
+        const guildId = await getGuildId(interaction);
 
         try {
+            // Ensure user exists and get balance
+            await dbManager.ensureUser(userId, interaction.user.displayName);
+            const userBalance = await dbManager.getUserBalance(userId, guildId);
+
             // Validate and deduct bet
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
@@ -85,14 +107,34 @@ module.exports = {
             const betAmount = validation.parsedAmount;
             const oldWallet = validation.newWallet + betAmount; // Wallet before bet
 
-            // Spin the slots
+            // Defer reply for animation and image generation
+            await interaction.deferReply();
+
+            // Show spinning animation first
+            const spinningEmbed = new EmbedBuilder()
+                .setTitle('🎰 SLOT MACHINE 🎰')
+                .setColor(0xFFFF00)
+                .addFields({
+                    name: '🎲 SPINNING...',
+                    value: `\`\`\`${createSpinningDisplay()}\`\`\``,
+                    inline: false
+                })
+                .setDescription('🎰 **Spinning the reels...** 🎰')
+                .setFooter({ text: 'Good luck!' });
+
+            await interaction.editReply({ embeds: [spinningEmbed] });
+
+            // Wait for animation effect (2 seconds)
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // Spin the slots for real result
             const symbols = spinSlots();
             const result = calculatePayout(symbols, betAmount);
 
             // Create game result
             const gameResult = new GameResult({
                 userId: userId,
-                guildId: interaction.guildId,
+                guildId: guildId,
                 gameType: GameType.SLOTS,
                 betAmount: betAmount,
                 payout: result.payout,
@@ -106,34 +148,92 @@ module.exports = {
             if (!payoutResult.success) {
                 logger.error(`Failed to process slots payout for user ${userId}`);
                 // Refund the bet
-                await PayoutManager.refundBet(userId, interaction.guildId, betAmount, 'Payout processing failed');
+                await PayoutManager.refundBet(userId, guildId, betAmount, 'Payout processing failed');
                 
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('❌ Game Error')
                     .setDescription('An error occurred processing your game. Your bet has been refunded.')
                     .setColor(0xFF0000);
                 
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
-            // Create result embed
-            const resultEmbed = createSlotsEmbed(
+            // Get updated balance
+            const finalBalance = await dbManager.getUserBalance(userId, guildId);
+
+            // PHASE 1: Show animated GIF first
+            const animatedGIF = await createSpinningSlotGIF(symbols);
+
+            // Create result embed for animation phase
+            const animationEmbed = createSlotsEmbed(
                 interaction.user,
                 symbols,
                 result,
                 betAmount,
-                payoutResult.newWallet,
+                finalBalance,
                 oldWallet
             );
 
             // Add booster bonus info if applicable
             if (payoutResult.boosterBonus > 0) {
-                resultEmbed.addFields(
+                animationEmbed.addFields(
                     { name: '🚀 Booster Bonus', value: fmt(payoutResult.boosterBonus), inline: true }
                 );
             }
 
-            await interaction.reply({ embeds: [resultEmbed] });
+            const animationData = { embeds: [animationEmbed] };
+
+            if (animatedGIF) {
+                animationData.files = [{ attachment: animatedGIF, name: 'slots-animation.gif' }];
+                animationEmbed.setImage('attachment://slots-animation.gif');
+            }
+
+            await interaction.editReply(animationData);
+
+            // PHASE 2: After GIF finishes, show static result
+            // Wait for animation to complete (GIF has 50 frames * ~50-250ms = ~7.5 seconds)
+            setTimeout(async () => {
+                try {
+                    const staticImage = await createSlotsImage(symbols, result.won);
+                    
+                    // Create final result embed
+                    const finalEmbed = createSlotsEmbed(
+                        interaction.user,
+                        symbols,
+                        result,
+                        betAmount,
+                        finalBalance,
+                        oldWallet
+                    );
+
+                    // Add booster bonus info if applicable
+                    if (payoutResult.boosterBonus > 0) {
+                        finalEmbed.addFields(
+                            { name: '🚀 Booster Bonus', value: fmt(payoutResult.boosterBonus), inline: true }
+                        );
+                    }
+
+                    const finalData = { embeds: [finalEmbed] };
+
+                    if (staticImage) {
+                        finalData.files = [{ attachment: staticImage, name: 'slots-result.png' }];
+                        finalEmbed.setImage('attachment://slots-result.png');
+                    }
+
+                    await interaction.editReply(finalData);
+                } catch (error) {
+                    logger.error(`Error updating slots to static result: ${error.message}`);
+                }
+            }, 8000); // 8 second delay to ensure GIF completes
+
+            // Log game result
+            await sendLogMessage(
+                interaction.client,
+                'game',
+                `Slots game: ${interaction.user.displayName} ${result.won ? 'won' : 'lost'} ${fmt(Math.abs(result.payout - betAmount))} (${result.multiplier.toFixed(2)}x)`,
+                userId,
+                guildId
+            );
 
             // Log significant wins
             if (result.won && result.multiplier >= 50) {
@@ -149,7 +249,7 @@ module.exports = {
                 .setColor(0xFF0000);
 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.editReply({ embeds: [errorEmbed] });
             } else {
                 await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
