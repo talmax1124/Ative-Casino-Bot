@@ -10,6 +10,8 @@ const fs = require('fs').promises;
 const path = require('path');
 const logger = require('../UTILS/logger');
 const { getAllActiveGames, clearActiveGame } = require('../UTILS/common');
+const { sessionManager } = require('../UTILS/sessionManager');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 
 // Store disabled commands (cogs)
 const disabledCogs = new Set();
@@ -85,8 +87,12 @@ const statusCommand = {
             const cpuUsage = process.cpuUsage();
             const cpuPercent = ((cpuUsage.user + cpuUsage.system) / 1000000).toFixed(2);
 
+            // Get session manager statistics
+            const sessionStats = sessionManager.getSessionStats();
+            const activeGames = getAllActiveGames();
+
             const embed = new EmbedBuilder()
-                .setTitle('🤖 Utility Bot Status')
+                .setTitle('🤖 ATIVE Casino Bot Status')
                 .setColor(0x00FF00)
                 .addFields(
                     { name: '⏱️ Uptime', value: formatUptime(uptime), inline: true },
@@ -98,7 +104,10 @@ const statusCommand = {
                     { name: '🌐 Environment', value: process.env.NODE_ENV || 'development', inline: true },
                     { name: '🏠 Platform', value: process.platform, inline: true },
                     { name: '⚙️ Arch', value: process.arch, inline: true },
-                    { name: '📋 Git Info', value: gitInfo, inline: false }
+                    { name: '📋 Git Info', value: gitInfo, inline: false },
+                    { name: '🎮 Session Manager', value: `**${sessionStats.activeSessions}** active sessions\n**${sessionStats.activeUsers}** active users\n**${sessionStats.totalSessions}** total created`, inline: true },
+                    { name: '🎲 Legacy Games', value: `**${activeGames.length}** active (legacy system)`, inline: true },
+                    { name: '📈 Session Stats', value: `**${sessionStats.completedSessions}** completed\n**${sessionStats.timeoutSessions}** timeouts\n**${sessionStats.cancelledSessions}** cancelled`, inline: true }
                 )
                 .setTimestamp();
 

@@ -1,0 +1,385 @@
+/**
+ * Game Session Integrator - Helper utility for integrating games with SessionManager
+ * Provides common patterns and functions for game session management
+ */
+
+const { sessionManager, GameType } = require('./sessionManager');
+const { buildSessionEmbed } = require('./gameSessionKit');
+const dbManager = require('./database');
+const logger = require('./logger');
+
+class GameSessionIntegrator {
+    /**
+     * Standard session validation for games
+     */
+    static async validateGameSession(userId, gameType, guildId) {
+        try {
+            // Check session limits
+            const canCreate = await sessionManager.canCreateSession(userId);
+            if (!canCreate.allowed) {
+                return {
+                    valid: false,
+                    error: 'SESSION_LIMIT',
+                    message: canCreate.reason + '\nUse `/stopgame` to cancel active sessions.'
+                };
+            }
+
+            // Check for existing sessions of the same game type
+            const userSessions = sessionManager.getUserSessions(userId);
+            const existingGame = userSessions.find(s => s.gameType === gameType);
+            
+            if (existingGame) {
+                return {
+                    valid: false,
+                    error: 'GAME_ACTIVE',
+                    message: `You already have an active ${gameType} session.\nUse \`/stopgame\` to cancel it first.`
+                };
+            }
+
+            // Check legacy game_active field
+            const balance = await dbManager.getUserBalance(userId, guildId);
+            if (balance.game_active) {
+                return {
+                    valid: false,
+                    error: 'LEGACY_ACTIVE',
+                    message: 'You have an active game session.\nFinish it before starting a new game or use `/stopgame`.'
+                };
+            }
+
+            return { valid: true };
+
+        } catch (error) {
+            logger.error(`Error validating game session: ${error.message}`);
+            return {
+                valid: false,
+                error: 'VALIDATION_ERROR',
+                message: 'Error validating game session. Please try again.'
+            };
+        }
+    }
+
+    /**
+     * Create error embed for session validation failures
+     */
+    static createValidationErrorEmbed(username, gameType, validationResult) {
+        const gameDisplayName = gameType.charAt(0).toUpperCase() + gameType.slice(1);
+        
+        return buildSessionEmbed({
+            title: `❌ ${username}'s ${gameDisplayName}`,
+            topFields: [
+                { 
+                    name: this.getErrorTitle(validationResult.error),
+                    value: validationResult.message 
+                }
+            ],
+            color: 0xFF0000,
+            footer: `${gameDisplayName} Game • Session Manager`
+        });
+    }
+
+    /**
+     * Get appropriate error title for different error types
+     */
+    static getErrorTitle(errorType) {
+        switch (errorType) {
+            case 'SESSION_LIMIT':
+                return 'Session Limit Reached';
+            case 'GAME_ACTIVE':
+                return 'Game Already Active';
+            case 'LEGACY_ACTIVE':
+                return 'Legacy Game Active';
+            default:
+                return 'Session Error';
+        }
+    }
+
+    /**
+     * Create a new game session
+     */
+    static async createGameSession(sessionConfig) {
+        const {
+            userId,
+            guildId,
+            channelId,
+            gameType,
+            betAmount = 0,
+            timeout = 180000, // 3 minutes default
+            metadata = {},
+            interaction = null
+        } = sessionConfig;
+
+        try {
+            const sessionResult = await sessionManager.createSession({
+                userId,
+                guildId,
+                channelId,
+                gameType,
+                betAmount,
+                timeout,
+                metadata: {
+                    ...metadata,
+                    interaction: interaction ? {
+                        id: interaction.id,
+                        user: interaction.user.tag,
+                        channelId: interaction.channelId
+                    } : null,
+                    createdBy: 'GameSessionIntegrator'
+                }
+            });
+
+            if (!sessionResult.success) {
+                throw new Error(sessionResult.error);
+            }
+
+            return {
+                success: true,
+                sessionId: sessionResult.sessionId,
+                session: sessionResult.session
+            };
+
+        } catch (error) {
+            logger.error(`Error creating game session: ${error.message}`);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
+     * Update game session data
+     */
+    static async updateGameSession(sessionId, updateData, action = 'update') {
+        try {
+            await sessionManager.updateSession(sessionId, {
+                ...updateData,
+                action
+            });
+            return { success: true };
+        } catch (error) {
+            logger.error(`Error updating game session ${sessionId}: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Complete game session
+     */
+    static async completeGameSession(sessionId, completionData) {
+        try {
+            await sessionManager.completeSession(sessionId, completionData);
+            return { success: true };
+        } catch (error) {
+            logger.error(`Error completing game session ${sessionId}: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Handle game error - cancel session and refund
+     */
+    static async handleGameError(userId, gameType, betAmount, guildId, reason = 'Game error') {
+        try {
+            // Find and cancel relevant sessions
+            const userSessions = sessionManager.getUserSessions(userId);
+            const gameSessions = userSessions.filter(s => s.gameType === gameType);
+            
+            for (const session of gameSessions) {
+                await sessionManager.cancelSession(
+                    session.sessionId,
+                    `${reason} - refund processed`,
+                    'system'
+                );
+            }
+
+            // Refund bet and clear legacy flag
+            if (betAmount > 0) {
+                await dbManager.updateUserBalance(userId, guildId, betAmount, 0, { game_active: false });
+            } else {
+                await dbManager.updateUserBalance(userId, guildId, 0, 0, { game_active: false });
+            }
+
+            logger.info(`Game error handled for user ${userId}: ${reason}`);
+            return { success: true };
+
+        } catch (error) {
+            logger.error(`Error handling game error: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Get user's active sessions for a specific game type
+     */
+    static getUserGameSessions(userId, gameType = null) {
+        const userSessions = sessionManager.getUserSessions(userId);
+        
+        if (gameType) {
+            return userSessions.filter(s => s.gameType === gameType);
+        }
+        
+        return userSessions;
+    }
+
+    /**
+     * Standard game session timeout handler
+     */
+    static createTimeoutHandler(gameType, onTimeout = null) {
+        return async (sessionId) => {
+            try {
+                const session = sessionManager.getSession(sessionId);
+                if (!session) return;
+
+                logger.warn(`${gameType} session ${sessionId} timed out`);
+
+                // Custom timeout logic
+                if (onTimeout && typeof onTimeout === 'function') {
+                    await onTimeout(session);
+                }
+
+                // Default timeout handling - refund bet
+                if (session.betAmount > 0) {
+                    await dbManager.updateUserBalance(
+                        session.userId,
+                        session.guildId,
+                        session.betAmount,
+                        0,
+                        { game_active: false }
+                    );
+                }
+
+            } catch (error) {
+                logger.error(`Error in ${gameType} timeout handler: ${error.message}`);
+            }
+        };
+    }
+
+    /**
+     * Create standard game integration configuration
+     */
+    static createGameConfig(gameType, options = {}) {
+        const defaults = {
+            timeout: this.getDefaultTimeout(gameType),
+            maxSessions: 1,
+            requiresBet: true,
+            supportsMultipleHands: false,
+            canPause: false,
+            autoRefund: true
+        };
+
+        return {
+            ...defaults,
+            ...options,
+            gameType
+        };
+    }
+
+    /**
+     * Get default timeout for different game types
+     */
+    static getDefaultTimeout(gameType) {
+        const timeouts = {
+            [GameType.BLACKJACK]: 180000,    // 3 minutes
+            [GameType.SLOTS]: 60000,         // 1 minute
+            [GameType.PLINKO]: 300000,       // 5 minutes (animation)
+            [GameType.CRASH]: 120000,        // 2 minutes
+            [GameType.ROULETTE]: 180000,     // 3 minutes
+            [GameType.FISHING]: 300000,      // 5 minutes
+            [GameType.HEIST]: 600000,        // 10 minutes (team game)
+            [GameType.BATTLESHIP]: 900000,   // 15 minutes (PvP)
+            [GameType.UNO]: 1200000,         // 20 minutes (multiplayer)
+            [GameType.WORDCHAIN]: 300000,    // 5 minutes
+            [GameType.BINGO]: 600000,        // 10 minutes
+            [GameType.DUCK]: 60000,          // 1 minute
+            [GameType.RPS]: 60000            // 1 minute
+        };
+
+        return timeouts[gameType] || 180000; // Default 3 minutes
+    }
+
+    /**
+     * Batch update multiple games to use SessionManager
+     */
+    static async migrateGameToSessionManager(gameFilePath, gameType) {
+        logger.info(`Starting SessionManager migration for ${gameType} at ${gameFilePath}`);
+        
+        // This would contain the migration logic
+        // For now, return migration instructions
+        return {
+            gameType,
+            filePath: gameFilePath,
+            migrationSteps: [
+                '1. Import GameSessionIntegrator and SessionManager',
+                '2. Replace game_active checks with validateGameSession()',
+                '3. Create session on game start with createGameSession()',
+                '4. Update session during game with updateGameSession()',
+                '5. Complete session on game end with completeGameSession()',
+                '6. Handle errors with handleGameError()',
+                '7. Update timeout handling',
+                '8. Test game functionality'
+            ],
+            priority: this.getGamePriority(gameType)
+        };
+    }
+
+    /**
+     * Get migration priority for games (higher number = higher priority)
+     */
+    static getGamePriority(gameType) {
+        const priorities = {
+            [GameType.BLACKJACK]: 10,   // High use
+            [GameType.SLOTS]: 9,        // High use
+            [GameType.CRASH]: 8,        // Popular
+            [GameType.PLINKO]: 7,       // Already done
+            [GameType.FISHING]: 6,      // Medium use
+            [GameType.RPS]: 5,          // Simple
+            [GameType.DUCK]: 4,         // Simple
+            [GameType.HEIST]: 3,        // Complex team game
+            [GameType.BATTLESHIP]: 2,   // PvP game
+            [GameType.UNO]: 1,          // Complex multiplayer
+            [GameType.WORDCHAIN]: 1,    // Complex multiplayer
+            [GameType.BINGO]: 1         // Event-based
+        };
+
+        return priorities[gameType] || 5;
+    }
+
+    /**
+     * Validate all active sessions (utility for dev commands)
+     */
+    static async validateAllSessions() {
+        try {
+            const allSessions = sessionManager.getAllActiveSessions();
+            const results = {
+                total: allSessions.length,
+                valid: 0,
+                stale: 0,
+                errors: []
+            };
+
+            for (const session of allSessions) {
+                try {
+                    // Check if session is still valid
+                    const age = Date.now() - session.lastActivity;
+                    if (age > (session.timeout * 2)) {
+                        results.stale++;
+                    } else {
+                        results.valid++;
+                    }
+                } catch (error) {
+                    results.errors.push({
+                        sessionId: session.sessionId,
+                        error: error.message
+                    });
+                }
+            }
+
+            return results;
+        } catch (error) {
+            logger.error(`Error validating sessions: ${error.message}`);
+            throw error;
+        }
+    }
+}
+
+module.exports = GameSessionIntegrator;

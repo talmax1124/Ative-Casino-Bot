@@ -13,6 +13,7 @@ require('dotenv').config();
 const logger = require('./UTILS/logger');
 const dbManager = require('./UTILS/database');
 const economyMonitor = require('./UTILS/economyMonitor');
+const { sessionManager } = require('./UTILS/sessionManager');
 const { sendLogMessage } = require('./UTILS/common');
 const panelManager = require('./UTILS/panelManager');
 const { LotteryGame } = require('./GAMES/lottery');
@@ -307,6 +308,14 @@ client.once('clientReady', async () => {
         logger.info('Economy Monitor initialized successfully');
     } catch (error) {
         logger.error('Failed to initialize Economy Monitor:', error);
+    }
+
+    // Initialize Session Manager
+    try {
+        await sessionManager.initialize(client);
+        logger.info('Session Manager initialized successfully');
+    } catch (error) {
+        logger.error('Failed to initialize Session Manager:', error);
     }
 
     // Send startup notification
@@ -1273,14 +1282,30 @@ async function showFishingHelp(interaction) {
 }
 
 // Graceful shutdown
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
     logger.info('Received SIGINT, shutting down gracefully...');
+    
+    try {
+        await sessionManager.shutdown();
+        logger.info('Session Manager shutdown completed');
+    } catch (error) {
+        logger.error('Error during Session Manager shutdown:', error);
+    }
+    
     client.destroy();
     process.exit(0);
 });
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
     logger.info('Received SIGTERM, shutting down gracefully...');
+    
+    try {
+        await sessionManager.shutdown();
+        logger.info('Session Manager shutdown completed');
+    } catch (error) {
+        logger.error('Error during Session Manager shutdown:', error);
+    }
+    
     client.destroy();
     process.exit(0);
 });

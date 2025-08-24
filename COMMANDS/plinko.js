@@ -9,6 +9,7 @@ const { fmtFull, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/c
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PLINKO_MODES, randomizeMultipliers, createPlinkoImage, simulatePlinkoDrop } = require('../UTILS/plinkoCanvas');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
+const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -55,12 +56,28 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // Check if user has an active game
+            // Check if user can create a new session
+            const canCreate = await sessionManager.canCreateSession(userId);
+            if (!canCreate.allowed) {
+                const embed = buildSessionEmbed({
+                    title: `❌ ${username}'s Plinko`,
+                    topFields: [
+                        { name: 'Session Limit Reached', value: canCreate.reason + '\nUse `/stopgame` to cancel active sessions.' }
+                    ],
+                    color: 0xFF0000,
+                    footer: 'Plinko Game • Session Manager'
+                });
+
+                await interaction.editReply({ embeds: [embed] });
+                return;
+            }
+
+            // Check legacy game_active field as fallback
             if (balance.game_active) {
                 const embed = buildSessionEmbed({
                     title: `❌ ${username}'s Plinko`,
                     topFields: [
-                        { name: 'Game Already Active', value: 'You have an active game session.\nFinish it before starting Plinko.' }
+                        { name: 'Legacy Game Active', value: 'You have an active game session.\nFinish it before starting Plinko or use `/stopgame`.' }
                     ],
                     color: 0xFF0000,
                     footer: 'Plinko Game'
@@ -112,10 +129,7 @@ module.exports = {
                 return;
             }
 
-            // Deduct bet and set game active
-            await dbManager.updateUserBalance(userId, guildId, -betAmount, 0, { game_active: true });
-
-            // Setup game parameters
+            // Setup game parameters first
             const multipliers = randomizeMultipliers(modeData.multipliers);
             const slots = multipliers.length;
             
@@ -126,6 +140,34 @@ module.exports = {
             } else {
                 dropSlot = Math.floor(Math.random() * slots);
             }
+
+            // Create game session
+            const sessionResult = await sessionManager.createSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: SMGameType.PLINKO,
+                betAmount,
+                timeout: 300000, // 5 minutes for plinko animation
+                metadata: {
+                    mode: selectedMode,
+                    dropSlot,
+                    slots,
+                    interaction: {
+                        id: interaction.id,
+                        user: interaction.user.tag
+                    }
+                }
+            });
+
+            if (!sessionResult.success) {
+                throw new Error(`Session creation failed: ${sessionResult.error}`);
+            }
+
+            const sessionId = sessionResult.sessionId;
+
+            // Deduct bet amount (but keep legacy game_active for compatibility)
+            await dbManager.updateUserBalance(userId, guildId, -betAmount, 0, { game_active: true });
 
             // Show initial game setup
             const setupEmbed = buildSessionEmbed({
@@ -143,6 +185,16 @@ module.exports = {
             // Brief pause for setup
             await new Promise(resolve => setTimeout(resolve, 1000));
 
+            // Update session with game start
+            await sessionManager.updateSession(sessionId, {
+                gameData: {
+                    gameStarted: true,
+                    multipliers,
+                    startTime: Date.now()
+                },
+                action: 'game_start'
+            });
+
             // Run the full animated plinko game
             await playAnimatedPlinko(interaction, {
                 userId,
@@ -154,15 +206,28 @@ module.exports = {
                 slots,
                 dropSlot,
                 newWallet: balance.wallet - betAmount,
-                bankBalance: balance.bank
+                bankBalance: balance.bank,
+                sessionId
             }, guildId);
 
         } catch (error) {
             logger.error(`Error in plinko command: ${error.message}`);
             
-            // Try to refund on error
+            // Try to cancel session and refund on error
             try {
-                await dbManager.updateUserBalance(userId, guildId, betAmount, 0, { game_active: false });
+                const userSessions = sessionManager.getUserSessions(userId);
+                for (const session of userSessions) {
+                    if (session.gameType === SMGameType.PLINKO) {
+                        await sessionManager.cancelSession(
+                            session.sessionId, 
+                            'Game error - refund processed',
+                            'system'
+                        );
+                    }
+                }
+                
+                // Also update legacy balance
+                await dbManager.updateUserBalance(userId, guildId, betAmount || 0, 0, { game_active: false });
             } catch (refundError) {
                 logger.error(`Failed to refund plinko bet: ${refundError.message}`);
             }
@@ -294,11 +359,25 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
  * Show final game results
  */
 async function showFinalResults(interaction, gameData, finalImage, finalSlot, finalMultiplier, winnings, won, guildId) {
-    const { userId, username, betAmount, mode, modeData, newWallet } = gameData;
+    const { userId, username, betAmount, mode, modeData, newWallet, sessionId } = gameData;
     
     // Update user balance and clear game active status
     const finalWallet = newWallet + winnings;
     await dbManager.updateUserBalance(userId, guildId, winnings, 0, { game_active: false });
+
+    // Complete the session
+    try {
+        await sessionManager.completeSession(sessionId, {
+            finalSlot,
+            finalMultiplier,
+            winnings,
+            won,
+            netChange: winnings - betAmount,
+            completedAt: Date.now()
+        });
+    } catch (sessionError) {
+        logger.error(`Failed to complete plinko session: ${sessionError.message}`);
+    }
 
     // Record game result
     const gameResult = new GameResult({
