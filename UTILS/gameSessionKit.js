@@ -54,9 +54,8 @@ function buildSessionEmbed(ui) {
   // Add top fields with better formatting
   if (topFields.length) {
     topFields.forEach(field => {
-      // For player lists and other content with markdown, don't wrap in code blocks
-      // For numeric/simple values, use code blocks for styling
-      const hasMarkdown = field.value.includes('**') || field.value.includes('•');
+      // For content already containing markdown or code fences, don't wrap again
+      const hasMarkdown = field.value.includes('**') || field.value.includes('•') || field.value.includes('```');
       const styledField = {
         name: `**${field.name}**`,
         value: hasMarkdown ? field.value : `\`\`\`\n${field.value}\n\`\`\``,

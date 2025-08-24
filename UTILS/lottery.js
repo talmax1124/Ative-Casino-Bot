@@ -49,42 +49,61 @@ function getNextLotteryTimestamp() {
 }
 
 /**
- * Find and track existing lottery panel message
+ * Find all lottery panel messages, scanning deeper history (up to maxToScan).
+ * Returns newest first.
+ */
+async function findAllLotteryPanels(bot, maxToScan = 500) {
+    const results = [];
+    try {
+        const channel = bot.channels.cache.get(LOTTERY_CHANNEL_ID);
+        if (!channel) {
+            logger.error(`Could not find lottery channel ${LOTTERY_CHANNEL_ID}`);
+            return results;
+        }
+
+        let lastId = undefined;
+        let scanned = 0;
+        while (scanned < maxToScan) {
+            const batchSize = Math.min(100, maxToScan - scanned);
+            const batch = await channel.messages.fetch({ limit: batchSize, before: lastId });
+            if (!batch.size) break;
+
+            for (const msg of batch.values()) {
+                scanned++;
+                lastId = msg.id;
+                if (
+                    msg.author?.id === bot.user.id &&
+                    msg.embeds?.length > 0 &&
+                    msg.embeds[0]?.title?.includes('Weekly Lottery System')
+                ) {
+                    results.push(msg);
+                }
+            }
+
+            if (batch.size < batchSize) break; // no more messages
+        }
+    } catch (error) {
+        logger.error(`Error scanning lottery panels: ${error.message}`);
+    }
+    return results;
+}
+
+/**
+ * Find and track the newest existing lottery panel message.
  */
 async function findAndTrackLotteryPanel(bot, guildId) {
     try {
-        // Only for the designated lottery server
-        if (guildId !== DESIGNATED_SERVER_ID) {
-            return null;
+        if (guildId !== DESIGNATED_SERVER_ID) return null;
+
+        const panels = await findAllLotteryPanels(bot, 500);
+        if (panels.length > 0) {
+            lotteryPanelMessage = panels[0]; // Newest first
+            logger.info(`Found existing lottery panel message ${lotteryPanelMessage.id} in channel ${LOTTERY_CHANNEL_ID}`);
+            return lotteryPanelMessage;
         }
-            
-        // Get the designated lottery channel
-        const channel = bot.channels.cache.get(LOTTERY_CHANNEL_ID);
-        
-        if (!channel) {
-            logger.error(`Could not find lottery channel ${LOTTERY_CHANNEL_ID}`);
-            return null;
-        }
-        
-        // Search through recent messages to find the lottery panel
-        const messages = await channel.messages.fetch({ limit: 50 });
-        
-        for (const message of messages.values()) {
-            if (message.author.id === bot.user.id && 
-                message.embeds && 
-                message.embeds.length > 0 && 
-                message.embeds[0].title && 
-                message.embeds[0].title.includes("Weekly Lottery System")) {
-                
-                logger.info(`Found existing lottery panel message ${message.id} in channel ${LOTTERY_CHANNEL_ID}`);
-                lotteryPanelMessage = message;
-                return message;
-            }
-        }
-        
+
         logger.info(`No existing lottery panel found in channel ${LOTTERY_CHANNEL_ID}`);
         return null;
-        
     } catch (error) {
         logger.error(`Error finding lottery panel: ${error.message}`);
         return null;
@@ -215,6 +234,34 @@ function clearLotteryPanelMessage() {
 }
 
 /**
+ * Unpin older duplicate lottery panels, keeping the provided message pinned.
+ * Only affects messages authored by the bot with the panel title.
+ */
+async function cleanupDuplicatePanels(bot, keepMessageId) {
+    try {
+        const channel = bot.channels.cache.get(LOTTERY_CHANNEL_ID);
+        if (!channel) return;
+
+        const pinned = await channel.messages.fetchPinned().catch(() => null);
+        if (!pinned) return;
+
+        for (const msg of pinned.values()) {
+            const isPanel = msg.author?.id === bot.user.id && msg.embeds?.[0]?.title?.includes('Weekly Lottery System');
+            if (isPanel && msg.id !== keepMessageId && msg.pinned) {
+                try {
+                    await msg.unpin();
+                    logger.info(`Unpinned duplicate lottery panel ${msg.id}`);
+                } catch (err) {
+                    logger.warn(`Failed to unpin duplicate panel ${msg.id}: ${err.message}`);
+                }
+            }
+        }
+    } catch (error) {
+        logger.error(`Error cleaning up duplicate panels: ${error.message}`);
+    }
+}
+
+/**
  * Format lottery prize amounts
  */
 function formatLotteryPrize(amount) {
@@ -280,6 +327,8 @@ module.exports = {
     getLotteryPanelMessage,
     setLotteryPanelMessage,
     clearLotteryPanelMessage,
+    findAllLotteryPanels,
+    cleanupDuplicatePanels,
     formatLotteryPrize,
     calculatePrizeDistribution,
     validateTicketPurchase,

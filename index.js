@@ -618,8 +618,22 @@ client.on('interactionCreate', async interaction => {
             // Handle poll buttons
             else if (customId.startsWith('poll_')) {
                 const pollCommand = client.commands.get('polls');
-                if (pollCommand && pollCommand.buttonHandlers && pollCommand.buttonHandlers[customId]) {
-                    await pollCommand.buttonHandlers[customId](interaction);
+                if (pollCommand && pollCommand.buttonHandlers) {
+                    if (customId.startsWith('poll_vote_')) {
+                        // Format: poll_vote_{pollId}_{optionIndex}
+                        const parts = customId.split('_');
+                        const pollId = parts.slice(2, -1).join('_');
+                        const optionIndex = parseInt(parts[parts.length - 1], 10);
+                        if (!Number.isNaN(optionIndex) && pollId) {
+                            await pollCommand.buttonHandlers.poll_vote(interaction, pollId, optionIndex);
+                        }
+                    } else if (customId.startsWith('poll_end_')) {
+                        // Format: poll_end_{pollId}
+                        const pollId = customId.substring('poll_end_'.length);
+                        if (pollId) {
+                            await pollCommand.buttonHandlers.poll_end(interaction, pollId);
+                        }
+                    }
                 }
             }
             // Handle buffalo bonus buttons
@@ -1009,7 +1023,7 @@ async function showGettingStartedGuide(interaction) {
             },
             {
                 name: '💡 Pro Tips',
-                value: '• **Higher tiers** get interest on bank balance\n• **Can\'t rob 2+ tiers higher** - grow your wealth first\n• **All games have help buttons** - use them!\n• **Economy commands have cooldowns** - be patient',
+                value: '• **Higher tiers** get interest on bank balance\n• **Can\'t rob 3+ tiers higher** - grow your wealth first\n• **All games have help buttons** - use them!\n• **Economy commands have cooldowns** - be patient',
                 inline: false
             }
         )

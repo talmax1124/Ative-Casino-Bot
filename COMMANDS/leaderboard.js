@@ -208,16 +208,8 @@ async function showMoneyLeaderboard(interaction, guildId, isButtonUpdate = false
                     displayName = `User ${user.user_id.slice(-4)}`;
                 }
             }
-            
-            // More horizontal layout - players on same line where possible
-            tierText += `${medal} **${displayName}** - ${fmtFull(user.totalBalance)}`;
-            
-            // Add line break every 2 players for better organization
-            if ((i + 1) % 2 === 0 || i === Math.min(tierUsers.length, maxUsersPerTier) - 1) {
-                tierText += '\n';
-            } else {
-                tierText += '  •  ';
-            }
+            // Place each player on its own line (row)
+            tierText += `${medal} **${displayName}** - ${fmtFull(user.totalBalance)}\n`;
             
             overallRank++;
             totalPlayersShown++;
@@ -316,7 +308,7 @@ async function showWinLossLeaderboard(interaction, guildId, isButtonUpdate = fal
     const topFields = [];
     const bankFields = [];
 
-    // Most Wins section
+    // Most Wins section (each player on a new line)
     let winsText = '';
     let totalWins = 0;
     let totalLosses = 0;
@@ -342,20 +334,13 @@ async function showWinLossLeaderboard(interaction, guildId, isButtonUpdate = fal
             }
         }
         
-        // Horizontal layout for wins leaderboard
-        winsText += `${medal} **${displayName}** - ${wins}W/${losses}L (${winRate}%)`;
-        
-        // Add line break every 2 players for better organization
-        if ((i + 1) % 2 === 0 || i === Math.min(users.length, 8) - 1) {
-            winsText += '\n';
-        } else {
-            winsText += '  •  ';
-        }
+        // One entry per line for readability
+        winsText += `${medal} **${displayName}**\n\`\`\`fix\nWins: ${wins}    Losses: ${losses}    Win Rate: ${winRate}%\n\`\`\`\n`;
     }
 
     topFields.push({
         name: '🏆 MOST WINS LEADERBOARD',
-        value: `\`\`\`css\n${winsText.trim() || 'No wins recorded'}\n\`\`\``,
+        value: winsText.trim() || 'No wins recorded',
         inline: false
     });
 
@@ -392,21 +377,14 @@ async function showWinLossLeaderboard(interaction, guildId, isButtonUpdate = fal
             }
         }
         
-        // Horizontal layout for win rate
-        winRateText += `${medal} **${displayName}** - ${winRate}% (${wins}W/${losses}L)`;
-        
-        // Add line break every 2 players
-        if ((i + 1) % 2 === 0 || i === Math.min(qualifiedUsers.length, 5) - 1) {
-            winRateText += '\n';
-        } else {
-            winRateText += '  •  ';
-        }
+        // One entry per line
+        winRateText += `${medal} **${displayName}**\n\`\`\`fix\nWin Rate: ${winRate}%    Wins: ${wins}    Losses: ${losses}\n\`\`\`\n`;
     }
 
     if (qualifiedUsers.length > 0) {
         topFields.push({
             name: '📊 BEST WIN RATES (10+ Games)',
-            value: `\`\`\`yaml\n${winRateText.trim()}\n\`\`\``,
+            value: winRateText.trim(),
             inline: false
         });
     }

@@ -95,20 +95,31 @@ module.exports = {
             // Get updated balance for display
             const newBalance = await dbManager.getUserBalance(userId, guildId);
 
-            // Create success embed
-            const embed = new EmbedBuilder()
-                .setTitle('🏧 Withdrawal Successful')
-                .setDescription(`You successfully withdrew ${fmtFull(withdrawAmount)} from your bank!`)
-                .setColor(0x00FF00)
-                .addFields(
-                    { name: '💵 Wallet', value: `${fmtFull(currentWallet)} → **${fmtFull(newBalance.wallet)}**`, inline: true },
-                    { name: '🏦 Bank', value: `${fmtFull(currentBank)} → **${fmtFull(newBalance.bank)}**`, inline: true },
-                    { name: '💎 Total', value: fmtFull(newBalance.wallet + newBalance.bank), inline: true }
-                )
-                .setFooter({ text: '💡 Keep money in your bank to earn daily interest!' })
-                .setTimestamp();
+            // Use session kit styling consistent with /sendmoney
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 
-            await interaction.editReply({ embeds: [embed] });
+            const topFields = [{
+                name: 'WITHDRAWAL DETAILS',
+                value: `\`\`\`fix\nAmount Withdrawn: ${fmtFull(withdrawAmount)}\n\`\`\``,
+                inline: false
+            }];
+
+            const bankFields = [
+                { name: 'Wallet', value: `${fmtFull(currentWallet)} → ${fmtFull(newBalance.wallet)}`, inline: true },
+                { name: 'Bank', value: `${fmtFull(currentBank)} → ${fmtFull(newBalance.bank)}`, inline: true },
+                { name: 'Total', value: fmtFull(newBalance.wallet + newBalance.bank), inline: true }
+            ];
+
+            const sessionEmbed = buildSessionEmbed({
+                title: '🏧 Withdrawal Successful',
+                topFields,
+                bankFields,
+                stageText: 'WITHDRAWAL COMPLETE',
+                color: 0x00FF00,
+                footer: '🏧 Withdraw • Move funds from bank to wallet'
+            });
+
+            await interaction.editReply({ embeds: [sessionEmbed] });
 
             // Log transaction
             logger.info(`User ${username} (${userId}) withdrew ${fmtFull(withdrawAmount)} from bank`);

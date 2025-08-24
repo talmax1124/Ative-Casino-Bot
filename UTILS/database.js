@@ -878,43 +878,140 @@ class DatabaseManager {
         }
     }
 
+    // ========================= POLL OPERATIONS =========================
+
+    /**
+     * Store a new poll document
+     * @param {string} pollId - Poll ID
+     * @param {Object} pollData - Poll payload
+     * @returns {boolean} Success status
+     */
+    async storePoll(pollId, pollData) {
+        try {
+            const docRef = this.db.collection('polls').doc(pollId);
+            await docRef.set({
+                ...pollData,
+                created_at: pollData.created_at ? new Date(pollData.created_at) : new Date(),
+                updated_at: new Date()
+            }, { merge: true });
+            logger.info(`Stored poll ${pollId}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error storing poll ${pollId}: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Update poll votes
+     * @param {string} pollId - Poll ID
+     * @param {Object} votes - Votes map
+     * @returns {boolean} Success status
+     */
+    async updatePollVotes(pollId, votes) {
+        try {
+            const docRef = this.db.collection('polls').doc(pollId);
+            await docRef.set({ votes, updated_at: new Date() }, { merge: true });
+            return true;
+        } catch (error) {
+            logger.error(`Error updating poll votes for ${pollId}: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * End a poll (set active=false)
+     * @param {string} pollId - Poll ID
+     * @returns {boolean} Success status
+     */
+    async endPoll(pollId) {
+        try {
+            const docRef = this.db.collection('polls').doc(pollId);
+            await docRef.set({ active: false, ended_at: new Date(), updated_at: new Date() }, { merge: true });
+            logger.info(`Ended poll ${pollId}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error ending poll ${pollId}: ${error.message}`);
+            return false;
+        }
+    }
+
     /**
      * Get top users by wins with game statistics
-     * @param {string} guildId - Guild ID 
+     * Aggregates across per-game docs, falling back to global totals when present.
+     * @param {string} guildId - Guild ID (kept for API compatibility)
      * @param {number} limit - Number of users to return
      * @returns {Array} Array of user game statistics
      */
     async getTopUsersByWins(guildId, limit = 10) {
         try {
-            // Get all user stats
+            // Fetch a broad slice of stats to aggregate. We avoid orderBy to include per-game docs.
             const statsSnapshot = await this.db.collection('user_stats')
-                .orderBy('total_wins', 'desc')
-                .limit(Math.min(limit * 2, 100))
+                .limit(500)
                 .get();
-            
-            const users = [];
-            
+
+            const aggregate = new Map(); // userId -> { wins, losses, username, hasGlobal }
+
             for (const doc of statsSnapshot.docs) {
-                const data = doc.data();
-                const totalWins = parseInt(data.total_wins) || 0;
-                const totalLosses = parseInt(data.total_losses) || 0;
-                
-                if (totalWins > 0 || totalLosses > 0) { // Only include users with game history
+                const data = doc.data() || {};
+
+                // Determine if this is a global stats doc (doc.id is the userId) or a per-game doc (id includes '_')
+                const isPerGame = Boolean(data.game_type) || doc.id.includes('_');
+
+                if (isPerGame) {
+                    const userId = data.user_id || (doc.id.split('_')[0] || null);
+                    if (!userId) continue;
+
+                    const wins = parseInt(data.wins) || 0;
+                    const losses = parseInt(data.losses) || 0;
+
+                    if (!aggregate.has(userId)) {
+                        aggregate.set(userId, { wins: 0, losses: 0, username: data.username || null, hasGlobal: false });
+                    }
+                    const entry = aggregate.get(userId);
+                    entry.wins += wins;
+                    entry.losses += losses;
+                    if (!entry.username && data.username) entry.username = data.username;
+                } else {
+                    // Global totals
+                    const userId = doc.id;
+                    const totalWins = parseInt(data.total_wins) || 0;
+                    const totalLosses = parseInt(data.total_losses) || 0;
+
+                    if (!aggregate.has(userId)) {
+                        aggregate.set(userId, { wins: 0, losses: 0, username: data.username || null, hasGlobal: false });
+                    }
+                    const entry = aggregate.get(userId);
+                    entry.wins = totalWins; // Prefer global
+                    entry.losses = totalLosses;
+                    entry.username = entry.username || data.username || null;
+                    entry.hasGlobal = true;
+                }
+            }
+
+            // Build array and compute totals
+            const users = [];
+            for (const [userId, entry] of aggregate.entries()) {
+                const totalWins = entry.wins || 0;
+                const totalLosses = entry.losses || 0;
+                if (totalWins > 0 || totalLosses > 0) {
                     users.push({
-                        user_id: doc.id,
-                        username: data.username || null, // Keep null to trigger Discord lookup
+                        user_id: userId,
+                        username: entry.username || null,
                         total_wins: totalWins,
                         total_losses: totalLosses,
                         total_games: totalWins + totalLosses,
-                        win_rate: totalWins + totalLosses > 0 ? (totalWins / (totalWins + totalLosses)) * 100 : 0,
-                        updated_at: data.updated_at
+                        win_rate: totalWins + totalLosses > 0 ? (totalWins / (totalWins + totalLosses)) * 100 : 0
                     });
                 }
             }
-            
-            // Sort by total wins (descending)
-            users.sort((a, b) => b.total_wins - a.total_wins);
-            
+
+            // Sort by wins desc, then win rate desc
+            users.sort((a, b) => {
+                if (b.total_wins !== a.total_wins) return b.total_wins - a.total_wins;
+                return b.win_rate - a.win_rate;
+            });
+
             return users.slice(0, limit);
         } catch (error) {
             logger.error(`Error getting top users by wins: ${error.message}`);

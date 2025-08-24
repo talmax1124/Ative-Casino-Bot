@@ -1,8 +1,8 @@
 /**
  * Rob command - steal money from other users with tier restrictions
  * Takes 8% of target's balance on success, 4% penalty on failure
- * Cannot rob 2+ tiers higher or the developer
- */
+ * Cannot rob 3+ tiers higher or the developer
+*/
 
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
@@ -108,18 +108,19 @@ module.exports = {
             const robberTier = getEconomicTier(robberTotal);
             const targetTier = getEconomicTier(targetTotal);
 
-            // Check tier restrictions (cannot rob 2+ tiers higher)
+            // Check tier restrictions (cannot rob 3+ tiers higher; two tiers above is allowed)
             const allTiers = getAllTiers().reverse(); // Highest to lowest
             const robberTierIndex = allTiers.findIndex(t => t.key === robberTier.key);
             const targetTierIndex = allTiers.findIndex(t => t.key === targetTier.key);
             
-            const tierDifference = robberTierIndex - targetTierIndex; // Negative means target is higher
+            const tierDifference = robberTierIndex - targetTierIndex; // Positive means target is higher tier
 
-            if (tierDifference <= -2) { // Target is 2+ tiers higher
+            // Block only if target is 3+ tiers ABOVE the robber
+            if (tierDifference >= 3) {
                 const embed = buildSessionEmbed({
                     title: `🛡️ ${interaction.user.displayName}'s Rob Attempt`,
                     topFields: [
-                        { name: 'Tier Protection', value: 'You cannot rob someone 2+ tiers above you!' },
+                        { name: 'Tier Protection', value: 'You cannot rob someone 3+ tiers above you!' },
                         { name: 'Your Tier', value: `${robberTier.emoji} ${robberTier.name}`, inline: true },
                         { name: 'Target Tier', value: `${targetTier.emoji} ${targetTier.name}`, inline: true },
                         { name: 'Advice', value: 'Rob someone closer to your level.' }
@@ -149,12 +150,12 @@ module.exports = {
             let baseSuccessRate = 50; // 50% base rate
             
             // Tier advantage/disadvantage
-            if (tierDifference > 0) {
-                // Robbing lower tier - slight advantage
-                baseSuccessRate += Math.min(tierDifference * 10, 20);
-            } else if (tierDifference < 0) {
-                // Robbing higher tier - disadvantage
-                baseSuccessRate += Math.max(tierDifference * 15, -30);
+            if (tierDifference < 0) {
+                // Target is lower tier -> advantage
+                baseSuccessRate += Math.min(Math.abs(tierDifference) * 10, 20);
+            } else if (tierDifference > 0) {
+                // Target is higher tier -> disadvantage
+                baseSuccessRate -= Math.min(tierDifference * 15, 30);
             }
 
             // Ensure reasonable bounds

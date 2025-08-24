@@ -83,24 +83,19 @@ function createPollEmbed(pollData, showResults = false) {
     const optionsText = pollData.options.map((option, index) => {
         const voteCount = votes[index] || 0;
         const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
-        
-        if (showResults || !pollData.active) {
-            const bar = '█'.repeat(Math.floor(percentage / 5)) + '░'.repeat(20 - Math.floor(percentage / 5));
-            return `**${index + 1}.** ${option}\n\`${bar}\` ${voteCount} votes (${percentage}%)`;
-        } else {
-            return `**${index + 1}.** ${option}`;
-        }
+        const bar = '█'.repeat(Math.floor(percentage / 5)) + '░'.repeat(20 - Math.floor(percentage / 5));
+        // Always show live results with progress bars and counts
+        return `**${index + 1}.** ${option}\n\`${bar}\` ${voteCount} votes (${percentage}%)`;
     }).join('\n\n');
 
     embed.addFields(
         { name: '📋 Options', value: optionsText, inline: false }
     );
 
-    if (showResults || !pollData.active) {
-        embed.addFields(
-            { name: '🗳️ Total Votes', value: totalVotes.toString(), inline: true }
-        );
-    }
+    // Always display total votes so users see live counts
+    embed.addFields(
+        { name: '🗳️ Total Votes', value: totalVotes.toString(), inline: true }
+    );
 
     return embed;
 }

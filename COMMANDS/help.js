@@ -3,7 +3,7 @@
  * Shows all commands organized by categories with detailed descriptions
  */
 
-const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle, StringSelectMenuBuilder, EmbedBuilder } = require('discord.js');
 const { getTierDisplay, getAllTiers } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
@@ -288,7 +288,7 @@ function createEconomyHelp(interaction) {
             },
             {
                 name: '🦹 Advanced Economy',
-                value: '**`/rob <user>`** - Steal 8% of target\'s money\n⚠️ **Risk:** 4% penalty if caught\n🛡️ **Protection:** Can\'t rob 2+ tiers higher\n❌ **Developer is protected from robbery**',
+                value: '**`/rob <user>`** - Steal 8% of target\'s money\n⚠️ **Risk:** 4% penalty if caught\n🛡️ **Protection:** Can\'t rob 3+ tiers higher\n❌ **Developer is protected from robbery**',
                 inline: false
             },
             {
@@ -430,7 +430,7 @@ function createTiersHelp(interaction) {
 
     embed.addFields({
         name: '📋 Important Tier Rules',
-        value: '• **Tier based on total balance** (wallet + bank)\n• **Must maintain minimum** for tier benefits\n• **Interest calculated daily** on bank balance only\n• **Inactivity over 10 days** may result in downgrade\n• **Higher tiers protected** from robbery (2+ tier rule)',
+        value: '• **Tier based on total balance** (wallet + bank)\n• **Must maintain minimum** for tier benefits\n• **Interest calculated daily** on bank balance only\n• **Inactivity over 10 days** may result in downgrade\n• **Higher tiers protected** from robbery (3+ tier rule)',
         inline: false
     });
 
