@@ -7,6 +7,8 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ButtonBuilder, ActionRo
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { spinSlots, calculatePayout, createSlotDisplay, createSlotsImage, createSpinningSlotGIF } = require('../GAMES/slots');
+const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 
@@ -83,12 +85,20 @@ module.exports = {
 
     async execute(interaction) {
         const userId = interaction.user.id;
+        const username = interaction.user.displayName;
         const amount = interaction.options.getString('amount');
         const guildId = await getGuildId(interaction);
 
         try {
+            // Validate session before proceeding
+            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.SLOTS, guildId);
+            if (!sessionValidation.valid) {
+                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'slots', sessionValidation);
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
+
             // Ensure user exists and get balance
-            await dbManager.ensureUser(userId, interaction.user.displayName);
+            await dbManager.ensureUser(userId, username);
             const userBalance = await dbManager.getUserBalance(userId, guildId);
 
             // Validate and deduct bet
@@ -107,12 +117,43 @@ module.exports = {
             const betAmount = validation.parsedAmount;
             const oldWallet = validation.newWallet + betAmount; // Wallet before bet
 
+            // Create game session
+            const sessionResult = await GameSessionIntegrator.createGameSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: SMGameType.SLOTS,
+                betAmount,
+                timeout: 60000, // 1 minute
+                metadata: {
+                    gamePhase: 'spinning',
+                    symbols: []
+                },
+                interaction
+            });
+
+            if (!sessionResult.success) {
+                throw new Error(`Session creation failed: ${sessionResult.error}`);
+            }
+
+            const sessionId = sessionResult.sessionId;
+
             // Defer reply for animation and image generation
             await interaction.deferReply();
 
             // Spin the slots for real result immediately
             const symbols = spinSlots();
             const result = calculatePayout(symbols, betAmount);
+
+            // Update session with spin results
+            await GameSessionIntegrator.updateGameSession(sessionId, {
+                gameData: {
+                    symbols,
+                    result,
+                    gamePhase: 'completed',
+                    gameStarted: true
+                }
+            }, 'spin_complete');
 
             // Create game result
             const gameResult = new GameResult({
@@ -212,6 +253,17 @@ module.exports = {
                     }
 
                     await interaction.editReply(finalData);
+                    
+                    // Complete session after final result shown
+                    await GameSessionIntegrator.completeGameSession(sessionId, {
+                        outcome: result.won ? 'WIN' : 'LOSS',
+                        symbols,
+                        finalPayout: result.payout,
+                        multiplier: result.multiplier,
+                        won: result.won,
+                        netChange: result.payout - betAmount
+                    });
+                    
                 } catch (error) {
                     logger.error(`Error updating slots to static result: ${error.message}`);
                 }
@@ -234,15 +286,22 @@ module.exports = {
         } catch (error) {
             logger.error(`Error in slots command: ${error.message}`);
             
+            // Handle game error with session cleanup and refund
+            await GameSessionIntegrator.handleGameError(userId, SMGameType.SLOTS, validation?.parsedAmount || 0, guildId, 'Slots game error');
+            
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Game Error')
-                .setDescription('An error occurred while playing slots. Please try again.')
+                .setDescription('An error occurred while playing slots. Your bet has been refunded.')
                 .setColor(0xFF0000);
 
-            if (interaction.replied || interaction.deferred) {
-                await interaction.editReply({ embeds: [errorEmbed] });
-            } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.editReply({ embeds: [errorEmbed] });
+                } else {
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                }
+            } catch (replyError) {
+                logger.error(`Failed to send slots error reply: ${replyError.message}`);
             }
         }
     }

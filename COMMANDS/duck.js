@@ -8,6 +8,8 @@ const { PayoutManager, GameType, GameResult, TimeoutManager } = require('../UTIL
 const { fmt, fmtDelta, clearActiveGame, setActiveGame, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 const { getSecureHazard } = require('../UTILS/rng');
+const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const Canvas = require('canvas');
@@ -389,22 +391,30 @@ module.exports = {
 
     async execute(interaction) {
         const userId = interaction.user.id;
+        const username = interaction.user.displayName;
         const amount = interaction.options.getString('amount');
         const guildId = await getGuildId(interaction);
 
-        // Check if user already has an active duck game
-        if (activeGames.has(userId)) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Game Already Active')
-                .setDescription('You already have an active duck game.')
-                .setColor(0xFF0000);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
-
         try {
+            // Validate session before proceeding
+            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.DUCK, guildId);
+            if (!sessionValidation.valid) {
+                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'duck', sessionValidation);
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
+
+            // Check if user already has an active duck game
+            if (activeGames.has(userId)) {
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Game Already Active')
+                    .setDescription('You already have an active duck game.')
+                    .setColor(0xFF0000);
+                
+                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            }
+
             // Ensure user exists and get balance
-            await dbManager.ensureUser(userId, interaction.user.displayName);
+            await dbManager.ensureUser(userId, username);
             const userBalance = await dbManager.getUserBalance(userId, guildId);
 
             // Validate and deduct bet

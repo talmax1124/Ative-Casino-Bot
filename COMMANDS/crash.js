@@ -4,6 +4,8 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -17,20 +19,62 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    const userId = interaction.user.id;
+    const username = interaction.user.displayName;
+    const guildId = interaction.guildId;
+
     try {
+      // Validate session before proceeding
+      const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.CRASH, guildId);
+      if (!sessionValidation.valid) {
+        const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'crash', sessionValidation);
+        return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+      }
+
+      // Create session for crash game
+      const sessionResult = await GameSessionIntegrator.createGameSession({
+        userId,
+        guildId,
+        channelId: interaction.channelId,
+        gameType: SMGameType.CRASH,
+        betAmount: 0, // Will be set when bet is placed
+        timeout: 120000, // 2 minutes
+        metadata: {
+          gamePhase: 'joining',
+          betPlaced: false
+        },
+        interaction
+      });
+
+      if (!sessionResult.success) {
+        throw new Error(`Session creation failed: ${sessionResult.error}`);
+      }
+
+      const sessionId = sessionResult.sessionId;
+
+      // Pass session info to crash game handler
       const { handleGameExecution } = require('../GAMES/crash');
-      await handleGameExecution(interaction, interaction.client);
+      await handleGameExecution(interaction, interaction.client, sessionId);
+
     } catch (error) {
       logger.error(`crash command failed: ${error?.stack || error}`);
+      
+      // Handle game error with session cleanup
+      await GameSessionIntegrator.handleGameError(userId, SMGameType.CRASH, 0, guildId, 'Crash game initialization error');
+      
       const embed = new EmbedBuilder()
         .setTitle('❌ Crash Error')
-        .setDescription('Failed to start or join the Crash game.')
+        .setDescription('Failed to start or join the Crash game. Please try again.')
         .setColor(0xFF0000);
 
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      } else {
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        } else {
+          await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
+      } catch (replyError) {
+        logger.error(`Failed to send crash error reply: ${replyError.message}`);
       }
     }
   }

@@ -9,6 +9,8 @@ const { fmt, fmtDelta, clearActiveGame, setActiveGame, getGuildId, sendLogMessag
 const { BlackjackGame } = require('../GAMES/blackjack');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
+const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 
@@ -157,22 +159,30 @@ module.exports = {
 
     async execute(interaction) {
         const userId = interaction.user.id;
+        const username = interaction.user.displayName;
         const amount = interaction.options.getString('amount');
         const guildId = await getGuildId(interaction);
 
-        // Check if user already has an active blackjack game
-        if (activeGames.has(userId)) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Game Already Active')
-                .setDescription('You already have an active blackjack game.')
-                .setColor(0xFF0000);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
-
         try {
+            // Validate session before proceeding
+            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.BLACKJACK, guildId);
+            if (!sessionValidation.valid) {
+                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'blackjack', sessionValidation);
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
+
+            // Check legacy active games map
+            if (activeGames.has(userId)) {
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Game Already Active')
+                    .setDescription('You already have an active blackjack game.')
+                    .setColor(0xFF0000);
+                
+                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            }
+
             // Ensure user exists and get balance
-            await dbManager.ensureUser(userId, interaction.user.displayName);
+            await dbManager.ensureUser(userId, username);
             const userBalance = await dbManager.getUserBalance(userId, guildId);
 
             // Validate and deduct bet
@@ -190,11 +200,46 @@ module.exports = {
 
             const betAmount = validation.parsedAmount;
 
+            // Create game session
+            const sessionResult = await GameSessionIntegrator.createGameSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: SMGameType.BLACKJACK,
+                betAmount,
+                timeout: 300000, // 5 minutes
+                metadata: {
+                    dealerHand: [],
+                    playerHand: [],
+                    gamePhase: 'initial'
+                },
+                interaction
+            });
+
+            if (!sessionResult.success) {
+                throw new Error(`Session creation failed: ${sessionResult.error}`);
+            }
+
+            const sessionId = sessionResult.sessionId;
+
             // Create new game
             const game = new BlackjackGame(userId, betAmount);
             game.dealInitialCards();
+            game.sessionId = sessionId; // Link game to session
             activeGames.set(userId, game);
             setActiveGame(userId, GameType.BLACKJACK);
+
+            // Update session with initial game data
+            await GameSessionIntegrator.updateGameSession(sessionId, {
+                gameData: {
+                    dealerHand: game.dealerHand.getCards().map(c => c.toString()),
+                    playerHand: game.playerHand.getCards().map(c => c.toString()),
+                    dealerValue: game.dealerHand.getValue(),
+                    playerValue: game.playerHand.getValue(),
+                    gamePhase: 'playing',
+                    gameStarted: true
+                }
+            }, 'game_start');
 
             // Create embed and table image
             const embed = createGameEmbed(game, interaction.user, false, userBalance);
@@ -211,12 +256,12 @@ module.exports = {
             
             await interaction.reply(messageData);
 
-            // Set timeout for game (5 minutes)
+            // Legacy timeout (SessionManager handles main timeout)
             TimeoutManager.setTimeout(userId, 300, () => {
                 if (activeGames.has(userId)) {
                     activeGames.delete(userId);
                     clearActiveGame(userId);
-                    PayoutManager.refundBet(userId, interaction.guildId, betAmount, 'Game timeout');
+                    // Don't refund here - SessionManager handles it
                 }
             });
 
@@ -238,6 +283,19 @@ module.exports = {
                 });
 
                 await PayoutManager.processGamePayout(gameResult);
+                
+                // Complete session
+                await GameSessionIntegrator.completeGameSession(sessionId, {
+                    outcome: 'BLACKJACK',
+                    finalDealerHand: game.dealerHand.getCards().map(c => c.toString()),
+                    finalPlayerHand: game.playerHand.getCards().map(c => c.toString()),
+                    finalDealerValue: game.dealerHand.getValue(),
+                    finalPlayerValue: game.playerHand.getValue(),
+                    payout: result.payout,
+                    won: result.won,
+                    netChange: result.payout - betAmount
+                });
+
                 activeGames.delete(userId);
                 clearActiveGame(userId);
                 TimeoutManager.clearTimeout(userId);
@@ -274,12 +332,19 @@ module.exports = {
         } catch (error) {
             logger.error(`Error in blackjack command: ${error.message}`);
             
+            // Handle game error with session cleanup and refund
+            await GameSessionIntegrator.handleGameError(userId, SMGameType.BLACKJACK, validation?.parsedAmount || 0, guildId, 'Blackjack game error');
+            
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Game Error')
-                .setDescription('An error occurred while starting blackjack. Please try again.')
+                .setDescription('An error occurred while starting blackjack. Your bet has been refunded.')
                 .setColor(0xFF0000);
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            try {
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            } catch (replyError) {
+                logger.error(`Failed to send error reply: ${replyError.message}`);
+            }
         }
     },
 
@@ -511,6 +576,24 @@ module.exports = {
             } catch (interactionError) {
                 logger.error(`Failed to update interaction for blackjack endGame: ${interactionError.message}`);
                 // Still clean up the game even if interaction update fails
+            }
+
+            // Complete session if game has one
+            if (game.sessionId) {
+                await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                    outcome: 'COMPLETED',
+                    finalDealerHand: game.dealerHand.getCards().map(c => c.toString()),
+                    finalPlayerHand: game.splitHands.length > 0 ? 
+                        game.splitHands.map(h => h.getCards().map(c => c.toString())) :
+                        game.playerHand.getCards().map(c => c.toString()),
+                    finalDealerValue: game.dealerHand.getValue(),
+                    finalPlayerValue: game.splitHands.length > 0 ?
+                        game.splitHands.map(h => h.getValue()) :
+                        game.playerHand.getValue(),
+                    totalPayout,
+                    won: totalPayout > 0,
+                    netChange: totalPayout - game.betAmount * (game.splitHands.length || 1)
+                });
             }
 
             // Clean up after interaction update (success or failure)

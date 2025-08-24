@@ -14,6 +14,8 @@ const {
     handleRPSAction,
     createAnimationEmbeds
 } = require('../GAMES/rps');
+const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -33,6 +35,13 @@ module.exports = {
         const username = interaction.user.displayName;
 
         try {
+            // Validate session before proceeding
+            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.RPS, guildId);
+            if (!sessionValidation.valid) {
+                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'rps', sessionValidation);
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
+
             // Check if there's already an active RPS game in this channel
             const existingGame = getRPSGame(channelId);
             if (existingGame) {
@@ -97,6 +106,28 @@ module.exports = {
                 return;
             }
 
+            // Create game session
+            const sessionResult = await GameSessionIntegrator.createGameSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: SMGameType.RPS,
+                betAmount,
+                timeout: 60000, // 1 minute
+                metadata: {
+                    gamePhase: 'waiting_for_opponent',
+                    player1: username,
+                    betAmount
+                },
+                interaction
+            });
+
+            if (!sessionResult.success) {
+                throw new Error(`Session creation failed: ${sessionResult.error}`);
+            }
+
+            const sessionId = sessionResult.sessionId;
+
             // Deduct bet from player 1's wallet and set game as active
             const newWalletBalance = balance.wallet - betAmount;
             
@@ -132,15 +163,22 @@ module.exports = {
         } catch (error) {
             logger.error(`Error executing RPS command: ${error.message}`, { userId, error: error.stack });
             
+            // Handle game error with session cleanup and refund
+            await GameSessionIntegrator.handleGameError(userId, SMGameType.RPS, betAmount || 0, guildId, 'RPS game error');
+            
             const embed = new EmbedBuilder()
                 .setTitle('❌ Command Error')
-                .setDescription('An error occurred while starting the RPS game. Please try again.')
+                .setDescription('An error occurred while starting the RPS game. Your bet has been refunded.')
                 .setColor(0xFF0000);
             
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            } else {
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                } else {
+                    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                }
+            } catch (replyError) {
+                logger.error(`Failed to send RPS error reply: ${replyError.message}`);
             }
         }
     },

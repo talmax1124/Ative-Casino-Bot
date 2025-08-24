@@ -17,6 +17,7 @@ const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 const { CrashGraphRenderer } = require('../UTILS/crashGraphRenderer');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const logger = require('../UTILS/logger');
 
 const log = logger;
@@ -361,7 +362,7 @@ function gameButtons() {
 }
 
 // ===== Game Management Functions =====
-async function handleGameExecution(interaction, client) {
+async function handleGameExecution(interaction, client, sessionId = null) {
   try {
     const guildId = interaction.guildId;
     const channelId = interaction.channelId;
