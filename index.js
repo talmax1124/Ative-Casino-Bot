@@ -958,7 +958,7 @@ async function showAllCommandsList(interaction) {
             },
             {
                 name: '🎟️ Lottery System',
-                value: '`/lottery` `/purchaselottery` `/updatelotterypanel`',
+                value: '`/lottery` `/purchaselottery` (use `/dev updatelottery` to refresh panel)',
                 inline: false
             },
             {

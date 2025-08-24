@@ -1,10 +1,10 @@
 /**
- * Update Lottery Panel command module
- * Creates or refreshes the persistent lottery information panel in the designated channel.
+ * Lottery Panel helper
+ * Provides createLotteryPanel for use via the dev panel.
  */
 
 const { EmbedBuilder } = require('discord.js');
-const logger = require('../UTILS/logger');
+const logger = require('./logger');
 const {
     getNextLotteryTimestamp,
     setLotteryPanelMessage,
@@ -13,8 +13,8 @@ const {
     cleanupDuplicatePanels,
     LOTTERY_CHANNEL_ID,
     DESIGNATED_SERVER_ID
-} = require('../UTILS/lottery');
-const { fmt } = require('../UTILS/common');
+} = require('./lottery');
+const { fmt } = require('./common');
 
 /**
  * Create or update the lottery information panel.
@@ -96,7 +96,6 @@ async function createLotteryPanel(interaction, lotteryInfo = {}) {
 
         // Ensure the panel is pinned for visibility
         try {
-            // Only pin if not already pinned
             if (!message.pinned) {
                 await message.pin();
             }
@@ -118,3 +117,4 @@ async function createLotteryPanel(interaction, lotteryInfo = {}) {
 module.exports = {
     createLotteryPanel
 };
+

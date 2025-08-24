@@ -110,7 +110,7 @@ module.exports = {
                     },
                     {
                         name: '👑 For Administrators',
-                        value: '💸 `/addmoney [user] [amount]` - Add money to users\n⚖️ `/setmoney [user] [amount]` - Set user balance\n📊 `/panel` - Create game panels\n🎟️ `/updatelotterypanel` - Update lottery info\n💾 `/backup` - Create database backup',
+                        value: '💸 `/addmoney [user] [amount]` - Add money to users\n⚖️ `/setmoney [user] [amount]` - Set user balance\n📊 `/panel` - Create game panels\n🎟️ `/dev updatelottery` - Update lottery info panel (dev only)\n💾 `/backup` - Create database backup',
                         inline: true
                     },
                     {

@@ -891,7 +891,7 @@ const updateLotteryPanelCommand = {
             const lotteryInfo = await dbManager.getLotteryInfo(guildId);
             
             // Import the updateLotteryPanel command functionality
-            const updateLotteryPanelModule = require('./update-lottery-panel');
+            const updateLotteryPanelModule = require('../UTILS/lotteryPanel');
             
             // Create the lottery panel
             await updateLotteryPanelModule.createLotteryPanel(interaction, lotteryInfo);
