@@ -41,14 +41,6 @@ module.exports = {
             // Use gameSessionKit for consistent UI styling
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
             
-            // Balance details in topFields
-            const topFields = [{
-                name: '💰 BALANCE OVERVIEW',
-                value: `**Player:** ${targetUser.displayName}\n` +
-                       `\`\`\`fix\nWallet: ${fmtFull(balance.wallet)}    Bank: ${fmtFull(balance.bank)}    Total: ${fmtFull(totalBalance)}\`\`\``,
-                inline: false
-            }];
-
             // Financial information in bankFields
             const bankFields = [
                 { name: '💵 Wallet Balance', value: fmtFull(balance.wallet), inline: true },
@@ -65,7 +57,6 @@ module.exports = {
             // Build the embed using gameSessionKit
             const embed = buildSessionEmbed({
                 title: `💰 ${targetUser.displayName}'s Balance`,
-                topFields,
                 bankFields,
                 stageText,
                 color: tier.color,

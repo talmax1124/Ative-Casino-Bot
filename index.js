@@ -12,6 +12,7 @@ require('dotenv').config();
 
 const logger = require('./UTILS/logger');
 const dbManager = require('./UTILS/database');
+const economyMonitor = require('./UTILS/economyMonitor');
 const { sendLogMessage } = require('./UTILS/common');
 const panelManager = require('./UTILS/panelManager');
 const { LotteryGame } = require('./GAMES/lottery');
@@ -278,6 +279,14 @@ client.once('clientReady', async () => {
         logger.info('Lottery system initialized successfully');
     } catch (error) {
         logger.error('Failed to initialize lottery system:', error);
+    }
+
+    // Initialize Economy Monitor
+    try {
+        await economyMonitor.initialize(client);
+        logger.info('Economy Monitor initialized successfully');
+    } catch (error) {
+        logger.error('Failed to initialize Economy Monitor:', error);
     }
 
     // Send startup notification

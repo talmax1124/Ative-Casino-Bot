@@ -3,7 +3,7 @@
  * Handles multiplayer BINGO games with automatic number calling
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, AttachmentBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
 const { 
@@ -14,6 +14,8 @@ const {
     endBingoGame,
     handleBingoAction
 } = require('../GAMES/bingo');
+const { createBingoCardImage, createGameStatusImage, getBingoColumn } = require('../UTILS/bingoImageGenerator');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -430,38 +432,61 @@ module.exports = {
 
             const player = game.players.get(userId);
             
-            const embed = new EmbedBuilder()
-                .setTitle('🎯 Your BINGO Card')
-                .setDescription(player.card.getCardDisplay())
-                .setColor(0x0000FF);
-
-            if (game.currentNumber) {
-                const column = game.getNumberColumn(game.currentNumber);
-                embed.addFields({
-                    name: '📢 Last Called',
-                    value: `**${column}-${game.currentNumber}**`,
-                    inline: true
-                });
-            }
-
-            embed.addFields({
-                name: '📊 Game Status',
-                value: `Numbers Called: ${game.calledNumbers.length}/75\nPlayers: ${game.players.size}`,
-                inline: true
-            });
-
+            // Generate card image
+            const cardImage = createBingoCardImage(
+                player.card.card,
+                player.card.marked,
+                interaction.user.displayName,
+                game.calledNumbers
+            );
+            
+            const attachment = new AttachmentBuilder(cardImage, { name: `bingo_card_${userId}.png` });
+            
+            const topFields = [];
+            
+            // Add BINGO announcement if player won
             if (player.hasBingo) {
-                embed.addFields({
-                    name: '🏆 BINGO!',
-                    value: 'You have BINGO! Congratulations!',
+                topFields.push({
+                    name: '🏆 BINGO WINNER!',
+                    value: 'Congratulations! You have achieved BINGO!',
                     inline: false
                 });
             }
 
+            // Current number if available
+            if (game.currentNumber) {
+                const column = getBingoColumn(game.currentNumber);
+                topFields.push({
+                    name: '📢 LAST NUMBER CALLED',
+                    value: `**${column}-${game.currentNumber}**`,
+                    inline: false
+                });
+            }
+
+            // Game stats in bankFields
+            const bankFields = [
+                { name: '📊 Numbers Called', value: `${game.calledNumbers.length}/75`, inline: true },
+                { name: '👥 Total Players', value: game.players.size.toString(), inline: true },
+                { name: '🎯 Your Status', value: player.hasBingo ? '🏆 WINNER' : '🎲 Playing', inline: true },
+                { name: '🏆 Prize Pool', value: fmt(game.starterBet * game.players.size), inline: true },
+                { name: '📈 Game Progress', value: `${Math.round((game.calledNumbers.length / 75) * 100)}%`, inline: true },
+                { name: '🎲 Card Type', value: 'Personal BINGO Card', inline: true }
+            ];
+
+            const embed = buildSessionEmbed({
+                title: `🎯 ${interaction.user.displayName}'s BINGO Card`,
+                topFields,
+                bankFields,
+                stageText: player.hasBingo ? 'BINGO ACHIEVED' : 'PLAYING',
+                color: player.hasBingo ? 0x27AE60 : 0x3498DB,
+                footer: 'Your BINGO Card • Mark numbers as called • ATIVE Casino',
+                imageUrl: `attachment://bingo_card_${userId}.png`
+            });
+
             // Store interaction for auto-updates
             game.playerInteractions.set(userId, interaction);
             
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], files: [attachment], ephemeral: true });
 
         } catch (error) {
             logger.error(`Error showing card: ${error.message}`);
@@ -557,60 +582,67 @@ module.exports = {
                 return;
             }
 
-            const embed = new EmbedBuilder()
-                .setTitle('📊 BINGO Game Status')
-                .setColor(0x0000FF);
+            // Prepare game data for status image
+            const gameData = {
+                players: Array.from(game.players.values()).map(player => ({
+                    name: player.username,
+                    ready: !player.hasBingo
+                })),
+                calledNumbers: game.calledNumbers,
+                currentNumber: game.currentNumber,
+                gamePhase: game.gameActive ? 'active' : game.waitingForPlayers ? 'lobby' : 'finished'
+            };
 
+            // Generate game status image
+            const statusImage = createGameStatusImage(gameData);
+            const attachment = new AttachmentBuilder(statusImage, { name: 'bingo_status.png' });
+
+            const topFields = [];
+
+            // Current number if available
             if (game.currentNumber) {
-                const column = game.getNumberColumn(game.currentNumber);
-                embed.addFields({
-                    name: '📢 Current Number',
+                const column = getBingoColumn(game.currentNumber);
+                topFields.push({
+                    name: '📢 CURRENT NUMBER',
                     value: `**${column}-${game.currentNumber}**`,
-                    inline: true
+                    inline: false
                 });
             }
 
-            embed.addFields({
-                name: '🎮 Game Progress',
-                value: `Numbers Called: ${game.calledNumbers.length}/75\nActive Players: ${Array.from(game.players.values()).filter(p => !p.hasBingo).length}`,
-                inline: true
+            // Winners announcement
+            if (game.winners.length > 0) {
+                const winnerNames = game.winners.map(w => w.username).join(', ');
+                topFields.push({
+                    name: '🏆 GAME WINNERS',
+                    value: winnerNames,
+                    inline: false
+                });
+            }
+
+            // Game progress in bankFields
+            const activePlayers = Array.from(game.players.values()).filter(p => !p.hasBingo).length;
+            const totalPot = game.starterBet * game.players.size;
+            
+            const bankFields = [
+                { name: '👥 Total Players', value: game.players.size.toString(), inline: true },
+                { name: '🎲 Active Players', value: activePlayers.toString(), inline: true },
+                { name: '📊 Numbers Called', value: `${game.calledNumbers.length}/75`, inline: true },
+                { name: '🏆 Prize Pool', value: fmt(totalPot), inline: true },
+                { name: '📈 Progress', value: `${Math.round((game.calledNumbers.length / 75) * 100)}%`, inline: true },
+                { name: '🎯 Game Status', value: game.winners.length > 0 ? '🏆 COMPLETED' : '🔄 IN PROGRESS', inline: true }
+            ];
+
+            const embed = buildSessionEmbed({
+                title: '📊 BINGO Game Status',
+                topFields,
+                bankFields,
+                stageText: game.winners.length > 0 ? 'GAME COMPLETED' : 'GAME STATUS',
+                color: game.winners.length > 0 ? 0x27AE60 : 0x3498DB,
+                footer: 'Game Status • Real-time overview • ATIVE Casino',
+                imageUrl: 'attachment://bingo_status.png'
             });
 
-            if (game.winners.length > 0) {
-                const winnerNames = game.winners.map(w => w.username);
-                embed.addFields({
-                    name: '🏆 Winners',
-                    value: winnerNames.join(', '),
-                    inline: false
-                });
-            }
-
-            // Show called numbers by column
-            if (game.calledNumbers.length > 0) {
-                const calledByColumn = { 'B': [], 'I': [], 'N': [], 'G': [], 'O': [] };
-                for (const num of game.calledNumbers) {
-                    const column = game.getNumberColumn(num);
-                    calledByColumn[column].push(num.toString());
-                }
-
-                const columnDisplay = [];
-                for (const letter of ['B', 'I', 'N', 'G', 'O']) {
-                    if (calledByColumn[letter].length > 0) {
-                        const numbers = calledByColumn[letter].join(', ');
-                        columnDisplay.push(`**${letter}**: ${numbers}`);
-                    } else {
-                        columnDisplay.push(`**${letter}**: (none)`);
-                    }
-                }
-
-                embed.addFields({
-                    name: '📋 All Called Numbers by Column',
-                    value: columnDisplay.join('\n'),
-                    inline: false
-                });
-            }
-
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], files: [attachment], ephemeral: true });
 
         } catch (error) {
             logger.error(`Error showing game status: ${error.message}`);

@@ -5,6 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
+const { parseAmount, formatMoneyFull } = require('../UTILS/moneyFormatter');
 const logger = require('../UTILS/logger');
 
 // Helper function to check admin permissions
@@ -42,11 +43,10 @@ const addMoneyCommand = {
                 .setDescription('User to add money to')
                 .setRequired(true)
         )
-        .addIntegerOption(option =>
+        .addStringOption(option =>
             option.setName('amount')
-                .setDescription('Amount to add')
+                .setDescription('Amount to add (supports K/M/B/T suffixes)')
                 .setRequired(true)
-                .setMinValue(1)
         )
         .addStringOption(option =>
             option.setName('account')
@@ -72,8 +72,19 @@ const addMoneyCommand = {
         }
 
         const targetUser = interaction.options.getUser('user');
-        const amount = interaction.options.getInteger('amount');
+        const amountStr = interaction.options.getString('amount');
         const account = interaction.options.getString('account') || 'wallet';
+        
+        // Parse amount
+        const amount = parseAmount(amountStr);
+        if (amount === null || amount <= 0) {
+            const embed = new EmbedBuilder()
+                .setTitle('❌ Invalid Amount')
+                .setDescription('Invalid amount format. Use numbers with K/M/B/T suffixes (e.g., 1000, 5k, 2.5m).')
+                .setColor(0xFF0000);
+            
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
         const guildId = interaction.guildId;
 
         try {
@@ -163,11 +174,10 @@ const setMoneyCommand = {
                 .setDescription('User to set money for')
                 .setRequired(true)
         )
-        .addIntegerOption(option =>
+        .addStringOption(option =>
             option.setName('amount')
-                .setDescription('Amount to set')
+                .setDescription('Amount to set (supports K/M/B/T suffixes)')
                 .setRequired(true)
-                .setMinValue(0)
         ),
 
     async execute(interaction) {
@@ -182,7 +192,18 @@ const setMoneyCommand = {
         }
 
         const targetUser = interaction.options.getUser('user');
-        const amount = interaction.options.getInteger('amount');
+        const amountStr = interaction.options.getString('amount');
+        
+        // Parse amount
+        const amount = parseAmount(amountStr);
+        if (amount === null || amount < 0) {
+            const embed = new EmbedBuilder()
+                .setTitle('❌ Invalid Amount')
+                .setDescription('Invalid amount format. Use numbers with K/M/B/T suffixes (e.g., 1000, 5k, 2.5m).')
+                .setColor(0xFF0000);
+            
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
         const guildId = interaction.guildId;
 
         try {

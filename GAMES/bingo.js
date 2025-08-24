@@ -7,6 +7,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 
 // BINGO number ranges for each column
 const BINGO_RANGES = {
@@ -392,88 +393,117 @@ class BingoGameSession {
         this.stopAutoCalling();
     }
 
-    // Lobby embed
+    // Lobby embed using gameSessionKit
     getLobbyEmbed(notification = null) {
-        const embed = new EmbedBuilder()
-            .setTitle('<� Multiplayer BINGO Lobby')
-            .setDescription('Join the BINGO game!')
-            .setColor(0x00FF00);
-
+        const topFields = [];
+        
         if (notification) {
-            embed.setDescription(embed.data.description + `\n\n${notification}`);
+            topFields.push({
+                name: '📢 GAME NOTIFICATION',
+                value: notification,
+                inline: false
+            });
         }
 
+        // Player list in topFields
         if (this.players.size > 0) {
             const playerList = Array.from(this.players.values())
-                .map(p => `" **${p.username}**`)
+                .map(p => `🎯 **${p.username}**`)
                 .join('\n');
             
-            embed.addFields({
-                name: `Players (${this.players.size}/20)`,
+            topFields.push({
+                name: `👥 PLAYERS JOINED (${this.players.size}/20)`,
                 value: playerList,
                 inline: false
             });
         } else {
-            embed.addFields({
-                name: 'Players',
-                value: 'No players yet!',
+            topFields.push({
+                name: '👥 WAITING FOR PLAYERS',
+                value: 'Be the first to join this BINGO game!',
                 inline: false
             });
         }
 
-        embed.addFields({
-            name: 'Game Info',
-            value: `" **Buy-in:** ${fmt(this.starterBet)}\n" **Min Players:** 2\n" **Max Players:** 20`,
-            inline: false
-        });
+        // Game details in bankFields
+        const bankFields = [
+            { name: '💰 Buy-in Amount', value: fmt(this.starterBet), inline: true },
+            { name: '👥 Min Players', value: '2 players', inline: true },
+            { name: '👥 Max Players', value: '20 players', inline: true },
+            { name: '🎯 Game Type', value: 'Classic 5×5 BINGO', inline: true },
+            { name: '🏆 Prize Pool', value: fmt(this.starterBet * this.players.size), inline: true },
+            { name: '📊 Status', value: this.players.size >= 2 ? '✅ Ready to Start' : '⏳ Need More Players', inline: true }
+        ];
 
-        embed.setFooter({ text: '=� Enjoy your bingo game!' });
-        return embed;
+        return buildSessionEmbed({
+            title: '🎯 Multiplayer BINGO Lobby',
+            topFields,
+            bankFields,
+            stageText: 'GAME LOBBY',
+            color: 0x3498DB,
+            footer: 'BINGO Lobby • Join and start playing • ATIVE Casino'
+        });
     }
 
-    // Game status embed
+    // Game status embed using gameSessionKit
     getGameEmbed(notification = null) {
-        const embed = new EmbedBuilder()
-            .setTitle('<� Multiplayer BINGO Game')
-            .setColor(0x0000FF);
-
+        const topFields = [];
+        
         if (notification) {
-            embed.setDescription(notification);
-        }
-
-        if (this.currentNumber) {
-            const column = this.getNumberColumn(this.currentNumber);
-            embed.addFields({
-                name: '=� Current Number',
-                value: `**${column}-${this.currentNumber}**`,
-                inline: true
+            topFields.push({
+                name: '📢 GAME UPDATE',
+                value: notification,
+                inline: false
             });
         }
 
-        embed.addFields({
-            name: '=� Game Stats',
-            value: `Players: ${this.players.size}\nNumbers Called: ${this.calledNumbers.length}/75`,
-            inline: true
-        });
+        // Current number display (most important info)
+        if (this.currentNumber) {
+            const column = this.getNumberColumn(this.currentNumber);
+            topFields.push({
+                name: '🔢 CURRENT NUMBER CALLED',
+                value: `**${column}-${this.currentNumber}**`,
+                inline: false
+            });
+        }
 
-        const totalPot = this.players.size * this.starterBet;
-        embed.addFields({
-            name: '=� Prize Pool',
-            value: fmt(totalPot),
-            inline: true
-        });
-
+        // Recent numbers if available
         if (this.calledNumbers.length > 0) {
             const recent = this.calledNumbers.slice(-5);
-            const recentStr = recent.map(n => `${this.getNumberColumn(n)}-${n}`).join(' | ');
-            embed.addFields({
-                name: '=� Recent Numbers',
+            const recentStr = recent.map(n => `${this.getNumberColumn(n)}-${n}`).join(' • ');
+            topFields.push({
+                name: '📋 RECENT NUMBERS',
                 value: recentStr,
                 inline: false
             });
         }
 
-        return embed;
+        // Game stats in bankFields
+        const totalPot = this.players.size * this.starterBet;
+        const activePlayers = Array.from(this.players.values()).filter(p => !p.hasBingo).length;
+        
+        const bankFields = [
+            { name: '👥 Total Players', value: this.players.size.toString(), inline: true },
+            { name: '🎲 Active Players', value: activePlayers.toString(), inline: true },
+            { name: '🏆 Prize Pool', value: fmt(totalPot), inline: true },
+            { name: '📊 Numbers Called', value: `${this.calledNumbers.length}/75`, inline: true },
+            { name: '📈 Progress', value: `${Math.round((this.calledNumbers.length / 75) * 100)}%`, inline: true },
+            { name: '🎯 Game Status', value: this.winners.length > 0 ? '🏆 COMPLETED' : '🔄 IN PROGRESS', inline: true }
+        ];
+
+        // Add winners if any
+        if (this.winners.length > 0) {
+            const winnerNames = this.winners.map(w => w.username).join(', ');
+            bankFields.push({ name: '🏆 Winners', value: winnerNames, inline: false });
+        }
+
+        return buildSessionEmbed({
+            title: '🎯 Multiplayer BINGO Game',
+            topFields,
+            bankFields,
+            stageText: this.winners.length > 0 ? 'GAME COMPLETED' : 'GAME ACTIVE',
+            color: this.winners.length > 0 ? 0x27AE60 : 0x3498DB,
+            footer: 'BINGO Game • Click buttons for actions • ATIVE Casino'
+        });
     }
 
     createLobbyButtons() {
@@ -483,12 +513,12 @@ class BingoGameSession {
                     .setCustomId(`bingo_join_${this.channelId}`)
                     .setLabel('Join Game')
                     .setStyle(ButtonStyle.Success)
-                    .setEmoji('<�'),
+                    .setEmoji('🎯'),
                 new ButtonBuilder()
                     .setCustomId(`bingo_start_${this.channelId}`)
                     .setLabel('Start Game')
                     .setStyle(ButtonStyle.Primary)
-                    .setEmoji('=�')
+                    .setEmoji('▶️')
             );
 
         const row2 = new ActionRowBuilder()
@@ -497,7 +527,7 @@ class BingoGameSession {
                     .setCustomId(`bingo_leave_${this.channelId}`)
                     .setLabel('Leave Game')
                     .setStyle(ButtonStyle.Danger)
-                    .setEmoji('=�')
+                    .setEmoji('🚪')
             );
 
         const row3 = new ActionRowBuilder()
@@ -518,17 +548,17 @@ class BingoGameSession {
                     .setCustomId(`bingo_show_card_${this.channelId}`)
                     .setLabel('Show My Card')
                     .setStyle(ButtonStyle.Success)
-                    .setEmoji('<�'),
+                    .setEmoji('🎯'),
                 new ButtonBuilder()
                     .setCustomId(`bingo_interactive_card_${this.channelId}`)
                     .setLabel('Interactive Card')
                     .setStyle(ButtonStyle.Primary)
-                    .setEmoji('<�'),
+                    .setEmoji('🎯'),
                 new ButtonBuilder()
                     .setCustomId(`bingo_game_status_${this.channelId}`)
                     .setLabel('Game Status')
                     .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('=�')
+                    .setEmoji('▶️')
             );
 
         return [row];

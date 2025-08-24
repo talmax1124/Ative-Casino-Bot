@@ -835,6 +835,109 @@ module.exports = {
                     await interaction.showModal(attackModal);
                     break;
 
+                case 'open_placement':
+                    // Send or update ephemeral placement panel for this user
+                    if (!game.players.has(userId)) {
+                        await interaction.reply({ 
+                            content: '❌ You are not a player in this game.', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    const board = game.boards.get(userId);
+                    if (!board) {
+                        await interaction.reply({ content: '❌ You are not a player in this game.', flags: MessageFlags.Ephemeral });
+                        return;
+                    }
+
+                    const currentShip = board.getCurrentShip();
+                    const title = currentShip ? `Place: ${currentShip.name} (${currentShip.length})` : 'All ships placed';
+                    const buffer = await renderSingleBoard(board, { title: `${interaction.user.displayName} — ${title}`, showShips: true, attackingView: false });
+                    const attachment = new AttachmentBuilder(buffer, { name: 'placement.png' });
+
+                    const placeBtn = new ButtonBuilder().setCustomId('battleship_place_ships').setLabel('Place Current Ship').setStyle(ButtonStyle.Primary).setDisabled(!currentShip);
+                    const autoBtn = new ButtonBuilder().setCustomId('battleship_auto_place').setLabel('Auto-Place All').setStyle(ButtonStyle.Secondary).setDisabled(board.allShipsPlaced());
+                    const doneBtn = new ButtonBuilder().setCustomId('battleship_finish_placement').setLabel('Finish Placement').setStyle(ButtonStyle.Success).setDisabled(!board.allShipsPlaced());
+                    const row = new ActionRowBuilder().addComponents(placeBtn, autoBtn, doneBtn);
+
+                    // Use gameSessionKit for consistent UI styling
+                    const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                    
+                    const topFields = [{
+                        name: '⚓ SHIP PLACEMENT COMMAND CENTER',
+                        value: currentShip 
+                            ? `**Current Ship:** ${currentShip.name} (${currentShip.length} spaces)\n` +
+                              `**Instructions:** Use "Place Current Ship" to position manually\n` +
+                              `**Quick Option:** Use "Auto-Place All" for instant setup`
+                            : `**Status:** All ships positioned successfully!\n` +
+                              `**Next Step:** Click "Finish Placement" to confirm setup\n` +
+                              `**Ready:** Your fleet is prepared for battle!`,
+                        inline: false
+                    }];
+
+                    const bankFields = [
+                        { name: '🚢 Ships Remaining', value: board.getCurrentShip() ? `${board.shipsToPlace.length} ships left` : 'All ships placed', inline: true },
+                        { name: '⚓ Fleet Status', value: board.allShipsPlaced() ? '✅ Ready for Battle' : '🔧 Setup in Progress', inline: true },
+                        { name: '🎯 Placement Mode', value: 'Private tactical panel', inline: true }
+                    ];
+
+                    const embed = buildSessionEmbed({
+                        title: '⚓ Naval Command Interface',
+                        topFields,
+                        bankFields,
+                        stageText: currentShip ? 'SHIP DEPLOYMENT' : 'FLEET READY',
+                        color: currentShip ? 0xFFAA00 : 0x00FF00,
+                        footer: 'Ship placement • Tactical interface • ATIVE Casino',
+                        imageUrl: 'attachment://placement.png'
+                    });
+
+                    await interaction.reply({ embeds: [embed], files: [attachment], components: [row], flags: MessageFlags.Ephemeral });
+                    break;
+
+                case 'finish_placement':
+                    if (!game.players.has(userId)) {
+                        await interaction.reply({ 
+                            content: '❌ You are not a player in this game.', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    const finishBoard = game.boards.get(userId);
+                    if (!finishBoard.allShipsPlaced()) {
+                        await interaction.reply({ 
+                            content: '❌ You must place all ships first!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    // Mark this player as ready
+                    finishBoard.ready = true;
+
+                    // Check if both players are ready to start battle
+                    const allReady = Array.from(game.boards.values()).every(b => b.allShipsPlaced() && b.ready);
+
+                    if (allReady) {
+                        game.startBattle();
+                        
+                        const embed = game.createBattleEmbed();
+                        const components = game.createGameButtons();
+                        await interaction.update({ embeds: [embed], components });
+
+                        await interaction.followUp({
+                            content: '⚔️ **Battle commenced!** All ships deployed. The fight begins now!',
+                            flags: MessageFlags.Ephemeral
+                        });
+                    } else {
+                        await interaction.reply({
+                            content: '✅ Ships confirmed! Waiting for the other player to finish placement...',
+                            flags: MessageFlags.Ephemeral
+                        });
+                    }
+                    break;
+
                 default:
                     logger.warn(`Unknown battleship action: ${action}`);
                     await interaction.reply({ 

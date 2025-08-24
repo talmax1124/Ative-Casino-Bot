@@ -6,6 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { validateAmount, formatMoneyFull } = require('../UTILS/moneyFormatter');
 const { DESIGNATED_SERVER_ID } = require('../UTILS/lottery');
 const logger = require('../UTILS/logger');
 
@@ -18,16 +19,15 @@ module.exports = {
                 .setDescription('User to send money to')
                 .setRequired(true)
         )
-        .addIntegerOption(option =>
+        .addStringOption(option =>
             option.setName('amount')
-                .setDescription('Amount to send (minimum $1,000)')
+                .setDescription('Amount to send (supports K/M/B/T, "all", "half" - minimum $1,000)')
                 .setRequired(true)
-                .setMinValue(1000)
         ),
 
     async execute(interaction) {
         const targetUser = interaction.options.getUser('user');
-        const amount = interaction.options.getInteger('amount');
+        const amountStr = interaction.options.getString('amount');
         const senderId = interaction.user.id;
         const guildId = await getGuildId(interaction);
 
@@ -57,14 +57,18 @@ module.exports = {
             // Get sender's balance
             const senderBalance = await dbManager.getUserBalance(senderId, guildId);
             
-            // Check if sender has enough money
-            if (senderBalance.wallet < amount) {
+            // Validate and parse amount
+            const validation = validateAmount(amountStr, senderBalance.wallet, 1000); // Minimum $1,000
+            
+            if (!validation.isValid) {
                 await interaction.reply({
-                    content: `❌ Insufficient funds! You need ${fmt(amount)} but only have ${fmt(senderBalance.wallet)} in your wallet.`,
+                    content: `❌ ${validation.error}`,
                     ephemeral: true
                 });
                 return;
             }
+            
+            const amount = validation.amount;
 
             // Calculate tax (5% for lottery pool)
             const taxRate = 0.05;

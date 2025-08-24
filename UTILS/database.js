@@ -6,6 +6,7 @@
 const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 const firebaseConfig = require('./firebase');
 const logger = require('./logger');
+const { secureRandomInt } = require('./rng');
 
 class DatabaseManager {
     constructor() {
@@ -623,7 +624,7 @@ class DatabaseManager {
                 let attempts = 0;
                 
                 do {
-                    const randomIndex = Math.floor(Math.random() * weightedParticipants.length);
+                    const randomIndex = secureRandomInt(0, weightedParticipants.length);
                     winner = weightedParticipants[randomIndex];
                     attempts++;
                 } while (usedParticipants.has(winner) && attempts < 100);
