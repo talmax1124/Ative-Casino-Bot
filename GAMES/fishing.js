@@ -324,12 +324,12 @@ class FishingGame {
         }
 
         const bankFields = [
-            { name: 'Total Catches', value: this.totalCatches.toString(), inline: true },
-            { name: 'Initial Bet', value: fmt(this.initialBet), inline: true },
-            { name: 'Final Winnings', value: fmt(this.currentWinnings), inline: true },
-            { name: 'Wallet Change', value: `${fmt(this.walletBefore)} → ${fmt(finalWallet)}`, inline: true },
-            { name: 'Bank Balance', value: fmt(bankBalance), inline: true },
-            { name: 'Net Change', value: `${netChange >= 0 ? '+' : ''}${fmt(netChange)}`, inline: true }
+            { name: '💰 Initial Bet', value: fmt(this.initialBet), inline: true },
+            { name: '🎯 Final Winnings', value: fmt(this.currentWinnings), inline: true },
+            { name: '📊 Net Change', value: `${netChange >= 0 ? '+' : ''}${fmt(netChange)}`, inline: true },
+            { name: '🎣 Total Catches', value: `${this.totalCatches}/20`, inline: true },
+            { name: '💵 Wallet', value: `${fmt(this.walletBefore)} → ${fmt(finalWallet)}`, inline: true },
+            { name: '🏦 Bank', value: fmt(bankBalance), inline: true }
         ];
 
         return buildSessionEmbed({

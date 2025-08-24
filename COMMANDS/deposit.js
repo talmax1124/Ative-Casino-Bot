@@ -38,11 +38,23 @@ module.exports = {
             // Parse amount
             const parsedAmount = parseAmount(amountStr);
             if (parsedAmount === null) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Invalid Amount')
-                    .setDescription(`"${amountStr}" is not a valid amount.\n\n**Valid formats:**\n• Numbers: \`1000\`, \`1.5k\`, \`2.3m\`\n• Shortcuts: \`all\`, \`half\``)
-                    .setColor(0xFF0000)
-                    .setTimestamp();
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                const topFields = [
+                    {
+                        name: '❌ INVALID AMOUNT',
+                        value: `"${amountStr}" is not a valid amount.\n\n**Valid formats:**\n• Numbers: 1000, 1.5k, 2.3m\n• Shortcuts: all, half`,
+                        inline: false
+                    }
+                ];
+
+                const embed = buildSessionEmbed({
+                    title: '❌ Deposit Error',
+                    topFields,
+                    stageText: 'INVALID FORMAT',
+                    color: 0xFF0000,
+                    footer: 'Banking System Error'
+                });
 
                 return await interaction.editReply({ embeds: [embed] });
             }
@@ -52,21 +64,52 @@ module.exports = {
 
             // Validate amount
             if (resolvedAmount <= 0) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Invalid Amount')
-                    .setDescription('Deposit amount must be greater than $0.')
-                    .setColor(0xFF0000)
-                    .setTimestamp();
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                const topFields = [
+                    {
+                        name: '❌ INVALID AMOUNT',
+                        value: 'Deposit amount must be greater than $0.',
+                        inline: false
+                    }
+                ];
+
+                const embed = buildSessionEmbed({
+                    title: '❌ Deposit Error',
+                    topFields,
+                    stageText: 'INVALID AMOUNT',
+                    color: 0xFF0000,
+                    footer: 'Banking System Error'
+                });
 
                 return await interaction.editReply({ embeds: [embed] });
             }
 
             if (resolvedAmount > currentWallet) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Insufficient Funds')
-                    .setDescription(`You don't have enough money in your wallet!\n\n**Your Wallet:** ${fmtFull(currentWallet)}\n**Deposit Amount:** ${fmtFull(resolvedAmount)}`)
-                    .setColor(0xFF0000)
-                    .setTimestamp();
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                const topFields = [
+                    {
+                        name: '❌ INSUFFICIENT FUNDS',
+                        value: `You don't have enough money in your wallet!\n\n**Deposit Amount:** ${fmtFull(resolvedAmount)}`,
+                        inline: false
+                    }
+                ];
+
+                const bankFields = [
+                    { name: '💵 Wallet', value: fmtFull(currentWallet), inline: true },
+                    { name: '🏦 Bank', value: fmtFull(currentBank), inline: true },
+                    { name: '💎 Total', value: fmtFull(currentWallet + currentBank), inline: true }
+                ];
+
+                const embed = buildSessionEmbed({
+                    title: '❌ Deposit Failed',
+                    topFields,
+                    bankFields,
+                    stageText: 'INSUFFICIENT FUNDS',
+                    color: 0xFF0000,
+                    footer: 'Banking System Error'
+                });
 
                 return await interaction.editReply({ embeds: [embed] });
             }
@@ -83,11 +126,23 @@ module.exports = {
             );
 
             if (!success) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Transaction Failed')
-                    .setDescription('Failed to process your deposit. Please try again.')
-                    .setColor(0xFF0000)
-                    .setTimestamp();
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                const topFields = [
+                    {
+                        name: '❌ TRANSACTION FAILED',
+                        value: 'Failed to process your deposit.\nPlease try again.',
+                        inline: false
+                    }
+                ];
+
+                const embed = buildSessionEmbed({
+                    title: '❌ Banking Error',
+                    topFields,
+                    stageText: 'TRANSACTION FAILED',
+                    color: 0xFF0000,
+                    footer: 'Banking System Error'
+                });
 
                 return await interaction.editReply({ embeds: [embed] });
             }
@@ -95,18 +150,36 @@ module.exports = {
             // Get updated balance for display
             const newBalance = await dbManager.getUserBalance(userId, guildId);
 
-            // Create success embed
-            const embed = new EmbedBuilder()
-                .setTitle('💳 Deposit Successful')
-                .setDescription(`You successfully deposited ${fmtFull(depositAmount)} into your bank!`)
-                .setColor(0x00FF00)
-                .addFields(
-                    { name: '💵 Wallet', value: `${fmtFull(currentWallet)} → **${fmtFull(newBalance.wallet)}**`, inline: true },
-                    { name: '🏦 Bank', value: `${fmtFull(currentBank)} → **${fmtFull(newBalance.bank)}**`, inline: true },
-                    { name: '💎 Total', value: fmtFull(newBalance.wallet + newBalance.bank), inline: true }
-                )
-                .setFooter({ text: '💡 Your bank balance earns daily interest!' })
-                .setTimestamp();
+            // Create success embed using gameSessionKit for UI consistency
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            const topFields = [
+                {
+                    name: '✅ DEPOSIT SUCCESSFUL',
+                    value: `You successfully deposited **${fmtFull(depositAmount)}**\ninto your bank account!`,
+                    inline: false
+                },
+                {
+                    name: '💳 TRANSACTION SUMMARY',
+                    value: `**Amount:** ${fmtFull(depositAmount)}\n**From:** Wallet → Bank\n**Status:** Completed`,
+                    inline: false
+                }
+            ];
+
+            const bankFields = [
+                { name: '💵 Wallet', value: `${fmtFull(currentWallet)} → **${fmtFull(newBalance.wallet)}**`, inline: true },
+                { name: '🏦 Bank', value: `${fmtFull(currentBank)} → **${fmtFull(newBalance.bank)}**`, inline: true },
+                { name: '💎 Total', value: fmtFull(newBalance.wallet + newBalance.bank), inline: true }
+            ];
+
+            const embed = buildSessionEmbed({
+                title: `💳 ${interaction.user.displayName}'s Deposit`,
+                topFields,
+                bankFields,
+                stageText: 'DEPOSIT SUCCESS',
+                color: 0x00FF00,
+                footer: 'Your bank balance earns daily interest!'
+            });
 
             await interaction.editReply({ embeds: [embed] });
 
@@ -133,11 +206,28 @@ module.exports = {
         } catch (error) {
             logger.error(`Error in deposit command: ${error.message}`);
 
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Error')
-                .setDescription('An error occurred while processing your deposit.')
-                .setColor(0xFF0000)
-                .setTimestamp();
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            const topFields = [
+                {
+                    name: '❌ SYSTEM ERROR',
+                    value: 'An error occurred while processing\nyour deposit.',
+                    inline: false
+                },
+                {
+                    name: '🔧 ERROR DETAILS',
+                    value: error.message,
+                    inline: false
+                }
+            ];
+
+            const errorEmbed = buildSessionEmbed({
+                title: '❌ Deposit Failed',
+                topFields,
+                stageText: 'SYSTEM ERROR',
+                color: 0xFF0000,
+                footer: 'Banking System Error'
+            });
 
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
