@@ -61,12 +61,23 @@ const addMoneyCommand = {
     async execute(interaction) {
         // Check admin permissions
         if (!await hasAdminPermissions(interaction.member)) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Access Denied')
-                .setDescription('🚫 **Administrator permissions required**\n\nYou must be an administrator to use this command.')
-                .setColor(0xE74C3C)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🔒 Admin Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            const topFields = [
+                {
+                    name: '🚫 ACCESS DENIED',
+                    value: 'Administrator permissions required.\n\nYou must be an administrator to use this command.',
+                    inline: false
+                }
+            ];
+
+            const embed = buildSessionEmbed({
+                title: '❌ Permission Error',
+                topFields,
+                stageText: 'ACCESS DENIED',
+                color: 0xE74C3C,
+                footer: 'Admin Command Protection'
+            });
             
             return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
@@ -78,10 +89,23 @@ const addMoneyCommand = {
         // Parse amount
         const amount = parseAmount(amountStr);
         if (amount === null || amount <= 0) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Invalid Amount')
-                .setDescription('Invalid amount format. Use numbers with K/M/B/T suffixes (e.g., 1000, 5k, 2.5m).')
-                .setColor(0xFF0000);
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            const topFields = [
+                {
+                    name: '❌ INVALID AMOUNT',
+                    value: 'Invalid amount format.\n\nUse numbers with K/M/B/T suffixes\n(e.g., 1000, 5k, 2.5m).',
+                    inline: false
+                }
+            ];
+
+            const embed = buildSessionEmbed({
+                title: '❌ Input Error',
+                topFields,
+                stageText: 'INVALID FORMAT',
+                color: 0xFF0000,
+                footer: 'Admin Command Error'
+            });
             
             return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
@@ -118,29 +142,62 @@ const addMoneyCommand = {
             const success = await dbManager.setUserBalance(targetUser.id, guildId, newWallet, newBank);
             
             if (!success) {
-                const errorEmbed = new EmbedBuilder()
-                    .setTitle('🔴 Transaction Failed')
-                    .setDescription('❌ **Unable to process transaction**\n\nDatabase update failed. Please try again.')
-                    .setColor(0xE74C3C)
-                    .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                    .setFooter({ text: '💳 Transaction System • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                const topFields = [
+                    {
+                        name: '🔴 TRANSACTION FAILED',
+                        value: 'Unable to process transaction.\n\nDatabase update failed. Please try again.',
+                        inline: false
+                    }
+                ];
+
+                const errorEmbed = buildSessionEmbed({
+                    title: '🔴 System Error',
+                    topFields,
+                    stageText: 'TRANSACTION FAILED',
+                    color: 0xE74C3C,
+                    footer: 'Transaction System Error'
+                });
                 
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
-            // Create success embed with casino styling
-            const embed = new EmbedBuilder()
-                .setTitle(`${accountEmoji} Money Added Successfully`)
-                .setDescription(`✅ **Transaction Complete**\n\nSuccessfully added **${fmt(amount)}** to ${targetUser.displayName}'s ${accountName.toLowerCase()}.`)
-                .addFields(
-                    { name: `📊 ${accountName} Summary`, value: `${accountEmoji} **Previous:** ${fmt(oldAmount)}\n💸 **Added:** ${fmt(amount)}\n${accountEmoji} **New Total:** **${fmt(newAmount)}**`, inline: true },
-                    { name: '💰 Full Balance', value: `💵 **Wallet:** ${fmt(newWallet)}\n🏦 **Bank:** ${fmt(newBank)}\n💎 **Total:** **${fmt(newWallet + newBank)}**`, inline: true },
-                    { name: '👤 User Info', value: `**${targetUser.displayName}**\n<@${targetUser.id}>`, inline: true }
-                )
-                .setColor(0x2ECC71)
-                .setThumbnail(targetUser.displayAvatarURL())
-                .setFooter({ text: `💳 Admin Transaction • Added by ${interaction.user.displayName}`, iconURL: interaction.client.user.displayAvatarURL() })
-                .setTimestamp();
+            // Create success embed using gameSessionKit for UI consistency
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            const topFields = [
+                {
+                    name: '✅ TRANSACTION COMPLETE',
+                    value: `Successfully added **${fmt(amount)}** to\n${targetUser.displayName}'s ${accountName.toLowerCase()}.`,
+                    inline: false
+                },
+                {
+                    name: `📊 ${accountName.toUpperCase()} SUMMARY`,
+                    value: `${accountEmoji} **Previous:** ${fmt(oldAmount)}\n💸 **Added:** ${fmt(amount)}\n${accountEmoji} **New Total:** **${fmt(newAmount)}**`,
+                    inline: true
+                },
+                {
+                    name: '👤 USER INFO',
+                    value: `**${targetUser.displayName}**\n<@${targetUser.id}>`,
+                    inline: true
+                }
+            ];
+
+            const bankFields = [
+                { name: '💵 Wallet', value: fmt(newWallet), inline: true },
+                { name: '🏦 Bank', value: fmt(newBank), inline: true },
+                { name: '💎 Total', value: fmt(newWallet + newBank), inline: true }
+            ];
+
+            const embed = buildSessionEmbed({
+                title: `${accountEmoji} ${targetUser.displayName}'s Money Added`,
+                topFields,
+                bankFields,
+                stageText: 'TRANSACTION SUCCESS',
+                color: 0x2ECC71,
+                footer: `Admin Transaction • Added by ${interaction.user.displayName}`
+            });
 
             await interaction.reply({ embeds: [embed] });
 
@@ -150,14 +207,28 @@ const addMoneyCommand = {
         } catch (error) {
             logger.error(`Error in addmoney command: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('🔴 System Error')
-                .setDescription('❌ **Command Failed**\n\nAn unexpected error occurred while processing the transaction.')
-                .addFields({ name: '🔧 Error Details', value: '```' + error.message + '```', inline: false })
-                .setColor(0xE74C3C)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🛠️ System Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-                .setTimestamp();
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            const topFields = [
+                {
+                    name: '🔴 SYSTEM ERROR',
+                    value: 'An unexpected error occurred while\nprocessing the transaction.',
+                    inline: false
+                },
+                {
+                    name: '🔧 ERROR DETAILS',
+                    value: error.message,
+                    inline: false
+                }
+            ];
+
+            const errorEmbed = buildSessionEmbed({
+                title: '🔴 Command Failed',
+                topFields,
+                stageText: 'SYSTEM ERROR',
+                color: 0xE74C3C,
+                footer: 'System Error'
+            });
 
             await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }

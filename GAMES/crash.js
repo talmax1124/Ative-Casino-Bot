@@ -16,6 +16,7 @@ const {
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
+const { CrashGraphRenderer } = require('../UTILS/crashGraphRenderer');
 const logger = require('../UTILS/logger');
 
 const log = logger;
@@ -27,15 +28,19 @@ function isAdmin(member) {
   return member?.permissions?.has('Administrator') || isDev(member?.id);
 }
 
-// Crash game configuration
+// Crash game configuration - Fast-paced visual performance
 const CRASH_CONFIG = {
   min_bet: 10.0,
   max_bet: 100000.0,
-  // How often we attempt to render an embed update (ms)
-  // Slightly slower cadence reduces Discord edit churn and flicker
-  update_interval: 500,
+  // Faster update intervals for more exciting gameplay
+  visual_update_interval: 500,   // Update image every 0.5 seconds - twice as fast!
+  computation_interval: 50,      // Compute every 50ms for ultra-smooth graph
   max_multiplier: 50.0,
-  house_edge: 0.03
+  house_edge: 0.03,
+  // Graph settings
+  graph_width: 800,
+  graph_height: 400,
+  max_players_display: 8
 };
 
 async function sendError(client, msg) {
@@ -60,7 +65,12 @@ class CrashGameState {
     this.start_time = 0.0;
     this.crashed = false;
     this.game_message = null;
-    this.update_interval = null;
+    this.compute_interval = null;
+    this.visual_interval = null;
+    
+    // Graph renderer for visual representation
+    this.graphRenderer = new CrashGraphRenderer(CRASH_CONFIG.graph_width, CRASH_CONFIG.graph_height);
+    
     // Unique instance id to guard against late cleanups removing a new game
     this.instanceId = Date.now() + Math.random();
   }
@@ -130,11 +140,21 @@ class CrashGameManager {
     return this.games.get(channelId);
   }
 
+  // Get existing game without creating new one
+  getExistingGame(channelId) {
+    return this.games.get(channelId);
+  }
+
   removeGame(channelId) {
     if (this.games.has(channelId)) {
       const game = this.games.get(channelId);
-      if (game.update_interval) {
-        clearInterval(game.update_interval);
+      if (game.compute_interval) {
+        clearInterval(game.compute_interval);
+        game.compute_interval = null;
+      }
+      if (game.visual_interval) {
+        clearInterval(game.visual_interval);
+        game.visual_interval = null;
       }
       this.games.delete(channelId);
     }
@@ -190,124 +210,62 @@ function buildBettingEmbed(game) {
   });
 }
 
-// Create visual progress bar like the Python version
-function createProgressBar(multiplier) {
-  const maxDisplay = Math.max(10.0, multiplier * 1.2);
-  const barLength = 25; // Shorter for Discord mobile compatibility
+// Visual graph-based embed builder
+async function buildGameEmbed(game) {
+  const mult = game.current_multiplier;
+  const color = mult < 2.0 ? 0x00FF00 : mult < 5.0 ? 0xFFFF00 : 0xFF0000;
 
-  // Calculate progress
-  const progress = Math.min(1.0, multiplier / maxDisplay);
-  const filledLength = Math.floor(barLength * progress);
+  // Generate the live graph image
+  const graphBuffer = game.graphRenderer.render();
 
-  // Create the bar
-  const bar = "█".repeat(filledLength) + "░".repeat(barLength - filledLength);
+  const topFields = [];
 
-  // Add multiplier markers
-  const keyMultipliers = [1.0, 2.0, 5.0, 10.0, 20.0];
-  let markers = "";
-
-  for (let i = 0; i <= barLength; i++) {
-    let foundMarker = false;
-    for (const mult of keyMultipliers) {
-      if (mult <= maxDisplay) {
-        const pos = Math.floor((mult / maxDisplay) * barLength);
-        if (Math.abs(i - pos) <= 0) {
-          if (i === 0) markers += "1";
-          else if (mult === 2.0 && Math.abs(i - pos) === 0) markers += "2";
-          else if (mult === 5.0 && Math.abs(i - pos) === 0) markers += "5";
-          else if (mult >= 10.0 && Math.abs(i - pos) === 0) markers += mult.toString().slice(0, 2);
-          else markers += "|";
-          foundMarker = true;
-          break;
-        }
+  // Player information - kept minimal for performance
+  let cashedOut = 0;
+  let stillIn = 0;
+  const playerSummary = [];
+  
+  for (const player of game.players.values()) {
+    if (player.cashed_out) {
+      cashedOut++;
+      if (playerSummary.length < CRASH_CONFIG.max_players_display / 2) {
+        playerSummary.push(`✅ ${player.username} @ x${player.cash_out_multiplier.toFixed(2)}`);
+      }
+    } else {
+      stillIn++;
+      if (playerSummary.length < CRASH_CONFIG.max_players_display / 2) {
+        playerSummary.push(`🎯 ${player.username}`);
       }
     }
-    if (!foundMarker) markers += " ";
   }
 
-  // Status indicator
-  let status;
-  if (multiplier < 2.0) status = "🟢 Safe Zone";
-  else if (multiplier < 5.0) status = "🟡 Getting Higher";
-  else if (multiplier < 10.0) status = "🟠 Risky Territory";
-  else status = "🔴 DANGER ZONE!";
-
-  return `\`\`\`\n🚀 ${multiplier.toFixed(2)}x\n┌${"─".repeat(barLength)}┐\n│${bar}│\n└${"─".repeat(barLength)}┘\n ${markers}\n ${status}\n\`\`\``;
-}
-
-function buildGameEmbed(game) {
-  // Pre-calculate values for efficiency
-  const multiplierText = game.current_multiplier.toFixed(2);
-
-  // Create the progress bar
-  const progressBar = createProgressBar(game.current_multiplier);
-
-  // Color changes based on multiplier level
-  let color;
-  if (game.current_multiplier < 2.0) {
-    color = 0x00FF00; // Green
-  } else if (game.current_multiplier < 5.0) {
-    color = 0xFFFF00; // Yellow
-  } else {
-    color = 0xFF0000; // Red
-  }
-
-  // Only calculate player lists if they exist (performance optimization)
-  const topFields = [
-    {
-      name: `🚀 LIVE MULTIPLIER`,
-      value: progressBar,
-      inline: false
-    }
-  ];
-
-  // Quick player counts without expensive operations
-  const cashedOutCount = Array.from(game.players.values()).filter(p => p.cashed_out).length;
-  const stillInCount = game.players.size - cashedOutCount;
-
-  if (cashedOutCount > 0) {
-    const cashedOut = Array.from(game.players.values())
-      .filter(p => p.cashed_out)
-      .slice(0, 4) // Limit for performance
-      .map(p => `✅ ${p.username} — ${fmt(Math.floor(p.winnings))} @ x${p.cash_out_multiplier.toFixed(2)}`)
-      .join("\n");
-
+  // Show player summary
+  if (playerSummary.length > 0) {
     topFields.push({
-      name: `✅ CASHED OUT (${cashedOutCount})`,
-      value: cashedOut,
+      name: `👥 PLAYERS (${stillIn} active, ${cashedOut} cashed out)`,
+      value: playerSummary.join(" • ") + (game.players.size > CRASH_CONFIG.max_players_display ? "..." : ""),
       inline: false
     });
   }
 
-  if (stillInCount > 0) {
-    const stillIn = Array.from(game.players.values())
-      .filter(p => !p.cashed_out)
-      .slice(0, 4) // Limit for performance
-      .map(p => `• ${p.username} — ${fmt(p.bet)}`)
-      .join("\n");
-
-    topFields.push({
-      name: `🎯 STILL IN (${stillInCount})`,
-      value: stillIn,
-      inline: false
-    });
-  }
-
-  // Keep stage text static to reduce reflow flicker; show multiplier in the graph
-  return buildSessionEmbed({
+  const embed = buildSessionEmbed({
     title: "<a:carcrash:1408536513012043847> Crash Game - Live Round",
     topFields,
-    bankFields: [
-      {
-        name: "👥 TOTAL",
-        value: game.players.size.toString(),
-        inline: true
-      }
-    ],
-    stageText: "LIVE",
+    bankFields: [{
+      name: "🚀 MULTIPLIER",
+      value: `${mult.toFixed(2)}x`,
+      inline: true
+    }, {
+      name: "⏱️ TIME",
+      value: `${((Date.now() - game.start_time) / 1000).toFixed(1)}s`,
+      inline: true
+    }],
+    stageText: game.crashed ? "CRASHED!" : "LIVE",
     color,
-    footer: "💡 Cash out to secure winnings! The longer you wait, the higher the risk."
+    footer: "💡 Watch the graph and cash out before it crashes!"
   });
+
+  return { embed, graphBuffer };
 }
 
 function buildResultEmbed(game) {
@@ -484,6 +442,14 @@ async function handleGameExecution(interaction, client) {
 // Button interaction handler
 async function handleButtonInteraction(interaction, game, client) {
   try {
+    // Get existing game or return early if none exists
+    if (!game) {
+      game = crashManager.getExistingGame(interaction.channelId);
+      if (!game) {
+        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ No active crash game in this channel!" });
+      }
+    }
+
     const isCurrentGameMessage = () => {
       return game && game.game_message && interaction.message && interaction.message.id === game.game_message.id;
     };
@@ -546,12 +512,43 @@ async function handleButtonInteraction(interaction, game, client) {
       game.crashed = false;
       game.current_multiplier = 1.00;
 
-      // Update to game view
-      const embed = buildGameEmbed(game);
-      if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
-        await interaction.update({ embeds: [embed], components: [gameButtons()] });
-      } else if (game.game_message) {
-        await game.game_message.edit({ embeds: [embed], components: [gameButtons()] });
+      // Reset graph renderer for new game
+      game.graphRenderer.reset();
+
+      // Initial update with graph
+      try {
+        const { embed, graphBuffer } = await buildGameEmbed(game);
+        
+        if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+          await interaction.update({ 
+            embeds: [embed], 
+            files: [{ attachment: graphBuffer, name: 'crash-start.png' }],
+            components: [gameButtons()] 
+          });
+          embed.setImage('attachment://crash-start.png');
+        } else if (game.game_message) {
+          await game.game_message.edit({ 
+            embeds: [embed], 
+            files: [{ attachment: graphBuffer, name: 'crash-start.png' }],
+            components: [gameButtons()] 
+          });
+          embed.setImage('attachment://crash-start.png');
+        }
+      } catch (error) {
+        log.error("Failed to start game with graph:", error);
+        // Fallback without graph
+        const simpleEmbed = buildSessionEmbed({
+          title: "<a:carcrash:1408536513012043847> Crash Game - Starting...",
+          topFields: [{ name: "🚀 STARTING", value: "Graph loading...", inline: false }],
+          stageText: "STARTING",
+          color: 0x00FF00
+        });
+        
+        if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+          await interaction.update({ embeds: [simpleEmbed], components: [gameButtons()] });
+        } else if (game.game_message) {
+          await game.game_message.edit({ embeds: [simpleEmbed], components: [gameButtons()] });
+        }
       }
 
       // Start game loop
@@ -559,29 +556,43 @@ async function handleButtonInteraction(interaction, game, client) {
     }
 
     if (interaction.customId === "crash:cashout") {
+      // Improved game state validation
+      if (!game || (!game.game_active && !game.betting_phase)) {
+        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ No active crash game found!" });
+      }
+      
       if (!isCurrentGameMessage()) {
         return interaction.reply({ flags: MessageFlags.Ephemeral, content: "⏱️ That round has ended. Cash out was for a previous game." });
       }
-      if (!game.game_active || game.crashed) {
-        if (!interaction.replied && !interaction.deferred) {
-          return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ No active round to cash out from!" });
-        }
-        return;
+      
+      // Check if game is in active state (not betting phase, not crashed)
+      if (!game.game_active || game.crashed || game.betting_phase) {
+        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ No active round to cash out from!" });
+      }
+
+      // Check if user is actually in the game
+      if (!game.players.has(interaction.user.id)) {
+        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ You are not in this crash game!" });
       }
 
       const winnings = game.cashOutPlayer(interaction.user.id);
       if (winnings === null) {
-        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ You are not in this round or already cashed out!" });
+        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ You already cashed out or cannot cash out!" });
       }
 
-      // Give winnings to player
-      await dbManager.updateUserBalance(interaction.user.id, game.guildId, Math.floor(winnings), 0);
+      try {
+        // Give winnings to player
+        await dbManager.updateUserBalance(interaction.user.id, game.guildId, Math.floor(winnings), 0);
 
-      const player = game.players.get(interaction.user.id);
-      return interaction.reply({
-        flags: MessageFlags.Ephemeral,
-        content: `✅ Cashed out at **x${player.cash_out_multiplier.toFixed(2)}** → +${fmt(Math.floor(winnings))}!`
-      });
+        const player = game.players.get(interaction.user.id);
+        return interaction.reply({
+          flags: MessageFlags.Ephemeral,
+          content: `✅ Cashed out at **x${player.cash_out_multiplier.toFixed(2)}** → +${fmt(Math.floor(winnings))}!`
+        });
+      } catch (error) {
+        log.error("Cash out database error:", error);
+        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ Error processing cash out! Please try again." });
+      }
     }
 
   } catch (error) {
@@ -663,83 +674,122 @@ async function handleModalSubmit(interaction, game) {
   }
 }
 
-// Optimized game loop with sequential edits to avoid stutter/flicker
+// Revolutionary visual-based game loop with smooth graph updates
 async function startGameLoop(game, client) {
-  let lastRenderAt = 0;
-  let lastShownMult = 1.0;
-  let isEditing = false;
-  let pendingRerender = false;
+  let lastVisualUpdate = 0;
+  let isUpdatingVisual = false;
 
-  const tickMs = 50; // compute cadence
-
-  const tick = async () => {
-    if (!game.game_active || game.crashed) return;
-
-    // Calculate multiplier using the Python curve
-    const elapsed = (Date.now() - game.start_time) / 1000;
-    const calc = 1.0 + (elapsed * 0.5) + (Math.pow(elapsed, 1.5) * 0.1);
-    game.current_multiplier = Math.min(calc, game.crash_point + 0.05);
-
-    // Crash condition
-    if (game.current_multiplier >= game.crash_point) {
-      game.crashed = true;
-      game.game_active = false;
-
-      try {
-        const finalEmbed = buildResultEmbed(game);
-        await game.game_message.edit({ embeds: [finalEmbed], components: [] });
-      } catch (error) {
-        log.error("Failed to update crash result:", error);
+  // Computation loop - runs fast for smooth graph data
+  const computeLoop = () => {
+    if (!game.game_active || game.crashed) {
+      if (game.compute_interval) {
+        clearInterval(game.compute_interval);
+        game.compute_interval = null;
       }
-
-      // Remove game after a delay only if it's still the same instance
-      const removeId = game.instanceId;
-      setTimeout(() => {
-        const current = crashManager.games.get(game.channelId);
-        if (current && current.instanceId === removeId) {
-          crashManager.removeGame(game.channelId);
-        }
-      }, 10000);
       return;
     }
 
-    // Decide whether to render an update
     const now = Date.now();
-    const multDelta = Math.abs(game.current_multiplier - lastShownMult);
-    const dueByTime = now - lastRenderAt >= CRASH_CONFIG.update_interval;
-    const dueByChange = multDelta >= 0.02; // damp tiny changes
+    const elapsed = (now - game.start_time) / 1000;
+    
+    // Calculate multiplier with faster, more exciting curve
+    const calc = 1.0 + (elapsed * 0.8) + (Math.pow(elapsed, 1.6) * 0.15);
+    game.current_multiplier = Math.min(calc, game.crash_point + 0.01);
 
-    if (dueByTime && dueByChange) {
-      if (isEditing) {
-        // Coalesce edits; do one more immediately after current finishes
-        pendingRerender = true;
-      } else {
-        // Perform edit
-        isEditing = true;
-        lastShownMult = game.current_multiplier;
-        const embed = buildGameEmbed(game);
-        game.game_message.edit({ embeds: [embed], components: [gameButtons()] })
-          .then(() => {
-            lastRenderAt = Date.now();
-            isEditing = false;
-            if (pendingRerender) {
-              pendingRerender = false;
-              // Trigger a quick follow-up render if we skipped while editing
-              setTimeout(() => tick(), 0);
-            }
-          })
-          .catch((err) => {
-            isEditing = false;
-            log.error("Crash edit failed:", err?.message || err);
-          });
+    // Add point to graph renderer
+    game.graphRenderer.addPoint(elapsed, game.current_multiplier);
+
+    // Check for crash
+    if (game.current_multiplier >= game.crash_point) {
+      game.crashed = true;
+      game.game_active = false;
+      
+      // Set crash point on renderer for visual effect
+      game.graphRenderer.setCrash(elapsed, game.crash_point);
+      
+      // Clear intervals
+      if (game.compute_interval) {
+        clearInterval(game.compute_interval);
+        game.compute_interval = null;
       }
-    }
+      if (game.visual_interval) {
+        clearInterval(game.visual_interval);
+        game.visual_interval = null;
+      }
 
-    setTimeout(() => tick(), tickMs);
+      // Show final result immediately
+      setTimeout(async () => {
+        try {
+          const { embed, graphBuffer } = await buildGameEmbed(game);
+          await game.game_message.edit({ 
+            embeds: [embed], 
+            files: [{ attachment: graphBuffer, name: 'crash-final.png' }],
+            components: [] 
+          });
+          embed.setImage('attachment://crash-final.png');
+          
+          // Show results after a moment
+          setTimeout(async () => {
+            try {
+              const resultEmbed = buildResultEmbed(game);
+              await game.game_message.edit({ 
+                embeds: [resultEmbed], 
+                files: [],
+                components: [] 
+              });
+            } catch (error) {
+              log.error("Failed to show result embed:", error);
+            }
+          }, 3000);
+          
+        } catch (error) {
+          log.error("Failed to show crash result:", error);
+        }
+
+        // Cleanup
+        setTimeout(() => {
+          const current = crashManager.games.get(game.channelId);
+          if (current && current.instanceId === game.instanceId) {
+            crashManager.removeGame(game.channelId);
+          }
+        }, 10000);
+      }, 500);
+    }
   };
 
-  // Kick off loop
-  setTimeout(() => tick(), tickMs);
+  // Visual update loop - runs slower, updates Discord
+  const visualLoop = async () => {
+    if (!game.game_active || game.crashed || isUpdatingVisual) return;
+
+    isUpdatingVisual = true;
+    
+    try {
+      const { embed, graphBuffer } = await buildGameEmbed(game);
+      
+      await game.game_message.edit({ 
+        embeds: [embed], 
+        files: [{ attachment: graphBuffer, name: 'crash-live.png' }],
+        components: [gameButtons()] 
+      });
+      
+      embed.setImage('attachment://crash-live.png');
+      
+    } catch (error) {
+      log.error("Visual update failed:", error);
+      // Don't stop the game for visual errors
+    }
+    
+    isUpdatingVisual = false;
+  };
+
+  // Start computation loop (fast)
+  game.compute_interval = setInterval(computeLoop, CRASH_CONFIG.computation_interval);
+  
+  // Start visual update loop (slower)  
+  game.visual_interval = setInterval(visualLoop, CRASH_CONFIG.visual_update_interval);
+
+  // Initial visual update
+  setTimeout(visualLoop, 100);
 }
 
 // Function to stop crash game for admin/dev panel

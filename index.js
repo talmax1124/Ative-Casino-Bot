@@ -612,7 +612,7 @@ client.on('interactionCreate', async interaction => {
             // Handle crash buttons (namespace: crash:...)
             else if (customId.startsWith('crash:')) {
                 const crashGame = require('./GAMES/crash');
-                const game = crashGame.crashManager.getGame(interaction.channelId, interaction.guildId);
+                const game = crashGame.crashManager.getExistingGame(interaction.channelId);
                 await crashGame.handleButtonInteraction(interaction, game, client);
             }
             // Handle poll buttons
