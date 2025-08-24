@@ -6,6 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { parseAmount, formatMoneyFull } = require('../UTILS/moneyFormatter');
+const { fmtFull } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 
 // Helper function to check admin permissions
@@ -398,10 +399,529 @@ const backupCommand = {
     }
 };
 
+// Function to draw from last week's lottery data
+async function drawLastWeekLottery(interaction, guildId) {
+    const { secureRandomInt } = require('../UTILS/rng');
+    
+    try {
+        // Look for any existing lottery tickets that weren't drawn
+        const ticketsSnapshot = await dbManager.db.collection('lottery_tickets')
+            .where('guild_id', '==', guildId)
+            .get();
+
+        if (ticketsSnapshot.empty) {
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            const embed = buildSessionEmbed({
+                title: '❌ No Last Week Data Found',
+                topFields: [
+                    {
+                        name: 'No Archived Tickets',
+                        value: 'No lottery tickets found from previous weeks.\nEither they were already drawn or no one participated.',
+                        inline: false
+                    }
+                ],
+                stageText: 'NO DATA FOUND',
+                color: 0xFF6B6B,
+                footer: 'Last Week Lottery Draw'
+            });
+            
+            return await interaction.editReply({ embeds: [embed] });
+        }
+
+        // Collect all ticket holders
+        const ticketHolders = [];
+        const weightedParticipants = [];
+        let totalTickets = 0;
+        
+        ticketsSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.tickets > 0) {
+                ticketHolders.push({ userId: data.user_id, tickets: data.tickets });
+                totalTickets += data.tickets;
+                
+                // Add to weighted list based on ticket count
+                for (let i = 0; i < data.tickets; i++) {
+                    weightedParticipants.push(data.user_id);
+                }
+            }
+        });
+
+        if (ticketHolders.length < 3) {
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            const participantList = ticketHolders.map(p => `<@${p.userId}> (${p.tickets} tickets)`).join('\n');
+            
+            const embed = buildSessionEmbed({
+                title: '⚠️ Insufficient Last Week Participants',
+                topFields: [
+                    {
+                        name: 'Not Enough Players',
+                        value: `Found ${ticketHolders.length} participants from last week, but need at least 3.\n\nPrize will be added to current week's pool.`,
+                        inline: false
+                    },
+                    {
+                        name: '👥 Found Participants',
+                        value: participantList || 'None',
+                        inline: false
+                    }
+                ],
+                stageText: 'INSUFFICIENT PARTICIPANTS',
+                color: 0xFFAA00,
+                footer: 'Last Week Lottery Draw'
+            });
+            
+            // Add last week's prize to current week
+            const currentLottery = await dbManager.getLotteryInfo(guildId);
+            const lastWeekPrize = 400000; // Base prize that should have been drawn
+            await dbManager.addToLotteryPool(guildId, lastWeekPrize);
+            
+            return await interaction.editReply({ embeds: [embed] });
+        }
+
+        // Draw 3 winners from last week's data
+        const winners = [];
+        const usedParticipants = new Set();
+
+        for (let i = 0; i < 3; i++) {
+            let winner;
+            let attempts = 0;
+            
+            do {
+                const randomIndex = secureRandomInt(0, weightedParticipants.length);
+                winner = weightedParticipants[randomIndex];
+                attempts++;
+            } while (usedParticipants.has(winner) && attempts < 100);
+
+            if (!usedParticipants.has(winner)) {
+                winners.push(winner);
+                usedParticipants.add(winner);
+            }
+        }
+
+        // Calculate prizes for last week (use base 400k + any accumulated)
+        const basePrize = 400000;
+        const prizes = {
+            first: Math.floor(basePrize * 0.45),   // 45%
+            second: Math.floor(basePrize * 0.45),  // 45%
+            third: Math.floor(basePrize * 0.10)    // 10%
+        };
+
+        // Award prizes to winners' bank accounts
+        for (let i = 0; i < winners.length; i++) {
+            const winnerId = winners[i];
+            let prizeAmount;
+            
+            if (i === 0) prizeAmount = prizes.first;
+            else if (i === 1) prizeAmount = prizes.second;
+            else prizeAmount = prizes.third;
+
+            // Add to winner's bank balance
+            await dbManager.updateUserBalance(winnerId, guildId, 0, prizeAmount);
+        }
+
+        // Save to lottery history
+        const results = {
+            success: true,
+            total_prize: basePrize,
+            winners: [
+                { userId: winners[0], prize: prizes.first, place: 1 },
+                { userId: winners[1], prize: prizes.second, place: 2 },
+                { userId: winners[2], prize: prizes.third, place: 3 }
+            ],
+            totalParticipants: ticketHolders.length,
+            total_tickets: totalTickets,
+            drawingDate: new Date(),
+            isLastWeekDraw: true
+        };
+
+        await dbManager.saveLotteryHistory(guildId, results);
+
+        // Clear the old tickets now that they've been drawn
+        const batch = dbManager.db.batch();
+        ticketsSnapshot.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+
+        // Display results
+        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+        
+        const topFields = [
+            {
+                name: '🎊 LAST WEEK LOTTERY DRAWN!',
+                value: `Successfully drew last week's overdue lottery!\nParticipants: ${ticketHolders.length} | Tickets: ${totalTickets}`,
+                inline: false
+            },
+            {
+                name: '🥇 1st Place Winner',
+                value: `<@${results.winners[0].userId}>\n**Prize: ${fmtFull(results.winners[0].prize)}**`,
+                inline: true
+            },
+            {
+                name: '🥈 2nd Place Winner',
+                value: `<@${results.winners[1].userId}>\n**Prize: ${fmtFull(results.winners[1].prize)}**`,
+                inline: true
+            },
+            {
+                name: '🥉 3rd Place Winner',
+                value: `<@${results.winners[2].userId}>\n**Prize: ${fmtFull(results.winners[2].prize)}**`,
+                inline: true
+            }
+        ];
+
+        const bankFields = [
+            { name: 'Last Week Prize Pool', value: fmtFull(basePrize), inline: true },
+            { name: 'Total Tickets Drawn', value: totalTickets.toString(), inline: true },
+            { name: 'Drawing Completed', value: new Date().toLocaleString(), inline: true }
+        ];
+
+        const embed = buildSessionEmbed({
+            title: '🎟️ Last Week Lottery Results',
+            topFields,
+            bankFields,
+            stageText: 'LAST WEEK DRAWN',
+            color: 0x2ECC71,
+            footer: 'Overdue lottery completed • Prizes in BANK accounts'
+        });
+
+        await interaction.editReply({ embeds: [embed] });
+
+        // Log the drawing
+        logger.info(`Admin ${interaction.user.tag} drew last week's lottery for guild ${guildId}. Winners: ${winners.join(', ')}`);
+
+        // Try to announce in lottery channel
+        try {
+            const lotteryChannelId = '1406136478714826824';
+            const lotteryChannel = interaction.guild.channels.cache.get(lotteryChannelId);
+            if (lotteryChannel) {
+                const announceEmbed = new EmbedBuilder()
+                    .setTitle('🎊 LAST WEEK LOTTERY FINALLY DRAWN! 🎊')
+                    .setDescription(`**Overdue lottery from last week has been completed!**\n\nManually drawn by ${interaction.user.displayName}`)
+                    .addFields(
+                        {
+                            name: '🥇 1st Place',
+                            value: `<@${results.winners[0].userId}> - ${fmtFull(results.winners[0].prize)}`,
+                            inline: false
+                        },
+                        {
+                            name: '🥈 2nd Place',
+                            value: `<@${results.winners[1].userId}> - ${fmtFull(results.winners[1].prize)}`,
+                            inline: false
+                        },
+                        {
+                            name: '🥉 3rd Place',
+                            value: `<@${results.winners[2].userId}> - ${fmtFull(results.winners[2].prize)}`,
+                            inline: false
+                        }
+                    )
+                    .setColor(0xFFD700)
+                    .setFooter({ text: 'Better late than never! 🍀' })
+                    .setTimestamp();
+                
+                await lotteryChannel.send({ 
+                    content: '📢 **LAST WEEK\'S LOTTERY WINNERS ANNOUNCED!**', 
+                    embeds: [announceEmbed] 
+                });
+            }
+        } catch (announceError) {
+            logger.warn(`Could not announce last week lottery results: ${announceError.message}`);
+        }
+
+    } catch (error) {
+        logger.error(`Error drawing last week lottery: ${error.message}`);
+        
+        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+        
+        const embed = buildSessionEmbed({
+            title: '❌ Last Week Draw Failed',
+            topFields: [
+                {
+                    name: 'Error Occurred',
+                    value: `Failed to draw last week's lottery.\nError: ${error.message}`,
+                    inline: false
+                }
+            ],
+            stageText: 'ERROR',
+            color: 0xFF0000,
+            footer: 'Last Week Lottery Draw'
+        });
+        
+        await interaction.editReply({ embeds: [embed] });
+    }
+}
+
+const drawLotteryCommand = {
+    data: new SlashCommandBuilder()
+        .setName('drawlottery')
+        .setDescription('Manually draw the lottery (Admin only)')
+        .addBooleanOption(option =>
+            option.setName('force')
+                .setDescription('Force drawing even with insufficient participants')
+                .setRequired(false)
+        )
+        .addBooleanOption(option =>
+            option.setName('lastweek')
+                .setDescription('Draw from last week\'s archived data (if available)')
+                .setRequired(false)
+        ),
+
+    async execute(interaction) {
+        // Check admin permissions
+        if (!await hasAdminPermissions(interaction.member)) {
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            
+            const topFields = [
+                {
+                    name: '🚫 ACCESS DENIED',
+                    value: 'Administrator permissions required.\n\nYou must be an administrator to draw the lottery manually.',
+                    inline: false
+                }
+            ];
+
+            const embed = buildSessionEmbed({
+                title: '❌ Permission Error',
+                topFields,
+                stageText: 'ACCESS DENIED',
+                color: 0xE74C3C,
+                footer: 'Lottery Draw Protection'
+            });
+            
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
+
+        const guildId = interaction.guildId;
+        const force = interaction.options.getBoolean('force') || false;
+        const lastWeek = interaction.options.getBoolean('lastweek') || false;
+
+        try {
+            await interaction.deferReply();
+            
+            if (lastWeek) {
+                return await drawLastWeekLottery(interaction, guildId);
+            }
+
+            // Get lottery info first
+            const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+            
+            // Check lottery tickets directly since participants might be empty
+            const ticketsSnapshot = await dbManager.db.collection('lottery_tickets')
+                .where('guild_id', '==', guildId)
+                .get();
+                
+            let totalParticipants = 0;
+            const ticketHolders = [];
+            ticketsSnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.tickets > 0) {
+                    totalParticipants++;
+                    ticketHolders.push({ userId: data.user_id, tickets: data.tickets });
+                }
+            });
+            
+            // Check if we have enough participants
+            if (totalParticipants < 3 && !force) {
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                const topFields = [
+                    {
+                        name: '⚠️ INSUFFICIENT PARTICIPANTS',
+                        value: `Need at least 3 participants to draw lottery.\nCurrent participants: ${totalParticipants}\n\nUse \`force: true\` to draw anyway (will roll over prize).`,
+                        inline: false
+                    },
+                    {
+                        name: '💰 Current Prize Pool',
+                        value: fmtFull(lotteryInfo.total_prize || 400000),
+                        inline: true
+                    },
+                    {
+                        name: '🎫 Total Tickets',
+                        value: (lotteryInfo.total_tickets || 0).toString(),
+                        inline: true
+                    }
+                ];
+
+                if (ticketHolders.length > 0) {
+                    const participantList = ticketHolders.slice(0, 5).map(p => `<@${p.userId}> (${p.tickets} tickets)`).join('\n');
+                    topFields.push({
+                        name: '👥 Current Participants',
+                        value: participantList + (ticketHolders.length > 5 ? `\n...and ${ticketHolders.length - 5} more` : ''),
+                        inline: false
+                    });
+                }
+
+                const embed = buildSessionEmbed({
+                    title: '🎟️ Lottery Status',
+                    topFields,
+                    stageText: 'INSUFFICIENT PARTICIPANTS',
+                    color: 0xFFAA00,
+                    footer: 'Manual Lottery Draw'
+                });
+                
+                return await interaction.editReply({ embeds: [embed] });
+            }
+
+            // Conduct the lottery drawing
+            const results = await dbManager.conductLotteryDrawing(guildId);
+
+            if (results.success) {
+                // Save to history
+                await dbManager.saveLotteryHistory(guildId, results);
+
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                const topFields = [
+                    {
+                        name: '🎊 LOTTERY DRAWN SUCCESSFULLY!',
+                        value: `Manual lottery drawing has been completed.\nTotal participants: ${results.totalParticipants}`,
+                        inline: false
+                    },
+                    {
+                        name: '🥇 1st Place Winner',
+                        value: `<@${results.winners[0].userId}>\n**Prize: ${fmtFull(results.winners[0].prize)}**`,
+                        inline: true
+                    },
+                    {
+                        name: '🥈 2nd Place Winner',
+                        value: `<@${results.winners[1].userId}>\n**Prize: ${fmtFull(results.winners[1].prize)}**`,
+                        inline: true
+                    },
+                    {
+                        name: '🥉 3rd Place Winner',
+                        value: `<@${results.winners[2].userId}>\n**Prize: ${fmtFull(results.winners[2].prize)}**`,
+                        inline: true
+                    }
+                ];
+
+                const bankFields = [
+                    { name: 'Total Prize Pool', value: fmtFull(results.total_prize), inline: true },
+                    { name: 'Total Tickets', value: results.total_tickets.toString(), inline: true },
+                    { name: 'Drawing Date', value: results.drawingDate.toLocaleString(), inline: true }
+                ];
+
+                const embed = buildSessionEmbed({
+                    title: '🎟️ Manual Lottery Drawing Results',
+                    topFields,
+                    bankFields,
+                    stageText: 'DRAWING COMPLETE',
+                    color: 0x2ECC71,
+                    footer: 'Prizes deposited to winners\' BANK accounts'
+                });
+
+                await interaction.editReply({ embeds: [embed] });
+
+                // Log the manual drawing
+                logger.info(`Admin ${interaction.user.tag} manually drew lottery for guild ${guildId}`);
+                
+                // Try to announce in lottery channel if it exists
+                try {
+                    const lotteryChannelId = '1406136478714826824';
+                    const lotteryChannel = interaction.guild.channels.cache.get(lotteryChannelId);
+                    if (lotteryChannel) {
+                        const announceEmbed = new EmbedBuilder()
+                            .setTitle('🎊 MANUAL LOTTERY DRAWING RESULTS! 🎊')
+                            .setDescription(`**Manual lottery drawing completed by ${interaction.user.displayName}**`)
+                            .addFields(
+                                {
+                                    name: '🥇 1st Place',
+                                    value: `<@${results.winners[0].userId}> - ${fmtFull(results.winners[0].prize)}`,
+                                    inline: false
+                                },
+                                {
+                                    name: '🥈 2nd Place',
+                                    value: `<@${results.winners[1].userId}> - ${fmtFull(results.winners[1].prize)}`,
+                                    inline: false
+                                },
+                                {
+                                    name: '🥉 3rd Place',
+                                    value: `<@${results.winners[2].userId}> - ${fmtFull(results.winners[2].prize)}`,
+                                    inline: false
+                                }
+                            )
+                            .setColor(0xFFD700)
+                            .setTimestamp();
+                        
+                        await lotteryChannel.send({ embeds: [announceEmbed] });
+                    }
+                } catch (announceError) {
+                    logger.warn(`Could not announce manual lottery results: ${announceError.message}`);
+                }
+
+            } else {
+                // Drawing failed
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                const topFields = [
+                    {
+                        name: '❌ DRAWING FAILED',
+                        value: `Could not complete lottery drawing.\nReason: ${results.reason}`,
+                        inline: false
+                    }
+                ];
+
+                if (results.participants !== undefined) {
+                    topFields.push({
+                        name: 'Participants Found',
+                        value: results.participants.toString(),
+                        inline: true
+                    });
+                }
+
+                const embed = buildSessionEmbed({
+                    title: '❌ Lottery Drawing Failed',
+                    topFields,
+                    stageText: 'DRAWING FAILED',
+                    color: 0xE74C3C,
+                    footer: 'Manual Lottery Draw'
+                });
+                
+                await interaction.editReply({ embeds: [embed] });
+            }
+
+        } catch (error) {
+            logger.error(`Error in manual lottery draw: ${error.message}`);
+            
+            try {
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                const topFields = [
+                    {
+                        name: '🔴 SYSTEM ERROR',
+                        value: 'An unexpected error occurred while\ndrawing the lottery.',
+                        inline: false
+                    },
+                    {
+                        name: '🔧 ERROR DETAILS',
+                        value: error.message,
+                        inline: false
+                    }
+                ];
+
+                const errorEmbed = buildSessionEmbed({
+                    title: '🔴 Drawing Failed',
+                    topFields,
+                    stageText: 'SYSTEM ERROR',
+                    color: 0xE74C3C,
+                    footer: 'System Error'
+                });
+
+                if (interaction.deferred && !interaction.replied) {
+                    await interaction.editReply({ embeds: [errorEmbed] });
+                } else if (!interaction.replied) {
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                }
+            } catch (replyError) {
+                logger.error(`Failed to send error response: ${replyError.message}`);
+            }
+        }
+    }
+};
+
 // Export multiple commands
 module.exports = {
     data: addMoneyCommand.data,
     execute: addMoneyCommand.execute,
     setMoneyCommand,
-    backupCommand
+    backupCommand,
+    drawLotteryCommand
 };

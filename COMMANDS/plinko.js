@@ -10,12 +10,13 @@ const { fmtFull, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/c
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PLINKO_MODES, randomizeMultipliers, createPlinkoImage, simulatePlinkoDrop } = require('../UTILS/plinkoCanvas');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
+const { safeReply, safeDefer, safeUpdate, getInteractionState, createErrorEmbed } = require('../UTILS/interactionUtils');
 const logger = require('../UTILS/logger');
 
 // Active games registry
 const activePlinkoGames = new Map();
 
-module.exports = {
+const plinkoCommand = {
     data: new SlashCommandBuilder()
         .setName('plinko')
         .setDescription('🎯 Play Plinko - Drop a ball through pegs for multipliers!')
@@ -31,6 +32,13 @@ module.exports = {
         const guildId = await getGuildId(interaction);
         const username = interaction.user.displayName;
 
+        // Immediately defer to prevent timeout
+        const deferred = await safeDefer(interaction);
+        if (!deferred) {
+            logger.warn(`Failed to defer plinko interaction for user ${userId}`);
+            return;
+        }
+
         try {
             // Check if there's already an active Plinko game for this user
             if (activePlinkoGames.has(userId)) {
@@ -43,7 +51,7 @@ module.exports = {
                     footer: 'Plinko Game'
                 });
 
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await safeReply(interaction, { embeds: [embed] });
                 return;
             }
 
@@ -62,7 +70,7 @@ module.exports = {
                     footer: 'Plinko Game'
                 });
 
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await safeReply(interaction, { embeds: [embed] });
                 return;
             }
 
@@ -79,7 +87,7 @@ module.exports = {
                     footer: 'Plinko Game'
                 });
 
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await safeReply(interaction, { embeds: [embed] });
                 return;
             }
 
@@ -97,7 +105,7 @@ module.exports = {
                     footer: 'Plinko Game'
                 });
 
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await safeReply(interaction, { embeds: [embed] });
                 return;
             }
 
@@ -119,7 +127,7 @@ module.exports = {
                 footer: 'Plinko Game'
             });
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            await safeReply(interaction, { embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }
     }
 };
@@ -178,7 +186,7 @@ async function showModeSelection(interaction, userId, username, betAmount, newWa
         footer: '🚨 Gambling is risky! Only bet what you can afford to lose.'
     });
 
-    await interaction.reply({ embeds: [embed], components: [buttons] });
+    await safeReply(interaction, { embeds: [embed], components: [buttons] });
 
     // Store game session
     activePlinkoGames.set(userId, {
@@ -197,8 +205,12 @@ async function handlePlinkoButtonInteraction(interaction, action) {
     const userId = interaction.user.id;
     const guildId = await getGuildId(interaction);
     
+    // Log interaction state for debugging
+    const state = getInteractionState(interaction);
+    logger.info(`Plinko button interaction: ${JSON.stringify(state)}`);
+    
     if (!activePlinkoGames.has(userId)) {
-        await interaction.reply({ 
+        await safeReply(interaction, { 
             content: '❌ No active Plinko game found.', 
             flags: MessageFlags.Ephemeral 
         });
@@ -225,7 +237,11 @@ async function handlePlinkoButtonInteraction(interaction, action) {
             footer: 'Plinko Game'
         });
 
-        await interaction.update({ embeds: [errorEmbed], components: [] });
+        const success = await safeUpdate(interaction, { embeds: [errorEmbed], components: [] });
+        if (!success) {
+            // Fallback - try to send as new reply
+            await safeReply(interaction, { embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        }
         
         // Cleanup and refund
         await cleanup(userId, guildId, gameSession.betAmount);
@@ -237,7 +253,7 @@ async function handlePlinkoButtonInteraction(interaction, action) {
  */
 async function handleModeSelection(interaction, action, gameSession, userId, guildId) {
     if (gameSession.stage !== 'mode_selection') {
-        await interaction.reply({ 
+        await safeReply(interaction, { 
             content: '❌ Invalid game state.', 
             flags: MessageFlags.Ephemeral 
         });
@@ -249,7 +265,7 @@ async function handleModeSelection(interaction, action, gameSession, userId, gui
     const modeData = PLINKO_MODES[mode];
     
     if (!modeData) {
-        await interaction.reply({ 
+        await safeReply(interaction, { 
             content: '❌ Invalid mode selected.', 
             flags: MessageFlags.Ephemeral 
         });
@@ -336,7 +352,7 @@ async function handleModeSelection(interaction, action, gameSession, userId, gui
     const attachment = new AttachmentBuilder(initialImage, { name: 'plinko_board.png' });
     embed.image = { url: 'attachment://plinko_board.png' };
 
-    await interaction.update({ embeds: [embed], files: [attachment], components });
+    await safeUpdate(interaction, { embeds: [embed], files: [attachment], components });
 }
 
 /**
@@ -344,7 +360,7 @@ async function handleModeSelection(interaction, action, gameSession, userId, gui
  */
 async function handleSlotSelection(interaction, action, gameSession, userId, guildId) {
     if (gameSession.stage !== 'slot_selection') {
-        await interaction.reply({ 
+        await safeReply(interaction, { 
             content: '❌ Invalid game state.', 
             flags: MessageFlags.Ephemeral 
         });
@@ -359,7 +375,7 @@ async function handleSlotSelection(interaction, action, gameSession, userId, gui
     }
 
     if (dropSlot < 0 || dropSlot >= gameSession.slots) {
-        await interaction.reply({ 
+        await safeReply(interaction, { 
             content: '❌ Invalid slot selected.', 
             flags: MessageFlags.Ephemeral 
         });
@@ -441,7 +457,7 @@ async function playAnimation(interaction, gameSession, frames, dropSlot, finalSl
     let attachment = new AttachmentBuilder(frames[0], { name: 'plinko_initial.png' });
     embed.image = { url: 'attachment://plinko_initial.png' };
 
-    await interaction.update({ embeds: [embed], files: [attachment], components: [] });
+    await safeUpdate(interaction, { embeds: [embed], files: [attachment], components: [] });
 
     // Animate through frames
     for (let i = 1; i < frames.length - 1; i++) {
@@ -460,7 +476,7 @@ async function playAnimation(interaction, gameSession, frames, dropSlot, finalSl
         const frameAttachment = new AttachmentBuilder(frames[i], { name: `plinko_frame_${i}.png` });
         frameEmbed.image = { url: `attachment://plinko_frame_${i}.png` };
 
-        await interaction.editReply({ embeds: [frameEmbed], files: [frameAttachment] });
+        await safeReply(interaction, { embeds: [frameEmbed], files: [frameAttachment] });
     }
 
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -555,7 +571,7 @@ async function showFinalResult(interaction, gameSession, finalImage, finalSlot, 
     const attachment = new AttachmentBuilder(finalImage, { name: 'plinko_final.png' });
     embed.image = { url: 'attachment://plinko_final.png' };
 
-    await interaction.editReply({ embeds: [embed], files: [attachment] });
+    await safeReply(interaction, { embeds: [embed], files: [attachment] });
 
     // Cleanup
     activePlinkoGames.delete(userId);
@@ -588,5 +604,8 @@ async function cleanup(userId, guildId, betAmount) {
     logger.info(`Plinko cleanup: Refunded ${betAmount} to user ${userId}`);
 }
 
-// Export the button handler for use in index.js
-module.exports.handlePlinkoButtonInteraction = handlePlinkoButtonInteraction;
+// Export both the command and the button handler
+module.exports = {
+    ...plinkoCommand,
+    handlePlinkoButtonInteraction
+};

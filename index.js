@@ -94,6 +94,26 @@ async function loadCommands() {
                     logger.info(`Loaded command: ${command.cogCommand.data.name}`);
                 }
             }
+
+            // Handle special case for admin.js which has multiple commands
+            if (file === 'admin.js') {
+                // Load additional commands from admin module
+                if (command.setMoneyCommand && command.setMoneyCommand.data) {
+                    client.commands.set(command.setMoneyCommand.data.name, command.setMoneyCommand);
+                    commands.push(command.setMoneyCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.setMoneyCommand.data.name}`);
+                }
+                if (command.backupCommand && command.backupCommand.data) {
+                    client.commands.set(command.backupCommand.data.name, command.backupCommand);
+                    commands.push(command.backupCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.backupCommand.data.name}`);
+                }
+                if (command.drawLotteryCommand && command.drawLotteryCommand.data) {
+                    client.commands.set(command.drawLotteryCommand.data.name, command.drawLotteryCommand);
+                    commands.push(command.drawLotteryCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.drawLotteryCommand.data.name}`);
+                }
+            }
         } else {
             logger.warn(`Command at ${filePath} is missing required "data" or "execute" property`);
         }
@@ -963,7 +983,7 @@ async function showAllCommandsList(interaction) {
             },
             {
                 name: '👑 Admin Commands',
-                value: '`/addmoney` `/setmoney` `/crasheco` `/setup` `/panel` `/backup` `/stopgame` `/stopcrash` `/polls`',
+                value: '`/addmoney` `/setmoney` `/crasheco` `/setup` `/panel` `/backup` `/drawlottery` `/setuplottery` `/stopgame` `/stopcrash` `/polls`',
                 inline: false
             },
             {
