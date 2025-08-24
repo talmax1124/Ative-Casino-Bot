@@ -106,9 +106,7 @@ module.exports = {
             }
 
             // Deduct bet from starter
-            await dbManager.updateUserBalance(userId, guildId, {
-                wallet: balance.wallet - betAmount
-            });
+            await dbManager.updateUserBalance(userId, guildId, -betAmount, 0);
 
             // Create new game
             const game = startUnoGame(channelId, guildId, betAmount);
@@ -116,9 +114,7 @@ module.exports = {
 
             if (!success) {
                 // Refund if couldn't create game
-                await dbManager.updateUserBalance(userId, guildId, {
-                    wallet: balance.wallet
-                });
+                await dbManager.updateUserBalance(userId, guildId, betAmount, 0);
                 await interaction.followUp({
                     content: '❌ Failed to create game!',
                     ephemeral: true
@@ -307,17 +303,13 @@ module.exports = {
             }
 
             // Deduct bet amount
-            await dbManager.updateUserBalance(userId, guildId, {
-                wallet: balance.wallet - game.starterBet
-            });
+            await dbManager.updateUserBalance(userId, guildId, -game.starterBet, 0);
 
             // Add player
             const success = game.addPlayer(userId, `<@${userId}>`);
             if (!success) {
                 // Refund if couldn't add player
-                await dbManager.updateUserBalance(userId, guildId, {
-                    wallet: balance.wallet
-                });
+                await dbManager.updateUserBalance(userId, guildId, game.starterBet, 0);
                 const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - Failed to join game!`);
                 const buttons = game.createLobbyButtons();
                 await interaction.update({ embeds: [embed], components: buttons });
@@ -417,9 +409,7 @@ module.exports = {
             }
 
             // Remove player and refund
-            await dbManager.updateUserBalance(userId, guildId, {
-                wallet: (await dbManager.getUserBalance(userId, guildId)).wallet + game.starterBet
-            });
+            await dbManager.updateUserBalance(userId, guildId, game.starterBet, 0);
 
             game.removePlayer(userId);
             
@@ -820,9 +810,7 @@ module.exports = {
             const totalPot = game.players.size * game.starterBet;
             
             // Give prize to winner
-            await dbManager.updateUserBalance(game.winner.userId, guildId, {
-                wallet: (await dbManager.getUserBalance(game.winner.userId, guildId)).wallet + totalPot
-            });
+            await dbManager.updateUserBalance(game.winner.userId, guildId, totalPot, 0);
 
             // Record game results
             for (const player of game.players.values()) {

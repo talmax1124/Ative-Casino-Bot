@@ -3,10 +3,11 @@
  * 10K-30K range with 2.5 hour cooldown
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -32,13 +33,16 @@ module.exports = {
                 const hours = Math.floor(remainingTime / 3600);
                 const minutes = Math.floor((remainingTime % 3600) / 60);
 
-                const embed = new EmbedBuilder()
-                    .setTitle('🎭 Planning Phase')
-                    .setDescription(`You're still planning your next big heist! Come back in ${hours}h ${minutes}m`)
-                    .addFields({ name: '🕵️ Status', value: 'Gathering intel and assembling crew...', inline: false })
-                    .setColor(0x4B0082)
-                    .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                    .setFooter({ text: '🎭 Heist Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+                const embed = buildSessionEmbed({
+                    title: `🎭 ${interaction.user.displayName}'s Heist`,
+                    topFields: [
+                        { name: 'Planning Phase', value: `You're still planning your next big heist!\nCome back in ${hours}h ${minutes}m` },
+                        { name: 'Status', value: 'Gathering intel and assembling crew...' }
+                    ],
+                    stageText: 'PLANNING IN PROGRESS',
+                    color: 0x4B0082,
+                    footer: 'Heist Command'
+                });
 
                 return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
@@ -98,21 +102,24 @@ module.exports = {
                 last_heist_ts: now
             });
 
-            const embed = new EmbedBuilder()
-                .setTitle('🎭 Heist Successful!')
-                .setDescription(`**Target:** ${scenario.target}\n**Mission:** ${scenario.task}`)
-                .addFields(
-                    { name: '🎯 Difficulty', value: scenario.difficulty, inline: true },
-                    { name: '💰 Heist Earnings', value: fmt(earning), inline: true },
-                    { name: '💎 Success Rate', value: '100%', inline: true },
-                    { name: '💵 Previous Balance', value: fmt(balance.wallet), inline: true },
-                    { name: '💸 New Balance', value: fmt(newWallet), inline: true },
-                    { name: '📈 Profit', value: fmtDelta(newWallet, balance.wallet), inline: true }
-                )
-                .setColor(0x9932CC)
-                .setThumbnail(interaction.user.displayAvatarURL())
-                .setFooter({ text: '🎭 Heist Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-                .setTimestamp();
+            const embed = buildSessionEmbed({
+                title: `🎭 ${interaction.user.displayName}'s Heist`,
+                topFields: [
+                    { name: 'Target', value: scenario.target },
+                    { name: 'Mission', value: scenario.task },
+                    { name: 'Difficulty', value: scenario.difficulty, inline: true },
+                    { name: 'Earnings', value: fmtFull(earning), inline: true },
+                    { name: 'Success Rate', value: '100%', inline: true }
+                ],
+                bankFields: [
+                    { name: 'Previous Wallet', value: fmtFull(balance.wallet), inline: true },
+                    { name: 'New Wallet', value: fmtFull(newWallet), inline: true },
+                    { name: 'Bank', value: fmtFull(balance.bank), inline: true }
+                ],
+                stageText: 'HEIST SUCCESSFUL',
+                color: 0x9932CC,
+                footer: 'Heist Command'
+            });
 
             await interaction.reply({ embeds: [embed] });
 
@@ -122,11 +129,11 @@ module.exports = {
                 'info',
                 `**Heist Command Used**\n` +
                 `**User:** ${interaction.user} (\`${interaction.user.id}\`)\n` +
-                `**Amount:** ${fmt(earning)}\n` +
+                `**Amount:** ${fmtFull(earning)}\n` +
                 `**Target:** ${scenario.target}\n` +
                 `**Task:** ${scenario.task}\n` +
                 `**Difficulty:** ${scenario.difficulty}\n` +
-                `**New Balance:** ${fmt(newWallet)}`,
+                `**New Balance:** ${fmtFull(newWallet)}`,
                 userId,
                 guildId
             );
@@ -134,13 +141,16 @@ module.exports = {
         } catch (error) {
             logger.error(`Error processing heist command: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Heist Failed')
-                .setDescription('Your heist was foiled! The authorities were waiting for you.')
-                .addFields({ name: '🚨 Result', value: 'Mission compromised - try again later', inline: false })
-                .setColor(0xFF0000)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+            const errorEmbed = buildSessionEmbed({
+                title: `❌ ${interaction.user.displayName}'s Heist`,
+                topFields: [
+                    { name: 'Heist Failed', value: 'Your heist was foiled!\nThe authorities were waiting for you.' },
+                    { name: 'Result', value: 'Mission compromised - try again later' }
+                ],
+                stageText: 'MISSION COMPROMISED',
+                color: 0xFF0000,
+                footer: 'Heist Command'
+            });
 
             await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }

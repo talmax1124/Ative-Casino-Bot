@@ -753,6 +753,62 @@ client.on('interactionCreate', async interaction => {
                     await leaderboardCommand.handleButtonInteraction(interaction, customId);
                 }
             }
+            // Handle battleship buttons (namespace: battleship_{action})
+            else if (customId.startsWith('battleship_')) {
+                try {
+                    const action = customId.substring('battleship_'.length);
+                    const battleshipCommand = client.commands.get('battleship');
+                    if (battleshipCommand && battleshipCommand.handleButtonInteraction) {
+                        await battleshipCommand.handleButtonInteraction(interaction, action);
+                    } else {
+                        logger.error('Battleship command or handler not found');
+                        await interaction.reply({
+                            content: '❌ Battleship handler not available. Please try again.',
+                            ephemeral: true
+                        });
+                    }
+                } catch (error) {
+                    logger.error(`Error handling Battleship button ${customId}:`, error);
+                    const errorEmbed = new EmbedBuilder()
+                        .setTitle('❌ Battleship Error')
+                        .setDescription('An error occurred while processing your battleship action.')
+                        .setColor(0xFF0000);
+                    
+                    if (interaction.replied || interaction.deferred) {
+                        await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    } else {
+                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    }
+                }
+            }
+            // Handle plinko buttons (namespace: plinko_{action})
+            else if (customId.startsWith('plinko_')) {
+                try {
+                    const action = customId.substring('plinko_'.length);
+                    const plinkoCommand = client.commands.get('plinko');
+                    if (plinkoCommand && plinkoCommand.handlePlinkoButtonInteraction) {
+                        await plinkoCommand.handlePlinkoButtonInteraction(interaction, action);
+                    } else {
+                        logger.error('Plinko command or handler not found');
+                        await interaction.reply({
+                            content: '❌ Plinko handler not available. Please try again.',
+                            ephemeral: true
+                        });
+                    }
+                } catch (error) {
+                    logger.error(`Error handling Plinko button ${customId}:`, error);
+                    const errorEmbed = new EmbedBuilder()
+                        .setTitle('❌ Plinko Error')
+                        .setDescription('An error occurred while processing your Plinko action.')
+                        .setColor(0xFF0000);
+                    
+                    if (interaction.replied || interaction.deferred) {
+                        await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    } else {
+                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    }
+                }
+            }
             // Handle help buttons
             else if (customId.startsWith('help_')) {
                 const helpCommand = client.commands.get('help');
@@ -802,28 +858,6 @@ client.on('interactionCreate', async interaction => {
                 .setDescription('An error occurred while processing your action.')
                 .setColor(0xFF0000);
 
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
-        }
-    }
-    // Handle Battleship buttons (namespace: battleship_{action})
-    else if (interaction.isButton() && interaction.customId.startsWith('battleship_')) {
-        try {
-            // Extract full action after prefix so multi-word actions work
-            const action = interaction.customId.substring('battleship_'.length);
-            const battleshipCommand = client.commands.get('battleship');
-            if (battleshipCommand && battleshipCommand.handleButtonInteraction) {
-                await battleshipCommand.handleButtonInteraction(interaction, action);
-            }
-        } catch (error) {
-            logger.error(`Error handling Battleship button: ${error.message}`);
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Button Error')
-                .setDescription('An error occurred while processing your action.')
-                .setColor(0xFF0000);
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {

@@ -3,8 +3,9 @@
  * Shows all commands organized by categories with detailed descriptions
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const { getTierDisplay, getAllTiers } = require('../UTILS/common');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -37,12 +38,14 @@ module.exports = {
         } catch (error) {
             logger.error(`Error in help command: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Help System Error')
-                .setDescription('Unable to load help information. Please try again.')
-                .setColor(0xFF0000)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+            const errorEmbed = buildSessionEmbed({
+                title: '❌ Help System Error',
+                topFields: [
+                    { name: 'System Error', value: 'Unable to load help information.\nPlease try again.' }
+                ],
+                color: 0xFF0000,
+                footer: 'Help System'
+            });
 
             if (interaction.replied) {
                 await interaction.editReply({ embeds: [errorEmbed] });

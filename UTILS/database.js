@@ -279,6 +279,9 @@ class DatabaseManager {
             // Use set with merge to ensure document exists
             await docRef.set(updateData, { merge: true });
             
+            // Also update global user stats for leaderboard
+            await this.updateGlobalUserStats(userId, win, result);
+            
             logger.info(`Updated stats for ${userId}_${gameType}: wins=${updateData.wins}, losses=${updateData.losses}`);
             return true;
         } catch (error) {
@@ -915,6 +918,58 @@ class DatabaseManager {
         } catch (error) {
             logger.error(`Error getting top users by wins: ${error.message}`);
             return [];
+        }
+    }
+
+    /**
+     * Update global user statistics for leaderboard
+     * @param {string} userId - Discord user ID
+     * @param {boolean} win - Whether the game was won
+     * @param {number} result - Game result amount
+     * @returns {boolean} Success status
+     */
+    async updateGlobalUserStats(userId, win, result) {
+        try {
+            const docRef = this.db.collection('user_stats').doc(userId);
+            
+            // Get current stats or create new
+            const doc = await docRef.get();
+            const currentStats = doc.exists ? doc.data() : {
+                total_wins: 0,
+                total_losses: 0,
+                total_games_played: 0,
+                total_winnings: 0,
+                total_losses_amount: 0,
+                created_at: new Date()
+            };
+            
+            // Update stats
+            const updateData = {
+                total_games_played: (currentStats.total_games_played || 0) + 1,
+                updated_at: new Date()
+            };
+            
+            if (win) {
+                updateData.total_wins = (currentStats.total_wins || 0) + 1;
+                updateData.total_winnings = (currentStats.total_winnings || 0) + result;
+            } else {
+                updateData.total_losses = (currentStats.total_losses || 0) + 1;
+                updateData.total_losses_amount = (currentStats.total_losses_amount || 0) + Math.abs(result);
+            }
+            
+            // Preserve existing fields
+            updateData.total_wins = updateData.total_wins || currentStats.total_wins || 0;
+            updateData.total_losses = updateData.total_losses || currentStats.total_losses || 0;
+            updateData.total_winnings = updateData.total_winnings || currentStats.total_winnings || 0;
+            updateData.total_losses_amount = updateData.total_losses_amount || currentStats.total_losses_amount || 0;
+            updateData.created_at = currentStats.created_at || new Date();
+            
+            await docRef.set(updateData, { merge: true });
+            
+            return true;
+        } catch (error) {
+            logger.error(`Error updating global user stats for ${userId}: ${error.message}`);
+            return false;
         }
     }
 

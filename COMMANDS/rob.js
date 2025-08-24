@@ -4,10 +4,11 @@
  * Cannot rob 2+ tiers higher or the developer
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtFull, getGuildId, sendLogMessage, getEconomicTier, getAllTiers } = require('../UTILS/common');
 const { secureRandomChance } = require('../UTILS/rng');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
 
 const DEVELOPER_ID = '466050111680544798'; // From CLAUDE.md
@@ -31,36 +32,42 @@ module.exports = {
 
         // Basic validation
         if (userId === targetId) {
-            const embed = new EmbedBuilder()
-                .setTitle('🤦 Self-Rob Attempt')
-                .setDescription('You cannot rob yourself! Try working instead.')
-                .setColor(0xFF6B6B)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🦹 Rob Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+            const embed = buildSessionEmbed({
+                title: `🤦 ${interaction.user.displayName}'s Rob Attempt`,
+                topFields: [
+                    { name: 'Error', value: 'You cannot rob yourself! Try working instead.' }
+                ],
+                color: 0xFF6B6B,
+                footer: 'Rob Command'
+            });
 
             return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         // Developer protection
         if (targetId === DEVELOPER_ID) {
-            const embed = new EmbedBuilder()
-                .setTitle('🛡️ Developer Protection')
-                .setDescription('Nice try! The developer cannot be robbed. You\'ve been reported to the authorities.')
-                .setColor(0xFF0000)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🦹 Rob Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+            const embed = buildSessionEmbed({
+                title: `🛡️ ${interaction.user.displayName}'s Rob Attempt`,
+                topFields: [
+                    { name: 'Developer Protection', value: 'Nice try! The developer cannot be robbed.\nYou\'ve been reported to the authorities.' }
+                ],
+                color: 0xFF0000,
+                footer: 'Rob Command'
+            });
 
             return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         // Bot protection
         if (targetUser.bot) {
-            const embed = new EmbedBuilder()
-                .setTitle('🤖 Bot Protection')
-                .setDescription('You cannot rob bots! They don\'t have money anyway.')
-                .setColor(0xFF6B6B)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🦹 Rob Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+            const embed = buildSessionEmbed({
+                title: `🤖 ${interaction.user.displayName}'s Rob Attempt`,
+                topFields: [
+                    { name: 'Bot Protection', value: 'You cannot rob bots! They don\'t have money anyway.' }
+                ],
+                color: 0xFF6B6B,
+                footer: 'Rob Command'
+            });
 
             return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
@@ -82,12 +89,14 @@ module.exports = {
                 const minutes = Math.floor((remainingTime % 3600) / 60);
                 const seconds = remainingTime % 60;
 
-                const embed = new EmbedBuilder()
-                    .setTitle('⏰ Laying Low')
-                    .setDescription(`You're still hiding from your last robbery! Come back in ${hours}h ${minutes}m ${seconds}s`)
-                    .setColor(0xFFAA00)
-                    .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                    .setFooter({ text: '🦹 Rob Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+                const embed = buildSessionEmbed({
+                    title: `⏰ ${interaction.user.displayName}'s Rob Attempt`,
+                    topFields: [
+                        { name: 'Laying Low', value: `You're still hiding from your last robbery!\nCome back in ${hours}h ${minutes}m ${seconds}s` }
+                    ],
+                    color: 0xFFAA00,
+                    footer: 'Rob Command'
+                });
 
                 return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
@@ -107,24 +116,31 @@ module.exports = {
             const tierDifference = robberTierIndex - targetTierIndex; // Negative means target is higher
 
             if (tierDifference <= -2) { // Target is 2+ tiers higher
-                const embed = new EmbedBuilder()
-                    .setTitle('🛡️ Tier Protection')
-                    .setDescription(`You cannot rob someone 2+ tiers above you!\n\n**Your Tier:** ${robberTier.emoji} ${robberTier.name}\n**Target Tier:** ${targetTier.emoji} ${targetTier.name}\n\nRob someone closer to your level.`)
-                    .setColor(0xFF6B6B)
-                    .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                    .setFooter({ text: '🦹 Rob Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+                const embed = buildSessionEmbed({
+                    title: `🛡️ ${interaction.user.displayName}'s Rob Attempt`,
+                    topFields: [
+                        { name: 'Tier Protection', value: 'You cannot rob someone 2+ tiers above you!' },
+                        { name: 'Your Tier', value: `${robberTier.emoji} ${robberTier.name}`, inline: true },
+                        { name: 'Target Tier', value: `${targetTier.emoji} ${targetTier.name}`, inline: true },
+                        { name: 'Advice', value: 'Rob someone closer to your level.' }
+                    ],
+                    color: 0xFF6B6B,
+                    footer: 'Rob Command'
+                });
 
                 return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
             // Check if target has money to rob
             if (targetBalance.wallet <= 0 && targetBalance.bank <= 0) {
-                const embed = new EmbedBuilder()
-                    .setTitle('💸 No Money Found')
-                    .setDescription(`${targetUser.displayName} has no money to steal! They're as broke as you are.`)
-                    .setColor(0xFF6B6B)
-                    .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                    .setFooter({ text: '🦹 Rob Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+                const embed = buildSessionEmbed({
+                    title: `💸 ${interaction.user.displayName}'s Rob Attempt`,
+                    topFields: [
+                        { name: 'No Money Found', value: `${targetUser.displayName} has no money to steal!\nThey're as broke as you are.` }
+                    ],
+                    color: 0xFF6B6B,
+                    footer: 'Rob Command'
+                });
 
                 return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
@@ -176,21 +192,24 @@ module.exports = {
                 await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank);
                 await dbManager.setUserBalance(targetId, guildId, newTargetWallet, newTargetBank);
 
-                const embed = new EmbedBuilder()
-                    .setTitle('🎭 Robbery Success!')
-                    .setDescription(`You successfully robbed ${targetUser.displayName} and got away with ${fmt(stolenAmount)}!`)
-                    .addFields(
-                        { name: '💰 Amount Stolen', value: fmt(stolenAmount), inline: true },
-                        { name: '💳 Source', value: sourceAccount === 'wallet' ? '💵 Wallet' : '🏦 Bank', inline: true },
-                        { name: '📊 Success Rate', value: `${baseSuccessRate}%`, inline: true },
-                        { name: '🎖️ Your Tier', value: `${robberTier.emoji} ${robberTier.name}`, inline: true },
-                        { name: '🎯 Target Tier', value: `${targetTier.emoji} ${targetTier.name}`, inline: true },
-                        { name: '💸 Your New Balance', value: fmt(newRobberWallet), inline: true }
-                    )
-                    .setColor(0x32CD32)
-                    .setThumbnail(interaction.user.displayAvatarURL())
-                    .setFooter({ text: '🦹 Rob Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-                    .setTimestamp();
+                const embed = buildSessionEmbed({
+                    title: `🎭 ${interaction.user.displayName}'s Robbery`,
+                    topFields: [
+                        { name: 'Result', value: `**SUCCESS!** You robbed ${targetUser.displayName}!` },
+                        { name: 'Amount Stolen', value: fmtFull(stolenAmount), inline: true },
+                        { name: 'Source', value: sourceAccount === 'wallet' ? '💵 Wallet' : '🏦 Bank', inline: true },
+                        { name: 'Success Rate', value: `${baseSuccessRate}%`, inline: true },
+                        { name: 'Your Tier', value: `${robberTier.emoji} ${robberTier.name}`, inline: true },
+                        { name: 'Target Tier', value: `${targetTier.emoji} ${targetTier.name}`, inline: true }
+                    ],
+                    bankFields: [
+                        { name: 'New Wallet', value: fmtFull(newRobberWallet), inline: true },
+                        { name: 'Bank', value: fmtFull(robberBalance.bank), inline: true }
+                    ],
+                    stageText: 'SUCCESSFUL HEIST',
+                    color: 0x32CD32,
+                    footer: 'Rob Command'
+                });
 
                 await interaction.reply({ embeds: [embed] });
 
@@ -201,7 +220,7 @@ module.exports = {
                     `**Successful Robbery**\n` +
                     `**Robber:** ${interaction.user} (\`${userId}\`) - ${robberTier.emoji} ${robberTier.name}\n` +
                     `**Target:** ${targetUser} (\`${targetId}\`) - ${targetTier.emoji} ${targetTier.name}\n` +
-                    `**Amount Stolen:** ${fmt(stolenAmount)} from ${sourceAccount}\n` +
+                    `**Amount Stolen:** ${fmtFull(stolenAmount)} from ${sourceAccount}\n` +
                     `**Success Rate:** ${baseSuccessRate}%`,
                     userId,
                     guildId
@@ -233,21 +252,24 @@ module.exports = {
                 // Update robber balance
                 await dbManager.setUserBalance(userId, guildId, newRobberWallet, newRobberBank);
 
-                const embed = new EmbedBuilder()
-                    .setTitle('🚨 Robbery Failed!')
-                    .setDescription(`You got caught trying to rob ${targetUser.displayName}! The authorities fined you ${fmt(penaltyAmount)}.`)
-                    .addFields(
-                        { name: '💸 Fine Amount', value: fmt(penaltyAmount), inline: true },
-                        { name: '💳 Taken From', value: penaltySource === 'wallet' ? '💵 Wallet' : penaltySource === 'bank' ? '🏦 Bank' : '💵 Wallet (Negative)', inline: true },
-                        { name: '📊 Success Rate', value: `${baseSuccessRate}%`, inline: true },
-                        { name: '🎖️ Your Tier', value: `${robberTier.emoji} ${robberTier.name}`, inline: true },
-                        { name: '🎯 Target Tier', value: `${targetTier.emoji} ${targetTier.name}`, inline: true },
-                        { name: '💔 Your New Balance', value: newRobberWallet < 0 ? `-${fmt(Math.abs(newRobberWallet))}` : fmt(newRobberWallet), inline: true }
-                    )
-                    .setColor(0xFF0000)
-                    .setThumbnail(interaction.user.displayAvatarURL())
-                    .setFooter({ text: '🦹 Rob Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
-                    .setTimestamp();
+                const embed = buildSessionEmbed({
+                    title: `🚨 ${interaction.user.displayName}'s Robbery`,
+                    topFields: [
+                        { name: 'Result', value: `**FAILED!** You got caught trying to rob ${targetUser.displayName}!` },
+                        { name: 'Fine Amount', value: fmtFull(penaltyAmount), inline: true },
+                        { name: 'Taken From', value: penaltySource === 'wallet' ? '💵 Wallet' : penaltySource === 'bank' ? '🏦 Bank' : '💵 Wallet (Negative)', inline: true },
+                        { name: 'Success Rate', value: `${baseSuccessRate}%`, inline: true },
+                        { name: 'Your Tier', value: `${robberTier.emoji} ${robberTier.name}`, inline: true },
+                        { name: 'Target Tier', value: `${targetTier.emoji} ${targetTier.name}`, inline: true }
+                    ],
+                    bankFields: [
+                        { name: 'New Wallet', value: newRobberWallet < 0 ? `-${fmtFull(Math.abs(newRobberWallet))}` : fmtFull(newRobberWallet), inline: true },
+                        { name: 'Bank', value: fmtFull(newRobberBank), inline: true }
+                    ],
+                    stageText: 'CAUGHT RED-HANDED',
+                    color: 0xFF0000,
+                    footer: 'Rob Command'
+                });
 
                 await interaction.reply({ embeds: [embed] });
 
@@ -258,7 +280,7 @@ module.exports = {
                     `**Failed Robbery**\n` +
                     `**Robber:** ${interaction.user} (\`${userId}\`) - ${robberTier.emoji} ${robberTier.name}\n` +
                     `**Target:** ${targetUser} (\`${targetId}\`) - ${targetTier.emoji} ${targetTier.name}\n` +
-                    `**Fine:** ${fmt(penaltyAmount)} from ${penaltySource}\n` +
+                    `**Fine:** ${fmtFull(penaltyAmount)} from ${penaltySource}\n` +
                     `**Success Rate:** ${baseSuccessRate}%`,
                     userId,
                     guildId
@@ -268,12 +290,14 @@ module.exports = {
         } catch (error) {
             logger.error(`Error processing rob command: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Robbery Failed')
-                .setDescription('Something went wrong during the robbery attempt. The authorities have been alerted!')
-                .setColor(0xFF0000)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+            const errorEmbed = buildSessionEmbed({
+                title: `❌ ${interaction.user.displayName}'s Robbery`,
+                topFields: [
+                    { name: 'System Error', value: 'Something went wrong during the robbery attempt.\nThe authorities have been alerted!' }
+                ],
+                color: 0xFF0000,
+                footer: 'Rob Command'
+            });
 
             await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }

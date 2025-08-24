@@ -546,6 +546,318 @@ module.exports = {
             logger.error(`Battleship modal error: ${error.message}`);
             if (!interaction.replied) await interaction.reply({ content: '❌ Error handling modal.', flags: MessageFlags.Ephemeral });
         }
+    },
+
+    async handleButtonInteraction(interaction, action) {
+        const userId = interaction.user.id;
+        const channelId = interaction.channelId;
+        const guildId = await getGuildId(interaction);
+        
+        try {
+            logger.info(`Handling battleship button interaction: ${action} by user ${userId} in channel ${channelId}`);
+            
+            const game = getBattleshipGame(channelId);
+            if (!game) {
+                logger.warn(`No battleship game found for channel ${channelId}`);
+                await interaction.reply({ 
+                    content: '❌ No active Battleship game found in this channel.', 
+                    flags: MessageFlags.Ephemeral 
+                });
+                return;
+            }
+
+            switch (action) {
+                case 'join':
+                    logger.info(`User ${userId} attempting to join battleship game in channel ${channelId}`);
+                    
+                    if (game.players.has(userId)) {
+                        await interaction.reply({ 
+                            content: '❌ You are already in this game!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    if (game.players.size >= 2) {
+                        await interaction.reply({ 
+                            content: '❌ This game is already full!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    if (game.state !== 'lobby') {
+                        await interaction.reply({ 
+                            content: '❌ This game has already started!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    // Check user balance
+                    const joinUserBalance = await dbManager.getUserBalance(userId, guildId);
+                    if (joinUserBalance.wallet < game.betAmount) {
+                        await interaction.reply({
+                            content: `❌ You need ${fmt(game.betAmount)} credits to join this game! You only have ${fmt(joinUserBalance.wallet)}.`,
+                            flags: MessageFlags.Ephemeral
+                        });
+                        return;
+                    }
+
+                    // Check if user is in another game
+                    const activeGame = getUserGame(userId);
+                    if (activeGame) {
+                        await interaction.reply({ 
+                            content: '❌ You are already in another game! Finish it first.', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    // Add player to game
+                    const success = game.addPlayer(interaction.user);
+                    if (!success) {
+                        logger.error(`Failed to add player ${userId} to battleship game`);
+                        await interaction.reply({ 
+                            content: '❌ Failed to join the game. Please try again.', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    // Deduct bet amount from both players and start game
+                    if (game.players.size === 2) {
+                        logger.info(`Battleship game starting with 2 players in channel ${channelId}`);
+                        
+                        // Deduct bet from both players
+                        for (const [playerId] of game.players) {
+                            await dbManager.updateUserBalance(playerId, guildId, { 
+                                wallet: -game.betAmount, 
+                                game_active: true 
+                            });
+                        }
+
+                        game.startPlacement();
+                        
+                        const embed = game.createPlacementEmbed();
+                        const components = game.createGameButtons();
+                        
+                        await interaction.update({ embeds: [embed], components });
+                        
+                        await interaction.followUp({
+                            content: '⚓ **Battle stations!** Both players must now place their ships using the buttons below.',
+                            flags: MessageFlags.Ephemeral
+                        });
+                        
+                        logger.info(`Battleship placement phase started for channel ${channelId}`);
+                    } else {
+                        // Update lobby display
+                        const embed = game.createLobbyEmbed();
+                        const components = game.createGameButtons();
+                        
+                        await interaction.update({ embeds: [embed], components });
+                        
+                        await interaction.followUp({ 
+                            content: '⚓ Joined the battle! Waiting for one more player...', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                    }
+                    break;
+
+                case 'help':
+                    const helpEmbed = game.createHelpEmbed();
+                    await interaction.reply({ 
+                        embeds: [helpEmbed], 
+                        flags: MessageFlags.Ephemeral 
+                    });
+                    break;
+
+                case 'place_ships':
+                    if (!game.players.has(userId)) {
+                        await interaction.reply({ 
+                            content: '❌ You are not in this game!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    if (game.state !== 'placing') {
+                        await interaction.reply({ 
+                            content: '❌ Ship placement is not available right now!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    const board = game.boards.get(userId);
+                    if (board.allShipsPlaced()) {
+                        await interaction.reply({ 
+                            content: '❌ You have already placed all your ships!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    // Show placement modal
+                    const currentShip = board.getNextShipToPlace();
+                    const modal = new ModalBuilder()
+                        .setCustomId(`battleship_place_${userId}`)
+                        .setTitle(`⚓ Place ${currentShip.name} (${currentShip.length} spaces)`);
+
+                    const coordinateInput = new TextInputBuilder()
+                        .setCustomId('coordinate')
+                        .setLabel('Starting coordinate (e.g., A5)')
+                        .setStyle(TextInputStyle.Short)
+                        .setMinLength(2)
+                        .setMaxLength(3)
+                        .setRequired(true)
+                        .setPlaceholder('A5, B10, etc.');
+
+                    const directionInput = new TextInputBuilder()
+                        .setCustomId('direction')
+                        .setLabel('Direction (H for horizontal, V for vertical)')
+                        .setStyle(TextInputStyle.Short)
+                        .setMinLength(1)
+                        .setMaxLength(1)
+                        .setRequired(true)
+                        .setPlaceholder('H or V');
+
+                    const firstRow = new ActionRowBuilder().addComponents(coordinateInput);
+                    const secondRow = new ActionRowBuilder().addComponents(directionInput);
+
+                    modal.addComponents(firstRow, secondRow);
+                    await interaction.showModal(modal);
+                    break;
+
+                case 'auto_place':
+                    if (!game.players.has(userId)) {
+                        await interaction.reply({ 
+                            content: '❌ You are not in this game!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    if (game.state !== 'placing') {
+                        await interaction.reply({ 
+                            content: '❌ Ship placement is not available right now!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    const autoBoard = game.boards.get(userId);
+                    if (autoBoard.allShipsPlaced()) {
+                        await interaction.reply({ 
+                            content: '❌ You have already placed all your ships!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    // Auto-place remaining ships
+                    const autoPlaceSuccess = await autoPlaceAllShips(autoBoard);
+                    if (!autoPlaceSuccess) {
+                        await interaction.reply({ 
+                            content: '❌ Failed to auto-place ships. Please try manual placement.', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    // Check if all players have placed ships
+                    const allPlaced = Array.from(game.players.keys()).every(pid => 
+                        game.boards.get(pid).allShipsPlaced()
+                    );
+
+                    if (allPlaced) {
+                        game.startBattle();
+                        const embed = game.createBattleEmbed();
+                        const components = game.createGameButtons();
+                        await interaction.update({ embeds: [embed], components });
+                        await interaction.followUp({ 
+                            content: '⚓ All ships placed! Battle has begun!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                    } else {
+                        const embed = game.createPlacementEmbed();
+                        const components = game.createGameButtons();
+                        await interaction.update({ embeds: [embed], components });
+                        await interaction.followUp({ 
+                            content: '⚓ Ships auto-placed! Waiting for your opponent...', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                    }
+                    break;
+
+                case 'attack':
+                    if (!game.players.has(userId)) {
+                        await interaction.reply({ 
+                            content: '❌ You are not in this game!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    if (game.state !== 'playing') {
+                        await interaction.reply({ 
+                            content: '❌ The battle has not started yet!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    if (game.currentTurn !== userId) {
+                        await interaction.reply({ 
+                            content: '❌ It is not your turn!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                        return;
+                    }
+
+                    // Show attack modal
+                    const attackModal = new ModalBuilder()
+                        .setCustomId(`battleship_attack_${userId}`)
+                        .setTitle('🎯 Fire at Enemy Position');
+
+                    const attackCoordinateInput = new TextInputBuilder()
+                        .setCustomId('coordinate')
+                        .setLabel('Target coordinate (e.g., A5)')
+                        .setStyle(TextInputStyle.Short)
+                        .setMinLength(2)
+                        .setMaxLength(3)
+                        .setRequired(true)
+                        .setPlaceholder('A5, B10, etc.');
+
+                    const attackRow = new ActionRowBuilder().addComponents(attackCoordinateInput);
+                    attackModal.addComponents(attackRow);
+                    
+                    await interaction.showModal(attackModal);
+                    break;
+
+                default:
+                    logger.warn(`Unknown battleship action: ${action}`);
+                    await interaction.reply({ 
+                        content: '❌ Unknown action. Please try again.', 
+                        flags: MessageFlags.Ephemeral 
+                    });
+                    break;
+            }
+
+        } catch (error) {
+            logger.error(`Error in battleship button handler for action ${action}:`, error);
+            
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ 
+                    content: '❌ An error occurred while processing your action. Please try again.', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            } else if (interaction.deferred) {
+                await interaction.editReply({ 
+                    content: '❌ An error occurred while processing your action. Please try again.' 
+                });
+            }
+        }
     }
 };
 

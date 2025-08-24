@@ -406,6 +406,29 @@ const devPanelCommand = {
                         .setDescription('User to stop game for (optional - shows list if not provided)')
                         .setRequired(false)
                 )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('vps')
+                .setDescription('VPS deployment controls')
+                .addStringOption(option =>
+                    option.setName('action')
+                        .setDescription('Action to perform')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Pull & Restart', value: 'pull_restart' },
+                            { name: 'Restart Only', value: 'restart' },
+                            { name: 'Pull Only', value: 'pull' },
+                            { name: 'Status', value: 'status' },
+                            { name: 'Logs', value: 'logs' }
+                        )
+                )
+                .addIntegerOption(option =>
+                    option.setName('lines')
+                        .setDescription('Number of log lines to show (for logs action)')
+                        .setMinValue(10)
+                        .setMaxValue(100)
+                )
         ),
 
     async execute(interaction) {
@@ -541,6 +564,129 @@ const devPanelCommand = {
             } else if (subcommand === 'updatelottery') {
                 // Execute update lottery panel functionality
                 await updateLotteryPanelCommand.execute(interaction);
+                
+            } else if (subcommand === 'vps') {
+                const action = interaction.options.getString('action');
+                const lines = interaction.options.getInteger('lines') || 50;
+                
+                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+                
+                try {
+                    let result = '';
+                    let embed;
+                    
+                    switch (action) {
+                        case 'pull_restart':
+                            embed = new EmbedBuilder()
+                                .setTitle('🔄 VPS: Pull & Restart')
+                                .setDescription('Pulling latest code and restarting bot...')
+                                .setColor(0xFFFF00);
+                            
+                            await interaction.editReply({ embeds: [embed] });
+                            
+                            // Execute git pull and restart commands on VPS
+                            const pullRestartScript = `
+                                cd ~/AtiveCasino &&
+                                git pull origin main &&
+                                npm install &&
+                                pm2 restart ative-casino-bot || (pm2 start index.js --name ative-casino-bot && echo "Started new PM2 process")
+                            `;
+                            
+                            const { stdout: pullRestartOutput, stderr: pullRestartError } = await execAsync(
+                                `ssh root@ativecasino "${pullRestartScript}"`
+                            );
+                            
+                            result = pullRestartOutput || pullRestartError || 'No output';
+                            
+                            embed = new EmbedBuilder()
+                                .setTitle('✅ VPS: Pull & Restart Complete')
+                                .setDescription(`\`\`\`\n${result.slice(-1800)}\n\`\`\``)
+                                .setColor(0x00FF00)
+                                .setTimestamp();
+                            break;
+                            
+                        case 'restart':
+                            embed = new EmbedBuilder()
+                                .setTitle('🔄 VPS: Restarting Bot')
+                                .setDescription('Restarting bot on VPS...')
+                                .setColor(0xFFFF00);
+                            
+                            await interaction.editReply({ embeds: [embed] });
+                            
+                            const { stdout: restartOutput, stderr: restartError } = await execAsync(
+                                `ssh root@ativecasino "cd ~/AtiveCasino && pm2 restart ative-casino-bot"`
+                            );
+                            
+                            result = restartOutput || restartError || 'Bot restarted';
+                            
+                            embed = new EmbedBuilder()
+                                .setTitle('✅ VPS: Bot Restarted')
+                                .setDescription(`\`\`\`\n${result}\n\`\`\``)
+                                .setColor(0x00FF00)
+                                .setTimestamp();
+                            break;
+                            
+                        case 'pull':
+                            const { stdout: pullOutput, stderr: pullError } = await execAsync(
+                                `ssh root@ativecasino "cd ~/AtiveCasino && git pull origin main && npm install"`
+                            );
+                            
+                            result = pullOutput || pullError || 'Pull completed';
+                            
+                            embed = new EmbedBuilder()
+                                .setTitle('📥 VPS: Code Updated')
+                                .setDescription(`\`\`\`\n${result.slice(-1800)}\n\`\`\``)
+                                .setColor(0x0099FF)
+                                .setTimestamp();
+                            break;
+                            
+                        case 'status':
+                            const { stdout: statusOutput, stderr: statusError } = await execAsync(
+                                `ssh root@ativecasino "cd ~/AtiveCasino && pm2 status ative-casino-bot && echo '---' && git log -1 --oneline"`
+                            );
+                            
+                            result = statusOutput || statusError || 'Status check failed';
+                            
+                            embed = new EmbedBuilder()
+                                .setTitle('📊 VPS: Status')
+                                .setDescription(`\`\`\`\n${result}\n\`\`\``)
+                                .setColor(0x0099FF)
+                                .setTimestamp();
+                            break;
+                            
+                        case 'logs':
+                            const { stdout: logsOutput, stderr: logsError } = await execAsync(
+                                `ssh root@ativecasino "cd ~/AtiveCasino && pm2 logs ative-casino-bot --lines ${lines} --nostream"`
+                            );
+                            
+                            result = logsOutput || logsError || 'No logs available';
+                            
+                            // Truncate if too long
+                            if (result.length > 1900) {
+                                result = '...' + result.slice(-1800);
+                            }
+                            
+                            embed = new EmbedBuilder()
+                                .setTitle(`📄 VPS: Recent Logs (${lines} lines)`)
+                                .setDescription(`\`\`\`\n${result}\n\`\`\``)
+                                .setColor(0x0099FF)
+                                .setTimestamp();
+                            break;
+                    }
+                    
+                    await interaction.editReply({ embeds: [embed] });
+                    logger.info(`Developer ${interaction.user.tag} executed VPS action: ${action}`);
+                    
+                } catch (error) {
+                    logger.error(`VPS command error: ${error.message}`);
+                    
+                    const errorEmbed = new EmbedBuilder()
+                        .setTitle('❌ VPS Command Failed')
+                        .setDescription(`Failed to execute ${action}: ${error.message}`)
+                        .setColor(0xFF0000);
+                    
+                    await interaction.editReply({ embeds: [errorEmbed] });
+                }
                 
             } else if (subcommand === 'stopgame') {
                 // Execute stop game functionality

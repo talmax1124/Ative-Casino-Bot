@@ -1,27 +1,27 @@
 /**
  * Plinko command handler for ATIVE Casino Bot
- * Handles Plinko game with multiple difficulty modes
+ * Enhanced with Canvas image generation and realistic physics
+ * Based on Python reference implementation
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
-const { 
-    PlinkoGameSession,
-    startPlinkoGame,
-    getPlinkoGame,
-    endPlinkoGame,
-    handlePlinkoAction
-} = require('../GAMES/plinko');
+const { fmtFull, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const { PLINKO_MODES, randomizeMultipliers, createPlinkoImage, simulatePlinkoDrop } = require('../UTILS/plinkoCanvas');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const logger = require('../UTILS/logger');
+
+// Active games registry
+const activePlinkoGames = new Map();
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('plinko')
-        .setDescription('🎯 Play Plinko - Drop a ball and watch it bounce!')
+        .setDescription('🎯 Play Plinko - Drop a ball through pegs for multipliers!')
         .addStringOption(option =>
             option.setName('amount')
-                .setDescription('Bet amount')
+                .setDescription('Bet amount (use K/M/B suffixes, A for all, H for half)')
                 .setRequired(true)
         ),
 
@@ -32,286 +32,561 @@ module.exports = {
         const username = interaction.user.displayName;
 
         try {
-            // Check if there's already an active Plinko game in this channel
-            const existingGame = getPlinkoGame(channelId);
-            if (existingGame) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Game Already Active')
-                    .setDescription(`There's already an active Plinko game in this channel!\n\n**Player:** ${existingGame.username}`)
-                    .setColor(0xFF0000);
+            // Check if there's already an active Plinko game for this user
+            if (activePlinkoGames.has(userId)) {
+                const embed = buildSessionEmbed({
+                    title: `❌ ${username}'s Plinko`,
+                    topFields: [
+                        { name: 'Game Already Active', value: 'You already have an active Plinko game!\nFinish your current game first.' }
+                    ],
+                    color: 0xFF0000,
+                    footer: 'Plinko Game'
+                });
 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
-            // Ensure user exists and check for active games
+            // Ensure user exists and get balance
             await dbManager.ensureUser(userId, username);
-            
             const balance = await dbManager.getUserBalance(userId, guildId);
+
+            // Check if user has an active game
             if (balance.game_active) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Game Already Active')
-                    .setDescription('You already have an active game session! Finish your current game first.')
-                    .setColor(0xFF0000);
-                
+                const embed = buildSessionEmbed({
+                    title: `❌ ${username}'s Plinko`,
+                    topFields: [
+                        { name: 'Game Already Active', value: 'You have an active game session.\nFinish it before starting Plinko.' }
+                    ],
+                    color: 0xFF0000,
+                    footer: 'Plinko Game'
+                });
+
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
-            // Parse bet amount
-            const amountStr = interaction.options.getString('amount');
-            let betAmount;
-            
-            try {
-                betAmount = parseAmount(amountStr, balance.wallet);
-            } catch (error) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Invalid Amount')
-                    .setDescription(`Invalid amount format: ${error.message}`)
-                    .setColor(0xFF0000);
-                
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
-            }
+            // Parse and validate bet amount
+            const betAmount = parseAmount(interaction.options.getString('amount'), balance.wallet);
 
-            // Validate bet amount
-            const MIN_BET = 50;
-            if (betAmount < MIN_BET) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Minimum Bet Required')
-                    .setDescription(`Minimum bet for Plinko is ${fmt(MIN_BET)}!`)
-                    .setColor(0xFF0000);
-                
+            if (betAmount <= 0) {
+                const embed = buildSessionEmbed({
+                    title: `❌ ${username}'s Plinko`,
+                    topFields: [
+                        { name: 'Invalid Bet', value: 'Bet amount must be greater than 0!' }
+                    ],
+                    color: 0xFF0000,
+                    footer: 'Plinko Game'
+                });
+
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
             if (betAmount > balance.wallet) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Insufficient Funds')
-                    .setDescription(`You only have ${fmt(balance.wallet)} in your wallet!\n\nUse \`/balance\` to check your funds.`)
-                    .setColor(0xFF0000);
-                
+                const embed = buildSessionEmbed({
+                    title: `❌ ${username}'s Plinko`,
+                    topFields: [
+                        { name: 'Insufficient Funds', value: `You need ${fmtFull(betAmount)} but only have ${fmtFull(balance.wallet)}!` }
+                    ],
+                    bankFields: [
+                        { name: 'Wallet', value: fmtFull(balance.wallet), inline: true },
+                        { name: 'Bank', value: fmtFull(balance.bank), inline: true }
+                    ],
+                    color: 0xFF0000,
+                    footer: 'Plinko Game'
+                });
+
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
-            // Deduct bet from player's wallet and set game as active
-            const newWalletBalance = balance.wallet - betAmount;
-            
-            await dbManager.updateUserBalance(userId, guildId, {
-                wallet: newWalletBalance,
-                game_active: true
-            });
+            // Deduct bet and set game active
+            await dbManager.updateUserBalance(userId, guildId, -betAmount, 0, { game_active: true });
 
-            // Create Plinko game
-            const plinkoGame = startPlinkoGame(userId, username, betAmount, channelId);
-
-            // Show mode selection
-            const modeEmbed = plinkoGame.getModeSelectionEmbed();
-            const modeButtons = plinkoGame.createModeSelectionButtons();
-
-            // Send initial message
-            await interaction.reply({
-                embeds: [modeEmbed],
-                components: modeButtons
-            });
-
-            // Log game start
-            logger.info(`Plinko game started: ${username} (${userId}) bet ${betAmount} in channel ${channelId}`);
-            
-            await sendLogMessage(
-                interaction.client,
-                'info',
-                `🎯 **Plinko Game Started**\\n**Player:** ${username} (\`${userId}\`)\\n**Bet:** ${fmt(betAmount)}\\n**Channel:** <#${channelId}>`,
-                userId,
-                guildId
-            );
+            // Create mode selection view
+            await showModeSelection(interaction, userId, username, betAmount, balance.wallet - betAmount, balance.bank);
 
         } catch (error) {
-            logger.error(`Error executing Plinko command: ${error.message}`, { userId, error: error.stack });
+            logger.error(`Error in plinko command: ${error.message}`);
             
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Command Error')
-                .setDescription('An error occurred while starting the Plinko game. Please try again.')
-                .setColor(0xFF0000);
-            
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            } else {
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-            }
-        }
-    },
-
-    /**
-     * Handle Plinko button interactions
-     */
-    async handleButtonInteraction(interaction, action, value) {
-        const channelId = interaction.channelId;
-        const userId = interaction.user.id;
-        const guildId = await getGuildId(interaction);
-        
-        try {
-            const result = await handlePlinkoAction(interaction, action, value);
-            
-            if (result && result.success) {
-                switch (result.action) {
-                    case 'mode_selected':
-                        await this.handleModeSelection(interaction, channelId);
-                        break;
-                    case 'ball_dropped':
-                        await this.handleBallDrop(interaction, channelId, guildId, result.result);
-                        break;
-                }
-            } else {
-                await interaction.reply({
-                    content: `❌ ${result.error || 'Unknown error occurred'}`,
-                    flags: MessageFlags.Ephemeral
-                });
-            }
-        } catch (error) {
-            logger.error(`Error handling Plinko button interaction: ${error.message}`, { userId, action, value });
-            
-            if (!interaction.replied) {
-                await interaction.reply({
-                    content: '❌ An error occurred while processing your Plinko action.',
-                    flags: MessageFlags.Ephemeral
-                });
-            }
-        }
-    },
-
-    /**
-     * Handle mode selection
-     */
-    async handleModeSelection(interaction, channelId) {
-        try {
-            const game = getPlinkoGame(channelId);
-            if (!game) return;
-
-            const dropEmbed = game.getDropSelectionEmbed();
-            const dropButtons = game.createDropPositionButtons();
-
-            await interaction.update({
-                embeds: [dropEmbed],
-                components: dropButtons
-            });
-        } catch (error) {
-            logger.error(`Error handling mode selection: ${error.message}`);
-        }
-    },
-
-    /**
-     * Handle ball drop and game completion
-     */
-    async handleBallDrop(interaction, channelId, guildId, result) {
-        try {
-            const game = getPlinkoGame(channelId);
-            if (!game) return;
-
-            // Update interaction immediately
-            await interaction.update({
-                embeds: [game.getDropSelectionEmbed()],
-                components: []
+            const errorEmbed = buildSessionEmbed({
+                title: `❌ ${username}'s Plinko`,
+                topFields: [
+                    { name: 'System Error', value: 'Something went wrong while starting the game.\nPlease try again.' }
+                ],
+                color: 0xFF0000,
+                footer: 'Plinko Game'
             });
 
-            // Show ball dropping animation
-            const dropEmbed = new EmbedBuilder()
-                .setTitle('🎯 Plinko - Ball Dropping!')
-                .setDescription('🔴 The ball is bouncing down the board...')
-                .setColor(0xFFFF00);
-
-            await interaction.editReply({ embeds: [dropEmbed] });
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Show result
-            const resultEmbed = game.getResultEmbed(result);
-            await interaction.editReply({ embeds: [resultEmbed], components: [] });
-
-            // Process payout and update database
-            await this.processGameResult(interaction, channelId, guildId, result);
-
-        } catch (error) {
-            logger.error(`Error handling ball drop: ${error.message}`);
+            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }
-    },
-
-    /**
-     * Process game result and update database
-     */
-    async processGameResult(interaction, channelId, guildId, result) {
-        try {
-            const game = getPlinkoGame(channelId);
-            if (!game) return;
-
-            // Clear game active status
-            await dbManager.updateUserBalance(game.userId, guildId, { game_active: false });
-
-            // Process winnings
-            if (result.winnings > 0) {
-                await dbManager.updateUserBalance(game.userId, guildId, {
-                    wallet: (await dbManager.getUserBalance(game.userId, guildId)).wallet + result.winnings
-                });
-            }
-
-            // Record game result
-            const gameWon = result.profit > 0;
-            await dbManager.recordGameResult(game.userId, guildId, 'plinko', gameWon, game.betAmount, result.winnings, {
-                mode: game.mode,
-                dropPosition: game.dropPosition,
-                finalSlot: result.finalSlot + 1,
-                multiplier: result.multiplier,
-                profit: result.profit
-            });
-
-            // Log game completion
-            const logMessage = `🎯 **Plinko Game Completed**\\n` +
-                             `**Player:** ${game.username} (\`${game.userId}\`)\\n` +
-                             `**Mode:** ${game.modes[game.mode].name}\\n` +
-                             `**Drop Position:** ${game.dropPosition}\\n` +
-                             `**Final Slot:** ${result.finalSlot + 1}\\n` +
-                             `**Multiplier:** ${result.multiplier}x\\n` +
-                             `**Bet:** ${fmt(game.betAmount)}\\n` +
-                             `**Winnings:** ${fmt(result.winnings)}\\n` +
-                             `**Profit:** ${result.profit >= 0 ? '+' : ''}${fmt(result.profit)}\\n` +
-                             `**Channel:** <#${channelId}>`;
-
-            await sendLogMessage(
-                interaction.client,
-                gameWon ? 'success' : 'info',
-                logMessage,
-                game.userId,
-                guildId
-            );
-
-            logger.info(`Plinko game completed in channel ${channelId}: ${game.username} ${gameWon ? 'won' : 'lost'} ${Math.abs(result.profit)} chips`);
-
-            // Remove game from active games
-            endPlinkoGame(channelId);
-
-        } catch (error) {
-            logger.error(`Error processing Plinko game result: ${error.message}`, error);
-            
-            // Ensure game is removed even if there was an error
-            endPlinkoGame(channelId);
-            
-            // Try to clear game active status
-            try {
-                const game = getPlinkoGame(channelId);
-                if (game) {
-                    await dbManager.updateUserBalance(game.userId, guildId, { game_active: false });
-                }
-            } catch (dbError) {
-                logger.error(`Failed to clear game_active status: ${dbError.message}`);
-            }
-        }
-    },
-
-    /**
-     * Get help embed
-     */
-    getHelpEmbed() {
-        return PlinkoGameSession.getHelpEmbed();
     }
 };
+
+/**
+ * Show mode selection interface
+ */
+async function showModeSelection(interaction, userId, username, betAmount, newWallet, bankBalance) {
+    // Create mode selection buttons
+    const buttons = new ActionRowBuilder();
+    
+    Object.entries(PLINKO_MODES).forEach(([modeName, modeData]) => {
+        let style;
+        if (modeName === 'Easy') style = ButtonStyle.Success;
+        else if (modeName === 'Medium') style = ButtonStyle.Primary;
+        else if (modeName === 'Hard') style = ButtonStyle.Danger;
+        else style = ButtonStyle.Secondary;
+
+        buttons.addComponents(
+            new ButtonBuilder()
+                .setCustomId(`plinko_mode_${modeName.toLowerCase()}`)
+                .setLabel(modeName)
+                .setEmoji(modeData.emoji)
+                .setStyle(style)
+        );
+    });
+
+    // Create mode selection embed
+    const topFields = [
+        { name: 'Choose Your Risk Level', value: 'Select a difficulty mode to start playing!\n⚠️ **Warning: All modes favor the house!**' }
+    ];
+
+    // Add mode descriptions
+    Object.entries(PLINKO_MODES).forEach(([modeName, modeData]) => {
+        const houseEdge = (modeData.house_edge * 100).toFixed(0);
+        const minMult = Math.min(...modeData.multipliers).toFixed(1);
+        const maxMult = Math.max(...modeData.multipliers).toFixed(1);
+
+        topFields.push({
+            name: `${modeData.emoji} ${modeName} Mode`,
+            value: `${modeData.description}\n🎰 Range: **${minMult}x - ${maxMult}x**\n🏠 House Edge: **${houseEdge}%**\n⚡ Rows: ${modeData.rows}`,
+            inline: true
+        });
+    });
+
+    const embed = buildSessionEmbed({
+        title: `🎯 ${username}'s Plinko - Mode Selection`,
+        topFields,
+        bankFields: [
+            { name: 'Bet Amount', value: fmtFull(betAmount), inline: true },
+            { name: 'Remaining Wallet', value: fmtFull(newWallet), inline: true },
+            { name: 'Bank Balance', value: fmtFull(bankBalance), inline: true }
+        ],
+        stageText: 'SELECT MODE',
+        color: 0xFFD700,
+        footer: '🚨 Gambling is risky! Only bet what you can afford to lose.'
+    });
+
+    await interaction.reply({ embeds: [embed], components: [buttons] });
+
+    // Store game session
+    activePlinkoGames.set(userId, {
+        username,
+        betAmount,
+        newWallet,
+        bankBalance,
+        stage: 'mode_selection'
+    });
+}
+
+/**
+ * Handle Plinko button interactions
+ */
+async function handlePlinkoButtonInteraction(interaction, action) {
+    const userId = interaction.user.id;
+    const guildId = await getGuildId(interaction);
+    
+    if (!activePlinkoGames.has(userId)) {
+        await interaction.reply({ 
+            content: '❌ No active Plinko game found.', 
+            flags: MessageFlags.Ephemeral 
+        });
+        return;
+    }
+
+    const gameSession = activePlinkoGames.get(userId);
+
+    try {
+        if (action.startsWith('mode_')) {
+            await handleModeSelection(interaction, action, gameSession, userId, guildId);
+        } else if (action.startsWith('slot_') || action === 'random') {
+            await handleSlotSelection(interaction, action, gameSession, userId, guildId);
+        }
+    } catch (error) {
+        logger.error(`Error in Plinko button interaction: ${error.message}`);
+        
+        const errorEmbed = buildSessionEmbed({
+            title: `❌ ${gameSession.username}'s Plinko`,
+            topFields: [
+                { name: 'System Error', value: 'Something went wrong.\nPlease try again.' }
+            ],
+            color: 0xFF0000,
+            footer: 'Plinko Game'
+        });
+
+        await interaction.update({ embeds: [errorEmbed], components: [] });
+        
+        // Cleanup and refund
+        await cleanup(userId, guildId, gameSession.betAmount);
+    }
+}
+
+/**
+ * Handle mode selection
+ */
+async function handleModeSelection(interaction, action, gameSession, userId, guildId) {
+    if (gameSession.stage !== 'mode_selection') {
+        await interaction.reply({ 
+            content: '❌ Invalid game state.', 
+            flags: MessageFlags.Ephemeral 
+        });
+        return;
+    }
+
+    const modeName = action.split('_')[1];
+    const mode = modeName.charAt(0).toUpperCase() + modeName.slice(1);
+    const modeData = PLINKO_MODES[mode];
+    
+    if (!modeData) {
+        await interaction.reply({ 
+            content: '❌ Invalid mode selected.', 
+            flags: MessageFlags.Ephemeral 
+        });
+        return;
+    }
+
+    // Update game session
+    gameSession.mode = mode;
+    gameSession.modeData = modeData;
+    gameSession.multipliers = randomizeMultipliers(modeData.multipliers);
+    gameSession.slots = gameSession.multipliers.length;
+    gameSession.stage = 'slot_selection';
+
+    // Create initial board image
+    const initialImage = createPlinkoImage(
+        modeData.rows,
+        gameSession.slots,
+        gameSession.multipliers,
+        null,
+        -1,
+        mode
+    );
+
+    // Create slot selection buttons
+    const components = [];
+    const buttonsPerRow = mode === 'Nightmare' ? 4 : 5;
+    const totalRows = Math.ceil(gameSession.slots / buttonsPerRow);
+    
+    for (let row = 0; row < totalRows; row++) {
+        const actionRow = new ActionRowBuilder();
+        const startIdx = row * buttonsPerRow;
+        const endIdx = Math.min(startIdx + buttonsPerRow, gameSession.slots);
+        
+        for (let i = startIdx; i < endIdx; i++) {
+            const mult = gameSession.multipliers[i];
+            let style = ButtonStyle.Secondary;
+            
+            if (mode !== 'Nightmare') {
+                if (mult >= 2.0) style = ButtonStyle.Success;
+                else if (mult >= 1.0) style = ButtonStyle.Primary;
+                else if (mult >= 0.5) style = ButtonStyle.Secondary;
+                else style = ButtonStyle.Danger;
+            }
+
+            actionRow.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`plinko_slot_${i}`)
+                    .setLabel(`${i + 1}`)
+                    .setStyle(style)
+            );
+        }
+        components.push(actionRow);
+    }
+
+    // Add random button
+    const randomRow = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('plinko_random')
+                .setLabel('🎲 Random')
+                .setStyle(ButtonStyle.Secondary)
+        );
+    components.push(randomRow);
+
+    const legendText = mode === 'Nightmare' ? 
+        'Nightmare layout: buttons grouped as G1..G? (4 per group).\n25x slots are placed 4 away from each edge.' :
+        `Buttons grouped as G1..G? (${buttonsPerRow} per group) for clarity.\nMultiplier bands: danger/low/medium/high based on values.`;
+
+    const embed = buildSessionEmbed({
+        title: `🎯 ${gameSession.username}'s ${mode} Plinko`,
+        topFields: [
+            { name: 'Choose Drop Slot', value: `Select where to drop the ball or press 🎲 Random.\n\n${legendText}` }
+        ],
+        bankFields: [
+            { name: 'Bet Amount', value: fmtFull(gameSession.betAmount), inline: true },
+            { name: 'Mode', value: `${modeData.emoji} ${mode}`, inline: true },
+            { name: 'Rows', value: modeData.rows.toString(), inline: true }
+        ],
+        stageText: 'SELECT DROP SLOT',
+        color: parseInt(modeData.color.replace('#', ''), 16),
+        footer: 'Plinko Game'
+    });
+
+    const attachment = new AttachmentBuilder(initialImage, { name: 'plinko_board.png' });
+    embed.image = { url: 'attachment://plinko_board.png' };
+
+    await interaction.update({ embeds: [embed], files: [attachment], components });
+}
+
+/**
+ * Handle slot selection and run the game
+ */
+async function handleSlotSelection(interaction, action, gameSession, userId, guildId) {
+    if (gameSession.stage !== 'slot_selection') {
+        await interaction.reply({ 
+            content: '❌ Invalid game state.', 
+            flags: MessageFlags.Ephemeral 
+        });
+        return;
+    }
+
+    let dropSlot;
+    if (action === 'random') {
+        dropSlot = Math.floor(Math.random() * gameSession.slots);
+    } else {
+        dropSlot = parseInt(action.split('_')[1]);
+    }
+
+    if (dropSlot < 0 || dropSlot >= gameSession.slots) {
+        await interaction.reply({ 
+            content: '❌ Invalid slot selected.', 
+            flags: MessageFlags.Ephemeral 
+        });
+        return;
+    }
+
+    // Update game stage
+    gameSession.stage = 'playing';
+
+    // Map slot to simulation coordinates
+    const startPos = dropSlot - ((gameSession.slots - 1) / 2);
+
+    // Run simulation
+    const { slotIndex: finalSlot, path: ballPath } = simulatePlinkoDrop(
+        gameSession.modeData.rows,
+        gameSession.slots,
+        startPos
+    );
+
+    const finalMultiplier = gameSession.multipliers[finalSlot];
+    const winnings = gameSession.betAmount * finalMultiplier;
+    const won = winnings >= gameSession.betAmount;
+
+    // Create animation frames
+    const animationFrames = [];
+    
+    // Initial frame
+    animationFrames.push(createPlinkoImage(
+        gameSession.modeData.rows,
+        gameSession.slots,
+        gameSession.multipliers,
+        null,
+        -1,
+        gameSession.mode
+    ));
+
+    // Animation frames
+    for (let i = 0; i <= Math.min(ballPath.length, gameSession.modeData.rows + 1); i++) {
+        animationFrames.push(createPlinkoImage(
+            gameSession.modeData.rows,
+            gameSession.slots,
+            gameSession.multipliers,
+            ballPath,
+            i,
+            gameSession.mode
+        ));
+    }
+
+    // Final frame with winning slot highlighted
+    animationFrames.push(createPlinkoImage(
+        gameSession.modeData.rows,
+        gameSession.slots,
+        gameSession.multipliers,
+        ballPath,
+        gameSession.modeData.rows + 1,
+        gameSession.mode,
+        finalSlot
+    ));
+
+    // Start animation
+    await playAnimation(interaction, gameSession, animationFrames, dropSlot, finalSlot, finalMultiplier, winnings, won, userId, guildId);
+}
+
+/**
+ * Play the Plinko animation
+ */
+async function playAnimation(interaction, gameSession, frames, dropSlot, finalSlot, finalMultiplier, winnings, won, userId, guildId) {
+    // Initial animation frame
+    let embed = buildSessionEmbed({
+        title: `🎯 ${gameSession.username}'s ${gameSession.mode} Plinko`,
+        topFields: [
+            { name: 'Ball Released!', value: `🔴 Ball dropped from slot #${dropSlot + 1}!` }
+        ],
+        stageText: 'BALL DROPPING',
+        color: parseInt(gameSession.modeData.color.replace('#', ''), 16),
+        footer: 'Plinko Game'
+    });
+
+    let attachment = new AttachmentBuilder(frames[0], { name: 'plinko_initial.png' });
+    embed.image = { url: 'attachment://plinko_initial.png' };
+
+    await interaction.update({ embeds: [embed], files: [attachment], components: [] });
+
+    // Animate through frames
+    for (let i = 1; i < frames.length - 1; i++) {
+        await new Promise(resolve => setTimeout(resolve, 600));
+
+        const frameEmbed = buildSessionEmbed({
+            title: `🎯 ${gameSession.username}'s ${gameSession.mode} Plinko`,
+            topFields: [
+                { name: 'Ball Bouncing', value: `⚡ Ball bouncing through pegs... Row ${i}/${gameSession.modeData.rows}` }
+            ],
+            stageText: 'BALL BOUNCING',
+            color: parseInt(gameSession.modeData.color.replace('#', ''), 16),
+            footer: 'Plinko Game'
+        });
+
+        const frameAttachment = new AttachmentBuilder(frames[i], { name: `plinko_frame_${i}.png` });
+        frameEmbed.image = { url: `attachment://plinko_frame_${i}.png` };
+
+        await interaction.editReply({ embeds: [frameEmbed], files: [frameAttachment] });
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Final result
+    await showFinalResult(interaction, gameSession, frames[frames.length - 1], finalSlot, finalMultiplier, winnings, won, userId, guildId);
+}
+
+/**
+ * Show final game result
+ */
+async function showFinalResult(interaction, gameSession, finalImage, finalSlot, finalMultiplier, winnings, won, userId, guildId) {
+    // Update user balance and clear game active status
+    const newWallet = gameSession.newWallet + winnings;
+    await dbManager.updateUserBalance(userId, guildId, winnings, 0, { game_active: false });
+
+    // Record game result using PayoutManager
+    const gameResult = new GameResult({
+        userId,
+        guildId,
+        gameType: GameType.PLINKO,
+        betAmount: gameSession.betAmount,
+        payout: winnings,
+        won,
+        metadata: {
+            mode: gameSession.mode,
+            dropSlot: finalSlot,
+            finalMultiplier,
+            housedEdge: gameSession.modeData.house_edge
+        }
+    });
+
+    await PayoutManager.processGamePayout(gameResult);
+
+    // Determine result type
+    let resultTitle, resultEmoji, resultColor;
+    if (winnings >= gameSession.betAmount * 20) {
+        resultTitle = '💰 MASSIVE WIN! 💰';
+        resultEmoji = '🌟';
+        resultColor = 0xFFD700;
+    } else if (winnings >= gameSession.betAmount * 5) {
+        resultTitle = '🎉 BIG WIN!';
+        resultEmoji = '🎊';
+        resultColor = 0x00FF00;
+    } else if (winnings > gameSession.betAmount) {
+        resultTitle = '✅ WIN!';
+        resultEmoji = '🎯';
+        resultColor = 0x32CD32;
+    } else if (winnings === gameSession.betAmount) {
+        resultTitle = '🤝 BREAK EVEN';
+        resultEmoji = '⚖️';
+        resultColor = 0xFFD700;
+    } else {
+        resultTitle = '💥 LOSS';
+        resultEmoji = '😢';
+        resultColor = 0xFF0000;
+    }
+
+    // Special nightmare mode messages
+    if (gameSession.mode === 'Nightmare') {
+        if (winnings >= gameSession.betAmount * 100) {
+            resultTitle = '💀 NIGHTMARE JACKPOT! 💀';
+            resultEmoji = '👑';
+        } else if (winnings < gameSession.betAmount * 0.01) {
+            resultTitle = '💀 NIGHTMARE CONSUMED YOU! 💀';
+            resultEmoji = '💀';
+        }
+    }
+
+    const netChange = winnings - gameSession.betAmount;
+    const netText = netChange >= 0 ? `+${fmtFull(netChange)}` : fmtFull(netChange);
+
+    const embed = buildSessionEmbed({
+        title: `${resultEmoji} ${gameSession.username}'s Plinko Result`,
+        topFields: [
+            { name: 'Result', value: `**${resultTitle}**` },
+            { name: 'Mode', value: `${gameSession.modeData.emoji} ${gameSession.mode}`, inline: true },
+            { name: 'Landing Slot', value: `**#${finalSlot + 1}** of ${gameSession.slots}`, inline: true },
+            { name: 'Multiplier', value: `**${finalMultiplier.toFixed(2)}x**`, inline: true }
+        ],
+        bankFields: [
+            { name: 'Bet Amount', value: fmtFull(gameSession.betAmount), inline: true },
+            { name: 'Winnings', value: fmtFull(winnings), inline: true },
+            { name: 'Net Change', value: netText, inline: true },
+            { name: 'New Wallet', value: fmtFull(newWallet), inline: true }
+        ],
+        stageText: won ? 'WINNER!' : 'BETTER LUCK NEXT TIME',
+        color: resultColor,
+        footer: `🏠 House Edge: ${(gameSession.modeData.house_edge * 100).toFixed(0)}% | Gamble Responsibly!`
+    });
+
+    const attachment = new AttachmentBuilder(finalImage, { name: 'plinko_final.png' });
+    embed.image = { url: 'attachment://plinko_final.png' };
+
+    await interaction.editReply({ embeds: [embed], files: [attachment] });
+
+    // Cleanup
+    activePlinkoGames.delete(userId);
+
+    // Log the result
+    await sendLogMessage(
+        interaction.client,
+        won ? 'info' : 'warn',
+        `**Plinko Game Result**\n` +
+        `**User:** ${gameSession.username} (\`${userId}\`)\n` +
+        `**Mode:** ${gameSession.mode}\n` +
+        `**Bet:** ${fmtFull(gameSession.betAmount)}\n` +
+        `**Slot:** #${finalSlot + 1} (${finalMultiplier.toFixed(2)}x)\n` +
+        `**Winnings:** ${fmtFull(winnings)}\n` +
+        `**Net:** ${netText}`,
+        userId,
+        guildId
+    );
+}
+
+/**
+ * Cleanup function for error cases
+ */
+async function cleanup(userId, guildId, betAmount) {
+    activePlinkoGames.delete(userId);
+    
+    // Refund bet and clear game active status
+    await dbManager.updateUserBalance(userId, guildId, betAmount, 0, { game_active: false });
+    
+    logger.info(`Plinko cleanup: Refunded ${betAmount} to user ${userId}`);
+}
+
+// Export the button handler for use in index.js
+module.exports.handlePlinkoButtonInteraction = handlePlinkoButtonInteraction;

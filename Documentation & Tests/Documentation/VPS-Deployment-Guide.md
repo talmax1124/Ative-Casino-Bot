@@ -163,31 +163,7 @@ WEB_DOMAIN=your_domain.com
 ### 3.4 Configure Firestore Rules
 
 ```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users collection - authenticated read/write
-    match /users/{userId} {
-      allow read, write: if true; // Bot has admin access
-    }
-    
-    // Game sessions - authenticated read/write
-    match /game_sessions/{sessionId} {
-      allow read, write: if true;
-    }
-    
-    // Lottery data - authenticated read/write
-    match /lottery/{document=**} {
-      allow read, write: if true;
-    }
-    
-    // Logs - authenticated write only
-    match /logs/{document=**} {
-      allow write: if true;
-      allow read: if false;
-    }
-  }
-}
+-
 ```
 
 ---
