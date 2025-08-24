@@ -43,7 +43,8 @@ function buildSessionEmbed(ui) {
     bankFields = [],
     stageText = "",
     color = 0x00ff00, // Bright green like in reference
-    footer
+    footer,
+    image = null // Support for embedded images
   } = ui;
 
   const e = new EmbedBuilder()
@@ -96,6 +97,11 @@ function buildSessionEmbed(ui) {
     e.setFooter({
       text: `${footer} • ATIVE Casino`
     });
+  }
+
+  // Add image if provided
+  if (image) {
+    e.setImage(image);
   }
 
   return e;
