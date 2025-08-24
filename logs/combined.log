@@ -8090,3 +8090,213 @@ SyntaxError: Identifier 'board' has already been declared
 2025-08-24 04:30:24 [INFO]: Initial lottery panel update completed
 2025-08-24 04:30:25 [INFO]: Startup notification sent successfully
 2025-08-24 04:31:23 [INFO]: Received SIGINT, shutting down gracefully...
+2025-08-24 04:32:40 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-24 04:32:41 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-24 04:32:41 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-24 04:32:41 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-24 04:32:41 [INFO]: 🚀 Firebase app initialized
+2025-08-24 04:32:41 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-24 04:32:41 [INFO]: Firebase database manager initialized
+2025-08-24 04:32:41 [INFO]: Database initialized successfully
+2025-08-24 04:32:41 [INFO]: Loaded command: addmoney
+2025-08-24 04:32:41 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/COMMANDS/battleship.js:848
+                    const board = game.boards.get(userId);
+                          ^
+
+SyntaxError: Identifier 'board' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at loadCommands (/Users/carlosdiazplaza/ative_casino_bot/index.js:63:25)
+2025-08-24 04:32:41 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 5 hours)
+2025-08-24 04:32:41 [INFO]: Hourly lottery panel updates scheduled
+2025-08-24 04:32:41 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-24 04:32:41 [INFO]: Lottery system initialized successfully
+2025-08-24 04:32:41 [INFO]: Sent development announcement to logs channel
+2025-08-24 04:32:45 [INFO]: Startup notification sent successfully
+2025-08-24 04:33:56 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-24 04:33:57 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-24 04:33:57 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-24 04:33:57 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-24 04:33:57 [INFO]: 🚀 Firebase app initialized
+2025-08-24 04:33:57 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-24 04:33:57 [INFO]: Firebase database manager initialized
+2025-08-24 04:33:57 [INFO]: Database initialized successfully
+2025-08-24 04:33:57 [INFO]: Loaded command: addmoney
+2025-08-24 04:33:57 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/COMMANDS/battleship.js:848
+                    const board = game.boards.get(userId);
+                          ^
+
+SyntaxError: Identifier 'board' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at loadCommands (/Users/carlosdiazplaza/ative_casino_bot/index.js:63:25)
+2025-08-24 04:33:57 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 5 hours)
+2025-08-24 04:33:57 [INFO]: Hourly lottery panel updates scheduled
+2025-08-24 04:33:57 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-24 04:33:57 [INFO]: Lottery system initialized successfully
+2025-08-24 04:33:57 [INFO]: Economy Monitor: Initializing...
+2025-08-24 04:33:57 [INFO]: Economy Monitor: Loaded 0 historical data points
+2025-08-24 04:33:57 [INFO]: Economy Monitor: Initializing AI/ML components...
+2025-08-24 04:34:01 [INFO]: Economy Monitor: Behavioral baseline established for 0 users
+2025-08-24 04:34:01 [INFO]: Economy Monitor: Insufficient data for fraud model training
+2025-08-24 04:34:02 [INFO]: Economy Monitor: Not enough users for clustering analysis
+2025-08-24 04:34:05 [INFO]: Economy Monitor: Behavioral baseline established for 0 users
+2025-08-24 04:34:05 [INFO]: Economy Monitor: AI/ML components initialized
+2025-08-24 04:34:05 [INFO]: Economy Monitor: Monitoring tasks scheduled
+2025-08-24 04:34:05 [INFO]: Economy Monitor: Initialized successfully with AI/ML capabilities
+2025-08-24 04:34:05 [INFO]: Economy Monitor initialized successfully
+2025-08-24 04:34:06 [INFO]: Sent development announcement to logs channel
+2025-08-24 04:34:07 [INFO]: Initial lottery panel update completed
+2025-08-24 04:34:09 [INFO]: Startup notification sent successfully
+2025-08-24 04:40:02 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-24 04:40:03 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-24 04:40:03 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-24 04:40:03 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-24 04:40:03 [INFO]: 🚀 Firebase app initialized
+2025-08-24 04:40:03 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-24 04:40:03 [INFO]: Firebase database manager initialized
+2025-08-24 04:40:03 [INFO]: Database initialized successfully
+2025-08-24 04:40:03 [INFO]: Loaded command: addmoney
+2025-08-24 04:40:03 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/COMMANDS/battleship.js:848
+                    const board = game.boards.get(userId);
+                          ^
+
+SyntaxError: Identifier 'board' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at loadCommands (/Users/carlosdiazplaza/ative_casino_bot/index.js:63:25)
+2025-08-24 04:40:03 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 5 hours)
+2025-08-24 04:40:03 [INFO]: Hourly lottery panel updates scheduled
+2025-08-24 04:40:03 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-24 04:40:03 [INFO]: Lottery system initialized successfully
+2025-08-24 04:40:03 [INFO]: Economy Monitor: Initializing...
+2025-08-24 04:40:03 [INFO]: Economy Monitor: Loaded 0 historical data points
+2025-08-24 04:40:03 [INFO]: Economy Monitor: Initializing AI/ML components...
+2025-08-24 04:40:07 [INFO]: Economy Monitor: Behavioral baseline established for 0 users
+2025-08-24 04:40:07 [INFO]: Economy Monitor: Insufficient data for fraud model training
+2025-08-24 04:40:07 [INFO]: Economy Monitor: Not enough users for clustering analysis
+2025-08-24 04:42:52 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-24 04:42:52 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-24 04:42:52 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-24 04:42:52 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-24 04:42:52 [INFO]: 🚀 Firebase app initialized
+2025-08-24 04:42:52 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-24 04:42:52 [INFO]: Firebase database manager initialized
+2025-08-24 04:42:52 [INFO]: Database initialized successfully
+2025-08-24 04:42:52 [INFO]: Loaded command: addmoney
+2025-08-24 04:42:52 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/COMMANDS/battleship.js:854
+                    const currentShip = modalBoard.getCurrentShip();
+                          ^
+
+SyntaxError: Identifier 'currentShip' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at loadCommands (/Users/carlosdiazplaza/ative_casino_bot/index.js:63:25)
+2025-08-24 04:42:52 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 5 hours)
+2025-08-24 04:42:52 [INFO]: Hourly lottery panel updates scheduled
+2025-08-24 04:42:52 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-24 04:42:52 [INFO]: Lottery system initialized successfully
+2025-08-24 04:42:52 [INFO]: Economy Monitor: Initializing...
+2025-08-24 04:42:53 [INFO]: Economy Monitor: Loaded 0 historical data points
+2025-08-24 04:42:53 [INFO]: Economy Monitor: Initializing AI/ML components...
+2025-08-24 04:42:56 [INFO]: Economy Monitor: Behavioral baseline established for 0 users
+2025-08-24 04:42:57 [INFO]: Economy Monitor: Insufficient data for fraud model training
+2025-08-24 04:42:57 [INFO]: Economy Monitor: Not enough users for clustering analysis
+2025-08-24 04:43:01 [INFO]: Economy Monitor: Behavioral baseline established for 0 users
+2025-08-24 04:43:01 [INFO]: Economy Monitor: AI/ML components initialized
+2025-08-24 04:43:01 [INFO]: Economy Monitor: Monitoring tasks scheduled
+2025-08-24 04:43:01 [INFO]: Economy Monitor: Initialized successfully with AI/ML capabilities
+2025-08-24 04:43:01 [INFO]: Economy Monitor initialized successfully
+2025-08-24 04:43:01 [INFO]: Sent development announcement to logs channel
+2025-08-24 04:44:02 [INFO]: Starting ATIVE Casino Bot in DEVELOPMENT mode
+2025-08-24 04:44:02 [INFO]: ATIVE Casino Bot logged in as TEST ATIVE#2571 (ID: 1404027373048823838)
+2025-08-24 04:44:02 [INFO]: 🔧 Using Firebase credentials from separated environment variables
+2025-08-24 04:44:02 [INFO]: ✅ Created service account for project: ativecasino
+2025-08-24 04:44:02 [INFO]: 🚀 Firebase app initialized
+2025-08-24 04:44:02 [INFO]: ✅ Firebase Firestore connected successfully
+2025-08-24 04:44:02 [INFO]: Firebase database manager initialized
+2025-08-24 04:44:02 [INFO]: Database initialized successfully
+2025-08-24 04:44:02 [INFO]: Loaded command: addmoney
+2025-08-24 04:44:02 [INFO]: Loaded command: battleship
+2025-08-24 04:44:02 [INFO]: Loaded command: beg
+2025-08-24 04:44:02 [INFO]: Loaded command: bingo
+2025-08-24 04:44:02 [INFO]: Loaded command: blackjack
+2025-08-24 04:44:02 [INFO]: Loaded command: crash
+2025-08-24 04:44:02 [INFO]: Loaded command: crime
+2025-08-24 04:44:02 [INFO]: Loaded command: deposit
+2025-08-24 04:44:02 [INFO]: Loaded command: dev
+2025-08-24 04:44:02 [INFO]: Loaded command: reload
+2025-08-24 04:44:02 [INFO]: Loaded command: logs
+2025-08-24 04:44:02 [INFO]: Loaded command: duck
+2025-08-24 04:44:02 [INFO]: Loaded command: economyreport
+2025-08-24 04:44:02 [INFO]: Loaded command: fishing
+2025-08-24 04:44:02 [INFO]: Loaded command: balance
+2025-08-24 04:44:02 [INFO]: Loaded command: heist
+2025-08-24 04:44:02 [INFO]: Loaded command: help
+2025-08-24 04:44:02 [INFO]: Loaded command: leaderboard
+2025-08-24 04:44:02 [INFO]: Loaded command: lottery
+2025-08-24 04:44:02 [INFO]: Loaded command: multi-slots
+2025-08-24 04:44:02 [INFO]: Loaded command: mystats
+2025-08-24 04:44:02 [INFO]: Loaded command: panel
+2025-08-24 04:44:02 [INFO]: Loaded command: plinko
+2025-08-24 04:44:02 [INFO]: Loaded command: polls
+2025-08-24 04:44:02 [INFO]: Loaded command: purchaselottery
+2025-08-24 04:44:02 [INFO]: Loaded command: release
+2025-08-24 04:44:02 [INFO]: Loaded command: rob
+2025-08-24 04:44:02 [INFO]: Loaded command: rps
+2025-08-24 04:44:02 [INFO]: Loaded command: sendmoney
+2025-08-24 04:44:02 [INFO]: Loaded command: setup
+2025-08-24 04:44:02 [INFO]: Loaded command: slots
+2025-08-24 04:44:02 [INFO]: Loaded command: stopgame
+2025-08-24 04:44:02 [INFO]: Loaded command: uno
+2025-08-24 04:44:02 [INFO]: Loaded command: withdraw
+2025-08-24 04:44:02 [INFO]: Loaded command: wordchain
+2025-08-24 04:44:02 [INFO]: Loaded command: work
+2025-08-24 04:44:02 [INFO]: Started refreshing application (/) commands
+2025-08-24 04:44:03 [INFO]: Successfully reloaded 36 application (/) commands
+2025-08-24 04:44:03 [INFO]: Loaded 36 commands
+2025-08-24 04:44:03 [INFO]: Next lottery drawing scheduled for 8/24/2025, 10:00:00 AM (in 5 hours)
+2025-08-24 04:44:03 [INFO]: Hourly lottery panel updates scheduled
+2025-08-24 04:44:03 [INFO]: Lottery game initialized with scheduling and hourly panel updates
+2025-08-24 04:44:03 [INFO]: Lottery system initialized successfully
+2025-08-24 04:44:03 [INFO]: Economy Monitor: Initializing...
+2025-08-24 04:44:03 [INFO]: Economy Monitor: Loaded 0 historical data points
+2025-08-24 04:44:03 [INFO]: Economy Monitor: Initializing AI/ML components...
+2025-08-24 04:44:07 [INFO]: Economy Monitor: Behavioral baseline established for 0 users
+2025-08-24 04:44:07 [INFO]: Economy Monitor: Insufficient data for fraud model training
+2025-08-24 04:44:07 [INFO]: Economy Monitor: Not enough users for clustering analysis
+2025-08-24 04:44:11 [INFO]: Economy Monitor: Behavioral baseline established for 0 users
+2025-08-24 04:44:11 [INFO]: Economy Monitor: AI/ML components initialized
+2025-08-24 04:44:11 [INFO]: Economy Monitor: Monitoring tasks scheduled
+2025-08-24 04:44:11 [INFO]: Economy Monitor: Initialized successfully with AI/ML capabilities
+2025-08-24 04:44:11 [INFO]: Economy Monitor initialized successfully
+2025-08-24 04:44:11 [INFO]: Sent development announcement to logs channel
+2025-08-24 04:44:18 [INFO]: Received SIGTERM, shutting down gracefully...

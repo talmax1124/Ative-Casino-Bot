@@ -229,20 +229,20 @@ module.exports = {
 
                 case 'open_placement': {
                     // Send or update ephemeral placement panel for this user
-                    const board = game.boards.get(user.id);
-                    if (!board) {
+                    const playerBoard = game.boards.get(user.id);
+                    if (!playerBoard) {
                         await interaction.reply({ content: '❌ You are not a player in this game.', flags: MessageFlags.Ephemeral });
                         return;
                     }
 
-                    const currentShip = board.getCurrentShip();
-                    const title = currentShip ? `Place: ${currentShip.name} (${currentShip.length})` : 'All ships placed';
-                    const buffer = await renderSingleBoard(board, { title: `${user.displayName} — ${title}`, showShips: true, attackingView: false });
+                    const placementCurrentShip = playerBoard.getCurrentShip();
+                    const title = placementCurrentShip ? `Place: ${placementCurrentShip.name} (${placementCurrentShip.length})` : 'All ships placed';
+                    const buffer = await renderSingleBoard(playerBoard, { title: `${user.displayName} — ${title}`, showShips: true, attackingView: false });
                     const attachment = new AttachmentBuilder(buffer, { name: 'placement.png' });
 
-                    const placeBtn = new ButtonBuilder().setCustomId('battleship_place').setLabel('Place Current Ship').setStyle(ButtonStyle.Primary).setDisabled(!currentShip);
-                    const autoBtn = new ButtonBuilder().setCustomId('battleship_auto_place').setLabel('Auto-Place All').setStyle(ButtonStyle.Secondary).setDisabled(board.allShipsPlaced());
-                    const doneBtn = new ButtonBuilder().setCustomId('battleship_finish_placement').setLabel('Finish Placement').setStyle(ButtonStyle.Success).setDisabled(!board.allShipsPlaced());
+                    const placeBtn = new ButtonBuilder().setCustomId('battleship_place').setLabel('Place Current Ship').setStyle(ButtonStyle.Primary).setDisabled(!placementCurrentShip);
+                    const autoBtn = new ButtonBuilder().setCustomId('battleship_auto_place').setLabel('Auto-Place All').setStyle(ButtonStyle.Secondary).setDisabled(playerBoard.allShipsPlaced());
+                    const doneBtn = new ButtonBuilder().setCustomId('battleship_finish_placement').setLabel('Finish Placement').setStyle(ButtonStyle.Success).setDisabled(!playerBoard.allShipsPlaced());
                     const row = new ActionRowBuilder().addComponents(placeBtn, autoBtn, doneBtn);
 
                     // Use gameSessionKit for consistent UI styling
@@ -292,16 +292,16 @@ module.exports = {
                 }
 
                 case 'auto_place': {
-                    const board = game.boards.get(user.id);
-                    if (!board) {
+                    const userBoard = game.boards.get(user.id);
+                    if (!userBoard) {
                         await interaction.reply({ content: '❌ You are not a player in this game.', flags: MessageFlags.Ephemeral });
                         return;
                     }
-                    if (board.allShipsPlaced()) {
+                    if (userBoard.allShipsPlaced()) {
                         await interaction.reply({ content: '✅ Your ships are already placed.', flags: MessageFlags.Ephemeral });
                         return;
                     }
-                    const success = await autoPlaceAllShips(board);
+                    const success = await autoPlaceAllShips(userBoard);
                     if (!success) {
                         await interaction.reply({ content: '❌ Auto-placement failed. Try manual placement.', flags: MessageFlags.Ephemeral });
                         return;
@@ -320,8 +320,8 @@ module.exports = {
                 }
 
                 case 'finish_placement': {
-                    const board = game.boards.get(user.id);
-                    if (!board || !board.allShipsPlaced()) {
+                    const finishBoard = game.boards.get(user.id);
+                    if (!finishBoard || !finishBoard.allShipsPlaced()) {
                         await interaction.reply({ content: '❌ Place all ships first.', flags: MessageFlags.Ephemeral });
                         return;
                     }
@@ -432,13 +432,13 @@ module.exports = {
 
         try {
             if (interaction.customId === 'battleship_place_modal') {
-                const board = game.boards.get(user.id);
-                if (!board) {
+                const modalBoard = game.boards.get(user.id);
+                if (!modalBoard) {
                     await interaction.reply({ content: '❌ You are not a player in this game.', flags: MessageFlags.Ephemeral });
                     return;
                 }
-                const currentShip = board.getCurrentShip();
-                if (!currentShip) {
+                const modalCurrentShip = modalBoard.getCurrentShip();
+                if (!modalCurrentShip) {
                     await interaction.reply({ content: '✅ All ships already placed.', flags: MessageFlags.Ephemeral });
                     return;
                 }
@@ -451,12 +451,12 @@ module.exports = {
                     await interaction.reply({ content: '❌ Invalid coordinate or direction. Use A1-A10 and H/V.', flags: MessageFlags.Ephemeral });
                     return;
                 }
-                const ok = board.placeShip(currentShip, coord.row, coord.col, dir);
+                const ok = modalBoard.placeShip(modalCurrentShip, coord.row, coord.col, dir);
                 if (!ok) {
                     await interaction.reply({ content: '❌ Cannot place ship there (out of bounds or overlapping).', flags: MessageFlags.Ephemeral });
                     return;
                 }
-                board.advanceShip();
+                modalBoard.advanceShip();
 
                 // Update placement progress on main message
                 const embed = game.createPlacementEmbed();
@@ -689,8 +689,8 @@ module.exports = {
                         return;
                     }
 
-                    const board = game.boards.get(userId);
-                    if (board.allShipsPlaced()) {
+                    const placeBoard = game.boards.get(userId);
+                    if (placeBoard.allShipsPlaced()) {
                         await interaction.reply({ 
                             content: '❌ You have already placed all your ships!', 
                             flags: MessageFlags.Ephemeral 
@@ -699,10 +699,10 @@ module.exports = {
                     }
 
                     // Show placement modal
-                    const currentShip = board.getNextShipToPlace();
+                    const nextShipToPlace = placeBoard.getNextShipToPlace();
                     const modal = new ModalBuilder()
                         .setCustomId(`battleship_place_${userId}`)
-                        .setTitle(`⚓ Place ${currentShip.name} (${currentShip.length} spaces)`);
+                        .setTitle(`⚓ Place ${nextShipToPlace.name} (${nextShipToPlace.length} spaces)`);
 
                     const coordinateInput = new TextInputBuilder()
                         .setCustomId('coordinate')
@@ -845,20 +845,20 @@ module.exports = {
                         return;
                     }
 
-                    const board = game.boards.get(userId);
-                    if (!board) {
+                    const modalUserBoard = game.boards.get(userId);
+                    if (!modalUserBoard) {
                         await interaction.reply({ content: '❌ You are not a player in this game.', flags: MessageFlags.Ephemeral });
                         return;
                     }
 
-                    const currentShip = board.getCurrentShip();
-                    const title = currentShip ? `Place: ${currentShip.name} (${currentShip.length})` : 'All ships placed';
-                    const buffer = await renderSingleBoard(board, { title: `${interaction.user.displayName} — ${title}`, showShips: true, attackingView: false });
+                    const displayCurrentShip = modalBoard.getCurrentShip();
+                    const title = displayCurrentShip ? `Place: ${displayCurrentShip.name} (${displayCurrentShip.length})` : 'All ships placed';
+                    const buffer = await renderSingleBoard(modalUserBoard, { title: `${interaction.user.displayName} — ${title}`, showShips: true, attackingView: false });
                     const attachment = new AttachmentBuilder(buffer, { name: 'placement.png' });
 
-                    const placeBtn = new ButtonBuilder().setCustomId('battleship_place_ships').setLabel('Place Current Ship').setStyle(ButtonStyle.Primary).setDisabled(!currentShip);
-                    const autoBtn = new ButtonBuilder().setCustomId('battleship_auto_place').setLabel('Auto-Place All').setStyle(ButtonStyle.Secondary).setDisabled(board.allShipsPlaced());
-                    const doneBtn = new ButtonBuilder().setCustomId('battleship_finish_placement').setLabel('Finish Placement').setStyle(ButtonStyle.Success).setDisabled(!board.allShipsPlaced());
+                    const placeBtn = new ButtonBuilder().setCustomId('battleship_place_ships').setLabel('Place Current Ship').setStyle(ButtonStyle.Primary).setDisabled(!displayCurrentShip);
+                    const autoBtn = new ButtonBuilder().setCustomId('battleship_auto_place').setLabel('Auto-Place All').setStyle(ButtonStyle.Secondary).setDisabled(modalUserBoard.allShipsPlaced());
+                    const doneBtn = new ButtonBuilder().setCustomId('battleship_finish_placement').setLabel('Finish Placement').setStyle(ButtonStyle.Success).setDisabled(!modalUserBoard.allShipsPlaced());
                     const row = new ActionRowBuilder().addComponents(placeBtn, autoBtn, doneBtn);
 
                     // Use gameSessionKit for consistent UI styling

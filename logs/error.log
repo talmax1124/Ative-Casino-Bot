@@ -519,3 +519,63 @@ SyntaxError: Identifier 'board' has already been declared
 2025-08-24 04:30:21 [ERROR]: Economy Monitor: Error getting transaction history: 9 FAILED_PRECONDITION: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/ativecasino/firestore/indexes?create_composite=ClVwcm9qZWN0cy9hdGl2ZWNhc2luby9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvdXNlcl90cmFuc2FjdGlvbnMvaW5kZXhlcy9fEAEaCgoGdXNlcklkEAEaDQoJdGltZXN0YW1wEAIaDAoIX19uYW1lX18QAg
 2025-08-24 04:30:21 [ERROR]: Economy Monitor: Error getting transaction history: 9 FAILED_PRECONDITION: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/ativecasino/firestore/indexes?create_composite=ClVwcm9qZWN0cy9hdGl2ZWNhc2luby9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvdXNlcl90cmFuc2FjdGlvbnMvaW5kZXhlcy9fEAEaCgoGdXNlcklkEAEaDQoJdGltZXN0YW1wEAIaDAoIX19uYW1lX18QAg
 2025-08-24 04:30:21 [ERROR]: Economy Monitor: Error getting transaction history: 9 FAILED_PRECONDITION: The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/ativecasino/firestore/indexes?create_composite=ClVwcm9qZWN0cy9hdGl2ZWNhc2luby9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvdXNlcl90cmFuc2FjdGlvbnMvaW5kZXhlcy9fEAEaCgoGdXNlcklkEAEaDQoJdGltZXN0YW1wEAIaDAoIX19uYW1lX18QAg
+2025-08-24 04:32:41 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/COMMANDS/battleship.js:848
+                    const board = game.boards.get(userId);
+                          ^
+
+SyntaxError: Identifier 'board' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at loadCommands (/Users/carlosdiazplaza/ative_casino_bot/index.js:63:25)
+2025-08-24 04:33:57 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/COMMANDS/battleship.js:848
+                    const board = game.boards.get(userId);
+                          ^
+
+SyntaxError: Identifier 'board' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at loadCommands (/Users/carlosdiazplaza/ative_casino_bot/index.js:63:25)
+2025-08-24 04:40:03 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/COMMANDS/battleship.js:848
+                    const board = game.boards.get(userId);
+                          ^
+
+SyntaxError: Identifier 'board' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at loadCommands (/Users/carlosdiazplaza/ative_casino_bot/index.js:63:25)
+2025-08-24 04:42:52 [ERROR]: /Users/carlosdiazplaza/ative_casino_bot/COMMANDS/battleship.js:854
+                    const currentShip = modalBoard.getCurrentShip();
+                          ^
+
+SyntaxError: Identifier 'currentShip' has already been declared
+    at wrapSafe (node:internal/modules/cjs/loader:1486:18)
+    at Module._compile (node:internal/modules/cjs/loader:1528:20)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.require (node:internal/modules/cjs/loader:1311:12)
+    at require (node:internal/modules/helpers:136:16)
+    at loadCommands (/Users/carlosdiazplaza/ative_casino_bot/index.js:63:25)
