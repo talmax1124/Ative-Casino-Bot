@@ -4,7 +4,7 @@
  * Best of 3 rounds format with animated reveals
  */
 
-const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 
@@ -26,13 +26,14 @@ const CHOICE_ANIMATIONS = {
  * RPS Game Session Class
  */
 class RPSGameSession {
-    constructor(player1Id, player1Name, potAmount, channelId) {
+    constructor(player1Id, player1Name, potAmount, channelId, vsBot = false) {
         this.player1Id = player1Id;
         this.player1Name = player1Name;
         this.player2Id = null;
         this.player2Name = null;
         this.potAmount = potAmount;
-        this.totalPot = potAmount * 2; // Both players contribute
+        this.vsBot = vsBot;
+        this.totalPot = vsBot ? potAmount : potAmount * 2; // Solo vs bot = player only contributes
         this.channelId = channelId;
         
         // Game state
@@ -58,6 +59,20 @@ class RPSGameSession {
         this.player2Name = player2Name;
         this.started = true;
         logger.info(`Player 2 joined RPS game: ${player2Name} (${player2Id})`);
+    }
+
+    /**
+     * Add bot as second player
+     */
+    addBot() {
+        this.player2Id = 'bot';
+        this.player2Name = 'Casino Bot';
+        // Ensure bot mode is enabled so auto-choice logic runs
+        this.vsBot = true;
+        // In vsBot mode, prize should be 2x player's bet
+        this.totalPot = this.potAmount * 2;
+        this.started = true;
+        logger.info('Bot joined RPS game as player 2');
     }
 
     /**
@@ -98,7 +113,37 @@ class RPSGameSession {
             this.bothChose = true;
         }
 
-        return { success: true };
+        // For bot games, if player 1 just chose and bot hasn't, make bot choice NOW
+        if (this.vsBot && playerId === this.player1Id && this.player1Choice && !this.player2Choice) {
+            const botChoice = this.makeBotChoice();
+            this.player2Choice = botChoice;
+            this.bothChose = true;
+            logger.info(`🤖 BOT CHOSE: ${botChoice} immediately after player choice in channel ${this.channelId}`);
+            
+            return { 
+                success: true, 
+                botMadeChoice: true,
+                bothChose: true,
+                botChoice: botChoice
+            };
+        }
+
+        return { 
+            success: true, 
+            botMadeChoice: false,
+            bothChose: this.bothChose 
+        };
+    }
+
+    /**
+     * Generate bot choice (pure RNG)
+     */
+    makeBotChoice() {
+        const choices = ['ROCK', 'PAPER', 'SCISSORS'];
+        const randomIndex = Math.floor(Math.random() * choices.length);
+        const choice = choices[randomIndex];
+        logger.info(`Bot making random choice: ${choice}`);
+        return choice;
     }
 
     /**
@@ -205,6 +250,13 @@ class RPSGameSession {
             .setStyle(ButtonStyle.Primary)
             .setDisabled(disabled || this.started);
 
+        const botButton = new ButtonBuilder()
+            .setCustomId(`rps-${this.channelId}:bot`)
+            .setLabel('vs Bot')
+            .setEmoji('🤖')
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(disabled || this.started);
+
         const helpButton = new ButtonBuilder()
             .setCustomId(`rps-${this.channelId}:help`)
             .setLabel('Help')
@@ -212,7 +264,7 @@ class RPSGameSession {
             .setStyle(ButtonStyle.Secondary);
 
         const row1 = new ActionRowBuilder().addComponents(rockButton, paperButton, scissorsButton);
-        const row2 = new ActionRowBuilder().addComponents(joinButton, helpButton);
+        const row2 = new ActionRowBuilder().addComponents(joinButton, botButton, helpButton);
 
         return [row1, row2];
     }
@@ -225,13 +277,13 @@ class RPSGameSession {
             .setTitle('⚔️ Rock Paper Scissors Game Created!')
             .setDescription(
                 `**${this.player1Name}** started a game!\n\n` +
-                `💰 **Bet Amount:** ${fmt(this.potAmount)} each\n` +
+                `💰 **Bet Amount:** ${fmt(this.potAmount)}${this.vsBot ? '' : ' each'}\n` +
                 `🎯 **Prize Pool:** ${fmt(this.totalPot)}\n` +
                 `🎮 **Format:** Best of 3 rounds\n\n` +
                 `**Waiting for another player to join...**`
             )
             .setColor(0x2ECC71) // Green
-            .setFooter({ text: "Click 'Join Game' to challenge this player!" });
+            .setFooter({ text: "Click 'Join Game' to challenge this player or 'vs Bot' for single player!" });
 
         return embed;
     }
@@ -246,8 +298,15 @@ class RPSGameSession {
 
         const p1Status = this.player1Choice ? '✅ has chosen' : 
                         (this.currentTurn === 1 ? '⏳ choosing now' : '⏳ waiting');
-        const p2Status = this.player2Choice ? '✅ has chosen' : 
-                        (this.currentTurn === 2 ? '⏳ choosing now' : '⏳ waiting');
+        
+        let p2Status;
+        if (this.player2Choice) {
+            p2Status = '✅ has chosen';
+        } else if (this.vsBot) {
+            p2Status = '🤖 will auto-choose when you play';
+        } else {
+            p2Status = this.currentTurn === 2 ? '⏳ choosing now' : '⏳ waiting';
+        }
 
         const description = `**${this.player1Name}**: ${p1Status}\n` +
                            `**${this.player2Name}**: ${p2Status}`;
@@ -261,8 +320,12 @@ class RPSGameSession {
                 { name: '🏆 Score', value: `${this.player1Wins} - ${this.player2Wins}`, inline: true }
             );
 
-        const currentPlayer = this.currentTurn === 1 ? this.player1Name : this.player2Name;
-        embed.setFooter({ text: `It's your turn, ${currentPlayer} — choose now` });
+        if (this.vsBot) {
+            embed.setFooter({ text: 'Choose Rock, Paper, or Scissors — Bot will respond instantly!' });
+        } else {
+            const currentPlayer = this.currentTurn === 1 ? this.player1Name : this.player2Name;
+            embed.setFooter({ text: `It's your turn, ${currentPlayer} — choose now` });
+        }
 
         return embed;
     }
@@ -311,9 +374,10 @@ class RPSGameSession {
                 .setTitle('🤝 Game Tied!')
                 .setDescription(
                     `**Final Score:** ${this.player1Wins} - ${this.player2Wins}\n\n` +
-                    `Both players have been refunded ${fmt(this.potAmount)}!`
+                    `${this.vsBot ? 'You have' : 'Both players have'} been refunded ${fmt(this.potAmount)}!`
                 )
-                .setColor(0xF1C40F); // Yellow
+                .setColor(0xF1C40F) // Yellow
+                .setFooter({ text: '❌ Game has ended' });
 
             return embed;
         } else {
@@ -332,7 +396,8 @@ class RPSGameSession {
                 .addFields(
                     { name: '🎉 Winner', value: winnerName, inline: true },
                     { name: '💰 Prize', value: fmt(this.totalPot), inline: true }
-                );
+                )
+                .setFooter({ text: '❌ Game has ended' });
 
             return embed;
         }
@@ -350,6 +415,8 @@ class RPSGameSession {
                 {
                     name: '🎮 How to Play',
                     value: '`/rps [amount]` - Start a game and wait for someone to join\n' +
+                           '**Multiplayer:** Wait for another player to join\n' +
+                           '**vs Bot:** Click "vs Bot" for single-player practice\n' +
                            'Players take turns choosing Rock, Paper, or Scissors\n' +
                            'Best of 3 rounds wins the entire prize pool!',
                     inline: false
@@ -372,8 +439,8 @@ class RPSGameSession {
                 },
                 {
                     name: '💰 Betting',
-                    value: '• Both players contribute the same amount\n' +
-                           '• Prize pool = 2x the bet amount\n' +
+                    value: '• **Multiplayer:** Both players contribute the same amount\n' +
+                           '• **vs Bot:** Only you contribute, win 2x your bet\n' +
                            '• Minimum bet: $50\n' +
                            '• Use shortcuts: "1k", "all", "half"',
                     inline: false
@@ -399,8 +466,8 @@ const activeRPSGames = new Map();
 /**
  * Start a new RPS game
  */
-function startRPSGame(player1Id, player1Name, potAmount, channelId) {
-    const game = new RPSGameSession(player1Id, player1Name, potAmount, channelId);
+function startRPSGame(player1Id, player1Name, potAmount, channelId, vsBot = false) {
+    const game = new RPSGameSession(player1Id, player1Name, potAmount, channelId, vsBot);
     activeRPSGames.set(channelId, game);
     return game;
 }
@@ -434,7 +501,7 @@ async function handleRPSAction(interaction, action) {
     if (!game) {
         await interaction.reply({
             content: '❌ No active RPS game found in this channel! Use `/rps` to start a new game.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return;
     }
@@ -443,6 +510,8 @@ async function handleRPSAction(interaction, action) {
         switch (action) {
             case 'join':
                 return await handleJoinGame(interaction, game);
+            case 'bot':
+                return await handleBotGame(interaction, game);
             case 'rock':
             case 'paper':
             case 'scissors':
@@ -452,14 +521,14 @@ async function handleRPSAction(interaction, action) {
             default:
                 await interaction.reply({
                     content: '❌ Unknown RPS action.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
         }
     } catch (error) {
         logger.error(`Error handling RPS action ${action}:`, error);
         await interaction.reply({
             content: '❌ An error occurred while processing your RPS action.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 }
@@ -473,7 +542,7 @@ async function handleJoinGame(interaction, game) {
     if (userId === game.player1Id) {
         await interaction.reply({
             content: '❌ You cannot play against yourself!',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return { success: false };
     }
@@ -481,7 +550,7 @@ async function handleJoinGame(interaction, game) {
     if (game.started) {
         await interaction.reply({
             content: '❌ This game is already full!',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return { success: false };
     }
@@ -504,7 +573,7 @@ async function handleChoice(interaction, game, choice) {
     if (!game.started) {
         await interaction.reply({
             content: '❌ Waiting for a second player to join!',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return { success: false };
     }
@@ -512,18 +581,45 @@ async function handleChoice(interaction, game, choice) {
     if (userId !== game.player1Id && userId !== game.player2Id) {
         await interaction.reply({
             content: '❌ You are not a player in this game!',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return { success: false };
     }
 
     // Check if it's the player's turn
     const isPlayer1 = userId === game.player1Id;
-    if ((isPlayer1 && game.currentTurn !== 1) || (!isPlayer1 && game.currentTurn !== 2)) {
+    
+    // Handle bot games - if it's bot's turn, make bot choice automatically
+    if (game.vsBot && game.currentTurn === 2 && !game.player2Choice) {
+        game.player2Choice = game.makeBotChoice();
+        game.bothChose = game.player1Choice && game.player2Choice;
+        logger.info(`Bot auto-made choice: ${game.player2Choice} in channel ${game.channelId}`);
+        
+        // Return process round if both chose
+        if (game.bothChose) {
+            return { 
+                success: true, 
+                action: 'process_round',
+                bothChose: true
+            };
+        }
+    }
+    
+    // For human players, check if it's their turn
+    if ((isPlayer1 && game.currentTurn !== 1) || (!isPlayer1 && game.currentTurn !== 2 && !game.vsBot)) {
         const currentPlayerName = game.currentTurn === 1 ? game.player1Name : game.player2Name;
         await interaction.reply({
             content: `❌ It's ${currentPlayerName}'s turn to choose!`,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
+        });
+        return { success: false };
+    }
+    
+    // Don't allow bot to be clicked by humans
+    if (game.vsBot && !isPlayer1) {
+        await interaction.reply({
+            content: '❌ You cannot control the bot!',
+            flags: MessageFlags.Ephemeral
         });
         return { success: false };
     }
@@ -533,21 +629,29 @@ async function handleChoice(interaction, game, choice) {
     if (!result.success) {
         await interaction.reply({
             content: `❌ ${result.error}`,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return { success: false };
     }
 
-    // Update the game display
-    if (game.bothChose) {
-        // Both players have chosen, process the round
+    // If bot made choice immediately, process the round
+    if (result.botMadeChoice && result.bothChose) {
+        logger.info(`🔄 Bot chose ${result.botChoice}, processing round immediately in channel ${game.channelId}`);
+        return { 
+            success: true, 
+            action: 'process_round',
+            bothChose: true
+        };
+    }
+
+    // Check if both players have chosen
+    if (result.bothChose || game.bothChose) {
         return { 
             success: true, 
             action: 'process_round',
             bothChose: true
         };
     } else {
-        // Update display to show current state
         return {
             success: true,
             action: 'choice_made',
@@ -557,13 +661,53 @@ async function handleChoice(interaction, game, choice) {
 }
 
 /**
+ * Handle bot game button
+ */
+async function handleBotGame(interaction, game) {
+    const userId = interaction.user.id;
+
+    if (userId !== game.player1Id) {
+        await interaction.reply({
+            content: '❌ Only the game creator can choose to play vs bot!',
+            flags: MessageFlags.Ephemeral
+        });
+        return { success: false };
+    }
+
+    if (game.started) {
+        await interaction.reply({
+            content: '❌ This game has already started!',
+            flags: MessageFlags.Ephemeral
+        });
+        return { success: false };
+    }
+
+    // Add bot as player 2
+    game.addBot();
+
+    // Update display to show round 1
+    const roundEmbed = game.getRoundEmbed();
+    const buttons = game.createButtons();
+
+    await interaction.update({
+        embeds: [roundEmbed],
+        components: buttons
+    });
+
+    return { 
+        success: true, 
+        action: 'bot_joined'
+    };
+}
+
+/**
  * Handle help button
  */
 async function handleHelpAction(interaction) {
     const helpEmbed = RPSGameSession.getHelpEmbed();
     await interaction.reply({
         embeds: [helpEmbed],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
     });
     return { success: true };
 }

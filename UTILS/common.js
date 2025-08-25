@@ -17,6 +17,11 @@ function fmt(amount) {
     try {
         const num = parseFloat(amount);
         
+        // Check for invalid numbers (NaN, null, undefined)
+        if (isNaN(num) || !isFinite(num)) {
+            return '$0.00';
+        }
+        
         // For very large numbers, use abbreviated format
         if (num >= 1_000_000_000_000) { // Trillions
             return `$${(num / 1_000_000_000_000).toFixed(2)}T`;
@@ -31,7 +36,7 @@ function fmt(amount) {
             return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         }
     } catch (error) {
-        return `$${amount}`;
+        return '$0.00';
     }
 }
 

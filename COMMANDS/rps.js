@@ -6,6 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { 
     RPSGameSession,
     startRPSGame,
@@ -45,10 +46,16 @@ module.exports = {
             // Check if there's already an active RPS game in this channel
             const existingGame = getRPSGame(channelId);
             if (existingGame) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Game Already Active')
-                    .setDescription(`There's already an active RPS game in this channel!\n\n**Players:** ${existingGame.player1Name}${existingGame.player2Name ? ` vs ${existingGame.player2Name}` : ' (waiting for opponent)'}`)
-                    .setColor(0xFF0000);
+                const embed = buildSessionEmbed({
+                    title: '❌ Game Already Active',
+                    topFields: [{
+                        name: 'Active RPS Game',
+                        value: `**Players:** ${existingGame.player1Name}${existingGame.player2Name ? ` vs ${existingGame.player2Name}` : ' (waiting for opponent)'}`
+                    }],
+                    stageText: 'GAME IN PROGRESS',
+                    color: 0xFF0000,
+                    footer: 'Wait for the current game to finish or use /stopgame'
+                });
 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
@@ -59,10 +66,16 @@ module.exports = {
             
             const balance = await dbManager.getUserBalance(userId, guildId);
             if (balance.game_active) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Game Already Active')
-                    .setDescription('You already have an active game session! Finish your current game first.')
-                    .setColor(0xFF0000);
+                const embed = buildSessionEmbed({
+                    title: '❌ Game Already Active',
+                    topFields: [{
+                        name: 'Active Game Session',
+                        value: 'You already have an active game session!\nFinish your current game first.'
+                    }],
+                    stageText: 'SESSION ACTIVE',
+                    color: 0xFF0000,
+                    footer: 'Use /stopgame to cancel your active games'
+                });
                 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
@@ -75,10 +88,16 @@ module.exports = {
             try {
                 betAmount = parseAmount(amountStr, balance.wallet);
             } catch (error) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Invalid Amount')
-                    .setDescription(`Invalid amount format: ${error.message}`)
-                    .setColor(0xFF0000);
+                const embed = buildSessionEmbed({
+                    title: '❌ Invalid Amount',
+                    topFields: [{
+                        name: 'Bet Amount Error',
+                        value: `Invalid amount format: ${error.message}`
+                    }],
+                    stageText: 'INVALID BET',
+                    color: 0xFF0000,
+                    footer: 'Use numbers, K/M/B suffixes, "all", "half", or "quarter"'
+                });
                 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
@@ -87,20 +106,32 @@ module.exports = {
             // Validate bet amount
             const MIN_BET = 50;
             if (betAmount < MIN_BET) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Minimum Bet Required')
-                    .setDescription(`Minimum bet for RPS is ${fmt(MIN_BET)}!`)
-                    .setColor(0xFF0000);
+                const embed = buildSessionEmbed({
+                    title: '❌ Minimum Bet Required',
+                    topFields: [{
+                        name: 'Bet Too Low',
+                        value: `Minimum bet for RPS is ${fmt(MIN_BET)}!`
+                    }],
+                    stageText: 'BET TOO LOW',
+                    color: 0xFF0000,
+                    footer: 'Increase your bet amount to start playing'
+                });
                 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
             if (betAmount > balance.wallet) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Insufficient Funds')
-                    .setDescription(`You only have ${fmt(balance.wallet)} in your wallet!\n\nUse \`/balance\` to check your funds.`)
-                    .setColor(0xFF0000);
+                const embed = buildSessionEmbed({
+                    title: '❌ Insufficient Funds',
+                    topFields: [{
+                        name: 'Wallet Balance',
+                        value: `You only have ${fmt(balance.wallet)} in your wallet!`
+                    }],
+                    stageText: 'INSUFFICIENT FUNDS',
+                    color: 0xFF0000,
+                    footer: 'Use /balance to check your funds or /work to earn more'
+                });
                 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
@@ -138,6 +169,9 @@ module.exports = {
 
             // Create RPS game
             const rpsGame = startRPSGame(userId, username, betAmount, channelId);
+            
+            // Store session ID in game for later completion
+            rpsGame.sessionId = sessionResult.sessionId;
 
             // Create initial embed and buttons
             const initialEmbed = rpsGame.getWaitingEmbed();
@@ -166,10 +200,16 @@ module.exports = {
             // Handle game error with session cleanup and refund
             await GameSessionIntegrator.handleGameError(userId, SMGameType.RPS, betAmount || 0, guildId, 'RPS game error');
             
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Command Error')
-                .setDescription('An error occurred while starting the RPS game. Your bet has been refunded.')
-                .setColor(0xFF0000);
+            const embed = buildSessionEmbed({
+                title: '❌ Command Error',
+                topFields: [{
+                    name: 'Game Error',
+                    value: 'An error occurred while starting the RPS game.\nYour bet has been refunded.'
+                }],
+                stageText: 'ERROR OCCURRED',
+                color: 0xFF0000,
+                footer: 'Please try again or contact support if the issue persists'
+            });
             
             try {
                 if (interaction.replied || interaction.deferred) {
@@ -198,6 +238,23 @@ module.exports = {
                 switch (result.action) {
                     case 'join':
                         await this.handlePlayerJoin(interaction, channelId, guildId, result);
+                        break;
+                    case 'bot_joined':
+                        // Bot has joined, update session metadata
+                        const game = getRPSGame(channelId);
+                        if (game && game.sessionId) {
+                            try {
+                                await GameSessionIntegrator.updateGameSession(game.sessionId, {
+                                    gamePhase: 'playing',
+                                    opponent: 'Casino Bot',
+                                    vsBot: true
+                                });
+                                logger.info(`Updated RPS session ${game.sessionId} with bot opponent`);
+                            } catch (sessionError) {
+                                logger.error(`Failed to update session for bot join: ${sessionError.message}`);
+                            }
+                        }
+                        logger.info(`Bot joined RPS game in channel ${channelId}`);
                         break;
                     case 'choice_made':
                         await this.updateGameDisplay(interaction, channelId);
@@ -388,30 +445,33 @@ module.exports = {
             const game = getRPSGame(channelId);
             if (!game) return;
 
-            // Clear game active status for both players
+            // Clear game active status for players
             await dbManager.updateUserBalance(game.player1Id, guildId, { game_active: false });
-            await dbManager.updateUserBalance(game.player2Id, guildId, { game_active: false });
+            if (!game.vsBot) {
+                await dbManager.updateUserBalance(game.player2Id, guildId, { game_active: false });
+            }
 
             if (finalWinner === 0) {
-                // Tie game - refund both players
-                await dbManager.updateUserBalance(game.player1Id, guildId, { 
-                    wallet: (await dbManager.getUserBalance(game.player1Id, guildId)).wallet + game.potAmount 
-                });
-                await dbManager.updateUserBalance(game.player2Id, guildId, { 
-                    wallet: (await dbManager.getUserBalance(game.player2Id, guildId)).wallet + game.potAmount 
-                });
+                // Tie game - refund player (bot games don't involve player 2 wallet)
+                if (game.vsBot) {
+                    await dbManager.updateUserBalance(game.player1Id, guildId, { 
+                        wallet: (await dbManager.getUserBalance(game.player1Id, guildId)).wallet + game.potAmount 
+                    });
+                    // Record tie result for bot game
+                    await dbManager.updateUserStats(game.player1Id, guildId, 'rps', false, game.potAmount, 0);
+                } else {
+                    // Regular multiplayer tie - refund both players
+                    await dbManager.updateUserBalance(game.player1Id, guildId, { 
+                        wallet: (await dbManager.getUserBalance(game.player1Id, guildId)).wallet + game.potAmount 
+                    });
+                    await dbManager.updateUserBalance(game.player2Id, guildId, { 
+                        wallet: (await dbManager.getUserBalance(game.player2Id, guildId)).wallet + game.potAmount 
+                    });
 
-                // Record tie results
-                await dbManager.recordGameResult(game.player1Id, guildId, 'rps', false, game.potAmount, 0, {
-                    opponent: game.player2Name,
-                    finalScore: `${game.player1Wins}-${game.player2Wins}`,
-                    result: 'tie'
-                });
-                await dbManager.recordGameResult(game.player2Id, guildId, 'rps', false, game.potAmount, 0, {
-                    opponent: game.player1Name,
-                    finalScore: `${game.player2Wins}-${game.player1Wins}`,
-                    result: 'tie'
-                });
+                    // Record tie results
+                    await dbManager.updateUserStats(game.player1Id, guildId, 'rps', false, game.potAmount, 0);
+                    await dbManager.updateUserStats(game.player2Id, guildId, 'rps', false, game.potAmount, 0);
+                }
             } else {
                 // Someone won
                 const winnerId = finalWinner === 1 ? game.player1Id : game.player2Id;
@@ -419,22 +479,29 @@ module.exports = {
                 const winnerName = finalWinner === 1 ? game.player1Name : game.player2Name;
                 const loserName = finalWinner === 1 ? game.player2Name : game.player1Name;
 
-                // Give prize to winner
-                await dbManager.updateUserBalance(winnerId, guildId, { 
-                    wallet: (await dbManager.getUserBalance(winnerId, guildId)).wallet + game.totalPot 
-                });
+                if (game.vsBot) {
+                    // Bot game - only update human player
+                    if (finalWinner === 1) {
+                        // Player wins vs bot
+                        await dbManager.updateUserBalance(game.player1Id, guildId, { 
+                            wallet: (await dbManager.getUserBalance(game.player1Id, guildId)).wallet + game.totalPot 
+                        });
+                        await dbManager.updateUserStats(game.player1Id, guildId, 'rps', true, game.potAmount, game.totalPot);
+                    } else {
+                        // Bot wins - player loses bet
+                        await dbManager.updateUserStats(game.player1Id, guildId, 'rps', false, game.potAmount, 0);
+                    }
+                } else {
+                    // Regular multiplayer game
+                    // Give prize to winner
+                    await dbManager.updateUserBalance(winnerId, guildId, { 
+                        wallet: (await dbManager.getUserBalance(winnerId, guildId)).wallet + game.totalPot 
+                    });
 
-                // Record game results
-                await dbManager.recordGameResult(winnerId, guildId, 'rps', true, game.potAmount, game.totalPot, {
-                    opponent: loserName,
-                    finalScore: finalWinner === 1 ? `${game.player1Wins}-${game.player2Wins}` : `${game.player2Wins}-${game.player1Wins}`,
-                    result: 'win'
-                });
-                await dbManager.recordGameResult(loserId, guildId, 'rps', false, game.potAmount, 0, {
-                    opponent: winnerName,
-                    finalScore: finalWinner === 1 ? `${game.player2Wins}-${game.player1Wins}` : `${game.player1Wins}-${game.player2Wins}`,
-                    result: 'loss'
-                });
+                    // Record game results
+                    await dbManager.updateUserStats(winnerId, guildId, 'rps', true, game.potAmount, game.totalPot);
+                    await dbManager.updateUserStats(loserId, guildId, 'rps', false, game.potAmount, 0);
+                }
             }
 
             // Show final results
@@ -465,6 +532,21 @@ module.exports = {
             logger.info(`RPS game completed in channel ${channelId}: ${finalWinner === 0 ? 'Tie' : 
                        finalWinner === 1 ? `${game.player1Name} wins` : `${game.player2Name} wins`}`);
 
+            // Complete the game session
+            if (game.sessionId) {
+                try {
+                    await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                        gameResult: finalWinner === 0 ? 'tie' : (finalWinner === 1 ? 'win' : 'loss'),
+                        finalScore: `${game.player1Wins}-${game.player2Wins}`,
+                        opponent: game.player2Name,
+                        prizePaid: finalWinner === 1 ? game.totalPot : (finalWinner === 0 && game.vsBot ? game.potAmount : 0)
+                    });
+                    logger.info(`Completed RPS session ${game.sessionId} for user ${game.player1Id}`);
+                } catch (sessionError) {
+                    logger.error(`Failed to complete RPS session: ${sessionError.message}`);
+                }
+            }
+
             // Remove game from active games
             endRPSGame(channelId);
 
@@ -479,7 +561,7 @@ module.exports = {
                 const game = getRPSGame(channelId);
                 if (game) {
                     await dbManager.updateUserBalance(game.player1Id, guildId, { game_active: false });
-                    if (game.player2Id) {
+                    if (game.player2Id && !game.vsBot) {
                         await dbManager.updateUserBalance(game.player2Id, guildId, { game_active: false });
                     }
                 }
