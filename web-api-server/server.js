@@ -36,6 +36,15 @@ const db = admin.firestore();
 // Initialize simplified database manager
 const dbManager = new SimpleDatabaseManager(db);
 
+// Initialize passive income processor
+const PassiveIncomeProcessor = require('./passiveIncomeProcessor');
+const passiveIncomeProcessor = new PassiveIncomeProcessor(db);
+
+// Start passive income processing after a short delay
+setTimeout(() => {
+    passiveIncomeProcessor.startProcessing();
+}, 5000); // 5 second delay to ensure everything is initialized
+
 // Helper function to get user profile data (stored profile -> Discord -> fallback)
 async function getUserProfileData(userId) {
     let username = `User${userId.slice(-4)}`;
@@ -2684,5 +2693,14 @@ app.get('/api/diagnostics', (req, res) => {
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 ATIVE Casino Web API Server running on port ${PORT}`);
-    console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    
+    // Show appropriate URL based on environment
+    const baseUrl = process.env.RAILWAY_STATIC_URL 
+        ? `https://${process.env.RAILWAY_STATIC_URL}`
+        : process.env.ENVIRONMENT === 'production'
+        ? `https://ativecasinoapi.up.railway.app`
+        : `http://localhost:${PORT}`;
+    
+    console.log(`📊 Health check: ${baseUrl}/health`);
+    console.log(`🔧 Diagnostics: ${baseUrl}/api/diagnostics`);
 });

@@ -3,7 +3,7 @@ import { ApiResponse, Client, Environment, CreatePaymentRequest, Payment } from 
 // Initialize Square client
 const squareClient = new Client({
   accessToken: process.env.REACT_APP_SQUARE_ACCESS_TOKEN || '',
-  environment: process.env.REACT_APP_ENVIRONMENT === 'production' 
+  environment: process.env.REACT_APP_SQUARE_ENVIRONMENT === 'production' 
     ? Environment.Production 
     : Environment.Sandbox
 });

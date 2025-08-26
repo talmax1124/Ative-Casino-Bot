@@ -30,13 +30,13 @@ const ShopItemCard: React.FC<ShopItemCardProps> = ({
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'boosts':
-        return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40';
+        return 'bg-yellow-600/80 text-yellow-200 border-yellow-500/80';
       case 'cosmetics':
-        return 'bg-pink-500/20 text-pink-400 border-pink-500/40';
+        return 'bg-pink-600/80 text-pink-200 border-pink-500/80';
       case 'premium':
-        return 'bg-purple-500/20 text-purple-400 border-purple-500/40';
+        return 'bg-purple-600/80 text-purple-200 border-purple-500/80';
       default:
-        return 'bg-casino-accent/20 text-casino-accent border-casino-accent/40';
+        return 'bg-casino-accent/80 text-casino-light border-casino-accent/80';
     }
   };
 

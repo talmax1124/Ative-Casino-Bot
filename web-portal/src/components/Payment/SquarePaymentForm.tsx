@@ -111,7 +111,8 @@ const SquarePaymentForm: React.FC<SquarePaymentFormProps> = ({
           throw new Error('Square credentials missing. Please check your .env file.');
         }
 
-        console.log('🎮 Initializing Square payments with sandbox credentials...');
+        const environment = process.env.REACT_APP_SQUARE_ENVIRONMENT || 'sandbox';
+        console.log(`🎮 Initializing Square payments with ${environment} credentials...`);
         const payments = window.Square.payments(appId, locationId);
         
         console.log('💳 Creating card element...');
