@@ -9,7 +9,7 @@ const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const battleshipRenderer = require('../UTILS/battleshipRenderer');
-const UITemplates = require('../UTILS/UITemplates');
+const UITemplates = require('../UTILS/uiTemplates');
 
 // Game constants - Official Battleship rules
 const BOARD_SIZE = 10;
