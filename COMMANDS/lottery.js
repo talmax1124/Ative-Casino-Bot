@@ -1,11 +1,13 @@
 /**
  * Lottery status command for the casino bot
  * Shows player's lottery status, win probability, money, tickets purchased, etc.
+ * STANDARDIZED: Updated to use unified UI templates
  */
 
 const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
+const UITemplates = require('../UTILS/uiTemplates');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -19,14 +21,286 @@ module.exports = {
 
         try {
             await dbManager.ensureUser(userId, interaction.user.displayName);
-            await this.showPlayerLotteryStatus(interaction, userId, guildId);
+            
+            // Show main lottery interface using standardized template
+            await this.showLotteryMainPanel(interaction, userId, guildId);
+            
         } catch (error) {
             logger.error(`Lottery status command error: ${error.message}`);
-            await interaction.reply({ 
-                content: 'An error occurred while checking your lottery status.', 
-                ephemeral: true 
+            
+            const errorEmbed = UITemplates.createErrorEmbed('Lottery', {
+                description: 'An error occurred while loading the lottery information.',
+                error: error.message
             });
+            
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
+    },
+
+    async showLotteryMainPanel(interaction, userId, guildId) {
+        const userBalance = await dbManager.getUserBalance(userId, guildId);
+        const userTickets = await dbManager.getUserLotteryTickets(userId, guildId);
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        
+        // Create standardized game embed
+        const gameOptions = {
+            minBet: 12000,
+            maxBet: 84000, // 7 tickets max
+            wins: 0, // Lottery doesn't track individual wins
+            losses: 0,
+            botAvatar: interaction.client.user.displayAvatarURL()
+        };
+
+        const embed = UITemplates.createStandardGameEmbed(
+            'Weekly Lottery',
+            'Buy lottery tickets for your chance to win the weekly prize pool! Drawing every Sunday at 10 AM EST.',
+            userBalance.wallet,
+            gameOptions
+        );
+
+        // Replace default fields with lottery-specific information
+        embed.spliceFields(0, 3); // Remove default fields
+        
+        embed.addFields(
+            {
+                name: `${UITemplates.getEmojis().BALANCE} Your Balance`,
+                value: `$${userBalance.wallet.toLocaleString()}`,
+                inline: true
+            },
+            {
+                name: '🎟️ Your Tickets',
+                value: `${userTickets}/7 tickets`,
+                inline: true
+            },
+            {
+                name: '🎯 Win Probability',
+                value: `${this.calculateWinProbability(userTickets, lotteryInfo.total_tickets || 0)}%`,
+                inline: true
+            },
+            {
+                name: '💎 Prize Pool',
+                value: `$${(lotteryInfo.total_prize || 400000).toLocaleString()}`,
+                inline: true
+            },
+            {
+                name: '🎫 Ticket Price',
+                value: '$12,000 each',
+                inline: true
+            },
+            {
+                name: '📊 Total Tickets Sold',
+                value: `${(lotteryInfo.total_tickets || 0).toLocaleString()}`,
+                inline: true
+            },
+            {
+                name: '⏰ Next Drawing',
+                value: `<t:${this.getNextSundayTimestamp()}:F>\n<t:${this.getNextSundayTimestamp()}:R>`,
+                inline: false
+            }
+        );
+
+        // Create standardized buttons
+        const components = UITemplates.createStandardButtons('lottery', {
+            showStats: userTickets > 0
+        });
+
+        // Customize buttons for lottery
+        components[0].components[0] // Play Game button
+            .setLabel('🎫 Buy Tickets')
+            .setCustomId('lottery_buy_tickets');
+            
+        components[0].components[1] // How to Play button  
+            .setLabel('📖 How Lottery Works')
+            .setCustomId('lottery_rules');
+            
+        components[0].components[2] // Your Stats button
+            .setLabel('🎟️ My Tickets')
+            .setCustomId('lottery_my_tickets')
+            .setDisabled(userTickets === 0);
+
+        components[1].components[0] // Leaderboard button
+            .setLabel('🏆 Prize Breakdown')
+            .setCustomId('lottery_prizes');
+
+        await interaction.reply({
+            embeds: [embed],
+            components: components
+        });
+    },
+
+    calculateWinProbability(userTickets, totalTickets) {
+        if (totalTickets === 0 || userTickets === 0) return '0.00';
+        return ((userTickets / totalTickets) * 100).toFixed(2);
+    },
+
+    async handleButtonInteraction(interaction, action) {
+        const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
+
+        try {
+            switch (action) {
+                case 'buy_tickets':
+                    // Redirect to purchaselottery command
+                    const purchaseCommand = require('./purchaselottery');
+                    await purchaseCommand.showLotteryInterface(interaction, userId, guildId);
+                    break;
+
+                case 'rules':
+                    await this.showLotteryRules(interaction);
+                    break;
+
+                case 'my_tickets':
+                    await this.showUserTickets(interaction, userId, guildId);
+                    break;
+
+                case 'prizes':
+                    await this.showPrizeBreakdown(interaction, guildId);
+                    break;
+
+                case 'cancel_game':
+                    const embed = UITemplates.createTimeoutEmbed('Lottery');
+                    await interaction.update({ embeds: [embed], components: [] });
+                    break;
+
+                default:
+                    logger.warn(`Unknown lottery action: ${action}`);
+            }
+        } catch (error) {
+            logger.error(`Error handling lottery button: ${error.message}`);
+            
+            const errorEmbed = UITemplates.createErrorEmbed('Lottery', {
+                description: 'An error occurred while processing your request.',
+                error: error.message
+            });
+
+            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+        }
+    },
+
+    async showLotteryRules(interaction) {
+        const rules = [
+            '🎟️ Purchase 1-7 lottery tickets per week for $12,000 each',
+            '🗓️ Weekly drawing every Sunday at 10 AM EST',
+            '🏆 Winner takes the entire prize pool',
+            '📊 More tickets = better odds of winning',
+            '💰 All ticket sales contribute to the prize pool',
+            '🏦 Prize money is automatically deposited to your bank account'
+        ];
+
+        const payouts = {
+            'Ticket Cost': '$12,000 per ticket',
+            'Max Tickets': '7 tickets per player per week',
+            'Prize Pool': 'All ticket sales combined',
+            'Winner Selection': 'Random draw from all tickets'
+        };
+
+        const rulesEmbed = UITemplates.createRulesEmbed('Weekly Lottery', rules, payouts);
+        await interaction.reply({ embeds: [rulesEmbed], ephemeral: true });
+    },
+
+    async showUserTickets(interaction, userId, guildId) {
+        const userTickets = await dbManager.getUserLotteryTickets(userId, guildId);
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        
+        if (userTickets === 0) {
+            const embed = UITemplates.createErrorEmbed('Lottery Tickets', {
+                description: 'You don\'t have any lottery tickets yet!\n\nUse the "Buy Tickets" button to purchase tickets for the weekly drawing.',
+                isLoss: false
+            });
+            
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
+        const totalTickets = lotteryInfo.total_tickets || 0;
+        const winProbability = this.calculateWinProbability(userTickets, totalTickets);
+
+        const embed = new EmbedBuilder()
+            .setColor(UITemplates.getColors().INFO)
+            .setTitle('🎟️ Your Lottery Tickets')
+            .setDescription('Here\'s your ticket information for this week\'s drawing:')
+            .addFields(
+                {
+                    name: 'Your Tickets',
+                    value: `${userTickets}/7 tickets purchased`,
+                    inline: true
+                },
+                {
+                    name: 'Win Probability', 
+                    value: `${winProbability}%`,
+                    inline: true
+                },
+                {
+                    name: 'Investment',
+                    value: `$${(userTickets * 12000).toLocaleString()}`,
+                    inline: true
+                },
+                {
+                    name: 'Prize Pool',
+                    value: `$${(lotteryInfo.total_prize || 400000).toLocaleString()}`,
+                    inline: true
+                },
+                {
+                    name: 'Remaining Tickets',
+                    value: `${7 - userTickets} more you can buy`,
+                    inline: true
+                },
+                {
+                    name: 'Drawing Time',
+                    value: `<t:${this.getNextSundayTimestamp()}:R>`,
+                    inline: true
+                }
+            )
+            .setFooter({ text: '🍀 Good luck in the weekly drawing!' })
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed], ephemeral: true });
+    },
+
+    async showPrizeBreakdown(interaction, guildId) {
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        const prizePool = lotteryInfo.total_prize || 400000;
+        const totalTickets = lotteryInfo.total_tickets || 0;
+
+        const embed = new EmbedBuilder()
+            .setColor(UITemplates.getColors().PRIMARY_GAME)
+            .setTitle('🏆 Weekly Lottery Prize Information')
+            .setDescription('Prize pool breakdown and drawing details:')
+            .addFields(
+                {
+                    name: '💰 Total Prize Pool',
+                    value: `$${prizePool.toLocaleString()}`,
+                    inline: true
+                },
+                {
+                    name: '🎫 Total Tickets Sold',
+                    value: `${totalTickets.toLocaleString()} tickets`,
+                    inline: true
+                },
+                {
+                    name: '🎯 Winner Takes All',
+                    value: 'One lucky winner gets 100% of the prize pool!',
+                    inline: true
+                },
+                {
+                    name: '🗓️ Drawing Schedule',
+                    value: 'Every Sunday at 10:00 AM EST',
+                    inline: true
+                },
+                {
+                    name: '💳 Prize Payment',
+                    value: 'Automatically deposited to winner\'s bank account',
+                    inline: true
+                },
+                {
+                    name: '⏰ Next Drawing',
+                    value: `<t:${this.getNextSundayTimestamp()}:F>`,
+                    inline: true
+                }
+            )
+            .setFooter({ text: 'May the odds be ever in your favor!' })
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed], ephemeral: true });
     },
 
     async showPlayerLotteryStatus(interaction, userId, guildId) {

@@ -481,3 +481,7 @@ function createSecurityHelp(interaction) {
         .setFooter({ text: '🛡️ Security Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
         .setTimestamp();
 }
+
+// Export helper functions for use in interaction handlers
+module.exports.showSpecificCategory = showSpecificCategory;
+module.exports.showMainHelp = showMainHelp;

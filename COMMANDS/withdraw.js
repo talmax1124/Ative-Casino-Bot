@@ -6,6 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
+const UITemplates = require('../UTILS/uiTemplates');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -38,13 +39,12 @@ module.exports = {
             // Parse amount
             const parsedAmount = parseAmount(amountStr);
             if (parsedAmount === null) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Invalid Amount')
-                    .setDescription(`"${amountStr}" is not a valid amount.\n\n**Valid formats:**\n• Numbers: \`1000\`, \`1.5k\`, \`2.3m\`\n• Shortcuts: \`all\`, \`half\``)
-                    .setColor(0xFF0000)
-                    .setTimestamp();
+                const errorEmbed = UITemplates.createErrorEmbed('Withdraw', {
+                    description: `"${amountStr}" is not a valid amount.\n\n**Valid formats:**\n• Numbers: 1000, 1.5k, 2.3m\n• Shortcuts: all, half`,
+                    isLoss: false
+                });
 
-                return await interaction.editReply({ embeds: [embed] });
+                return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
             // Resolve special amounts (all/half) - use bank amount for resolution
@@ -52,23 +52,23 @@ module.exports = {
 
             // Validate amount
             if (resolvedAmount <= 0) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Invalid Amount')
-                    .setDescription('Withdrawal amount must be greater than $0.')
-                    .setColor(0xFF0000)
-                    .setTimestamp();
+                const errorEmbed = UITemplates.createErrorEmbed('Withdraw', {
+                    description: 'Withdrawal amount must be greater than $0.',
+                    isLoss: false
+                });
 
-                return await interaction.editReply({ embeds: [embed] });
+                return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
             if (resolvedAmount > currentBank) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Insufficient Funds')
-                    .setDescription(`You don't have enough money in your bank!\n\n**Your Bank:** ${fmtFull(currentBank)}\n**Withdrawal Amount:** ${fmtFull(resolvedAmount)}`)
-                    .setColor(0xFF0000)
-                    .setTimestamp();
+                const errorEmbed = UITemplates.createErrorEmbed('Withdraw', {
+                    description: `You don't have enough money in your bank!\n\n**Requested:** ${fmtFull(resolvedAmount)}\n**Available:** ${fmtFull(currentBank)}`,
+                    showBalance: true,
+                    userBalance: { wallet: currentWallet, bank: currentBank },
+                    isLoss: false
+                });
 
-                return await interaction.editReply({ embeds: [embed] });
+                return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
             // Round to 2 decimal places
@@ -83,43 +83,41 @@ module.exports = {
             );
 
             if (!success) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Transaction Failed')
-                    .setDescription('Failed to process your withdrawal. Please try again.')
-                    .setColor(0xFF0000)
-                    .setTimestamp();
+                const errorEmbed = UITemplates.createErrorEmbed('Withdraw', {
+                    description: 'Failed to process your withdrawal. Please try again.',
+                    isLoss: false
+                });
 
-                return await interaction.editReply({ embeds: [embed] });
+                return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
             // Get updated balance for display
             const newBalance = await dbManager.getUserBalance(userId, guildId);
 
-            // Use session kit styling consistent with /sendmoney
-            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            // Create success embed using UITemplates
+            const successEmbed = UITemplates.createStandardGameEmbed(
+                'Bank Withdrawal Successful',
+                `You successfully withdrew **${fmtFull(withdrawAmount)}** from your bank to your wallet!`,
+                newBalance.wallet,
+                {
+                    minBet: 0,
+                    maxBet: 0,
+                    wins: 0,
+                    losses: 0,
+                    hideWalletInfo: false,
+                    gameSpecific: [
+                        { name: '💵 Amount Withdrawn', value: fmtFull(withdrawAmount), inline: true },
+                        { name: '🏦 From', value: 'Bank Account', inline: true },
+                        { name: '🔄 Status', value: 'Completed', inline: true }
+                    ],
+                    balanceChange: {
+                        wallet: { from: currentWallet, to: newBalance.wallet },
+                        bank: { from: currentBank, to: newBalance.bank }
+                    }
+                }
+            ).setColor(UITemplates.getColors().SUCCESS);
 
-            const topFields = [{
-                name: 'WITHDRAWAL DETAILS',
-                value: `\`\`\`fix\nAmount Withdrawn: ${fmtFull(withdrawAmount)}\n\`\`\``,
-                inline: false
-            }];
-
-            const bankFields = [
-                { name: 'Wallet', value: `${fmtFull(currentWallet)} → ${fmtFull(newBalance.wallet)}`, inline: true },
-                { name: 'Bank', value: `${fmtFull(currentBank)} → ${fmtFull(newBalance.bank)}`, inline: true },
-                { name: 'Total', value: fmtFull(newBalance.wallet + newBalance.bank), inline: true }
-            ];
-
-            const sessionEmbed = buildSessionEmbed({
-                title: '🏧 Withdrawal Successful',
-                topFields,
-                bankFields,
-                stageText: 'WITHDRAWAL COMPLETE',
-                color: 0x00FF00,
-                footer: '🏧 Withdraw • Move funds from bank to wallet'
-            });
-
-            await interaction.editReply({ embeds: [sessionEmbed] });
+            await interaction.editReply({ embeds: [successEmbed] });
 
             // Log transaction
             logger.info(`User ${username} (${userId}) withdrew ${fmtFull(withdrawAmount)} from bank`);
@@ -144,11 +142,11 @@ module.exports = {
         } catch (error) {
             logger.error(`Error in withdraw command: ${error.message}`);
 
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Error')
-                .setDescription('An error occurred while processing your withdrawal.')
-                .setColor(0xFF0000)
-                .setTimestamp();
+            const errorEmbed = UITemplates.createErrorEmbed('Withdraw', {
+                description: 'An error occurred while processing your withdrawal.',
+                error: error.message,
+                isLoss: false
+            });
 
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });

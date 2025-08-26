@@ -1,22 +1,24 @@
 /**
- * Battleship Game - Classic two-player naval strategy game
+ * Battleship Game - Refactored for Discord limitations
  * Features 10x10 grid, 5 ships per player, turn-based combat
- * Converted from Python with improvements and modern UI
+ * Enhanced with Canvas rendering and proper state management
  */
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
+const battleshipRenderer = require('../UTILS/battleshipRenderer');
+const UITemplates = require('../UTILS/UITemplates');
 
-// Game constants - Official Battleship rules from PDF
+// Game constants - Official Battleship rules
 const BOARD_SIZE = 10;
 const SHIPS = [
-    { name: 'Carrier', length: 5, emoji: '🚢' },      // 5 holes
-    { name: 'Battleship', length: 4, emoji: '⚓' },   // 4 holes
-    { name: 'Cruiser', length: 3, emoji: '🚤' },     // 3 holes
-    { name: 'Submarine', length: 3, emoji: '🔱' },   // 3 holes
-    { name: 'Destroyer', length: 2, emoji: '🛟' }    // 2 holes
+    { name: 'Carrier', length: 5, emoji: '🚢', color: '#8B0000' }, // Dark Red
+    { name: 'Battleship', length: 4, emoji: '⚓', color: '#4682B4' }, // Steel Blue  
+    { name: 'Cruiser', length: 3, emoji: '🚤', color: '#228B22' }, // Forest Green
+    { name: 'Submarine', length: 3, emoji: '🔱', color: '#FF8C00' }, // Dark Orange
+    { name: 'Destroyer', length: 2, emoji: '🛟', color: '#9932CC' } // Dark Orchid
 ];
 
 // Ship direction constants
@@ -31,10 +33,11 @@ const CELL_MISS = 3;
 const CELL_SUNK = 4;
 
 class BattleshipShip {
-    constructor(name, length, emoji) {
+    constructor(name, length, emoji, color) {
         this.name = name;
         this.length = length;
         this.emoji = emoji;
+        this.color = color;
         this.positions = [];
         this.hits = new Set();
         this.placed = false;
@@ -78,9 +81,10 @@ class BattleshipBoard {
     constructor(playerId) {
         this.playerId = playerId;
         this.grid = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(CELL_EMPTY));
-        this.ships = SHIPS.map(ship => new BattleshipShip(ship.name, ship.length, ship.emoji));
+        this.ships = SHIPS.map(ship => new BattleshipShip(ship.name, ship.length, ship.emoji, ship.color));
         this.shipPositions = new Map(); // position -> ship mapping
         this.currentShipIndex = 0;
+        this.placementComplete = false;
     }
 
     canPlaceShip(ship, startRow, startCol, direction) {
@@ -99,10 +103,9 @@ class BattleshipBoard {
         }
 
         // Check for overlapping ships only (per official rules)
-        // Ships CAN touch - the PDF doesn't prohibit adjacent ships
         for (const [row, col] of positions) {
             if (this.shipPositions.has(`${row},${col}`)) {
-                return false; // Ships cannot overlap
+                return false;
             }
         }
         
@@ -130,7 +133,14 @@ class BattleshipBoard {
 
     advanceShip() {
         this.currentShipIndex++;
+        if (this.currentShipIndex >= this.ships.length) {
+            this.placementComplete = true;
+        }
         return this.currentShipIndex < this.ships.length;
+    }
+
+    getNextShipToPlace() {
+        return this.getCurrentShip();
     }
 
     allShipsPlaced() {
@@ -174,6 +184,20 @@ class BattleshipBoard {
 
     getShipsRemaining() {
         return this.ships.filter(ship => !ship.isSunk()).length;
+    }
+
+    async getBoardImage(options = {}) {
+        const {
+            title = 'Battleship Board',
+            showShips = true,
+            showAttacks = true
+        } = options;
+        
+        return await battleshipRenderer.renderSingleBoard(this, {
+            title,
+            showShips,
+            showAttacks
+        });
     }
 
     generateBoardDisplay(hideShips = false, title = "Board") {
@@ -297,50 +321,46 @@ class BattleshipGameSession {
     }
 
     createLobbyEmbed() {
-        // Use gameSessionKit for consistent UI styling
-        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-        
-        // Player list for topFields
         const playerList = Array.from(this.players.values())
             .map((user, index) => `${index + 1}. ${user.displayName}`)
-            .join('\n');
+            .join('\n') || 'Waiting for players...';
         
-        const topFields = [{
-            name: '⚓ BATTLESHIP NAVAL BATTLE',
-            value: `**Players:** ${this.players.size}/2\n` +
-                   `\`\`\`fix\n${playerList || 'Waiting for players...'}\`\`\`\n` +
-                   `**🎯 Objective:** Sink all enemy ships first!\n` +
-                   `**📋 Setup:** Place 5 ships, attack coordinates, claim victory!`,
-            inline: false
-        }];
-
-        // Ship composition and stakes in bankFields
         const shipList = SHIPS.map(ship => `${ship.emoji} ${ship.name} (${ship.length})`).join('\n');
-        const bankFields = [
-            { name: '🚢 Your Fleet', value: shipList, inline: true },
-            { name: '💰 Stakes', value: this.betAmount > 0 ? `${fmt(this.betAmount)} each\nWinner: ${fmt(this.betAmount * 2)}` : 'Free Play', inline: true },
-            { name: '🎮 Rules', value: 'No overlapping\nH/V placement only\nHit = continue turn', inline: true }
-        ];
-
-        // Stage text for current status
-        const stageText = 'LOBBY - WAITING FOR PLAYERS';
         
-        // Build the embed using gameSessionKit
+        // Safely format bet amount
+        const betAmount = typeof this.betAmount === 'number' && this.betAmount > 0 ? this.betAmount : 0;
+        const stakesText = betAmount > 0 ? 
+            `${fmt(betAmount)} each\nWinner: ${fmt(betAmount * 2)}` : 
+            'Free Play';
+        
+        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+        
         return buildSessionEmbed({
             title: '⚓ Battleship Naval Battle',
-            topFields,
-            bankFields,
-            stageText,
+            topFields: [
+                {
+                    name: '👥 LOBBY STATUS',
+                    value: `**Players:** ${this.players.size}/2\n\`\`\`${playerList}\`\`\``,
+                    inline: false
+                },
+                {
+                    name: '🎯 GAME OBJECTIVE',
+                    value: '**Sink all enemy ships first!**\n📋 Place 5 ships strategically, then battle!',
+                    inline: false
+                }
+            ],
+            bankFields: [
+                { name: '🚢 Your Fleet', value: shipList, inline: true },
+                { name: '💰 Stakes', value: stakesText, inline: true },
+                { name: '🎮 Rules', value: 'Ships cannot overlap\nHorizontal/Vertical only\nHit = continue turn', inline: true }
+            ],
+            stageText: 'LOBBY',
             color: 0x1E88E5,
             footer: `Game ID: ${this.channelId.slice(-6)} • Host: ${this.hostUser.displayName} • ATIVE Casino`
-        });
+        }).setThumbnail('attachment://battleshipbanner.gif');
     }
 
     createPlacementEmbed() {
-        // Use gameSessionKit for consistent UI styling
-        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-        
-        // Show placement progress in topFields
         const progress = Array.from(this.players.values()).map(user => {
             const board = this.boards.get(user.id);
             const placedCount = board.ships.filter(ship => ship.placed).length;
@@ -348,88 +368,98 @@ class BattleshipGameSession {
             return `${user.displayName}: ${status}`;
         }).join('\n');
         
-        const topFields = [{
-            name: '🚢 SHIP PLACEMENT PHASE',
-            value: `**Deploy your fleet strategically!**\n` +
-                   `\`\`\`fix\n${progress}\`\`\`\n` +
-                   `**📋 Rules:** Ships can't overlap (touching is allowed)\n` +
-                   `**🎮 Controls:** Use placement panel for private setup`,
-            inline: false
-        }];
-
-        // Placement instructions in bankFields
-        const bankFields = [
-            { name: '📍 Placement Rules', value: 'Horizontal or Vertical\nNo diagonal placement\nNo overlapping only', inline: true },
-            { name: '🎯 Strategy Tips', value: 'Spread ships out\nHide your patterns\nProtect large ships', inline: true },
-            { name: '⚡ Quick Options', value: 'Manual placement\nAuto-placement\nPrivate board view', inline: true }
-        ];
-
-        // Stage text for current status
-        const stageText = 'PLACEMENT PHASE';
+        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
         
-        // Build the embed using gameSessionKit
         return buildSessionEmbed({
             title: '🚢 Ship Placement Phase',
-            topFields,
-            bankFields,
-            stageText,
+            topFields: [
+                {
+                    name: '🚢 FLEET DEPLOYMENT',
+                    value: `**Deploy your fleet strategically!**\n\`\`\`${progress}\`\`\``,
+                    inline: false
+                },
+                {
+                    name: '📋 PLACEMENT RULES',
+                    value: 'Ships cannot overlap (touching allowed)\n**🎮 Controls:** Use "Ship Placement" button for private setup',
+                    inline: false
+                }
+            ],
+            bankFields: [
+                { name: '📍 Placement Rules', value: 'Horizontal or Vertical\nNo diagonal placement\nNo overlapping', inline: true },
+                { name: '🎯 Strategy Tips', value: 'Spread ships out\nHide your patterns\nProtect large ships', inline: true },
+                { name: '⚡ Quick Options', value: 'Manual placement\nAuto-placement\nPrivate board view', inline: true }
+            ],
+            stageText: 'PLACEMENT',
             color: 0x43A047,
-            footer: 'Click "Open Placement Panel" to deploy your ships privately • ATIVE Casino'
+            footer: 'Click "Ship Placement" to deploy your fleet privately • ATIVE Casino'
         });
     }
 
-    createBattleEmbed() {
+    async createBattleEmbed() {
         const currentPlayer = this.players.get(this.currentTurn);
+        const playersArray = Array.from(this.players.entries());
+        const [player1, player2] = playersArray;
         
-        // Use gameSessionKit for consistent UI styling
-        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-        
-        // Battle status for topFields
-        const statusLines = Array.from(this.players.entries()).map(([playerId, user]) => {
+        const statusLines = playersArray.map(([playerId, user]) => {
             const board = this.boards.get(playerId);
             const shipsLeft = board.getShipsRemaining();
             const shipsTotal = board.ships.length;
-            return `${user.displayName}: ${shipsLeft}/${shipsTotal} ships`;
+            const turnIndicator = playerId === this.currentTurn ? '👈' : '';
+            return `${user.displayName}: ${shipsLeft}/${shipsTotal} ships ${turnIndicator}`;
         });
         
-        const topFields = [{
-            name: '⚔️ BATTLE IN PROGRESS',
-            value: `**Current Turn:** ${currentPlayer.displayName}\n` +
-                   `\`\`\`fix\n${statusLines.join('\n')}\`\`\`\n` +
-                   `**🎯 Action:** Call out coordinates to attack!\n` +
-                   `**💥 Result:** Hit, Miss, or Sunk will be announced`,
-            inline: false
-        }];
-
-        // Combat information in bankFields
-        const bankFields = [
-            { name: '🎯 Attack Phase', value: `${currentPlayer.displayName}'s turn\nChoose coordinates\n(A1 to J10)`, inline: true },
-            { name: '💰 Prize Pool', value: this.betAmount > 0 ? fmt(this.betAmount * 2) : 'Free Play', inline: true },
-            { name: '📊 View Options', value: 'Your Board\nDual View\nAttack History', inline: true }
-        ];
-
-        // Stage text for current status
-        const stageText = 'BATTLE ACTIVE';
+        // Generate public battle view (hits/misses only, no ships)
+        const battleshipRenderer = require('../UTILS/battleshipRenderer');
+        const player1Board = this.boards.get(player1[0]);
+        const player2Board = this.boards.get(player2[0]);
         
-        // Build the embed using gameSessionKit
-        return buildSessionEmbed({
+        const battleImage = await battleshipRenderer.renderDualBoards(
+            player1Board, 
+            player2Board, 
+            {
+                title: `${player1[1].displayName} vs ${player2[1].displayName} - Public Battle View`,
+                player1Name: player1[1].displayName,
+                player2Name: player2[1].displayName,
+                showPlayer1Ships: false,
+                showPlayer2Ships: false,
+                showAttacks: true
+            }
+        );
+        
+        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+        
+        const embed = buildSessionEmbed({
             title: '⚔️ Naval Combat',
-            topFields,
-            bankFields,
-            stageText,
+            description: `<@${this.currentTurn}>, it's your turn! You have ${this.boards.get(this.currentTurn).getShipsRemaining()} ships still unsunken!`,
+            topFields: [
+                {
+                    name: '🎯 BATTLE STATUS',
+                    value: `**Current Turn:** ${currentPlayer.displayName}\n\`\`\`${statusLines.join('\n')}\`\`\``,
+                    inline: false
+                },
+                {
+                    name: '💥 COMBAT ACTION',
+                    value: '**Attack enemy coordinates!**\nHit, Miss, or Sunk will be announced',
+                    inline: false
+                }
+            ],
+            bankFields: [
+                { name: '🎯 Attack Phase', value: `${currentPlayer.displayName}'s turn\nChoose coordinates\n(A1 to J10)`, inline: true },
+                { name: '💰 Prize Pool', value: (typeof this.betAmount === 'number' && this.betAmount > 0) ? fmt(this.betAmount * 2) : 'Free Play', inline: true },
+                { name: '📊 View Options', value: 'Your Board\nDual View\nAttack History', inline: true }
+            ],
+            stageText: 'BATTLE',
             color: 0xE53935,
-            footer: 'Use Attack button to fire at enemy coordinates • ATIVE Casino'
-        });
+            footer: 'Use "Attack" button to fire at enemy coordinates • ATIVE Casino'
+        }).setThumbnail('attachment://battleshipbanner.gif');
+        
+        return { embed, battleImage, bannerPath: '/Users/carlosdiazplaza/ative_casino_bot/assets/battleshipbanner.gif' };
     }
 
     createFinishedEmbed() {
         const winner = this.players.get(this.winner);
         const duration = Math.round((Date.now() - this.createdAt) / 1000 / 60);
         
-        // Use gameSessionKit for consistent UI styling
-        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-        
-        // Victory announcement for topFields
         const finalStatus = Array.from(this.players.entries()).map(([playerId, user]) => {
             const board = this.boards.get(playerId);
             const shipsLeft = board.getShipsRemaining();
@@ -438,31 +468,28 @@ class BattleshipGameSession {
             return `${user.displayName}: ${status}`;
         });
         
-        const topFields = [{
-            name: '🏆 BATTLE CONCLUDED',
-            value: `**VICTORY TO:** ${winner.displayName}!\n` +
-                   `\`\`\`fix\n${finalStatus.join('\n')}\`\`\`\n` +
-                   `**⚔️ Result:** Complete naval domination achieved!\n` +
-                   `**⏱️ Duration:** ${duration} minutes of strategic warfare`,
-            inline: false
-        }];
-
-        // Victory rewards in bankFields
-        const bankFields = [
-            { name: '🏆 Champion', value: `${winner.displayName}\nComplete Victory\nAll ships sunk`, inline: true },
-            { name: '💰 Prize Won', value: this.betAmount > 0 ? fmt(this.betAmount * 2) : 'Bragging Rights', inline: true },
-            { name: '📊 Battle Stats', value: `Duration: ${duration}m\nShips Deployed: 10\nStrategy: Superior`, inline: true }
-        ];
-
-        // Stage text for current status
-        const stageText = 'VICTORY ACHIEVED';
+        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
         
-        // Build the embed using gameSessionKit
         return buildSessionEmbed({
             title: '🏆 Naval Victory',
-            topFields,
-            bankFields,
-            stageText,
+            topFields: [
+                {
+                    name: '🏆 VICTORY ACHIEVED',
+                    value: `**WINNER:** ${winner.displayName}!\n\`\`\`${finalStatus.join('\n')}\`\`\``,
+                    inline: false
+                },
+                {
+                    name: '⚔️ BATTLE RESULTS',
+                    value: `**Complete naval domination achieved!**\n⏱️ Duration: ${duration} minutes of strategic warfare`,
+                    inline: false
+                }
+            ],
+            bankFields: [
+                { name: '🏆 Champion', value: `${winner.displayName}\nComplete Victory\nAll ships sunk`, inline: true },
+                { name: '💰 Prize Won', value: (typeof this.betAmount === 'number' && this.betAmount > 0) ? fmt(this.betAmount * 2) : 'Bragging Rights', inline: true },
+                { name: '📊 Battle Stats', value: `Duration: ${duration}m\nShips Deployed: 10\nStrategy: Superior`, inline: true }
+            ],
+            stageText: 'VICTORY',
             color: 0xFFD700,
             footer: `Battle concluded • ${winner.displayName} claims naval supremacy • ATIVE Casino`
         });
@@ -476,12 +503,12 @@ class BattleshipGameSession {
                 const lobbyButtons = [
                     new ButtonBuilder()
                         .setCustomId('battleship_join')
-                        .setLabel('⚓ Join Battle')
+                        .setLabel('⚔️ Join Naval Battle')
                         .setStyle(ButtonStyle.Success)
                         .setDisabled(this.players.size >= 2),
                     new ButtonBuilder()
                         .setCustomId('battleship_help')
-                        .setLabel('❓ Rules & Help')
+                        .setLabel('📚 Game Rules & Strategy Guide')
                         .setStyle(ButtonStyle.Secondary)
                 ];
 
@@ -489,7 +516,7 @@ class BattleshipGameSession {
                     lobbyButtons.splice(1, 0,
                         new ButtonBuilder()
                             .setCustomId('battleship_start')
-                            .setLabel('🚢 Start Game')
+                            .setLabel('🚢 Deploy Fleets & Begin Battle')
                             .setStyle(ButtonStyle.Primary)
                     );
                 }
@@ -500,8 +527,8 @@ class BattleshipGameSession {
             case 'placing':
                 rows.push(new ActionRowBuilder().addComponents([
                     new ButtonBuilder()
-                        .setCustomId('battleship_open_placement')
-                        .setLabel('🚢 Open Placement Panel')
+                        .setCustomId('battleship_ship_placement')
+                        .setLabel('🗺️ Deploy Your Fleet (Private)')
                         .setStyle(ButtonStyle.Primary)
                 ]));
                 break;
@@ -510,11 +537,11 @@ class BattleshipGameSession {
                 rows.push(new ActionRowBuilder().addComponents([
                     new ButtonBuilder()
                         .setCustomId('battleship_attack')
-                        .setLabel('🎯 Attack!')
+                        .setLabel('💥 Fire Torpedoes!')
                         .setStyle(ButtonStyle.Danger),
                     new ButtonBuilder()
                         .setCustomId('battleship_view_board')
-                        .setLabel('👁️ View My Board')
+                        .setLabel('🔍 View Your Fleet Status')
                         .setStyle(ButtonStyle.Secondary)
                 ]));
                 break;
@@ -535,65 +562,24 @@ class BattleshipGameSession {
     }
 
     static createHelpEmbed() {
-        // Use gameSessionKit for consistent UI styling
-        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-        
-        // Complete battleship instructions based on PDF
-        const topFields = [{
-            name: '⚓ BATTLESHIP NAVAL WARFARE GUIDE',
-            value: `**Objective:** Be the first to sink all 5 of your opponent's ships!\n` +
-                   `\`\`\`fix\nOfficial Rules - Based on Classic Battleship Game\`\`\`\n` +
-                   `**🚢 Fleet:** 5 ships each (Carrier, Battleship, Cruiser, Submarine, Destroyer)\n` +
-                   `**🎯 Victory:** Sink all enemy ships to win the battle!`,
-            inline: false
-        }];
-
-        // Game rules and mechanics in bankFields
         const shipList = SHIPS.map(ship => `${ship.emoji} ${ship.name} (${ship.length} holes)`).join('\n');
-        const bankFields = [
-            { 
-                name: '🚢 Your Fleet', 
-                value: shipList, 
-                inline: true 
-            },
-            { 
-                name: '📍 Placement Rules', 
-                value: '• Horizontal or Vertical only\n• No diagonal placement\n• Ships cannot overlap\n• Ships CAN touch edges', 
-                inline: true 
-            },
-            { 
-                name: '⚔️ Combat Rules', 
-                value: '• Call coordinates (A1-J10)\n• HIT = Continue your turn\n• MISS = End your turn\n• SUNK = Continue attacking', 
-                inline: true 
-            },
-            { 
-                name: '🎮 Game Flow', 
-                value: '1. Join battle (2 players)\n2. Place ships secretly\n3. Take turns attacking\n4. First to sink all wins!', 
-                inline: true 
-            },
-            { 
-                name: '🎯 Attack Results', 
-                value: '• **HIT** - Red X on target\n• **MISS** - White circle\n• **SUNK** - Skull symbol\n• View boards anytime', 
-                inline: true 
-            },
-            { 
-                name: '💡 Strategy Tips', 
-                value: '• Spread initial shots\n• Hunt around hits\n• Protect large ships\n• Think systematically', 
-                inline: true 
-            }
-        ];
-
-        // Stage text for help
-        const stageText = 'STRATEGY GUIDE';
         
-        // Build the embed using gameSessionKit
         return buildSessionEmbed({
             title: '⚓ Battleship Strategy Guide',
-            topFields,
-            bankFields,
-            stageText,
+            description: `**Objective:** Be the first to sink all 5 of your opponent's ships!\n` +
+                        `\`\`\`Official Rules - Based on Classic Battleship Game\`\`\`\n` +
+                        `**🚢 Fleet:** 5 ships each (Carrier, Battleship, Cruiser, Submarine, Destroyer)\n` +
+                        `**🎯 Victory:** Sink all enemy ships to win the battle!`,
+            topFields: [
+                { name: '🚢 Your Fleet', value: shipList, inline: true },
+                { name: '📍 Placement Rules', value: '• Horizontal or Vertical only\n• No diagonal placement\n• Ships cannot overlap\n• Ships CAN touch edges', inline: true },
+                { name: '⚔️ Combat Rules', value: '• Call coordinates (A1-J10)\n• HIT = Continue your turn\n• MISS = End your turn\n• SUNK = Continue attacking', inline: true },
+                { name: '🎮 Game Flow', value: '1. Join battle (2 players)\n2. Place ships secretly\n3. Take turns attacking\n4. First to sink all wins!', inline: true },
+                { name: '🎯 Attack Results', value: '• **HIT** - Red X on target\n• **MISS** - White circle\n• **SUNK** - Skull symbol\n• View boards anytime', inline: true },
+                { name: '💡 Strategy Tips', value: '• Spread initial shots\n• Hunt around hits\n• Protect large ships\n• Think systematically', inline: true }
+            ],
             color: 0x1E88E5,
-            footer: 'Master naval warfare tactics • Based on official Battleship rules • ATIVE Casino'
+            footerText: 'Master naval warfare tactics • Based on official Battleship rules • ATIVE Casino'
         });
     }
 }

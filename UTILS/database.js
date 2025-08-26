@@ -234,6 +234,35 @@ class DatabaseManager {
     }
 
     /**
+     * Get user's most recent game activity across all games
+     */
+    async getUserLastActivity(userId, guildId = null) {
+        try {
+            const snapshot = await this.db.collection('user_stats')
+                .where('user_id', '==', userId)
+                .orderBy('last_game_played', 'desc')
+                .limit(1)
+                .get();
+
+            if (snapshot.empty) {
+                return null;
+            }
+
+            const doc = snapshot.docs[0];
+            const data = doc.data();
+            
+            return {
+                lastGamePlayed: data.last_game_played?.toDate() || null,
+                gameType: data.game_type,
+                updatedAt: data.updated_at?.toDate() || null
+            };
+        } catch (error) {
+            logger.error(`Error getting user last activity: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
      * Update user game statistics
      * @param {string} userId - Discord user ID
      * @param {string} guildId - Guild ID (kept for API compatibility)
@@ -256,7 +285,8 @@ class DatabaseManager {
                 losses: currentStats.losses + (win ? 0 : 1),
                 total_wagered: currentStats.total_wagered + wagered,
                 total_won: currentStats.total_won + (win ? result : 0),
-                updated_at: new Date()
+                updated_at: new Date(),
+                last_game_played: new Date() // Track when user last played any game
             };
             
             // Update biggest win/loss
@@ -1159,6 +1189,368 @@ class DatabaseManager {
             logger.error(`Error updating username: ${error.message}`);
             return false;
         }
+    }
+
+    /**
+     * Reset user balance to default values
+     */
+    async resetUserBalance(userId, guildId) {
+        try {
+            const balanceRef = this.db.collection('user_balances').doc(userId);
+            await balanceRef.set({
+                wallet: 1000, // Default starting amount
+                bank: 0,
+                updated_at: new Date(),
+                resetCount: admin.firestore.FieldValue.increment(1),
+                resetAt: new Date(),
+                guildId: guildId
+            }, { merge: true });
+            
+            logger.info(`Reset balance for user ${userId} in guild ${guildId}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error resetting user balance: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get game statistics for a guild
+     */
+    async getGameStatistics(guildId) {
+        try {
+            // This is a placeholder implementation
+            // In a real implementation, you'd query game logs/results
+            
+            const usersSnapshot = await this.db
+                .collection('user_balances')
+                .limit(100)
+                .get();
+
+            let totalGames = 0;
+            let totalWinnings = 0;
+            let activePlayers = 0;
+
+            usersSnapshot.forEach(doc => {
+                const data = doc.data();
+                // Count as active if played recently (last update within 30 days)
+                const lastUpdate = data.updated_at?.toDate() || new Date(0);
+                const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+                if (lastUpdate > thirtyDaysAgo) activePlayers++;
+                
+                // Simulate totals (replace with real game log queries)
+                totalGames += 1;
+                totalWinnings += (data.wallet || 0) - 1000; // Assuming 1000 starting balance
+            });
+
+            // Simulate popular game detection (replace with real data)
+            const popularGame = totalGames > 0 ? 'Blackjack' : 'None';
+            const revenue = Math.floor(totalWinnings * 0.05); // 5% house edge simulation
+            const houseEdge = totalGames > 0 ? '5.2%' : 'N/A';
+
+            return {
+                totalGames,
+                totalWinnings,
+                popularGame,
+                activePlayers,
+                revenue,
+                houseEdge
+            };
+        } catch (error) {
+            logger.error(`Error getting game statistics: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get all users for a guild (for admin purposes)
+     */
+    async getAllUsers(guildId) {
+        try {
+            const snapshot = await this.db
+                .collection('user_balances')
+                .limit(100)
+                .get();
+
+            const users = [];
+            snapshot.forEach(doc => {
+                users.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+
+            return users;
+        } catch (error) {
+            logger.error(`Error getting all users: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Log admin/moderator actions for audit trail
+     */
+    async logAdminAction(userId, guildId, action, details, moderatorId) {
+        try {
+            await this.db.collection('admin_logs').add({
+                userId,
+                guildId,
+                action,
+                details,
+                moderatorId,
+                timestamp: new Date(),
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            logger.info(`Logged admin action: ${action} by ${moderatorId} for user ${userId}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error logging admin action: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Store user warning
+     */
+    async addUserWarning(userId, guildId, message, moderatorId) {
+        try {
+            await this.db.collection('user_warnings').add({
+                userId,
+                guildId,
+                message,
+                moderatorId,
+                timestamp: new Date(),
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            logger.info(`Added warning for user ${userId} by ${moderatorId}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error adding user warning: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Store temporary game ban
+     */
+    async addGameBan(userId, guildId, duration, reason, moderatorId) {
+        try {
+            const expiry = new Date(Date.now() + duration * 60 * 60 * 1000);
+            
+            await this.db.collection('game_bans').add({
+                userId,
+                guildId,
+                duration,
+                reason,
+                moderatorId,
+                expiry: expiry,
+                active: true,
+                timestamp: new Date(),
+                createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            logger.info(`Added game ban for user ${userId} by ${moderatorId} (${duration}h)`);
+            return true;
+        } catch (error) {
+            logger.error(`Error adding game ban: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Check if user is currently banned from games
+     */
+    async isUserBannedFromGames(userId, guildId) {
+        try {
+            const snapshot = await this.db
+                .collection('game_bans')
+                .where('userId', '==', userId)
+                .where('guildId', '==', guildId)
+                .where('active', '==', true)
+                .where('expiry', '>', new Date())
+                .get();
+
+            return !snapshot.empty;
+        } catch (error) {
+            logger.error(`Error checking game ban: ${error.message}`);
+            return false; // Default to not banned if error
+        }
+    }
+
+    // ========================= SERVER CONFIGURATION OPERATIONS =========================
+
+    /**
+     * Get server configuration from Firestore
+     * @param {string} serverId - Discord guild ID
+     * @returns {Object|null} Server configuration data
+     */
+    async getServerConfig(serverId) {
+        try {
+            const docRef = this.db.collection('server_config').doc(serverId);
+            const doc = await docRef.get();
+            
+            if (doc.exists) {
+                return doc.data();
+            }
+            
+            return null;
+        } catch (error) {
+            logger.error(`Error getting server config: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Save server configuration to Firestore
+     * @param {string} serverId - Discord guild ID  
+     * @param {Object} configData - Configuration data
+     * @returns {boolean} Success status
+     */
+    async saveServerConfig(serverId, configData) {
+        try {
+            const docRef = this.db.collection('server_config').doc(serverId);
+            
+            const serverConfig = {
+                serverId,
+                serverName: configData.serverName,
+                settings: configData.settings || {},
+                channels: {
+                    gamesChannelId: configData.channels?.gamesChannelId || null,
+                    logsChannelId: configData.channels?.logsChannelId || null,
+                    adminChannelId: configData.channels?.adminChannelId || null
+                },
+                roles: {
+                    adminRoles: configData.roles?.adminRoles || [],
+                    moderatorRoles: configData.roles?.moderatorRoles || []
+                },
+                economy: {
+                    startingBalance: configData.economy?.startingBalance || 1000,
+                    dailyBonus: configData.economy?.dailyBonus || 100,
+                    currencySymbol: configData.economy?.currencySymbol || '🪙',
+                    currencyName: configData.economy?.currencyName || 'coins',
+                    minBet: configData.economy?.minBet || 10,
+                    maxBet: configData.economy?.maxBet || 10000
+                },
+                games: {
+                    casino: configData.games?.casino || ['slots', 'blackjack', 'fishing', 'plinko'],
+                    miniGames: configData.games?.miniGames || ['uno', 'duckhunt', 'rps'],
+                    strategy: configData.games?.strategy || ['battleship'],
+                    maxConcurrentGames: configData.games?.maxConcurrentGames || 3,
+                    houseEdge: configData.games?.houseEdge || 2
+                },
+                security: {
+                    maxBetsPerHour: configData.security?.maxBetsPerHour || 100,
+                    suspiciousThreshold: configData.security?.suspiciousThreshold || 50,
+                    minAccountAge: configData.security?.minAccountAge || 7,
+                    muteDuration: configData.security?.muteDuration || 5,
+                    banThreshold: configData.security?.banThreshold || 3,
+                    loggingEnabled: configData.security?.loggingEnabled !== false
+                },
+                setupComplete: configData.setupComplete || false,
+                setupDate: configData.setupDate || new Date().toISOString(),
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now()
+            };
+
+            await docRef.set(serverConfig);
+            logger.info(`Server configuration saved for guild ${serverId} (${configData.serverName})`);
+            return true;
+        } catch (error) {
+            logger.error(`Error saving server config: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Update specific server configuration fields
+     * @param {string} serverId - Discord guild ID
+     * @param {Object} updates - Fields to update
+     * @returns {boolean} Success status
+     */
+    async updateServerConfig(serverId, updates) {
+        try {
+            const docRef = this.db.collection('server_config').doc(serverId);
+            
+            const updateData = {
+                ...updates,
+                updatedAt: Timestamp.now()
+            };
+
+            await docRef.update(updateData);
+            logger.info(`Server configuration updated for guild ${serverId}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error updating server config: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Delete server configuration
+     * @param {string} serverId - Discord guild ID
+     * @returns {boolean} Success status
+     */
+    async deleteServerConfig(serverId) {
+        try {
+            const docRef = this.db.collection('server_config').doc(serverId);
+            await docRef.delete();
+            
+            logger.info(`Server configuration deleted for guild ${serverId}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error deleting server config: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Initialize default server configuration
+     * @param {string} serverId - Discord guild ID
+     * @param {string} serverName - Discord guild name
+     * @returns {Object} Default configuration
+     */
+    getDefaultServerConfig(serverId, serverName) {
+        return {
+            serverId,
+            serverName,
+            settings: {},
+            channels: {
+                gamesChannelId: null,
+                logsChannelId: null,
+                adminChannelId: null
+            },
+            roles: {
+                adminRoles: [],
+                moderatorRoles: []
+            },
+            economy: {
+                startingBalance: 1000,
+                dailyBonus: 100,
+                currencySymbol: '🪙',
+                currencyName: 'coins',
+                minBet: 10,
+                maxBet: 10000
+            },
+            games: {
+                casino: ['slots', 'blackjack', 'fishing', 'plinko'],
+                miniGames: ['uno', 'duckhunt', 'rps'],
+                strategy: ['battleship'],
+                maxConcurrentGames: 3,
+                houseEdge: 2
+            },
+            security: {
+                maxBetsPerHour: 100,
+                suspiciousThreshold: 50,
+                minAccountAge: 7,
+                muteDuration: 5,
+                banThreshold: 3,
+                loggingEnabled: true
+            },
+            setupComplete: false,
+            setupDate: null
+        };
     }
 }
 

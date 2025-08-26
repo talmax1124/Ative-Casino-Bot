@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -8,14 +8,16 @@ const AuthCallback: React.FC = () => {
   const { login } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const processingRef = useRef<boolean>(false);
+  const processedCodeRef = useRef<string | null>(null);
 
   useEffect(() => {
     const handleAuth = async () => {
       try {
         const code = searchParams.get('code');
-        const error = searchParams.get('error');
+        const errorParam = searchParams.get('error');
 
-        if (error) {
+        if (errorParam) {
           setError('Authentication was cancelled or failed');
           setLoading(false);
           return;
@@ -27,16 +29,33 @@ const AuthCallback: React.FC = () => {
           return;
         }
 
+        // Prevent duplicate processing of the same code
+        if (processingRef.current || processedCodeRef.current === code) {
+          console.log('Already processing this authentication code, skipping...');
+          return;
+        }
+
+        console.log('🔐 Starting authentication with code:', code.substring(0, 10) + '...');
+        processingRef.current = true;
+        processedCodeRef.current = code;
+
         await login(code);
+        
+        console.log('✅ Authentication successful, navigating to dashboard');
         navigate('/dashboard', { replace: true });
       } catch (err) {
-        console.error('Authentication error:', err);
+        console.error('❌ Authentication error:', err);
+        processingRef.current = false;
+        processedCodeRef.current = null;
         setError('Failed to authenticate with Discord. Please try again.');
         setLoading(false);
       }
     };
 
-    handleAuth();
+    // Only run if not already processing
+    if (!processingRef.current) {
+      handleAuth();
+    }
   }, [searchParams, login, navigate]);
 
   if (loading) {

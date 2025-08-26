@@ -74,6 +74,60 @@ class PanelManager {
             .setPlaceholder('Choose a developer action...')
             .addOptions([
                 {
+                    label: 'Commands',
+                    description: 'View and manage bot commands',
+                    value: 'commands',
+                    emoji: '⚙️'
+                },
+                {
+                    label: 'Disable Command',
+                    description: 'Disable a bot command',
+                    value: 'disable_command',
+                    emoji: '🚫'
+                },
+                {
+                    label: 'Enable Command',
+                    description: 'Enable a bot command',
+                    value: 'enable_command',
+                    emoji: '✅'
+                },
+                {
+                    label: 'View Logs',
+                    description: 'View recent bot logs',
+                    value: 'logs',
+                    emoji: '📄'
+                },
+                {
+                    label: 'Reload Command',
+                    description: 'Reload a specific command',
+                    value: 'reload_command',
+                    emoji: '🔄'
+                },
+                {
+                    label: 'System Status',
+                    description: 'View system status and statistics',
+                    value: 'status',
+                    emoji: '📊'
+                },
+                {
+                    label: 'Stop Game',
+                    description: 'Force stop an active game for a user',
+                    value: 'stop_game',
+                    emoji: '🛑'
+                },
+                {
+                    label: 'Update Lottery',
+                    description: 'Update lottery panel information',
+                    value: 'update_lottery',
+                    emoji: '🎰'
+                },
+                {
+                    label: 'VPS Controls',
+                    description: 'VPS deployment and management',
+                    value: 'vps_controls',
+                    emoji: '🖥️'
+                },
+                {
                     label: 'Add Money',
                     description: 'Add money to a user\'s balance',
                     value: 'add_money',
@@ -86,40 +140,46 @@ class PanelManager {
                     emoji: '↩️'
                 },
                 {
-                    label: 'Stop Game',
-                    description: 'Force stop an active game for a user',
-                    value: 'stop_game',
-                    emoji: '🛑'
-                },
-                {
-                    label: 'Restart Bot',
-                    description: 'Restart the bot with updated code',
-                    value: 'restart_bot',
-                    emoji: '🔄'
-                },
-                {
                     label: 'Database Backup',
                     description: 'Create a backup of the database',
                     value: 'db_backup',
                     emoji: '💾'
                 },
                 {
-                    label: 'View System Stats',
-                    description: 'Display bot performance metrics',
-                    value: 'system_stats',
-                    emoji: '📊'
+                    label: 'Active Games Status',
+                    description: 'Check active games before restart/shutdown',
+                    value: 'active_games_status',
+                    emoji: '🎮'
                 },
                 {
-                    label: 'Emergency Shutdown',
-                    description: 'Immediately shutdown the bot',
-                    value: 'emergency_shutdown',
-                    emoji: '🚨'
+                    label: 'Inactivity Tax Status',
+                    description: 'Check inactive users and potential taxes',
+                    value: 'tax_status',
+                    emoji: '💸'
                 },
                 {
-                    label: 'Clear All Games',
-                    description: 'Force clear all active games',
-                    value: 'clear_all_games',
-                    emoji: '🧹'
+                    label: 'Run Inactivity Taxes',
+                    description: 'Process taxes for inactive users (3+ days)',
+                    value: 'run_taxes',
+                    emoji: '🏛️'
+                },
+                {
+                    label: 'Wealth Tax Status',
+                    description: 'Check wealthy users and high-stakes activity',
+                    value: 'wealth_tax_status',
+                    emoji: '💎'
+                },
+                {
+                    label: 'Run Wealth Taxes',
+                    description: 'Tax rich users who don\'t gamble high stakes',
+                    value: 'run_wealth_taxes',
+                    emoji: '🏦'
+                },
+                {
+                    label: 'Restart Bot',
+                    description: 'Restart the bot with updated code',
+                    value: 'restart_bot',
+                    emoji: '🔄'
                 }
             ]);
 
@@ -296,22 +356,42 @@ class PanelManager {
 
         try {
             switch (action) {
+                case 'commands':
+                    return await this.handleCommands(interaction);
+                case 'disable_command':
+                    return await this.handleDisableCommand(interaction);
+                case 'enable_command':
+                    return await this.handleEnableCommand(interaction);
+                case 'logs':
+                    return await this.handleLogs(interaction);
+                case 'reload_command':
+                    return await this.handleReloadCommand(interaction);
+                case 'status':
+                    return await this.handleSystemStats(interaction);
+                case 'stop_game':
+                    return await this.handleStopGame(interaction);
+                case 'update_lottery':
+                    return await this.handleUpdateLottery(interaction);
+                case 'vps_controls':
+                    return await this.handleVPSControls(interaction);
                 case 'add_money':
                     return await this.handleAddMoney(interaction);
                 case 'refund':
                     return await this.handleRefund(interaction);
-                case 'stop_game':
-                    return await this.handleStopGame(interaction);
-                case 'restart_bot':
-                    return await this.handleRestartBot(interaction);
                 case 'db_backup':
                     return await this.handleDatabaseBackup(interaction);
-                case 'system_stats':
-                    return await this.handleSystemStats(interaction);
-                case 'emergency_shutdown':
-                    return await this.handleEmergencyShutdown(interaction);
-                case 'clear_all_games':
-                    return await this.handleClearAllGames(interaction);
+                case 'active_games_status':
+                    return await this.handleActiveGamesStatus(interaction);
+                case 'tax_status':
+                    return await this.handleTaxStatus(interaction);
+                case 'run_taxes':
+                    return await this.handleRunTaxes(interaction);
+                case 'wealth_tax_status':
+                    return await this.handleWealthTaxStatus(interaction);
+                case 'run_wealth_taxes':
+                    return await this.handleRunWealthTaxes(interaction);
+                case 'restart_bot':
+                    return await this.handleRestartBot(interaction);
                 default:
                     throw new Error(`Unknown action: ${action}`);
             }
@@ -330,20 +410,187 @@ class PanelManager {
     }
 
     /**
+     * Handle Commands List Action
+     */
+    async handleCommands(interaction) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            const devModule = require('../COMMANDS/dev');
+            const allCommands = Array.from(interaction.client.commands.keys()).sort();
+            const enabledCommands = allCommands.filter(cmd => !devModule.isCommandDisabled(cmd));
+            const disabledCommands = allCommands.filter(cmd => devModule.isCommandDisabled(cmd));
+
+            let description = '';
+            
+            if (enabledCommands.length > 0) {
+                description += `**✅ Enabled Commands (${enabledCommands.length}):**\n`;
+                description += enabledCommands.map(cmd => `\`${cmd}\``).join(', ') + '\n\n';
+            }
+
+            if (disabledCommands.length > 0) {
+                description += `**🚫 Disabled Commands (${disabledCommands.length}):**\n`;
+                description += disabledCommands.map(cmd => `\`${cmd}\``).join(', ');
+            } else {
+                description += `**🚫 Disabled Commands:** None`;
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('⚙️ Command Status')
+                .setDescription(description)
+                .setColor('#0099FF')
+                .addFields(
+                    { name: 'Total Commands', value: allCommands.length.toString(), inline: true },
+                    { name: 'Enabled', value: enabledCommands.length.toString(), inline: true },
+                    { name: 'Disabled', value: disabledCommands.length.toString(), inline: true }
+                )
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embed] });
+        } catch (error) {
+            throw new Error(`Failed to retrieve command status: ${error.message}`);
+        }
+    }
+
+    /**
+     * Handle Disable Command Action
+     */
+    async handleDisableCommand(interaction) {
+        const embed = new EmbedBuilder()
+            .setTitle('🚫 Disable Command')
+            .setDescription('Please use the `/dev disable` command to disable specific commands. This provides better control and validation.')
+            .setColor('#FFA500')
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    }
+
+    /**
+     * Handle Enable Command Action
+     */
+    async handleEnableCommand(interaction) {
+        const embed = new EmbedBuilder()
+            .setTitle('✅ Enable Command')
+            .setDescription('Please use the `/dev enable` command to enable specific commands. This provides better control and validation.')
+            .setColor('#FFA500')
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    }
+
+    /**
+     * Handle Logs Action
+     */
+    async handleLogs(interaction) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            const fs = require('fs').promises;
+            const path = require('path');
+
+            const logPath = path.join(process.cwd(), 'logs', 'combined.log');
+            
+            try {
+                await fs.access(logPath);
+            } catch (error) {
+                const embed = new EmbedBuilder()
+                    .setTitle('📄 No Logs Found')
+                    .setDescription('Log file not found or empty.')
+                    .setColor('#FFFF00');
+                
+                return await interaction.editReply({ embeds: [embed] });
+            }
+
+            const { stdout } = await execAsync(`tail -n 20 "${logPath}"`);
+            
+            let logContent = stdout.trim();
+            if (logContent.length > 1900) {
+                logContent = logContent.substring(logContent.length - 1900) + '...';
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle(`📄 Recent Logs (20 lines)`)
+                .setDescription(`\`\`\`\n${logContent}\n\`\`\``)
+                .setColor('#0099FF')
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embed] });
+        } catch (error) {
+            throw new Error(`Failed to retrieve logs: ${error.message}`);
+        }
+    }
+
+    /**
+     * Handle Reload Command Action
+     */
+    async handleReloadCommand(interaction) {
+        const embed = new EmbedBuilder()
+            .setTitle('🔄 Reload Command')
+            .setDescription('Please use the `/dev reload` command to reload specific commands. This provides better control and validation.')
+            .setColor('#FFA500')
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    }
+
+    /**
+     * Handle Update Lottery Action
+     */
+    async handleUpdateLottery(interaction) {
+        const embed = new EmbedBuilder()
+            .setTitle('🎰 Update Lottery')
+            .setDescription('Please use the `/dev updatelottery` command to update the lottery panel. This ensures proper validation and server verification.')
+            .setColor('#FFA500')
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    }
+
+    /**
+     * Handle VPS Controls Action
+     */
+    async handleVPSControls(interaction) {
+        const embed = new EmbedBuilder()
+            .setTitle('🖥️ VPS Controls')
+            .setDescription('Please use the `/dev vps` command for VPS deployment controls. Available actions:\n\n• `pull_restart` - Pull latest code and restart\n• `restart` - Restart bot only\n• `pull` - Pull latest code only\n• `status` - Check VPS status\n• `logs` - View VPS logs')
+            .setColor('#FFA500')
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    }
+
+    /**
      * Handle Add Money Action
      */
     async handleAddMoney(interaction) {
-        await interaction.reply({
-            content: 'Please provide the user ID and amount (format: `userID amount`):',
-            flags: MessageFlags.Ephemeral
-        });
+        const { ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
-        // Store action state for follow-up
-        this.activeActions.set(interaction.user.id, {
-            action: 'add_money',
-            channelId: interaction.channelId,
-            timestamp: Date.now()
-        });
+        const modal = new ModalBuilder()
+            .setCustomId('add_money_modal')
+            .setTitle('💰 Add Money to User Balance');
+
+        const userIdInput = new TextInputBuilder()
+            .setCustomId('user_id')
+            .setLabel('User ID')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Enter the user ID (e.g., 123456789012345678)')
+            .setRequired(true)
+            .setMaxLength(20);
+
+        const amountInput = new TextInputBuilder()
+            .setCustomId('amount')
+            .setLabel('Amount')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Enter amount to add (e.g., 1000)')
+            .setRequired(true)
+            .setMaxLength(10);
+
+        const userIdRow = new ActionRowBuilder().addComponents(userIdInput);
+        const amountRow = new ActionRowBuilder().addComponents(amountInput);
+
+        modal.addComponents(userIdRow, amountRow);
+
+        await interaction.showModal(modal);
     }
 
     /**
@@ -473,18 +720,33 @@ class PanelManager {
      * Handle Restart Bot Action
      */
     async handleRestartBot(interaction) {
+        const { ButtonBuilder, ButtonStyle } = require('discord.js');
+        
+        const confirmButton = new ButtonBuilder()
+            .setCustomId('confirm_restart_bot')
+            .setLabel('Confirm Restart')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('🔄');
+
+        const cancelButton = new ButtonBuilder()
+            .setCustomId('cancel_restart_bot')
+            .setLabel('Cancel')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('❌');
+
+        const row = new ActionRowBuilder().addComponents(confirmButton, cancelButton);
+
         const embed = new EmbedBuilder()
-            .setTitle('🔄 Bot Restart Initiated')
-            .setDescription('The bot will restart with updated code in 5 seconds...')
+            .setTitle('🔄 Confirm Bot Restart')
+            .setDescription('⚠️ **WARNING**: This will restart the entire bot!\n\n• All active games will be terminated\n• Users may experience brief downtime\n• Bot will restart with latest code\n\nAre you sure you want to proceed?')
             .setColor('#ffa500')
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        await sendLogMessage(interaction.client, 'warn', `Bot restart initiated by ${interaction.user.tag}`);
-
-        setTimeout(() => {
-            process.exit(0);
-        }, 5000);
+        await interaction.reply({ 
+            embeds: [embed], 
+            components: [row], 
+            flags: MessageFlags.Ephemeral 
+        });
     }
 
     /**
@@ -656,7 +918,7 @@ class PanelManager {
 
         try {
             const guildId = getGuildId(message.guild);
-            await dbManager.updateBalance(userId, guildId, amount);
+            await dbManager.updateUserBalance(userId, guildId, amount);
 
             const embed = new EmbedBuilder()
                 .setTitle('💰 Money Added')
@@ -841,6 +1103,585 @@ class PanelManager {
             } else {
                 await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
+        }
+    }
+
+    /**
+     * Handle Add Money Modal Submission
+     */
+    async handleAddMoneyModal(interaction) {
+        try {
+            const userId = interaction.fields.getTextInputValue('user_id');
+            const amountStr = interaction.fields.getTextInputValue('amount');
+            const amount = parseInt(amountStr);
+
+            if (isNaN(amount) || amount <= 0) {
+                return await interaction.reply({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('❌ Invalid Amount')
+                        .setDescription('Please enter a valid positive number.')
+                        .setColor('#ff0000')],
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            if (!/^\d{17,20}$/.test(userId)) {
+                return await interaction.reply({
+                    embeds: [new EmbedBuilder()
+                        .setTitle('❌ Invalid User ID')
+                        .setDescription('Please enter a valid Discord user ID (17-20 digits).')
+                        .setColor('#ff0000')],
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+            const guildId = getGuildId(interaction.guild);
+            await dbManager.updateUserBalance(userId, guildId, amount);
+
+            let userMention = `<@${userId}>`;
+            try {
+                const user = await interaction.client.users.fetch(userId);
+                userMention = `${user.displayName} (<@${userId}>)`;
+            } catch (error) {
+                // Use fallback if user not found
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('💰 Money Added Successfully')
+                .setDescription(`Added ${fmt(amount)} to ${userMention}'s balance.`)
+                .setColor('#00ff00')
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embed] });
+            await sendLogMessage(interaction.client, 'admin', `${interaction.user.tag} added ${fmt(amount)} to user ${userId}`);
+
+        } catch (error) {
+            logger.error(`Add money modal error: ${error.message}`);
+            
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Action Failed')
+                .setDescription(`Failed to add money: ${error.message}`)
+                .setColor('#ff0000');
+
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: [errorEmbed] });
+            } else {
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
+        }
+    }
+
+    /**
+     * Handle button interactions for panels
+     */
+    async handleButtonInteraction(interaction) {
+        const { customId } = interaction;
+
+        try {
+            switch (customId) {
+                case 'confirm_restart_bot':
+                    return await this.executeRestartBot(interaction);
+                case 'cancel_restart_bot':
+                    return await this.cancelRestartBot(interaction);
+                case 'confirm_run_taxes':
+                    return await this.handleTaxConfirmation(interaction, 'confirm');
+                case 'cancel_run_taxes':
+                    return await this.handleTaxConfirmation(interaction, 'cancel');
+                case 'confirm_run_wealth_taxes':
+                    return await this.handleWealthTaxConfirmation(interaction, 'confirm');
+                case 'cancel_run_wealth_taxes':
+                    return await this.handleWealthTaxConfirmation(interaction, 'cancel');
+                default:
+                    logger.warn(`Unknown panel button interaction: ${customId}`);
+                    return;
+            }
+        } catch (error) {
+            logger.error(`Panel button interaction error: ${error.message}`);
+            
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Action Failed')
+                .setDescription(`Failed to process action: ${error.message}`)
+                .setColor('#ff0000');
+
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            } else {
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
+        }
+    }
+
+    /**
+     * Execute bot restart after confirmation
+     */
+    async executeRestartBot(interaction) {
+        if (!this.isDeveloper(interaction.user.id)) {
+            return await interaction.reply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('❌ Access Denied')
+                    .setDescription('You do not have developer permissions.')
+                    .setColor('#ff0000')],
+                flags: MessageFlags.Ephemeral
+            });
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle('🔄 Bot Restart In Progress')
+            .setDescription('✅ Restart confirmed! Bot will restart in 5 seconds...\n\n🔄 **Status**: Shutting down gracefully\n⏱️ **ETA**: 5 seconds')
+            .setColor('#ff0000')
+            .setTimestamp();
+
+        await interaction.update({ embeds: [embed], components: [] });
+        await sendLogMessage(interaction.client, 'warn', `Bot restart confirmed and executed by ${interaction.user.tag}`);
+
+        // Gracefully shutdown
+        setTimeout(() => {
+            process.exit(0);
+        }, 5000);
+    }
+
+    /**
+     * Cancel bot restart
+     */
+    async cancelRestartBot(interaction) {
+        const embed = new EmbedBuilder()
+            .setTitle('❌ Restart Cancelled')
+            .setDescription('Bot restart has been cancelled. No action was taken.')
+            .setColor('#00ff00')
+            .setTimestamp();
+
+        await interaction.update({ embeds: [embed], components: [] });
+        logger.info(`Bot restart cancelled by ${interaction.user.tag}`);
+    }
+
+    /**
+     * Handle Active Games Status Action
+     */
+    async handleActiveGamesStatus(interaction) {
+        try {
+            const gracefulShutdown = require('./gracefulShutdown');
+            const statusMessage = await gracefulShutdown.getStatusMessage();
+            const activeGamesSummary = await gracefulShutdown.getActiveGamesSummary();
+
+            const embed = new EmbedBuilder()
+                .setTitle('🎮 Active Games Status')
+                .setDescription(statusMessage)
+                .addFields([
+                    { name: 'Legacy Games', value: activeGamesSummary.legacyGames.length.toString(), inline: true },
+                    { name: 'Session Games', value: activeGamesSummary.sessionGames.length.toString(), inline: true },
+                    { name: 'Total Active', value: activeGamesSummary.totalCount.toString(), inline: true }
+                ])
+                .setColor(activeGamesSummary.totalCount > 0 ? '#FFA500' : '#00FF00')
+                .setTimestamp();
+
+            if (activeGamesSummary.totalCount > 0) {
+                embed.addFields({
+                    name: '💡 Restart Options',
+                    value: '• Use **VPS Controls** → **Pull & Restart** for graceful restart\n• System will wait up to 5 minutes for games to complete\n• Games will be forced to stop if timeout exceeded',
+                    inline: false
+                });
+            } else {
+                embed.addFields({
+                    name: '✅ Ready for Restart',
+                    value: 'No active games found - safe to restart anytime',
+                    inline: false
+                });
+            }
+
+            await interaction.editReply({ embeds: [embed] });
+
+        } catch (error) {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Status Check Failed')
+                .setDescription(`Failed to check active games: ${error.message}`)
+                .setColor('#ff0000');
+
+            await interaction.editReply({ embeds: [errorEmbed] });
+        }
+    }
+
+    /**
+     * Handle Tax Status Check Action
+     */
+    async handleTaxStatus(interaction) {
+        try {
+            const inactivityTax = require('./inactivityTax');
+            const guildId = interaction.guildId;
+            
+            // Show loading message
+            const loadingEmbed = new EmbedBuilder()
+                .setTitle('💸 Checking Inactivity Tax Status...')
+                .setDescription('Analyzing user activity and calculating potential taxes...')
+                .setColor('#FFA500');
+            
+            await interaction.editReply({ embeds: [loadingEmbed] });
+
+            const taxSummary = await inactivityTax.getTaxSummary(guildId, 15);
+
+            if (!taxSummary) {
+                throw new Error('Failed to generate tax summary');
+            }
+
+            const { summary, userStatuses } = taxSummary;
+
+            let description = `**📊 Tax Summary:**\n`;
+            description += `• Total Users: ${summary.totalUsers}\n`;
+            description += `• Inactive Users: ${summary.inactiveUsers}\n`;
+            description += `• Taxable Users: ${summary.taxableUsers}\n`;
+            description += `• Exempt Users: ${summary.exemptUsers}\n`;
+            description += `• Potential Revenue: ${fmt(summary.potentialTaxRevenue)}\n\n`;
+
+            // Add tier breakdown
+            if (Object.keys(summary.tierBreakdown).length > 0) {
+                description += `**🎖️ By Tier:**\n`;
+                for (const [tier, data] of Object.entries(summary.tierBreakdown)) {
+                    if (data.inactive > 0) {
+                        description += `• ${tier}: ${data.inactive}/${data.count} inactive (${fmt(data.taxRevenue)})\n`;
+                    }
+                }
+                description += '\n';
+            }
+
+            // Show top inactive users
+            const inactiveUsers = userStatuses.filter(u => u.isInactive && u.isTaxable && !u.isDeveloper);
+            if (inactiveUsers.length > 0) {
+                description += `**⚠️ Top Inactive Users:**\n`;
+                for (const user of inactiveUsers.slice(0, 8)) {
+                    description += `• ${user.username}: ${user.tierEmoji} ${fmt(user.totalBalance)} → ${fmt(user.taxAmount)} tax (${user.daysSinceLastGame}d)\n`;
+                }
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('💸 Inactivity Tax Status')
+                .setDescription(description)
+                .addFields([
+                    { name: 'Tax Threshold', value: '3+ days inactive', inline: true },
+                    { name: 'Min Balance', value: '$1,000', inline: true },
+                    { name: 'Max Tax Rate', value: '6% (Mythic)', inline: true }
+                ])
+                .setColor(summary.inactiveUsers > 0 ? '#FF6600' : '#00FF00')
+                .setFooter({ text: 'Higher tiers = higher tax rates' })
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embed] });
+
+        } catch (error) {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Tax Status Check Failed')
+                .setDescription(`Failed to check tax status: ${error.message}`)
+                .setColor('#ff0000');
+
+            await interaction.editReply({ embeds: [errorEmbed] });
+        }
+    }
+
+    /**
+     * Handle Run Taxes Action
+     */
+    async handleRunTaxes(interaction) {
+        try {
+            const inactivityTax = require('./inactivityTax');
+            const guildId = interaction.guildId;
+
+            // Show confirmation message
+            const confirmEmbed = new EmbedBuilder()
+                .setTitle('🏛️ Run Inactivity Taxes')
+                .setDescription('⚠️ **WARNING**: This will tax all inactive users (3+ days)\n\nAre you sure you want to proceed?')
+                .addFields([
+                    { name: 'What happens:', value: '• Users inactive 3+ days get taxed\n• Higher tiers = higher tax rates (1%-6%)\n• Developer account is exempt\n• Minimum $1,000 balance required', inline: false },
+                    { name: 'Tax Rates:', value: 'Bronze: 1% | Silver: 1.5% | Gold: 2%\nPlatinum: 3% | Diamond: 4%\nLegendary: 5% | Mythic: 6%', inline: false }
+                ])
+                .setColor('#FF6600')
+                .setFooter({ text: 'This action cannot be undone!' });
+
+            const confirmButton = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('confirm_run_taxes')
+                        .setLabel('✅ Run Taxes')
+                        .setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder()
+                        .setCustomId('cancel_run_taxes')
+                        .setLabel('❌ Cancel')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
+            await interaction.editReply({ embeds: [confirmEmbed], components: [confirmButton] });
+
+        } catch (error) {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Tax Setup Failed')
+                .setDescription(`Failed to setup tax run: ${error.message}`)
+                .setColor('#ff0000');
+
+            await interaction.editReply({ embeds: [errorEmbed] });
+        }
+    }
+
+    /**
+     * Handle Tax Confirmation
+     */
+    async handleTaxConfirmation(interaction, action) {
+        try {
+            if (action === 'cancel') {
+                const cancelEmbed = new EmbedBuilder()
+                    .setTitle('❌ Tax Run Cancelled')
+                    .setDescription('Inactivity tax processing has been cancelled.')
+                    .setColor('#FFA500');
+
+                await interaction.update({ embeds: [cancelEmbed], components: [] });
+                return;
+            }
+
+            // Show processing message
+            const processingEmbed = new EmbedBuilder()
+                .setTitle('🏛️ Processing Inactivity Taxes...')
+                .setDescription('Analyzing all users and applying taxes to inactive accounts...\n\n⏳ This may take a few moments...')
+                .setColor('#FFA500');
+
+            await interaction.update({ embeds: [processingEmbed], components: [] });
+
+            // Run the actual tax process
+            const inactivityTax = require('./inactivityTax');
+            const guildId = interaction.guildId;
+            
+            const result = await inactivityTax.processInactivityTaxes(guildId, interaction.client);
+
+            let embed;
+            if (result.success) {
+                let description = `**✅ Tax Processing Complete**\n\n`;
+                description += `• Users Processed: ${result.usersProcessed}\n`;
+                description += `• Users Taxed: ${result.usersTaxed}\n`;
+                description += `• Total Revenue: ${fmt(result.totalTaxCollected)}\n`;
+                description += `• Processing Time: ${Math.round(result.processingTime/1000)}s\n\n`;
+
+                if (result.usersTaxed === 0) {
+                    description += `🎉 No inactive users found - everyone is actively playing!`;
+                } else {
+                    description += `💰 ${fmt(result.totalTaxCollected)} collected from inactive players.`;
+                }
+
+                embed = new EmbedBuilder()
+                    .setTitle('🏛️ Inactivity Tax Collection Complete')
+                    .setDescription(description)
+                    .setColor('#00FF00')
+                    .setTimestamp();
+            } else {
+                embed = new EmbedBuilder()
+                    .setTitle('❌ Tax Processing Failed')
+                    .setDescription(`Error: ${result.error}`)
+                    .setColor('#FF0000');
+            }
+
+            await interaction.editReply({ embeds: [embed], components: [] });
+            await sendLogMessage(interaction.client, 'info', `Inactivity taxes processed by ${interaction.user.tag}: ${result.usersTaxed} users taxed for ${fmt(result.totalTaxCollected || 0)}`, interaction.user.id, guildId);
+
+        } catch (error) {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Tax Processing Error')
+                .setDescription(`Failed to process taxes: ${error.message}`)
+                .setColor('#ff0000');
+
+            await interaction.editReply({ embeds: [errorEmbed], components: [] });
+            logger.error(`Tax processing error: ${error.message}`);
+        }
+    }
+
+    /**
+     * Handle Wealth Tax Status Check Action
+     */
+    async handleWealthTaxStatus(interaction) {
+        try {
+            const wealthTax = require('./wealthTax');
+            const guildId = interaction.guildId;
+            
+            // Show loading message
+            const loadingEmbed = new EmbedBuilder()
+                .setTitle('💎 Checking Wealth Tax Status...')
+                .setDescription('Analyzing wealthy users and high-stakes gambling activity...')
+                .setColor('#FFA500');
+            
+            await interaction.editReply({ embeds: [loadingEmbed] });
+
+            const wealthSummary = await wealthTax.getWealthTaxSummary(guildId, 15);
+
+            if (!wealthSummary) {
+                throw new Error('Failed to generate wealth tax summary');
+            }
+
+            const { summary, userStatuses } = wealthSummary;
+
+            let description = `**💎 Wealth Tax Summary:**\n`;
+            description += `• Total Users: ${summary.totalUsers}\n`;
+            description += `• Wealthy Users ($100K+): ${summary.wealthyUsers}\n`;
+            description += `• High-Stakes Gamblers: ${summary.highStakesGamblers}\n`;
+            description += `• Taxable Rich: ${summary.taxableUsers}\n`;
+            description += `• Inactive Rich: ${summary.inactiveRich}\n`;
+            description += `• Potential Revenue: ${fmt(summary.potentialTaxRevenue)}\n\n`;
+
+            // Add bracket breakdown
+            if (Object.keys(summary.bracketBreakdown).length > 0) {
+                description += `**🏦 By Wealth Bracket:**\n`;
+                for (const [bracket, data] of Object.entries(summary.bracketBreakdown)) {
+                    if (data.taxable > 0) {
+                        description += `• ${bracket}: ${data.taxable}/${data.count} taxable (${fmt(data.taxRevenue)})\n`;
+                    }
+                }
+                description += '\n';
+            }
+
+            // Show top taxable wealthy users
+            const taxableUsers = userStatuses.filter(u => u.isSubjectToTax && !u.isDeveloper);
+            if (taxableUsers.length > 0) {
+                description += `**🎯 Top Taxable Wealthy Users:**\n`;
+                for (const user of taxableUsers.slice(0, 8)) {
+                    const reasonEmoji = user.reason === 'no_gambling_activity' ? '❌' : '📉';
+                    const reasonText = user.reason === 'no_gambling_activity' ? 'No gambling' : 'Low stakes only';
+                    description += `• ${user.username}: ${fmt(user.totalBalance)} → ${fmt(user.taxAmount)} tax (${reasonEmoji} ${reasonText})\n`;
+                }
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('💎 Wealth Tax Status')
+                .setDescription(description)
+                .addFields([
+                    { name: 'Wealth Threshold', value: '$100,000+', inline: true },
+                    { name: 'High Stakes', value: '1% of wealth per bet', inline: true },
+                    { name: 'Max Tax Rate', value: '5% (Billionaires)', inline: true }
+                ])
+                .setColor(summary.taxableUsers > 0 ? '#FF6600' : '#00FF00')
+                .setFooter({ text: 'Gambling high stakes exempts from wealth tax' })
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embed] });
+
+        } catch (error) {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Wealth Tax Status Check Failed')
+                .setDescription(`Failed to check wealth tax status: ${error.message}`)
+                .setColor('#ff0000');
+
+            await interaction.editReply({ embeds: [errorEmbed] });
+        }
+    }
+
+    /**
+     * Handle Run Wealth Taxes Action
+     */
+    async handleRunWealthTaxes(interaction) {
+        try {
+            const wealthTax = require('./wealthTax');
+            const guildId = interaction.guildId;
+
+            // Show confirmation message
+            const confirmEmbed = new EmbedBuilder()
+                .setTitle('🏦 Run Wealth Taxes')
+                .setDescription('⚠️ **WARNING**: This will tax wealthy users who don\'t gamble high stakes\n\nAre you sure you want to proceed?')
+                .addFields([
+                    { name: 'Who Gets Taxed:', value: '• Rich users ($100K+) who don\'t bet high stakes\n• High stakes = 1% of wealth per bet\n• Real gambling games only (not /earn)\n• Developer account exempt', inline: false },
+                    { name: 'Tax Brackets:', value: 'Upper Class: 0.5% | Rich: 1%\nVery Rich: 2% | Ultra Rich: 3%\nMega Rich: 4% | Billionaire: 5%', inline: false },
+                    { name: 'Multipliers:', value: '• No gambling: 2x tax\n• Low stakes only: 1.5x tax\n• High stakes gamblers: EXEMPT', inline: false }
+                ])
+                .setColor('#FF6600')
+                .setFooter({ text: 'This encourages high-stakes gambling!' });
+
+            const confirmButton = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('confirm_run_wealth_taxes')
+                        .setLabel('✅ Tax the Rich')
+                        .setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder()
+                        .setCustomId('cancel_run_wealth_taxes')
+                        .setLabel('❌ Cancel')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+
+            await interaction.editReply({ embeds: [confirmEmbed], components: [confirmButton] });
+
+        } catch (error) {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Wealth Tax Setup Failed')
+                .setDescription(`Failed to setup wealth tax run: ${error.message}`)
+                .setColor('#ff0000');
+
+            await interaction.editReply({ embeds: [errorEmbed] });
+        }
+    }
+
+    /**
+     * Handle Wealth Tax Confirmation
+     */
+    async handleWealthTaxConfirmation(interaction, action) {
+        try {
+            if (action === 'cancel') {
+                const cancelEmbed = new EmbedBuilder()
+                    .setTitle('❌ Wealth Tax Cancelled')
+                    .setDescription('Wealth tax processing has been cancelled.')
+                    .setColor('#FFA500');
+
+                await interaction.update({ embeds: [cancelEmbed], components: [] });
+                return;
+            }
+
+            // Show processing message
+            const processingEmbed = new EmbedBuilder()
+                .setTitle('🏦 Processing Wealth Taxes...')
+                .setDescription('Analyzing wealthy users and applying taxes to those not gambling high stakes...\n\n⏳ This may take a few moments...')
+                .setColor('#FFA500');
+
+            await interaction.update({ embeds: [processingEmbed], components: [] });
+
+            // Run the actual wealth tax process
+            const wealthTax = require('./wealthTax');
+            const guildId = interaction.guildId;
+            
+            const result = await wealthTax.processWealthTaxes(guildId, interaction.client);
+
+            let embed;
+            if (result.success) {
+                let description = `**✅ Wealth Tax Processing Complete**\n\n`;
+                description += `• Wealthy Users Processed: ${result.usersProcessed}\n`;
+                description += `• Rich Users Taxed: ${result.usersTaxed}\n`;
+                description += `• Total Revenue: ${fmt(result.totalTaxCollected)}\n`;
+                description += `• Processing Time: ${Math.round(result.processingTime/1000)}s\n\n`;
+
+                if (result.usersTaxed === 0) {
+                    description += `🎉 All wealthy users are actively gambling high stakes!`;
+                } else {
+                    description += `💰 ${fmt(result.totalTaxCollected)} collected from wealth hoarders.\n\n`;
+                    description += `**Tax Breakdown:**\n`;
+                    const noGamblingTaxed = result.taxRecords.filter(r => r.reason === 'no_gambling_activity').length;
+                    const lowStakesTaxed = result.taxRecords.filter(r => r.reason === 'low_stakes_only').length;
+                    if (noGamblingTaxed > 0) description += `• ${noGamblingTaxed} users taxed for not gambling (2x rate)\n`;
+                    if (lowStakesTaxed > 0) description += `• ${lowStakesTaxed} users taxed for low stakes only (1.5x rate)\n`;
+                }
+
+                embed = new EmbedBuilder()
+                    .setTitle('🏦 Wealth Tax Collection Complete')
+                    .setDescription(description)
+                    .setColor('#00FF00')
+                    .setTimestamp();
+            } else {
+                embed = new EmbedBuilder()
+                    .setTitle('❌ Wealth Tax Processing Failed')
+                    .setDescription(`Error: ${result.error}`)
+                    .setColor('#FF0000');
+            }
+
+            await interaction.editReply({ embeds: [embed], components: [] });
+            await sendLogMessage(interaction.client, 'info', `Wealth taxes processed by ${interaction.user.tag}: ${result.usersTaxed} rich users taxed for ${fmt(result.totalTaxCollected || 0)}`, interaction.user.id, guildId);
+
+        } catch (error) {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Wealth Tax Processing Error')
+                .setDescription(`Failed to process wealth taxes: ${error.message}`)
+                .setColor('#ff0000');
+
+            await interaction.editReply({ embeds: [errorEmbed], components: [] });
+            logger.error(`Wealth tax processing error: ${error.message}`);
         }
     }
 }

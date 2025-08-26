@@ -49,7 +49,7 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
       setLoading(true);
       setError(null);
 
-      const response = await axios.post(
+      await axios.post(
         `${process.env.REACT_APP_API_BASE_URL}/payments/withdraw`,
         {
           userId: user.id,

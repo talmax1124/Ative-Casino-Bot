@@ -21,27 +21,35 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const loginInProgress = React.useRef<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
-        try {
-          // Fetch user data from your backend
-          const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/${firebaseUser.uid}`);
-          setUser(response.data);
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          // If user not found in backend, create new user record
+        // If we already have user data from login, don't override it
+        if (user && user.id) {
+          console.log('🔄 Firebase auth state changed, keeping existing user data:', user.username);
+          setLoading(false);
+          return;
+        }
+
+        // Try to get the Discord user ID from Firebase custom claims
+        const token = await firebaseUser.getIdTokenResult();
+        const discordId = token.claims.discord_id;
+        
+        if (discordId) {
           try {
-            const createResponse = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/users`, {
-              firebaseUid: firebaseUser.uid,
-              email: firebaseUser.email
-            });
-            setUser(createResponse.data);
-          } catch (createError) {
-            console.error('Error creating user:', createError);
+            console.log('🔄 Fetching user data for Discord ID:', discordId);
+            const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/${discordId}`);
+            setUser(response.data);
+          } catch (error) {
+            console.error('Error fetching user data from Discord ID:', error);
+            // Keep user as null if we can't fetch data
             setUser(null);
           }
+        } else {
+          console.warn('⚠️ No Discord ID found in Firebase token claims');
+          setUser(null);
         }
       } else {
         setUser(null);
@@ -50,10 +58,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]); // Add user as dependency
 
   const login = async (code: string): Promise<void> => {
+    // Prevent duplicate login attempts with the same code
+    if (loginInProgress.current === code) {
+      console.log('🔒 Login already in progress with this code, skipping duplicate request');
+      return;
+    }
+
     try {
+      console.log('🚀 Starting login process with code:', code.substring(0, 10) + '...');
+      loginInProgress.current = code;
       setLoading(true);
       
       // Exchange Discord code for user info and custom token
@@ -69,11 +85,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Set user data
       setUser(userData);
+      
+      console.log('✅ Login successful for user:', userData.username);
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
+      loginInProgress.current = null; // Reset on error so retry is possible
       throw new Error('Failed to login with Discord');
     } finally {
       setLoading(false);
+      // Keep loginInProgress set to prevent duplicate attempts with same code
     }
   };
 

@@ -64,7 +64,8 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
       case 'deposits':
         return transaction.type === 'deposit';
       case 'withdrawals':
-        return transaction.type === 'withdraw';
+        // No withdrawals in current transaction types, showing empty for now
+        return false;
       case 'transfers':
         return transaction.type === 'transfer';
       case 'games':

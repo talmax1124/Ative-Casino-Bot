@@ -11,6 +11,21 @@ const firebaseConfig = {
   appId: process.env.REACT_APP_FIREBASE_APP_ID
 };
 
+// Validate Firebase configuration
+const requiredFields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+const missingFields = requiredFields.filter(field => !firebaseConfig[field as keyof typeof firebaseConfig]);
+
+if (missingFields.length > 0) {
+  console.error('Missing Firebase configuration fields:', missingFields);
+  console.error('Current Firebase config:', firebaseConfig);
+  throw new Error(`Missing Firebase configuration: ${missingFields.join(', ')}`);
+}
+
+console.log('Firebase config loaded successfully:', {
+  projectId: firebaseConfig.projectId,
+  authDomain: firebaseConfig.authDomain
+});
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 

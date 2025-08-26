@@ -586,12 +586,33 @@ const devPanelCommand = {
                     
                     switch (action) {
                         case 'pull_restart':
+                            // Check for active games first
+                            const gracefulShutdown = require('../UTILS/gracefulShutdown');
+                            const statusMessage = await gracefulShutdown.getStatusMessage();
+                            
                             embed = new EmbedBuilder()
                                 .setTitle('🔄 VPS: Pull & Restart')
-                                .setDescription('Pulling latest code and restarting bot...')
+                                .setDescription(`Checking for active games before restart...\n\n${statusMessage}`)
                                 .setColor(0xFFFF00);
                             
                             await interaction.editReply({ embeds: [embed] });
+                            
+                            // Initiate graceful shutdown
+                            const shutdownResult = await gracefulShutdown.initiateGracefulShutdown('VPS Pull & Restart', 5);
+                            
+                            if (shutdownResult.forced) {
+                                embed = new EmbedBuilder()
+                                    .setTitle('⚠️ VPS: Forced Restart')
+                                    .setDescription(`**Warning**: Had to force restart after 5 minutes\n**Active games**: ${shutdownResult.activeGames.totalCount}\n**Wait time**: ${Math.round(shutdownResult.waitTime/1000)}s\n\nProceeding with git pull and restart...`)
+                                    .setColor(0xFF6600);
+                                await interaction.editReply({ embeds: [embed] });
+                            } else {
+                                embed = new EmbedBuilder()
+                                    .setTitle('✅ VPS: Games Completed')
+                                    .setDescription(`All games finished! Proceeding with git pull and restart...\n**Wait time**: ${Math.round(shutdownResult.waitTime/1000)}s`)
+                                    .setColor(0x00FF00);
+                                await interaction.editReply({ embeds: [embed] });
+                            }
                             
                             // Execute git pull and restart commands on VPS
                             const pullRestartScript = `
@@ -615,12 +636,33 @@ const devPanelCommand = {
                             break;
                             
                         case 'restart':
+                            // Check for active games first
+                            const gracefulShutdownRestart = require('../UTILS/gracefulShutdown');
+                            const statusMessageRestart = await gracefulShutdownRestart.getStatusMessage();
+                            
                             embed = new EmbedBuilder()
                                 .setTitle('🔄 VPS: Restarting Bot')
-                                .setDescription('Restarting bot on VPS...')
+                                .setDescription(`Checking for active games before restart...\n\n${statusMessageRestart}`)
                                 .setColor(0xFFFF00);
                             
                             await interaction.editReply({ embeds: [embed] });
+                            
+                            // Initiate graceful shutdown
+                            const shutdownResultRestart = await gracefulShutdownRestart.initiateGracefulShutdown('VPS Restart', 5);
+                            
+                            if (shutdownResultRestart.forced) {
+                                embed = new EmbedBuilder()
+                                    .setTitle('⚠️ VPS: Forced Restart')
+                                    .setDescription(`**Warning**: Had to force restart after 5 minutes\n**Active games**: ${shutdownResultRestart.activeGames.totalCount}\n**Wait time**: ${Math.round(shutdownResultRestart.waitTime/1000)}s\n\nProceeding with restart...`)
+                                    .setColor(0xFF6600);
+                                await interaction.editReply({ embeds: [embed] });
+                            } else {
+                                embed = new EmbedBuilder()
+                                    .setTitle('✅ VPS: Games Completed')
+                                    .setDescription(`All games finished! Proceeding with restart...\n**Wait time**: ${Math.round(shutdownResultRestart.waitTime/1000)}s`)
+                                    .setColor(0x00FF00);
+                                await interaction.editReply({ embeds: [embed] });
+                            }
                             
                             const { stdout: restartOutput, stderr: restartError } = await execAsync(
                                 `ssh root@ativecasino "cd ~/AtiveCasino && pm2 restart ative-casino-bot"`

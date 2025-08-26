@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import SquarePaymentForm from '../Payment/SquarePaymentForm';
-import axios from 'axios';
+// import { useAuth } from '../../contexts/AuthContext';
+// import axios from 'axios';
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -9,50 +8,50 @@ interface DepositModalProps {
   onSuccess: () => void;
 }
 
-const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { user } = useAuth();
+const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose }) => {
+  // const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [loading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const presetAmounts = [1000, 5000, 10000, 25000, 50000, 100000];
 
   const handleAmountSelect = (depositAmount: number) => {
     setSelectedAmount(depositAmount);
-    setShowPaymentForm(true);
+    // setShowPaymentForm(true);
     setError(null);
   };
 
-  const handlePaymentSuccess = async (paymentResult: any) => {
-    try {
-      setLoading(true);
-      
-      // Process the deposit on your backend
-      await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/payments/deposit/confirm`,
-        {
-          userId: user.id,
-          amount: selectedAmount,
-          paymentId: paymentResult.payment?.id,
-          transactionId: paymentResult.transactionId
-        }
-      );
+  // const handlePaymentSuccess = async (paymentResult: any) => {
+  //   try {
+  //     setLoading(true);
+  //     
+  //     // Process the deposit on your backend
+  //     await axios.post(
+  //       `${process.env.REACT_APP_API_BASE_URL}/payments/deposit/confirm`,
+  //       {
+  //         userId: user?.id,
+  //         amount: selectedAmount,
+  //         paymentId: paymentResult.payment?.id,
+  //         transactionId: paymentResult.transactionId
+  //       }
+  //     );
 
-      onSuccess();
-    } catch (err: any) {
-      console.error('Deposit confirmation error:', err);
-      setError(err.response?.data?.message || 'Failed to confirm deposit');
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     onSuccess();
+  //   } catch (err: any) {
+  //     console.error('Deposit confirmation error:', err);
+  //     setError(err.response?.data?.message || 'Failed to confirm deposit');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
-  const handlePaymentError = (error: string) => {
-    setError(error);
-    setLoading(false);
-  };
+  // const handlePaymentError = (error: string) => {
+  //   setError(error);
+  //   setLoading(false);
+  // };
 
   const handleCustomDeposit = () => {
     const depositAmount = parseInt(amount);
@@ -67,11 +66,11 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
     handleAmountSelect(depositAmount);
   };
 
-  const handleBackToAmountSelection = () => {
-    setShowPaymentForm(false);
-    setSelectedAmount(null);
-    setError(null);
-  };
+  // const handleBackToAmountSelection = () => {
+  //   setShowPaymentForm(false);
+  //   setSelectedAmount(null);
+  //   setError(null);
+  // };
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-US').format(amount);
@@ -112,7 +111,7 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
             {presetAmounts.map((presetAmount) => (
               <button
                 key={presetAmount}
-                onClick={() => handleDeposit(presetAmount)}
+                onClick={() => handleAmountSelect(presetAmount)}
                 disabled={loading}
                 className="bg-casino-accent/20 hover:bg-casino-accent/30 border border-casino-accent/40 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >

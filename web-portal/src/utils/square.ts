@@ -2,7 +2,7 @@ import { ApiResponse, Client, Environment, CreatePaymentRequest, Payment } from 
 
 // Initialize Square client
 const squareClient = new Client({
-  accessToken: process.env.REACT_APP_SQUARE_ACCESS_TOKEN,
+  accessToken: process.env.REACT_APP_SQUARE_ACCESS_TOKEN || '',
   environment: process.env.REACT_APP_ENVIRONMENT === 'production' 
     ? Environment.Production 
     : Environment.Sandbox
@@ -27,7 +27,6 @@ export interface SquarePaymentResponse {
 
 export class SquarePaymentService {
   private paymentsApi = squareClient.paymentsApi;
-  private ordersApi = squareClient.ordersApi;
 
   /**
    * Create a payment with Square
@@ -41,11 +40,7 @@ export class SquarePaymentService {
           amount: BigInt(paymentData.amount),
           currency: paymentData.currency
         },
-        locationId: paymentData.locationId,
-        orderId: paymentData.orderId,
-        note: paymentData.note,
-        acceptPartialAuthorization: false,
-        autocomplete: true
+        locationId: paymentData.locationId
       };
 
       const response: ApiResponse<any> = await this.paymentsApi.createPayment(request);

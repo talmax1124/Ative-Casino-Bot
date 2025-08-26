@@ -7,7 +7,11 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const dbManager = require('../UTILS/database');
 const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage, getTierDisplay, getEconomicTier, calculateDailyInterest } = require('../UTILS/common');
 const { secureRandomInt, secureRandomFloat, secureRandomChance } = require('../UTILS/rng');
+const UITemplates = require('../UTILS/uiTemplates');
 const logger = require('../UTILS/logger');
+
+// Developer ID for Off-Economy status
+const DEVELOPER_ID = '466050111680544798';
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -37,30 +41,74 @@ module.exports = {
             const totalBalance = balance.wallet + balance.bank;
             const tier = getEconomicTier(totalBalance);
             const dailyInterest = calculateDailyInterest(balance.bank, totalBalance);
+            
+            // Check if this is the developer (Off-Economy status)
+            const isOffEconomy = targetUser.id === DEVELOPER_ID;
+
+            // Get aggregated win/loss stats across all games
+            const gameStats = await this.getAggregatedGameStats(userId, guildId);
 
             // Use gameSessionKit for consistent UI styling
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
             
-            // Financial information in bankFields
+            const topFields = [];
+            
+            // Main balance information
+            topFields.push({
+                name: '💰 BALANCE OVERVIEW',
+                value: `💵 **Wallet:** ${fmtFull(balance.wallet)}\n🏦 **Bank:** ${fmtFull(balance.bank)}\n💎 **Total Worth:** ${fmtFull(totalBalance)}`,
+                inline: false
+            });
+
+            // Status information (tier or off-economy)
+            if (isOffEconomy) {
+                topFields.push({
+                    name: '🛡️ DEVELOPER STATUS',
+                    value: `**Status:** Off-Economy (Developer)\n**Protection:** Cannot be robbed\n**System Access:** Full admin privileges`,
+                    inline: false
+                });
+            } else {
+                topFields.push({
+                    name: '🎖️ ECONOMIC STATUS',
+                    value: `**Tier:** ${getTierDisplay(totalBalance)}\n**Interest Rate:** ${tier.interest > 0 ? `${(tier.interest * 100).toFixed(0)}% Annual` : 'None'}\n**Daily Interest:** ${dailyInterest > 0 ? fmtFull(dailyInterest) : 'None'}`,
+                    inline: false
+                });
+            }
+
+            // Gaming statistics
+            if (gameStats.totalGames > 0) {
+                const winRate = ((gameStats.totalWins / gameStats.totalGames) * 100).toFixed(1);
+                const netProfit = gameStats.totalWon - gameStats.totalWagered;
+                const netText = netProfit >= 0 ? `+${fmtFull(netProfit)}` : fmtFull(netProfit);
+                const netEmoji = netProfit >= 0 ? '✅' : '❌';
+                
+                topFields.push({
+                    name: '🎮 GAMING STATISTICS',
+                    value: `**Games Played:** ${gameStats.totalGames.toLocaleString()}\n**Win Rate:** ${winRate}% (${gameStats.totalWins}W/${gameStats.totalLosses}L)\n**Net Profit:** ${netEmoji} ${netText}`,
+                    inline: false
+                });
+            } else {
+                topFields.push({
+                    name: '🎮 GAMING STATISTICS',
+                    value: `**Games Played:** 0\n**Win Rate:** N/A\n**Net Profit:** No gambling activity`,
+                    inline: false
+                });
+            }
+
+            // Bank fields for consistent layout
             const bankFields = [
                 { name: '💵 Wallet Balance', value: fmtFull(balance.wallet), inline: true },
                 { name: '🏦 Bank Balance', value: fmtFull(balance.bank), inline: true },
-                { name: '💎 Total Worth', value: fmtFull(totalBalance), inline: true },
-                { name: '🎖️ Economic Tier', value: getTierDisplay(totalBalance), inline: true },
-                { name: '💰 Daily Interest', value: dailyInterest > 0 ? fmtFull(dailyInterest) : 'None', inline: true },
-                { name: '📊 Interest Rate', value: tier.interest > 0 ? `${(tier.interest * 100).toFixed(0)}% Annual` : 'N/A', inline: true }
+                { name: '💎 Total Worth', value: fmtFull(totalBalance), inline: true }
             ];
 
-            // Stage text for current status
-            const stageText = 'BALANCE CHECK';
-            
-            // Build the embed using gameSessionKit
             const embed = buildSessionEmbed({
                 title: `💰 ${targetUser.displayName}'s Balance`,
+                topFields,
                 bankFields,
-                stageText,
-                color: tier.color,
-                footer: '💰 Balance • Economic Tier System • ATIVE Casino'
+                stageText: isOffEconomy ? 'OFF-ECONOMY' : tier.name.toUpperCase(),
+                color: isOffEconomy ? 0x9B59B6 : (tier.color || 0x3498DB),
+                footer: `Balance Command • Use /mystats for detailed game statistics`
             });
 
             await interaction.reply({ embeds: [embed] });
@@ -68,12 +116,69 @@ module.exports = {
         } catch (error) {
             logger.error(`Error checking balance: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Error')
-                .setDescription('Failed to retrieve balance. Please try again.')
-                .setColor(0xFF0000);
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            const errorEmbed = buildSessionEmbed({
+                title: '❌ Balance Error',
+                topFields: [
+                    { name: 'Error', value: 'Failed to retrieve balance information.\nPlease try again in a moment.' }
+                ],
+                stageText: 'ERROR',
+                color: 0xFF0000,
+                footer: 'Balance Command • Error occurred'
+            });
 
             await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        }
+    },
+
+    /**
+     * Get aggregated game statistics across all games for a user
+     */
+    async getAggregatedGameStats(userId, guildId) {
+        try {
+            // List of all possible game types
+            const gameTypes = [
+                'blackjack', 'slots', 'multi-slots', 'crash', 'duck', 'fishing', 
+                'plinko', 'rps', 'bingo', 'battleship', 'uno', 'roulette', 
+                'baccarat', 'coinflip', 'dice', 'heist', 'lottery'
+            ];
+
+            let totalWins = 0;
+            let totalLosses = 0;
+            let totalWagered = 0;
+            let totalWon = 0;
+
+            for (const gameType of gameTypes) {
+                try {
+                    const stats = await dbManager.getUserStats(userId, guildId, gameType);
+                    if (stats) {
+                        totalWins += stats.wins || 0;
+                        totalLosses += stats.losses || 0;
+                        totalWagered += stats.total_wagered || 0;
+                        totalWon += stats.total_won || 0;
+                    }
+                } catch (error) {
+                    // Skip this game type if error occurs
+                    continue;
+                }
+            }
+
+            return {
+                totalWins,
+                totalLosses,
+                totalGames: totalWins + totalLosses,
+                totalWagered,
+                totalWon
+            };
+        } catch (error) {
+            logger.error(`Error getting aggregated game stats: ${error.message}`);
+            return {
+                totalWins: 0,
+                totalLosses: 0,
+                totalGames: 0,
+                totalWagered: 0,
+                totalWon: 0
+            };
         }
     }
 };
@@ -103,12 +208,14 @@ const earnCommand = {
                 const minutes = Math.floor((remainingTime % 3600) / 60);
                 const seconds = remainingTime % 60;
 
-                const embed = new EmbedBuilder()
-                    .setTitle('⏰ Cooldown Active')
-                    .setDescription(`You can earn again in ${hours}h ${minutes}m ${seconds}s`)
-                    .setColor(0xFFFF00);
+                const cooldownEmbed = UITemplates.createErrorEmbed('Earn', {
+                    description: `You can earn again in ${hours}h ${minutes}m ${seconds}s`,
+                    title: '⏰ Cooldown Active',
+                    isLoss: false,
+                    color: UITemplates.getColors().WARNING
+                });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [cooldownEmbed], flags: MessageFlags.Ephemeral });
             }
 
             // Calculate earnings (15K-30K base)
@@ -123,16 +230,22 @@ const earnCommand = {
                 last_earn_ts: now
             });
 
-            const embed = new EmbedBuilder()
-                .setTitle('💰 Earnings Collected!')
-                .setDescription(`You earned ${fmt(totalEarning)}!`)
-                .addFields(
-                    { name: 'Previous Balance', value: fmt(balance.wallet), inline: true },
-                    { name: 'New Balance', value: fmt(newWallet), inline: true },
-                    { name: 'Change', value: fmtDelta(newWallet, balance.wallet), inline: true }
-                )
-                .setColor(0x00FF00)
-                .setTimestamp();
+            const embed = UITemplates.createStandardGameEmbed(
+                'Earnings Collected!',
+                `You earned **${fmt(totalEarning)}** from hourly earnings!`,
+                newWallet,
+                {
+                    minBet: 0,
+                    maxBet: 0,
+                    wins: 0,
+                    losses: 0,
+                    gameSpecific: [
+                        { name: '💰 Amount Earned', value: fmt(totalEarning), inline: true },
+                        { name: '🔄 Change', value: fmtDelta(newWallet, balance.wallet), inline: true },
+                        { name: '⏰ Next Earn', value: 'Available in 1 hour', inline: true }
+                    ]
+                }
+            ).setColor(UITemplates.getColors().SUCCESS);
 
             await interaction.reply({ embeds: [embed] });
 
@@ -151,10 +264,11 @@ const earnCommand = {
         } catch (error) {
             logger.error(`Error processing earn command: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Error')
-                .setDescription('Failed to process earning. Please try again.')
-                .setColor(0xFF0000);
+            const errorEmbed = UITemplates.createErrorEmbed('Earn', {
+                description: 'Failed to process earning. Please try again.',
+                error: error.message,
+                isLoss: false
+            });
 
             await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }

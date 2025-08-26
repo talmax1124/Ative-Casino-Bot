@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { DashboardStats, GameStats, Transaction } from '../../types';
+import { DashboardStats, GameStats } from '../../types';
 import StatsCard from './StatsCard';
 import RecentTransactions from './RecentTransactions';
 import GameStatsChart from './GameStatsChart';
@@ -15,21 +15,44 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!user) return;
+      console.log('🔄 Dashboard fetchDashboardData called');
+      console.log('User object:', user);
+      
+      if (!user) {
+        console.log('❌ No user found, skipping data fetch');
+        return;
+      }
+
+      if (!user.id) {
+        console.error('❌ User object missing ID:', user);
+        setError('User ID not found');
+        setLoading(false);
+        return;
+      }
 
       try {
+        console.log(`🔄 Fetching dashboard data for user ID: ${user.id}`);
         setLoading(true);
+        setError(null);
+        
+        const statsUrl = `${process.env.REACT_APP_API_BASE_URL}/users/${user.id}/stats`;
+        const gameStatsUrl = `${process.env.REACT_APP_API_BASE_URL}/users/${user.id}/game-stats`;
+        
+        console.log('📊 Fetching from URLs:', { statsUrl, gameStatsUrl });
         
         // Fetch dashboard stats
         const [statsResponse, gameStatsResponse] = await Promise.all([
-          axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/${user.id}/stats`),
-          axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/${user.id}/game-stats`)
+          axios.get(statsUrl),
+          axios.get(gameStatsUrl)
         ]);
+
+        console.log('✅ Stats response:', statsResponse.data);
+        console.log('✅ Game stats response:', gameStatsResponse.data);
 
         setStats(statsResponse.data);
         setGameStats(gameStatsResponse.data);
       } catch (err) {
-        console.error('Error fetching dashboard data:', err);
+        console.error('❌ Error fetching dashboard data:', err);
         setError('Failed to load dashboard data');
       } finally {
         setLoading(false);

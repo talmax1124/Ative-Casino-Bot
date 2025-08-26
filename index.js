@@ -473,6 +473,53 @@ client.on('interactionCreate', async interaction => {
                     await battleshipCommand.handleModal(interaction);
                 }
             }
+            // Panel system modals
+            else if (interaction.customId === 'add_money_modal') {
+                await panelManager.handleAddMoneyModal(interaction);
+            }
+            else if (interaction.customId === 'view_balance_modal') {
+                const panelCommand = client.commands.get('panel');
+                if (panelCommand && panelCommand.handleViewBalanceModal) {
+                    await panelCommand.handleViewBalanceModal(interaction);
+                }
+            }
+            else if (interaction.customId === 'reset_balance_modal') {
+                const panelCommand = client.commands.get('panel');
+                if (panelCommand && panelCommand.handleResetBalanceModal) {
+                    await panelCommand.handleResetBalanceModal(interaction);
+                }
+            }
+            else if (interaction.customId === 'check_user_games_modal') {
+                const panelCommand = client.commands.get('panel');
+                if (panelCommand && panelCommand.handleCheckUserGamesModal) {
+                    await panelCommand.handleCheckUserGamesModal(interaction);
+                }
+            }
+            else if (interaction.customId === 'issue_warning_modal') {
+                const panelCommand = client.commands.get('panel');
+                if (panelCommand && panelCommand.handleIssueWarningModal) {
+                    await panelCommand.handleIssueWarningModal(interaction);
+                }
+            }
+            else if (interaction.customId === 'temp_game_ban_modal') {
+                const panelCommand = client.commands.get('panel');
+                if (panelCommand && panelCommand.handleTempGameBanModal) {
+                    await panelCommand.handleTempGameBanModal(interaction);
+                }
+            }
+            // Release command modals
+            else if (interaction.customId === 'confirm_release_all') {
+                const releaseCommand = client.commands.get('release');
+                if (releaseCommand && releaseCommand.handleReleaseConfirmationModal) {
+                    await releaseCommand.handleReleaseConfirmationModal(interaction);
+                }
+            }
+            else if (interaction.customId === 'confirm_emergency_clear') {
+                const releaseCommand = client.commands.get('release');
+                if (releaseCommand && releaseCommand.handleEmergencyClearModal) {
+                    await releaseCommand.handleEmergencyClearModal(interaction);
+                }
+            }
         } catch (error) {
             logger.error(`Error handling modal ${interaction.customId}: ${error.message}`);
 
@@ -491,8 +538,13 @@ client.on('interactionCreate', async interaction => {
     // Handle select menu interactions
     else if (interaction.isStringSelectMenu()) {
         try {
+            // Handle setup wizard select menus
+            if (interaction.customId.startsWith('setup_')) {
+                const { SetupInteractionHandler } = require('./UTILS/setupInteractionHandler');
+                await SetupInteractionHandler.handleSetupInteraction(interaction);
+            }
             // Check if this is a panel-related select menu
-            if (interaction.customId.includes('panel_action')) {
+            else if (interaction.customId.includes('panel_action')) {
                 const panelCommand = client.commands.get('panel');
                 if (panelCommand && panelCommand.handleSelectMenu) {
                     await panelCommand.handleSelectMenu(interaction);
@@ -527,6 +579,16 @@ client.on('interactionCreate', async interaction => {
             else if (interaction.customId === 'stop_game_user_select') {
                 await panelManager.handleStopGameUserSelect(interaction);
             }
+            // Handle release command select menus
+            else if (interaction.customId === 'release_action' || 
+                     interaction.customId === 'release_user_action' || 
+                     interaction.customId === 'release_admin_action') {
+                const releaseCommand = client.commands.get('release');
+                if (releaseCommand && releaseCommand.handleSelectMenuInteraction) {
+                    const action = interaction.values[0];
+                    await releaseCommand.handleSelectMenuInteraction(interaction, action);
+                }
+            }
             // Handle UNO card selection
             else if (interaction.customId.startsWith('uno_card_select_')) {
                 const unoCommand = client.commands.get('uno');
@@ -537,14 +599,42 @@ client.on('interactionCreate', async interaction => {
             }
             // Handle help category selection
             else if (interaction.customId === 'help_category_select') {
-                const helpCommand = client.commands.get('help');
-                if (helpCommand) {
-                    const selectedCategory = interaction.values[0];
-                    const tempInteraction = { ...interaction };
-                    tempInteraction.options = {
-                        getString: (name) => name === 'category' ? selectedCategory : null
-                    };
-                    await helpCommand.execute(tempInteraction);
+                const selectedCategory = interaction.values[0];
+                const { showSpecificCategory } = require('./COMMANDS/help');
+                
+                if (showSpecificCategory) {
+                    try {
+                        await showSpecificCategory(interaction, selectedCategory);
+                    } catch (error) {
+                        logger.error(`Error handling help category selection: ${error.message}`);
+                        await interaction.reply({ 
+                            content: 'An error occurred while loading help information. Please try again.', 
+                            ephemeral: true 
+                        });
+                    }
+                } else {
+                    // Fallback - try to load help category directly
+                    try {
+                        // Create a proper mock interaction for the help command
+                        const originalGetString = interaction.options?.getString;
+                        interaction.options = {
+                            getString: (name) => name === 'category' ? selectedCategory : null
+                        };
+                        
+                        const helpCommand = client.commands.get('help');
+                        await helpCommand.execute(interaction);
+                        
+                        // Restore original options
+                        if (originalGetString) {
+                            interaction.options.getString = originalGetString;
+                        }
+                    } catch (error) {
+                        logger.error(`Error in help category fallback: ${error.message}`);
+                        await interaction.reply({ 
+                            content: 'An error occurred while loading help information. Please try again.', 
+                            ephemeral: true 
+                        });
+                    }
                 }
             }
             // Handle UNO color selection
@@ -557,6 +647,34 @@ client.on('interactionCreate', async interaction => {
                     await unoCommand.handleColorSelection(interaction, cardIndex, chosenColor);
                 }
             }
+            
+            // Handle VPS management select menus (future expansion)
+            else if (interaction.customId.startsWith('vps_')) {
+                try {
+                    const devCommand = client.commands.get('dev');
+                    if (devCommand && devCommand.selectMenuHandlers && devCommand.selectMenuHandlers[interaction.customId]) {
+                        await devCommand.selectMenuHandlers[interaction.customId].execute(interaction);
+                    } else {
+                        logger.warn(`VPS select menu handler not found: ${interaction.customId}`);
+                        await interaction.reply({
+                            content: '❌ VPS management option not available.',
+                            ephemeral: true
+                        });
+                    }
+                } catch (vpsError) {
+                    logger.error(`Error handling VPS select menu ${interaction.customId}:`, vpsError);
+                    
+                    const UITemplates = require('./UTILS/uiTemplates');
+                    const errorEmbed = UITemplates.createErrorEmbed('VPS Management', {
+                        description: `Failed to process VPS selection`,
+                        error: vpsError.message,
+                        isLoss: false
+                    });
+                    
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                }
+            }
+            
         } catch (error) {
             logger.error(`Error handling select menu ${interaction.customId}:`, error);
 
@@ -768,7 +886,24 @@ client.on('interactionCreate', async interaction => {
             }
             // Handle lottery buttons
             else if (customId.startsWith('lottery_')) {
-                await handleLotteryButtons(interaction, customId);
+                const action = customId.substring('lottery_'.length);
+                
+                // Try new lottery command first
+                const lotteryCommand = client.commands.get('lottery');
+                if (lotteryCommand && lotteryCommand.handleButtonInteraction && 
+                    ['buy_tickets', 'rules', 'my_tickets', 'prizes', 'cancel_game'].includes(action)) {
+                    await lotteryCommand.handleButtonInteraction(interaction, action);
+                } 
+                // Try purchaselottery command for purchase-specific actions
+                else {
+                    const purchaseLotteryCommand = client.commands.get('purchaselottery');
+                    if (purchaseLotteryCommand && purchaseLotteryCommand.handleButtonInteraction) {
+                        await purchaseLotteryCommand.handleButtonInteraction(interaction, action);
+                    } else {
+                        // Fallback to old lottery handling
+                        await handleLotteryButtons(interaction, customId);
+                    }
+                }
             }
             // Handle mystats buttons
             else if (customId.startsWith('mystats_')) {
@@ -804,6 +939,10 @@ client.on('interactionCreate', async interaction => {
                 if (leaderboardCommand && leaderboardCommand.handleButtonInteraction) {
                     await leaderboardCommand.handleButtonInteraction(interaction, customId);
                 }
+            }
+            // Handle panel system buttons
+            else if (customId === 'confirm_restart_bot' || customId === 'cancel_restart_bot') {
+                await panelManager.handleButtonInteraction(interaction);
             }
             // Handle battleship buttons (namespace: battleship_{action})
             else if (customId.startsWith('battleship_')) {
@@ -861,17 +1000,18 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
             }
+            // Handle setup wizard buttons and select menus
+            else if (customId.startsWith('setup_')) {
+                const { SetupInteractionHandler } = require('./UTILS/setupInteractionHandler');
+                await SetupInteractionHandler.handleSetupInteraction(interaction);
+            }
             // Handle help buttons
             else if (customId.startsWith('help_')) {
-                const helpCommand = client.commands.get('help');
-                if (helpCommand) {
+                try {
                     if (customId === 'help_back_main') {
                         // Show main help
-                        const tempInteraction = { ...interaction };
-                        tempInteraction.options = {
-                            getString: (name) => null
-                        };
-                        await helpCommand.execute(tempInteraction);
+                        const { showMainHelp } = require('./COMMANDS/help');
+                        await showMainHelp(interaction);
                     } else if (customId === 'help_refresh') {
                         // Refresh current category
                         const embed = interaction.message.embeds[0];
@@ -885,11 +1025,13 @@ client.on('interactionCreate', async interaction => {
                             else if (embed.title.includes('Security')) category = 'security';
                         }
                         
-                        const tempInteraction = { ...interaction };
-                        tempInteraction.options = {
-                            getString: (name) => name === 'category' ? category : null
-                        };
-                        await helpCommand.execute(tempInteraction);
+                        if (category) {
+                            const { showSpecificCategory } = require('./COMMANDS/help');
+                            await showSpecificCategory(interaction, category);
+                        } else {
+                            const { showMainHelp } = require('./COMMANDS/help');
+                            await showMainHelp(interaction);
+                        }
                     } else if (customId === 'help_commands_list') {
                         // Show all commands list
                         await showAllCommandsList(interaction);
@@ -900,8 +1042,57 @@ client.on('interactionCreate', async interaction => {
                         // Show support information
                         await showSupportInfo(interaction);
                     }
+                } catch (error) {
+                    logger.error(`Error handling help button ${customId}: ${error.message}`);
+                    try {
+                        if (interaction.replied || interaction.deferred) {
+                            await interaction.followUp({ 
+                                content: 'An error occurred while processing help. Please try again.', 
+                                ephemeral: true 
+                            });
+                        } else {
+                            await interaction.reply({ 
+                                content: 'An error occurred while processing help. Please try again.', 
+                                ephemeral: true 
+                            });
+                        }
+                    } catch (replyError) {
+                        logger.error(`Failed to send help error reply: ${replyError.message}`);
+                    }
                 }
             }
+            
+            // Handle VPS management buttons
+            else if (customId.startsWith('vps_')) {
+                try {
+                    const devCommand = client.commands.get('dev');
+                    if (devCommand && devCommand.buttonHandlers && devCommand.buttonHandlers[customId]) {
+                        await devCommand.buttonHandlers[customId](interaction);
+                    } else {
+                        logger.warn(`VPS button handler not found: ${customId}`);
+                        await interaction.reply({
+                            content: '❌ VPS management function not available.',
+                            ephemeral: true
+                        });
+                    }
+                } catch (vpsError) {
+                    logger.error(`Error handling VPS button ${customId}:`, vpsError);
+                    
+                    const UITemplates = require('./UTILS/uiTemplates');
+                    const errorEmbed = UITemplates.createErrorEmbed('VPS Management', {
+                        description: `Failed to execute VPS operation: ${customId.replace('vps_', '')}`,
+                        error: vpsError.message,
+                        isLoss: false
+                    });
+                    
+                    if (interaction.deferred || interaction.replied) {
+                        await interaction.editReply({ embeds: [errorEmbed] });
+                    } else {
+                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                    }
+                }
+            }
+            
         } catch (error) {
             logger.error(`Error handling button ${customId}:`, error);
 

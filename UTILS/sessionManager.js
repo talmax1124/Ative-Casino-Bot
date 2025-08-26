@@ -674,12 +674,15 @@ class SessionManager {
             const channel = await this.client.channels.fetch(session.channelId);
             if (!channel) return;
 
+            // Format game type for display
+            const gameTypeDisplay = this.formatGameTypeForDisplay(session.gameType);
+            
             const embed = buildSessionEmbed({
                 title: '⏰ Session Timeout',
                 topFields: [
                     { 
                         name: 'Game Session Expired', 
-                        value: `Your ${session.gameType} session has timed out due to inactivity.${session.gameData?.refunded ? '\n✅ Your bet has been refunded.' : ''}` 
+                        value: `Your ${gameTypeDisplay} session has timed out due to inactivity.${session.gameData?.refunded ? '\n✅ Your bet has been refunded.' : ''}` 
                     }
                 ],
                 stageText: 'SESSION EXPIRED',
@@ -750,6 +753,29 @@ class SessionManager {
         }, SESSION_CONFIG.CLEANUP_INTERVAL);
 
         logger.debug('Session Manager: Started periodic cleanup interval');
+    }
+
+    /**
+     * Format game type for user-friendly display
+     */
+    formatGameTypeForDisplay(gameType) {
+        const displayNames = {
+            'blackjack': 'Blackjack',
+            'slots': 'Slots',
+            'plinko': 'Plinko',
+            'crash': 'Crash',
+            'roulette': 'Roulette',
+            'fishing': 'Fishing',
+            'heist': 'Heist',
+            'battleship': 'Battleship',
+            'wordchain': 'Word Chain',
+            'uno': 'UNO',
+            'rps': 'Rock Paper Scissors',
+            'bingo': 'Bingo',
+            'duck': 'Duck Game'
+        };
+        
+        return displayNames[gameType] || gameType.charAt(0).toUpperCase() + gameType.slice(1);
     }
 
     /**

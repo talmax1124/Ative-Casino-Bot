@@ -5,7 +5,9 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage, parseAmount, setActiveGame, getActiveGame, clearActiveGame } = require('../UTILS/common');
+const { sessionManager } = require('../UTILS/sessionManager');
+const UITemplates = require('../UTILS/uiTemplates');
 const { 
     UnoGameSession,
     startUnoGame,
@@ -35,6 +37,18 @@ module.exports = {
         const username = interaction.user.displayName;
 
         try {
+            // Check for active session
+            const activeGame = getActiveGame(userId);
+            if (activeGame) {
+                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                    description: `You already have an active ${activeGame} game session.\n\nFinish your current game or use \`/stopgame\` to cancel it before starting a new UNO game.`,
+                    isGameActive: true
+                });
+                
+                await interaction.followUp({ embeds: [errorEmbed] });
+                return;
+            }
+
             // Check if there's already a game in this channel
             const existingGame = getUnoGame(channelId);
             if (existingGame) {
@@ -70,10 +84,11 @@ module.exports = {
             try {
                 betAmount = parseAmount(amountStr, balance.wallet);
             } catch (error) {
-                await interaction.followUp({
-                    content: `❌ Invalid bet amount: ${error.message}`,
-                    ephemeral: true
+                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                    description: `Invalid bet amount: ${error.message}`,
+                    isLoss: false
                 });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                 return;
             }
 
@@ -82,31 +97,53 @@ module.exports = {
             const MAX_BET = 50000;
             
             if (betAmount < MIN_BET) {
-                await interaction.followUp({
-                    content: `❌ Minimum bet for UNO is ${fmt(MIN_BET)}!`,
-                    ephemeral: true
+                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                    description: `Minimum bet for UNO is ${fmt(MIN_BET)}!`,
+                    isLoss: false
                 });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                 return;
             }
             
             if (betAmount > MAX_BET) {
-                await interaction.followUp({
-                    content: `❌ Maximum bet for UNO is ${fmt(MAX_BET)}!`,
-                    ephemeral: true
+                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                    description: `Maximum bet for UNO is ${fmt(MAX_BET)}!`,
+                    isLoss: false
                 });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                 return;
             }
 
             if (betAmount > balance.wallet) {
-                await interaction.followUp({
-                    content: `❌ You need ${fmt(betAmount)} but only have ${fmt(balance.wallet)}!`,
-                    ephemeral: true
+                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                    description: `You need ${fmt(betAmount)} but only have ${fmt(balance.wallet)} in your wallet.\n\nUse \`/withdraw\` to move money from your bank to your wallet.`,
+                    showBalance: true,
+                    userBalance: balance,
+                    isLoss: false
                 });
+                await interaction.followUp({ embeds: [errorEmbed] });
                 return;
             }
 
             // Deduct bet from starter
             await dbManager.updateUserBalance(userId, guildId, -betAmount, 0);
+
+            // Register session
+            setActiveGame(userId, 'uno');
+            
+            // Create session in session manager
+            const sessionResult = await sessionManager.createSession({
+                userId,
+                guildId,
+                channelId,
+                gameType: 'uno',
+                betAmount,
+                timeout: 180000, // 3 minutes for UNO
+                metadata: {
+                    multiplayer: true,
+                    waitingForPlayers: true
+                }
+            });
 
             // Create new game
             const game = startUnoGame(channelId, guildId, betAmount);
@@ -115,10 +152,17 @@ module.exports = {
             if (!success) {
                 // Refund if couldn't create game
                 await dbManager.updateUserBalance(userId, guildId, betAmount, 0);
-                await interaction.followUp({
-                    content: '❌ Failed to create game!',
-                    ephemeral: true
+                
+                // Clean up session
+                clearActiveGame(userId);
+                if (sessionResult.success) {
+                    await sessionManager.cancelSession(sessionResult.sessionId, 'Failed to create game', userId);
+                }
+                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                    description: 'Failed to create the UNO game. Your bet has been refunded.',
+                    isLoss: false
                 });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                 return;
             }
 
@@ -126,11 +170,26 @@ module.exports = {
             game.gameChannel = interaction.channel;
             game.mainGameInteraction = interaction;
 
-            // Show lobby
-            const embed = game.getLobbyEmbed(`🎴 **<@${userId}>** started an UNO game!`);
-            const buttons = game.createLobbyButtons();
+            // Show lobby with standardized template
+            const lobbyEmbed = UITemplates.createStandardGameEmbed(
+                'Multiplayer UNO Game',
+                `**<@${userId}>** started a new UNO game!\n\n**Entry Fee:** ${fmt(betAmount)}\n**Prize Pool:** Grows with each player\n**Max Players:** ${game.maxPlayers}`,
+                balance.wallet - betAmount,
+                {
+                    minBet: MIN_BET,
+                    maxBet: MAX_BET,
+                    wins: 0,
+                    losses: 0,
+                    gameSpecific: [
+                        { name: '🎴 Current Players', value: `${game.players.size}/${game.maxPlayers}`, inline: true },
+                        { name: '💰 Entry Fee', value: fmt(betAmount), inline: true },
+                        { name: '🏆 Prize Pool', value: fmt(game.players.size * betAmount), inline: true }
+                    ]
+                }
+            );
 
-            await interaction.followUp({ embeds: [embed], components: buttons });
+            const buttons = game.createLobbyButtons();
+            await interaction.followUp({ embeds: [lobbyEmbed], components: buttons });
 
             // Log game creation
             logger.info(`UNO game created: ${username} (${userId}) bet ${betAmount} in channel ${channelId}`);
@@ -146,10 +205,12 @@ module.exports = {
         } catch (error) {
             logger.error(`Error executing UNO command: ${error.message}`, { userId, error: error.stack });
             
-            await interaction.followUp({
-                content: '❌ An error occurred while creating the UNO game. Please try again.',
-                ephemeral: true
+            const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                description: 'An error occurred while creating the UNO game. Please try again.',
+                error: error.message,
+                isLoss: false
             });
+            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
         }
     },
 
@@ -346,19 +407,27 @@ module.exports = {
 
             game.startGame();
 
-            // Create game started embed
+            // Create game started embed with standardized template
             const playerPings = Array.from(game.players.keys()).map(id => `<@${id}>`).join(' ');
             const currentPlayer = game.getCurrentPlayer();
             
-            const embed = new EmbedBuilder()
-                .setTitle('🎴 UNO Game Started!')
-                .setDescription(`${playerPings}\n\n**Current Player:** ${currentPlayer.username}\n**Top Card:** ${game.getTopCard().toString()}`)
-                .setColor(game.getColorCode(game.currentColor))
-                .addFields({
-                    name: '🎮 Game Info',
-                    value: `Players: ${game.players.size}\nPrize Pool: ${fmt(game.players.size * game.starterBet)}\nTurn Timeout: ${game.turnTimeout}s`,
-                    inline: false
-                });
+            const embed = UITemplates.createStandardGameEmbed(
+                'UNO Game Started!',
+                `${playerPings}\n\n**Current Player:** ${currentPlayer.username}\n**Top Card:** ${game.getTopCard().toString()}`,
+                0, // No wallet display needed during active game
+                {
+                    minBet: 0,
+                    maxBet: 0,
+                    wins: 0,
+                    losses: 0,
+                    hideWalletInfo: true,
+                    gameSpecific: [
+                        { name: '🎮 Players', value: `${game.players.size}`, inline: true },
+                        { name: '🏆 Prize Pool', value: fmt(game.players.size * game.starterBet), inline: true },
+                        { name: '⏱️ Turn Timeout', value: `${game.turnTimeout}s`, inline: true }
+                    ]
+                }
+            ).setColor(game.getColorCode(game.currentColor));
 
             // Show game buttons for all players
             const samplePlayer = Array.from(game.players.values())[0];
