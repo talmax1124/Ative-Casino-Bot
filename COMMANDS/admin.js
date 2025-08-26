@@ -6,7 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { parseAmount, formatMoneyFull } = require('../UTILS/moneyFormatter');
-const { fmtFull } = require('../UTILS/common');
+const { fmtFull, sendLogMessage } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 
 // Helper function to check admin permissions
@@ -998,6 +998,23 @@ The **ATIVE Casino Portal** is now available - your gateway to premium casino en
 
             await interaction.reply({ embeds: [announcementEmbed] });
             
+            // Log the portal announcement to the logs channel
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'admin',
+                    `🌐 **PORTAL ANNOUNCEMENT** posted by ${interaction.user.displayName}\n` +
+                    `**Channel:** ${interaction.channel.name || 'Direct Message'}\n` +
+                    `**Server:** ${interaction.guild?.name || 'Direct Message'}\n` +
+                    `**Portal URL:** https://ativecasinoportal.up.railway.app/\n` +
+                    `**Time:** ${new Date().toISOString()}`,
+                    interaction.user.id,
+                    interaction.guild?.id || 'DM'
+                );
+            } catch (logError) {
+                logger.error(`Failed to log portal announcement: ${logError.message}`);
+            }
+            
         } catch (error) {
             logger.error(`Error in portal announcement command: ${error.message}`);
             
@@ -1060,6 +1077,22 @@ const portalCommand = {
                 .setTimestamp();
 
             await interaction.reply({ embeds: [portalEmbed] });
+            
+            // Log portal access to the logs channel
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'info',
+                    `🌐 **PORTAL ACCESS** requested by ${interaction.user.displayName}\n` +
+                    `**Channel:** ${interaction.channel.name || 'Direct Message'}\n` +
+                    `**Server:** ${interaction.guild?.name || 'Direct Message'}\n` +
+                    `**Portal URL:** https://ativecasinoportal.up.railway.app/`,
+                    interaction.user.id,
+                    interaction.guild?.id || 'DM'
+                );
+            } catch (logError) {
+                logger.error(`Failed to log portal access: ${logError.message}`);
+            }
             
         } catch (error) {
             logger.error(`Error in portal command: ${error.message}`);
