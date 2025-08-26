@@ -38,7 +38,7 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
       const confirmationData = {
         userId: user?.id,
         amount: selectedAmount,
-        paymentId: paymentResult.payment?.id || paymentResult.transactionId,
+        paymentId: paymentResult.payment?.id || paymentResult.transactionId || paymentResult.paymentId,
         transactionId: paymentResult.transactionId || paymentResult.payment?.id
       };
       

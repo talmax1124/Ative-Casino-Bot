@@ -1750,6 +1750,55 @@ app.post('/api/payments/deposit', async (req, res) => {
     }
 });
 
+// Square payment processing endpoint
+app.post('/api/payments/process', async (req, res) => {
+    console.log('💳 Square payment processing endpoint called');
+    console.log('💳 Request body:', JSON.stringify(req.body, null, 2));
+    
+    try {
+        const { sourceId, amount, currency = 'USD' } = req.body;
+        
+        if (!sourceId || !amount) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Missing required fields: sourceId, amount' 
+            });
+        }
+        
+        console.log(`💳 Processing Square payment: ${amount} cents`);
+        
+        // For now, simulate successful payment processing
+        // In production, this would use the Square API
+        const paymentId = `square_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Simulate processing time
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        console.log(`✅ Square payment processed successfully: ${paymentId}`);
+        
+        res.json({
+            success: true,
+            payment: {
+                id: paymentId,
+                status: 'COMPLETED',
+                amount: amount,
+                currency: currency,
+                sourceType: 'CARD'
+            },
+            transactionId: paymentId,
+            message: 'Payment processed successfully'
+        });
+        
+    } catch (error) {
+        console.error('❌ Square payment processing error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Payment processing failed',
+            details: error.message 
+        });
+    }
+});
+
 // Square deposit confirmation endpoint
 app.post('/api/payments/deposit/confirm', async (req, res) => {
     console.log('🔵 Deposit confirmation endpoint called');

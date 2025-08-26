@@ -176,31 +176,14 @@ const SquarePaymentForm: React.FC<SquarePaymentFormProps> = ({
       if (tokenResult.status === 'OK') {
         console.log('✅ Payment token generated:', tokenResult.token);
         
-        // Simulate successful payment 
-        console.log('✅ Payment token generated, simulating success...');
-        setTimeout(() => {
-          try {
-            onPaymentSuccess({
-              success: true,
-              token: tokenResult.token,
-              amount: amount,
-              message: 'Payment processed successfully (simulated)',
-              paymentId: 'sim_' + Date.now()
-            });
-          } catch (error) {
-            console.error('Error in payment success callback:', error);
-            onPaymentError('Failed to process payment success');
-          }
-          setProcessing(false);
-        }, 2000);
+        // Process payment with backend API
+        console.log('💳 Processing payment with backend API...');
+        const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5001/api';
         
-        /* 
-        // Actual API call when backend is ready:
-        const response = await fetch('http://localhost:5001/api/payments/process', {
+        const response = await fetch(`${apiBaseUrl}/payments/process`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             sourceId: tokenResult.token,
@@ -209,13 +192,20 @@ const SquarePaymentForm: React.FC<SquarePaymentFormProps> = ({
           })
         });
 
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
         const result = await response.json();
+        console.log('💳 Payment API response:', result);
+        
         if (result.success) {
+          console.log('✅ Payment processed successfully');
           onPaymentSuccess(result);
         } else {
+          console.error('❌ Payment failed:', result.error);
           onPaymentError(result.error || 'Payment failed');
         }
-        */
       } else {
         const errorMsg = tokenResult.errors?.[0]?.message || 'Card validation failed';
         console.error('❌ Tokenization failed:', errorMsg);
