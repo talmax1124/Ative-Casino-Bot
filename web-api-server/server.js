@@ -2665,6 +2665,22 @@ app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Environment diagnostics endpoint
+app.get('/api/diagnostics', (req, res) => {
+    const diagnostics = {
+        environment: process.env.ENVIRONMENT || 'unknown',
+        hasDiscordClientId: !!process.env.DISCORD_CLIENT_ID,
+        hasDiscordClientSecret: !!process.env.DISCORD_CLIENT_SECRET,
+        hasDiscordToken: !!process.env.DISCORD_TOKEN,
+        hasFirebaseConfig: !!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY),
+        clientIdPreview: process.env.DISCORD_CLIENT_ID ? 
+            process.env.DISCORD_CLIENT_ID.substring(0, 8) + '...' : 'MISSING',
+        timestamp: new Date().toISOString()
+    };
+    
+    res.json(diagnostics);
+});
+
 // Start server
 app.listen(PORT, () => {
     console.log(`🚀 ATIVE Casino Web API Server running on port ${PORT}`);
