@@ -20,7 +20,7 @@ const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, parseAmount } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const battleshipRenderer = require('../UTILS/battleshipRenderer');
-const UITemplates = require('../UTILS/UITemplates');
+const UITemplates = require('../UTILS/uiTemplates');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 
 const {
