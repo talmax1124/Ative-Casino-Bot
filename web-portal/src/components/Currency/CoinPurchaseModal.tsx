@@ -15,13 +15,17 @@ const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({ isOpen, onClose, 
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [successAmount, setSuccessAmount] = useState<number>(0);
 
-  // Casino Coins packages - different pricing than credits
+  // Casino Coins packages - high value economy focused
   const coinPackages = [
-    { coins: 10000, price: 4.99, label: 'Starter Pack' },
-    { coins: 50000, price: 19.99, label: 'Popular Choice' },
-    { coins: 100000, price: 34.99, label: 'Best Value' },
-    { coins: 250000, price: 79.99, label: 'High Roller' }
+    { coins: 110000, price: 5.00, label: 'Starter Pack' },
+    { coins: 350000, price: 25.00, label: 'Popular Choice' },
+    { coins: 750000, price: 40.00, label: 'Best Value' },
+    { coins: 1200000, price: 55.00, label: 'High Roller' },
+    { coins: 2500000, price: 99.00, label: 'VIP Package' },
+    { coins: 5000000, price: 179.00, label: 'Whale Status' }
   ];
 
   const handlePackageSelect = (pkg: {coins: number, price: number}) => {
@@ -46,7 +50,14 @@ const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({ isOpen, onClose, 
         }
       );
 
-      onSuccess();
+      setSuccess(true);
+      setSuccessAmount(selectedPackage?.coins || 0);
+      
+      // Auto-close after 3 seconds and call onSuccess
+      setTimeout(() => {
+        setSuccess(false);
+        onSuccess();
+      }, 3000);
     } catch (err: any) {
       console.error('Coin purchase error:', err);
       setError(err.response?.data?.message || 'Failed to complete coin purchase');
@@ -104,7 +115,10 @@ const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({ isOpen, onClose, 
                 <span>Back to Packages</span>
               </button>
               <div className="text-white font-semibold">
-                {formatAmount(selectedPackage.coins)} Coins (${selectedPackage.price})
+                🪙 {formatAmount(selectedPackage.coins)} Casino Coins
+              </div>
+              <div className="text-sm text-gray-400">
+                ${selectedPackage.price}
               </div>
             </div>
             <SquarePaymentForm
@@ -120,7 +134,7 @@ const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({ isOpen, onClose, 
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-white mb-3">Choose Your Casino Coins Package</h3>
               <p className="text-gray-300 text-sm mb-4">
-                Casino Coins are used for playing games and betting. Get more coins for better value!
+                🪙 Premium casino coins for high-stakes gaming! Massive coin packages at incredible value - focus on your winnings, not the cost.
               </p>
               
               <div className="grid grid-cols-1 gap-3">
@@ -131,18 +145,14 @@ const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({ isOpen, onClose, 
                     disabled={loading}
                     className="bg-casino-gold/10 hover:bg-casino-gold/20 border border-casino-gold/30 hover:border-casino-gold/50 text-white font-semibold py-4 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="text-left">
-                        <div className="text-xl font-bold text-casino-gold">
-                          {formatAmount(pkg.coins)} Coins
-                        </div>
-                        <div className="text-sm text-gray-400">{pkg.label}</div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-casino-gold mb-1">
+                        {formatAmount(pkg.coins)} 🪙
                       </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-casino-gold">${pkg.price}</div>
-                        <div className="text-xs text-gray-400">
-                          {(pkg.coins / pkg.price / 1000).toFixed(1)}k coins per $1
-                        </div>
+                      <div className="text-lg font-semibold text-white mb-1">{pkg.label}</div>
+                      <div className="text-sm text-gray-400">${pkg.price}</div>
+                      <div className="text-xs text-casino-accent mt-1">
+                        {(pkg.coins / pkg.price / 1000).toFixed(0)}k coins per $1
                       </div>
                     </div>
                   </button>
@@ -179,6 +189,24 @@ const CoinPurchaseModal: React.FC<CoinPurchaseModalProps> = ({ isOpen, onClose, 
             <div className="text-center">
               <div className="animate-spin text-4xl mb-2">🔄</div>
               <p className="text-white">Processing purchase...</p>
+            </div>
+          </div>
+        )}
+
+        {success && (
+          <div className="absolute inset-0 bg-casino-dark/90 rounded-xl flex items-center justify-center">
+            <div className="text-center p-6">
+              <div className="text-6xl mb-4">✅</div>
+              <h3 className="text-2xl font-bold text-green-400 mb-2">Transaction Completed!</h3>
+              <p className="text-white text-lg mb-1">
+                {formatAmount(successAmount)} Coins Added
+              </p>
+              <p className="text-gray-300 text-sm">
+                Your coins will be available immediately
+              </p>
+              <div className="mt-4 text-xs text-gray-400">
+                Closing in 3 seconds...
+              </div>
             </div>
           </div>
         )}

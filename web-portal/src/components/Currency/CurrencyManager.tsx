@@ -221,26 +221,26 @@ const CurrencyManager: React.FC = () => {
               <div className="space-y-3 mb-4">
                 <div className="flex justify-between items-center p-3 bg-casino-dark/30 rounded-lg hover:bg-casino-dark/50 transition-colors cursor-pointer border border-transparent hover:border-casino-gold/30">
                   <div>
-                    <span className="text-white font-medium">10,000 Coins</span>
-                    <div className="text-xs text-gray-400">Best for beginners</div>
+                    <span className="text-white font-medium">🪙 110,000 Coins</span>
+                    <div className="text-xs text-gray-400">Starter Pack • 22k coins per $1</div>
                   </div>
-                  <div className="text-casino-gold font-bold">$4.99</div>
+                  <div className="text-casino-gold font-bold">$5.00</div>
                 </div>
                 
                 <div className="flex justify-between items-center p-3 bg-casino-dark/30 rounded-lg hover:bg-casino-dark/50 transition-colors cursor-pointer border border-transparent hover:border-casino-gold/30">
                   <div>
-                    <span className="text-white font-medium">50,000 Coins</span>
-                    <div className="text-xs text-gray-400">Most popular</div>
+                    <span className="text-white font-medium">🪙 350,000 Coins</span>
+                    <div className="text-xs text-gray-400">Popular Choice • 14k coins per $1</div>
                   </div>
-                  <div className="text-casino-gold font-bold">$19.99</div>
+                  <div className="text-casino-gold font-bold">$25.00</div>
                 </div>
                 
                 <div className="flex justify-between items-center p-3 bg-casino-dark/30 rounded-lg hover:bg-casino-dark/50 transition-colors cursor-pointer border border-transparent hover:border-casino-gold/30">
                   <div>
-                    <span className="text-white font-medium">100,000 Coins</span>
-                    <div className="text-xs text-gray-400">Best value!</div>
+                    <span className="text-white font-medium">🪙 750,000 Coins</span>
+                    <div className="text-xs text-gray-400">Best Value • 19k coins per $1</div>
                   </div>
-                  <div className="text-casino-gold font-bold">$34.99</div>
+                  <div className="text-casino-gold font-bold">$40.00</div>
                 </div>
               </div>
               

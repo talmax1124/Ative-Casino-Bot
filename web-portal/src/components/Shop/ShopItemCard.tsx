@@ -30,13 +30,13 @@ const ShopItemCard: React.FC<ShopItemCardProps> = ({
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'boosts':
-        return 'bg-yellow-600/80 text-yellow-200 border-yellow-500/80';
+        return 'bg-yellow-700/90 text-yellow-100 border-yellow-600/90';
       case 'cosmetics':
-        return 'bg-pink-600/80 text-pink-200 border-pink-500/80';
+        return 'bg-pink-700/90 text-pink-100 border-pink-600/90';
       case 'premium':
-        return 'bg-purple-600/80 text-purple-200 border-purple-500/80';
+        return 'bg-purple-700/90 text-purple-100 border-purple-600/90';
       default:
-        return 'bg-casino-accent/80 text-casino-light border-casino-accent/80';
+        return 'bg-casino-accent/90 text-casino-light border-casino-accent/90';
     }
   };
 
@@ -78,7 +78,7 @@ const ShopItemCard: React.FC<ShopItemCardProps> = ({
         )}
         
         {/* Category Badge */}
-        <div className={`absolute top-3 left-3 px-2 py-1 rounded-lg border text-xs font-medium ${getCategoryColor(item.category)}`}>
+        <div className={`absolute top-3 left-3 px-2 py-1 rounded-lg border text-xs font-bold ${getCategoryColor(item.category)}`}>
           <span className="mr-1">{getCategoryIcon(item.category)}</span>
           {item.category.toUpperCase()}
         </div>

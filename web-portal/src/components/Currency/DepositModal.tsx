@@ -16,8 +16,10 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [successAmount, setSuccessAmount] = useState<number>(0);
 
-  const presetAmounts = [1000, 5000, 10000, 25000, 50000, 100000];
+  const presetAmounts = [22000, 110000, 220000, 350000, 550000, 1100000]; // Coin values based on new economy
 
   const handleAmountSelect = (depositAmount: number) => {
     setSelectedAmount(depositAmount);
@@ -52,7 +54,14 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
       
       console.log('✅ Deposit confirmation response:', response.data);
 
-      onSuccess();
+      setSuccess(true);
+      setSuccessAmount(selectedAmount || 0);
+      
+      // Auto-close after 3 seconds and call onSuccess
+      setTimeout(() => {
+        setSuccess(false);
+        onSuccess();
+      }, 3000);
     } catch (err: any) {
       console.error('Deposit confirmation error:', err);
       console.error('Error details:', {
@@ -84,12 +93,12 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
 
   const handleCustomDeposit = () => {
     const depositAmount = parseInt(amount);
-    if (isNaN(depositAmount) || depositAmount < 100) {
-      setError('Minimum deposit is 100 credits');
+    if (isNaN(depositAmount) || depositAmount < 2200) {
+      setError('Minimum deposit is 2,200 coins ($0.10)');
       return;
     }
-    if (depositAmount > 1000000) {
-      setError('Maximum deposit is 1,000,000 credits');
+    if (depositAmount > 22000000) {
+      setError('Maximum deposit is 22,000,000 coins ($1,000)');
       return;
     }
     handleAmountSelect(depositAmount);
@@ -105,9 +114,9 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
     return new Intl.NumberFormat('en-US').format(amount);
   };
 
-  const getUSDAmount = (credits: number) => {
-    // Assuming 1000 credits = $1 USD
-    return (credits / 1000).toFixed(2);
+  const getUSDAmount = (coins: number) => {
+    // New economy: 22,000 coins = $1 USD (based on 110k coins for $5)
+    return (coins / 22000).toFixed(2);
   };
 
   if (!isOpen) return null;
@@ -117,7 +126,7 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
       <div className="bg-casino-dark rounded-xl p-6 w-full max-w-md border border-casino-accent/20">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-white flex items-center">
-            💳 Deposit Credits
+            🪙 Deposit Casino Coins
           </h2>
           <button
             onClick={onClose}
@@ -144,7 +153,7 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
                 <span>Back to Amount Selection</span>
               </button>
               <div className="text-white font-semibold">
-                {formatAmount(selectedAmount)} Credits (${getUSDAmount(selectedAmount)})
+                🪙 {formatAmount(selectedAmount)} Casino Coins (${getUSDAmount(selectedAmount)})
               </div>
             </div>
             <SquarePaymentForm
@@ -167,7 +176,7 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
                 disabled={loading}
                 className="bg-casino-accent/20 hover:bg-casino-accent/30 border border-casino-accent/40 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <div className="text-lg">{formatAmount(presetAmount)}</div>
+                <div className="text-lg">🪙 {formatAmount(presetAmount)}</div>
                 <div className="text-xs text-gray-400">${getUSDAmount(presetAmount)}</div>
               </button>
             ))}
@@ -182,10 +191,10 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount (min 100)"
+              placeholder="Enter amount (min 2,200 coins)"
               className="flex-1 bg-casino-darker border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:border-casino-accent focus:outline-none"
-              min="100"
-              max="1000000"
+              min="2200"
+              max="22000000"
             />
             <button
               onClick={handleCustomDeposit}
@@ -247,6 +256,24 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
             <div className="text-center">
               <div className="animate-spin text-4xl mb-2">🔄</div>
               <p className="text-white">Processing...</p>
+            </div>
+          </div>
+        )}
+
+        {success && (
+          <div className="absolute inset-0 bg-casino-dark/90 rounded-xl flex items-center justify-center">
+            <div className="text-center p-6">
+              <div className="text-6xl mb-4">✅</div>
+              <h3 className="text-2xl font-bold text-green-400 mb-2">Transaction Completed!</h3>
+              <p className="text-white text-lg mb-1">
+                🪙 {formatAmount(successAmount)} Casino Coins Added
+              </p>
+              <p className="text-gray-300 text-sm">
+                Your coins will be available immediately
+              </p>
+              <div className="mt-4 text-xs text-gray-400">
+                Closing in 3 seconds...
+              </div>
             </div>
           </div>
         )}

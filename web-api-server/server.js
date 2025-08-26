@@ -181,14 +181,13 @@ async function sendCoinPurchaseAnnouncement(userId, coins, amountPaid, boosterBo
             }]
         };
 
-        // For now, we'll store this in Firebase and let the bot pick it up
-        // In a production environment, you'd want a proper webhook or direct bot communication
+        // Store this in Firebase for the bot to pick up and send
         await db.collection('discord_announcements').add({
             type: 'coin_purchase',
             channelId: ANNOUNCEMENT_CHANNEL_ID,
             payload: webhookPayload,
-            userId: userId,
             processed: false,
+            userId: userId,
             timestamp: new Date()
         });
 
