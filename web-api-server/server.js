@@ -1752,10 +1752,17 @@ app.post('/api/payments/deposit', async (req, res) => {
 
 // Square deposit confirmation endpoint
 app.post('/api/payments/deposit/confirm', async (req, res) => {
+    console.log('🔵 Deposit confirmation endpoint called');
+    console.log('🔵 Request body:', JSON.stringify(req.body, null, 2));
+    console.log('🔵 Request headers:', JSON.stringify(req.headers, null, 2));
+    
     try {
         const { userId, amount, paymentId, transactionId } = req.body;
         
+        console.log(`🔵 Parsed values: userId=${userId}, amount=${amount}, paymentId=${paymentId}, transactionId=${transactionId}`);
+        
         if (!userId || !amount || !paymentId) {
+            console.log('❌ Missing required fields validation failed');
             return res.status(400).json({ error: 'Missing required fields: userId, amount, paymentId' });
         }
         

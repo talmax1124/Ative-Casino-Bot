@@ -29,21 +29,49 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess 
     try {
       setLoading(true);
       
+      // Debug payment result structure
+      console.log('🔵 Payment result received:', paymentResult);
+      console.log('🔵 API Base URL:', process.env.REACT_APP_API_BASE_URL);
+      console.log('🔵 User ID:', user?.id);
+      console.log('🔵 Selected Amount:', selectedAmount);
+      
+      const confirmationData = {
+        userId: user?.id,
+        amount: selectedAmount,
+        paymentId: paymentResult.payment?.id || paymentResult.transactionId,
+        transactionId: paymentResult.transactionId || paymentResult.payment?.id
+      };
+      
+      console.log('🔵 Sending confirmation data:', confirmationData);
+      
       // Process the deposit on your backend
-      await axios.post(
+      const response = await axios.post(
         `${process.env.REACT_APP_API_BASE_URL}/payments/deposit/confirm`,
-        {
-          userId: user?.id,
-          amount: selectedAmount,
-          paymentId: paymentResult.payment?.id,
-          transactionId: paymentResult.transactionId
-        }
+        confirmationData
       );
+      
+      console.log('✅ Deposit confirmation response:', response.data);
 
       onSuccess();
     } catch (err: any) {
       console.error('Deposit confirmation error:', err);
-      setError(err.response?.data?.message || 'Failed to confirm deposit');
+      console.error('Error details:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        message: err.message
+      });
+      
+      // More specific error messages
+      if (err.response?.status === 404) {
+        setError('Deposit confirmation service not found. Please contact support.');
+      } else if (err.response?.status === 400) {
+        setError(err.response?.data?.error || 'Invalid deposit request.');
+      } else if (err.message.includes('Network Error') || err.code === 'ERR_NETWORK') {
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        setError(err.response?.data?.message || err.response?.data?.error || 'Failed to confirm deposit');
+      }
     } finally {
       setLoading(false);
     }
