@@ -1750,6 +1750,69 @@ app.post('/api/payments/deposit', async (req, res) => {
     }
 });
 
+// Square deposit confirmation endpoint
+app.post('/api/payments/deposit/confirm', async (req, res) => {
+    try {
+        const { userId, amount, paymentId, transactionId } = req.body;
+        
+        if (!userId || !amount || !paymentId) {
+            return res.status(400).json({ error: 'Missing required fields: userId, amount, paymentId' });
+        }
+        
+        console.log(`✅ Confirming Square payment: ${paymentId} for user ${userId} amount ${amount}`);
+        
+        // Get current balance
+        const balanceDoc = await db.collection('user_balances').doc(userId).get();
+        const currentBalance = balanceDoc.exists ? balanceDoc.data() : { wallet: 1000, bank: 0 };
+        
+        // Add to wallet (amount is in credits)
+        const newWalletBalance = (parseFloat(currentBalance.wallet) || 0) + parseFloat(amount);
+        
+        // Update balance in Firestore
+        await db.collection('user_balances').doc(userId).set({
+            wallet: newWalletBalance,
+            bank: parseFloat(currentBalance.bank) || 0,
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        // Create transaction record
+        const transactionRecord = {
+            id: transactionId || `square_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            userId,
+            type: 'deposit',
+            amount: parseFloat(amount),
+            method: 'square',
+            paymentId: paymentId,
+            status: 'completed',
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            description: `Square payment deposit of ${amount} credits`
+        };
+        
+        await db.collection('transactions').doc(transactionRecord.id).set(transactionRecord);
+        
+        // Log successful deposit
+        console.log(`💰 Square deposit confirmed: User ${userId} received ${amount} credits. New wallet balance: ${newWalletBalance}`);
+        
+        res.json({
+            success: true,
+            message: 'Deposit confirmed successfully',
+            newBalance: {
+                wallet: newWalletBalance,
+                bank: parseFloat(currentBalance.bank) || 0,
+                total: newWalletBalance + (parseFloat(currentBalance.bank) || 0)
+            },
+            transaction: transactionRecord
+        });
+        
+    } catch (error) {
+        console.error('Square deposit confirmation error:', error);
+        res.status(500).json({ 
+            error: 'Failed to confirm deposit',
+            details: error.message 
+        });
+    }
+});
+
 app.post('/api/payments/withdraw', async (req, res) => {
     try {
         const { userId, amount, withdrawMethod } = req.body;

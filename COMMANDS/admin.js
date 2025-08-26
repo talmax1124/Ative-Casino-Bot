@@ -917,11 +917,171 @@ const drawLotteryCommand = {
     }
 };
 
+// Portal announcement command (Admin only)
+const portalAnnouncementCommand = {
+    data: new SlashCommandBuilder()
+        .setName('pbportalannouncement')
+        .setDescription('Make a stylish announcement about the ATIVE Casino Portal (Admin only)'),
+
+    async execute(interaction) {
+        const member = interaction.member;
+        
+        // Check admin permissions
+        if (!await hasAdminPermissions(member)) {
+            const noPermEmbed = new EmbedBuilder()
+                .setTitle('❌ Access Denied')
+                .setDescription('You need administrator permissions to use this command.')
+                .setColor(0xFF0000)
+                .setTimestamp();
+            
+            return await interaction.reply({ embeds: [noPermEmbed], flags: MessageFlags.Ephemeral });
+        }
+
+        try {
+            const announcementEmbed = new EmbedBuilder()
+                .setTitle('🌐 **ATIVE CASINO PORTAL IS LIVE!** 🌐')
+                .setDescription(`
+🎰 **Welcome to the Future of Casino Gaming!** 🎰
+
+The **ATIVE Casino Portal** is now available - your gateway to premium casino entertainment right from your browser!
+
+**🔥 What Can You Do?**
+• 💳 **Secure Deposits** - Add funds instantly with Square payments
+• 🏆 **Live Leaderboards** - See who's dominating the games  
+• 🎯 **Real-Time Stats** - Track your wins, losses, and progress
+• 🛒 **Premium Shop** - Buy boosts, cosmetics, and exclusive items
+• 💰 **Balance Management** - Deposit, withdraw, and transfer funds
+• 📊 **Game Analytics** - Detailed insights into your gameplay
+• 🎨 **Modern Interface** - Beautiful, responsive design
+• 📱 **Cross-Platform** - Works on desktop, tablet, and mobile
+
+**✨ Key Features:**
+🔒 **Secure Authentication** - Login with your Discord account
+💎 **Premium Items** - Personal Slot Machines, Diamond Memberships
+🎮 **Game Integration** - Seamless connection with Discord bot
+📈 **Transaction History** - Full transparency of all activities
+🏅 **Achievement System** - Unlock rewards as you play
+⚡ **Instant Updates** - Real-time balance and game updates
+
+**🚀 Get Started:**
+1️⃣ Click the portal link below
+2️⃣ Login with your Discord account  
+3️⃣ Start gaming like never before!
+
+**Ready to experience premium casino gaming?**
+                `)
+                .setColor(0x00FF88)
+                .setThumbnail('https://cdn.discordapp.com/attachments/1403244656845787170/1404027373048823838/Casino.png')
+                .addFields([
+                    {
+                        name: '🌐 Portal Access',
+                        value: '**[🎰 OPEN PORTAL](https://ativecasinoportal.up.railway.app/)**',
+                        inline: false
+                    },
+                    {
+                        name: '💡 Pro Tips',
+                        value: '• Use `/portal` command for quick access\n• Check your stats regularly\n• Take advantage of premium items\n• Join the leaderboard competition!',
+                        inline: true
+                    },
+                    {
+                        name: '🎯 Coming Soon',
+                        value: '• Mobile app\n• More payment methods\n• Advanced analytics\n• Social features',
+                        inline: true
+                    }
+                ])
+                .setImage('https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=400&fit=crop&crop=center')
+                .setFooter({ 
+                    text: 'ATIVE Casino Portal • Where Winners Play', 
+                    iconURL: 'https://cdn.discordapp.com/attachments/1403244656845787170/1404027373048823838/Casino.png' 
+                })
+                .setTimestamp();
+
+            await interaction.reply({ embeds: [announcementEmbed] });
+            
+        } catch (error) {
+            logger.error(`Error in portal announcement command: ${error.message}`);
+            
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Error')
+                .setDescription('Failed to create portal announcement.')
+                .setColor(0xFF0000)
+                .setTimestamp();
+            
+            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        }
+    }
+};
+
+// Portal access command (Public)
+const portalCommand = {
+    data: new SlashCommandBuilder()
+        .setName('portal')
+        .setDescription('Get quick access to the ATIVE Casino Portal'),
+
+    async execute(interaction) {
+        try {
+            const portalEmbed = new EmbedBuilder()
+                .setTitle('🌐 ATIVE Casino Portal')
+                .setDescription(`
+**Access your casino account from anywhere!**
+
+🎰 **Features:**
+• Secure deposits and withdrawals
+• Live leaderboards and statistics  
+• Premium shop with exclusive items
+• Real-time balance management
+• Complete transaction history
+
+**Ready to play?**
+                `)
+                .setColor(0x00D4FF)
+                .setThumbnail('https://cdn.discordapp.com/attachments/1403244656845787170/1404027373048823838/Casino.png')
+                .addFields([
+                    {
+                        name: '🚀 Quick Access',
+                        value: '**[🎰 OPEN PORTAL](https://ativecasinoportal.up.railway.app/)**\n*Login with your Discord account*',
+                        inline: false
+                    },
+                    {
+                        name: '📱 Compatible Devices',
+                        value: 'Desktop • Tablet • Mobile',
+                        inline: true
+                    },
+                    {
+                        name: '🔐 Security',
+                        value: 'Discord OAuth • Encrypted',
+                        inline: true
+                    }
+                ])
+                .setFooter({ 
+                    text: 'ATIVE Casino Portal', 
+                    iconURL: 'https://cdn.discordapp.com/attachments/1403244656845787170/1404027373048823838/Casino.png' 
+                })
+                .setTimestamp();
+
+            await interaction.reply({ embeds: [portalEmbed] });
+            
+        } catch (error) {
+            logger.error(`Error in portal command: ${error.message}`);
+            
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Error')
+                .setDescription('Failed to load portal information.')
+                .setColor(0xFF0000)
+                .setTimestamp();
+            
+            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        }
+    }
+};
+
 // Export multiple commands
 module.exports = {
     data: addMoneyCommand.data,
     execute: addMoneyCommand.execute,
     setMoneyCommand,
     backupCommand,
-    drawLotteryCommand
+    drawLotteryCommand,
+    portalAnnouncementCommand,
+    portalCommand
 };

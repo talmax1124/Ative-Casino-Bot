@@ -114,6 +114,16 @@ async function loadCommands() {
                     commands.push(command.drawLotteryCommand.data.toJSON());
                     logger.info(`Loaded command: ${command.drawLotteryCommand.data.name}`);
                 }
+                if (command.portalAnnouncementCommand && command.portalAnnouncementCommand.data) {
+                    client.commands.set(command.portalAnnouncementCommand.data.name, command.portalAnnouncementCommand);
+                    commands.push(command.portalAnnouncementCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.portalAnnouncementCommand.data.name}`);
+                }
+                if (command.portalCommand && command.portalCommand.data) {
+                    client.commands.set(command.portalCommand.data.name, command.portalCommand);
+                    commands.push(command.portalCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.portalCommand.data.name}`);
+                }
             }
         } else {
             logger.warn(`Command at ${filePath} is missing required "data" or "execute" property`);
