@@ -8,7 +8,7 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const admin = require('firebase-admin');
-const DatabaseFallback = require('../UTILS/databaseFallback');
+const SimpleDatabaseManager = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -33,8 +33,8 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-// Initialize database fallback system
-const dbFallback = new DatabaseFallback(db);
+// Initialize simplified database manager
+const dbManager = new SimpleDatabaseManager(db);
 
 // Helper function to get user profile data (stored profile -> Discord -> fallback)
 async function getUserProfileData(userId) {
@@ -2504,7 +2504,7 @@ app.post('/api/users/update-balance', async (req, res) => {
         }
 
         // Get current balance
-        const currentBalance = await dbFallback.getUserBalance(userId);
+        const currentBalance = await dbManager.getUserBalance(userId);
         
         // Calculate new balance
         let newCredits = currentBalance.credits || 0;
@@ -2522,7 +2522,7 @@ app.post('/api/users/update-balance', async (req, res) => {
         newCredits = Math.max(0, newCredits);
 
         // Update balance in database(s)
-        const updateResult = await dbFallback.updateUserBalance(userId, {
+        const updateResult = await dbManager.updateUserBalance(userId, {
             wallet: currentBalance.wallet || 0,
             bank: currentBalance.bank || 0,
             credits: newCredits
@@ -2531,7 +2531,7 @@ app.post('/api/users/update-balance', async (req, res) => {
         // Record the transaction
         if (source && paymentId) {
             try {
-                await dbFallback.recordPurchase({
+                await dbManager.recordPurchase({
                     userId,
                     credits,
                     amount: credits * 0.01, // Assuming 1 credit = $0.01 for logging
@@ -2575,7 +2575,7 @@ app.post('/api/users/update-balance', async (req, res) => {
 // Database status endpoint
 app.get('/api/database/status', async (req, res) => {
     try {
-        const status = await dbFallback.getStatus();
+        const status = await dbManager.getStatus();
         res.json(status);
     } catch (error) {
         console.error('Database status error:', error);
