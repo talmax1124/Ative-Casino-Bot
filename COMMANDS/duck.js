@@ -442,26 +442,27 @@ module.exports = {
                 components: [actionRow]
             });
 
-            // Store the mode selection temporarily
-            activeGames.set(userId, { type: 'mode_select', betAmount, userBalance, guildId });
-
-            // Set timeout for mode selection (2 minutes)
-            TimeoutManager.setTimeout(userId, 120, async () => {
-                if (activeGames.has(userId)) {
-                    activeGames.delete(userId);
-                    await PayoutManager.refundBet(userId, guildId, betAmount, 'Mode selection timeout');
-                    
-                    try {
-                        await interaction.editReply({
-                            content: '⏰ Mode selection timed out. Your bet has been refunded.',
-                            embeds: [],
-                            components: []
-                        });
-                    } catch (error) {
-                        // Message may have been deleted
-                    }
-                }
+            // Create temporary session for mode selection
+            const sessionResult = await GameSessionIntegrator.createGameSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: SMGameType.DUCK_GAME,
+                betAmount,
+                timeout: 120000, // 2 minutes
+                metadata: {
+                    gamePhase: 'mode_selection',
+                    gameStarted: false
+                },
+                interaction
             });
+            
+            if (!sessionResult.success) {
+                throw new Error(`Session creation failed: ${sessionResult.error}`);
+            }
+            
+            // Store the mode selection temporarily
+            activeGames.set(sessionResult.sessionId, { type: 'mode_select', betAmount, userBalance, guildId, sessionId: sessionResult.sessionId });
 
             // Log game start
             await sendLogMessage(

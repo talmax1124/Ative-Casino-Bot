@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Transaction } from '../../types';
 
 interface RecentTransactionsProps {
@@ -6,6 +7,12 @@ interface RecentTransactionsProps {
 }
 
 const RecentTransactions: React.FC<RecentTransactionsProps> = ({ transactions }) => {
+  const navigate = useNavigate();
+
+  const handleViewAllTransactions = () => {
+    navigate('/transactions');
+  };
+
   const getTransactionIcon = (type: string) => {
     switch (type) {
       case 'game_win':
@@ -103,7 +110,10 @@ const RecentTransactions: React.FC<RecentTransactionsProps> = ({ transactions })
       </div>
       
       <div className="pt-3 border-t border-gray-700">
-        <button className="w-full text-center text-casino-accent hover:text-purple-400 text-sm font-medium transition-colors">
+        <button 
+          onClick={handleViewAllTransactions}
+          className="w-full text-center text-casino-accent hover:text-purple-400 text-sm font-medium transition-colors"
+        >
           View All Transactions →
         </button>
       </div>

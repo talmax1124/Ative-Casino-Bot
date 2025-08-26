@@ -166,8 +166,8 @@ module.exports = {
                 specialResult: result.type
             });
 
-            // Process payout
-            const payoutResult = await PayoutManager.processGamePayout(gameResult);
+            // Process payout (pass interaction for profile capture)
+            const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
 
             if (!payoutResult.success) {
                 logger.error(`Failed to process slots payout for user ${userId}`);

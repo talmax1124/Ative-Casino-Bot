@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-// import { useAuth } from '../../contexts/AuthContext';
-// import axios from 'axios';
+import { useAuth } from '../../contexts/AuthContext';
+import SquarePaymentForm from '../Payment/SquarePaymentForm';
+import axios from 'axios';
 
 interface DepositModalProps {
   isOpen: boolean;
@@ -8,50 +9,50 @@ interface DepositModalProps {
   onSuccess: () => void;
 }
 
-const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose }) => {
-  // const { user } = useAuth();
+const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
-  // const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [loading] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const presetAmounts = [1000, 5000, 10000, 25000, 50000, 100000];
 
   const handleAmountSelect = (depositAmount: number) => {
     setSelectedAmount(depositAmount);
-    // setShowPaymentForm(true);
+    setShowPaymentForm(true);
     setError(null);
   };
 
-  // const handlePaymentSuccess = async (paymentResult: any) => {
-  //   try {
-  //     setLoading(true);
-  //     
-  //     // Process the deposit on your backend
-  //     await axios.post(
-  //       `${process.env.REACT_APP_API_BASE_URL}/payments/deposit/confirm`,
-  //       {
-  //         userId: user?.id,
-  //         amount: selectedAmount,
-  //         paymentId: paymentResult.payment?.id,
-  //         transactionId: paymentResult.transactionId
-  //       }
-  //     );
+  const handlePaymentSuccess = async (paymentResult: any) => {
+    try {
+      setLoading(true);
+      
+      // Process the deposit on your backend
+      await axios.post(
+        `${process.env.REACT_APP_API_BASE_URL}/payments/deposit/confirm`,
+        {
+          userId: user?.id,
+          amount: selectedAmount,
+          paymentId: paymentResult.payment?.id,
+          transactionId: paymentResult.transactionId
+        }
+      );
 
-  //     onSuccess();
-  //   } catch (err: any) {
-  //     console.error('Deposit confirmation error:', err);
-  //     setError(err.response?.data?.message || 'Failed to confirm deposit');
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+      onSuccess();
+    } catch (err: any) {
+      console.error('Deposit confirmation error:', err);
+      setError(err.response?.data?.message || 'Failed to confirm deposit');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // const handlePaymentError = (error: string) => {
-  //   setError(error);
-  //   setLoading(false);
-  // };
+  const handlePaymentError = (error: string) => {
+    setError(error);
+    setLoading(false);
+  };
 
   const handleCustomDeposit = () => {
     const depositAmount = parseInt(amount);
@@ -66,11 +67,11 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose }) => {
     handleAmountSelect(depositAmount);
   };
 
-  // const handleBackToAmountSelection = () => {
-  //   setShowPaymentForm(false);
-  //   setSelectedAmount(null);
-  //   setError(null);
-  // };
+  const handleBackToAmountSelection = () => {
+    setShowPaymentForm(false);
+    setSelectedAmount(null);
+    setError(null);
+  };
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-US').format(amount);
@@ -104,7 +105,30 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* Preset Amounts */}
+        {showPaymentForm && selectedAmount ? (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={handleBackToAmountSelection}
+                className="flex items-center space-x-2 text-casino-accent hover:text-purple-400 transition-colors"
+              >
+                <span>←</span>
+                <span>Back to Amount Selection</span>
+              </button>
+              <div className="text-white font-semibold">
+                {formatAmount(selectedAmount)} Credits (${getUSDAmount(selectedAmount)})
+              </div>
+            </div>
+            <SquarePaymentForm
+              amount={parseFloat(getUSDAmount(selectedAmount))}
+              onPaymentSuccess={handlePaymentSuccess}
+              onPaymentError={handlePaymentError}
+              loading={loading}
+            />
+          </div>
+        ) : (
+          <div>
+            {/* Preset Amounts */}
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-white mb-3">Quick Deposit</h3>
           <div className="grid grid-cols-2 gap-3">
@@ -177,16 +201,18 @@ const DepositModal: React.FC<DepositModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex space-x-3">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-        </div>
+            {/* Action Buttons */}
+            <div className="flex space-x-3">
+              <button
+                onClick={onClose}
+                disabled={loading}
+                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {loading && (
           <div className="absolute inset-0 bg-casino-dark/50 rounded-xl flex items-center justify-center">

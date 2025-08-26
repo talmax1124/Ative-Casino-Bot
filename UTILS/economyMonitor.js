@@ -20,8 +20,8 @@ const _ = require('lodash');
 const MONITOR_CONFIG = {
     REPORT_CHANNEL_ID: '1409016191049142434',
     CHECK_INTERVALS: {
-        QUICK: 5 * 60 * 1000,      // 5 minutes - for real-time monitoring
-        HOURLY: 60 * 60 * 1000,     // 1 hour - for trend analysis
+        QUICK: 30 * 60 * 1000,      // 30 minutes - reduced from 5 minutes to avoid quota
+        HOURLY: 4 * 60 * 60 * 1000,     // 4 hours - reduced from 1 hour to avoid quota
         DAILY: 24 * 60 * 60 * 1000  // 24 hours - for comprehensive reports
     },
     THRESHOLDS: {

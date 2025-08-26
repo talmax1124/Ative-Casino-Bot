@@ -8,6 +8,10 @@ import Dashboard from './components/Dashboard/Dashboard';
 import Leaderboards from './components/Leaderboards/Leaderboards';
 import Shop from './components/Shop/Shop';
 import CurrencyManager from './components/Currency/CurrencyManager';
+import DetailedStats from './components/Stats/DetailedStats';
+import MyItems from './components/Items/MyItems';
+import Profile from './components/Profile/Profile';
+import Settings from './components/Profile/Settings';
 import './App.css';
 
 // Protected Route Component
@@ -114,6 +118,50 @@ function App() {
                 <ProtectedRoute>
                   <AppLayout>
                     <CurrencyManager />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/stats"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <DetailedStats />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/items"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <MyItems />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Profile />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Settings />
                   </AppLayout>
                 </ProtectedRoute>
               }

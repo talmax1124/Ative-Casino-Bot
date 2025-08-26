@@ -345,6 +345,59 @@ class GameSessionIntegrator {
     }
 
     /**
+     * Force cleanup all sessions for a user - prevents "still in session" issues
+     */
+    static async forceCleanupUserSessions(userId, guildId, reason = 'Force cleanup') {
+        try {
+            logger.info(`Force cleanup initiated for user ${userId}: ${reason}`);
+            
+            // Cancel all sessions
+            const userSessions = sessionManager.getUserSessions(userId);
+            const cleanupResults = [];
+            
+            for (const session of userSessions) {
+                try {
+                    // Refund any bets
+                    if (session.betAmount > 0) {
+                        await dbManager.updateUserBalance(userId, guildId, session.betAmount, 0);
+                        logger.info(`Refunded ${session.betAmount} to user ${userId} from session ${session.sessionId}`);
+                    }
+                    
+                    // Cancel session
+                    await sessionManager.cancelSession(session.sessionId, reason, 'force-cleanup');
+                    cleanupResults.push({ sessionId: session.sessionId, success: true });
+                    
+                } catch (sessionError) {
+                    logger.error(`Failed to cleanup session ${session.sessionId}: ${sessionError.message}`);
+                    cleanupResults.push({ sessionId: session.sessionId, success: false, error: sessionError.message });
+                }
+            }
+            
+            // Clear legacy game_active flag
+            const balance = await dbManager.getUserBalance(userId, guildId);
+            if (balance.game_active) {
+                await dbManager.updateUserBalance(userId, guildId, 0, 0, { game_active: false });
+                logger.info(`Cleared legacy game_active flag for user ${userId}`);
+            }
+            
+            logger.info(`Force cleanup completed for user ${userId}. Cleaned ${cleanupResults.length} sessions`);
+            
+            return {
+                success: true,
+                sessionsCleanedUp: cleanupResults.length,
+                results: cleanupResults
+            };
+            
+        } catch (error) {
+            logger.error(`Force cleanup failed for user ${userId}: ${error.message}`);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
      * Validate all active sessions (utility for dev commands)
      */
     static async validateAllSessions() {

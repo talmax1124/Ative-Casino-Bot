@@ -179,7 +179,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         <div className="mt-6 grid grid-cols-3 gap-4 pt-6 border-t border-gray-700">
           <div className="text-center">
             <p className="text-2xl font-bold text-green-400">
-              +{formatAmount(
+              +{new Intl.NumberFormat('en-US').format(
                 filteredTransactions
                   .filter(t => t.amount > 0)
                   .reduce((sum, t) => sum + t.amount, 0)
@@ -190,7 +190,7 @@ const TransactionHistory: React.FC<TransactionHistoryProps> = ({
           
           <div className="text-center">
             <p className="text-2xl font-bold text-red-400">
-              -{formatAmount(
+              -{new Intl.NumberFormat('en-US').format(
                 Math.abs(filteredTransactions
                   .filter(t => t.amount < 0)
                   .reduce((sum, t) => sum + t.amount, 0))

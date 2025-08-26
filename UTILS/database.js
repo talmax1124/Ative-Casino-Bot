@@ -270,9 +270,10 @@ class DatabaseManager {
      * @param {boolean} win - Whether the game was won
      * @param {number} wagered - Amount wagered
      * @param {number} result - Game result amount
+     * @param {Object} userProfile - Optional user profile data for updating
      * @returns {boolean} Success status
      */
-    async updateUserStats(userId, guildId = null, gameType = null, win = null, wagered = 0, result = 0) {
+    async updateUserStats(userId, guildId = null, gameType = null, win = null, wagered = 0, result = 0, userProfile = null) {
         try {
             const docRef = this.db.collection('user_stats').doc(`${userId}_${gameType}`);
             const currentStats = await this.getUserStats(userId, null, gameType);
@@ -312,6 +313,11 @@ class DatabaseManager {
             
             // Also update global user stats for leaderboard
             await this.updateGlobalUserStats(userId, win, result);
+            
+            // Update user profile if provided (capture Discord info for leaderboards)
+            if (userProfile) {
+                await this.updateUserProfile(userId, userProfile);
+            }
             
             logger.info(`Updated stats for ${userId}_${gameType}: wins=${updateData.wins}, losses=${updateData.losses}`);
             return true;
@@ -1188,6 +1194,117 @@ class DatabaseManager {
         } catch (error) {
             logger.error(`Error updating username: ${error.message}`);
             return false;
+        }
+    }
+
+    /**
+     * Update user profile data including avatar and display name
+     * @param {string} userId - Discord user ID
+     * @param {Object} profileData - Profile data object
+     * @param {string} profileData.username - Discord username
+     * @param {string} profileData.displayName - Discord display name
+     * @param {string} profileData.avatar - Discord avatar hash or URL
+     */
+    async updateUserProfile(userId, profileData) {
+        const fallbackAvatarUrl = 'https://images.pexels.com/photos/1759531/pexels-photo-1759531.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500';
+        
+        try {
+            // Construct avatar URL if needed
+            let avatarUrl = fallbackAvatarUrl;
+            
+            if (profileData.avatar) {
+                if (profileData.avatar.startsWith('https://')) {
+                    avatarUrl = profileData.avatar;
+                } else {
+                    avatarUrl = `https://cdn.discordapp.com/avatars/${userId}/${profileData.avatar}.png?size=256`;
+                }
+            }
+            
+            const profileUpdateData = {
+                username: profileData.username || null,
+                displayName: profileData.displayName || profileData.username || null,
+                avatarUrl: avatarUrl,
+                lastProfileUpdate: new Date(),
+                updated_at: new Date()
+            };
+            
+            // Update in user_profiles collection for leaderboard use
+            const profileRef = this.db.collection('user_profiles').doc(userId);
+            await profileRef.set(profileUpdateData, { merge: true });
+            
+            // Also update username in balances collection for compatibility
+            if (profileData.username) {
+                const balanceRef = this.db.collection('user_balances').doc(userId);
+                await balanceRef.set({ username: profileData.username }, { merge: true });
+            }
+            
+            logger.info(`Updated profile for user ${userId}: ${profileData.username}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error updating user profile for ${userId}: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Get user profile data
+     * @param {string} userId - Discord user ID
+     * @returns {Object} User profile data
+     */
+    async getUserProfile(userId) {
+        const fallbackAvatarUrl = 'https://images.pexels.com/photos/1759531/pexels-photo-1759531.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500';
+        
+        try {
+            const profileRef = this.db.collection('user_profiles').doc(userId);
+            const profileDoc = await profileRef.get();
+            
+            if (profileDoc.exists) {
+                const data = profileDoc.data();
+                return {
+                    userId: userId,
+                    username: data.username || 'Unknown User',
+                    displayName: data.displayName || data.username || 'Unknown User',
+                    avatarUrl: data.avatarUrl || fallbackAvatarUrl,
+                    lastProfileUpdate: data.lastProfileUpdate || null
+                };
+            } else {
+                // Return default profile with fallback avatar
+                return {
+                    userId: userId,
+                    username: 'Unknown User',
+                    displayName: 'Unknown User',
+                    avatarUrl: fallbackAvatarUrl,
+                    lastProfileUpdate: null
+                };
+            }
+        } catch (error) {
+            logger.error(`Error getting user profile for ${userId}: ${error.message}`);
+            return {
+                userId: userId,
+                username: 'Unknown User',
+                displayName: 'Unknown User',
+                avatarUrl: fallbackAvatarUrl,
+                lastProfileUpdate: null
+            };
+        }
+    }
+
+    /**
+     * Extract profile data from Discord interaction
+     * @param {Object} interaction - Discord interaction object
+     * @returns {Object} Profile data object
+     */
+    extractProfileFromInteraction(interaction) {
+        try {
+            const user = interaction.user;
+            return {
+                username: user.username,
+                displayName: user.displayName || user.globalName || user.username,
+                avatar: user.avatar // This is the avatar hash, not URL
+            };
+        } catch (error) {
+            logger.error(`Error extracting profile from interaction: ${error.message}`);
+            return null;
         }
     }
 

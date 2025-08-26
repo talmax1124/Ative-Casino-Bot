@@ -1,18 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import axios from 'axios';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [userStats, setUserStats] = useState<any>(null);
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: '🏠' },
     { name: 'Leaderboards', href: '/leaderboards', icon: '🏆' },
     { name: 'Shop', href: '/shop', icon: '🛒' },
+    { name: 'My Items', href: '/items', icon: '📦' },
     { name: 'Transactions', href: '/transactions', icon: '💳' },
   ];
+
+  useEffect(() => {
+    const fetchUserStats = async () => {
+      if (!user) return;
+
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/${user.id}/stats`);
+        setUserStats(response.data);
+      } catch (error) {
+        console.error('Error fetching user stats:', error);
+      }
+    };
+
+    fetchUserStats();
+  }, [user]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -60,11 +78,18 @@ const Navbar: React.FC = () => {
 
           {/* User Menu */}
           <div className="flex items-center">
-            {user && (
-              <div className="hidden md:flex items-center space-x-4 mr-4">
-                <div className="bg-casino-green px-3 py-1 rounded-lg">
+            {user && userStats && (
+              <div className="hidden md:flex items-center space-x-2 mr-4">
+                {/* Casino Coins */}
+                <div className="bg-casino-gold px-3 py-1 rounded-lg">
+                  <span className="text-sm font-semibold text-casino-dark">
+                    🪙 {formatBalance(userStats.totalBalance || 0)}
+                  </span>
+                </div>
+                {/* Premium Credits */}
+                <div className="bg-casino-accent px-3 py-1 rounded-lg">
                   <span className="text-sm font-semibold text-white">
-                    💰 {formatBalance(user.balance)}
+                    💎 {formatBalance(userStats.creditsAmount || 0)}
                   </span>
                 </div>
               </div>
@@ -82,17 +107,23 @@ const Navbar: React.FC = () => {
                   <span className="sr-only">Open user menu</span>
                   {user?.avatar ? (
                     <img
-                      className="h-8 w-8 rounded-full"
-                      src={`https://cdn.discordapp.com/avatars/${user.discordId}/${user.avatar}.png`}
+                      className="h-8 w-8 rounded-full object-cover"
+                      src={user.avatar.startsWith('https://') ? user.avatar : `https://cdn.discordapp.com/avatars/${user.discordId}/${user.avatar}.png`}
                       alt={user.username}
+                      onError={(e) => {
+                        // If image fails to load, hide it and show fallback
+                        e.currentTarget.style.display = 'none';
+                        if (e.currentTarget.nextElementSibling) {
+                          (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                        }
+                      }}
                     />
-                  ) : (
-                    <div className="h-8 w-8 rounded-full bg-casino-accent flex items-center justify-center">
-                      <span className="text-sm font-medium text-white">
-                        {user?.username?.charAt(0)?.toUpperCase() || '?'}
-                      </span>
-                    </div>
-                  )}
+                  ) : null}
+                  <div className={`h-8 w-8 rounded-full bg-casino-accent flex items-center justify-center ${user?.avatar ? 'hidden' : ''}`}>
+                    <span className="text-sm font-medium text-white">
+                      {user?.username?.charAt(0)?.toUpperCase() || '?'}
+                    </span>
+                  </div>
                 </button>
               </div>
 
@@ -177,20 +208,33 @@ const Navbar: React.FC = () => {
                 <div className="flex items-center space-x-3">
                   {user.avatar ? (
                     <img
-                      className="h-10 w-10 rounded-full"
-                      src={`https://cdn.discordapp.com/avatars/${user.discordId}/${user.avatar}.png`}
+                      className="h-10 w-10 rounded-full object-cover"
+                      src={user.avatar.startsWith('https://') ? user.avatar : `https://cdn.discordapp.com/avatars/${user.discordId}/${user.avatar}.png`}
                       alt={user.username}
+                      onError={(e) => {
+                        // If image fails to load, hide it and show fallback
+                        e.currentTarget.style.display = 'none';
+                        if (e.currentTarget.nextElementSibling) {
+                          (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                        }
+                      }}
                     />
-                  ) : (
-                    <div className="h-10 w-10 rounded-full bg-casino-accent flex items-center justify-center">
-                      <span className="text-sm font-medium text-white">
-                        {user.username?.charAt(0)?.toUpperCase() || '?'}
-                      </span>
-                    </div>
-                  )}
+                  ) : null}
+                  <div className={`h-10 w-10 rounded-full bg-casino-accent flex items-center justify-center ${user?.avatar ? 'hidden' : ''}`}>
+                    <span className="text-sm font-medium text-white">
+                      {user.username?.charAt(0)?.toUpperCase() || '?'}
+                    </span>
+                  </div>
                   <div>
                     <p className="text-sm font-medium text-white">{user.username}</p>
-                    <p className="text-sm text-casino-green">💰 {formatBalance(user.balance)}</p>
+                    {userStats ? (
+                      <div className="flex space-x-3 text-xs">
+                        <span className="text-casino-gold">🪙 {formatBalance(userStats.totalBalance || 0)}</span>
+                        <span className="text-casino-accent">💎 {formatBalance(userStats.creditsAmount || 0)}</span>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-casino-green">💰 {formatBalance(user.balance)}</p>
+                    )}
                   </div>
                 </div>
               </div>

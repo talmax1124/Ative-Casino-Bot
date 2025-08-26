@@ -6,6 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionGuard = require('../UTILS/sessionGuard');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -31,8 +32,8 @@ module.exports = {
         return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
       }
 
-      // Create session for crash game
-      const sessionResult = await GameSessionIntegrator.createGameSession({
+      // Create session for crash game with enhanced protection
+      const sessionResult = await sessionGuard.createSafeSession({
         userId,
         guildId,
         channelId: interaction.channelId,

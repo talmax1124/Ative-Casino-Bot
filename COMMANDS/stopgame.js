@@ -6,6 +6,9 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 const { sessionManager, SessionState } = require('../UTILS/sessionManager');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const sessionGuard = require('../UTILS/sessionGuard');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const { getGuildId } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 
 // Developer user ID
@@ -26,6 +29,7 @@ module.exports = {
                 .setRequired(false)
                 .addChoices(
                     { name: 'Stop My Games', value: 'stop_my_games' },
+                    { name: 'Force Stop All My Sessions', value: 'force_stop_my_sessions' },
                     { name: 'List My Games', value: 'list_my_games' },
                     { name: '🔧 Dev: List All Sessions', value: 'dev_list_all' },
                     { name: '🔧 Dev: Stop User Sessions', value: 'dev_stop_user' },
@@ -81,6 +85,9 @@ module.exports = {
                 case 'stop_my_games':
                     await this.handleStopMyGames(interaction, userId, username);
                     break;
+                case 'force_stop_my_sessions':
+                    await this.handleForceStopMyGames(interaction, userId, username);
+                    break;
                 case 'list_my_games':
                     await this.handleListMyGames(interaction, userId, username);
                     break;
@@ -124,12 +131,30 @@ module.exports = {
             return;
         }
 
-        // Stop all user sessions
-        const results = await sessionManager.cancelUserSessions(
-            userId, 
-            'User requested stop all games', 
-            userId
-        );
+        // Get guild ID for proper cleanup
+        const guildId = await getGuildId(interaction);
+        
+        // Store session info before cleanup
+        const sessionsBeforeCleanup = userSessions.map(s => ({
+            gameType: s.gameType,
+            betAmount: s.betAmount
+        }));
+        
+        // Use SessionGuard for safer cleanup
+        const guardResult = await sessionGuard.forceCleanupUser(userId, guildId);
+        
+        // Create results based on cleanup success
+        const results = guardResult.success ? 
+            sessionsBeforeCleanup.map(s => ({ 
+                success: true, 
+                gameType: s.gameType, 
+                refunded: s.betAmount > 0 
+            })) : 
+            sessionsBeforeCleanup.map(s => ({ 
+                success: false, 
+                gameType: s.gameType, 
+                refunded: false 
+            }));
 
         const successful = results.filter(r => r.success);
         const failed = results.filter(r => !r.success);
@@ -417,5 +442,65 @@ module.exports = {
         });
 
         await interaction.editReply({ embeds: [embed] });
+    },
+
+    /**
+     * Handle force stopping user's games using enhanced cleanup
+     */
+    async handleForceStopMyGames(interaction, userId, username) {
+        const guildId = await getGuildId(interaction);
+        
+        // Get initial session count
+        const userSessions = sessionManager.getUserSessions(userId);
+        
+        if (userSessions.length === 0) {
+            const embed = buildSessionEmbed({
+                title: '🎮 No Active Games',
+                topFields: [
+                    { name: 'All Clear', value: 'You don\'t have any active game sessions to stop.' }
+                ],
+                color: 0x0099FF,
+                footer: 'Session Manager • Enhanced Cleanup'
+            });
+
+            await interaction.editReply({ embeds: [embed] });
+            return;
+        }
+        
+        // Use enhanced cleanup from GameSessionIntegrator
+        const cleanup = await GameSessionIntegrator.forceCleanupUserSessions(userId, guildId, 'User requested force cleanup');
+        
+        const topFields = [
+            { 
+                name: 'Enhanced Cleanup Completed', 
+                value: cleanup.success ? 
+                    `✅ Successfully cleaned **${cleanup.sessionsCleanedUp}** session(s)` :
+                    `❌ Cleanup failed: ${cleanup.error}`
+            }
+        ];
+        
+        if (cleanup.success && cleanup.results) {
+            const successfulCleanups = cleanup.results.filter(r => r.success).length;
+            const failedCleanups = cleanup.results.filter(r => !r.success).length;
+            
+            if (failedCleanups > 0) {
+                topFields.push({
+                    name: 'Partial Cleanup',
+                    value: `⚠️ ${failedCleanups} session(s) could not be fully cleaned`
+                });
+            }
+        }
+        
+        const embed = buildSessionEmbed({
+            title: `🛑 ${username}'s Enhanced Force Cleanup`,
+            topFields,
+            stageText: cleanup.success ? 'ALL SESSIONS FORCE CLEANED' : 'CLEANUP FAILED',
+            color: cleanup.success ? 0x00FF00 : 0xFF0000,
+            footer: 'Session Manager • Enhanced Cleanup • All sessions and flags cleared'
+        });
+
+        await interaction.editReply({ embeds: [embed] });
+
+        logger.info(`User ${userId} (${username}) used enhanced force cleanup on ${cleanup.sessionsCleanedUp || 0} sessions`);
     }
 };

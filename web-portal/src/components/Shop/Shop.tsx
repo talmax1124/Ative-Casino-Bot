@@ -3,6 +3,7 @@ import { ShopItem } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import ShopItemCard from './ShopItemCard';
 import PurchaseModal from './PurchaseModal';
+import PremiumSubscriptionModal from '../Currency/PremiumSubscriptionModal';
 import axios from 'axios';
 
 type ShopCategory = 'all' | 'boosts' | 'cosmetics' | 'premium';
@@ -13,8 +14,10 @@ const Shop: React.FC = () => {
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userStats, setUserStats] = useState<any>(null);
 
   const categories = [
     { key: 'all', label: 'All Items', icon: '🛒' },
@@ -24,25 +27,49 @@ const Shop: React.FC = () => {
   ];
 
   useEffect(() => {
-    const fetchShopItems = async () => {
+    const fetchData = async () => {
+      if (!user) return;
+
       try {
         setLoading(true);
-        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/shop/items`);
-        setShopItems(response.data);
+        
+        // Fetch both shop items and user stats in parallel
+        const [shopResponse, statsResponse] = await Promise.all([
+          axios.get(`${process.env.REACT_APP_API_BASE_URL}/shop/items?userId=${user.id}`),
+          axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/${user.id}/stats`)
+        ]);
+        
+        // Handle the new API response format that includes economy data
+        if (shopResponse.data && shopResponse.data.items) {
+          setShopItems(shopResponse.data.items);
+        } else {
+          // Fallback for old API format
+          setShopItems(shopResponse.data);
+        }
+        
+        setUserStats(statsResponse.data);
       } catch (err) {
-        console.error('Error fetching shop items:', err);
-        setError('Failed to load shop items');
+        console.error('Error fetching data:', err);
+        setError('Failed to load shop data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchShopItems();
-  }, []);
+    fetchData();
+  }, [user]);
 
   const filteredItems = shopItems.filter(item => {
-    if (activeCategory === 'all') return item.isActive;
-    return item.category === activeCategory && item.isActive;
+    // Check if item is active
+    if (!item.isActive) return false;
+    
+    // Filter by category
+    if (activeCategory !== 'all' && item.category !== activeCategory) return false;
+    
+    // Restrict premium items to premium members only
+    if (item.category === 'premium' && !userStats?.premiumMembership) return false;
+    
+    return true;
   });
 
   const handlePurchaseClick = (item: ShopItem) => {
@@ -50,9 +77,19 @@ const Shop: React.FC = () => {
     setShowPurchaseModal(true);
   };
 
-  const handlePurchaseSuccess = () => {
+  const handlePurchaseSuccess = async () => {
     setShowPurchaseModal(false);
     setSelectedItem(null);
+    
+    // Refresh user stats to show updated balance
+    if (user) {
+      try {
+        const response = await axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/${user.id}/stats`);
+        setUserStats(response.data);
+      } catch (error) {
+        console.error('Error refreshing user stats:', error);
+      }
+    }
   };
 
   const formatBalance = (balance: number) => {
@@ -114,10 +151,10 @@ const Shop: React.FC = () => {
           </p>
           
           {/* User Balance */}
-          {user && (
+          {user && userStats && (
             <div className="inline-flex items-center bg-casino-dark/50 backdrop-blur-lg rounded-full px-6 py-3 border border-casino-accent/20">
-              <span className="text-casino-gold font-bold text-lg">
-                💰 {formatBalance(user.balance)} Credits
+              <span className="text-casino-accent font-bold text-lg">
+                💎 {formatBalance(userStats.creditsAmount || 0)} Credits
               </span>
             </div>
           )}
@@ -141,13 +178,32 @@ const Shop: React.FC = () => {
           ))}
         </div>
 
+        {/* Premium Category Access Notice */}
+        {activeCategory === 'premium' && !userStats?.premiumMembership && (
+          <div className="bg-gradient-to-r from-casino-gold/10 to-casino-accent/10 rounded-xl p-8 border border-casino-gold/20 text-center mb-8">
+            <div className="text-4xl mb-4">👑</div>
+            <h3 className="text-2xl font-bold text-casino-gold mb-2">Premium Membership Required</h3>
+            <p className="text-gray-300 mb-6">
+              Access exclusive premium items with a Premium Membership for just $7.99/month!
+            </p>
+            <button 
+              onClick={() => setShowPremiumModal(true)}
+              className="bg-gradient-to-r from-casino-gold to-casino-accent hover:from-yellow-600 hover:to-purple-600 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105"
+            >
+              Upgrade to Premium
+            </button>
+          </div>
+        )}
+
         {/* Shop Items */}
         {filteredItems.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-6xl mb-4">🛒</div>
             <h3 className="text-2xl font-bold text-gray-400 mb-2">No items available</h3>
             <p className="text-gray-500">
-              {activeCategory === 'all' 
+              {activeCategory === 'premium' && !userStats?.premiumMembership
+                ? "Premium items require a Premium Membership"
+                : activeCategory === 'all' 
                 ? "The shop is currently empty. Check back soon!" 
                 : `No ${activeCategory} items available right now`}
             </p>
@@ -159,7 +215,7 @@ const Shop: React.FC = () => {
                 key={item.id}
                 item={item}
                 onPurchaseClick={handlePurchaseClick}
-                userBalance={user?.balance || 0}
+                userBalance={userStats?.creditsAmount || 0}
               />
             ))}
           </div>
@@ -188,19 +244,39 @@ const Shop: React.FC = () => {
               <p className="text-gray-400 text-sm">Extra bonuses daily</p>
             </div>
           </div>
-          <button className="bg-gradient-to-r from-casino-gold to-casino-accent hover:from-yellow-600 hover:to-purple-600 text-white font-bold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105">
-            Coming Soon!
+          <button 
+            onClick={() => setShowPremiumModal(true)}
+            className="bg-gradient-to-r from-casino-gold to-casino-accent hover:from-yellow-600 hover:to-purple-600 text-white font-bold py-3 px-8 rounded-lg transition-all duration-200 transform hover:scale-105"
+          >
+            Upgrade to Premium - $7.99/month
           </button>
         </div>
 
         {/* Purchase Modal */}
-        {showPurchaseModal && selectedItem && (
+        {showPurchaseModal && selectedItem && userStats && (
           <PurchaseModal
             isOpen={showPurchaseModal}
             onClose={() => setShowPurchaseModal(false)}
             onSuccess={handlePurchaseSuccess}
             item={selectedItem}
-            userBalance={user?.balance || 0}
+            userBalance={userStats.creditsAmount || 0}
+          />
+        )}
+
+        {/* Premium Subscription Modal */}
+        {showPremiumModal && (
+          <PremiumSubscriptionModal
+            isOpen={showPremiumModal}
+            onClose={() => setShowPremiumModal(false)}
+            onSuccess={() => {
+              setShowPremiumModal(false);
+              // Refresh user stats to show premium status
+              if (user) {
+                axios.get(`${process.env.REACT_APP_API_BASE_URL}/users/${user.id}/stats`)
+                  .then(response => setUserStats(response.data))
+                  .catch(error => console.error('Error refreshing user stats:', error));
+              }
+            }}
           />
         )}
       </div>

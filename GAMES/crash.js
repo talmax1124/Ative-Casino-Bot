@@ -557,18 +557,20 @@ async function handleButtonInteraction(interaction, game, client) {
     }
 
     if (interaction.customId === "crash:cashout") {
-      // Improved game state validation
-      if (!game || (!game.game_active && !game.betting_phase)) {
-        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ No active crash game found!" });
-      }
+      // Debug logging
+      log.info(`Cash out attempt by ${interaction.user.id}: game_active=${game?.game_active}, crashed=${game?.crashed}, betting_phase=${game?.betting_phase}, has_player=${game?.players?.has(interaction.user.id)}`);
       
-      if (!isCurrentGameMessage()) {
-        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "⏱️ That round has ended. Cash out was for a previous game." });
+      // Improved game state validation
+      if (!game) {
+        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ No active crash game found in this channel!" });
       }
       
       // Check if game is in active state (not betting phase, not crashed)
       if (!game.game_active || game.crashed || game.betting_phase) {
-        return interaction.reply({ flags: MessageFlags.Ephemeral, content: "❌ No active round to cash out from!" });
+        return interaction.reply({ 
+          flags: MessageFlags.Ephemeral, 
+          content: `❌ No active round to cash out from! Game state: active=${game.game_active}, crashed=${game.crashed}, betting=${game.betting_phase}` 
+        });
       }
 
       // Check if user is actually in the game

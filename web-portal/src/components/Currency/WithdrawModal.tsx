@@ -17,13 +17,11 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
 }) => {
   const { user } = useAuth();
   const [amount, setAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('paypal');
-  const [paypalEmail, setPaypalEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const minWithdraw = 10000; // Minimum 10,000 credits
-  const maxWithdraw = Math.min(currentBalance, 1000000); // Max 1M or current balance
+  const minWithdraw = 1000; // Minimum 1,000 credits
+  const maxWithdraw = currentBalance; // Max is current balance
 
   const handleWithdraw = async () => {
     if (!user) return;
@@ -40,22 +38,16 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
       return;
     }
 
-    if (paymentMethod === 'paypal' && !paypalEmail) {
-      setError('PayPal email is required');
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
 
       await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/payments/withdraw`,
+        `${process.env.REACT_APP_API_BASE_URL}/users/${user.id}/withdraw`,
         {
           userId: user.id,
           amount: withdrawAmount,
-          method: paymentMethod,
-          paypalEmail: paymentMethod === 'paypal' ? paypalEmail : undefined
+          type: 'casino_credits'
         }
       );
 
@@ -146,48 +138,31 @@ const WithdrawModal: React.FC<WithdrawModalProps> = ({
           )}
         </div>
 
-        {/* Payment Method */}
+        {/* Withdrawal Method */}
         <div className="mb-6">
-          <h3 className="text-lg font-semibold text-white mb-3">Payment Method</h3>
-          <div className="space-y-3">
-            <label className="flex items-center space-x-3 cursor-pointer">
-              <input
-                type="radio"
-                name="paymentMethod"
-                value="paypal"
-                checked={paymentMethod === 'paypal'}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="text-casino-accent"
-              />
-              <div className="flex items-center space-x-2">
-                <span className="text-xl">💙</span>
-                <span className="text-white">PayPal</span>
+          <h3 className="text-lg font-semibold text-white mb-3">Withdrawal Method</h3>
+          <div className="bg-casino-darker/50 rounded-lg p-4">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">💰</span>
+              <div>
+                <p className="text-white font-medium">Casino Credits</p>
+                <p className="text-gray-400 text-sm">Withdraw to your available balance for transfers</p>
               </div>
-            </label>
-            
-            {paymentMethod === 'paypal' && (
-              <input
-                type="email"
-                value={paypalEmail}
-                onChange={(e) => setPaypalEmail(e.target.value)}
-                placeholder="Enter your PayPal email"
-                className="w-full bg-casino-darker border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:border-casino-accent focus:outline-none ml-8"
-              />
-            )}
+            </div>
           </div>
         </div>
 
-        {/* Withdrawal Terms */}
-        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-6">
+        {/* Withdrawal Information */}
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-6">
           <div className="flex items-start space-x-2">
-            <div className="text-yellow-500 text-lg">⚠️</div>
+            <div className="text-blue-400 text-lg">ℹ️</div>
             <div>
-              <p className="text-yellow-500 font-medium text-sm">Withdrawal Terms</p>
+              <p className="text-blue-400 font-medium text-sm">Withdrawal Information</p>
               <ul className="text-gray-300 text-xs mt-1 space-y-1">
                 <li>• Minimum withdrawal: {formatAmount(minWithdraw)} credits</li>
-                <li>• Processing time: 1-3 business days</li>
-                <li>• Fee: 5% of withdrawal amount</li>
-                <li>• Withdrawals may be subject to verification</li>
+                <li>• Instant processing for casino credits</li>
+                <li>• No fees for internal withdrawals</li>
+                <li>• Credits can be transferred to bot or other users</li>
               </ul>
             </div>
           </div>

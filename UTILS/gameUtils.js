@@ -209,9 +209,10 @@ class PayoutManager {
     /**
      * Process game payout and update user balance and stats
      * @param {GameResult} gameResult - Game result data
+     * @param {Interaction} interaction - Discord interaction for profile data extraction
      * @returns {Object} Payout result with new balance
      */
-    static async processGamePayout(gameResult) {
+    static async processGamePayout(gameResult, interaction = null) {
         const { userId, guildId, gameType, betAmount, payout, won } = gameResult;
         
         try {
@@ -240,14 +241,21 @@ class PayoutManager {
                 };
             }
             
-            // Update game statistics
+            // Extract profile data for leaderboard use
+            let profileData = null;
+            if (interaction) {
+                profileData = dbManager.extractProfileFromInteraction(interaction);
+            }
+            
+            // Update game statistics with profile data
             await dbManager.updateUserStats(
                 userId,
                 guildId,
                 gameType,
                 won,
                 betAmount,
-                won ? payout : -betAmount
+                won ? payout : -betAmount,
+                profileData
             );
             
             // Clear active game

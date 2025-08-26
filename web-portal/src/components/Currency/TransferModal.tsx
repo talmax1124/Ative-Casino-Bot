@@ -35,7 +35,7 @@ const TransferModal: React.FC<TransferModalProps> = ({
     try {
       setSearching(true);
       const response = await axios.get(
-        `${process.env.REACT_APP_API_BASE_URL}/users/search?q=${encodeURIComponent(query)}&limit=5`
+        `${process.env.REACT_APP_API_BASE_URL}/api/users/search?q=${encodeURIComponent(query)}&limit=5`
       );
       setSearchResults(response.data);
     } catch (error) {
@@ -160,19 +160,21 @@ const TransferModal: React.FC<TransferModalProps> = ({
                     onClick={() => selectRecipient(result)}
                     className="w-full px-4 py-3 text-left hover:bg-casino-dark transition-colors flex items-center space-x-3"
                   >
-                    {result.avatar ? (
-                      <img
-                        src={`https://cdn.discordapp.com/avatars/${result.discordId}/${result.avatar}.png`}
-                        alt={result.username}
-                        className="w-8 h-8 rounded-full"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-casino-accent flex items-center justify-center">
-                        <span className="text-white text-sm font-bold">
-                          {result.username.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    )}
+                    <img
+                      src={result.avatar}
+                      alt={result.username}
+                      className="w-8 h-8 rounded-full"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (sibling) sibling.style.display = 'flex';
+                      }}
+                    />
+                    <div className="w-8 h-8 rounded-full bg-casino-accent flex items-center justify-center" style={{display: 'none'}}>
+                      <span className="text-white text-sm font-bold">
+                        {result.username.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
                     <div>
                       <p className="text-white font-medium">{result.username}</p>
                       <p className="text-gray-400 text-sm">#{result.discriminator}</p>
@@ -186,19 +188,21 @@ const TransferModal: React.FC<TransferModalProps> = ({
           {/* Selected Recipient */}
           {selectedRecipient && (
             <div className="mt-3 bg-casino-accent/20 border border-casino-accent/40 rounded-lg p-3 flex items-center space-x-3">
-              {selectedRecipient.avatar ? (
-                <img
-                  src={`https://cdn.discordapp.com/avatars/${selectedRecipient.discordId}/${selectedRecipient.avatar}.png`}
-                  alt={selectedRecipient.username}
-                  className="w-10 h-10 rounded-full"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-casino-accent flex items-center justify-center">
-                  <span className="text-white font-bold">
-                    {selectedRecipient.username.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              )}
+              <img
+                src={selectedRecipient.avatar}
+                alt={selectedRecipient.username}
+                className="w-10 h-10 rounded-full"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const sibling = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (sibling) sibling.style.display = 'flex';
+                }}
+              />
+              <div className="w-10 h-10 rounded-full bg-casino-accent flex items-center justify-center" style={{display: 'none'}}>
+                <span className="text-white font-bold">
+                  {selectedRecipient.username.charAt(0).toUpperCase()}
+                </span>
+              </div>
               <div>
                 <p className="text-white font-medium">{selectedRecipient.username}</p>
                 <p className="text-gray-300 text-sm">#{selectedRecipient.discriminator}</p>

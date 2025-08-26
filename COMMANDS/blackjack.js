@@ -5,15 +5,17 @@
 
 const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { PayoutManager, GameType, GameResult, TimeoutManager } = require('../UTILS/gameUtils');
-const { fmt, fmtDelta, clearActiveGame, setActiveGame, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { BlackjackGame } = require('../GAMES/blackjack');
 const GamePanel = require('../UTILS/gamePanel');
 const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionGuard = require('../UTILS/sessionGuard');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 
 
-// Active games storage
+// Active games storage (indexed by sessionId for better session management)
 const activeGames = new Map();
 
 
@@ -146,15 +148,11 @@ module.exports = {
         const guildId = await getGuildId(interaction);
 
         try {
-            // Check for existing sessions using GamePanel validation
-            const sessionValidation = GamePanel.createSessionValidationEmbed({
-                gameType: 'blackjack',
-                hasActiveSession: activeGames.has(userId),
-                activeSessionType: activeGames.has(userId) ? 'blackjack' : ''
-            });
-            
-            if (sessionValidation) {
-                return await interaction.reply({ ...sessionValidation, flags: MessageFlags.Ephemeral });
+            // Validate session before proceeding using modern session system
+            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.BLACKJACK, guildId);
+            if (!sessionValidation.valid) {
+                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'blackjack', sessionValidation);
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
             // Ensure user exists and get balance
@@ -174,32 +172,25 @@ module.exports = {
                 return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
             }
             
-            // Check balance validation with GamePanel
-            const balanceValidation = GamePanel.createSessionValidationEmbed({
-                gameType: 'blackjack',
-                hasActiveSession: false,
-                balance: userBalance.wallet,
-                minBet: 1
-            });
-            
-            if (balanceValidation) {
-                return await interaction.reply({ ...balanceValidation, flags: MessageFlags.Ephemeral });
-            }
+            // Balance validation is handled by PayoutManager.validateAndDeductBet
 
             const betAmount = validation.parsedAmount;
 
-            // Register session with SessionManager
-            setActiveGame(userId, GameType.BLACKJACK);
-            
-            const sessionResult = await sessionManager.createSession({
-                userId, guildId, channelId: interaction.channelId,
-                gameType: 'blackjack', betAmount,
+            // Create game session with enhanced protection
+            const sessionResult = await GameSessionIntegrator.createGameSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: SMGameType.BLACKJACK,
+                betAmount,
                 timeout: 300000, // 5 minutes
-                metadata: { 
-                    dealerHand: [], 
-                    playerHand: [], 
-                    gamePhase: 'initial' 
-                }
+                metadata: {
+                    gamePhase: 'dealing',
+                    dealerHand: [],
+                    playerHand: [],
+                    gameStarted: false
+                },
+                interaction
             });
             
             if (!sessionResult.success) {
@@ -208,22 +199,23 @@ module.exports = {
 
             const sessionId = sessionResult.sessionId;
 
-            // Create new game
+            // Create new game and link to session
             const game = new BlackjackGame(userId, betAmount);
             game.dealInitialCards();
             game.sessionId = sessionId; // Link game to session
-            activeGames.set(userId, game);
-            setActiveGame(userId, GameType.BLACKJACK);
+            activeGames.set(sessionId, game); // Store by sessionId instead of userId
 
             // Update session with initial game data
-            await sessionManager.updateSession(sessionId, {
-                dealerHand: game.dealerHand.getCards().map(c => c.toString()),
-                playerHand: game.playerHand.getCards().map(c => c.toString()),
-                dealerValue: game.dealerHand.getValue(),
-                playerValue: game.playerHand.getValue(),
-                gamePhase: 'playing',
-                gameStarted: true
-            });
+            await GameSessionIntegrator.updateGameSession(sessionId, {
+                gameData: {
+                    dealerHand: game.dealerHand.getCards().map(c => c.toString()),
+                    playerHand: game.playerHand.getCards().map(c => c.toString()),
+                    dealerValue: game.dealerHand.getValue(),
+                    playerValue: game.playerHand.getValue(),
+                    gamePhase: 'playing',
+                    gameStarted: true
+                }
+            }, 'initial_deal');
 
             // Create embed and buttons
             const embed = createGameEmbed(game, interaction.user, false, userBalance);
@@ -235,14 +227,7 @@ module.exports = {
                 components: actionRows 
             });
 
-            // Legacy timeout (SessionManager handles main timeout)
-            TimeoutManager.setTimeout(userId, 300, () => {
-                if (activeGames.has(userId)) {
-                    activeGames.delete(userId);
-                    clearActiveGame(userId);
-                    // Don't refund here - SessionManager handles it
-                }
-            });
+            // Session timeout is handled by GameSessionIntegrator
 
             // Check for immediate blackjack
             if (game.playerHand.isBlackjack()) {
@@ -264,15 +249,14 @@ module.exports = {
                 await PayoutManager.processGamePayout(gameResult);
                 
                 // Complete session
-                await sessionManager.completeSession(sessionId, {
+                await GameSessionIntegrator.completeGameSession(sessionId, {
                     outcome: 'BLACKJACK',
                     payout: result.payout,
-                    won: result.won
+                    won: result.won,
+                    finalResult: result
                 });
 
-                activeGames.delete(userId);
-                clearActiveGame(userId);
-                TimeoutManager.clearTimeout(userId);
+                activeGames.delete(sessionId);
 
                 // Create final embed showing blackjack
                 const finalEmbed = createGameEmbed(game, interaction.user, true, userBalance);
@@ -298,11 +282,8 @@ module.exports = {
         } catch (error) {
             logger.error(`Error in blackjack command: ${error.message}`);
             
-            // Cleanup on error
-            if (activeGames.has(userId)) {
-                activeGames.delete(userId);
-                clearActiveGame(userId);
-            }
+            // Handle game error with session cleanup
+            await GameSessionIntegrator.handleGameError(userId, SMGameType.BLACKJACK, validation?.parsedAmount || 0, guildId, 'Blackjack game initialization error');
             
             // Refund bet if validation passed (only if validation exists)
             try {
@@ -320,10 +301,18 @@ module.exports = {
                 showRetry: false
             });
 
+            // Enhanced error response handling
             try {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } else if (interaction.deferred) {
+                    await interaction.editReply({ embeds: [errorEmbed] });
+                } else {
+                    await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                }
             } catch (replyError) {
                 logger.error(`Failed to send error reply: ${replyError.message}`);
+                logger.error(`Interaction state - replied: ${interaction.replied}, deferred: ${interaction.deferred}`);
             }
         }
     },
@@ -333,39 +322,62 @@ module.exports = {
         const userId = interaction.user.id;
         const guildId = await getGuildId(interaction);
         
-        if (!activeGames.has(userId)) {
+        // Find active game by user's session
+        let game = null;
+        let sessionId = null;
+        
+        // Find user's active blackjack session
+        const userSessions = sessionManager.getUserSessions(userId);
+        const blackjackSession = userSessions.find(s => 
+            s.gameType === SMGameType.BLACKJACK && 
+            (s.state === 'active' || s.state === 'paused')
+        );
+        
+        if (blackjackSession) {
+            sessionId = blackjackSession.sessionId;
+            game = activeGames.get(sessionId);
+        }
+        
+        if (!game || !sessionId) {
             return await interaction.reply({ content: 'No active blackjack game found.', flags: MessageFlags.Ephemeral });
         }
 
-        const game = activeGames.get(userId);
         const userBalance = await dbManager.getUserBalance(userId, guildId);
 
         switch (actionId) {
             case 'hit':
-                // Hit
-                game.hit();
+                try {
+                    // Hit
+                    game.hit();
 
-                // Check for bust or completion
-                if (game.isCurrentHandComplete()) {
-                    if (game.splitHands.length > 0 && !game.allHandsComplete()) {
-                        // Move to next split hand
-                        game.currentHandIndex++;
-                    } else {
-                        // All hands complete, dealer plays
-                        game.dealerPlay();
-                        await module.exports.endGame(interaction, game, userId, guildId);
-                        return;
+                    // Check for bust or completion
+                    if (game.isCurrentHandComplete()) {
+                        if (game.splitHands.length > 0 && !game.allHandsComplete()) {
+                            // Move to next split hand
+                            game.currentHandIndex++;
+                        } else {
+                            // All hands complete, dealer plays
+                            game.dealerPlay();
+                            await module.exports.endGame(interaction, game, userId, guildId);
+                            return;
+                        }
                     }
+
+                    // Update embed
+                    const hitEmbed = createGameEmbed(game, interaction.user, false, userBalance);
+                    const hitActionRows = createGameButtons(userId, game);
+
+                    await interaction.update({ 
+                        embeds: [hitEmbed], 
+                        components: hitActionRows 
+                    });
+                } catch (hitError) {
+                    logger.error(`Error in blackjack hit action: ${hitError.message}`);
+                    await interaction.reply({ 
+                        content: '❌ An error occurred while hitting. Please try again.', 
+                        flags: MessageFlags.Ephemeral 
+                    });
                 }
-
-                // Update embed
-                const hitEmbed = createGameEmbed(game, interaction.user, false, userBalance);
-                const hitActionRows = createGameButtons(userId, game);
-
-                await interaction.update({ 
-                    embeds: [hitEmbed], 
-                    components: hitActionRows 
-                });
                 break;
 
             case 'stand':
@@ -477,19 +489,26 @@ module.exports = {
     endGame: async function(interaction, game, userId, guildId) {
         try {
             // Safety check - ensure game still exists
-            if (!activeGames.has(userId) || activeGames.get(userId) !== game) {
-                logger.warn(`endGame called but game no longer exists or differs for user ${userId}`);
+            if (!activeGames.has(game.sessionId) || activeGames.get(game.sessionId) !== game) {
+                logger.warn(`endGame called but game no longer exists or differs for session ${game.sessionId}`);
                 return;
             }
             const results = game.getResults();
+            
+            // Safety check - ensure we have results
+            if (!results || results.length === 0) {
+                logger.error(`No results returned for blackjack game for user ${userId}`);
+                return;
+            }
+            
             let totalPayout = 0;
             let winnings = 0;
 
             // Process each hand result
             for (const result of results) {
-                totalPayout += result.payout;
+                totalPayout += result.payout || 0;
                 if (result.won) {
-                    winnings += result.payout;
+                    winnings += result.payout || 0;
                 }
             }
 
@@ -504,50 +523,91 @@ module.exports = {
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             const finalEmbed = createGameEmbed(game, interaction.user, true, userBalance);
 
-            // Create result message
+            // Create result message with enhanced safety checks
             let resultMessage = '';
-            if (results.length > 1) {
-                // Split hands
-                resultMessage = results.map((result, i) => 
-                    `Hand ${i + 1}: ${result.won ? '🎉 WIN!' : '💸 LOSE'} ${fmt(result.payout)}`
-                ).join('\n');
-                resultMessage += `\n\n**Total Payout: ${fmt(totalPayout)}**`;
-            } else {
-                const result = results[0];
-                if (result.won) {
-                    resultMessage = `🎉 **YOU WIN!** ${fmt(result.payout)}`;
+            try {
+                if (results.length > 1) {
+                    // Split hands
+                    const handResults = [];
+                    for (let i = 0; i < results.length; i++) {
+                        const result = results[i] || {};
+                        const payout = result.payout || 0;
+                        const status = result.won ? '🎉 WIN!' : '💸 LOSE';
+                        handResults.push(`Hand ${i + 1}: ${status} ${fmt(payout)}`);
+                    }
+                    resultMessage = handResults.join('\n');
+                    resultMessage += `\n\n**Total Payout: ${fmt(totalPayout)}**`;
                 } else {
-                    resultMessage = `💸 **YOU LOSE!** Better luck next time.`;
+                    const result = results[0] || {};
+                    const payout = result.payout || 0;
+                    if (result.won) {
+                        resultMessage = `🎉 **YOU WIN!** ${fmt(payout)}`;
+                    } else if (result.outcome === 'PUSH') {
+                        resultMessage = `🤝 **PUSH** - Your bet is returned.`;
+                    } else {
+                        resultMessage = `💸 **YOU LOSE!** Better luck next time.`;
+                    }
                 }
+            } catch (messageError) {
+                logger.error(`Error creating result message for user ${userId}: ${messageError.message}`);
+                resultMessage = `🎰 **GAME COMPLETE** - Total Payout: ${fmt(totalPayout)}`;
+            }
+            
+            // Safety check - ensure resultMessage is not empty and has content
+            if (!resultMessage || resultMessage.trim() === '' || resultMessage.length < 3) {
+                resultMessage = `🎰 **GAME COMPLETE** - Total Payout: ${fmt(totalPayout)}`;
+                logger.warn(`Empty or invalid result message for blackjack game, using fallback for user ${userId}`);
             }
 
+            // Enhanced interaction update with validation
             const finalData = {
-                content: resultMessage,
+                content: resultMessage || `🎰 Game Complete - Total Payout: ${fmt(totalPayout)}`,
                 embeds: [finalEmbed],
                 components: GamePanel.createGameButtons({ actions: ['play_again', 'quit'] })
             };
 
             try {
-                await interaction.update(finalData);
+                // Validate finalData before sending
+                if (!finalData.content || finalData.content.trim() === '') {
+                    finalData.content = `🎰 Game Complete - Payout: ${fmt(totalPayout)}`;
+                }
+                
+                if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply(finalData);
+                } else {
+                    await interaction.update(finalData);
+                }
+                
                 logger.info(`Blackjack game successfully ended for user ${userId}`);
             } catch (interactionError) {
                 logger.error(`Failed to update interaction for blackjack endGame: ${interactionError.message}`);
-                // Still clean up the game even if interaction update fails
+                
+                // Fallback: try to send a new reply if update fails
+                try {
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({
+                            content: `🎰 Game Complete - Payout: ${fmt(totalPayout)}`,
+                            embeds: [finalEmbed],
+                            components: GamePanel.createGameButtons({ actions: ['play_again', 'quit'] })
+                        });
+                    }
+                } catch (fallbackError) {
+                    logger.error(`Failed fallback reply for blackjack endGame: ${fallbackError.message}`);
+                }
             }
 
             // Complete session if game has one
             if (game.sessionId) {
-                await sessionManager.completeSession(game.sessionId, {
+                await GameSessionIntegrator.completeGameSession(game.sessionId, {
                     outcome: 'COMPLETED',
                     payout: totalPayout,
-                    won: totalPayout > 0
+                    won: totalPayout > 0,
+                    results: results
                 });
             }
 
             // Clean up after interaction update (success or failure)
-            activeGames.delete(userId);
-            clearActiveGame(userId);
-            TimeoutManager.clearTimeout(userId);
+            activeGames.delete(game.sessionId);
 
             // Log game end
             await sendLogMessage(

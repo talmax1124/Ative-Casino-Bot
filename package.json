@@ -5,11 +5,14 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "build": "echo 'Discord bot build complete'",
     "dev": "nodemon index.js",
     "test": "node test.js",
+    "test:health": "node test-health-check.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "setup": "node setup.js"
+    "setup": "node setup.js",
+    "postinstall": "echo 'Bot dependencies installed successfully'"
   },
   "keywords": [
     "discord",
@@ -35,6 +38,7 @@
     "ml-random-forest": "^2.1.0",
     "moment": "^2.30.1",
     "moment-timezone": "^0.5.45",
+    "mongodb": "^6.18.0",
     "regression": "^2.0.1",
     "simple-statistics": "^7.8.8",
     "squareup": "^1.0.0",

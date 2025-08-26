@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GameStats } from '../../types';
 
 interface GameStatsChartProps {
@@ -6,6 +7,12 @@ interface GameStatsChartProps {
 }
 
 const GameStatsChart: React.FC<GameStatsChartProps> = ({ gameStats }) => {
+  const navigate = useNavigate();
+
+  const handleViewDetailedStats = () => {
+    navigate('/stats');
+  };
+
   const getGameIcon = (gameType: string) => {
     switch (gameType.toLowerCase()) {
       case 'slots':
@@ -126,7 +133,10 @@ const GameStatsChart: React.FC<GameStatsChartProps> = ({ gameStats }) => {
       ))}
       
       <div className="pt-3 border-t border-gray-700">
-        <button className="w-full text-center text-casino-accent hover:text-purple-400 text-sm font-medium transition-colors">
+        <button 
+          onClick={handleViewDetailedStats}
+          className="w-full text-center text-casino-accent hover:text-purple-400 text-sm font-medium transition-colors"
+        >
           View Detailed Stats →
         </button>
       </div>

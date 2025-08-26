@@ -335,7 +335,117 @@ client.once('clientReady', async () => {
     } else if (IS_PRODUCTION) {
         logger.info('Running in production mode - no announcement message');
     }
+
+    // Start announcement processor
+    startAnnouncementProcessor();
 });
+
+// Announcement processor to handle queued Discord announcements
+async function startAnnouncementProcessor() {
+    setInterval(async () => {
+        try {
+            // Check for unprocessed announcements
+            const announcementsSnapshot = await dbManager.db.collection('discord_announcements')
+                .where('processed', '==', false)
+                .limit(5)
+                .get();
+
+            if (announcementsSnapshot.empty) return;
+
+            for (const doc of announcementsSnapshot.docs) {
+                const announcement = doc.data();
+                
+                try {
+                    if (announcement.type === 'premium_role_assignment') {
+                        // Handle premium role assignment
+                        await handlePremiumRoleAssignment(announcement.userId);
+                        await doc.ref.update({ processed: true });
+                        logger.info(`👑 Assigned premium role to user ${announcement.userId}`);
+                    } else if (announcement.channelId && announcement.payload) {
+                        // Handle regular announcements
+                        const channel = await client.channels.fetch(announcement.channelId);
+                        if (channel) {
+                            await channel.send(announcement.payload);
+                            await doc.ref.update({ processed: true });
+                            logger.info(`📢 Sent ${announcement.type} announcement to ${announcement.channelId}`);
+                        }
+                    }
+                } catch (error) {
+                    logger.error(`Failed to process announcement ${doc.id}: ${error.message}`);
+                    
+                    // Mark as failed after 5 minutes
+                    const announcementAge = Date.now() - announcement.timestamp.toDate().getTime();
+                    if (announcementAge > 5 * 60 * 1000) {
+                        await doc.ref.update({ processed: true, failed: true });
+                    }
+                }
+            }
+        } catch (error) {
+            logger.error(`Announcement processor error: ${error.message}`);
+        }
+    }, 300000); // Check every 5 minutes (reduced from 30 seconds to avoid quota)
+}
+
+// Handle premium role assignment
+async function handlePremiumRoleAssignment(userId) {
+    try {
+        // Get all guilds the bot is in
+        for (const [guildId, guild] of client.guilds.cache) {
+            try {
+                const member = await guild.members.fetch(userId);
+                if (member) {
+                    // Look for premium role (case insensitive)
+                    const premiumRole = guild.roles.cache.find(role => 
+                        role.name.toLowerCase().includes('premium') ||
+                        role.name.toLowerCase().includes('vip') ||
+                        role.name === 'PREMIUM'
+                    );
+                    
+                    if (premiumRole && !member.roles.cache.has(premiumRole.id)) {
+                        await member.roles.add(premiumRole);
+                        logger.info(`✅ Added premium role "${premiumRole.name}" to ${member.user.username} in ${guild.name}`);
+                        
+                        // Send congratulations message to logs channel
+                        const logsChannel = guild.channels.cache.get(LOG_CHANNEL_ID);
+                        if (logsChannel) {
+                            const embed = {
+                                title: '👑 New Premium Member!',
+                                description: `**${member.user.username}** has subscribed to Premium membership!`,
+                                color: 0xFFD700,
+                                thumbnail: {
+                                    url: member.user.displayAvatarURL()
+                                },
+                                fields: [
+                                    {
+                                        name: '🎯 Role Assigned',
+                                        value: premiumRole.name,
+                                        inline: true
+                                    },
+                                    {
+                                        name: '💰 Benefits Unlocked',
+                                        value: 'Premium shop access, discounts, and monthly bonuses!',
+                                        inline: true
+                                    }
+                                ],
+                                timestamp: new Date().toISOString()
+                            };
+                            
+                            await logsChannel.send({ embeds: [embed] });
+                        }
+                    } else if (!premiumRole) {
+                        logger.warn(`⚠️ No premium role found in guild ${guild.name} for user ${userId}`);
+                    }
+                }
+            } catch (guildError) {
+                // User not in this guild, continue to next
+                logger.debug(`User ${userId} not found in guild ${guild.name}`);
+            }
+        }
+    } catch (error) {
+        logger.error(`Failed to assign premium role to ${userId}: ${error.message}`);
+        throw error;
+    }
+}
 
 client.on('interactionCreate', async interaction => {
     // Handle slash commands
@@ -695,22 +805,25 @@ client.on('interactionCreate', async interaction => {
         const customId = interaction.customId;
 
         try {
-            // Handle blackjack buttons (new namespace format: bj-{userId}:{action})
+            // Handle blackjack buttons (format: bj-{userId}-{action})
             if (customId.startsWith('bj-')) {
-                const [namespace, actionId] = customId.split(':');
-                const userId = namespace.split('-')[1];
+                const parts = customId.split('-');
+                if (parts.length >= 3) {
+                    const userId = parts[1];
+                    const actionId = parts.slice(2).join('-'); // Handle multi-part action names
 
-                // Verify the user is the game owner
-                if (userId === interaction.user.id) {
-                    const blackjackCommand = client.commands.get('blackjack');
-                    if (blackjackCommand && blackjackCommand.handleBlackjackAction) {
-                        await blackjackCommand.handleBlackjackAction(interaction, actionId);
+                    // Verify the user is the game owner
+                    if (userId === interaction.user.id) {
+                        const blackjackCommand = client.commands.get('blackjack');
+                        if (blackjackCommand && blackjackCommand.handleBlackjackAction) {
+                            await blackjackCommand.handleBlackjackAction(interaction, actionId);
+                        }
+                    } else {
+                        await interaction.reply({
+                            content: 'This is not your game!',
+                            ephemeral: true
+                        });
                     }
-                } else {
-                    await interaction.reply({
-                        content: 'This is not your game!',
-                        ephemeral: true
-                    });
                 }
             }
             // Handle duck game buttons
@@ -910,6 +1023,13 @@ client.on('interactionCreate', async interaction => {
                 const mystatsCommand = client.commands.get('mystats');
                 if (mystatsCommand && mystatsCommand.handleButtonInteraction) {
                     await mystatsCommand.handleButtonInteraction(interaction, customId);
+                }
+            }
+            // Handle myitems buttons
+            else if (customId.startsWith('myitems_')) {
+                const myitemsCommand = client.commands.get('myitems');
+                if (myitemsCommand && myitemsCommand.handleButtonInteraction) {
+                    await myitemsCommand.handleButtonInteraction(interaction, customId);
                 }
             }
             // Handle game help buttons
@@ -1487,10 +1607,26 @@ process.on('SIGINT', async () => {
     process.exit(0);
 });
 
+// Initialize health check server for Railway deployment
+const HealthCheckServer = require('./UTILS/healthCheck');
+let healthCheckServer;
+
+// Start health check server
+if (process.env.NODE_ENV === 'production' || process.env.ENVIRONMENT === 'production') {
+    healthCheckServer = new HealthCheckServer(client);
+    healthCheckServer.start();
+}
+
+// Enhanced shutdown handler for Railway
 process.on('SIGTERM', async () => {
     logger.info('Received SIGTERM, shutting down gracefully...');
     
     try {
+        // Stop health check server
+        if (healthCheckServer) {
+            healthCheckServer.stop();
+        }
+        
         await sessionManager.shutdown();
         logger.info('Session Manager shutdown completed');
     } catch (error) {

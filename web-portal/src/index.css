@@ -33,3 +33,12 @@ code {
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-purple-600;
 }
+
+/* Square Payment Form Styles */
+.square-payment-form {
+  /* Override Square's default styles */
+}
+
+.square-payment-form iframe {
+  min-height: 40px !important;
+}

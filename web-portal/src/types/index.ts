@@ -66,6 +66,7 @@ export interface DashboardStats {
   totalWinnings: number;
   totalLosses: number;
   gamesPlayed: number;
+  gamesWon: number;
   winRate: number;
   favoriteGame: string;
   currentRank: number;

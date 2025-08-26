@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { DashboardStats, GameStats } from '../../types';
 import StatsCard from './StatsCard';
@@ -8,10 +9,21 @@ import axios from 'axios';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [gameStats, setGameStats] = useState<GameStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Navigation handlers
+  const handleShopClick = () => navigate('/shop');
+  const handleDepositClick = () => navigate('/transactions');
+  const handleLeaderboardClick = () => navigate('/leaderboards');
+  const handlePlayNowClick = () => {
+    // For now, redirect to leaderboards since we don't have a games page
+    // TODO: Create a dedicated games page
+    navigate('/leaderboards');
+  };
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -134,8 +146,8 @@ const Dashboard: React.FC = () => {
             value={`💰 ${formatCurrency(stats?.totalBalance || 0)}`}
             icon="💳"
             bgColor="bg-casino-green"
-            change={stats ? `+${formatCurrency(stats.totalWinnings - stats.totalLosses)}` : '+0'}
-            changeType="positive"
+            change={stats ? `${stats.totalWinnings - stats.totalLosses >= 0 ? '+' : ''}${formatCurrency(stats.totalWinnings - stats.totalLosses)}` : '+0'}
+            changeType={stats ? (stats.totalWinnings - stats.totalLosses >= 0 ? "positive" : "negative") : "positive"}
           />
           
           <StatsCard
@@ -189,22 +201,34 @@ const Dashboard: React.FC = () => {
         <div className="mt-8 bg-casino-dark/50 backdrop-blur-lg rounded-xl p-6 border border-casino-accent/20">
           <h3 className="text-xl font-bold text-white mb-6">⚡ Quick Actions</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button className="bg-casino-accent hover:bg-purple-700 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 flex flex-col items-center space-y-2">
+            <button 
+              onClick={handleShopClick}
+              className="bg-casino-accent hover:bg-purple-700 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 flex flex-col items-center space-y-2"
+            >
               <span className="text-2xl">🛒</span>
               <span>Shop</span>
             </button>
             
-            <button className="bg-casino-green hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 flex flex-col items-center space-y-2">
+            <button 
+              onClick={handleDepositClick}
+              className="bg-casino-green hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 flex flex-col items-center space-y-2"
+            >
               <span className="text-2xl">💰</span>
               <span>Deposit</span>
             </button>
             
-            <button className="bg-casino-gold hover:bg-yellow-600 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 flex flex-col items-center space-y-2">
+            <button 
+              onClick={handleLeaderboardClick}
+              className="bg-casino-gold hover:bg-yellow-600 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 flex flex-col items-center space-y-2"
+            >
               <span className="text-2xl">🏆</span>
               <span>Leaderboard</span>
             </button>
             
-            <button className="bg-casino-red hover:bg-red-700 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 flex flex-col items-center space-y-2">
+            <button 
+              onClick={handlePlayNowClick}
+              className="bg-casino-red hover:bg-red-700 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 flex flex-col items-center space-y-2"
+            >
               <span className="text-2xl">🎮</span>
               <span>Play Now</span>
             </button>

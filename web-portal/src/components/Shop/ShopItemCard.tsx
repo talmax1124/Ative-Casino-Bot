@@ -53,12 +53,23 @@ const ShopItemCard: React.FC<ShopItemCardProps> = ({
   return (
     <div className="bg-casino-dark/50 backdrop-blur-lg rounded-xl border border-gray-700/50 hover:border-casino-accent/40 transition-all duration-300 transform hover:scale-[1.02] overflow-hidden">
       {/* Item Image/Icon */}
-      <div className="relative h-48 bg-gradient-to-br from-casino-dark to-casino-darker flex items-center justify-center">
+      <div className="relative h-48 bg-gradient-to-br from-casino-dark to-casino-darker flex items-center justify-center overflow-hidden">
         {item.iconUrl ? (
           <img
             src={item.iconUrl}
             alt={item.name}
-            className="w-24 h-24 object-cover rounded-lg"
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to icon if image fails to load
+              e.currentTarget.style.display = 'none';
+              const parent = e.currentTarget.parentElement;
+              if (parent) {
+                const fallback = document.createElement('div');
+                fallback.className = 'w-24 h-24 bg-casino-accent/20 rounded-lg flex items-center justify-center';
+                fallback.innerHTML = `<span class="text-4xl">${getCategoryIcon(item.category)}</span>`;
+                parent.appendChild(fallback);
+              }
+            }}
           />
         ) : (
           <div className="w-24 h-24 bg-casino-accent/20 rounded-lg flex items-center justify-center">
