@@ -376,6 +376,13 @@ async function handleGameExecution(interaction, client, sessionId = null) {
       crashManager.removeGame(channelId);
       game = crashManager.getGame(channelId, guildId);
     }
+    
+    // Store session ID for completion later
+    if (sessionId) {
+      game.sessionId = sessionId;
+      game.sessionUserId = userId;
+      game.sessionGuildId = guildId;
+    }
 
     // Check if there's already an active game
     if (game.game_active || !game.betting_phase) {
@@ -749,7 +756,28 @@ async function startGameLoop(game, client) {
           log.error("Failed to show crash result:", error);
         }
 
-        // Cleanup
+        // Complete session immediately after showing results
+        setTimeout(async () => {
+          // Complete session if exists
+          if (game.sessionId) {
+            try {
+              const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+              const winners = Array.from(game.players.values()).filter(p => p.cashed_out);
+              await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                outcome: winners.length > 0 ? 'SOME_WINNERS' : 'ALL_LOST',
+                crashPoint: game.crash_point,
+                totalPlayers: game.players.size,
+                winners: winners.length,
+                gameCompleted: true
+              });
+              log.info(`Completed crash game session ${game.sessionId} with ${winners.length} winners`);
+            } catch (sessionError) {
+              log.error(`Failed to complete crash session: ${sessionError.message}`);
+            }
+          }
+        }, 3500); // Complete session right after results are shown
+        
+        // Cleanup game instance later
         setTimeout(() => {
           const current = crashManager.games.get(game.channelId);
           if (current && current.instanceId === game.instanceId) {

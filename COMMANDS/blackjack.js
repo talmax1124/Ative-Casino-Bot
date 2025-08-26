@@ -13,72 +13,128 @@ const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const sessionGuard = require('../UTILS/sessionGuard');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
+const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
+const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 
 
 // Active games storage (indexed by sessionId for better session management)
 const activeGames = new Map();
 
+// Initialize Game Panel Util
+const gamePanelUtil = new GamePanelUtil();
+
 
 /**
- * Create game embed with standardized GamePanel system
+ * Create game embed with consistent styling using gameSessionKit
  */
 function createGameEmbed(game, user, showDealer = false, balance = null) {
+    // Top fields for game information
+    const topFields = [];
+    
     // Dealer's hand
     const dealerDisplay = showDealer ? 
         `${game.dealerHand.toString()} (${game.dealerHand.getValue()})` :
         `${game.dealerHand.getDisplayString(true)} (??)`;
     
-    // Player's hand(s) display
-    let playerDisplay;
+    topFields.push({
+        name: '🏠 DEALER HAND',
+        value: dealerDisplay,
+        inline: false
+    });
+    
+    // Player's hand(s)
     if (game.splitHands.length > 0) {
-        let display = '';
+        let playerDisplay = '';
         for (let i = 0; i < game.splitHands.length; i++) {
             const hand = game.splitHands[i];
             const isCurrentHand = i === game.currentHandIndex && !game.gameEnded;
             const status = hand.isBusted() ? ' [BUST]' : hand.isStood() ? ' [STAND]' : '';
             const indicator = isCurrentHand ? '→ ' : '  ';
-            display += `${indicator}Hand ${i + 1}: ${hand.toString()} (${hand.getValue()})${status}\n`;
+            playerDisplay += `${indicator}Hand ${i + 1}: ${hand.toString()} (${hand.getValue()})${status}\n`;
         }
-        playerDisplay = display.trim();
+        topFields.push({
+            name: '🎲 YOUR HANDS',
+            value: playerDisplay.trim(),
+            inline: false
+        });
     } else {
         const playerStatus = game.playerHand.isBusted() ? ' [BUST]' : '';
-        playerDisplay = `${game.playerHand.toString()} (${game.playerHand.getValue()})${playerStatus}`;
+        const playerDisplay = `${game.playerHand.toString()} (${game.playerHand.getValue()})${playerStatus}`;
+        topFields.push({
+            name: '🎲 YOUR HAND', 
+            value: playerDisplay,
+            inline: false
+        });
     }
 
-    // Determine game status and description
-    let status = 'active';
-    let description = `🏠 **Dealer:** ${dealerDisplay}\n🎲 **Your Hand:** ${playerDisplay}`;
-    
+    // Banking fields
+    const bankFields = [];
+    if (balance) {
+        bankFields.push(
+            { name: '💵 Wallet', value: fmt(balance.wallet), inline: true },
+            { name: '🏦 Bank', value: fmt(balance.bank), inline: true },
+            { name: '🎯 Bet', value: fmt(game.betAmount), inline: true }
+        );
+    }
+
+    // Determine game stage and color
+    let stageText = '';
+    let color = 0x00ff00; // Bright green like reference
+
     if (game.gameEnded) {
         const results = game.getResults();
         if (results.length > 1) {
+            // Split hands results
             const wins = results.filter(r => r.won).length;
-            status = wins > 0 ? 'win' : 'loss';
+            stageText = wins > 0 ? 'SPLIT WIN' : 'SPLIT LOSS';
+            color = wins > 0 ? 0x00ff00 : 0xff0000;
         } else {
             const result = results[0];
             if (result.outcome === 'BLACKJACK') {
-                status = 'win';
-                description += '\n\n🎉 **BLACKJACK!**';
+                stageText = 'BLACKJACK';
+                color = 0xFFD700; // Gold for blackjack
             } else if (result.won) {
-                status = 'win';
+                stageText = 'WIN';
+                color = 0x00ff00; // Green for win
             } else if (result.outcome === 'PUSH') {
-                status = 'draw';
-                description += '\n\n🤝 **PUSH**';
+                stageText = 'PUSH';
+                color = 0xFFFF00; // Yellow for push
             } else {
-                status = 'loss';
+                stageText = 'LOSS';
+                color = 0xff0000; // Red for loss
             }
         }
+    } else {
+        stageText = 'GAME';
+        color = 0x00ff00; // Bright green for active game
     }
 
-    return GamePanel.createGameEmbed({
+    return buildSessionEmbed({
         title: `🃏 ${user.displayName}'s Blackjack`,
-        description,
-        gameType: 'blackjack',
-        status,
-        betAmount: game.betAmount,
-        balance: balance?.wallet || 0,
+        topFields,
+        bankFields,
+        stageText,
+        color,
         footer: game.gameEnded ? 'Game completed' : 'Choose your action'
     });
+}
+
+/**
+ * Create game table image with cards only
+ */
+async function createGameTableImage(game, showDealerCard = false) {
+    try {
+        return await gamePanelUtil.createBlackjackTableImage({
+            playerCards: game.playerHand.toString(),
+            dealerCards: game.dealerHand.toString(),
+            showDealerCard,
+            splitHands: game.splitHands.map(hand => hand.toString())
+        });
+    } catch (error) {
+        logger.error(`Error creating game table image: ${error.message}`);
+        // Return null if image creation fails
+        return null;
+    }
 }
 
 /**
@@ -147,6 +203,8 @@ module.exports = {
         const amount = interaction.options.getString('amount');
         const guildId = await getGuildId(interaction);
 
+        let validation; // Declare validation at function scope
+        
         try {
             // Validate session before proceeding using modern session system
             const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.BLACKJACK, guildId);
@@ -160,7 +218,7 @@ module.exports = {
             const userBalance = await dbManager.getUserBalance(userId, guildId);
 
             // Validate and deduct bet
-            const validation = await PayoutManager.validateAndDeductBet(
+            validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.BLACKJACK,
@@ -208,8 +266,8 @@ module.exports = {
             // Update session with initial game data
             await GameSessionIntegrator.updateGameSession(sessionId, {
                 gameData: {
-                    dealerHand: game.dealerHand.getCards().map(c => c.toString()),
-                    playerHand: game.playerHand.getCards().map(c => c.toString()),
+                    dealerHand: game.dealerHand.cards.map(c => c.toString()),
+                    playerHand: game.playerHand.cards.map(c => c.toString()),
                     dealerValue: game.dealerHand.getValue(),
                     playerValue: game.playerHand.getValue(),
                     gamePhase: 'playing',
@@ -217,15 +275,23 @@ module.exports = {
                 }
             }, 'initial_deal');
 
-            // Create embed and buttons
+            // Create embed and table image
             const embed = createGameEmbed(game, interaction.user, false, userBalance);
             const actionRows = createGameButtons(userId, game);
+            const tableImage = await createGameTableImage(game, false);
 
-            // Send game message
-            await interaction.reply({ 
+            // Send game message with visual table
+            const messageData = { 
                 embeds: [embed], 
-                components: actionRows 
-            });
+                components: actionRows
+            };
+            
+            if (tableImage) {
+                messageData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                embed.setImage('attachment://blackjack-table.png');
+            }
+            
+            await interaction.reply(messageData);
 
             // Session timeout is handled by GameSessionIntegrator
 
@@ -260,12 +326,20 @@ module.exports = {
 
                 // Create final embed showing blackjack
                 const finalEmbed = createGameEmbed(game, interaction.user, true, userBalance);
+                const tableImage = await createGameTableImage(game, true);
                 
-                await interaction.editReply({ 
+                const finalData = {
                     content: `🎉 **BLACKJACK!** You won ${fmt(result.payout)}!`,
                     embeds: [finalEmbed], 
                     components: GamePanel.createGameButtons({ actions: ['play_again', 'quit'] })
-                });
+                };
+                
+                if (tableImage) {
+                    finalData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                    finalEmbed.setImage('attachment://blackjack-table.png');
+                }
+                
+                await interaction.editReply(finalData);
                 
                 return;
             }
@@ -282,17 +356,25 @@ module.exports = {
         } catch (error) {
             logger.error(`Error in blackjack command: ${error.message}`);
             
-            // Handle game error with session cleanup
-            await GameSessionIntegrator.handleGameError(userId, SMGameType.BLACKJACK, validation?.parsedAmount || 0, guildId, 'Blackjack game initialization error');
-            
-            // Refund bet if validation passed (only if validation exists)
+            // Handle game error with session cleanup and refund
+            let refundAmount = 0;
             try {
+                // Try to get bet amount from validation or other sources
                 if (typeof validation !== 'undefined' && validation?.parsedAmount) {
-                    await dbManager.updateUserBalance(userId, guildId, validation.parsedAmount, 0);
+                    refundAmount = validation.parsedAmount;
+                } else {
+                    // Try to parse amount directly as fallback
+                    const userBalance = await dbManager.getUserBalance(userId, guildId);
+                    const parsedAmount = PayoutManager.parseAmount(amount, userBalance.wallet);
+                    if (parsedAmount > 0) {
+                        refundAmount = parsedAmount;
+                    }
                 }
-            } catch (refundError) {
-                logger.error(`Failed to refund bet: ${refundError.message}`);
+            } catch (parseError) {
+                logger.warn(`Could not determine refund amount: ${parseError.message}`);
             }
+            
+            await GameSessionIntegrator.handleGameError(userId, SMGameType.BLACKJACK, refundAmount, guildId, 'Blackjack game initialization error');
             
             const { embed: errorEmbed } = GamePanel.createErrorEmbed({
                 title: '❌ Blackjack Error',
@@ -366,11 +448,19 @@ module.exports = {
                     // Update embed
                     const hitEmbed = createGameEmbed(game, interaction.user, false, userBalance);
                     const hitActionRows = createGameButtons(userId, game);
+                    const tableImage = await createGameTableImage(game, false);
 
-                    await interaction.update({ 
+                    const updateData = {
                         embeds: [hitEmbed], 
-                        components: hitActionRows 
-                    });
+                        components: hitActionRows
+                    };
+                    
+                    if (tableImage) {
+                        updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                        hitEmbed.setImage('attachment://blackjack-table.png');
+                    }
+
+                    await interaction.update(updateData);
                 } catch (hitError) {
                     logger.error(`Error in blackjack hit action: ${hitError.message}`);
                     await interaction.reply({ 
@@ -390,11 +480,19 @@ module.exports = {
                     
                     const standEmbed = createGameEmbed(game, interaction.user, false, userBalance);
                     const standActionRows = createGameButtons(userId, game);
+                    const tableImage = await createGameTableImage(game, false);
 
-                    await interaction.update({ 
+                    const updateData = {
                         embeds: [standEmbed], 
-                        components: standActionRows 
-                    });
+                        components: standActionRows
+                    };
+                    
+                    if (tableImage) {
+                        updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                        standEmbed.setImage('attachment://blackjack-table.png');
+                    }
+
+                    await interaction.update(updateData);
                 } else {
                     // Game complete, dealer plays
                     game.dealerPlay();
@@ -450,11 +548,19 @@ module.exports = {
                 // Update embed
                 const splitEmbed = createGameEmbed(game, interaction.user, false, userBalance);
                 const splitActionRows = createGameButtons(userId, game);
+                const tableImage = await createGameTableImage(game, false);
 
-                await interaction.update({ 
+                const updateData = {
                     embeds: [splitEmbed], 
-                    components: splitActionRows 
-                });
+                    components: splitActionRows
+                };
+                
+                if (tableImage) {
+                    updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                    splitEmbed.setImage('attachment://blackjack-table.png');
+                }
+
+                await interaction.update(updateData);
                 break;
 
             case 'help':
@@ -522,6 +628,7 @@ module.exports = {
             // Create final embed (before cleanup)
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             const finalEmbed = createGameEmbed(game, interaction.user, true, userBalance);
+            const tableImage = await createGameTableImage(game, true);
 
             // Create result message with enhanced safety checks
             let resultMessage = '';
@@ -565,6 +672,11 @@ module.exports = {
                 embeds: [finalEmbed],
                 components: GamePanel.createGameButtons({ actions: ['play_again', 'quit'] })
             };
+            
+            if (tableImage) {
+                finalData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                finalEmbed.setImage('attachment://blackjack-table.png');
+            }
 
             try {
                 // Validate finalData before sending
@@ -585,11 +697,18 @@ module.exports = {
                 // Fallback: try to send a new reply if update fails
                 try {
                     if (!interaction.replied && !interaction.deferred) {
-                        await interaction.reply({
+                        const fallbackData = {
                             content: `🎰 Game Complete - Payout: ${fmt(totalPayout)}`,
                             embeds: [finalEmbed],
                             components: GamePanel.createGameButtons({ actions: ['play_again', 'quit'] })
-                        });
+                        };
+                        
+                        if (tableImage) {
+                            fallbackData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                            finalEmbed.setImage('attachment://blackjack-table.png');
+                        }
+                        
+                        await interaction.reply(fallbackData);
                     }
                 } catch (fallbackError) {
                     logger.error(`Failed fallback reply for blackjack endGame: ${fallbackError.message}`);

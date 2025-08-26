@@ -757,6 +757,37 @@ client.on('interactionCreate', async interaction => {
                     await unoCommand.handleColorSelection(interaction, cardIndex, chosenColor);
                 }
             }
+            // Handle blackjack bet selection for Play Again
+            else if (interaction.customId === 'blackjack_bet_select') {
+                const betAmount = interaction.values[0];
+                
+                // Create a mock slash command interaction for blackjack
+                const mockInteraction = {
+                    ...interaction,
+                    options: {
+                        getString: (name) => name === 'amount' ? betAmount : null,
+                        getInteger: (name) => name === 'amount' ? parseInt(betAmount) : null
+                    }
+                };
+                
+                try {
+                    const blackjackCommand = client.commands.get('blackjack');
+                    if (blackjackCommand) {
+                        await blackjackCommand.execute(mockInteraction);
+                    } else {
+                        await interaction.reply({
+                            content: '❌ Blackjack command not available. Please try again.',
+                            ephemeral: true
+                        });
+                    }
+                } catch (error) {
+                    logger.error(`Error starting blackjack from Play Again: ${error.message}`);
+                    await interaction.reply({
+                        content: '❌ Error starting blackjack game. Please try using `/blackjack` directly.',
+                        ephemeral: true
+                    });
+                }
+            }
             
             // Handle VPS management select menus (future expansion)
             else if (interaction.customId.startsWith('vps_')) {
@@ -1210,6 +1241,104 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                     }
+                }
+            }
+            // Handle generic game buttons (game_play_again, game_quit)
+            else if (customId.startsWith('game_')) {
+                const action = customId.substring('game_'.length);
+                
+                if (action === 'play_again') {
+                    // Determine which game to restart based on the embed content
+                    const embed = interaction.message.embeds[0];
+                    let gameType = null;
+                    
+                    if (embed && embed.title) {
+                        if (embed.title.includes('Blackjack') || embed.title.includes('🃏')) {
+                            gameType = 'blackjack';
+                        } else if (embed.title.includes('Slots') || embed.title.includes('🎰')) {
+                            gameType = 'slots';
+                        } else if (embed.title.includes('Crash') || embed.title.includes('🚁')) {
+                            gameType = 'crash';
+                        }
+                    }
+                    
+                    if (gameType === 'blackjack') {
+                        // For blackjack, show bet selection interface
+                        const { EmbedBuilder } = require('discord.js');
+                        const GamePanel = require('./UTILS/gamePanel');
+                        const dbManager = require('./UTILS/database');
+                        const { getGuildId } = require('./UTILS/common');
+                        
+                        try {
+                            const guildId = await getGuildId(interaction);
+                            const userBalance = await dbManager.getUserBalance(interaction.user.id, guildId);
+                            
+                            const betEmbed = new EmbedBuilder()
+                                .setTitle('🃏 Play Blackjack Again')
+                                .setDescription(`Select your bet amount to start a new game of Blackjack.`)
+                                .addFields([
+                                    { name: '💵 Wallet', value: `$${userBalance.wallet.toLocaleString()}`, inline: true },
+                                    { name: '🏦 Bank', value: `$${userBalance.bank.toLocaleString()}`, inline: true }
+                                ])
+                                .setColor(0x00ff00)
+                                .setTimestamp();
+                            
+                            const betSelector = GamePanel.createBetSelector({
+                                balance: userBalance.wallet,
+                                minBet: 10,
+                                customId: 'blackjack_bet_select'
+                            });
+                            
+                            if (betSelector) {
+                                await interaction.update({
+                                    embeds: [betEmbed],
+                                    components: [betSelector]
+                                });
+                            } else {
+                                await interaction.reply({
+                                    content: '❌ Insufficient balance to play Blackjack. You need at least $10.',
+                                    ephemeral: true
+                                });
+                            }
+                        } catch (error) {
+                            await interaction.reply({
+                                content: '❌ Error loading bet selection. Please try using `/blackjack` directly.',
+                                ephemeral: true
+                            });
+                        }
+                    } else if (gameType) {
+                        // For other games, just tell user to use command directly
+                        await interaction.reply({
+                            content: `🎮 To play ${gameType} again, please use the \`/${gameType}\` command.`,
+                            ephemeral: true
+                        });
+                    } else {
+                        await interaction.reply({
+                            content: '❌ Unable to determine which game to restart. Please use the game command directly.',
+                            ephemeral: true
+                        });
+                    }
+                } else if (action === 'quit') {
+                    // Close the game interface
+                    await interaction.update({
+                        content: '🚪 Game session ended.',
+                        embeds: [],
+                        components: []
+                    });
+                    
+                    // Delete the message after a short delay
+                    setTimeout(async () => {
+                        try {
+                            await interaction.deleteReply();
+                        } catch (error) {
+                            // Ignore errors (message might already be deleted)
+                        }
+                    }, 3000);
+                } else {
+                    await interaction.reply({
+                        content: `❌ Unknown game action: ${action}`,
+                        ephemeral: true
+                    });
                 }
             }
             
