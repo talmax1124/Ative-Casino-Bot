@@ -5,7 +5,7 @@ cmds = ["npm ci"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "npx serve -s build -l $PORT"
+cmd = "node start.js"
 
 [variables]
 NODE_ENV = "production"
