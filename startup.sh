@@ -59,3 +59,7 @@ if [[ "$ENVIRONMENT" == "development" ]]; then
 fi
 
 echo "🚀 Starting ATIVE Casino Bot..."
+
+# Start the actual bot process
+echo "▶️  Executing bot with Node.js..."
+exec /usr/local/bin/node "${MAIN_FILE:-index.js}"
