@@ -3,7 +3,17 @@
  * Prevents session conflicts and ensures game stability
  */
 
-const { sessionManager, GameType, SessionState } = require('./sessionManager');
+// sessionManager removed (Firebase dependency) - using mock implementation
+const sessionManager = {
+    canCreateSession: async (userId) => ({ allowed: true }),
+    createSession: async (userId, gameType, data) => ({ sessionId: `mock_${Date.now()}` }),
+    endSession: async (sessionId) => ({ success: true }),
+    getUserSessions: (userId) => [],
+    getSession: (sessionId) => null,
+    updateSession: async (sessionId, data) => ({ success: true })
+};
+const GameType = { BLACKJACK: 'blackjack', SLOTS: 'slots', UNO: 'uno' };
+const SessionState = { ACTIVE: 'active', COMPLETED: 'completed', FAILED: 'failed' };
 const dbManager = require('./database');
 const logger = require('./logger');
 

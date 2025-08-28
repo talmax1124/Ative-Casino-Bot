@@ -3,7 +3,15 @@
  * Provides common patterns and functions for game session management
  */
 
-const { sessionManager, GameType } = require('./sessionManager');
+// sessionManager removed (Firebase dependency) - using mock implementation
+const sessionManager = {
+    canCreateSession: async (userId) => ({ allowed: true }),
+    createSession: async (userId, gameType, data) => ({ sessionId: `mock_${Date.now()}` }),
+    endSession: async (sessionId) => ({ success: true }),
+    getUserSessions: (userId) => [],
+    getActiveSessionCount: () => 0
+};
+const GameType = { BLACKJACK: 'blackjack', SLOTS: 'slots', UNO: 'uno' };
 const { buildSessionEmbed } = require('./gameSessionKit');
 const dbManager = require('./database');
 const logger = require('./logger');
