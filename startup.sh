@@ -60,6 +60,17 @@ fi
 
 echo "🚀 Starting ATIVE Casino Bot..."
 
+# Rebuild Canvas for container compatibility (force clean rebuild)
+echo "🎨 Force rebuilding Canvas for container compatibility..."
+npm rebuild canvas --verbose 2>/dev/null || {
+    echo "⚠️ Canvas rebuild failed, attempting clean install..."
+    rm -rf node_modules/canvas 2>/dev/null || true
+    npm install canvas --build-from-source 2>/dev/null || {
+        echo "⚠️ Canvas installation failed - bot will run with limited image functionality"
+        echo "Some game features may not work properly without Canvas"
+    }
+}
+
 # Start the actual bot process
 echo "▶️  Executing bot with Node.js..."
 exec /usr/local/bin/node "${MAIN_FILE:-index.js}"

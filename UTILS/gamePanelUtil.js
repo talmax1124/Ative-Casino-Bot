@@ -3,7 +3,14 @@
  * Creates standardized game panels based on reference.png design
  */
 
-const Canvas = require('canvas');
+// Optional Canvas - some features may not work if Canvas fails to load
+let Canvas;
+try {
+    Canvas = require('canvas');
+} catch (error) {
+    console.warn('Canvas module not available - image generation disabled');
+    Canvas = null;
+}
 const { fmt } = require('./common');
 const logger = require('./logger');
 const fs = require('fs');
