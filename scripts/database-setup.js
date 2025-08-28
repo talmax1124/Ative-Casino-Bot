@@ -53,17 +53,9 @@ async function setupDatabase() {
     } catch (error) {
         console.error('❌ Database setup failed:', error.message);
         
-        // Try Firebase fallback setup
-        try {
-            console.log('🔄 Attempting Firebase fallback setup...');
-            const DatabaseManager = require('../UTILS/database');
-            await DatabaseManager.initialize();
-            console.log('✅ Firebase fallback setup successful!');
-            return true;
-        } catch (fallbackError) {
-            console.error('❌ Firebase fallback also failed:', fallbackError.message);
-            return false;
-        }
+        // No fallback - MariaDB is required
+        console.error('❌ Database setup failed - MariaDB connection is required');
+        return false;
     }
 }
 
@@ -104,20 +96,16 @@ async function validateEnvironment() {
         return false;
     }
     
-    // Check database configuration
-    const hasMariaDB = process.env.MARIADB_HOST && process.env.MARIADB_USER && !process.env.MARIADB_PASSWORD?.includes('your_');
-    const hasPostgreSQL = process.env.POSTGRES_HOST && process.env.POSTGRES_USER && !process.env.POSTGRES_PASSWORD?.includes('your_');
-    const hasFirebase = process.env.FIREBASE_PROJECT_ID && !process.env.FIREBASE_PROJECT_ID?.includes('your_');
+    // Check MariaDB configuration only
+    const hasMariaDB = process.env.MARIADB_HOST && process.env.MARIADB_USER && process.env.MARIADB_PASSWORD && !process.env.MARIADB_PASSWORD?.includes('your_');
     
-    if (!hasMariaDB && !hasPostgreSQL && !hasFirebase) {
-        console.error('❌ No valid database configuration found');
-        console.error('   Configure at least one: MariaDB, PostgreSQL, or Firebase');
+    if (!hasMariaDB) {
+        console.error('❌ MariaDB configuration required');
+        console.error('   Please configure MARIADB_HOST, MARIADB_USER, MARIADB_PASSWORD, MARIADB_DATABASE');
         return false;
     }
     
-    if (hasMariaDB) console.log('✅ MariaDB configuration detected');
-    if (hasPostgreSQL) console.log('✅ PostgreSQL configuration detected');
-    if (hasFirebase) console.log('✅ Firebase configuration detected');
+    console.log('✅ MariaDB configuration detected');
     
     return true;
 }

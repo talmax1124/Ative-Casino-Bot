@@ -16,34 +16,23 @@ class DatabaseManager {
     }
 
     /**
-     * Initialize database connection with fallback support
+     * Initialize database connection with MariaDB only
      */
     async initialize() {
         if (this.initialized) return;
 
-        // Try to use the new database adapter first (MariaDB/PostgreSQL)
+        // Use the database adapter (MariaDB only)
         try {
             const DatabaseAdapter = require('./databaseAdapter');
             this.databaseAdapter = DatabaseAdapter;
             await this.databaseAdapter.initialize();
             this.usingAdapter = true;
             this.initialized = true;
-            logger.info('Database manager initialized with adapter (MariaDB/PostgreSQL)');
+            logger.info('Database manager initialized with MariaDB');
             return;
         } catch (adapterError) {
-            logger.warn(`Database adapter failed: ${adapterError.message}, falling back to Firebase`);
-        }
-
-        // Fall back to Firebase
-        try {
-            const firebaseConfig = require('./firebase');
-            this.db = await firebaseConfig.initialize();
-            this.usingAdapter = false;
-            this.initialized = true;
-            logger.info('Database manager initialized with Firebase (fallback)');
-        } catch (firebaseError) {
-            logger.error(`All database connections failed: ${firebaseError.message}`);
-            throw new Error('No database connection available');
+            logger.error(`Database connection failed: ${adapterError.message}`);
+            throw new Error(`Database connection failed: ${adapterError.message}`);
         }
     }
 

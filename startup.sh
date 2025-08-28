@@ -94,18 +94,10 @@ if [ -f "/home/container/scripts/logrotate.sh" ]; then
     (crontab -l 2>/dev/null; echo "0 0 * * * /home/container/scripts/logrotate.sh") | crontab -
 fi
 
-# Setup backup cron job
+# Setup backup script (cron not available in container)
 if [ -f "/home/container/scripts/backup.sh" ]; then
-    echo "💾 Setting up automatic backups..."
+    echo "💾 Backup scripts ready (manual execution required in containers)"
     chmod +x /home/container/scripts/backup.sh
-    # Run backup every 6 hours
-    (crontab -l 2>/dev/null; echo "0 */6 * * * /home/container/scripts/backup.sh") | crontab -
-fi
-
-# Start cron service for scheduled tasks
-if command -v cron >/dev/null 2>&1; then
-    echo "⏰ Starting cron service..."
-    service cron start
 fi
 
 echo "🚀 Starting ATIVE Casino Bot..."
