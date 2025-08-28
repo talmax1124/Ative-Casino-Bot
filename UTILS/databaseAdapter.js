@@ -1,6 +1,6 @@
 /**
  * MariaDB Database Adapter for ATIVE Casino Bot
- * Pure MariaDB implementation without Firebase fallback
+ * Pure MariaDB implementation for database operations
  */
 
 const mysql = require('mysql2/promise');

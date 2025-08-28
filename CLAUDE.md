@@ -32,8 +32,8 @@ ative_casino_bot/
 │   └── slots.js             # Slot machine mechanics
 ├── UTILS/                   # Utility modules
 │   ├── common.js            # Common helpers
-│   ├── database.js          # Firebase Firestore operations
-│   ├── firebase.js          # Firebase configuration
+│   ├── database.js          # MariaDB database operations
+│   ├── databaseAdapter.js   # Database adapter for MariaDB
 │   ├── gameUtils.js         # Game management utilities
 │   ├── logger.js            # Winston logging configuration
 │   └── rng.js               # Cryptographically secure RNG
@@ -80,7 +80,8 @@ Examples:
 - Must be **reusable and modular**.  
 - Includes:  
   - `common.js` → Shared helper functions.  
-  - `database.js` → Firebase Firestore operations.  
+  - `database.js` → MariaDB database operations.  
+  - `databaseAdapter.js` → Database adapter for MariaDB.  
   - `rng.js` → Cryptographically secure random number generation.  
   - `logger.js` → Centralized logging with Winston.  
 - If a new utility is needed, it should be added to **UTILS** instead of duplicating code.  
@@ -91,7 +92,7 @@ Examples:
 
 - **Virtual Currency System**:  
   - Users can earn and spend casino credits.  
-  - Balances are stored persistently in **Firebase Firestore**.  
+  - Balances are stored persistently in **MariaDB database**.  
 
 - **Anti-Abuse Measures**:  
   - `/crasheco` → Admin-only command to warn and auto-mute exploiters (5 minutes).  

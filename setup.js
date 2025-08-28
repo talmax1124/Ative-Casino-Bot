@@ -29,10 +29,12 @@ function checkEnvFile() {
 DISCORD_TOKEN=your_discord_bot_token_here
 CLIENT_ID=your_discord_application_client_id_here
 
-# Firebase Configuration
-FIREBASE_PROJECT_ID=your_firebase_project_id
-FIREBASE_PRIVATE_KEY="your_firebase_private_key_here"
-FIREBASE_CLIENT_EMAIL=your_firebase_client_email
+# MariaDB Configuration
+MARIADB_HOST=localhost
+MARIADB_PORT=3306
+MARIADB_USER=casino_bot
+MARIADB_PASSWORD=your_database_password
+MARIADB_DATABASE=ative_casino
 
 # Environment Configuration
 ENVIRONMENT=development
@@ -122,33 +124,34 @@ function installDependencies() {
     }
 }
 
-// Check Firebase setup
-function checkFirebaseSetup() {
-    console.log('🔥 Checking Firebase configuration...');
+// Check MariaDB setup
+function checkDatabaseSetup() {
+    console.log('🗄️ Checking MariaDB configuration...');
     
     try {
         require('dotenv').config();
         
         const requiredVars = [
-            'FIREBASE_PROJECT_ID',
-            'FIREBASE_PRIVATE_KEY', 
-            'FIREBASE_CLIENT_EMAIL'
+            'MARIADB_HOST',
+            'MARIADB_USER', 
+            'MARIADB_PASSWORD',
+            'MARIADB_DATABASE'
         ];
         
         const missing = requiredVars.filter(varName => !process.env[varName]);
         
         if (missing.length > 0) {
-            console.log('⚠️  Missing Firebase environment variables:');
+            console.log('⚠️  Missing MariaDB environment variables:');
             missing.forEach(varName => console.log(`   - ${varName}`));
             console.log('   Please update your .env file\n');
             return false;
         } else {
-            console.log('✅ Firebase configuration found\n');
+            console.log('✅ MariaDB configuration found\n');
             return true;
         }
     } catch (error) {
-        console.log('⚠️  Could not verify Firebase configuration');
-        console.log('   Make sure .env file exists and contains Firebase variables\n');
+        console.log('⚠️  Could not verify MariaDB configuration');
+        console.log('   Make sure .env file exists and contains MariaDB variables\n');
         return false;
     }
 }
@@ -177,8 +180,8 @@ async function setup() {
         setupSuccess = false;
     }
     
-    // Check Firebase setup
-    if (!checkFirebaseSetup()) {
+    // Check database setup
+    if (!checkDatabaseSetup()) {
         setupSuccess = false;
     }
     
