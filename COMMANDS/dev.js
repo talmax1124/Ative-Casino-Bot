@@ -10,7 +10,17 @@ const fs = require('fs').promises;
 const path = require('path');
 const logger = require('../UTILS/logger');
 const { getAllActiveGames, clearActiveGame } = require('../UTILS/common');
-const { sessionManager } = require('../UTILS/sessionManager');
+// sessionManager removed (Firebase dependency) - using mock implementation
+const sessionManager = {
+    getAllActiveSessions: () => [],
+    getSessionStats: () => ({ active: 0, total: 0 }),
+    getActiveSessionCount: () => 0,
+    getUserSessions: (userId) => [],
+    getSession: (sessionId) => null,
+    endSession: async (sessionId) => ({ success: true }),
+    cancelSession: async (sessionId, reason) => ({ success: true }),
+    cancelUserSessions: async (userId, reason) => ({ success: true })
+};
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 
 // Store disabled commands (cogs)

@@ -15,7 +15,18 @@ const {
     handleRPSAction,
     createAnimationEmbeds
 } = require('../GAMES/rps');
-const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+// sessionManager removed (Firebase dependency) - using mock implementation
+const sessionManager = {
+    getAllActiveSessions: () => [],
+    getSessionStats: () => ({ active: 0, total: 0 }),
+    getActiveSessionCount: () => 0,
+    getUserSessions: (userId) => [],
+    getSession: (sessionId) => null,
+    endSession: async (sessionId) => ({ success: true }),
+    cancelSession: async (sessionId, reason) => ({ success: true }),
+    cancelUserSessions: async (userId, reason) => ({ success: true })
+};
+const SMGameType = { RPS: 'rps' };
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const logger = require('../UTILS/logger');
 
@@ -65,12 +76,13 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             
             const balance = await dbManager.getUserBalance(userId, guildId);
-            if (balance.game_active) {
+            // Legacy game_active check removed - handled by GameSessionIntegrator
+            /*if (balance.game_active) {
                 const embed = buildSessionEmbed({
                     title: '❌ Game Already Active',
                     topFields: [{
                         name: 'Active Game Session',
-                        value: 'You already have an active game session!\nFinish your current game first.'
+                        value: 'You already have an active game session!\\nFinish your current game first.'
                     }],
                     stageText: 'SESSION ACTIVE',
                     color: 0xFF0000,
@@ -79,7 +91,7 @@ module.exports = {
                 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
-            }
+            }*/
 
             // Parse bet amount
             const amountStr = interaction.options.getString('amount');
@@ -163,8 +175,7 @@ module.exports = {
             const newWalletBalance = balance.wallet - betAmount;
             
             await dbManager.updateUserBalance(userId, guildId, {
-                wallet: newWalletBalance,
-                game_active: true
+                wallet: newWalletBalance
             });
 
             // Create RPS game
@@ -299,20 +310,20 @@ module.exports = {
                 return;
             }
 
-            if (player2Balance.game_active) {
+            // Legacy game_active check removed
+            /*if (player2Balance.game_active) {
                 await interaction.reply({
                     content: '❌ You already have an active game session!',
                     ephemeral: true
                 });
                 return;
-            }
+            }*/
 
             // Deduct bet from player 2 and set game as active
             const newPlayer2Wallet = player2Balance.wallet - game.potAmount;
             
             await dbManager.updateUserBalance(player2Id, guildId, {
-                wallet: newPlayer2Wallet,
-                game_active: true
+                wallet: newPlayer2Wallet
             });
 
             // Add player 2 to the game
@@ -445,11 +456,8 @@ module.exports = {
             const game = getRPSGame(channelId);
             if (!game) return;
 
-            // Clear game active status for players
-            await dbManager.updateUserBalance(game.player1Id, guildId, { game_active: false });
-            if (!game.vsBot) {
-                await dbManager.updateUserBalance(game.player2Id, guildId, { game_active: false });
-            }
+            // Game active status handled by SessionManager
+            // Legacy flag clearing removed
 
             if (finalWinner === 0) {
                 // Tie game - refund player (bot games don't involve player 2 wallet)
@@ -560,10 +568,8 @@ module.exports = {
             try {
                 const game = getRPSGame(channelId);
                 if (game) {
-                    await dbManager.updateUserBalance(game.player1Id, guildId, { game_active: false });
-                    if (game.player2Id && !game.vsBot) {
-                        await dbManager.updateUserBalance(game.player2Id, guildId, { game_active: false });
-                    }
+                    // Game active status handled by SessionManager
+                    // Legacy flag clearing removed
                 }
             } catch (dbError) {
                 logger.error(`Failed to clear game_active status: ${dbError.message}`);

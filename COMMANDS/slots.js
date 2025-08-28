@@ -7,7 +7,18 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ButtonBuilder, ActionRo
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { spinSlots, calculatePayout, createSlotDisplay, createSlotsImage, createSpinningSlotGIF } = require('../GAMES/slots');
-const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+// sessionManager removed (Firebase dependency) - using mock implementation
+const sessionManager = {
+    getAllActiveSessions: () => [],
+    getSessionStats: () => ({ active: 0, total: 0 }),
+    getActiveSessionCount: () => 0,
+    getUserSessions: (userId) => [],
+    getSession: (sessionId) => null,
+    endSession: async (sessionId) => ({ success: true }),
+    cancelSession: async (sessionId, reason) => ({ success: true }),
+    cancelUserSessions: async (userId, reason) => ({ success: true })
+};
+const SMGameType = { SLOTS: 'slots' };
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');

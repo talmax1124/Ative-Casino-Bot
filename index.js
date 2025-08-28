@@ -349,111 +349,16 @@ client.once('clientReady', async () => {
     startAnnouncementProcessor();
 });
 
-// Announcement processor to handle queued Discord announcements
+// Announcement processor disabled (Firebase dependency removed)
 async function startAnnouncementProcessor() {
-    setInterval(async () => {
-        try {
-            // Check for unprocessed announcements
-            const announcementsSnapshot = await dbManager.db.collection('discord_announcements')
-                .where('processed', '==', false)
-                .limit(5)
-                .get();
-
-            if (announcementsSnapshot.empty) return;
-
-            for (const doc of announcementsSnapshot.docs) {
-                const announcement = doc.data();
-                
-                try {
-                    if (announcement.type === 'premium_role_assignment') {
-                        // Handle premium role assignment
-                        await handlePremiumRoleAssignment(announcement.userId);
-                        await doc.ref.update({ processed: true });
-                        logger.info(`👑 Assigned premium role to user ${announcement.userId}`);
-                    } else if (announcement.channelId && announcement.payload) {
-                        // Handle regular announcements
-                        const channel = await client.channels.fetch(announcement.channelId);
-                        if (channel) {
-                            await channel.send(announcement.payload);
-                            await doc.ref.update({ processed: true });
-                            logger.info(`📢 Sent ${announcement.type} announcement to ${announcement.channelId}`);
-                        }
-                    }
-                } catch (error) {
-                    logger.error(`Failed to process announcement ${doc.id}: ${error.message}`);
-                    
-                    // Mark as failed after 5 minutes
-                    const announcementAge = Date.now() - announcement.timestamp.toDate().getTime();
-                    if (announcementAge > 5 * 60 * 1000) {
-                        await doc.ref.update({ processed: true, failed: true });
-                    }
-                }
-            }
-        } catch (error) {
-            logger.error(`Announcement processor error: ${error.message}`);
-        }
-    }, 300000); // Check every 5 minutes (reduced from 30 seconds to avoid quota)
+    logger.info('Announcement processor disabled (Firebase dependency removed)');
+    // No-op function - announcement processing removed with Firebase
 }
 
-// Handle premium role assignment
+// Premium role assignment disabled (Firebase dependency removed)
 async function handlePremiumRoleAssignment(userId) {
-    try {
-        // Get all guilds the bot is in
-        for (const [guildId, guild] of client.guilds.cache) {
-            try {
-                const member = await guild.members.fetch(userId);
-                if (member) {
-                    // Look for premium role (case insensitive)
-                    const premiumRole = guild.roles.cache.find(role => 
-                        role.name.toLowerCase().includes('premium') ||
-                        role.name.toLowerCase().includes('vip') ||
-                        role.name === 'PREMIUM'
-                    );
-                    
-                    if (premiumRole && !member.roles.cache.has(premiumRole.id)) {
-                        await member.roles.add(premiumRole);
-                        logger.info(`✅ Added premium role "${premiumRole.name}" to ${member.user.username} in ${guild.name}`);
-                        
-                        // Send congratulations message to logs channel
-                        const logsChannel = guild.channels.cache.get(LOG_CHANNEL_ID);
-                        if (logsChannel) {
-                            const embed = {
-                                title: '👑 New Premium Member!',
-                                description: `**${member.user.username}** has subscribed to Premium membership!`,
-                                color: 0xFFD700,
-                                thumbnail: {
-                                    url: member.user.displayAvatarURL()
-                                },
-                                fields: [
-                                    {
-                                        name: '🎯 Role Assigned',
-                                        value: premiumRole.name,
-                                        inline: true
-                                    },
-                                    {
-                                        name: '💰 Benefits Unlocked',
-                                        value: 'Premium shop access, discounts, and monthly bonuses!',
-                                        inline: true
-                                    }
-                                ],
-                                timestamp: new Date().toISOString()
-                            };
-                            
-                            await logsChannel.send({ embeds: [embed] });
-                        }
-                    } else if (!premiumRole) {
-                        logger.warn(`⚠️ No premium role found in guild ${guild.name} for user ${userId}`);
-                    }
-                }
-            } catch (guildError) {
-                // User not in this guild, continue to next
-                logger.debug(`User ${userId} not found in guild ${guild.name}`);
-            }
-        }
-    } catch (error) {
-        logger.error(`Failed to assign premium role to ${userId}: ${error.message}`);
-        throw error;
-    }
+    logger.info('Premium role assignment disabled (Firebase dependency removed)');
+    // No-op function - premium role assignment removed with Firebase
 }
 
 client.on('interactionCreate', async interaction => {

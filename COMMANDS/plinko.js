@@ -9,7 +9,19 @@ const { fmtFull, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/c
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PLINKO_MODES, randomizeMultipliers, createPlinkoImage, simulatePlinkoDrop } = require('../UTILS/plinkoCanvas');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
-const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+// sessionManager removed (Firebase dependency) - using mock implementation
+const sessionManager = {
+    getAllActiveSessions: () => [],
+    getSessionStats: () => ({ active: 0, total: 0 }),
+    getActiveSessionCount: () => 0,
+    getUserSessions: (userId) => [],
+    getSession: (sessionId) => null,
+    endSession: async (sessionId) => ({ success: true }),
+    cancelSession: async (sessionId, reason) => ({ success: true }),
+    cancelUserSessions: async (userId, reason) => ({ success: true })
+};
+const SMGameType = { PLINKO: 'plinko' };
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -57,12 +69,14 @@ module.exports = {
             const balance = await dbManager.getUserBalance(userId, guildId);
 
             // Check if user can create a new session
-            const canCreate = await sessionManager.canCreateSession(userId);
+            // Session validation now handled by GameSessionIntegrator above
+            // Remove this legacy check
+            /*const canCreate = await sessionManager.canCreateSession(userId);
             if (!canCreate.allowed) {
                 const embed = buildSessionEmbed({
-                    title: `❌ ${username}'s Plinko`,
+                    title: \`❌ \${username}'s Plinko\`,
                     topFields: [
-                        { name: 'Session Limit Reached', value: canCreate.reason + '\nUse `/stopgame` to cancel active sessions.' }
+                        { name: 'Session Limit Reached', value: canCreate.reason + '\\nUse \`/stopgame\` to cancel active sessions.' }
                     ],
                     color: 0xFF0000,
                     footer: 'Plinko Game • Session Manager'
@@ -70,20 +84,13 @@ module.exports = {
 
                 await interaction.editReply({ embeds: [embed] });
                 return;
-            }
+            }*/
 
-            // Check legacy game_active field as fallback
-            if (balance.game_active) {
-                const embed = buildSessionEmbed({
-                    title: `❌ ${username}'s Plinko`,
-                    topFields: [
-                        { name: 'Legacy Game Active', value: 'You have an active game session.\nFinish it before starting Plinko or use `/stopgame`.' }
-                    ],
-                    color: 0xFF0000,
-                    footer: 'Plinko Game'
-                });
-
-                await interaction.editReply({ embeds: [embed] });
+            // Validate session using new system
+            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.PLINKO, guildId);
+            if (!sessionValidation.valid) {
+                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'plinko', sessionValidation);
+                await interaction.editReply({ embeds: [errorEmbed] });
                 return;
             }
 
@@ -141,8 +148,8 @@ module.exports = {
                 dropSlot = Math.floor(Math.random() * slots);
             }
 
-            // Create game session
-            const sessionResult = await sessionManager.createSession({
+            // Create game session using new system
+            const sessionResult = await GameSessionIntegrator.createGameSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
@@ -166,8 +173,8 @@ module.exports = {
 
             const sessionId = sessionResult.sessionId;
 
-            // Deduct bet amount (but keep legacy game_active for compatibility)
-            await dbManager.updateUserBalance(userId, guildId, -betAmount, 0, { game_active: true });
+            // Deduct bet amount (session handles game_active flag)
+            await dbManager.updateUserBalance(userId, guildId, -betAmount, 0);
 
             // Show initial game setup
             const setupEmbed = buildSessionEmbed({
@@ -186,7 +193,7 @@ module.exports = {
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Update session with game start
-            await sessionManager.updateSession(sessionId, {
+            await GameSessionIntegrator.updateGameSession(sessionId, {
                 gameData: {
                     gameStarted: true,
                     multipliers,
@@ -215,19 +222,14 @@ module.exports = {
             
             // Try to cancel session and refund on error
             try {
-                const userSessions = sessionManager.getUserSessions(userId);
-                for (const session of userSessions) {
-                    if (session.gameType === SMGameType.PLINKO) {
-                        await sessionManager.cancelSession(
-                            session.sessionId, 
-                            'Game error - refund processed',
-                            'system'
-                        );
-                    }
-                }
-                
-                // Also update legacy balance
-                await dbManager.updateUserBalance(userId, guildId, betAmount || 0, 0, { game_active: false });
+                // Use GameSessionIntegrator for error handling (handles refund automatically)
+                await GameSessionIntegrator.handleGameError(
+                    userId, 
+                    SMGameType.PLINKO, 
+                    betAmount || 0, 
+                    guildId, 
+                    'Plinko game error - refund processed'
+                );
             } catch (refundError) {
                 logger.error(`Failed to refund plinko bet: ${refundError.message}`);
             }
@@ -361,13 +363,13 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
 async function showFinalResults(interaction, gameData, finalImage, finalSlot, finalMultiplier, winnings, won, guildId) {
     const { userId, username, betAmount, mode, modeData, newWallet, sessionId } = gameData;
     
-    // Update user balance and clear game active status
+    // Update user balance (session handles game_active flag)
     const finalWallet = newWallet + winnings;
-    await dbManager.updateUserBalance(userId, guildId, winnings, 0, { game_active: false });
+    await dbManager.updateUserBalance(userId, guildId, winnings, 0);
 
     // Complete the session
     try {
-        await sessionManager.completeSession(sessionId, {
+        await GameSessionIntegrator.completeGameSession(sessionId, {
             finalSlot,
             finalMultiplier,
             winnings,

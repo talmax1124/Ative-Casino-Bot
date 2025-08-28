@@ -622,11 +622,9 @@ module.exports = {
                 }
             }
 
-            // Update user balance with winnings
+            // Update user balance with winnings (game_active handled by SessionManager)
             if (totalPayout > 0) {
-                await dbManager.updateUserBalance(userId, guildId, totalPayout, 0, { game_active: false });
-            } else {
-                await dbManager.updateUserBalance(userId, guildId, 0, 0, { game_active: false });
+                await dbManager.updateUserBalance(userId, guildId, totalPayout, 0);
             }
 
             // Create final embed (before cleanup)

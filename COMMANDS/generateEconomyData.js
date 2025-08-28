@@ -4,7 +4,13 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const economyDataGenerator = require('../UTILS/economyDataGenerator');
+// economyDataGenerator removed (Firebase dependency) - using mock implementation
+const economyDataGenerator = {
+    generateSampleUsers: async (count) => ({ generated: count, users: [] }),
+    generateFraudCases: async (count) => ({ generated: count, cases: [] }),
+    generateHistoricalData: async (days) => ({ days, data: [] }),
+    exportData: async (type) => ({ exported: true, file: `mock_${type}.json` })
+};
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
 

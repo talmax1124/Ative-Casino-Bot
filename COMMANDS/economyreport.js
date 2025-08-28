@@ -4,7 +4,17 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const economyMonitor = require('../UTILS/economyMonitor');
+// economyMonitor removed (Firebase dependency) - using mock implementation
+const economyMonitor = {
+    generateReport: async (type) => ({
+        type,
+        summary: { totalUsers: 0, totalBalance: 0, avgBalance: 0 },
+        data: [],
+        timestamp: Date.now()
+    }),
+    getHealthStats: () => ({ healthy: true, issues: [] }),
+    analyzeEconomy: async () => ({ status: 'healthy', metrics: {} })
+};
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { formatMoney } = require('../UTILS/moneyFormatter');
 const logger = require('../UTILS/logger');

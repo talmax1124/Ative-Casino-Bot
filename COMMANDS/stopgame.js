@@ -4,7 +4,18 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
-const { sessionManager, SessionState } = require('../UTILS/sessionManager');
+// sessionManager removed (Firebase dependency) - using mock implementation
+const sessionManager = {
+    getAllActiveSessions: () => [],
+    getSessionStats: () => ({ active: 0, total: 0 }),
+    getActiveSessionCount: () => 0,
+    getUserSessions: (userId) => [],
+    getSession: (sessionId) => null,
+    endSession: async (sessionId) => ({ success: true }),
+    cancelSession: async (sessionId, reason) => ({ success: true }),
+    cancelUserSessions: async (userId, reason) => ({ success: true })
+};
+const SessionState = { ACTIVE: 'active', PAUSED: 'paused', COMPLETED: 'completed', CANCELLED: 'cancelled', ERROR: 'error', TIMEOUT: 'timeout' };
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const sessionGuard = require('../UTILS/sessionGuard');
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');

@@ -5,10 +5,21 @@
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { PayoutManager, GameType, GameResult, TimeoutManager } = require('../UTILS/gameUtils');
-const { fmt, fmtDelta, clearActiveGame, setActiveGame, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 const { getSecureHazard } = require('../UTILS/rng');
-const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+// sessionManager removed (Firebase dependency) - using mock implementation
+const sessionManager = {
+    getAllActiveSessions: () => [],
+    getSessionStats: () => ({ active: 0, total: 0 }),
+    getActiveSessionCount: () => 0,
+    getUserSessions: (userId) => [],
+    getSession: (sessionId) => null,
+    endSession: async (sessionId) => ({ success: true }),
+    cancelSession: async (sessionId, reason) => ({ success: true }),
+    cancelUserSessions: async (userId, reason) => ({ success: true })
+};
+const SMGameType = { DUCK: 'duck' };
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
@@ -517,7 +528,6 @@ module.exports = {
         );
 
         activeGames.set(userId, gameSession);
-        setActiveGame(userId, GameType.DUCK_GAME);
 
         // Create initial game image
         const gameImage = await generateDuckGameImage(gameSession.position, -1, gameSession.config.lanes);
@@ -543,7 +553,6 @@ module.exports = {
                 const session = activeGames.get(userId);
                 if (!session.gameStarted) {
                     activeGames.delete(userId);
-                    clearActiveGame(userId);
                     await PayoutManager.refundBet(userId, session.guildId, session.betAmount, 'Game timeout');
                 }
             }
@@ -568,7 +577,6 @@ module.exports = {
         // Clear timeout and refund
         TimeoutManager.clearTimeout(userId);
         activeGames.delete(userId);
-        clearActiveGame(userId);
 
         await PayoutManager.refundBet(userId, guildId, betAmount, 'Game cancelled');
 
@@ -746,7 +754,6 @@ module.exports = {
 
             // Clean up
             activeGames.delete(gameSession.userId);
-            clearActiveGame(gameSession.userId);
             TimeoutManager.clearTimeout(gameSession.userId);
 
             // Log game end
