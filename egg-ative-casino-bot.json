@@ -1,0 +1,182 @@
+{
+    "_comment": "ATIVE Casino Bot - Pterodactyl Egg Configuration",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2025-01-28T00:00:00+00:00",
+    "name": "ATIVE Casino Bot",
+    "author": "ative@casino.bot",
+    "description": "A professional Discord casino bot built with JavaScript, featuring multi-database support (MariaDB, PostgreSQL, Firebase), automated backups, health monitoring, and comprehensive game systems.",
+    "features": [
+        "Multi-database support with automatic fallback",
+        "Automated health monitoring and backups",
+        "Comprehensive casino games (slots, blackjack, etc.)",
+        "Economy system with anti-abuse measures",
+        "Real-time logging and error handling",
+        "Production-ready deployment scripts"
+    ],
+    "docker_images": {
+        "nodejs_18": "quay.io/parkervcp/yolks:nodejs_18",
+        "nodejs_19": "quay.io/parkervcp/yolks:nodejs_19",
+        "nodejs_20": "quay.io/parkervcp/yolks:nodejs_20",
+        "nodejs_21": "quay.io/parkervcp/yolks:nodejs_21"
+    },
+    "file_denylist": [],
+    "startup": "if [[ -f startup.sh ]]; then bash startup.sh; else node index.js; fi",
+    "config": {
+        "files": "{\r\n    \".env\": {\r\n        \"parser\": \"properties\",\r\n        \"find\": {\r\n            \"DISCORD_TOKEN\": \"DISCORD_TOKEN={{server.build.env.DISCORD_TOKEN}}\",\r\n            \"CLIENT_ID\": \"CLIENT_ID={{server.build.env.CLIENT_ID}}\",\r\n            \"ENVIRONMENT\": \"ENVIRONMENT={{server.build.env.ENVIRONMENT}}\",\r\n            \"MARIADB_HOST\": \"MARIADB_HOST={{server.build.env.MARIADB_HOST}}\",\r\n            \"MARIADB_PORT\": \"MARIADB_PORT={{server.build.env.MARIADB_PORT}}\",\r\n            \"MARIADB_USER\": \"MARIADB_USER={{server.build.env.MARIADB_USER}}\",\r\n            \"MARIADB_PASSWORD\": \"MARIADB_PASSWORD={{server.build.env.MARIADB_PASSWORD}}\",\r\n            \"MARIADB_DATABASE\": \"MARIADB_DATABASE={{server.build.env.MARIADB_DATABASE}}\",\r\n            \"PORT\": \"PORT={{server.build.env.PORT}}\"\r\n        }\r\n    }\r\n}",
+        "startup": "{\r\n    \"done\": [\r\n        \"Bot is ready!\",\r\n        \"Successfully logged in as\",\r\n        \"Database manager initialized\",\r\n        \"🚀 Starting ATIVE Casino Bot\"\r\n    ]\r\n}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\r\n\r\n## File: ATIVE Casino Bot Installation Script\r\n## Author: ATIVE Casino Bot Team\r\n\r\napt update\r\napt install -y git curl wget tar gzip unzip\r\n\r\ncd /mnt/server\r\n\r\necho \"🎰 Installing ATIVE Casino Bot...\"\r\n\r\n## Download or clone bot files\r\nif [ -n \"${GIT_REPOSITORY}\" ]; then\r\n    echo \"📥 Cloning from repository: ${GIT_REPOSITORY}\"\r\n    \r\n    if [ -n \"${GIT_BRANCH}\" ]; then\r\n        git clone --single-branch --branch ${GIT_BRANCH} ${GIT_REPOSITORY} .\r\n    else\r\n        git clone ${GIT_REPOSITORY} .\r\n    fi\r\n    \r\n    echo \"✅ Repository cloned successfully\"\r\nelse\r\n    echo \"⚠️  No GIT_REPOSITORY provided, assuming files are already uploaded\"\r\nfi\r\n\r\n## Install Node.js dependencies\r\necho \"📦 Installing Node.js dependencies...\"\r\nnpm install --production\r\n\r\nif [ $? -eq 0 ]; then\r\n    echo \"✅ Dependencies installed successfully\"\r\nelse\r\n    echo \"❌ Failed to install dependencies\"\r\n    exit 1\r\nfi\r\n\r\n## Create necessary directories\r\necho \"📁 Creating directories...\"\r\nmkdir -p logs backups temp\r\n\r\n## Set permissions\r\necho \"🔧 Setting permissions...\"\r\nchmod +x startup.sh 2>/dev/null || echo \"startup.sh not found, will use default startup\"\r\nchmod +x scripts/*.sh 2>/dev/null || echo \"No script files found\"\r\n\r\n## Create .env from template if it doesn't exist\r\nif [ -f \".env.pterodactyl\" ] && [ ! -f \".env\" ]; then\r\n    echo \"⚙️  Creating .env from template...\"\r\n    cp .env.pterodactyl .env\r\nfi\r\n\r\necho \"🎉 ATIVE Casino Bot installation completed!\"\r\necho \"📋 Next steps:\"\r\necho \"   1. Configure your .env file with Discord token and database credentials\"\r\necho \"   2. Start the server\"\r\necho \"   3. The bot will automatically set up database schema on first run\"\r\n\r\nexit 0",
+            "container": "node:18-bullseye",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Discord Bot Token",
+            "description": "The Discord bot token from Discord Developer Portal. Required for bot authentication.",
+            "env_variable": "DISCORD_TOKEN",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:100",
+            "field_type": "text"
+        },
+        {
+            "name": "Discord Client ID",
+            "description": "The Discord application client ID from Discord Developer Portal. Required for slash commands.",
+            "env_variable": "CLIENT_ID",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:20",
+            "field_type": "text"
+        },
+        {
+            "name": "Environment",
+            "description": "Runtime environment for the bot. Use 'production' for live deployment.",
+            "env_variable": "ENVIRONMENT",
+            "default_value": "production",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:development,production",
+            "field_type": "text"
+        },
+        {
+            "name": "MariaDB Host",
+            "description": "MariaDB database host address. Use the database host from your Pterodactyl panel.",
+            "env_variable": "MARIADB_HOST",
+            "default_value": "localhost",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:100",
+            "field_type": "text"
+        },
+        {
+            "name": "MariaDB Port",
+            "description": "MariaDB database port number. Default is 3306.",
+            "env_variable": "MARIADB_PORT",
+            "default_value": "3306",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|integer|between:1,65535",
+            "field_type": "text"
+        },
+        {
+            "name": "MariaDB Username",
+            "description": "MariaDB database username. Get this from your Pterodactyl database settings.",
+            "env_variable": "MARIADB_USER",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:50",
+            "field_type": "text"
+        },
+        {
+            "name": "MariaDB Password",
+            "description": "MariaDB database password. Keep this secure and get it from your database settings.",
+            "env_variable": "MARIADB_PASSWORD",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": true,
+            "rules": "nullable|string|max:100",
+            "field_type": "text"
+        },
+        {
+            "name": "MariaDB Database Name",
+            "description": "MariaDB database name. Create a database named 'ative_casino' or customize here.",
+            "env_variable": "MARIADB_DATABASE",
+            "default_value": "ative_casino",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:50",
+            "field_type": "text"
+        },
+        {
+            "name": "Server Port",
+            "description": "Port for health checks and monitoring endpoints. Default is 3000.",
+            "env_variable": "PORT",
+            "default_value": "3000",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1024,65535",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Repository",
+            "description": "Git repository URL to clone the bot files from (optional, if not uploading manually).",
+            "env_variable": "GIT_REPOSITORY",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:200",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Branch",
+            "description": "Git branch to clone (optional, defaults to main/master).",
+            "env_variable": "GIT_BRANCH",
+            "default_value": "main",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:50",
+            "field_type": "text"
+        },
+        {
+            "name": "Developer ID",
+            "description": "Discord user ID for developer access. Default is the original developer ID.",
+            "env_variable": "DEVELOPER_ID",
+            "default_value": "466050111680544798",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:20",
+            "field_type": "text"
+        },
+        {
+            "name": "Log Channel ID",
+            "description": "Discord channel ID for error logging and admin notifications.",
+            "env_variable": "LOG_CHANNEL_ID",
+            "default_value": "1405096821512212521",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:20",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable Health Checks",
+            "description": "Enable automated health monitoring and checks.",
+            "env_variable": "ENABLE_HEALTH_CHECKS",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:true,false",
+            "field_type": "text"
+        }
+    ]
+}

@@ -1,39 +1,65 @@
 /**
- * Firebase Database Management for ATIVE Casino Bot
- * Firebase Firestore-based persistent storage for user data, server configurations, and game stats
+ * Database Management for ATIVE Casino Bot
+ * Multi-database support with automatic fallback (MariaDB -> PostgreSQL -> Firebase)
  */
 
 const { FieldValue, Timestamp } = require('firebase-admin/firestore');
-const firebaseConfig = require('./firebase');
 const logger = require('./logger');
 const { secureRandomInt } = require('./rng');
 
 class DatabaseManager {
     constructor() {
         this.db = null;
+        this.databaseAdapter = null;
         this.initialized = false;
+        this.usingAdapter = false;
     }
 
     /**
-     * Initialize database connection
+     * Initialize database connection with fallback support
      */
     async initialize() {
-        if (!this.initialized) {
-            this.db = await firebaseConfig.initialize();
+        if (this.initialized) return;
+
+        // Try to use the new database adapter first (MariaDB/PostgreSQL)
+        try {
+            const DatabaseAdapter = require('./databaseAdapter');
+            this.databaseAdapter = DatabaseAdapter;
+            await this.databaseAdapter.initialize();
+            this.usingAdapter = true;
             this.initialized = true;
-            logger.info('Firebase database manager initialized');
+            logger.info('Database manager initialized with adapter (MariaDB/PostgreSQL)');
+            return;
+        } catch (adapterError) {
+            logger.warn(`Database adapter failed: ${adapterError.message}, falling back to Firebase`);
+        }
+
+        // Fall back to Firebase
+        try {
+            const firebaseConfig = require('./firebase');
+            this.db = await firebaseConfig.initialize();
+            this.usingAdapter = false;
+            this.initialized = true;
+            logger.info('Database manager initialized with Firebase (fallback)');
+        } catch (firebaseError) {
+            logger.error(`All database connections failed: ${firebaseError.message}`);
+            throw new Error('No database connection available');
         }
     }
 
     // ========================= USER BALANCE OPERATIONS =========================
 
     /**
-     * Get user balance from Firestore
+     * Get user balance
      * @param {string} userId - Discord user ID
      * @param {string} guildId - Guild ID (kept for API compatibility but data is now global)
      * @returns {Object} User balance data
      */
     async getUserBalance(userId, guildId = null) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserBalance(userId, guildId);
+        }
+
         try {
             const docRef = this.db.collection('user_balances').doc(userId);
             const doc = await docRef.get();
@@ -93,7 +119,7 @@ class DatabaseManager {
     }
 
     /**
-     * Update user balance in Firestore
+     * Update user balance
      * @param {string} userId - Discord user ID
      * @param {string} guildId - Guild ID (kept for API compatibility)
      * @param {number} walletChange - Change in wallet amount
@@ -102,6 +128,10 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async updateUserBalance(userId, guildId = null, walletChange = 0, bankChange = 0, kwargs = {}) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updateUserBalance(userId, guildId, walletChange, bankChange, kwargs);
+        }
+
         try {
             const docRef = this.db.collection('user_balances').doc(userId);
             
@@ -134,7 +164,7 @@ class DatabaseManager {
     }
 
     /**
-     * Set user balance (absolute values) in Firestore
+     * Set user balance (absolute values)
      * @param {string} userId - Discord user ID
      * @param {string} guildId - Guild ID (kept for API compatibility)
      * @param {number} wallet - New wallet amount
@@ -143,6 +173,10 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async setUserBalance(userId, guildId = null, wallet = null, bank = null, kwargs = {}) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.setUserBalance(userId, guildId, wallet, bank, kwargs);
+        }
+
         try {
             const docRef = this.db.collection('user_balances').doc(userId);
             
