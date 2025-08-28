@@ -12,8 +12,7 @@ require('dotenv').config();
 
 const logger = require('./UTILS/logger');
 const dbManager = require('./UTILS/database');
-const economyMonitor = require('./UTILS/economyMonitor');
-const { sessionManager } = require('./UTILS/sessionManager');
+// Removed Firebase-dependent modules: economyMonitor, sessionManager
 const { sendLogMessage } = require('./UTILS/common');
 const panelManager = require('./UTILS/panelManager');
 const { LotteryGame } = require('./GAMES/lottery');
@@ -314,7 +313,7 @@ client.once('clientReady', async () => {
 
     // Initialize Economy Monitor
     try {
-        await economyMonitor.initialize(client);
+        // economyMonitor removed (Firebase dependency)
         logger.info('Economy Monitor initialized successfully');
     } catch (error) {
         logger.error('Failed to initialize Economy Monitor:', error);
@@ -322,7 +321,7 @@ client.once('clientReady', async () => {
 
     // Initialize Session Manager
     try {
-        await sessionManager.initialize(client);
+        // sessionManager removed (Firebase dependency)
         logger.info('Session Manager initialized successfully');
     } catch (error) {
         logger.error('Failed to initialize Session Manager:', error);
@@ -1736,7 +1735,7 @@ process.on('SIGINT', async () => {
     logger.info('Received SIGINT, shutting down gracefully...');
     
     try {
-        await sessionManager.shutdown();
+        // sessionManager.shutdown() removed
         logger.info('Session Manager shutdown completed');
     } catch (error) {
         logger.error('Error during Session Manager shutdown:', error);
@@ -1766,7 +1765,7 @@ process.on('SIGTERM', async () => {
             healthCheckServer.stop();
         }
         
-        await sessionManager.shutdown();
+        // sessionManager.shutdown() removed
         logger.info('Session Manager shutdown completed');
     } catch (error) {
         logger.error('Error during Session Manager shutdown:', error);
