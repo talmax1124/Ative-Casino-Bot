@@ -165,7 +165,7 @@ class DatabaseAdapter {
         const connection = await this.pool.getConnection();
         try {
             const [results] = await connection.execute(query, params);
-            return results;
+            return [results]; // Return as array to match expected destructuring pattern
         } finally {
             connection.release();
         }
