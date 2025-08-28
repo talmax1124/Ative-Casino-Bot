@@ -216,7 +216,7 @@ module.exports = {
                 voters: []
             };
 
-            // Store in Firebase
+            // Store in database
             const success = await dbManager.storePoll(pollId, pollData);
             if (!success) {
                 throw new Error('Failed to store poll in database');
@@ -298,7 +298,7 @@ module.exports.buttonHandlers = {
         pollData.votes[optionIndex]++;
         pollData.voters.push(userId);
 
-        // Update in Firebase
+        // Update in database
         await dbManager.updatePollVotes(pollId, pollData.votes);
 
         // Update the poll message

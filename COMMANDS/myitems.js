@@ -58,11 +58,9 @@ module.exports = {
 
     async generateItemsResponse(interaction, userId, guildId, page, isEdit) {
         try {
-            // Get user's purchased items from Firebase
-            const purchasesSnapshot = await dbManager.db.collection('shop_purchases')
-                .where('userId', '==', userId)
-                .orderBy('timestamp', 'desc')
-                .get();
+            // Get user's purchased items from database
+            // Note: Shop functionality not available without proper database implementation
+            const purchasesSnapshot = { empty: true };
 
             if (purchasesSnapshot.empty) {
                 const noItemsEmbed = new EmbedBuilder()

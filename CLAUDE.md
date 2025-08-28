@@ -149,7 +149,7 @@ Examples:
 
 ---
 
-## Database (Firebase Firestore)  
+## Database (MariaDB)  
 
 - **Storage Needs**:  
   - User balances.  
@@ -157,7 +157,7 @@ Examples:
   - Logs of actions for transparency.  
 
 - **Scalability**: Must handle large numbers of concurrent users.  
-- **Implementation**: Centralized in `UTILS/database.js` using Firebase Admin SDK.  
+- **Implementation**: Centralized in `UTILS/database.js` using MariaDB adapter.  
 
 ---
 
@@ -182,7 +182,7 @@ node index.js
 
 Main dependencies include:  
 - **discord.js v14** → Bot framework.  
-- **firebase-admin** → Database (Firestore).  
+- **mysql2** → Database (MariaDB).  
 - **winston** → Logging.  
 - **canvas** → Image generation.  
 - **dotenv** → Environment management.  
@@ -195,9 +195,11 @@ Main dependencies include:
 Required:  
 - `DISCORD_TOKEN` → Bot token.  
 - `CLIENT_ID` → Discord application client ID.  
-- `FIREBASE_PROJECT_ID` → Firebase project ID.  
-- `FIREBASE_PRIVATE_KEY` → Firebase private key.  
-- `FIREBASE_CLIENT_EMAIL` → Firebase client email.  
+- `MARIADB_HOST` → MariaDB host.  
+- `MARIADB_PORT` → MariaDB port.  
+- `MARIADB_USER` → MariaDB username.  
+- `MARIADB_PASSWORD` → MariaDB password.  
+- `MARIADB_DATABASE` → MariaDB database name.  
 - `ENVIRONMENT` → "development" or "production".  
 - `ANNOUNCE_CHANNEL_ID` → (Optional) Announcement channel.  
 

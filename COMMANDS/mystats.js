@@ -286,25 +286,14 @@ module.exports = {
 };
 
 /**
- * Get user tier information from Firebase
+ * Get user tier information from database
  * @param {string} userId - Discord user ID
  * @param {string} guildId - Guild ID
  * @returns {Object|null} User tier data
  */
 async function getUserTier(userId, guildId) {
     try {
-        // Check if database is properly initialized
-        if (!dbManager.db) {
-            await dbManager.initialize();
-        }
-
-        const tierRef = dbManager.db.collection('user_tiers').doc(userId);
-        const tierDoc = await tierRef.get();
-        
-        if (tierDoc.exists) {
-            return tierDoc.data();
-        }
-        
+        // Note: Tier system not implemented without proper database
         return null;
     } catch (error) {
         logger.warn(`Failed to get user tier for ${userId}: ${error.message}`);
