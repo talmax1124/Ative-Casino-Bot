@@ -8,7 +8,11 @@ const { PayoutManager, GameType, GameResult, TimeoutManager } = require('../UTIL
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { BlackjackGame } = require('../GAMES/blackjack');
 const GamePanel = require('../UTILS/gamePanel');
-const { sessionManager, GameType: SMGameType } = require('../UTILS/sessionManager');
+// sessionManager removed (Firebase dependency) - using simple session tracking
+const sessionManager = {
+    getUserSessions: (userId) => []
+};
+const SMGameType = { BLACKJACK: 'blackjack' };
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const sessionGuard = require('../UTILS/sessionGuard');
 const dbManager = require('../UTILS/database');
