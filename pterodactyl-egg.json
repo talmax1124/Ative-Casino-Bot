@@ -1,0 +1,98 @@
+{
+  "_comment": "Pterodactyl Egg Configuration for ATIVE Casino Web Server",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_at": "2025-08-29T22:30:00+00:00",
+  "name": "ATIVE Casino Web Server",
+  "author": "carlos@ativebot.com",
+  "description": "Node.js web server for ATIVE Casino Bot with health monitoring and API endpoints",
+  "features": [
+    "eula",
+    "java_version",
+    "pid_limit"
+  ],
+  "docker_images": {
+    "node:18": "ghcr.io/parkervcp/yolks:nodejs_18",
+    "node:19": "ghcr.io/parkervcp/yolks:nodejs_19",
+    "node:20": "ghcr.io/parkervcp/yolks:nodejs_20"
+  },
+  "file_denylist": [],
+  "startup": "if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == \"1\" ]]; then git pull; fi; if [[ ! -z {{NODE_PACKAGES}} ]]; then /usr/local/bin/npm install {{NODE_PACKAGES}}; fi; if [[ ! -z {{UNNODE_PACKAGES}} ]]; then /usr/local/bin/npm uninstall {{UNNODE_PACKAGES}}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install --production; fi; /usr/local/bin/{{JS_FILE}}",
+  "config": {
+    "files": "{\r\n    \"package.json\": {\r\n        \"parser\": \"json\",\r\n        \"find\": {\r\n            \"scripts.start\": \"{{START_CMD}}\"\r\n        }\r\n    }\r\n}",
+    "startup": "{\r\n    \"done\": \"change this text\"\r\n}",
+    "logs": "{}",
+    "stop": "^^C"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/bash\n# ATIVE Casino Web Server Installation Script\n\napt update\napt install -y git curl jq file unzip make gcc g++ python3 python3-dev libnss3-dev libgconf-2-4 libxss1 libxtst6 libxrandr2 libasound2 libpangocairo-1.0-0 libcairo-gobject2 libgtk-3-0 libgdk-pixbuf2.0-dev libxcomposite1 libxdamage1 libxss1 libxtst6 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libatspi2.0-0\n\nmkdir -p /mnt/server\ncd /mnt/server\n\nif [ \"${USER_UPLOAD}\" == \"true\" ] || [ \"${USER_UPLOAD}\" == \"1\" ]; then\n    echo -e \"assuming user knows what they are doing have a good day.\"\n    exit 0\nfi\n\n## get release info and download links\nLATEST_JSON=$(curl --silent \"https://api.github.com/repos/nodejs/node/releases/latest\")\nRELEASES=$(curl --silent \"https://api.github.com/repos/nodejs/node/releases\")\n\nif [ -z \"${VERSION}\" ] || [ \"${VERSION}\" == \"latest\" ]; then\n    DOWNLOAD_URL=$(echo ${LATEST_JSON} | jq .assets | jq -r '.[] | select(.name | test(\"linux-x64\")) | .browser_download_url')\nelse\n    VERSION_CHECK=$(echo ${RELEASES} | jq -r --arg VERSION \"${VERSION}\" '.[] | select(.tag_name==$VERSION) | .tag_name')\n    if [ \"${VERSION}\" == \"${VERSION_CHECK}\" ]; then\n        DOWNLOAD_URL=$(echo ${RELEASES} | jq -r --arg VERSION \"${VERSION}\" '.[] | select(.tag_name==$VERSION) | .assets[].browser_download_url' | grep -E 'linux-x64' | head -1)\n    else\n        echo -e \"defaulting to latest release\"\n        DOWNLOAD_URL=$(echo ${LATEST_JSON} | jq .assets | jq -r '.[] | select(.name | test(\"linux-x64\")) | .browser_download_url')\n    fi\nfi\n\n## add some default files\necho -e \"import express from 'express';\nconst app = express();\nconst port = process.env.PORT || 3000;\n\napp.get('/', (req, res) => {\n    res.json({\n        status: 'online',\n        message: 'ATIVE Casino Web Server',\n        timestamp: new Date().toISOString()\n    });\n});\n\napp.get('/health', (req, res) => {\n    res.json({\n        status: 'healthy',\n        uptime: process.uptime(),\n        memory: process.memoryUsage()\n    });\n});\n\napp.listen(port, () => {\n    console.log(\\`🌐 ATIVE Casino Web Server running on port \\${port}\\`);\n});\" > index.js\n\necho -e \"{\n    \\\"name\\\": \\\"ative-casino-webserver\\\",\n    \\\"version\\\": \\\"1.0.0\\\",\n    \\\"description\\\": \\\"ATIVE Casino Web Server\\\",\n    \\\"main\\\": \\\"index.js\\\",\n    \\\"type\\\": \\\"module\\\",\n    \\\"scripts\\\": {\n        \\\"start\\\": \\\"node index.js\\\"\n    },\n    \\\"dependencies\\\": {\n        \\\"express\\\": \\\"^4.18.0\\\"\n    },\n    \\\"engines\\\": {\n        \\\"node\\\": \\\">=18.0.0\\\"\n    }\n}\" > package.json\n\necho \"Installation completed...\"\necho \"Default files created. Upload your project files to replace them.\"\necho \"Run 'npm install' after uploading your files.\"",
+      "container": "node:18-bullseye-slim",
+      "entrypoint": "bash"
+    }
+  },
+  "variables": [
+    {
+      "name": "JavaScript File",
+      "description": "The main JavaScript file to run. Usually index.js or app.js",
+      "env_variable": "JS_FILE",
+      "default_value": "node index.js",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Node Packages",
+      "description": "Install additional Node packages. Space separated list (e.g., express cors helmet)",
+      "env_variable": "NODE_PACKAGES",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Uninstall Packages",
+      "description": "Uninstall Node packages. Space separated list",
+      "env_variable": "UNNODE_PACKAGES", 
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "User Upload",
+      "description": "Skip automatic setup if you're uploading your own files",
+      "env_variable": "USER_UPLOAD",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|boolean",
+      "field_type": "text"
+    },
+    {
+      "name": "Auto Update",
+      "description": "Auto update from Git repository on restart",
+      "env_variable": "AUTO_UPDATE",
+      "default_value": "0", 
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|boolean",
+      "field_type": "text"
+    },
+    {
+      "name": "Start Command",
+      "description": "Command to start the application (package.json start script)",
+      "env_variable": "START_CMD",
+      "default_value": "node index.js",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    }
+  ]
+}

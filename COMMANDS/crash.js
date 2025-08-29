@@ -13,7 +13,27 @@ const sessionManager = {
     getSession: (sessionId) => null,
     endSession: async (sessionId) => ({ success: true }),
     cancelSession: async (sessionId, reason) => ({ success: true }),
-    cancelUserSessions: async (userId, reason) => ({ success: true })
+    cancelUserSessions: async (userId, reason) => ({ success: true }),
+    createSession: async (sessionConfig) => {
+        try {
+            const sessionId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            return {
+                success: true, 
+                sessionId,
+                session: {
+                    ...sessionConfig,
+                    sessionId,
+                    createdAt: Date.now(),
+                    state: 'active'
+                }
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.message || 'Failed to create mock session'
+            };
+        }
+    }
 };
 const SMGameType = { CRASH: 'crash' };
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');

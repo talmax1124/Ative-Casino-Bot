@@ -6,16 +6,26 @@
 // sessionManager removed (Firebase dependency) - using mock implementation
 const sessionManager = {
     canCreateSession: async (userId) => ({ allowed: true }),
-    createSession: async (sessionConfig) => ({ 
-        success: true, 
-        sessionId: `mock_${Date.now()}`,
-        session: {
-            ...sessionConfig,
-            sessionId: `mock_${Date.now()}`,
-            createdAt: Date.now(),
-            state: 'active'
+    createSession: async (sessionConfig) => {
+        try {
+            const sessionId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            return {
+                success: true, 
+                sessionId,
+                session: {
+                    ...sessionConfig,
+                    sessionId,
+                    createdAt: Date.now(),
+                    state: 'active'
+                }
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.message || 'Failed to create mock session'
+            };
         }
-    }),
+    },
     endSession: async (sessionId) => ({ success: true }),
     updateSession: async (sessionId, data) => ({ success: true }),
     completeSession: async (sessionId, data) => ({ success: true }),
