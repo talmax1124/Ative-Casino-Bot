@@ -7,7 +7,12 @@ const { getAllActiveGames } = require('./common');
 // sessionManager removed (Firebase dependency) - using mock implementation
 const sessionManager = {
     getAllActiveSessions: () => [],
-    endAllSessions: async () => ({ success: true })
+    endAllSessions: async () => ({ success: true }),
+    getSessionStats: () => ({ active: 0, total: 0, paused: 0 }),
+    getActiveSessionCount: () => 0,
+    getUserSessions: (userId) => [],
+    getSession: (sessionId) => null,
+    cancelSession: async (sessionId, reason, source) => ({ success: true })
 };
 const logger = require('./logger');
 

@@ -6,11 +6,24 @@
 // sessionManager removed (Firebase dependency) - using mock implementation
 const sessionManager = {
     canCreateSession: async (userId) => ({ allowed: true }),
-    createSession: async (userId, gameType, data) => ({ sessionId: `mock_${Date.now()}` }),
+    createSession: async (sessionConfig) => ({ 
+        success: true, 
+        sessionId: `mock_${Date.now()}`,
+        session: {
+            ...sessionConfig,
+            sessionId: `mock_${Date.now()}`,
+            createdAt: Date.now(),
+            state: 'active'
+        }
+    }),
     endSession: async (sessionId) => ({ success: true }),
+    updateSession: async (sessionId, data) => ({ success: true }),
+    completeSession: async (sessionId, data) => ({ success: true }),
+    cancelSession: async (sessionId, reason, source) => ({ success: true }),
+    cancelUserSessions: async (userId, reason, source) => ({ success: true }),
     getUserSessions: (userId) => [],
     getSession: (sessionId) => null,
-    updateSession: async (sessionId, data) => ({ success: true })
+    getActiveSessionCount: () => 0
 };
 const GameType = { BLACKJACK: 'blackjack', SLOTS: 'slots', UNO: 'uno' };
 const SessionState = { ACTIVE: 'active', COMPLETED: 'completed', FAILED: 'failed' };
