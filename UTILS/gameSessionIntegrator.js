@@ -464,6 +464,19 @@ class GameSessionIntegrator {
             throw error;
         }
     }
+
+    /**
+     * Get active sessions for a user
+     */
+    static async getActiveUserSessions(userId) {
+        try {
+            const sessions = sessionManager.getUserSessions(userId);
+            return sessions.filter(s => s.state === 'active' || s.state === 'paused');
+        } catch (error) {
+            logger.error(`Error getting active user sessions: ${error.message}`);
+            return [];
+        }
+    }
 }
 
 module.exports = GameSessionIntegrator;

@@ -5,18 +5,9 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount, setActiveGame, getActiveGame, clearActiveGame } = require('../UTILS/common');
-// sessionManager removed (Firebase dependency) - using mock implementation
-const sessionManager = {
-    getAllActiveSessions: () => [],
-    getSessionStats: () => ({ active: 0, total: 0 }),
-    getActiveSessionCount: () => 0,
-    getUserSessions: (userId) => [],
-    getSession: (sessionId) => null,
-    endSession: async (sessionId) => ({ success: true }),
-    cancelSession: async (sessionId, reason) => ({ success: true }),
-    cancelUserSessions: async (userId, reason) => ({ success: true })
-};
+const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const levelingSystem = require('../UTILS/levelingSystem');
 const UITemplates = require('../UTILS/uiTemplates');
 const { 
     UnoGameSession,
@@ -47,16 +38,11 @@ module.exports = {
         const username = interaction.user.displayName;
 
         try {
-            // Check for active session
-            const activeGame = getActiveGame(userId);
-            if (activeGame) {
-                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
-                    description: `You already have an active ${activeGame} game session.\n\nFinish your current game or use \`/stopgame\` to cancel it before starting a new UNO game.`,
-                    isGameActive: true
-                });
-                
-                await interaction.followUp({ embeds: [errorEmbed] });
-                return;
+            // Validate session before proceeding using modern session system
+            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, 'uno', guildId);
+            if (!sessionValidation.valid) {
+                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'uno', sessionValidation);
+                return await interaction.followUp({ embeds: [errorEmbed] });
             }
 
             // Check if there's already a game in this channel
@@ -138,21 +124,21 @@ module.exports = {
             // Deduct bet from starter
             await dbManager.updateUserBalance(userId, guildId, -betAmount, 0);
 
-            // Register session
-            setActiveGame(userId, 'uno');
-            
-            // Create session in session manager
-            const sessionResult = await sessionManager.createSession({
+            // Create game session with enhanced protection
+            const sessionResult = await GameSessionIntegrator.createGameSession({
                 userId,
                 guildId,
                 channelId,
                 gameType: 'uno',
                 betAmount,
-                timeout: 180000, // 3 minutes for UNO
+                timeout: 300000, // 5 minutes for UNO
                 metadata: {
+                    gamePhase: 'lobby',
                     multiplayer: true,
-                    waitingForPlayers: true
-                }
+                    waitingForPlayers: true,
+                    maxPlayers: 8
+                },
+                interaction
             });
 
             // Create new game
@@ -160,14 +146,9 @@ module.exports = {
             const success = game.addPlayer(userId, `<@${userId}>`);
 
             if (!success) {
-                // Refund if couldn't create game
-                await dbManager.updateUserBalance(userId, guildId, betAmount, 0);
+                // Handle game error with session cleanup and refund
+                await GameSessionIntegrator.handleGameError(userId, 'uno', betAmount, guildId, 'UNO game creation failed');
                 
-                // Clean up session
-                clearActiveGame(userId);
-                if (sessionResult.success) {
-                    await sessionManager.cancelSession(sessionResult.sessionId, 'Failed to create game', userId);
-                }
                 const errorEmbed = UITemplates.createErrorEmbed('UNO', {
                     description: 'Failed to create the UNO game. Your bet has been refunded.',
                     isLoss: false
@@ -175,10 +156,15 @@ module.exports = {
                 await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                 return;
             }
+            
+            if (!sessionResult.success) {
+                throw new Error(`Session creation failed: ${sessionResult.error}`);
+            }
 
-            // Store game channel
+            // Store game channel and session ID
             game.gameChannel = interaction.channel;
             game.mainGameInteraction = interaction;
+            game.sessionId = sessionResult.sessionId;
 
             // Show lobby with standardized template
             const lobbyEmbed = UITemplates.createStandardGameEmbed(
@@ -214,6 +200,9 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error executing UNO command: ${error.message}`, { userId, error: error.stack });
+            
+            // Handle game error with session cleanup and refund
+            await GameSessionIntegrator.handleGameError(userId, 'uno', 0, guildId, 'UNO game initialization error');
             
             const errorEmbed = UITemplates.createErrorEmbed('UNO', {
                 description: 'An error occurred while creating the UNO game. Please try again.',
@@ -891,7 +880,7 @@ module.exports = {
             // Give prize to winner
             await dbManager.updateUserBalance(game.winner.userId, guildId, totalPot, 0);
 
-            // Record game results
+            // Record game results and add XP
             for (const player of game.players.values()) {
                 const won = player.userId === game.winner.userId;
                 await dbManager.recordGameResult(
@@ -902,6 +891,28 @@ module.exports = {
                     game.starterBet, 
                     won ? totalPot - game.starterBet : -game.starterBet
                 );
+                
+                // Add XP for game completion
+                const xpResult = await levelingSystem.handleGameComplete(player.userId, guildId, 'uno', won);
+                
+                // Check for level up
+                if (xpResult && xpResult.leveledUp) {
+                    try {
+                        const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                        if (levelUpChannel) {
+                            const levelUpEmbed = levelingSystem.createLevelUpEmbed(
+                                await interaction.client.users.fetch(player.userId), 
+                                xpResult.newLevel
+                            );
+                            await levelUpChannel.send({ 
+                                content: `<@${player.userId}>, you are now level ${xpResult.newLevel}!`,
+                                embeds: [levelUpEmbed] 
+                            });
+                        }
+                    } catch (levelError) {
+                        logger.error(`Failed to send level up notification: ${levelError.message}`);
+                    }
+                }
             }
 
             // Create winner announcement
@@ -938,6 +949,17 @@ module.exports = {
                 game.winner.userId,
                 guildId
             );
+
+            // Complete session if game has one
+            if (game.sessionId) {
+                await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                    outcome: 'COMPLETED',
+                    payout: totalPot,
+                    won: true,
+                    winnerId: game.winner.userId,
+                    totalPlayers: game.players.size
+                });
+            }
 
             // Clean up
             endUnoGame(channelId);

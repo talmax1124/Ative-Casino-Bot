@@ -194,8 +194,11 @@ class PayoutManager {
             });
         }
         
-        // Set active game
-        setActiveGame(userId, gameType);
+        // Set active game (only for legacy games, modern games use GameSessionIntegrator)
+        const modernGames = ['blackjack', 'slots', 'crash', 'plinko', 'uno', 'wordchain', 'fishing', 'battleship'];
+        if (!modernGames.includes(gameType.toLowerCase())) {
+            setActiveGame(userId, gameType);
+        }
         
         logger.info(`User ${userId} placed bet of ${fmt(parsedAmount)} for ${gameType}`);
         
@@ -258,8 +261,11 @@ class PayoutManager {
                 profileData
             );
             
-            // Clear active game
-            clearActiveGame(userId);
+            // Clear active game (only for legacy games, modern games use GameSessionIntegrator)
+            const modernGames = ['blackjack', 'slots', 'crash', 'plinko', 'uno', 'wordchain', 'fishing', 'battleship'];
+            if (!modernGames.includes(gameType.toLowerCase())) {
+                clearActiveGame(userId);
+            }
             
             logger.info(`Processed payout for ${userId}: ${fmt(payout)} (${won ? 'win' : 'loss'})`);
             
@@ -272,7 +278,11 @@ class PayoutManager {
             
         } catch (error) {
             logger.error(`Error processing payout for ${userId}: ${error.message}`);
-            clearActiveGame(userId);
+            // Clear active game (only for legacy games, modern games use GameSessionIntegrator)
+            const modernGames = ['blackjack', 'slots', 'crash', 'plinko', 'uno', 'wordchain', 'fishing', 'battleship'];
+            if (!modernGames.includes(gameType.toLowerCase())) {
+                clearActiveGame(userId);
+            }
             return {
                 success: false,
                 newWallet: 0,
@@ -297,7 +307,19 @@ class PayoutManager {
             const success = await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank);
             
             if (success) {
-                clearActiveGame(userId);
+                // Clear active game (only for legacy games, modern games use GameSessionIntegrator)
+                const modernGames = ['blackjack', 'slots', 'crash', 'plinko', 'uno', 'wordchain', 'fishing', 'battleship'];
+                const gameType = reason.includes('blackjack') ? 'blackjack' : 
+                                reason.includes('slots') ? 'slots' : 
+                                reason.includes('crash') ? 'crash' : 
+                                reason.includes('plinko') ? 'plinko' : 
+                                reason.includes('uno') ? 'uno' :
+                                reason.includes('wordchain') ? 'wordchain' :
+                                reason.includes('fishing') ? 'fishing' :
+                                reason.includes('battleship') ? 'battleship' : 'unknown';
+                if (!modernGames.includes(gameType.toLowerCase())) {
+                    clearActiveGame(userId);
+                }
                 logger.info(`Refunded ${fmt(amount)} to user ${userId}: ${reason}`);
             }
             

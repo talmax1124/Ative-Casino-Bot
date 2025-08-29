@@ -21,6 +21,8 @@ const { fmt, getGuildId, parseAmount } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const battleshipRenderer = require('../UTILS/battleshipRenderer');
 const UITemplates = require('../UTILS/uiTemplates');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const levelingSystem = require('../UTILS/levelingSystem');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 
 const {
@@ -156,18 +158,43 @@ module.exports = {
                 return;
             }
 
-            // Deduct from creator and mark as active in game
-            await dbManager.updateUserBalance(userId, guildId, { wallet: balance.wallet - betAmount, game_active: true });
+            // Create game session with enhanced protection  
+            const sessionResult = await GameSessionIntegrator.createGameSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: 'battleship',
+                betAmount,
+                timeout: 900000, // 15 minutes for Battleship
+                metadata: {
+                    gamePhase: 'lobby',
+                    multiplayer: true,
+                    battleshipGame: true
+                },
+                interaction
+            });
+            
+            if (!sessionResult.success) {
+                const embed = UITemplates.createErrorEmbed('❌ Session Error', `Failed to create game session: ${sessionResult.error}`);
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return;
+            }
+
+            // Deduct from creator wallet
+            await dbManager.updateUserBalance(userId, guildId, { wallet: balance.wallet - betAmount });
 
             // Create game
             const game = createBattleshipGame(channelId, interaction.user, betAmount);
             if (!game) {
-                // Refund on failure
-                await dbManager.updateUserBalance(userId, guildId, { wallet: balance.wallet, game_active: false });
+                // Handle game error with session cleanup and refund
+                await GameSessionIntegrator.handleGameError(userId, 'battleship', betAmount, guildId, 'Battleship game creation failed');
                 const embed = UITemplates.createErrorEmbed('❌ Game Creation Failed', 'Failed to create Battleship game.');
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
+            
+            // Store session ID in game
+            game.sessionId = sessionResult.sessionId;
 
             const embed = game.createLobbyEmbed();
             const components = game.createGameButtons();
@@ -288,8 +315,30 @@ module.exports = {
             return;
         }
 
+        // Create session for joining player
+        const sessionResult = await GameSessionIntegrator.createGameSession({
+            userId,
+            guildId,
+            channelId,
+            gameType: 'battleship',
+            betAmount: game.betAmount,
+            timeout: 900000, // 15 minutes for Battleship
+            metadata: {
+                gamePhase: 'active',
+                multiplayer: true,
+                battleshipGame: true
+            },
+            interaction
+        });
+        
+        if (!sessionResult.success) {
+            const embed = UITemplates.createErrorEmbed('❌ Session Error', `Failed to create game session: ${sessionResult.error}`);
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+
         // Deduct bet and add player
-        await dbManager.updateUserBalance(userId, guildId, { wallet: balance.wallet - game.betAmount, game_active: true });
+        await dbManager.updateUserBalance(userId, guildId, { wallet: balance.wallet - game.betAmount });
         const success = game.addPlayer(interaction.user);
         
         if (!success) {
@@ -741,8 +790,8 @@ module.exports = {
             const winnerBalance = await dbManager.getUserBalance(winner, guildId);
             const winnings = game.betAmount * 2;
             
-            await dbManager.updateUserBalance(winner, guildId, { wallet: winnerBalance.wallet + winnings, game_active: false });
-            await dbManager.updateUserBalance(loserId, guildId, { game_active: false });
+            await dbManager.updateUserBalance(winner, guildId, { wallet: winnerBalance.wallet + winnings });
+            // Note: No need to set game_active: false as sessions handle this
 
             // Record game results
             try {
@@ -750,6 +799,43 @@ module.exports = {
                 await dbManager.updateGameStats(loserId, false, 'battleship', game.betAmount);
             } catch (error) {
                 logger.error(`Failed to record battleship game results: ${error.message}`);
+            }
+            
+            // Add XP and complete sessions for both players
+            const players = [winner, loserId];
+            for (const playerId of players) {
+                const won = playerId === winner;
+                
+                // Add XP for game completion
+                const xpResult = await levelingSystem.handleGameComplete(playerId, guildId, 'battleship', won);
+                
+                // Check for level up
+                if (xpResult && xpResult.leveledUp) {
+                    try {
+                        const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                        if (levelUpChannel) {
+                            const user = await interaction.client.users.fetch(playerId);
+                            const levelUpEmbed = levelingSystem.createLevelUpEmbed(user, xpResult.newLevel);
+                            await levelUpChannel.send({ 
+                                content: `<@${playerId}>, you are now level ${xpResult.newLevel}!`,
+                                embeds: [levelUpEmbed] 
+                            });
+                        }
+                    } catch (levelError) {
+                        logger.error(`Failed to send level up notification: ${levelError.message}`);
+                    }
+                }
+            }
+            
+            // Complete sessions if they exist
+            if (game.sessionId) {
+                await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                    outcome: 'COMPLETED',
+                    payout: winnings,
+                    won: true,
+                    winnerId: winner,
+                    loserId: loserId
+                });
             }
 
             const finishedEmbed = game.createFinishedEmbed();

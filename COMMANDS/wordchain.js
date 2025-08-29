@@ -3,9 +3,11 @@
  */
 
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder } = require('discord.js');
-const { fmt, getGuildId, sendLogMessage, setActiveGame, clearActiveGame, getActiveGame } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const levelingSystem = require('../UTILS/levelingSystem');
 const { WordChainGame, buildGameEmbed, buildLobbyButtons, wordValidator } = require('../GAMES/wordchain');
 
 // Per-channel active game registry
@@ -78,9 +80,37 @@ async function endGame(interaction, game, updatePanel) {
         if (game.collector) game.collector.stop('finished');
         await payoutWinner(game);
         await updatePanel();
-        // Clear active game flags for all participants
+        // Process XP and complete sessions for all participants
         for (const p of game.players.values()) {
-            clearActiveGame(p.user.id);
+            const won = game.activePlayers.length > 0 && game.activePlayers[0].user.id === p.user.id;
+            
+            // Add XP for game completion
+            const xpResult = await levelingSystem.handleGameComplete(p.user.id, game.guildId, 'wordchain', won);
+            
+            // Check for level up
+            if (xpResult && xpResult.leveledUp) {
+                try {
+                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                    if (levelUpChannel) {
+                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(p.user, xpResult.newLevel);
+                        await levelUpChannel.send({ 
+                            content: `<@${p.user.id}>, you are now level ${xpResult.newLevel}!`,
+                            embeds: [levelUpEmbed] 
+                        });
+                    }
+                } catch (levelError) {
+                    logger.error(`Failed to send level up notification: ${levelError.message}`);
+                }
+            }
+            
+            // Complete session if exists
+            if (p.sessionId) {
+                await GameSessionIntegrator.completeGameSession(p.sessionId, {
+                    outcome: won ? 'WON' : 'LOST',
+                    payout: won ? (game.potAmount * game.players.size) : 0,
+                    won: won
+                });
+            }
         }
         // Mark turn notice as finished
         if (game.turnMessage) {
@@ -109,11 +139,23 @@ module.exports = {
 
         await interaction.deferReply();
 
+        const userId = interaction.user.id;
         const channel = interaction.channel;
         const guildId = await getGuildId(interaction);
         const pot = interaction.options.getNumber('pot') ?? 0;
         const lives = interaction.options.getInteger('lives') ?? 3;
         const timeout = interaction.options.getInteger('timeout') ?? 30;
+        
+        // Modern session validation
+        const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, 'wordchain', guildId);
+        if (!sessionValidation.valid) {
+            const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(
+                interaction.user.displayName, 
+                'wordchain', 
+                sessionValidation
+            );
+            return await interaction.editReply({ embeds: [errorEmbed] });
+        }
 
         const game = new WordChainGame(channel, guildId, interaction.user);
         game.potAmount = pot;
@@ -161,9 +203,35 @@ module.exports = {
                 if (bal.wallet < game.potAmount) {
                     return i.reply({ content: `❌ Insufficient funds. Need ${fmt(game.potAmount)}, have ${fmt(bal.wallet)}.`, ephemeral: true });
                 }
+                // Create session for pot players
+                const sessionResult = await GameSessionIntegrator.createGameSession({
+                    userId: i.user.id,
+                    guildId,
+                    channelId: channel.id,
+                    gameType: 'wordchain',
+                    betAmount: game.potAmount,
+                    timeout: 1800000, // 30 minutes for WordChain
+                    metadata: {
+                        gamePhase: 'active',
+                        multiplayer: true,
+                        wordchainGame: true
+                    },
+                    interaction: i
+                });
+                
+                if (!sessionResult.success) {
+                    return i.reply({ content: '❌ Failed to create game session.', ephemeral: true });
+                }
+                
                 const ok = await dbManager.updateUserBalance(i.user.id, guildId, -game.potAmount, 0);
-                if (!ok) return i.reply({ content: '❌ Failed to deduct pot.', ephemeral: true });
+                if (!ok) {
+                    // Clean up session on payment failure
+                    await GameSessionIntegrator.handleGameError(i.user.id, 'wordchain', game.potAmount, guildId, 'Payment failed');
+                    return i.reply({ content: '❌ Failed to deduct pot.', ephemeral: true });
+                }
+                
                 p.paidPot = true;
+                p.sessionId = sessionResult.sessionId; // Store session ID for later completion
                 await i.reply({ content: `✅ Paid ${fmt(game.potAmount)} into the pot.`, ephemeral: true });
                 await updatePanel();
             } else if (action === 'leave') {

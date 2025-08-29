@@ -14,6 +14,8 @@ const {
     handleFishingAction 
 } = require('../GAMES/fishing');
 const logger = require('../UTILS/logger');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const levelingSystem = require('../UTILS/levelingSystem');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -34,17 +36,15 @@ module.exports = {
             // Ensure user exists in database
             await dbManager.ensureUser(userId, username);
             
-            // Check if user already has an active game
-            const balance = await dbManager.getUserBalance(userId, guildId);
-            if (balance.game_active) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Game Already Active')
-                    .setDescription('You already have an active game session! Finish your current game first.')
-                    .setColor(0xFF0000);
-                
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
+            // Modern session validation
+            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, 'fishing', guildId);
+            if (!sessionValidation.valid) {
+                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'fishing', sessionValidation);
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
+            
+            // Get current balance
+            const balance = await dbManager.getUserBalance(userId, guildId);
 
             // Parse bet amount
             const amountStr = interaction.options.getString('amount');
@@ -83,16 +83,38 @@ module.exports = {
                 return;
             }
 
-            // Deduct bet from wallet and set game as active
-            const newWalletBalance = balance.wallet - betAmount;
-            
-            await dbManager.updateUserBalance(userId, guildId, {
-                wallet: newWalletBalance,
-                game_active: true
+            // Create game session with enhanced protection
+            const sessionResult = await GameSessionIntegrator.createGameSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: 'fishing',
+                betAmount,
+                timeout: 300000, // 5 minutes for Fishing
+                metadata: {
+                    gamePhase: 'active',
+                    singlePlayer: true
+                },
+                interaction
             });
+            
+            if (!sessionResult.success) {
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Session Error')
+                    .setDescription(`Failed to create game session: ${sessionResult.error}`)
+                    .setColor(0xFF0000);
+                
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return;
+            }
+
+            // Deduct bet from wallet
+            const newWalletBalance = balance.wallet - betAmount;
+            await dbManager.updateUserBalance(userId, guildId, { wallet: newWalletBalance });
 
             // Create fishing game
             const fishingGame = startFishingGame(userId, username, betAmount, newWalletBalance);
+            fishingGame.sessionId = sessionResult.sessionId; // Store session ID for completion
 
             // Create initial embed and buttons
             const initialEmbed = fishingGame.getInitialEmbed(balance.bank);
@@ -173,11 +195,8 @@ module.exports = {
             const netChange = game.currentWinnings - game.initialBet;
             const won = netChange >= 0;
 
-            // Update database
-            await dbManager.updateUserBalance(userId, guildId, {
-                wallet: finalWallet,
-                game_active: false
-            });
+            // Update database (no longer setting game_active as it's handled by sessions)
+            await dbManager.updateUserBalance(userId, guildId, { wallet: finalWallet });
 
             // Record game result for statistics
             try {
@@ -236,6 +255,35 @@ module.exports = {
                 userId,
                 guildId
             );
+
+            // Add XP for game completion
+            const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'fishing', won);
+            
+            // Check for level up
+            if (xpResult && xpResult.leveledUp) {
+                try {
+                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                    if (levelUpChannel) {
+                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
+                        await levelUpChannel.send({ 
+                            content: `<@${userId}>, you are now level ${xpResult.newLevel}!`,
+                            embeds: [levelUpEmbed] 
+                        });
+                    }
+                } catch (levelError) {
+                    logger.error(`Failed to send level up notification: ${levelError.message}`);
+                }
+            }
+            
+            // Complete session if exists
+            if (game.sessionId) {
+                await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                    outcome: won ? 'WON' : 'LOST',
+                    payout: game.currentWinnings,
+                    won: won,
+                    netChange: netChange
+                });
+            }
 
             logger.info(`Fishing game completed: ${game.username} (${userId}) - ${won ? 'WIN' : 'LOSS'} ${fmt(netChange)}`);
 

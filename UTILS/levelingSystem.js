@@ -76,8 +76,9 @@ class LevelingSystem {
             // Create leveling table if not exists
             await pool.execute(`
                 CREATE TABLE IF NOT EXISTS user_levels (
-                    user_id VARCHAR(20) PRIMARY KEY,
+                    user_id VARCHAR(20),
                     guild_id VARCHAR(20),
+                    PRIMARY KEY (user_id, guild_id),
                     level INT DEFAULT 1,
                     xp INT DEFAULT 0,
                     total_xp INT DEFAULT 0,
@@ -110,9 +111,9 @@ class LevelingSystem {
             );
 
             if (rows.length === 0) {
-                // Create new user entry
+                // Create new user entry with INSERT IGNORE to prevent duplicates
                 await pool.execute(
-                    'INSERT INTO user_levels (user_id, guild_id) VALUES (?, ?)',
+                    'INSERT IGNORE INTO user_levels (user_id, guild_id) VALUES (?, ?)',
                     [userId, guildId]
                 );
                 return {
