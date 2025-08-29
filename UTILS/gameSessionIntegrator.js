@@ -3,21 +3,35 @@
  * Provides common patterns and functions for game session management
  */
 
-// sessionManager removed (Firebase dependency) - using mock implementation
+// sessionManager removed (Firebase dependency) - using in-memory mock implementation
+const activeSessions = new Map(); // sessionId -> session data
+const userSessions = new Map();   // userId -> Set of sessionIds
+
 const sessionManager = {
     canCreateSession: async (userId) => ({ allowed: true }),
     createSession: async (sessionConfig) => {
         try {
             const sessionId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const session = {
+                ...sessionConfig,
+                sessionId,
+                createdAt: Date.now(),
+                state: 'active'
+            };
+            
+            // Store session
+            activeSessions.set(sessionId, session);
+            
+            // Track user sessions
+            if (!userSessions.has(sessionConfig.userId)) {
+                userSessions.set(sessionConfig.userId, new Set());
+            }
+            userSessions.get(sessionConfig.userId).add(sessionId);
+            
             return {
                 success: true, 
                 sessionId,
-                session: {
-                    ...sessionConfig,
-                    sessionId,
-                    createdAt: Date.now(),
-                    state: 'active'
-                }
+                session
             };
         } catch (error) {
             return {
@@ -26,13 +40,69 @@ const sessionManager = {
             };
         }
     },
-    endSession: async (sessionId) => ({ success: true }),
-    updateSession: async (sessionId, data) => ({ success: true }),
-    completeSession: async (sessionId, data) => ({ success: true }),
-    cancelSession: async (sessionId, reason) => ({ success: true }),
-    getUserSessions: (userId) => [],
-    getActiveSessionCount: () => 0,
-    getSession: (sessionId) => null
+    endSession: async (sessionId) => {
+        const session = activeSessions.get(sessionId);
+        if (session) {
+            session.state = 'ended';
+            activeSessions.delete(sessionId);
+            
+            // Remove from user tracking
+            if (userSessions.has(session.userId)) {
+                userSessions.get(session.userId).delete(sessionId);
+            }
+        }
+        return { success: true };
+    },
+    updateSession: async (sessionId, data) => {
+        const session = activeSessions.get(sessionId);
+        if (session) {
+            Object.assign(session, data);
+        }
+        return { success: true };
+    },
+    completeSession: async (sessionId, data) => {
+        const session = activeSessions.get(sessionId);
+        if (session) {
+            session.state = 'completed';
+            Object.assign(session, data);
+            activeSessions.delete(sessionId);
+            
+            // Remove from user tracking
+            if (userSessions.has(session.userId)) {
+                userSessions.get(session.userId).delete(sessionId);
+            }
+        }
+        return { success: true };
+    },
+    cancelSession: async (sessionId, reason) => {
+        const session = activeSessions.get(sessionId);
+        if (session) {
+            session.state = 'cancelled';
+            session.cancelReason = reason;
+            activeSessions.delete(sessionId);
+            
+            // Remove from user tracking
+            if (userSessions.has(session.userId)) {
+                userSessions.get(session.userId).delete(sessionId);
+            }
+        }
+        return { success: true };
+    },
+    getUserSessions: (userId) => {
+        const sessionIds = userSessions.get(userId);
+        if (!sessionIds) return [];
+        
+        const sessions = [];
+        for (const sessionId of sessionIds) {
+            const session = activeSessions.get(sessionId);
+            if (session) {
+                sessions.push(session);
+            }
+        }
+        return sessions;
+    },
+    getActiveSessionCount: () => activeSessions.size,
+    getSession: (sessionId) => activeSessions.get(sessionId) || null
 };
 const GameType = { BLACKJACK: 'blackjack', SLOTS: 'slots', UNO: 'uno' };
 const { buildSessionEmbed } = require('./gameSessionKit');

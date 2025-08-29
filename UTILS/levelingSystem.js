@@ -7,48 +7,48 @@ const dbManager = require('./database');
 const logger = require('./logger');
 const { EmbedBuilder } = require('discord.js');
 
-// XP Requirements per level (similar to Arcane bot)
+// XP Requirements per level (easier progression)
 const XP_PER_LEVEL = [
     0,      // Level 0 (doesn't exist)
-    100,    // Level 1
-    250,    // Level 2
-    450,    // Level 3
-    700,    // Level 4
-    1000,   // Level 5
-    1400,   // Level 6
-    1850,   // Level 7
-    2350,   // Level 8
-    2900,   // Level 9
-    3500,   // Level 10
-    4200,   // Level 11
-    5000,   // Level 12
-    5900,   // Level 13
-    6900,   // Level 14
-    8000,   // Level 15
-    9200,   // Level 16
-    10500,  // Level 17
-    11900,  // Level 18
-    13400,  // Level 19
-    15000,  // Level 20
+    50,     // Level 1 (reduced from 100)
+    120,    // Level 2 (reduced from 250)
+    220,    // Level 3 (reduced from 450)
+    350,    // Level 4 (reduced from 700)
+    500,    // Level 5 (reduced from 1000)
+    700,    // Level 6 (reduced from 1400)
+    950,    // Level 7 (reduced from 1850)
+    1200,   // Level 8 (reduced from 2350)
+    1500,   // Level 9 (reduced from 2900)
+    1800,   // Level 10 (reduced from 3500)
+    2200,   // Level 11 (reduced from 4200)
+    2600,   // Level 12 (reduced from 5000)
+    3100,   // Level 13 (reduced from 5900)
+    3600,   // Level 14 (reduced from 6900)
+    4200,   // Level 15 (reduced from 8000)
+    4800,   // Level 16 (reduced from 9200)
+    5500,   // Level 17 (reduced from 10500)
+    6300,   // Level 18 (reduced from 11900)
+    7200,   // Level 19 (reduced from 13400)
+    8000,   // Level 20 (reduced from 15000)
 ];
 
-// Generate XP requirements for levels 21-100
+// Generate XP requirements for levels 21-100 (easier progression)
 for (let i = 21; i <= 100; i++) {
-    XP_PER_LEVEL[i] = XP_PER_LEVEL[i - 1] + (1000 + (i * 100));
+    XP_PER_LEVEL[i] = XP_PER_LEVEL[i - 1] + (500 + (i * 50)); // Reduced scaling
 }
 
-// XP rewards
+// XP rewards (increased for easier leveling)
 const XP_REWARDS = {
-    CHAT_MESSAGE: 10,        // XP per chat message (with cooldown)
-    GAME_PLAYED: 25,         // XP per game played
-    GAME_WON: 50,           // Bonus XP for winning
-    BLACKJACK_WIN: 75,      // Bonus for blackjack
-    DAILY_CLAIM: 100,       // XP for daily claim
-    WORK_COMPLETE: 30,      // XP for work command
+    CHAT_MESSAGE: 20,        // XP per chat message (doubled from 10)
+    GAME_PLAYED: 40,         // XP per game played (increased from 25)
+    GAME_WON: 80,           // Bonus XP for winning (increased from 50)
+    BLACKJACK_WIN: 120,     // Bonus for blackjack (increased from 75)
+    DAILY_CLAIM: 150,       // XP for daily claim (increased from 100)
+    WORK_COMPLETE: 50,      // XP for work command (increased from 30)
 };
 
-// Cooldown for chat XP (1 minute)
-const CHAT_XP_COOLDOWN = 60000;
+// Cooldown for chat XP (reduced to 30 seconds for easier leveling)
+const CHAT_XP_COOLDOWN = 30000;
 
 // Store last message times for cooldown
 const lastMessageTimes = new Map();
