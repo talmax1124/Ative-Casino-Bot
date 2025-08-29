@@ -329,10 +329,17 @@ module.exports = {
                 const finalEmbed = createGameEmbed(game, interaction.user, true, userBalance);
                 const tableImage = await createGameTableImage(game, true);
                 
+                // Get updated balance for play again buttons
+                const updatedBalance = await dbManager.getUserBalance(userId, guildId);
+                
                 const finalData = {
                     content: `🎉 **BLACKJACK!** You won ${fmt(result.payout)}!`,
                     embeds: [finalEmbed], 
-                    components: GamePanel.createGameButtons({ actions: ['play_again', 'quit'] })
+                    components: GamePanel.createGameButtons({ 
+                        actions: ['play_again_multi', 'quit'],
+                        lastBet: betAmount,
+                        balance: updatedBalance.wallet
+                    })
                 };
                 
                 if (tableImage) {
@@ -715,11 +722,18 @@ module.exports = {
                 logger.warn(`Empty or invalid result message for blackjack game, using fallback for user ${userId}`);
             }
 
+            // Get updated balance for play again buttons
+            const updatedBalance = await dbManager.getUserBalance(userId, guildId);
+            
             // Enhanced interaction update with validation
             const finalData = {
                 content: resultMessage || `🎰 Game Complete - Total Payout: ${fmt(totalPayout)}`,
                 embeds: [finalEmbed],
-                components: GamePanel.createGameButtons({ actions: ['play_again', 'quit'] })
+                components: GamePanel.createGameButtons({ 
+                    actions: ['play_again_multi', 'quit'],
+                    lastBet: game.betAmount,
+                    balance: updatedBalance.wallet
+                })
             };
             
             if (tableImage) {
@@ -749,7 +763,11 @@ module.exports = {
                         const fallbackData = {
                             content: `🎰 Game Complete - Payout: ${fmt(totalPayout)}`,
                             embeds: [finalEmbed],
-                            components: GamePanel.createGameButtons({ actions: ['play_again', 'quit'] })
+                            components: GamePanel.createGameButtons({ 
+                                actions: ['play_again_multi', 'quit'],
+                                lastBet: game.betAmount,
+                                balance: updatedBalance.wallet
+                            })
                         };
                         
                         if (tableImage) {

@@ -106,6 +106,86 @@ class GamePanel {
     }
 
     /**
+     * Create play again buttons with multiple bet amounts
+     */
+    static createPlayAgainButtons(options = {}) {
+        const {
+            lastBet = 0,
+            balance = 0,
+            minBet = 10,
+            showQuit = true
+        } = options;
+
+        const rows = [];
+        const buttons = [];
+        
+        // Preset bet amounts to offer
+        const presetAmounts = [];
+        
+        // Add same bet option if valid
+        if (lastBet > 0 && lastBet <= balance && lastBet >= minBet) {
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId(`game_play_again_${lastBet}`)
+                    .setLabel(`Same Bet ($${lastBet.toLocaleString()})`)
+                    .setStyle(ButtonStyle.Success)
+                    .setEmoji('🔄')
+            );
+        }
+        
+        // Add preset amount options based on balance
+        const possibleAmounts = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000];
+        
+        for (const amount of possibleAmounts) {
+            if (amount >= minBet && amount <= balance && amount !== lastBet) {
+                presetAmounts.push(amount);
+            }
+        }
+        
+        // Take up to 3 preset amounts (prioritize smaller amounts for variety)
+        const selectedAmounts = presetAmounts.slice(0, 3);
+        
+        for (const amount of selectedAmounts) {
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId(`game_play_again_${amount}`)
+                    .setLabel(`$${amount.toLocaleString()}`)
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('💰')
+            );
+        }
+        
+        // Add all-in option if balance is reasonable
+        if (balance > Math.max(...possibleAmounts.filter(a => a <= balance)) && balance >= minBet && buttons.length < 4) {
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId(`game_play_again_${balance}`)
+                    .setLabel(`All In ($${balance.toLocaleString()})`)
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('🎰')
+            );
+        }
+        
+        // If we have play again buttons, add them to first row
+        if (buttons.length > 0) {
+            rows.push(new ActionRowBuilder().addComponents(buttons.slice(0, 5)));
+        }
+        
+        // Add quit button in a second row if requested
+        if (showQuit) {
+            const quitButton = new ButtonBuilder()
+                .setCustomId('game_quit')
+                .setLabel('Quit')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🚪');
+                
+            rows.push(new ActionRowBuilder().addComponents(quitButton));
+        }
+        
+        return rows;
+    }
+
+    /**
      * Create standardized game action buttons
      */
     static createGameButtons(options = {}) {
@@ -113,8 +193,20 @@ class GamePanel {
             actions = [],
             layout = 'horizontal',
             disabled = false,
-            customButtons = []
+            customButtons = [],
+            lastBet = 0,  // Add support for last bet amount
+            balance = 0   // Add support for balance
         } = options;
+
+        // Check if we should use the new play again buttons
+        if (actions.includes('play_again_multi')) {
+            return this.createPlayAgainButtons({
+                lastBet,
+                balance,
+                minBet: 10,
+                showQuit: actions.includes('quit')
+            });
+        }
 
         const buttons = [];
 

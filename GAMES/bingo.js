@@ -4,7 +4,7 @@
  * Converted from Python with full multiplayer functionality
  */
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
@@ -656,7 +656,7 @@ class BingoInteractiveCardView {
         try {
             // Verify this is the right player
             if (interaction.user.id !== this.userId) {
-                await interaction.reply({ content: 'L This is not your card!', ephemeral: true });
+                await interaction.reply({ content: 'L This is not your card!', flags: MessageFlags.Ephemeral });
                 return;
             }
 
@@ -664,7 +664,7 @@ class BingoInteractiveCardView {
             if (!this.game.calledNumbers.includes(number)) {
                 await interaction.reply({ 
                     content: `L Number ${number} hasn't been called yet!`, 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
                 return;
             }
@@ -673,7 +673,7 @@ class BingoInteractiveCardView {
             if (this.player.card.marked[row][col]) {
                 await interaction.reply({ 
                     content: `L Number ${number} is already marked!`, 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
                 return;
             }

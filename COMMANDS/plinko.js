@@ -176,11 +176,15 @@ module.exports = {
             // Deduct bet amount (session handles game_active flag)
             await dbManager.updateUserBalance(userId, guildId, -betAmount, 0);
 
-            // Show initial game setup
+            // Show initial game setup with help info
             const setupEmbed = buildSessionEmbed({
                 title: `🎯 ${username}'s ${selectedMode} Plinko`,
                 topFields: [
-                    { name: '🎮 Game Starting!', value: `Preparing your plinko board...\n\n**Mode:** ${modeData.emoji} ${selectedMode}\n**Drop Slot:** #${dropSlot + 1}\n**Bet:** ${fmtFull(betAmount)}` }
+                    { name: '🎮 Game Starting!', value: `Preparing your plinko board...\n\n**Mode:** ${modeData.emoji} ${selectedMode}\n**Drop Slot:** #${dropSlot + 1}\n**Bet:** ${fmtFull(betAmount)}` },
+                    { name: '❓ How to Play', value: '• Ball drops from your chosen slot\n• Bounces randomly down the pegs\n• Lands in a multiplier slot at bottom\n• Win = Bet × Multiplier', inline: false }
+                ],
+                bankFields: [
+                    { name: 'Difficulty Modes', value: '🟢 Easy: Safe multipliers\n🟡 Medium: Balanced risk\n🔴 Hard: High risk/reward\n💀 Nightmare: Extreme variance', inline: true }
                 ],
                 stageText: 'PREPARING BOARD',
                 color: parseInt(modeData.color.replace('#', ''), 16),

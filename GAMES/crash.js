@@ -189,6 +189,11 @@ function buildBettingEmbed(game) {
         name: `👥 PLAYERS READY (${game.players.size})`,
         value: playerList.length > 900 ? playerList.substring(0, 900) + "..." : playerList,
         inline: false
+      },
+      {
+        name: "❓ HOW TO PLAY",
+        value: "• Place your bet before the round starts\n• Watch the multiplier increase from 1.00x\n• Cash out before it crashes!\n• If you don't cash out in time, you lose your bet",
+        inline: false
       }
     ],
     bankFields: [

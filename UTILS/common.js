@@ -459,6 +459,12 @@ async function sendLogMessage(bot, level, message, userId = null, guildId = null
     const LOG_CHANNEL_ID = '1405096821512212521'; // From CLAUDE.md
     
     try {
+        // Check if bot and bot.channels are defined
+        if (!bot || !bot.channels) {
+            logger.warn('Bot client or channels not available for logging');
+            return;
+        }
+        
         const channel = await bot.channels.fetch(LOG_CHANNEL_ID);
         if (!channel) {
             logger.warn(`Log channel ${LOG_CHANNEL_ID} not found`);

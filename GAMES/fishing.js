@@ -4,7 +4,7 @@
  * Players can stop fishing at any time to keep their accumulated winnings.
  */
 
-const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
 const { secureWeightedChoice, secureRandomFloat } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
@@ -513,7 +513,7 @@ async function handleFishingAction(interaction, action) {
     if (!game) {
         await interaction.reply({
             content: '❌ No active fishing game found! Use `/fishing` to start a new game.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return;
     }
@@ -532,14 +532,14 @@ async function handleFishingAction(interaction, action) {
             default:
                 await interaction.reply({
                     content: '❌ Unknown fishing action.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
         }
     } catch (error) {
         logger.error(`Error handling fishing action ${action}:`, error);
         await interaction.reply({
             content: '❌ An error occurred while processing your fishing action.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 }
@@ -551,7 +551,7 @@ async function handleFishAction(interaction, game) {
     if (game.gameEnded) {
         await interaction.reply({
             content: '🔥 This fishing session has already ended!',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return;
     }
@@ -616,7 +616,7 @@ async function handleFishAction(interaction, game) {
         logger.error('Error in handleFishAction:', error);
         await interaction.reply({
             content: '❌ An error occurred while catching fish.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return { gameEnded: false };
     }
@@ -629,7 +629,7 @@ async function handleStopAction(interaction, game) {
     if (game.gameEnded) {
         await interaction.reply({
             content: '🔥 This fishing session has already ended!',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return;
     }
@@ -637,7 +637,7 @@ async function handleStopAction(interaction, game) {
     if (game.totalCatches === 0) {
         await interaction.reply({
             content: '🔥 You haven\'t caught any fish yet! Cast your line first with the FISH button.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return;
     }
@@ -676,7 +676,7 @@ async function handleStopAction(interaction, game) {
         logger.error('Error in handleStopAction:', error);
         await interaction.reply({
             content: '❌ An error occurred while stopping the fishing session.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
         return { gameEnded: false };
     }
@@ -689,7 +689,7 @@ async function handleHelpAction(interaction) {
     const helpEmbed = FishingGame.getHelpEmbed();
     await interaction.reply({
         embeds: [helpEmbed],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
     });
 }
 

@@ -316,8 +316,8 @@ async function showWinLossLeaderboard(interaction, guildId, isButtonUpdate = fal
     for (let i = 0; i < Math.min(users.length, 8); i++) {
         const user = users[i];
         const medal = i < 3 ? ['🥇', '🥈', '🥉'][i] : `#${i + 1}`;
-        const wins = user.total_wins || 0;
-        const losses = user.total_losses || 0;
+        const wins = parseInt(user.total_wins) || 0;
+        const losses = parseInt(user.total_losses) || 0;
         const winRate = wins + losses > 0 ? ((wins / (wins + losses)) * 100).toFixed(1) : '0.0';
         
         totalWins += wins;
@@ -346,21 +346,21 @@ async function showWinLossLeaderboard(interaction, guildId, isButtonUpdate = fal
 
     // Best Win Rate section (minimum 10 games played)
     const qualifiedUsers = users.filter(user => {
-        const totalGames = (user.total_wins || 0) + (user.total_losses || 0);
+        const totalGames = (parseInt(user.total_wins) || 0) + (parseInt(user.total_losses) || 0);
         return totalGames >= 10;
     });
 
     qualifiedUsers.sort((a, b) => {
-        const aWinRate = (a.total_wins || 0) / ((a.total_wins || 0) + (a.total_losses || 0));
-        const bWinRate = (b.total_wins || 0) / ((b.total_wins || 0) + (b.total_losses || 0));
+        const aWinRate = (parseInt(a.total_wins) || 0) / ((parseInt(a.total_wins) || 0) + (parseInt(a.total_losses) || 0));
+        const bWinRate = (parseInt(b.total_wins) || 0) / ((parseInt(b.total_wins) || 0) + (parseInt(b.total_losses) || 0));
         return bWinRate - aWinRate;
     });
 
     let winRateText = '';
     for (let i = 0; i < Math.min(qualifiedUsers.length, 5); i++) {
         const user = qualifiedUsers[i];
-        const wins = user.total_wins || 0;
-        const losses = user.total_losses || 0;
+        const wins = parseInt(user.total_wins) || 0;
+        const losses = parseInt(user.total_losses) || 0;
         const winRate = ((wins / (wins + losses)) * 100).toFixed(1);
         const totalGames = wins + losses;
         

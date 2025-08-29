@@ -81,8 +81,8 @@ class DatabaseAdapter {
         const createTables = [
             `CREATE TABLE IF NOT EXISTS user_balances (
                 user_id VARCHAR(20) PRIMARY KEY,
-                wallet DECIMAL(15,2) NOT NULL DEFAULT 1000.00,
-                bank DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                wallet DECIMAL(20,2) NOT NULL DEFAULT 1000.00,
+                bank DECIMAL(20,2) NOT NULL DEFAULT 0.00,
                 last_earn_ts BIGINT NOT NULL DEFAULT 0,
                 last_rob_ts BIGINT NOT NULL DEFAULT 0,
                 game_active BOOLEAN NOT NULL DEFAULT FALSE,
@@ -102,15 +102,15 @@ class DatabaseAdapter {
                 game_type VARCHAR(50) DEFAULT NULL,
                 wins INT NOT NULL DEFAULT 0,
                 losses INT NOT NULL DEFAULT 0,
-                total_wagered DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-                total_won DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-                biggest_win DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-                biggest_loss DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                total_wagered DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                total_won DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                biggest_win DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                biggest_loss DECIMAL(20,2) NOT NULL DEFAULT 0.00,
                 total_wins INT NOT NULL DEFAULT 0,
                 total_losses INT NOT NULL DEFAULT 0,
                 total_games_played INT NOT NULL DEFAULT 0,
-                total_winnings DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-                total_losses_amount DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+                total_winnings DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                total_losses_amount DECIMAL(20,2) NOT NULL DEFAULT 0.00,
                 last_game_played TIMESTAMP NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -152,6 +152,30 @@ class DatabaseAdapter {
             for (const query of createTables) {
                 await connection.execute(query);
             }
+            
+            // Update column sizes if they exist with smaller precision
+            const alterQueries = [
+                `ALTER TABLE user_balances MODIFY COLUMN wallet DECIMAL(20,2) NOT NULL DEFAULT 1000.00`,
+                `ALTER TABLE user_balances MODIFY COLUMN bank DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
+                `ALTER TABLE user_stats MODIFY COLUMN total_wagered DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
+                `ALTER TABLE user_stats MODIFY COLUMN total_won DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
+                `ALTER TABLE user_stats MODIFY COLUMN biggest_win DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
+                `ALTER TABLE user_stats MODIFY COLUMN biggest_loss DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
+                `ALTER TABLE user_stats MODIFY COLUMN total_winnings DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
+                `ALTER TABLE user_stats MODIFY COLUMN total_losses_amount DECIMAL(20,2) NOT NULL DEFAULT 0.00`
+            ];
+            
+            for (const query of alterQueries) {
+                try {
+                    await connection.execute(query);
+                } catch (alterError) {
+                    // Ignore errors if columns already have the right size
+                    if (!alterError.message.includes('Unknown column')) {
+                        logger.debug(`Alter table note: ${alterError.message}`);
+                    }
+                }
+            }
+            
             logger.info('MariaDB schema initialized successfully');
         } finally {
             connection.release();
@@ -523,6 +547,106 @@ class DatabaseAdapter {
 
     async endPoll(pollId) {
         return false;
+    }
+
+    /**
+     * Get server configuration
+     */
+    async getServerConfig(serverId) {
+        try {
+            const [rows] = await this.executeQuery(
+                'SELECT * FROM server_config WHERE server_id = ?',
+                [serverId]
+            );
+            
+            if (rows.length > 0) {
+                const config = rows[0];
+                return {
+                    server_id: config.server_id,
+                    server_name: config.server_name,
+                    settings: config.settings ? JSON.parse(config.settings) : {},
+                    channels: config.channels ? JSON.parse(config.channels) : {},
+                    roles: config.roles ? JSON.parse(config.roles) : {},
+                    economy: config.economy ? JSON.parse(config.economy) : {},
+                    games: config.games ? JSON.parse(config.games) : {},
+                    security: config.security ? JSON.parse(config.security) : {},
+                    setup_complete: config.setup_complete,
+                    setup_date: config.setup_date,
+                    created_at: config.created_at,
+                    updated_at: config.updated_at
+                };
+            }
+            return null;
+        } catch (error) {
+            logger.error(`Failed to get server config: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Save server configuration
+     */
+    async saveServerConfig(serverId, serverName, config) {
+        try {
+            const [existing] = await this.executeQuery(
+                'SELECT * FROM server_config WHERE server_id = ?',
+                [serverId]
+            );
+
+            if (existing.length > 0) {
+                // Update existing config
+                await this.executeQuery(
+                    `UPDATE server_config SET 
+                        server_name = ?,
+                        settings = ?,
+                        channels = ?,
+                        roles = ?,
+                        economy = ?,
+                        games = ?,
+                        security = ?,
+                        setup_complete = ?,
+                        setup_date = ?,
+                        updated_at = NOW()
+                     WHERE server_id = ?`,
+                    [
+                        serverName,
+                        JSON.stringify(config.settings || {}),
+                        JSON.stringify(config.channels || {}),
+                        JSON.stringify(config.roles || {}),
+                        JSON.stringify(config.economy || {}),
+                        JSON.stringify(config.games || {}),
+                        JSON.stringify(config.security || {}),
+                        config.setup_complete || false,
+                        config.setup_date || null,
+                        serverId
+                    ]
+                );
+            } else {
+                // Insert new config
+                await this.executeQuery(
+                    `INSERT INTO server_config (
+                        server_id, server_name, settings, channels, roles, 
+                        economy, games, security, setup_complete, setup_date
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        serverId,
+                        serverName,
+                        JSON.stringify(config.settings || {}),
+                        JSON.stringify(config.channels || {}),
+                        JSON.stringify(config.roles || {}),
+                        JSON.stringify(config.economy || {}),
+                        JSON.stringify(config.games || {}),
+                        JSON.stringify(config.security || {}),
+                        config.setup_complete || false,
+                        config.setup_date || null
+                    ]
+                );
+            }
+            return true;
+        } catch (error) {
+            logger.error(`Failed to save server config: ${error.message}`);
+            return false;
+        }
     }
 
     /**

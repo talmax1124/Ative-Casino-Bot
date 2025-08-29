@@ -3,7 +3,7 @@
  * Handles all button and select menu interactions for the setup wizard
  */
 
-const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
+const { EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
 const logger = require('./logger');
 
 // Store active wizard instances (exported so setup command can access)
@@ -33,7 +33,7 @@ class SetupInteractionHandler {
                 .setColor(0xE74C3C)
                 .setTimestamp();
             
-            return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }
 
         try {
@@ -88,7 +88,7 @@ class SetupInteractionHandler {
                 logger.warn(`Unknown setup interaction: ${customId}`);
                 await interaction.reply({ 
                     content: '❌ Unknown setup action. Please try again.', 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
             }
         } catch (error) {
@@ -106,7 +106,7 @@ class SetupInteractionHandler {
                 .setTimestamp();
             
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {
                 await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
@@ -142,7 +142,7 @@ class SetupInteractionHandler {
                 .setColor(0xF39C12)
                 .setTimestamp();
             
-            return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }
 
         const nextStepResponse = wizard.goToNextStep();

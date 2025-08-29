@@ -13,7 +13,8 @@ const {
     ModalBuilder,
     TextInputBuilder,
     TextInputStyle,
-    AttachmentBuilder
+    AttachmentBuilder,
+    StringSelectMenuBuilder
 } = require('discord.js');
 
 const dbManager = require('../UTILS/database');
@@ -264,8 +265,19 @@ module.exports = {
                     break;
                     
                 default:
-                    const embed = UITemplates.createErrorEmbed('❌ Unknown Action', 'Unknown Battleship action.');
-                    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                    // Handle dynamic button IDs with user IDs
+                    if (action.startsWith('confirm_placement_')) {
+                        await this.handleConfirmPlacement(interaction, game);
+                    } else if (action.startsWith('cancel_placement_')) {
+                        await this.handleCancelPlacement(interaction);
+                    } else if (action.startsWith('fire_attack_')) {
+                        await this.handleFireAttack(interaction, game);
+                    } else if (action.startsWith('cancel_attack_')) {
+                        await this.handleCancelAttack(interaction);
+                    } else {
+                        const embed = UITemplates.createErrorEmbed('❌ Unknown Action', 'Unknown Battleship action.');
+                        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                    }
             }
 
         } catch (error) {
@@ -468,22 +480,62 @@ module.exports = {
             return;
         }
 
-        // Show attack modal
-        const modal = new ModalBuilder()
-            .setCustomId('battleship_attack_modal')
-            .setTitle('🎯 Fire at Enemy Position');
+        // Create attack coordinate dropdowns
+        const rowOptions = [];
+        for (let row = 1; row <= BOARD_SIZE; row++) {
+            rowOptions.push({
+                label: `Row ${row}`,
+                value: `R${row}`,
+                description: `Target row ${row}`
+            });
+        }
 
-        const coordinateInput = new TextInputBuilder()
-            .setCustomId('coordinate')
-            .setLabel('Target coordinate (e.g., A5, B10)')
-            .setStyle(TextInputStyle.Short)
-            .setMinLength(2)
-            .setMaxLength(3)
-            .setRequired(true)
-            .setPlaceholder('A5, B10, etc.');
+        const colOptions = [];
+        for (let col = 0; col < BOARD_SIZE; col++) {
+            const colLetter = String.fromCharCode('A'.charCodeAt(0) + col);
+            colOptions.push({
+                label: `Column ${colLetter}`,
+                value: `C${colLetter}`,
+                description: `Target column ${colLetter}`
+            });
+        }
 
-        modal.addComponents(new ActionRowBuilder().addComponents(coordinateInput));
-        await interaction.showModal(modal);
+        const attackRowSelect = new StringSelectMenuBuilder()
+            .setCustomId(`battleship_attack_row_${userId}`)
+            .setPlaceholder('🔢 Select target row (1-10)')
+            .addOptions(rowOptions);
+
+        const attackColSelect = new StringSelectMenuBuilder()
+            .setCustomId(`battleship_attack_col_${userId}`)
+            .setPlaceholder('🔤 Select target column (A-J)')
+            .addOptions(colOptions);
+
+        const fireButton = new ButtonBuilder()
+            .setCustomId(`battleship_fire_attack_${userId}`)
+            .setLabel('🚀 Fire!')
+            .setStyle(ButtonStyle.Danger)
+            .setDisabled(true); // Initially disabled until both selections are made
+
+        const cancelAttackButton = new ButtonBuilder()
+            .setCustomId(`battleship_cancel_attack_${userId}`)
+            .setLabel('❌ Cancel')
+            .setStyle(ButtonStyle.Secondary);
+
+        const attackEmbed = new EmbedBuilder()
+            .setTitle('🎯 Target Enemy Position')
+            .setDescription('Select the row and column to attack, then fire!')
+            .setColor(0xFF0000)
+            .setFooter({ text: 'Choose your target carefully!' });
+
+        await interaction.reply({
+            embeds: [attackEmbed],
+            components: [
+                new ActionRowBuilder().addComponents(attackRowSelect),
+                new ActionRowBuilder().addComponents(attackColSelect),
+                new ActionRowBuilder().addComponents(fireButton, cancelAttackButton)
+            ],
+            flags: MessageFlags.Ephemeral
+        });
     },
 
     async handleViewBoard(interaction, game) {
@@ -546,35 +598,211 @@ module.exports = {
             return;
         }
 
-        // Show placement modal
-        const modal = new ModalBuilder()
-            .setCustomId('battleship_place_modal')
-            .setTitle(`⚓ Place ${currentShip.name} (${currentShip.length} spaces)`);
+        // Create row selection dropdown
+        const rowOptions = [];
+        for (let row = 1; row <= BOARD_SIZE; row++) {
+            rowOptions.push({
+                label: `Row ${row}`,
+                value: `R${row}`,
+                description: `Select row ${row}`
+            });
+        }
 
-        const coordinateInput = new TextInputBuilder()
-            .setCustomId('coordinate')
-            .setLabel('Starting coordinate (e.g., A5, B10)')
-            .setStyle(TextInputStyle.Short)
-            .setMinLength(2)
-            .setMaxLength(3)
-            .setRequired(true)
-            .setPlaceholder('A5, B10, etc.');
+        // Create column selection dropdown
+        const colOptions = [];
+        for (let col = 0; col < BOARD_SIZE; col++) {
+            const colLetter = String.fromCharCode('A'.charCodeAt(0) + col);
+            colOptions.push({
+                label: `Column ${colLetter}`,
+                value: `C${colLetter}`,
+                description: `Select column ${colLetter}`
+            });
+        }
 
-        const directionInput = new TextInputBuilder()
-            .setCustomId('direction')
-            .setLabel('Direction (H for horizontal, V for vertical)')
-            .setStyle(TextInputStyle.Short)
-            .setMinLength(1)
-            .setMaxLength(1)
-            .setRequired(true)
-            .setPlaceholder('H or V');
+        const rowSelect = new StringSelectMenuBuilder()
+            .setCustomId(`battleship_place_row_${userId}`)
+            .setPlaceholder('🔢 Select starting row (1-10)')
+            .addOptions(rowOptions);
 
-        modal.addComponents(
-            new ActionRowBuilder().addComponents(coordinateInput),
-            new ActionRowBuilder().addComponents(directionInput)
-        );
-        
-        await interaction.showModal(modal);
+        const colSelect = new StringSelectMenuBuilder()
+            .setCustomId(`battleship_place_col_${userId}`)
+            .setPlaceholder('🔤 Select starting column (A-J)')
+            .addOptions(colOptions);
+
+        const directionSelect = new StringSelectMenuBuilder()
+            .setCustomId(`battleship_place_dir_${userId}`)
+            .setPlaceholder('🧭 Select ship direction')
+            .addOptions([
+                {
+                    label: 'Horizontal →',
+                    value: 'H',
+                    description: 'Place ship horizontally (left to right)',
+                    emoji: '➡️'
+                },
+                {
+                    label: 'Vertical ↓',
+                    value: 'V',
+                    description: 'Place ship vertically (top to bottom)',
+                    emoji: '⬇️'
+                }
+            ]);
+
+        const confirmButton = new ButtonBuilder()
+            .setCustomId(`battleship_confirm_placement_${userId}`)
+            .setLabel('✅ Place Ship')
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(true); // Initially disabled until all selections are made
+
+        const cancelButton = new ButtonBuilder()
+            .setCustomId(`battleship_cancel_placement_${userId}`)
+            .setLabel('❌ Cancel')
+            .setStyle(ButtonStyle.Secondary);
+
+        // Show current board state
+        let boardImage;
+        try {
+            boardImage = await battleshipRenderer.renderBoard(playerBoard, false, true);
+        } catch (error) {
+            logger.error(`Error rendering placement board: ${error.message}`);
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle(`⚓ Place Your ${currentShip.name}`)
+            .setDescription(`**Length:** ${currentShip.length} spaces\n**Ships Placed:** ${playerBoard.currentShipIndex}/${playerBoard.ships.length}\n\nSelect row, column, and direction, then click "Place Ship"`)
+            .setColor(0x00BFFF)
+            .setFooter({ text: 'Use the dropdowns to select position and direction' });
+
+        const components = [
+            new ActionRowBuilder().addComponents(rowSelect),
+            new ActionRowBuilder().addComponents(colSelect),
+            new ActionRowBuilder().addComponents(directionSelect),
+            new ActionRowBuilder().addComponents(confirmButton, cancelButton)
+        ];
+
+        const replyData = {
+            embeds: [embed],
+            components,
+            flags: MessageFlags.Ephemeral
+        };
+
+        if (boardImage) {
+            const attachment = new AttachmentBuilder(boardImage, { name: 'placement.png' });
+            embed.setImage('attachment://placement.png');
+            replyData.files = [attachment];
+        }
+
+        await interaction.reply(replyData);
+    },
+
+    // Store user selections temporarily
+    userSelections: new Map(), // userId -> { row, col, direction }
+
+    async handleSelectMenu(interaction) {
+        const userId = interaction.user.id;
+        const customId = interaction.customId;
+        const value = interaction.values[0];
+
+        // Initialize user selection if not exists
+        if (!this.userSelections.has(userId)) {
+            this.userSelections.set(userId, {});
+        }
+
+        const selection = this.userSelections.get(userId);
+
+        // Handle different types of selections
+        if (customId.includes('place_row_')) {
+            const rowNum = parseInt(value.substring(1)); // Remove 'R' prefix
+            selection.row = rowNum - 1; // Convert to 0-based
+            await interaction.update({ content: `Selected row ${rowNum}`, components: interaction.message.components });
+        }
+        else if (customId.includes('place_col_')) {
+            const colLetter = value.substring(1); // Remove 'C' prefix
+            const colNum = colLetter.charCodeAt(0) - 'A'.charCodeAt(0);
+            selection.col = colNum;
+            await interaction.update({ content: `Selected column ${colLetter}`, components: interaction.message.components });
+        }
+        else if (customId.includes('place_dir_')) {
+            selection.direction = value === 'H' ? HORIZONTAL : VERTICAL;
+            await interaction.update({ content: `Selected direction ${value === 'H' ? 'Horizontal' : 'Vertical'}`, components: interaction.message.components });
+        }
+        else if (customId.includes('attack_row_')) {
+            const rowNum = parseInt(value.substring(1)); // Remove 'R' prefix
+            selection.attackRow = rowNum - 1; // Convert to 0-based
+            await interaction.update({ content: `Target row ${rowNum}`, components: interaction.message.components });
+        }
+        else if (customId.includes('attack_col_')) {
+            const colLetter = value.substring(1); // Remove 'C' prefix
+            const colNum = colLetter.charCodeAt(0) - 'A'.charCodeAt(0);
+            selection.attackCol = colNum;
+            await interaction.update({ content: `Target column ${colLetter}`, components: interaction.message.components });
+        }
+
+        // Check if we can enable the confirm button
+        await this.updateConfirmButton(interaction, userId);
+    },
+
+    async updateConfirmButton(interaction, userId) {
+        const selection = this.userSelections.get(userId);
+        const components = interaction.message.components.map(row => {
+            const newRow = new ActionRowBuilder();
+            row.components.forEach(component => {
+                if (component.customId && component.customId.includes('confirm_placement_')) {
+                    // Enable confirm button if all placement selections are made
+                    const canConfirm = selection && 
+                                     typeof selection.row === 'number' && 
+                                     typeof selection.col === 'number' && 
+                                     typeof selection.direction === 'number';
+                    
+                    const newButton = new ButtonBuilder()
+                        .setCustomId(component.customId)
+                        .setLabel(component.label)
+                        .setStyle(component.style)
+                        .setDisabled(!canConfirm);
+                    
+                    if (component.emoji) newButton.setEmoji(component.emoji);
+                    newRow.addComponents(newButton);
+                } else if (component.customId && component.customId.includes('fire_attack_')) {
+                    // Enable fire button if both attack selections are made
+                    const canFire = selection && 
+                                   typeof selection.attackRow === 'number' && 
+                                   typeof selection.attackCol === 'number';
+                    
+                    const newButton = new ButtonBuilder()
+                        .setCustomId(component.customId)
+                        .setLabel(component.label)
+                        .setStyle(component.style)
+                        .setDisabled(!canFire);
+                    
+                    if (component.emoji) newButton.setEmoji(component.emoji);
+                    newRow.addComponents(newButton);
+                } else {
+                    // Copy other components as-is
+                    if (component.type === 3) { // StringSelectMenu
+                        const newSelect = new StringSelectMenuBuilder()
+                            .setCustomId(component.customId)
+                            .setPlaceholder(component.placeholder)
+                            .addOptions(component.options);
+                        newRow.addComponents(newSelect);
+                    } else {
+                        const newButton = new ButtonBuilder()
+                            .setCustomId(component.customId)
+                            .setLabel(component.label)
+                            .setStyle(component.style);
+                        
+                        if (component.disabled !== undefined) newButton.setDisabled(component.disabled);
+                        if (component.emoji) newButton.setEmoji(component.emoji);
+                        newRow.addComponents(newButton);
+                    }
+                }
+            });
+            return newRow;
+        });
+
+        try {
+            await interaction.editReply({ components });
+        } catch (error) {
+            logger.error(`Error updating confirm button: ${error.message}`);
+        }
     },
 
     async handleAutoPlace(interaction, game) {
@@ -872,5 +1100,109 @@ module.exports = {
         });
         
         await interaction.reply({ embeds: [attackEmbed], flags: MessageFlags.Ephemeral });
+    },
+
+    async handleConfirmPlacement(interaction, game) {
+        const userId = interaction.user.id;
+        const selection = this.userSelections.get(userId);
+        const playerBoard = game.boards.get(userId);
+
+        if (!selection || typeof selection.row !== 'number' || typeof selection.col !== 'number' || typeof selection.direction !== 'number') {
+            const embed = UITemplates.createErrorEmbed('❌ Incomplete Selection', 'Please select row, column, and direction first.');
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        const currentShip = playerBoard.getCurrentShip();
+        if (!currentShip) {
+            const embed = UITemplates.createErrorEmbed('❌ No Ship to Place', 'All ships have been placed.');
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        // Try to place the ship
+        const success = playerBoard.placeShip(currentShip, selection.row, selection.col, selection.direction);
+        
+        if (!success) {
+            const embed = UITemplates.createErrorEmbed('❌ Invalid Placement', 'Cannot place ship at that location. Try a different position.');
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        // Clear user selections
+        this.userSelections.delete(userId);
+
+        // Update the game state message
+        await game.updateGameMessage();
+
+        const embed = UITemplates.createSuccessEmbed('⚓ Ship Deployed', `Successfully placed ${currentShip.name}!`);
+        await interaction.update({ embeds: [embed], components: [] });
+    },
+
+    async handleCancelPlacement(interaction) {
+        const userId = interaction.user.id;
+        this.userSelections.delete(userId);
+        
+        const embed = UITemplates.createInfoEmbed('❌ Placement Cancelled', 'Ship placement has been cancelled.');
+        await interaction.update({ embeds: [embed], components: [] });
+    },
+
+    async handleFireAttack(interaction, game) {
+        const userId = interaction.user.id;
+        const selection = this.userSelections.get(userId);
+
+        if (!selection || typeof selection.attackRow !== 'number' || typeof selection.attackCol !== 'number') {
+            const embed = UITemplates.createErrorEmbed('❌ Incomplete Selection', 'Please select target row and column first.');
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        // Clear user selections
+        this.userSelections.delete(userId);
+
+        // Process the attack using the existing attack logic  
+        const coord = { row: selection.attackRow, col: selection.attackCol };
+        const result = await this.processAttackLogic(game, userId, coord);
+
+        const resultEmbed = UITemplates.createInfoEmbed(
+            result.hit ? '💥 Hit!' : '🌊 Miss!',
+            result.message || `You ${result.hit ? 'hit' : 'missed'} at ${String.fromCharCode('A'.charCodeAt(0) + selection.attackCol)}${selection.attackRow + 1}${result.sunk ? ` and sunk their ${result.ship}!` : ''}`
+        );
+
+        await interaction.update({ embeds: [resultEmbed], components: [] });
+    },
+
+    async handleCancelAttack(interaction) {
+        const userId = interaction.user.id;
+        this.userSelections.delete(userId);
+        
+        const embed = UITemplates.createInfoEmbed('❌ Attack Cancelled', 'Attack has been cancelled.');
+        await interaction.update({ embeds: [embed], components: [] });
+    },
+
+    // Helper method to process attack logic (extracted from existing attack modal handler)
+    async processAttackLogic(game, userId, coord) {
+        const opponentId = Array.from(game.players.keys()).find(id => id !== userId);
+        const opponentBoard = game.boards.get(opponentId);
+        
+        const result = opponentBoard.receiveAttack(coord.row, coord.col);
+        
+        if (result === 'miss') {
+            game.switchTurn();
+        }
+
+        // Update main game message
+        const { embed: battleEmbed, battleImage, bannerPath } = await game.createBattleEmbed();
+        const battleComponents = game.createGameButtons();
+        const battleAttachment = new AttachmentBuilder(battleImage, { name: 'battle.png' });
+        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'battleshipbanner.gif' });
+        await game.message.edit({ embeds: [battleEmbed.setImage('attachment://battle.png')], files: [battleAttachment, bannerAttachment], components: battleComponents });
+
+        return {
+            hit: result !== 'miss',
+            sunk: result === 'sunk',
+            message: result === 'miss' ? 'Miss!' : (result === 'hit' ? 'Hit!' : `Hit and sunk!`),
+            ship: result.ship || null
+        };
     }
 };

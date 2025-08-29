@@ -105,8 +105,12 @@ module.exports = {
                 title: `🎰 ${interaction.user.displayName}'s Matrix Slots`,
                 topFields: [
                     { name: 'Spinning', value: 'Matrix reels are spinning... 🎞️', inline: false },
+                    { name: '❓ How to Play', value: '• 3x3 matrix with 8 paylines\n• Match symbols on paylines to win\n• 🦬 Buffalo = 5 free spins with 3x multiplier!\n• More matches = bigger wins!', inline: false }
                 ],
-                bankFields: [],
+                bankFields: [
+                    { name: 'Paylines', value: 'Horizontal, Vertical, Diagonal', inline: true },
+                    { name: 'Special', value: '🦬 Buffalo Bonus Round', inline: true }
+                ],
                 stageText: 'MATRIX SPINNING...',
                 color: 0xFFD700,
                 footer: 'Good luck!'

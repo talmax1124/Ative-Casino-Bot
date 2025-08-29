@@ -687,6 +687,15 @@ client.on('interactionCreate', async interaction => {
                     await unoCommand.handleColorSelection(interaction, cardIndex, chosenColor);
                 }
             }
+            // Handle battleship dropdown selections
+            else if (interaction.customId.startsWith('battleship_place_') || interaction.customId.startsWith('battleship_attack_')) {
+                const battleshipCommand = client.commands.get('battleship');
+                if (battleshipCommand && battleshipCommand.handleSelectMenu) {
+                    await battleshipCommand.handleSelectMenu(interaction);
+                } else {
+                    await interaction.reply({ content: '❌ Battleship handler not available.', ephemeral: true });
+                }
+            }
             // Handle blackjack bet selection for Play Again
             else if (interaction.customId === 'blackjack_bet_select') {
                 const betAmount = interaction.values[0];
@@ -1204,7 +1213,55 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('game_')) {
                 const action = customId.substring('game_'.length);
                 
-                if (action === 'play_again') {
+                // Handle new play again with amount format
+                if (action.startsWith('play_again_')) {
+                    const betAmount = parseInt(action.replace('play_again_', ''));
+                    
+                    // Determine which game to restart based on the embed content
+                    const embed = interaction.message.embeds[0];
+                    let gameType = null;
+                    
+                    if (embed && embed.title) {
+                        if (embed.title.includes('Blackjack') || embed.title.includes('🃏')) {
+                            gameType = 'blackjack';
+                        } else if (embed.title.includes('Slots') || embed.title.includes('🎰')) {
+                            gameType = 'slots';
+                        } else if (embed.title.includes('Crash') || embed.title.includes('🚁')) {
+                            gameType = 'crash';
+                        }
+                    }
+                    
+                    if (gameType === 'blackjack' && betAmount > 0) {
+                        // Start a new blackjack game directly with the specified bet
+                        const blackjackCommand = require('./COMMANDS/blackjack');
+                        
+                        // Create a fake interaction with the bet amount
+                        const fakeInteraction = {
+                            ...interaction,
+                            commandName: 'blackjack',
+                            options: {
+                                getInteger: (name) => name === 'bet' ? betAmount : null
+                            },
+                            deferReply: async () => await interaction.deferUpdate(),
+                            editReply: async (data) => await interaction.editReply(data),
+                            reply: async (data) => await interaction.editReply(data)
+                        };
+                        
+                        try {
+                            await blackjackCommand.execute(fakeInteraction);
+                        } catch (error) {
+                            await interaction.reply({
+                                content: `❌ Error starting new game. Please use \`/blackjack bet:${betAmount}\` directly.`,
+                                flags: MessageFlags.Ephemeral
+                            });
+                        }
+                    } else {
+                        await interaction.reply({
+                            content: `🎮 To play ${gameType || 'again'} with bet $${betAmount}, please use the command directly.`,
+                            flags: MessageFlags.Ephemeral
+                        });
+                    }
+                } else if (action === 'play_again') {
                     // Determine which game to restart based on the embed content
                     const embed = interaction.message.embeds[0];
                     let gameType = null;

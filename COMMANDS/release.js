@@ -3,7 +3,7 @@
  * Allows users and admins to manually clear stuck/hanging game sessions
  */
 
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } = require('discord.js');
 // sessionManager removed (Firebase dependency) - using mock implementation
 const sessionManager = {
     getAllActiveSessions: () => [],
@@ -46,7 +46,7 @@ module.exports = {
             const action = interaction.options.getString('action');
             const targetUser = interaction.options.getUser('user');
             const isDeveloper = interaction.user.id === DEVELOPER_ID;
-            const isAdmin = interaction.member?.permissions.has('ADMINISTRATOR') || isDeveloper;
+            const isAdmin = interaction.member?.permissions.has(PermissionFlagsBits.Administrator) || isDeveloper;
 
             // If no action specified, show main panel
             if (!action) {
@@ -89,7 +89,7 @@ module.exports = {
         const userSessions = sessionManager.getUserSessions(interaction.user.id);
         const legacyGameType = getActiveGame(interaction.user.id);
         const isDeveloper = interaction.user.id === DEVELOPER_ID;
-        const isAdmin = interaction.member?.permissions.has('ADMINISTRATOR') || isDeveloper;
+        const isAdmin = interaction.member?.permissions.has(PermissionFlagsBits.Administrator) || isDeveloper;
 
         const totalSessions = userSessions.length + (legacyGameType ? 1 : 0);
 
@@ -446,7 +446,7 @@ module.exports = {
      */
     async handleSelectMenuInteraction(interaction, action) {
         const isDeveloper = interaction.user.id === DEVELOPER_ID;
-        const isAdmin = interaction.member?.permissions.has('ADMINISTRATOR') || isDeveloper;
+        const isAdmin = interaction.member?.permissions.has(PermissionFlagsBits.Administrator) || isDeveloper;
 
         try {
             switch (action) {
