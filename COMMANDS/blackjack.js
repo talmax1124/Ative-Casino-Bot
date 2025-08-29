@@ -621,8 +621,31 @@ module.exports = {
                 await dbManager.updateUserBalance(userId, guildId, totalPayout, 0);
             }
 
-            // Add XP for game completion
+            // Record game result for statistics
             const won = totalPayout > game.betAmount * (game.splitHands.length || 1);
+            const totalBetAmount = game.betAmount * (game.splitHands.length || 1);
+            
+            try {
+                await dbManager.recordGameResult(
+                    userId, 
+                    guildId, 
+                    'blackjack', 
+                    won, 
+                    totalBetAmount, 
+                    totalPayout,
+                    {
+                        hands: game.splitHands.length || 1,
+                        dealerValue: game.dealerHand.getValue(),
+                        playerValue: game.playerHand.getValue(),
+                        outcome: results[0]?.outcome || 'unknown',
+                        split: game.splitHands.length > 0
+                    }
+                );
+            } catch (recordError) {
+                logger.warn(`Failed to record blackjack game result: ${recordError.message}`);
+            }
+
+            // Add XP for game completion
             const specialResult = results.some(r => r.outcome === 'BLACKJACK') ? 'BLACKJACK' : null;
             const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'blackjack', won, specialResult);
 

@@ -691,13 +691,26 @@ client.on('interactionCreate', async interaction => {
             else if (interaction.customId === 'blackjack_bet_select') {
                 const betAmount = interaction.values[0];
                 
-                // Create a mock slash command interaction for blackjack
+                // Create a proper mock slash command interaction for blackjack
                 const mockInteraction = {
                     ...interaction,
                     options: {
                         getString: (name) => name === 'amount' ? betAmount : null,
                         getInteger: (name) => name === 'amount' ? parseInt(betAmount) : null
-                    }
+                    },
+                    // Override interaction response methods to use update instead of reply
+                    reply: async (data) => {
+                        return await interaction.update(data);
+                    },
+                    editReply: async (data) => {
+                        return await interaction.editReply(data);
+                    },
+                    followUp: async (data) => {
+                        return await interaction.followUp(data);
+                    },
+                    // Track interaction state
+                    replied: false,
+                    deferred: false
                 };
                 
                 try {
@@ -705,17 +718,31 @@ client.on('interactionCreate', async interaction => {
                     if (blackjackCommand) {
                         await blackjackCommand.execute(mockInteraction);
                     } else {
-                        await interaction.reply({
+                        await interaction.update({
                             content: '❌ Blackjack command not available. Please try again.',
-                            ephemeral: true
+                            embeds: [],
+                            components: []
                         });
                     }
                 } catch (error) {
                     logger.error(`Error starting blackjack from Play Again: ${error.message}`);
-                    await interaction.reply({
-                        content: '❌ Error starting blackjack game. Please try using `/blackjack` directly.',
-                        ephemeral: true
-                    });
+                    
+                    try {
+                        if (!interaction.replied) {
+                            await interaction.update({
+                                content: '❌ Error starting blackjack game. Please try using `/blackjack` directly.',
+                                embeds: [],
+                                components: []
+                            });
+                        } else {
+                            await interaction.followUp({
+                                content: '❌ Error starting blackjack game. Please try using `/blackjack` directly.',
+                                ephemeral: true
+                            });
+                        }
+                    } catch (updateError) {
+                        logger.error(`Failed to send error message: ${updateError.message}`);
+                    }
                 }
             }
             

@@ -398,11 +398,119 @@ class DatabaseAdapter {
     }
 
     async getTopUsersByBalance(guildId, limit = 10) {
-        return [];
+        try {
+            const [rows] = await this.pool.execute(
+                `SELECT user_id, wallet, bank, username, 
+                        (wallet + bank) as total_balance,
+                        created_at, updated_at
+                 FROM user_balances 
+                 WHERE (wallet + bank) > 0
+                 ORDER BY total_balance DESC 
+                 LIMIT ?`,
+                [limit]
+            );
+            return rows;
+        } catch (error) {
+            logger.error(`Failed to get top users by balance: ${error.message}`);
+            return [];
+        }
     }
 
     async getTopUsersByWins(guildId, limit = 10) {
-        return [];
+        try {
+            // Get aggregated stats for each user across all game types
+            const [rows] = await this.pool.execute(
+                `SELECT 
+                    s.user_id,
+                    b.username,
+                    SUM(s.total_wins) as total_wins,
+                    SUM(s.total_losses) as total_losses,
+                    SUM(s.total_games_played) as total_games_played,
+                    SUM(s.total_winnings) as total_winnings,
+                    SUM(s.total_losses_amount) as total_losses_amount,
+                    MAX(s.last_game_played) as last_game_played
+                 FROM user_stats s
+                 LEFT JOIN user_balances b ON s.user_id = b.user_id
+                 GROUP BY s.user_id, b.username
+                 HAVING total_wins > 0
+                 ORDER BY total_wins DESC
+                 LIMIT ?`,
+                [limit]
+            );
+            return rows;
+        } catch (error) {
+            logger.error(`Failed to get top users by wins: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Record game result for statistics
+     */
+    async recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
+        try {
+            const statId = `${userId}_${gameType}`;
+            
+            // Check if user stats entry exists for this game type
+            const [existing] = await this.pool.execute(
+                'SELECT * FROM user_stats WHERE id = ?',
+                [statId]
+            );
+
+            const winAmount = won ? payout : 0;
+            const lossAmount = won ? 0 : betAmount;
+
+            if (existing.length === 0) {
+                // Create new stats entry
+                await this.pool.execute(
+                    `INSERT INTO user_stats (
+                        id, user_id, game_type, wins, losses, total_wagered, total_won,
+                        biggest_win, biggest_loss, total_wins, total_losses, 
+                        total_games_played, total_winnings, total_losses_amount, last_game_played
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+                    [
+                        statId, userId, gameType,
+                        won ? 1 : 0, won ? 0 : 1, betAmount, payout,
+                        won ? payout : 0, won ? 0 : betAmount,
+                        won ? 1 : 0, won ? 0 : 1, 1,
+                        winAmount, lossAmount
+                    ]
+                );
+            } else {
+                // Update existing stats
+                const current = existing[0];
+                
+                await this.pool.execute(
+                    `UPDATE user_stats SET 
+                        wins = wins + ?,
+                        losses = losses + ?,
+                        total_wagered = total_wagered + ?,
+                        total_won = total_won + ?,
+                        biggest_win = GREATEST(biggest_win, ?),
+                        biggest_loss = GREATEST(biggest_loss, ?),
+                        total_wins = total_wins + ?,
+                        total_losses = total_losses + ?,
+                        total_games_played = total_games_played + 1,
+                        total_winnings = total_winnings + ?,
+                        total_losses_amount = total_losses_amount + ?,
+                        last_game_played = NOW()
+                     WHERE id = ?`,
+                    [
+                        won ? 1 : 0, won ? 0 : 1,
+                        betAmount, payout,
+                        won ? payout : 0, won ? 0 : betAmount,
+                        won ? 1 : 0, won ? 0 : 1,
+                        winAmount, lossAmount,
+                        statId
+                    ]
+                );
+            }
+
+            return true;
+        } catch (error) {
+            logger.error(`Failed to record game result: ${error.message}`);
+            return false;
+        }
     }
 
     async storePoll(pollId, pollData) {

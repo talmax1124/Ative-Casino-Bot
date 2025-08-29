@@ -408,6 +408,24 @@ class DatabaseManager {
     }
 
     /**
+     * Record game result for statistics
+     * @param {string} userId - Discord user ID
+     * @param {string} guildId - Discord guild ID
+     * @param {string} gameType - Type of game played
+     * @param {boolean} won - Whether the game was won
+     * @param {number} betAmount - Amount bet
+     * @param {number} payout - Amount won/lost
+     * @param {object} metadata - Additional game data
+     * @returns {boolean} Success status
+     */
+    async recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata);
+        }
+        return false;
+    }
+
+    /**
      * Update global user statistics for leaderboard
      * @param {string} userId - Discord user ID
      * @param {boolean} win - Whether the game was won

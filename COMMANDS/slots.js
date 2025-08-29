@@ -193,6 +193,26 @@ module.exports = {
                 return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
+            // Record game result for statistics
+            try {
+                await dbManager.recordGameResult(
+                    userId, 
+                    guildId, 
+                    'slots', 
+                    result.won, 
+                    betAmount, 
+                    result.payout,
+                    {
+                        multiplier: result.multiplier,
+                        symbols: result.symbols,
+                        type: result.type,
+                        lines: result.winningLines?.length || 0
+                    }
+                );
+            } catch (recordError) {
+                logger.warn(`Failed to record slots game result: ${recordError.message}`);
+            }
+
             // Get updated balance
             const finalBalance = await dbManager.getUserBalance(userId, guildId);
 
