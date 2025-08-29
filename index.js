@@ -114,16 +114,8 @@ async function loadCommands() {
             // Handle special case for admin.js which has multiple commands
             if (file === 'admin.js') {
                 // Load additional commands from admin module
-                if (command.setMoneyCommand && command.setMoneyCommand.data) {
-                    client.commands.set(command.setMoneyCommand.data.name, command.setMoneyCommand);
-                    commands.push(command.setMoneyCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.setMoneyCommand.data.name}`);
-                }
-                if (command.backupCommand && command.backupCommand.data) {
-                    client.commands.set(command.backupCommand.data.name, command.backupCommand);
-                    commands.push(command.backupCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.backupCommand.data.name}`);
-                }
+                // SetMoney command removed - functionality available via editmoney
+                // Backup command removed - functionality moved to developer panel
                 if (command.drawLotteryCommand && command.drawLotteryCommand.data) {
                     client.commands.set(command.drawLotteryCommand.data.name, command.drawLotteryCommand);
                     commands.push(command.drawLotteryCommand.data.toJSON());
@@ -387,16 +379,8 @@ client.on('interactionCreate', async interaction => {
             return;
         }
 
-        // Check if command is disabled (import the helper function)
-        const devModule = require('./COMMANDS/dev');
-        if (devModule.isCommandDisabled && devModule.isCommandDisabled(interaction.commandName)) {
-            const embed = new EmbedBuilder()
-                .setTitle('🚫 Command Disabled')
-                .setDescription('This command has been temporarily disabled by an administrator.')
-                .setColor(0xFF6600);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
+        // Command disabling functionality moved to developer panel
+        // (commented out since devModule was removed)
 
         try {
             await command.execute(interaction);
@@ -489,8 +473,8 @@ client.on('interactionCreate', async interaction => {
             // Handle crash bet modal centrally
             else if (interaction.customId === 'crash_bet_modal') {
                 const crashGame = require('./GAMES/crash');
-                const game = crashGame.crashManager.getGame(interaction.channelId, interaction.guildId);
-                await crashGame.handleModalSubmit(interaction, game);
+                const game = crashGame.crashManager.getGame(interaction.channelId);
+                await crashGame.handleModalSubmit(interaction, client, game);
             }
             // Handle bingo join modal
             else if (interaction.customId === 'bingo_join_modal') {
@@ -866,11 +850,15 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
             }
-            // Handle crash buttons (namespace: crash:...)
-            else if (customId.startsWith('crash:')) {
+            // Handle crash buttons (namespace: crash_...)
+            else if (customId.startsWith('crash_')) {
                 const crashGame = require('./GAMES/crash');
-                const game = crashGame.crashManager.getExistingGame(interaction.channelId);
-                await crashGame.handleButtonInteraction(interaction, game, client);
+                const game = crashGame.crashManager.getGame(interaction.channelId);
+                if (game) {
+                    await crashGame.handleButtonInteraction(interaction, client, game);
+                } else {
+                    await interaction.reply({ content: '❌ No active crash game found', ephemeral: true });
+                }
             }
             // Handle poll buttons
             else if (customId.startsWith('poll_')) {
@@ -1407,16 +1395,25 @@ client.on('messageCreate', async message => {
             // Check for level up
             if (xpResult && xpResult.leveledUp) {
                 try {
-                    const levelUpChannel = client.channels.cache.get('1411018763008217208');
-                    if (levelUpChannel) {
-                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(message.author, xpResult.newLevel);
-                        await levelUpChannel.send({ 
-                            content: `<@${message.author.id}>, you are now level ${xpResult.newLevel}!`,
-                            embeds: [levelUpEmbed] 
-                        });
-                    }
+                    // Generate random reward between 3K and 12K
+                    const reward = Math.floor(Math.random() * (12000 - 3000 + 1)) + 3000;
+                    
+                    // Add reward to user's bank
+                    await dbManager.updateUserBalance(message.author.id, message.guild.id, 0, reward);
+                    
+                    // Create custom level up embed with reward info
+                    const rewardText = `💰 **+$${reward.toLocaleString()}** added to your bank!`;
+                    const levelUpEmbed = levelingSystem.createLevelUpEmbed(message.author, xpResult.newLevel, rewardText);
+                    
+                    // Send to current channel where user is typing
+                    await message.channel.send({ 
+                        content: `🎉 <@${message.author.id}>, you leveled up to level ${xpResult.newLevel}!`,
+                        embeds: [levelUpEmbed] 
+                    });
+                    
+                    logger.info(`User ${message.author.tag} leveled up to ${xpResult.newLevel} and received $${reward} bank reward`);
                 } catch (levelError) {
-                    logger.error(`Failed to send level up notification: ${levelError.message}`);
+                    logger.error(`Failed to process level up reward: ${levelError.message}`);
                 }
             }
         }
@@ -1466,12 +1463,12 @@ async function showAllCommandsList(interaction) {
             },
             {
                 name: '🎟️ Lottery System',
-                value: '`/lottery` `/purchaselottery` (use `/dev updatelottery` to refresh panel)',
+                value: '`/lottery` `/purchaselottery` (use developer panel to refresh)',
                 inline: false
             },
             {
                 name: '👑 Admin Commands',
-                value: '`/addmoney` `/setmoney` `/crasheco` `/setup` `/panel` `/backup` `/drawlottery` `/setuplottery` `/stopgame` `/stopcrash` `/polls`',
+                value: '`/editmoney` `/crasheco` `/setup` `/panel` `/drawlottery` `/setuplottery` `/stopgame` `/stopcrash` `/polls`',
                 inline: false
             },
             {

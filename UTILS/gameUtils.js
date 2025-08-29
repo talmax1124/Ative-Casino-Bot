@@ -179,20 +179,7 @@ class PayoutManager {
             });
         }
         
-        // Deduct bet from wallet
-        const newWallet = currentWallet - parsedAmount;
-        const success = await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank);
-        
-        if (!success) {
-            return new ValidationResult({
-                isValid: false,
-                errorEmbed: new EmbedBuilder()
-                    .setTitle('❌ Transaction Failed')
-                    .setDescription('Failed to process bet. Please try again.')
-                    .setColor(0xFF0000)
-                    .setTimestamp()
-            });
-        }
+        // Don't deduct bet upfront - will be handled during payout with net change
         
         // Set active game (only for legacy games, modern games use GameSessionIntegrator)
         const modernGames = ['blackjack', 'slots', 'crash', 'plinko', 'uno', 'wordchain', 'fishing', 'battleship'];
@@ -205,7 +192,7 @@ class PayoutManager {
         return new ValidationResult({
             isValid: true,
             parsedAmount: parsedAmount,
-            newWallet: newWallet
+            newWallet: currentWallet // Wallet hasn't changed yet
         });
     }
     
@@ -222,8 +209,9 @@ class PayoutManager {
             // Get current balance
             const balance = await dbManager.getUserBalance(userId, guildId);
             
-            // Add payout to wallet
-            let newWallet = balance.wallet + payout;
+            // Calculate net change (payout - bet amount)
+            const netChange = payout - betAmount;
+            let newWallet = balance.wallet + netChange;
             
             // Apply server booster bonus if applicable
             const boosterBonus = await this._calculateBoosterBonus(userId, guildId, payout);

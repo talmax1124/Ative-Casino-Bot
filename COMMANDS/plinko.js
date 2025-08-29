@@ -173,8 +173,7 @@ module.exports = {
 
             const sessionId = sessionResult.sessionId;
 
-            // Deduct bet amount (session handles game_active flag)
-            await dbManager.updateUserBalance(userId, guildId, -betAmount, 0);
+            // Don't deduct bet amount upfront - will calculate net change at the end
 
             // Show initial game setup with help info
             const setupEmbed = buildSessionEmbed({
@@ -216,7 +215,7 @@ module.exports = {
                 multipliers,
                 slots,
                 dropSlot,
-                newWallet: balance.wallet - betAmount,
+                newWallet: balance.wallet,
                 bankBalance: balance.bank,
                 sessionId
             }, guildId);
@@ -226,13 +225,13 @@ module.exports = {
             
             // Try to cancel session and refund on error
             try {
-                // Use GameSessionIntegrator for error handling (handles refund automatically)
+                // Use GameSessionIntegrator for error handling (no refund needed since bet wasn't deducted)
                 await GameSessionIntegrator.handleGameError(
                     userId, 
                     SMGameType.PLINKO, 
-                    betAmount || 0, 
+                    0, // No refund needed
                     guildId, 
-                    'Plinko game error - refund processed'
+                    'Plinko game error'
                 );
             } catch (refundError) {
                 logger.error(`Failed to refund plinko bet: ${refundError.message}`);
@@ -241,7 +240,7 @@ module.exports = {
             const errorEmbed = buildSessionEmbed({
                 title: `❌ ${username}'s Plinko`,
                 topFields: [
-                    { name: 'System Error', value: 'Something went wrong during the game.\nYour bet has been refunded.' }
+                    { name: 'System Error', value: 'Something went wrong during the game.\nNo money was deducted.' }
                 ],
                 color: 0xFF0000,
                 footer: 'Plinko Game'
@@ -367,9 +366,10 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
 async function showFinalResults(interaction, gameData, finalImage, finalSlot, finalMultiplier, winnings, won, guildId) {
     const { userId, username, betAmount, mode, modeData, newWallet, sessionId } = gameData;
     
-    // Update user balance (session handles game_active flag)
-    const finalWallet = newWallet + winnings;
-    await dbManager.updateUserBalance(userId, guildId, winnings, 0);
+    // Calculate net change (winnings - bet amount)
+    const netChange = winnings - betAmount;
+    const finalWallet = newWallet + netChange;
+    await dbManager.updateUserBalance(userId, guildId, netChange, 0);
 
     // Complete the session
     try {
@@ -378,7 +378,7 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
             finalMultiplier,
             winnings,
             won,
-            netChange: winnings - betAmount,
+            netChange,
             completedAt: Date.now()
         });
     } catch (sessionError) {
@@ -427,7 +427,6 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
         resultColor = 0xFF0000;
     }
 
-    const netChange = winnings - betAmount;
     const netText = netChange >= 0 ? `+${fmtFull(netChange)}` : fmtFull(netChange);
 
     const embed = buildSessionEmbed({

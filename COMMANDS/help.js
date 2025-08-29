@@ -358,12 +358,12 @@ function createAdminHelp(interaction) {
         .addFields(
             {
                 name: '💰 Economy Management',
-                value: '**`/addmoney <user> <amount> [account]`** - Add money to users\n**`/setmoney <user> <amount>`** - Set wallet balance\n**`/crasheco <user>`** - Punish economy abuse\n🔒 **Admin only** | Logged for transparency',
+                value: '**`/editmoney <user> <amount> [account]`** - Add/remove money from users\n**`/crasheco <user>`** - Punish economy abuse\n🔒 **Admin only** | Logged for transparency',
                 inline: false
             },
             {
                 name: '🛠️ Server Management',
-                value: '**`/setup`** - Initial bot setup for new servers\n**`/panel`** - Master admin control panel\n**`/backup`** - Create database backup\n📊 **Full server control and monitoring**',
+                value: '**`/setup`** - Initial bot setup for new servers\n**`/panel`** - Master admin control panel with all functions\n📊 **Full server control and monitoring**',
                 inline: false
             },
             {
@@ -383,7 +383,7 @@ function createAdminHelp(interaction) {
             },
             {
                 name: '📋 Admin Best Practices',
-                value: '• **Monitor logs** channel for all activities\n• **Use panels** for bulk operations\n• **Create backups** before major changes\n• **Check leaderboards** for unusual activity',
+                value: '• **Monitor logs** channel for all activities\n• **Use panels** for bulk operations\n• **Use developer panel** for system functions\n• **Check leaderboards** for unusual activity',
                 inline: false
             }
         )

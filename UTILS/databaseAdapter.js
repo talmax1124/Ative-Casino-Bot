@@ -262,8 +262,8 @@ class DatabaseAdapter {
     async updateUserBalance(userId, guildId = null, walletChange = 0, bankChange = 0, kwargs = {}) {
         try {
             const current = await this.getUserBalance(userId, guildId);
-            const newWallet = current.wallet + walletChange;
-            const newBank = current.bank + bankChange;
+            const newWallet = Math.max(0, current.wallet + walletChange); // Prevent negative wallet
+            const newBank = Math.max(0, current.bank + bankChange); // Prevent negative bank
 
             const updateFields = ['wallet = ?', 'bank = ?', 'updated_at = NOW()'];
             const updateValues = [newWallet, newBank];

@@ -35,23 +35,23 @@ function fmt(amount) {
     return `$${parseFloat(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const addMoneyCommand = {
+const editMoneyCommand = {
     data: new SlashCommandBuilder()
-        .setName('addmoney')
-        .setDescription('Add money to a user\'s account (Admin only)')
+        .setName('editmoney')
+        .setDescription('Add or remove money from a user\'s account (Admin only)')
         .addUserOption(option =>
             option.setName('user')
-                .setDescription('User to add money to')
+                .setDescription('User to edit money for')
                 .setRequired(true)
         )
         .addStringOption(option =>
             option.setName('amount')
-                .setDescription('Amount to add (supports K/M/B/T suffixes)')
+                .setDescription('Amount to add/remove (use - for remove, supports K/M/B/T suffixes)')
                 .setRequired(true)
         )
         .addStringOption(option =>
             option.setName('account')
-                .setDescription('Where to add the money')
+                .setDescription('Where to edit the money')
                 .setRequired(false)
                 .addChoices(
                     { name: '💵 Wallet', value: 'wallet' },
@@ -87,15 +87,27 @@ const addMoneyCommand = {
         const amountStr = interaction.options.getString('amount');
         const account = interaction.options.getString('account') || 'wallet';
         
-        // Parse amount
-        const amount = parseAmount(amountStr);
-        if (amount === null || amount <= 0) {
+        // Parse amount (allow negative amounts for removal)
+        let amount;
+        if (amountStr.startsWith('-')) {
+            // Handle negative amounts
+            const positiveAmount = parseAmount(amountStr.substring(1));
+            if (positiveAmount === null || positiveAmount <= 0) {
+                amount = null;
+            } else {
+                amount = -positiveAmount;
+            }
+        } else {
+            amount = parseAmount(amountStr);
+        }
+        
+        if (amount === null || amount === 0) {
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
             
             const topFields = [
                 {
                     name: '❌ INVALID AMOUNT',
-                    value: 'Invalid amount format.\n\nUse numbers with K/M/B/T suffixes\n(e.g., 1000, 5k, 2.5m).',
+                    value: 'Invalid amount format.\n\nUse numbers with K/M/B/T suffixes\n(e.g., 1000, 5k, -2.5m to remove).',
                     inline: false
                 }
             ];
@@ -128,13 +140,13 @@ const addMoneyCommand = {
             let oldAmount, newAmount;
             
             if (account === 'bank') {
-                newBank = oldBank + amount;
+                newBank = Math.max(0, oldBank + amount); // Prevent negative balance
                 accountEmoji = '🏦';
                 accountName = 'Bank';
                 oldAmount = oldBank;
                 newAmount = newBank;
             } else {
-                newWallet = oldWallet + amount;
+                newWallet = Math.max(0, oldWallet + amount); // Prevent negative balance
                 oldAmount = oldWallet;
                 newAmount = newWallet;
             }
@@ -170,12 +182,12 @@ const addMoneyCommand = {
             const topFields = [
                 {
                     name: '✅ TRANSACTION COMPLETE',
-                    value: `Successfully added **${fmt(amount)}** to\n${targetUser.displayName}'s ${accountName.toLowerCase()}.`,
+                    value: `Successfully ${amount >= 0 ? 'added' : 'removed'} **${fmt(Math.abs(amount))}** ${amount >= 0 ? 'to' : 'from'}\n${targetUser.displayName}'s ${accountName.toLowerCase()}.`,
                     inline: false
                 },
                 {
                     name: `📊 ${accountName.toUpperCase()} SUMMARY`,
-                    value: `${accountEmoji} **Previous:** ${fmt(oldAmount)}\n💸 **Added:** ${fmt(amount)}\n${accountEmoji} **New Total:** **${fmt(newAmount)}**`,
+                    value: `${accountEmoji} **Previous:** ${fmt(oldAmount)}\n💸 **${amount >= 0 ? 'Added' : 'Removed'}:** ${fmt(Math.abs(amount))}\n${accountEmoji} **New Total:** **${fmt(newAmount)}**`,
                     inline: true
                 },
                 {
@@ -203,10 +215,10 @@ const addMoneyCommand = {
             await interaction.reply({ embeds: [embed] });
 
             // Log the action
-            logger.info(`Admin ${interaction.user.tag} added ${fmt(amount)} to ${targetUser.tag}'s ${account}`);
+            logger.info(`Admin ${interaction.user.tag} ${amount >= 0 ? 'added' : 'removed'} ${fmt(Math.abs(amount))} ${amount >= 0 ? 'to' : 'from'} ${targetUser.tag}'s ${account}`);
 
         } catch (error) {
-            logger.error(`Error in addmoney command: ${error.message}`);
+            logger.error(`Error in editmoney command: ${error.message}`);
             
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
             
@@ -237,167 +249,8 @@ const addMoneyCommand = {
 };
 
 // Additional admin commands
-const setMoneyCommand = {
-    data: new SlashCommandBuilder()
-        .setName('setmoney')
-        .setDescription('Set a user\'s wallet balance (Admin only)')
-        .addUserOption(option =>
-            option.setName('user')
-                .setDescription('User to set money for')
-                .setRequired(true)
-        )
-        .addStringOption(option =>
-            option.setName('amount')
-                .setDescription('Amount to set (supports K/M/B/T suffixes)')
-                .setRequired(true)
-        ),
-
-    async execute(interaction) {
-        // Check admin permissions
-        if (!await hasAdminPermissions(interaction.member)) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Permission Denied')
-                .setDescription('You need admin permissions to use this command.')
-                .setColor(0xFF0000);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
-
-        const targetUser = interaction.options.getUser('user');
-        const amountStr = interaction.options.getString('amount');
-        
-        // Parse amount
-        const amount = parseAmount(amountStr);
-        if (amount === null || amount < 0) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Invalid Amount')
-                .setDescription('Invalid amount format. Use numbers with K/M/B/T suffixes (e.g., 1000, 5k, 2.5m).')
-                .setColor(0xFF0000);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
-        const guildId = interaction.guildId;
-
-        try {
-            // Ensure user exists
-            await dbManager.ensureUser(targetUser.id, targetUser.displayName);
-            
-            // Get current balance
-            const balance = await dbManager.getUserBalance(targetUser.id, guildId);
-            const oldWallet = balance.wallet;
-            
-            // Set new balance
-            const success = await dbManager.setUserBalance(targetUser.id, guildId, amount, balance.bank);
-            
-            if (!success) {
-                const errorEmbed = new EmbedBuilder()
-                    .setTitle('❌ Error')
-                    .setDescription('Failed to update user balance.')
-                    .setColor(0xFF0000);
-                
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
-
-            // Create success embed
-            const embed = new EmbedBuilder()
-                .setTitle('💰 Balance Set')
-                .setDescription(`Successfully set ${targetUser.displayName}'s wallet balance.`)
-                .addFields(
-                    { name: 'Previous Balance', value: fmt(oldWallet), inline: true },
-                    { name: 'New Balance', value: fmt(amount), inline: true },
-                    { name: 'Difference', value: fmt(amount - oldWallet), inline: true }
-                )
-                .setColor(0x00FF00)
-                .setTimestamp();
-
-            await interaction.reply({ embeds: [embed] });
-
-            // Log the action
-            logger.info(`Admin ${interaction.user.tag} set ${targetUser.tag}'s wallet to ${fmt(amount)}`);
-
-        } catch (error) {
-            logger.error(`Error in setmoney command: ${error.message}`);
-            
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Error')
-                .setDescription('An error occurred while processing the command.')
-                .setColor(0xFF0000);
-
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
-    }
-};
 
 
-const backupCommand = {
-    data: new SlashCommandBuilder()
-        .setName('backup')
-        .setDescription('Create a backup of the database (Admin only)'),
-
-    async execute(interaction) {
-        // Check admin permissions
-        if (!await hasAdminPermissions(interaction.member)) {
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Permission Denied')
-                .setDescription('You need admin permissions to use this command.')
-                .setColor(0xFF0000);
-            
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-        }
-
-        try {
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-            // Create backup timestamp
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            
-            // In a real implementation, you would:
-            // 1. Export all collections from Firestore
-            // 2. Create a backup file
-            // 3. Upload to cloud storage or send as attachment
-            
-            // For now, we'll just create a backup record
-            const backupRef = dbManager.db.collection('backups').doc();
-            await backupRef.set({
-                created_at: new Date(),
-                created_by: interaction.user.id,
-                guild_id: interaction.guildId,
-                type: 'manual',
-                status: 'completed'
-            });
-
-            const embed = new EmbedBuilder()
-                .setTitle('💾 Backup Created')
-                .setDescription(`Database backup created successfully at ${timestamp}`)
-                .addFields(
-                    { name: 'Backup ID', value: backupRef.id, inline: true },
-                    { name: 'Created By', value: interaction.user.tag, inline: true },
-                    { name: 'Status', value: 'Completed', inline: true }
-                )
-                .setColor(0x00FF00)
-                .setTimestamp();
-
-            await interaction.editReply({ embeds: [embed] });
-
-            // Log the action
-            logger.info(`Admin ${interaction.user.tag} created database backup ${backupRef.id}`);
-
-        } catch (error) {
-            logger.error(`Error in backup command: ${error.message}`);
-            
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Backup Failed')
-                .setDescription('An error occurred while creating the backup.')
-                .setColor(0xFF0000);
-
-            if (interaction.deferred) {
-                await interaction.editReply({ embeds: [errorEmbed] });
-            } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
-        }
-    }
-};
 
 // Function to draw from last week's lottery data
 async function drawLastWeekLottery(interaction, guildId) {
@@ -917,117 +770,6 @@ const drawLotteryCommand = {
     }
 };
 
-// Portal announcement command (Admin only)
-const portalAnnouncementCommand = {
-    data: new SlashCommandBuilder()
-        .setName('pbportalannouncement')
-        .setDescription('Make a stylish announcement about the ATIVE Casino Portal (Admin only)'),
-
-    async execute(interaction) {
-        const member = interaction.member;
-        
-        // Check admin permissions
-        if (!await hasAdminPermissions(member)) {
-            const noPermEmbed = new EmbedBuilder()
-                .setTitle('❌ Access Denied')
-                .setDescription('You need administrator permissions to use this command.')
-                .setColor(0xFF0000)
-                .setTimestamp();
-            
-            return await interaction.reply({ embeds: [noPermEmbed], flags: MessageFlags.Ephemeral });
-        }
-
-        try {
-            const announcementEmbed = new EmbedBuilder()
-                .setTitle('🌐 **ATIVE CASINO PORTAL IS LIVE!** 🌐')
-                .setDescription(`
-🎰 **Welcome to the Future of Casino Gaming!** 🎰
-
-The **ATIVE Casino Portal** is now available - your gateway to premium casino entertainment right from your browser!
-
-**🔥 What Can You Do?**
-• 💳 **Secure Deposits** - Add funds instantly with Square payments
-• 🏆 **Live Leaderboards** - See who's dominating the games  
-• 🎯 **Real-Time Stats** - Track your wins, losses, and progress
-• 🛒 **Premium Shop** - Buy boosts, cosmetics, and exclusive items
-• 💰 **Balance Management** - Deposit, withdraw, and transfer funds
-• 📊 **Game Analytics** - Detailed insights into your gameplay
-• 🎨 **Modern Interface** - Beautiful, responsive design
-• 📱 **Cross-Platform** - Works on desktop, tablet, and mobile
-
-**✨ Key Features:**
-🔒 **Secure Authentication** - Login with your Discord account
-💎 **Premium Items** - Personal Slot Machines, Diamond Memberships
-🎮 **Game Integration** - Seamless connection with Discord bot
-📈 **Transaction History** - Full transparency of all activities
-🏅 **Achievement System** - Unlock rewards as you play
-⚡ **Instant Updates** - Real-time balance and game updates
-
-**🚀 Get Started:**
-1️⃣ Click the portal link below
-2️⃣ Login with your Discord account  
-3️⃣ Start gaming like never before!
-
-**Ready to experience premium casino gaming?**
-                `)
-                .setColor(0x00FF88)
-                .setThumbnail('https://cdn.discordapp.com/attachments/1403244656845787170/1404027373048823838/Casino.png')
-                .addFields([
-                    {
-                        name: '🌐 Portal Access',
-                        value: '**[🎰 OPEN PORTAL](https://ativecasinoportal.up.railway.app/)**',
-                        inline: false
-                    },
-                    {
-                        name: '💡 Pro Tips',
-                        value: '• Use `/portal` command for quick access\n• Check your stats regularly\n• Take advantage of premium items\n• Join the leaderboard competition!',
-                        inline: true
-                    },
-                    {
-                        name: '🎯 Coming Soon',
-                        value: '• Mobile app\n• More payment methods\n• Advanced analytics\n• Social features',
-                        inline: true
-                    }
-                ])
-                .setImage('https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=400&fit=crop&crop=center')
-                .setFooter({ 
-                    text: 'ATIVE Casino Portal • Where Winners Play', 
-                    iconURL: 'https://cdn.discordapp.com/attachments/1403244656845787170/1404027373048823838/Casino.png' 
-                })
-                .setTimestamp();
-
-            await interaction.reply({ embeds: [announcementEmbed] });
-            
-            // Log the portal announcement to the logs channel
-            try {
-                await sendLogMessage(
-                    interaction.client,
-                    'admin',
-                    `🌐 **PORTAL ANNOUNCEMENT** posted by ${interaction.user.displayName}\n` +
-                    `**Channel:** ${interaction.channel.name || 'Direct Message'}\n` +
-                    `**Server:** ${interaction.guild?.name || 'Direct Message'}\n` +
-                    `**Portal URL:** https://ativecasinoportal.up.railway.app/\n` +
-                    `**Time:** ${new Date().toISOString()}`,
-                    interaction.user.id,
-                    interaction.guild?.id || 'DM'
-                );
-            } catch (logError) {
-                logger.error(`Failed to log portal announcement: ${logError.message}`);
-            }
-            
-        } catch (error) {
-            logger.error(`Error in portal announcement command: ${error.message}`);
-            
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Error')
-                .setDescription('Failed to create portal announcement.')
-                .setColor(0xFF0000)
-                .setTimestamp();
-            
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
-    }
-};
 
 // Portal access command (Public)
 const portalCommand = {
@@ -1110,11 +852,8 @@ const portalCommand = {
 
 // Export multiple commands
 module.exports = {
-    data: addMoneyCommand.data,
-    execute: addMoneyCommand.execute,
-    setMoneyCommand,
-    backupCommand,
+    data: editMoneyCommand.data,
+    execute: editMoneyCommand.execute,
     drawLotteryCommand,
-    portalAnnouncementCommand,
     portalCommand
 };
