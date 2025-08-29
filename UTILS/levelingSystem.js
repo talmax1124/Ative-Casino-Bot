@@ -1,6 +1,11 @@
 /**
  * Leveling System Module
  * Handles user level progression based on games played and chat activity
+ * 
+ * XP TRACKING RULES:
+ * - Chat XP: Only tracked in server 1403244656845787167
+ * - Game XP: Tracked across ALL servers
+ * - Level-up notifications: Sent to channel 1411018763008217208
  */
 
 const dbManager = require('./database');
@@ -234,6 +239,8 @@ class LevelingSystem {
 
     /**
      * Handle chat message XP
+     * NOTE: Chat XP is only tracked in server 1403244656845787167
+     * Game XP is tracked across all servers
      */
     async handleChatMessage(userId, guildId, channelId) {
         try {

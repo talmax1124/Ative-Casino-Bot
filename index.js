@@ -1339,8 +1339,8 @@ client.on('messageCreate', async message => {
         // Check if this message is a follow-up to a panel action
         await panelManager.processFollowUpAction(message);
         
-        // Handle leveling XP for chat activity
-        if (message.guild) {
+        // Handle leveling XP for chat activity (only in specific server)
+        if (message.guild && message.guild.id === '1403244656845787167') {
             const xpResult = await levelingSystem.handleChatMessage(
                 message.author.id, 
                 message.guild.id,
