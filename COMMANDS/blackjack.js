@@ -8,10 +8,6 @@ const { PayoutManager, GameType, GameResult, TimeoutManager } = require('../UTIL
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { BlackjackGame } = require('../GAMES/blackjack');
 const GamePanel = require('../UTILS/gamePanel');
-// sessionManager removed (Firebase dependency) - using simple session tracking
-const sessionManager = {
-    getUserSessions: (userId) => []
-};
 const SMGameType = { BLACKJACK: 'blackjack' };
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const sessionGuard = require('../UTILS/sessionGuard');
@@ -19,6 +15,7 @@ const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
+const levelingSystem = require('../UTILS/levelingSystem');
 
 
 // Active games storage (indexed by sessionId for better session management)
@@ -412,12 +409,9 @@ module.exports = {
         let game = null;
         let sessionId = null;
         
-        // Find user's active blackjack session
-        const userSessions = sessionManager.getUserSessions(userId);
-        const blackjackSession = userSessions.find(s => 
-            s.gameType === SMGameType.BLACKJACK && 
-            (s.state === 'active' || s.state === 'paused')
-        );
+        // Find user's active blackjack session from GameSessionIntegrator
+        const activeSessions = await GameSessionIntegrator.getActiveUserSessions(userId);
+        const blackjackSession = activeSessions.find(s => s.gameType === SMGameType.BLACKJACK);
         
         if (blackjackSession) {
             sessionId = blackjackSession.sessionId;
@@ -627,6 +621,31 @@ module.exports = {
                 await dbManager.updateUserBalance(userId, guildId, totalPayout, 0);
             }
 
+            // Add XP for game completion
+            const won = totalPayout > game.betAmount * (game.splitHands.length || 1);
+            const specialResult = results.some(r => r.outcome === 'BLACKJACK') ? 'BLACKJACK' : null;
+            const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'blackjack', won, specialResult);
+
+            // Check for level up and prepare notification
+            let levelUpMessage = null;
+            if (xpResult && xpResult.leveledUp) {
+                levelUpMessage = `\n\n🎉 **LEVEL UP!** You are now level **${xpResult.newLevel}**!`;
+                
+                // Send level up notification to the specified channel
+                try {
+                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                    if (levelUpChannel) {
+                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
+                        await levelUpChannel.send({ 
+                            content: `<@${userId}>, you are now level ${xpResult.newLevel}!`,
+                            embeds: [levelUpEmbed] 
+                        });
+                    }
+                } catch (levelError) {
+                    logger.error(`Failed to send level up notification: ${levelError.message}`);
+                }
+            }
+
             // Create final embed (before cleanup)
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             const finalEmbed = createGameEmbed(game, interaction.user, true, userBalance);
@@ -660,6 +679,11 @@ module.exports = {
             } catch (messageError) {
                 logger.error(`Error creating result message for user ${userId}: ${messageError.message}`);
                 resultMessage = `🎰 **GAME COMPLETE** - Total Payout: ${fmt(totalPayout)}`;
+            }
+            
+            // Add level up message if applicable
+            if (levelUpMessage) {
+                resultMessage += levelUpMessage;
             }
             
             // Safety check - ensure resultMessage is not empty and has content

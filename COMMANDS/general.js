@@ -9,6 +9,7 @@ const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage, getTierDisplay, getE
 const { secureRandomInt, secureRandomFloat, secureRandomChance } = require('../UTILS/rng');
 const UITemplates = require('../UTILS/uiTemplates');
 const logger = require('../UTILS/logger');
+const levelingSystem = require('../UTILS/levelingSystem');
 
 // Developer ID for Off-Economy status
 const DEVELOPER_ID = '466050111680544798';
@@ -327,6 +328,9 @@ const workCommand = {
             await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank, {
                 last_work_ts: now
             });
+            
+            // Add XP for work
+            const xpResult = await levelingSystem.handleWork(userId, guildId);
 
             const embed = new EmbedBuilder()
                 .setTitle('💼 Work Complete!')
@@ -685,6 +689,103 @@ const heistCommand = {
     }
 };
 
+// Profile command to view level and stats
+const profileCommand = {
+    data: new SlashCommandBuilder()
+        .setName('profile')
+        .setDescription('View your level and stats')
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('User to view profile of')
+                .setRequired(false)
+        ),
+
+    async execute(interaction) {
+        const targetUser = interaction.options.getUser('user') || interaction.user;
+        const userId = targetUser.id;
+        const guildId = await getGuildId(interaction);
+
+        try {
+            // Get user level data
+            const levelData = await levelingSystem.getUserLevel(userId, guildId);
+            
+            if (!levelData) {
+                return await interaction.reply({ 
+                    content: 'Failed to retrieve profile data. Please try again later.', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+
+            // Create profile embed
+            const profileEmbed = levelingSystem.createProfileEmbed(targetUser, levelData);
+            
+            await interaction.reply({ embeds: [profileEmbed] });
+
+        } catch (error) {
+            logger.error(`Error in profile command: ${error.message}`);
+            await interaction.reply({ 
+                content: 'An error occurred while fetching the profile.', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+    }
+};
+
+// Level Leaderboard command
+const leaderboardCommand = {
+    data: new SlashCommandBuilder()
+        .setName('levels')
+        .setDescription('View the server level leaderboard'),
+
+    async execute(interaction) {
+        const guildId = await getGuildId(interaction);
+
+        try {
+            // Get leaderboard data
+            const leaderboard = await levelingSystem.getLeaderboard(guildId, 10);
+            
+            if (!leaderboard || leaderboard.length === 0) {
+                return await interaction.reply({ 
+                    content: 'No leaderboard data available yet.', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+
+            // Create leaderboard embed
+            const embed = new EmbedBuilder()
+                .setTitle('🏆 Level Leaderboard')
+                .setColor(0xFFD700)
+                .setDescription('Top 10 users by level and XP')
+                .setTimestamp();
+
+            let description = '';
+            for (let i = 0; i < leaderboard.length; i++) {
+                const entry = leaderboard[i];
+                const position = i + 1;
+                const medal = position === 1 ? '🥇' : position === 2 ? '🥈' : position === 3 ? '🥉' : `**${position}.**`;
+                
+                try {
+                    const user = await interaction.client.users.fetch(entry.user_id);
+                    description += `${medal} ${user.username} - Level ${entry.level} (${entry.total_xp.toLocaleString()} XP)\n`;
+                } catch {
+                    description += `${medal} Unknown User - Level ${entry.level} (${entry.total_xp.toLocaleString()} XP)\n`;
+                }
+            }
+
+            embed.setDescription(description);
+            
+            await interaction.reply({ embeds: [embed] });
+
+        } catch (error) {
+            logger.error(`Error in leaderboard command: ${error.message}`);
+            await interaction.reply({ 
+                content: 'An error occurred while fetching the leaderboard.', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+    }
+};
+
 // Export multiple commands
 module.exports = { 
     ...module.exports,
@@ -692,5 +793,7 @@ module.exports = {
     workCommand,
     begCommand,
     crimeCommand,
-    heistCommand
+    heistCommand,
+    profileCommand,
+    leaderboardCommand
 };

@@ -16,6 +16,7 @@ const dbManager = require('./UTILS/database');
 const { sendLogMessage } = require('./UTILS/common');
 const panelManager = require('./UTILS/panelManager');
 const { LotteryGame } = require('./GAMES/lottery');
+const levelingSystem = require('./UTILS/levelingSystem');
 
 // Bot configuration
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -92,6 +93,21 @@ async function loadCommands() {
                     client.commands.set(command.cogCommand.data.name, command.cogCommand);
                     commands.push(command.cogCommand.data.toJSON());
                     logger.info(`Loaded command: ${command.cogCommand.data.name}`);
+                }
+            }
+
+            // Handle special case for general.js which has multiple commands
+            if (file === 'general.js') {
+                // Load additional commands from general module
+                if (command.profileCommand && command.profileCommand.data) {
+                    client.commands.set(command.profileCommand.data.name, command.profileCommand);
+                    commands.push(command.profileCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.profileCommand.data.name}`);
+                }
+                if (command.leaderboardCommand && command.leaderboardCommand.data) {
+                    client.commands.set(command.leaderboardCommand.data.name, command.leaderboardCommand);
+                    commands.push(command.leaderboardCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.leaderboardCommand.data.name}`);
                 }
             }
 
@@ -1295,8 +1311,33 @@ client.on('messageCreate', async message => {
     try {
         // Check if this message is a follow-up to a panel action
         await panelManager.processFollowUpAction(message);
+        
+        // Handle leveling XP for chat activity
+        if (message.guild) {
+            const xpResult = await levelingSystem.handleChatMessage(
+                message.author.id, 
+                message.guild.id,
+                message.channel.id
+            );
+            
+            // Check for level up
+            if (xpResult && xpResult.leveledUp) {
+                try {
+                    const levelUpChannel = client.channels.cache.get('1411018763008217208');
+                    if (levelUpChannel) {
+                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(message.author, xpResult.newLevel);
+                        await levelUpChannel.send({ 
+                            content: `<@${message.author.id}>, you are now level ${xpResult.newLevel}!`,
+                            embeds: [levelUpEmbed] 
+                        });
+                    }
+                } catch (levelError) {
+                    logger.error(`Failed to send level up notification: ${levelError.message}`);
+                }
+            }
+        }
     } catch (error) {
-        logger.error(`Error processing follow-up action: ${error.message}`);
+        logger.error(`Error processing message: ${error.message}`);
     }
 });
 
