@@ -65,13 +65,13 @@ class LevelingSystem {
     async initDatabase() {
         try {
             // Wait for database to be initialized
-            if (!dbManager.pool) {
+            if (!dbManager.initialized || !dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
                 logger.warn('Database not initialized yet, deferring leveling system initialization');
                 setTimeout(() => this.initDatabase(), 5000);
                 return;
             }
             
-            const pool = dbManager.pool;
+            const pool = dbManager.databaseAdapter.pool;
             
             // Create leveling table if not exists
             await pool.execute(`
@@ -103,7 +103,7 @@ class LevelingSystem {
      */
     async getUserLevel(userId, guildId) {
         try {
-            const pool = dbManager.pool;
+            const pool = dbManager.databaseAdapter.pool;
             const [rows] = await pool.execute(
                 'SELECT * FROM user_levels WHERE user_id = ? AND guild_id = ?',
                 [userId, guildId]
@@ -185,7 +185,7 @@ class LevelingSystem {
      */
     async addXp(userId, guildId, xpAmount, reason = 'unknown') {
         try {
-            const pool = dbManager.pool;
+            const pool = dbManager.databaseAdapter.pool;
             
             // Get current user data
             const userData = await this.getUserLevel(userId, guildId);
@@ -251,7 +251,7 @@ class LevelingSystem {
             const result = await this.addXp(userId, guildId, XP_REWARDS.CHAT_MESSAGE, 'chat');
 
             // Update message count
-            const pool = dbManager.pool;
+            const pool = dbManager.databaseAdapter.pool;
             await pool.execute(
                 'UPDATE user_levels SET messages_sent = messages_sent + 1 WHERE user_id = ? AND guild_id = ?',
                 [userId, guildId]
@@ -283,7 +283,7 @@ class LevelingSystem {
             const result = await this.addXp(userId, guildId, xpAmount, `game_${gameType}`);
 
             // Update game stats
-            const pool = dbManager.pool;
+            const pool = dbManager.databaseAdapter.pool;
             if (won) {
                 await pool.execute(
                     'UPDATE user_levels SET games_played = games_played + 1, games_won = games_won + 1 WHERE user_id = ? AND guild_id = ?',
@@ -322,7 +322,7 @@ class LevelingSystem {
      */
     async getLeaderboard(guildId, limit = 10) {
         try {
-            const pool = dbManager.pool;
+            const pool = dbManager.databaseAdapter.pool;
             const [rows] = await pool.execute(
                 `SELECT user_id, level, total_xp, games_won, messages_sent 
                  FROM user_levels 
