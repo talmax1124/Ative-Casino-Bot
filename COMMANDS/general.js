@@ -117,18 +117,25 @@ module.exports = {
         } catch (error) {
             logger.error(`Error checking balance: ${error.message}`);
             
-            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-            const errorEmbed = buildSessionEmbed({
-                title: '❌ Balance Error',
-                topFields: [
-                    { name: 'Error', value: 'Failed to retrieve balance information.\nPlease try again in a moment.' }
-                ],
-                stageText: 'ERROR',
-                color: 0xFF0000,
-                footer: 'Balance Command • Error occurred'
-            });
+            // Only reply if we haven't already replied
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                    const errorEmbed = buildSessionEmbed({
+                        title: '❌ Balance Error',
+                        topFields: [
+                            { name: 'Error', value: 'Failed to retrieve balance information.\nPlease try again in a moment.' }
+                        ],
+                        stageText: 'ERROR',
+                        color: 0xFF0000,
+                        footer: 'Balance Command • Error occurred'
+                    });
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } catch (replyError) {
+                    logger.error(`Failed to send error reply: ${replyError.message}`);
+                }
+            }
         }
     },
 
@@ -265,13 +272,19 @@ const earnCommand = {
         } catch (error) {
             logger.error(`Error processing earn command: ${error.message}`);
             
-            const errorEmbed = UITemplates.createErrorEmbed('Earn', {
-                description: 'Failed to process earning. Please try again.',
-                error: error.message,
-                isLoss: false
-            });
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    const errorEmbed = UITemplates.createErrorEmbed('Earn', {
+                        description: 'Failed to process earning. Please try again.',
+                        error: error.message,
+                        isLoss: false
+                    });
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } catch (replyError) {
+                    logger.error(`Failed to send earn error reply: ${replyError.message}`);
+                }
+            }
         }
     }
 };
@@ -348,12 +361,18 @@ const workCommand = {
         } catch (error) {
             logger.error(`Error processing work command: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Error')
-                .setDescription('Failed to process work. Please try again.')
-                .setColor(0xFF0000);
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    const errorEmbed = new EmbedBuilder()
+                        .setTitle('❌ Error')
+                        .setDescription('Failed to process work. Please try again.')
+                        .setColor(0xFF0000);
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } catch (replyError) {
+                    logger.error(`Failed to send work error reply: ${replyError.message}`);
+                }
+            }
         }
     }
 };
@@ -443,14 +462,20 @@ const begCommand = {
         } catch (error) {
             logger.error(`Error processing beg command: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Begging Failed')
-                .setDescription('Something went wrong while begging. Please try again.')
-                .setColor(0xFF0000)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    const errorEmbed = new EmbedBuilder()
+                        .setTitle('❌ Begging Failed')
+                        .setDescription('Something went wrong while begging. Please try again.')
+                        .setColor(0xFF0000)
+                        .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
+                        .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } catch (replyError) {
+                    logger.error(`Failed to send beg error reply: ${replyError.message}`);
+                }
+            }
         }
     }
 };
@@ -539,14 +564,20 @@ const crimeCommand = {
         } catch (error) {
             logger.error(`Error processing crime command: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Crime Failed')
-                .setDescription('Your crime was unsuccessful! Better luck next time.')
-                .setColor(0xFF0000)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    const errorEmbed = new EmbedBuilder()
+                        .setTitle('❌ Crime Failed')
+                        .setDescription('Your crime was unsuccessful! Better luck next time.')
+                        .setColor(0xFF0000)
+                        .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
+                        .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } catch (replyError) {
+                    logger.error(`Failed to send crime error reply: ${replyError.message}`);
+                }
+            }
         }
     }
 };
@@ -676,15 +707,21 @@ const heistCommand = {
         } catch (error) {
             logger.error(`Error processing heist command: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Heist Failed')
-                .setDescription('Your heist was foiled! The authorities were waiting for you.')
-                .addFields({ name: '🚨 Result', value: 'Mission compromised - try again later', inline: false })
-                .setColor(0xFF0000)
-                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
-                .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    const errorEmbed = new EmbedBuilder()
+                        .setTitle('❌ Heist Failed')
+                        .setDescription('Your heist was foiled! The authorities were waiting for you.')
+                        .addFields({ name: '🚨 Result', value: 'Mission compromised - try again later', inline: false })
+                        .setColor(0xFF0000)
+                        .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
+                        .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } catch (replyError) {
+                    logger.error(`Failed to send heist error reply: ${replyError.message}`);
+                }
+            }
         }
     }
 };
@@ -723,10 +760,17 @@ const profileCommand = {
 
         } catch (error) {
             logger.error(`Error in profile command: ${error.message}`);
-            await interaction.reply({ 
-                content: 'An error occurred while fetching the profile.', 
-                flags: MessageFlags.Ephemeral 
-            });
+            
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    await interaction.reply({ 
+                        content: 'An error occurred while fetching the profile.', 
+                        flags: MessageFlags.Ephemeral 
+                    });
+                } catch (replyError) {
+                    logger.error(`Failed to send profile error reply: ${replyError.message}`);
+                }
+            }
         }
     }
 };
@@ -778,10 +822,17 @@ const leaderboardCommand = {
 
         } catch (error) {
             logger.error(`Error in leaderboard command: ${error.message}`);
-            await interaction.reply({ 
-                content: 'An error occurred while fetching the leaderboard.', 
-                flags: MessageFlags.Ephemeral 
-            });
+            
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    await interaction.reply({ 
+                        content: 'An error occurred while fetching the leaderboard.', 
+                        flags: MessageFlags.Ephemeral 
+                    });
+                } catch (replyError) {
+                    logger.error(`Failed to send leaderboard error reply: ${replyError.message}`);
+                }
+            }
         }
     }
 };
