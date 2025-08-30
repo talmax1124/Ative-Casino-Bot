@@ -630,48 +630,46 @@ client.on('interactionCreate', async interaction => {
             }
             // Handle help category selection
             else if (interaction.customId === 'help_category_select') {
-                const selectedCategory = interaction.values[0];
-                const { showSpecificCategory } = require('./COMMANDS/help');
-                
-                if (showSpecificCategory) {
-                    try {
-                        await showSpecificCategory(interaction, selectedCategory);
-                    } catch (error) {
-                        logger.error(`Error handling help category selection: ${error.message}`);
-                        if (!interaction.replied && !interaction.deferred) {
-                            await interaction.reply({ 
-                                content: 'An error occurred while loading help information. Please try again.', 
-                                flags: MessageFlags.Ephemeral
-                            });
-                        } else if (interaction.deferred) {
-                            await interaction.editReply({ 
-                                content: 'An error occurred while loading help information. Please try again.' 
-                            });
-                        }
+                try {
+                    const selectedCategory = interaction.values[0];
+                    const { showSpecificCategory } = require('./COMMANDS/help');
+                    
+                    // Defer the reply to give us time to process
+                    if (!interaction.deferred && !interaction.replied) {
+                        await interaction.deferUpdate();
                     }
-                } else {
-                    // Fallback - try to load help category directly
-                    try {
-                        // Create a proper mock interaction for the help command
-                        const originalGetString = interaction.options?.getString;
-                        interaction.options = {
-                            getString: (name) => name === 'category' ? selectedCategory : null
-                        };
-                        
-                        const helpCommand = client.commands.get('help');
-                        await helpCommand.execute(interaction);
-                        
-                        // Restore original options
-                        if (originalGetString) {
-                            interaction.options.getString = originalGetString;
+                    
+                    await showSpecificCategory(interaction, selectedCategory);
+                } catch (error) {
+                    logger.error(`Error handling help category selection: ${error.message}`);
+                    
+                    const safeErrorReply = async () => {
+                        try {
+                            const errorMessage = '❌ An error occurred while loading help information. Please try again.';
+                            
+                            if (interaction.deferred) {
+                                await interaction.editReply({ 
+                                    content: errorMessage,
+                                    embeds: [],
+                                    components: []
+                                });
+                            } else if (interaction.replied) {
+                                await interaction.followUp({ 
+                                    content: errorMessage, 
+                                    flags: MessageFlags.Ephemeral
+                                });
+                            } else {
+                                await interaction.reply({ 
+                                    content: errorMessage, 
+                                    flags: MessageFlags.Ephemeral
+                                });
+                            }
+                        } catch (replyError) {
+                            logger.error(`Failed to send help category error: ${replyError.message}`);
                         }
-                    } catch (error) {
-                        logger.error(`Error in help category fallback: ${error.message}`);
-                        await interaction.reply({ 
-                            content: 'An error occurred while loading help information. Please try again.', 
-                            ephemeral: true 
-                        });
-                    }
+                    };
+                    
+                    await safeErrorReply();
                 }
             }
             // Handle UNO color selection
@@ -1139,12 +1137,16 @@ client.on('interactionCreate', async interaction => {
             // Handle help buttons
             else if (customId.startsWith('help_')) {
                 try {
+                    // Defer the update for consistent interaction handling
+                    if (!interaction.deferred && !interaction.replied) {
+                        await interaction.deferUpdate();
+                    }
+
                     if (customId === 'help_back_main') {
-                        // Show main help
                         const { showMainHelp } = require('./COMMANDS/help');
                         await showMainHelp(interaction);
                     } else if (customId === 'help_refresh') {
-                        // Refresh current category
+                        // Determine current category from embed title
                         const embed = interaction.message.embeds[0];
                         let category = null;
                         if (embed && embed.title) {
@@ -1164,32 +1166,42 @@ client.on('interactionCreate', async interaction => {
                             await showMainHelp(interaction);
                         }
                     } else if (customId === 'help_commands_list') {
-                        // Show all commands list
                         await showAllCommandsList(interaction);
                     } else if (customId === 'help_getting_started') {
-                        // Show getting started guide
                         await showGettingStartedGuide(interaction);
                     } else if (customId === 'help_support') {
-                        // Show support information
                         await showSupportInfo(interaction);
                     }
                 } catch (error) {
                     logger.error(`Error handling help button ${customId}: ${error.message}`);
-                    try {
-                        if (interaction.replied || interaction.deferred) {
-                            await interaction.followUp({ 
-                                content: 'An error occurred while processing help. Please try again.', 
-                                flags: MessageFlags.Ephemeral
-                            });
-                        } else {
-                            await interaction.reply({ 
-                                content: 'An error occurred while processing help. Please try again.', 
-                                flags: MessageFlags.Ephemeral
-                            });
+                    
+                    const safeErrorReply = async () => {
+                        try {
+                            const errorMessage = '❌ An error occurred while processing help. Please try again.';
+                            
+                            if (interaction.deferred) {
+                                await interaction.editReply({ 
+                                    content: errorMessage,
+                                    embeds: [],
+                                    components: []
+                                });
+                            } else if (interaction.replied) {
+                                await interaction.followUp({ 
+                                    content: errorMessage, 
+                                    flags: MessageFlags.Ephemeral
+                                });
+                            } else {
+                                await interaction.reply({ 
+                                    content: errorMessage, 
+                                    flags: MessageFlags.Ephemeral
+                                });
+                            }
+                        } catch (replyError) {
+                            logger.error(`Failed to send help button error: ${replyError.message}`);
                         }
-                    } catch (replyError) {
-                        logger.error(`Failed to send help error reply: ${replyError.message}`);
-                    }
+                    };
+                    
+                    await safeErrorReply();
                 }
             }
             
@@ -1611,11 +1623,21 @@ async function showAllCommandsList(interaction) {
                 .setStyle(ButtonStyle.Secondary)
         );
 
-    if (interaction.replied || interaction.deferred) {
-        await interaction.editReply({ embeds: [embed], components: [backButton] });
-    } else {
-        await interaction.reply({ embeds: [embed], components: [backButton] });
-    }
+    const safeReply = async () => {
+        try {
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: [embed], components: [backButton] });
+            } else if (interaction.replied) {
+                await interaction.followUp({ embeds: [embed], components: [backButton] });
+            } else {
+                await interaction.reply({ embeds: [embed], components: [backButton] });
+            }
+        } catch (error) {
+            logger.error(`Failed to send commands list: ${error.message}`);
+        }
+    };
+
+    await safeReply();
 }
 
 /**
@@ -1670,11 +1692,21 @@ async function showGettingStartedGuide(interaction) {
                 .setStyle(ButtonStyle.Secondary)
         );
 
-    if (interaction.replied || interaction.deferred) {
-        await interaction.editReply({ embeds: [embed], components: [backButton] });
-    } else {
-        await interaction.reply({ embeds: [embed], components: [backButton] });
-    }
+    const safeReply = async () => {
+        try {
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: [embed], components: [backButton] });
+            } else if (interaction.replied) {
+                await interaction.followUp({ embeds: [embed], components: [backButton] });
+            } else {
+                await interaction.reply({ embeds: [embed], components: [backButton] });
+            }
+        } catch (error) {
+            logger.error(`Failed to send getting started guide: ${error.message}`);
+        }
+    };
+
+    await safeReply();
 }
 
 /**
@@ -1729,11 +1761,21 @@ async function showSupportInfo(interaction) {
                 .setStyle(ButtonStyle.Secondary)
         );
 
-    if (interaction.replied || interaction.deferred) {
-        await interaction.editReply({ embeds: [embed], components: [buttons] });
-    } else {
-        await interaction.reply({ embeds: [embed], components: [buttons] });
-    }
+    const safeReply = async () => {
+        try {
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: [embed], components: [buttons] });
+            } else if (interaction.replied) {
+                await interaction.followUp({ embeds: [embed], components: [buttons] });
+            } else {
+                await interaction.reply({ embeds: [embed], components: [buttons] });
+            }
+        } catch (error) {
+            logger.error(`Failed to send support info: ${error.message}`);
+        }
+    };
+
+    await safeReply();
 }
 
 /**

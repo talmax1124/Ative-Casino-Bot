@@ -3,7 +3,7 @@
  * Shows all commands organized by categories with detailed descriptions
  */
 
-const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle, StringSelectMenuBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
 const { getTierDisplay, getAllTiers } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
@@ -47,11 +47,21 @@ module.exports = {
                 footer: 'Help System'
             });
 
-            if (interaction.replied || interaction.deferred) {
-                await interaction.editReply({ embeds: [errorEmbed] });
-            } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
+            const safeReply = async (embed) => {
+                try {
+                    if (interaction.deferred) {
+                        await interaction.editReply({ embeds: [embed] });
+                    } else if (interaction.replied) {
+                        await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                    } else {
+                        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                    }
+                } catch (replyError) {
+                    logger.error(`Failed to send help error: ${replyError.message}`);
+                }
+            };
+
+            await safeReply(errorEmbed);
         }
     }
 };
@@ -62,7 +72,7 @@ module.exports = {
 async function showMainHelp(interaction) {
     const embed = new EmbedBuilder()
         .setTitle('🎰 ATIVE Casino Bot - Help Center')
-        .setDescription('**Welcome to the ultimate Discord casino experience!**\n\nChoose a category below to get detailed help, or use the buttons to navigate through different sections.')
+        .setDescription('**Welcome to the ultimate Discord casino experience!**\n\nChoose a category below to get detailed help.')
         .addFields(
             {
                 name: '🎰 Casino Games',
@@ -163,17 +173,21 @@ async function showMainHelp(interaction) {
                 .setStyle(ButtonStyle.Secondary)
         );
 
-    if (interaction.replied || interaction.deferred) {
-        await interaction.editReply({ 
-            embeds: [embed], 
-            components: [selectRow, buttons]
-        });
-    } else {
-        await interaction.reply({ 
-            embeds: [embed], 
-            components: [selectRow, buttons]
-        });
-    }
+    const safeReply = async () => {
+        try {
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: [embed], components: [selectRow, buttons] });
+            } else if (interaction.replied) {
+                await interaction.followUp({ embeds: [embed], components: [selectRow, buttons] });
+            } else {
+                await interaction.reply({ embeds: [embed], components: [selectRow, buttons] });
+            }
+        } catch (error) {
+            logger.error(`Failed to send main help: ${error.message}`);
+        }
+    };
+
+    await safeReply();
 }
 
 /**
@@ -219,11 +233,21 @@ async function showSpecificCategory(interaction, category) {
                 .setStyle(ButtonStyle.Primary)
         );
 
-    if (interaction.replied || interaction.deferred) {
-        await interaction.editReply({ embeds: [embed], components: [backButton] });
-    } else {
-        await interaction.reply({ embeds: [embed], components: [backButton] });
-    }
+    const safeReply = async () => {
+        try {
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: [embed], components: [backButton] });
+            } else if (interaction.replied) {
+                await interaction.followUp({ embeds: [embed], components: [backButton] });
+            } else {
+                await interaction.reply({ embeds: [embed], components: [backButton] });
+            }
+        } catch (error) {
+            logger.error(`Failed to send category help: ${error.message}`);
+        }
+    };
+
+    await safeReply();
 }
 
 /**
@@ -470,7 +494,7 @@ function createSecurityHelp(interaction) {
             },
             {
                 name: '📊 Reporting System',
-                value: '**Issues Channel:** <#1405096821512212521>\n**GitHub Issues:** Report bugs and problems\n**Admin Reports:** Contact server administrators\n**Transparency:** All actions are logged publicly',
+                value: '**Issues Channel:** <#1405096821512212521>\n**Admin Reports:** Contact server administrators\n**Transparency:** All actions are logged publicly',
                 inline: false
             },
             {
