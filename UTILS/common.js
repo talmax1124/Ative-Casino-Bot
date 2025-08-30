@@ -9,6 +9,44 @@ const logger = require('./logger');
 // ========================= MONEY FORMATTING =========================
 
 /**
+ * Safely add two numbers, ensuring no NaN results
+ * @param {number} a - First number
+ * @param {number} b - Second number  
+ * @returns {number} Safe sum
+ */
+function safeAdd(a, b) {
+    const numA = parseFloat(a) || 0;
+    const numB = parseFloat(b) || 0;
+    
+    if (isNaN(numA) || !isFinite(numA)) {
+        logger.error(`Invalid number in safeAdd: ${a}`);
+        return parseFloat(b) || 0;
+    }
+    if (isNaN(numB) || !isFinite(numB)) {
+        logger.error(`Invalid number in safeAdd: ${b}`);  
+        return parseFloat(a) || 0;
+    }
+    
+    const result = numA + numB;
+    if (isNaN(result) || !isFinite(result)) {
+        logger.error(`safeAdd produced invalid result: ${a} + ${b} = ${result}`);
+        return 0;
+    }
+    
+    return result;
+}
+
+/**
+ * Safely subtract two numbers, ensuring no NaN results
+ * @param {number} a - First number
+ * @param {number} b - Second number
+ * @returns {number} Safe difference
+ */
+function safeSubtract(a, b) {
+    return safeAdd(a, -b);
+}
+
+/**
  * Format amount as currency string (abbreviated for game panels)
  * @param {number|string} amount - The amount to format
  * @returns {string} Formatted currency string (e.g., "$1.23K", "$4.56M")
@@ -522,6 +560,8 @@ module.exports = {
     // Amount parsing
     parseAmount,
     resolveAmount,
+    safeAdd,
+    safeSubtract,
     
     // Game registry
     hasActiveGame,

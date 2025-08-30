@@ -18,7 +18,10 @@ const {
     resolveAmount,
     hasActiveGame,
     setActiveGame,
-    clearActiveGame
+    clearActiveGame,
+    sendLogMessage,
+    safeAdd,
+    safeSubtract
 } = require('./common');
 const logger = require('./logger');
 
@@ -216,15 +219,22 @@ class PayoutManager {
             // Get current balance
             const balance = await dbManager.getUserBalance(userId, guildId);
             
+            // Validate payout amount
+            const payoutValue = parseFloat(payout) || 0;
+            if (isNaN(payoutValue) || !isFinite(payoutValue)) {
+                logger.error(`Invalid payout amount for user ${userId}: ${payout}`);
+                return { success: false, error: 'Invalid payout amount' };
+            }
+            
             // Since bet was already deducted, payout is the full amount to give back
             // If player loses: payout = 0 (they get nothing back)
             // If player wins: payout = bet + winnings (they get their bet back plus profit)
-            let newWallet = balance.wallet + payout;
+            let newWallet = safeAdd(balance.wallet, payoutValue);
             
             // Apply server booster bonus if applicable
             const boosterBonus = await this._calculateBoosterBonus(userId, guildId, payout);
             if (boosterBonus > 0) {
-                newWallet += boosterBonus;
+                newWallet = safeAdd(newWallet, boosterBonus);
                 gameResult.bonusTriggered = true;
             }
             
@@ -297,8 +307,15 @@ class PayoutManager {
      */
     static async refundBet(userId, guildId, amount, reason = 'Game stopped by admin') {
         try {
+            // Validate refund amount
+            const refundAmount = parseFloat(amount) || 0;
+            if (isNaN(refundAmount) || !isFinite(refundAmount) || refundAmount < 0) {
+                logger.error(`Invalid refund amount for user ${userId}: ${amount}`);
+                return false;
+            }
+            
             const balance = await dbManager.getUserBalance(userId, guildId);
-            const newWallet = balance.wallet + amount;
+            const newWallet = safeAdd(balance.wallet, refundAmount);
             
             const success = await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank);
             

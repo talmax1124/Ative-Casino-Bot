@@ -209,10 +209,24 @@ class DatabaseAdapter {
             
             if (rows.length > 0) {
                 const row = rows[0];
+                
+                // Validate and sanitize balance values
+                let wallet = parseFloat(row.wallet);
+                let bank = parseFloat(row.bank);
+                
+                if (isNaN(wallet) || !isFinite(wallet)) {
+                    logger.error(`Invalid wallet value in database for user ${userId}: ${row.wallet}, resetting to 0`);
+                    wallet = 0;
+                }
+                if (isNaN(bank) || !isFinite(bank)) {
+                    logger.error(`Invalid bank value in database for user ${userId}: ${row.bank}, resetting to 0`);
+                    bank = 0;
+                }
+                
                 return {
                     user_id: userId,
-                    wallet: parseFloat(row.wallet),
-                    bank: parseFloat(row.bank),
+                    wallet: wallet,
+                    bank: bank,
                     last_earn_ts: parseFloat(row.last_earn_ts),
                     last_rob_ts: parseFloat(row.last_rob_ts),
                     game_active: Boolean(row.game_active),
@@ -262,8 +276,34 @@ class DatabaseAdapter {
     async updateUserBalance(userId, guildId = null, walletChange = 0, bankChange = 0, kwargs = {}) {
         try {
             const current = await this.getUserBalance(userId, guildId);
-            const newWallet = Math.max(0, current.wallet + walletChange); // Prevent negative wallet
-            const newBank = Math.max(0, current.bank + bankChange); // Prevent negative bank
+            
+            // Validate current balances
+            if (isNaN(current.wallet) || !isFinite(current.wallet)) {
+                logger.error(`Current wallet balance is invalid for user ${userId}: ${current.wallet}`);
+                current.wallet = 0; // Reset to safe value
+            }
+            if (isNaN(current.bank) || !isFinite(current.bank)) {
+                logger.error(`Current bank balance is invalid for user ${userId}: ${current.bank}`);
+                current.bank = 0; // Reset to safe value
+            }
+            
+            // Validate change amounts
+            const walletChangeValue = parseFloat(walletChange) || 0;
+            const bankChangeValue = parseFloat(bankChange) || 0;
+            
+            if (isNaN(walletChangeValue) || !isFinite(walletChangeValue)) {
+                logger.error(`Invalid wallet change for user ${userId}: ${walletChange}`);
+                return false;
+            }
+            if (isNaN(bankChangeValue) || !isFinite(bankChangeValue)) {
+                logger.error(`Invalid bank change for user ${userId}: ${bankChange}`);
+                return false;
+            }
+            
+            // Use safe addition to prevent NaN results
+            const { safeAdd } = require('./common');
+            const newWallet = Math.max(0, safeAdd(current.wallet, walletChangeValue)); // Prevent negative wallet
+            const newBank = Math.max(0, safeAdd(current.bank, bankChangeValue)); // Prevent negative bank
 
             const updateFields = ['wallet = ?', 'bank = ?', 'updated_at = NOW()'];
             const updateValues = [newWallet, newBank];
@@ -300,12 +340,22 @@ class DatabaseAdapter {
             const updateValues = [];
 
             if (wallet !== null) {
+                const walletValue = parseFloat(wallet);
+                if (isNaN(walletValue) || !isFinite(walletValue)) {
+                    logger.error(`Invalid wallet value for user ${userId}: ${wallet} (converted to ${walletValue})`);
+                    return false;
+                }
                 updateFields.push('wallet = ?');
-                updateValues.push(parseFloat(wallet));
+                updateValues.push(walletValue);
             }
             if (bank !== null) {
+                const bankValue = parseFloat(bank);
+                if (isNaN(bankValue) || !isFinite(bankValue)) {
+                    logger.error(`Invalid bank value for user ${userId}: ${bank} (converted to ${bankValue})`);
+                    return false;
+                }
                 updateFields.push('bank = ?');
-                updateValues.push(parseFloat(bank));
+                updateValues.push(bankValue);
             }
 
             // Handle additional fields
