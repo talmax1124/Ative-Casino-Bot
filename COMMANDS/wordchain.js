@@ -3,7 +3,7 @@
  */
 
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder } = require('discord.js');
-const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage, setActiveGame, clearActiveGame } = require('../UTILS/common');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
@@ -274,17 +274,31 @@ module.exports = {
 
                 msgCollector.on('collect', async (m) => {
                     try {
-                        if (game.state !== 'playing') return;
+                        logger.info(`WordChain: Received message "${m.content}" from ${m.author.displayName} (${m.author.id})`);
+                        
+                        if (game.state !== 'playing') {
+                            logger.info(`WordChain: Ignoring message - game state is ${game.state}`);
+                            return;
+                        }
+                        
                         // Only consider messages from the current player
-                        if (m.author.id !== game.currentPlayerId) return;
+                        if (m.author.id !== game.currentPlayerId) {
+                            logger.info(`WordChain: Ignoring message - not current player (current: ${game.currentPlayerId}, sender: ${m.author.id})`);
+                            return;
+                        }
+                        
+                        logger.info(`WordChain: Processing word "${m.content}" from current player ${m.author.displayName}`);
+                        
                         // Prevent race with timeout firing while processing
                         if (game.turnTimer) clearTimeout(game.turnTimer);
                         const { ok, msg, ended } = await game.submitWord(m.author.id, m.content);
                         if (ok) {
                             await m.react('✅');
+                            logger.info(`WordChain: Word "${m.content}" accepted`);
                         } else {
                             await m.react('❌');
                             await m.reply({ content: msg, allowedMentions: { repliedUser: false } });
+                            logger.info(`WordChain: Word "${m.content}" rejected: ${msg}`);
                         }
                         await updatePanel();
                         if (ended || game.state === 'finished') {

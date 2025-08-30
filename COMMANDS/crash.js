@@ -142,7 +142,6 @@ module.exports = {
       const sessionId = sessionResult.sessionId;
 
       // Pass session info to crash game handler with initial bet data
-      logger.info(`CRASH CMD: Passing initial bet data - betAmount: ${betAmount}, userId: ${userId}, username: ${username}`);
       const { handleGameExecution } = require('../GAMES/crash');
       await handleGameExecution(interaction, interaction.client, sessionId, {
         initialBet: betAmount,

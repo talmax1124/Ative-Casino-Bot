@@ -302,7 +302,7 @@ function buildGameEmbed(game) {
 
     if (game.state === 'playing') {
         const cp = game.currentPlayer;
-        top.push({ name: '📝 Your Turn', value: cp ? `<@${cp.user.id}> → starts with '${game.lastLetter.toUpperCase()}'` : '—', inline: false });
+        top.push({ name: '📝 Your Turn', value: cp ? `**${cp.user.displayName}** → starts with '${game.lastLetter.toUpperCase()}'` : '—', inline: false });
     }
 
     // Players + lives

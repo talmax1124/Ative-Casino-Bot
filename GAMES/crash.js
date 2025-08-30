@@ -69,49 +69,26 @@ class OptimizedCrashGame {
   }
 
   async addPlayer(userId, username, betAmount) {
-    logger.info(`CRASH: addPlayer called - userId: ${userId}, username: ${username}, betAmount: ${betAmount}, game state: ${this.state}`);
-    
-    if (this.state !== 'betting') {
-      logger.warn(`CRASH: Game not in betting state (${this.state})`);
-      return false;
-    }
+    if (this.state !== 'betting') return false;
     
     // Don't add player if they're already in the game
-    if (this.players.has(userId)) {
-      logger.warn(`CRASH: User ${username} already in game`);
-      return false;
-    }
+    if (this.players.has(userId)) return false;
     
     // Deduct bet upfront like other casino games
     try {
-      logger.info(`CRASH: Getting balance for user ${username} (${userId})`);
       const userBalance = await dbManager.getUserBalance(userId, this.guildId);
-      logger.info(`CRASH: User ${username} balance - wallet: ${userBalance.wallet}, bank: ${userBalance.bank}, required: ${betAmount}`);
-      
       if (userBalance.wallet < betAmount) {
-        logger.warn(`CRASH: User ${username} has insufficient funds (wallet: ${userBalance.wallet}, required: ${betAmount})`);
-        return false; // Insufficient funds
+        logger.warn(`Crash: ${username} has insufficient funds (${userBalance.wallet} < ${betAmount})`);
+        return false;
       }
       
-      // Deduct the bet amount
-      const newWallet = userBalance.wallet - betAmount;
-      logger.info(`CRASH: Attempting to deduct bet - setting wallet from ${userBalance.wallet} to ${newWallet}`);
-      
-      const success = await dbManager.setUserBalance(userId, this.guildId, newWallet, userBalance.bank);
-      logger.info(`CRASH: Database update result: ${success}`);
-      
+      const success = await dbManager.setUserBalance(userId, this.guildId, userBalance.wallet - betAmount, userBalance.bank);
       if (!success) {
-        logger.error(`CRASH: Failed to update balance for user ${username}`);
-        return false; // Failed to deduct
+        logger.error(`Crash: Failed to deduct bet for ${username}`);
+        return false;
       }
-      
-      // Verify the deduction worked
-      const verifyBalance = await dbManager.getUserBalance(userId, this.guildId);
-      logger.info(`CRASH: Balance after deduction - wallet: ${verifyBalance.wallet}, bank: ${verifyBalance.bank}`);
-      
     } catch (error) {
-      logger.error(`CRASH: Exception in balance handling for ${userId}: ${error.message}`);
-      logger.error(`CRASH: Error stack: ${error.stack}`);
+      logger.error(`Crash: Balance error for ${userId}: ${error.message}`);
       return false;
     }
     
@@ -123,7 +100,7 @@ class OptimizedCrashGame {
       winnings: 0
     });
     
-    logger.info(`CRASH: Successfully added ${username} to crash game with bet ${fmt(betAmount)}. Total players: ${this.players.size}`);
+    logger.info(`Added ${username} to crash game with bet ${fmt(betAmount)}`);
     return true;
   }
 
@@ -384,15 +361,19 @@ class OptimizedCrashManager {
     this.games = new Map();
   }
 
-  createGame(channelId, guildId) {
-    // Clean up any existing game first
-    const existing = this.games.get(channelId);
+  createGame(channelId, guildId, sessionId = null) {
+    // Use sessionId if provided, otherwise use channelId (for backward compatibility)
+    const gameKey = sessionId || channelId;
+    
+    // Clean up any existing game with this key first
+    const existing = this.games.get(gameKey);
     if (existing) {
       existing.cleanup();
     }
     
     const game = new OptimizedCrashGame(channelId, guildId);
-    this.games.set(channelId, game);
+    game.gameKey = gameKey; // Store the key for later reference
+    this.games.set(gameKey, game);
     return game;
   }
 
@@ -553,35 +534,26 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
   const userId = interaction.user.id;
   const username = interaction.user.displayName;
   
-  // Get or create game
-  let game = crashManager.getGame(channelId);
-  if (!game || game.state === 'finished' || game.state === 'crashed') {
-    game = crashManager.createGame(channelId, guildId);
-    game.sessionId = sessionId;
-  }
+  // Always create a fresh game for each crash command execution
+  // This prevents players from being added to other users' active games
+  let game = crashManager.createGame(channelId, guildId, sessionId);
+  game.sessionId = sessionId;
   
   // Check if there's an initial bet from the command
-  logger.info(`CRASH GAME: Checking initial bet data - initialBetData: ${JSON.stringify(initialBetData)}`);
   if (initialBetData && initialBetData.initialBet > 0) {
     const initialBet = initialBetData.initialBet;
     const betUserId = initialBetData.userId;
     const betUsername = initialBetData.username;
     
-    logger.info(`CRASH GAME: Processing initial bet - amount: ${initialBet}, userId: ${betUserId}, username: ${betUsername}`);
-    
     try {
       // Add player with initial bet automatically (addPlayer handles balance checking and deduction)
       const addResult = await game.addPlayer(betUserId, betUsername, initialBet);
       if (!addResult) {
-        logger.warn(`CRASH GAME: Failed to add ${betUsername} to crash game with initial bet ${fmt(initialBet)}`);
-      } else {
-        logger.info(`CRASH GAME: Successfully processed initial bet for ${betUsername}`);
+        logger.warn(`Failed to add ${betUsername} to crash game with initial bet ${fmt(initialBet)}`);
       }
     } catch (error) {
-      logger.error(`CRASH GAME: Exception adding player with initial bet: ${error.message}`);
+      logger.error(`Exception adding player with initial bet: ${error.message}`);
     }
-  } else {
-    logger.info(`CRASH GAME: No initial bet data or bet amount is 0`);
   }
   
   // Create initial message
