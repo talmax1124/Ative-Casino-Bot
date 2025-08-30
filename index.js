@@ -1179,12 +1179,12 @@ client.on('interactionCreate', async interaction => {
                         if (interaction.replied || interaction.deferred) {
                             await interaction.followUp({ 
                                 content: 'An error occurred while processing help. Please try again.', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral
                             });
                         } else {
                             await interaction.reply({ 
                                 content: 'An error occurred while processing help. Please try again.', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                     } catch (replyError) {
@@ -1611,7 +1611,11 @@ async function showAllCommandsList(interaction) {
                 .setStyle(ButtonStyle.Secondary)
         );
 
-    await interaction.update({ embeds: [embed], components: [backButton] });
+    if (interaction.replied || interaction.deferred) {
+        await interaction.editReply({ embeds: [embed], components: [backButton] });
+    } else {
+        await interaction.reply({ embeds: [embed], components: [backButton] });
+    }
 }
 
 /**
@@ -1666,7 +1670,11 @@ async function showGettingStartedGuide(interaction) {
                 .setStyle(ButtonStyle.Secondary)
         );
 
-    await interaction.update({ embeds: [embed], components: [backButton] });
+    if (interaction.replied || interaction.deferred) {
+        await interaction.editReply({ embeds: [embed], components: [backButton] });
+    } else {
+        await interaction.reply({ embeds: [embed], components: [backButton] });
+    }
 }
 
 /**
@@ -1718,14 +1726,14 @@ async function showSupportInfo(interaction) {
             new ButtonBuilder()
                 .setCustomId('help_back_main')
                 .setLabel('🔙 Back to Help')
-                .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-                .setURL('https://github.com/anthropics/claude-code/issues')
-                .setLabel('🐛 Report Bug')
-                .setStyle(ButtonStyle.Link)
+                .setStyle(ButtonStyle.Secondary)
         );
 
-    await interaction.update({ embeds: [embed], components: [buttons] });
+    if (interaction.replied || interaction.deferred) {
+        await interaction.editReply({ embeds: [embed], components: [buttons] });
+    } else {
+        await interaction.reply({ embeds: [embed], components: [buttons] });
+    }
 }
 
 /**

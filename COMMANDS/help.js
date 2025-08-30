@@ -47,7 +47,7 @@ module.exports = {
                 footer: 'Help System'
             });
 
-            if (interaction.replied) {
+            if (interaction.replied || interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
                 await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
@@ -163,10 +163,17 @@ async function showMainHelp(interaction) {
                 .setStyle(ButtonStyle.Secondary)
         );
 
-    await interaction.reply({ 
-        embeds: [embed], 
-        components: [selectRow, buttons]
-    });
+    if (interaction.replied || interaction.deferred) {
+        await interaction.editReply({ 
+            embeds: [embed], 
+            components: [selectRow, buttons]
+        });
+    } else {
+        await interaction.reply({ 
+            embeds: [embed], 
+            components: [selectRow, buttons]
+        });
+    }
 }
 
 /**
