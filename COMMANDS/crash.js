@@ -34,7 +34,8 @@ const sessionManager = {
                 error: error.message || 'Failed to create mock session'
             };
         }
-    }
+    },
+    forceCleanup: async () => ({ success: true })
 };
 const SMGameType = { CRASH: 'crash' };
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
@@ -44,42 +45,14 @@ const logger = require('../UTILS/logger');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('crash')
-    .setDescription('Start or join a Crash round — bet and cash out before it crashes!')
-    .addStringOption(opt =>
-      opt.setName('bet')
-        .setDescription('Your bet amount (e.g., 1000, 5k, 2m) - leave empty to join without betting')
-        .setRequired(false)
-    ),
+    .setDescription('Start or join a Crash round — bet and cash out before it crashes!'),
 
   async execute(interaction) {
     const userId = interaction.user.id;
     const username = interaction.user.displayName;
     const guildId = interaction.guildId;
-    const betAmountStr = interaction.options.getString('bet');
 
     try {
-      let betAmount = 0;
-      let validation = null;
-      
-      // If bet amount is provided, validate and deduct it using PayoutManager
-      if (betAmountStr) {
-        const validation = await PayoutManager.validateAndDeductBet(
-          interaction,
-          betAmountStr,
-          GameType.CRASH,
-          100, // Minimum bet
-          150000 // Maximum bet: 150K
-        );
-        
-        if (!validation.isValid) {
-          return await interaction.reply({
-            embeds: [validation.errorEmbed],
-            flags: MessageFlags.Ephemeral
-          });
-        }
-        
-        betAmount = validation.parsedAmount;
-      }
 
       // Validate session before proceeding
       const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.CRASH, guildId);
@@ -94,12 +67,12 @@ module.exports = {
         guildId,
         channelId: interaction.channelId,
         gameType: SMGameType.CRASH,
-        betAmount: betAmount, // Use the validated bet amount
+        betAmount: 0, // No initial bet required
         timeout: 120000, // 2 minutes
         metadata: {
-          gamePhase: betAmount > 0 ? 'betting' : 'joining',
-          betPlaced: betAmount > 0,
-          initialBet: betAmount
+          gamePhase: 'joining',
+          betPlaced: false,
+          initialBet: 0
         },
         interaction
       });
@@ -110,10 +83,10 @@ module.exports = {
 
       const sessionId = sessionResult.sessionId;
 
-      // Pass session info to crash game handler with initial bet data
+      // Pass session info to crash game handler without initial bet
       const { handleGameExecution } = require('../GAMES/crash');
       await handleGameExecution(interaction, interaction.client, sessionId, {
-        initialBet: betAmount,
+        initialBet: 0,
         userId: userId,
         username: username
       });

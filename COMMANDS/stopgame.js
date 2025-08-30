@@ -33,78 +33,38 @@ function isDeveloper(userId) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('stopgame')
-        .setDescription('Stop your active game sessions or manage sessions (Developer)')
-        .addStringOption(option =>
-            option.setName('action')
-                .setDescription('Action to perform')
-                .setRequired(false)
-                .addChoices(
-                    { name: 'Stop My Games', value: 'stop_my_games' },
-                    { name: 'Force Stop All My Sessions', value: 'force_stop_my_sessions' },
-                    { name: 'List My Games', value: 'list_my_games' },
-                    { name: '🔧 Dev: List All Sessions', value: 'dev_list_all' },
-                    { name: '🔧 Dev: Stop User Sessions', value: 'dev_stop_user' },
-                    { name: '🔧 Dev: Force Cleanup', value: 'dev_cleanup' },
-                    { name: '🔧 Dev: Session Stats', value: 'dev_stats' }
-                )
-        )
+        .setDescription('Stop a specific user\'s active game sessions')
         .addUserOption(option =>
-            option.setName('target_user')
-                .setDescription('Target user (Developer only)')
-                .setRequired(false)
-        )
-        .addIntegerOption(option =>
-            option.setName('cleanup_minutes')
-                .setDescription('Cleanup sessions older than X minutes (Developer only)')
-                .setRequired(false)
-                .setMinValue(1)
-                .setMaxValue(1440)
+            option.setName('user')
+                .setDescription('User whose game sessions to stop')
+                .setRequired(true)
         ),
 
     async execute(interaction) {
         const userId = interaction.user.id;
-        const username = interaction.user.displayName;
-        const action = interaction.options.getString('action') || 'stop_my_games';
-        const targetUser = interaction.options.getUser('target_user');
-        const cleanupMinutes = interaction.options.getInteger('cleanup_minutes') || 30;
+        const targetUser = interaction.options.getUser('user');
+        const isDev = isDeveloper(userId);
+        const isAdmin = interaction.member?.permissions.has('Administrator') || isDev;
 
         try {
             await interaction.deferReply({ ephemeral: true });
 
-            // Handle developer actions
-            if (action.startsWith('dev_')) {
-                if (!isDeveloper(userId)) {
-                    const embed = buildSessionEmbed({
-                        title: '❌ Access Denied',
-                        topFields: [
-                            { name: 'Developer Only', value: 'Developer commands are restricted to authorized users.' }
-                        ],
-                        color: 0xFF0000,
-                        footer: 'Session Manager'
-                    });
+            // Check if user can target another user (admin/dev only)
+            if (targetUser.id !== userId && !isAdmin) {
+                const embed = buildSessionEmbed({
+                    title: '❌ Access Denied',
+                    topFields: [
+                        { name: 'Permission Required', value: 'You can only stop your own game sessions. Admins can target other users.' }
+                    ],
+                    color: 0xFF0000,
+                    footer: 'Session Manager'
+                });
 
-                    await interaction.editReply({ embeds: [embed] });
-                    return;
-                }
-
-                await this.handleDeveloperAction(interaction, action, targetUser, cleanupMinutes);
+                await interaction.editReply({ embeds: [embed] });
                 return;
             }
 
-            // Handle user actions
-            switch (action) {
-                case 'stop_my_games':
-                    await this.handleStopMyGames(interaction, userId, username);
-                    break;
-                case 'force_stop_my_sessions':
-                    await this.handleForceStopMyGames(interaction, userId, username);
-                    break;
-                case 'list_my_games':
-                    await this.handleListMyGames(interaction, userId, username);
-                    break;
-                default:
-                    await this.handleStopMyGames(interaction, userId, username);
-            }
+            await this.stopUserGames(interaction, targetUser);
 
         } catch (error) {
             logger.error(`STOPGAME command error: ${error.message}`);
@@ -120,6 +80,90 @@ module.exports = {
 
             await interaction.editReply({ embeds: [errorEmbed] });
         }
+    },
+
+    /**
+     * Stop games for a specific user
+     */
+    async stopUserGames(interaction, targetUser) {
+        const userSessions = sessionManager.getUserSessions(targetUser.id);
+
+        if (userSessions.length === 0) {
+            const embed = buildSessionEmbed({
+                title: '🎮 No Active Games',
+                topFields: [
+                    { name: 'All Clear', value: `${targetUser.displayName} doesn't have any active game sessions.` }
+                ],
+                color: 0x0099FF,
+                footer: 'Session Manager'
+            });
+
+            await interaction.editReply({ embeds: [embed] });
+            return;
+        }
+
+        // Get guild ID for proper cleanup
+        const guildId = await getGuildId(interaction);
+        
+        // Store session info before cleanup
+        const sessionsBeforeCleanup = userSessions.map(s => ({
+            gameType: s.gameType,
+            betAmount: s.betAmount
+        }));
+        
+        // Use SessionGuard for safer cleanup
+        const guardResult = await sessionGuard.forceCleanupUser(targetUser.id, guildId);
+        
+        // Create results based on cleanup success
+        const results = guardResult.success ? 
+            sessionsBeforeCleanup.map(s => ({ 
+                success: true, 
+                gameType: s.gameType, 
+                refunded: s.betAmount > 0 
+            })) : 
+            sessionsBeforeCleanup.map(s => ({ 
+                success: false, 
+                gameType: s.gameType, 
+                refunded: false 
+            }));
+
+        const successful = results.filter(r => r.success);
+        const failed = results.filter(r => !r.success);
+        const refunded = results.filter(r => r.refunded);
+
+        const topFields = [
+            { 
+                name: 'Sessions Stopped', 
+                value: `✅ Successfully stopped **${successful.length}** game session(s) for ${targetUser.displayName}` 
+            }
+        ];
+
+        if (refunded.length > 0) {
+            const refundedGames = refunded.map(r => r.gameType).join(', ');
+            topFields.push({
+                name: 'Refunds Processed',
+                value: `💰 Bets refunded for: ${refundedGames}`
+            });
+        }
+
+        if (failed.length > 0) {
+            topFields.push({
+                name: 'Failed Stops',
+                value: `❌ ${failed.length} session(s) could not be stopped`
+            });
+        }
+
+        const embed = buildSessionEmbed({
+            title: `🛑 ${targetUser.displayName}'s Games Stopped`,
+            topFields,
+            stageText: 'ALL SESSIONS CANCELLED',
+            color: successful.length > 0 ? 0x00FF00 : 0xFF0000,
+            footer: 'Session Manager'
+        });
+
+        await interaction.editReply({ embeds: [embed] });
+
+        logger.info(`User ${interaction.user.id} stopped ${successful.length} game sessions for user ${targetUser.id}`);
     },
 
     /**

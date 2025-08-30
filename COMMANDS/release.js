@@ -24,51 +24,28 @@ const DEVELOPER_ID = '466050111680544798';
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('release')
-        .setDescription('Manually clear stuck game sessions')
-        .addStringOption(option =>
-            option.setName('action')
-                .setDescription('Action to perform')
-                .setRequired(false)
-                .addChoices(
-                    { name: 'My Sessions', value: 'my_sessions' },
-                    { name: 'All My Sessions', value: 'clear_all_my' },
-                    { name: 'Admin Controls', value: 'admin' }
-                )
-        )
+        .setDescription('Release a specific user\'s game sessions')
         .addUserOption(option =>
             option.setName('user')
-                .setDescription('User to release sessions for (admin only)')
-                .setRequired(false)
+                .setDescription('User whose sessions to release')
+                .setRequired(true)
         ),
 
     async execute(interaction) {
         try {
-            const action = interaction.options.getString('action');
             const targetUser = interaction.options.getUser('user');
             const isDeveloper = interaction.user.id === DEVELOPER_ID;
             const isAdmin = interaction.member?.permissions.has(PermissionFlagsBits.Administrator) || isDeveloper;
 
-            // If no action specified, show main panel
-            if (!action) {
-                return await this.showMainPanel(interaction);
+            // Check if user can target another user (admin/dev only)
+            if (targetUser.id !== interaction.user.id && !isAdmin) {
+                return await interaction.reply({
+                    embeds: [this.createErrorEmbed('❌ Access Denied', 'You can only release your own sessions. Admins can target other users.')],
+                    flags: MessageFlags.Ephemeral
+                });
             }
 
-            switch (action) {
-                case 'my_sessions':
-                    return await this.showUserSessions(interaction);
-                case 'clear_all_my':
-                    return await this.clearAllUserSessions(interaction);
-                case 'admin':
-                    if (!isAdmin) {
-                        return await interaction.reply({
-                            embeds: [this.createErrorEmbed('❌ Access Denied', 'You do not have administrator permissions.')],
-                            flags: MessageFlags.Ephemeral
-                        });
-                    }
-                    return await this.showAdminPanel(interaction, targetUser);
-                default:
-                    return await this.showMainPanel(interaction);
-            }
+            return await this.releaseUserSessions(interaction, targetUser);
         } catch (error) {
             logger.error(`Release command error: ${error.message}`);
             
@@ -79,6 +56,78 @@ module.exports = {
             } else {
                 await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
+        }
+    },
+
+    /**
+     * Release sessions for a specific user
+     */
+    async releaseUserSessions(interaction, targetUser) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            const userSessions = sessionManager.getUserSessions(targetUser.id);
+            
+            if (userSessions.length === 0) {
+                const embed = this.createErrorEmbed('🎮 No Active Sessions', `${targetUser.displayName} doesn't have any active game sessions.`);
+                embed.setColor(0x0099FF);
+                await interaction.editReply({ embeds: [embed] });
+                return;
+            }
+
+            let clearedCount = 0;
+            let refundTotal = 0;
+            const results = [];
+
+            // Clear all sessions for the target user
+            for (const session of userSessions) {
+                try {
+                    const result = await sessionManager.cancelSession(
+                        session.sessionId, 
+                        'Manual release via /release command', 
+                        interaction.user.id
+                    );
+                    
+                    if (result.success) {
+                        clearedCount++;
+                        if (result.refunded && session.betAmount > 0) {
+                            refundTotal += session.betAmount;
+                        }
+                        results.push(`✅ ${session.gameType} - Released`);
+                    } else {
+                        results.push(`❌ ${session.gameType} - Failed`);
+                    }
+                } catch (error) {
+                    results.push(`❌ ${session.gameType} - Error: ${error.message}`);
+                }
+            }
+
+            let description = `**Sessions Released for ${targetUser.displayName}**\n\n`;
+            description += `🧹 **Sessions Cleared**: ${clearedCount}\n`;
+            
+            if (refundTotal > 0) {
+                description += `💰 **Total Refunded**: $${refundTotal.toLocaleString()}\n`;
+            }
+
+            if (results.length > 0) {
+                description += `\n**📋 Details:**\n${results.join('\n')}`;
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('🧹 Sessions Released')
+                .setDescription(description)
+                .setColor(0x00FF00)
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embed] });
+
+            logger.info(`User ${interaction.user.id} released ${clearedCount} sessions for user ${targetUser.id}`);
+
+        } catch (error) {
+            logger.error(`Error releasing user sessions: ${error.message}`);
+            
+            const errorEmbed = this.createErrorEmbed('❌ Release Failed', `Failed to release sessions: ${error.message}`);
+            await interaction.editReply({ embeds: [errorEmbed] });
         }
     },
 
