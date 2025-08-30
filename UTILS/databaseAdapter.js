@@ -72,6 +72,7 @@ class DatabaseAdapter {
 
         // Initialize database schema if needed
         await this.initializeSchema();
+        await this.initializeVoteSchema();
     }
 
     /**
@@ -754,6 +755,112 @@ class DatabaseAdapter {
             await this.pool.end();
         }
         logger.info('Database adapter connections closed');
+    }
+
+    // ========================= VOTE TRACKING OPERATIONS =========================
+
+    /**
+     * Get user vote data
+     * @param {string} userId - Discord user ID
+     * @param {string} guildId - Guild ID (kept for compatibility)
+     * @returns {Object|null} Vote data
+     */
+    async getUserVoteData(userId, guildId = null) {
+        try {
+            const result = await this.executeQuery(
+                'SELECT * FROM user_votes WHERE user_id = ?',
+                [userId]
+            );
+            
+            return result.length > 0 ? result[0] : null;
+        } catch (error) {
+            logger.error(`Error getting user vote data: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Update user vote data
+     * @param {string} userId - Discord user ID
+     * @param {string} guildId - Guild ID (kept for compatibility)
+     * @param {Object} voteData - Vote data to update
+     * @returns {boolean} Success status
+     */
+    async updateUserVoteData(userId, guildId = null, voteData) {
+        try {
+            const existing = await this.executeQuery(
+                'SELECT user_id FROM user_votes WHERE user_id = ?',
+                [userId]
+            );
+
+            if (existing.length > 0) {
+                // Update existing record
+                await this.executeQuery(
+                    `UPDATE user_votes SET 
+                        total_votes = ?,
+                        last_vote_ts = ?,
+                        total_earned = ?,
+                        can_use_earnmoney = ?,
+                        updated_at = NOW()
+                     WHERE user_id = ?`,
+                    [
+                        voteData.total_votes,
+                        voteData.last_vote_ts,
+                        voteData.total_earned,
+                        voteData.can_use_earnmoney,
+                        userId
+                    ]
+                );
+            } else {
+                // Insert new record
+                await this.executeQuery(
+                    `INSERT INTO user_votes 
+                        (user_id, total_votes, last_vote_ts, total_earned, can_use_earnmoney) 
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [
+                        userId,
+                        voteData.total_votes,
+                        voteData.last_vote_ts,
+                        voteData.total_earned,
+                        voteData.can_use_earnmoney
+                    ]
+                );
+            }
+            
+            return true;
+        } catch (error) {
+            logger.error(`Error updating user vote data: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Initialize vote tracking table
+     */
+    async initializeVoteSchema() {
+        const createVoteTable = `
+            CREATE TABLE IF NOT EXISTS user_votes (
+                user_id VARCHAR(20) PRIMARY KEY,
+                total_votes INT NOT NULL DEFAULT 0,
+                last_vote_ts BIGINT NOT NULL DEFAULT 0,
+                total_earned DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                can_use_earnmoney BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_total_votes (total_votes),
+                INDEX idx_last_vote (last_vote_ts),
+                INDEX idx_earnmoney (can_use_earnmoney)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `;
+
+        try {
+            await this.executeQuery(createVoteTable);
+            logger.info('Vote tracking schema initialized');
+            return true;
+        } catch (error) {
+            logger.error(`Error initializing vote schema: ${error.message}`);
+            return false;
+        }
     }
 }
 

@@ -12,6 +12,7 @@ require('dotenv').config();
 
 const logger = require('./UTILS/logger');
 const dbManager = require('./UTILS/database');
+const economyAnalyzer = require('./UTILS/economyAnalyzer');
 // Removed Firebase-dependent modules: economyMonitor, sessionManager
 const { sendLogMessage } = require('./UTILS/common');
 const panelManager = require('./UTILS/panelManager');
@@ -296,8 +297,12 @@ client.once('clientReady', async () => {
     try {
         await dbManager.initialize();
         logger.info('Database initialized successfully');
+        
+        // Initialize economy analyzer after database
+        await economyAnalyzer.initialize();
+        logger.info('Economy analyzer initialized successfully');
     } catch (error) {
-        logger.error('Failed to initialize database:', error);
+        logger.error('Failed to initialize database and economy systems:', error);
         process.exit(1);
     }
 
@@ -1355,6 +1360,33 @@ client.on('interactionCreate', async interaction => {
                     });
                 }
             }
+            // Handle vote buttons
+            else if (customId === 'check_vote' || customId === 'vote_reminder') {
+                const voteCommand = client.commands.get('vote');
+                
+                if (customId === 'check_vote') {
+                    // Process the vote claim
+                    const result = await voteCommand.processVote(interaction.user.id, interaction.guild.id, interaction);
+                    
+                    if (result.success) {
+                        await interaction.update({
+                            embeds: [result.embed],
+                            components: []
+                        });
+                    } else {
+                        await interaction.reply({
+                            content: '❌ Unable to verify vote. Please make sure you voted and try again in a few minutes.',
+                            ephemeral: true
+                        });
+                    }
+                } else if (customId === 'vote_reminder') {
+                    // Set a reminder for when they can vote again
+                    await interaction.reply({
+                        content: '⏰ I\'ll remind you when you can vote again! (Note: This is a placeholder - actual reminder system would need to be implemented)',
+                        ephemeral: true
+                    });
+                }
+            }
             
         } catch (error) {
             logger.error(`Error handling button ${customId}:`, error);
@@ -1446,6 +1478,70 @@ client.on('warn', warning => {
 process.on('unhandledRejection', error => {
     logger.error('Unhandled promise rejection:', error);
 });
+
+// ========================= TOP.GG WEBHOOK SERVER =========================
+
+const express = require('express');
+const app = express();
+const PORT = process.env.WEBHOOK_PORT || 3001;
+
+app.use(express.json());
+
+// Top.GG webhook endpoint
+app.post('/topgg/webhook', async (req, res) => {
+    const { type, user, bot } = req.body;
+    
+    // Verify it's a vote webhook
+    if (type === 'upvote') {
+        logger.info(`Received vote from user: ${user}`);
+        
+        try {
+            // Get vote command
+            const voteCommand = client.commands.get('vote');
+            
+            if (voteCommand) {
+                // Process the vote for all guilds the user is in
+                const guildId = null; // Use null for global vote processing
+                const result = await voteCommand.processVote(user, guildId, null);
+                
+                if (result.success) {
+                    logger.info(`Successfully processed vote for user ${user}: ${result.newVoteCount} total votes`);
+                    res.status(200).json({ success: true, message: 'Vote processed successfully' });
+                } else {
+                    logger.error(`Failed to process vote for user ${user}: ${result.error}`);
+                    res.status(500).json({ success: false, error: result.error });
+                }
+            } else {
+                logger.error('Vote command not found');
+                res.status(500).json({ success: false, error: 'Vote command not available' });
+            }
+        } catch (error) {
+            logger.error(`Error processing vote webhook: ${error.message}`);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    } else {
+        logger.info(`Received non-vote webhook: ${type}`);
+        res.status(200).json({ success: true, message: 'Webhook received but not processed' });
+    }
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'healthy', 
+        uptime: Math.floor((Date.now() - client.startTime) / 1000),
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Start webhook server
+if (IS_PRODUCTION) {
+    app.listen(PORT, () => {
+        logger.info(`Top.GG webhook server running on port ${PORT}`);
+    });
+} else {
+    logger.info('Webhook server disabled in development mode');
+}
 
 // Handle uncaught exceptions
 process.on('uncaughtException', error => {

@@ -688,6 +688,46 @@ class DatabaseManager {
             setupDate: null
         };
     }
+
+    // ========================= VOTE TRACKING OPERATIONS =========================
+
+    /**
+     * Get user vote data
+     * @param {string} userId - Discord user ID
+     * @param {string} guildId - Guild ID (kept for compatibility)
+     * @returns {Object|null} Vote data
+     */
+    async getUserVoteData(userId, guildId = null) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserVoteData(userId, guildId);
+        }
+        return null;
+    }
+
+    /**
+     * Update user vote data
+     * @param {string} userId - Discord user ID
+     * @param {string} guildId - Guild ID (kept for compatibility)
+     * @param {Object} voteData - Vote data to update
+     * @returns {boolean} Success status
+     */
+    async updateUserVoteData(userId, guildId = null, voteData) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updateUserVoteData(userId, guildId, voteData);
+        }
+        return false;
+    }
+
+    /**
+     * Initialize vote tracking schema
+     * @returns {boolean} Success status
+     */
+    async initializeVoteSchema() {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.initializeVoteSchema();
+        }
+        return false;
+    }
 }
 
 // Export singleton instance

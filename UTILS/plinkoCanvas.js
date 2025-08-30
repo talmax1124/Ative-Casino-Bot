@@ -1,16 +1,18 @@
 /**
  * Plinko Canvas Image Generation for ATIVE Casino Bot
  * Based on Python reference implementation with enhanced visuals
+ * Dynamic multipliers based on economy analysis
  */
 
 const { createCanvas } = require('canvas');
+const economyAnalyzer = require('./economyAnalyzer');
 
-// Plinko game modes with balanced multipliers
-const PLINKO_MODES = {
+// Base Plinko game modes (before dynamic adjustments)
+const BASE_PLINKO_MODES = {
     Easy: {
         rows: 8,
         multipliers: [0.1, 0.3, 0.5, 0.8, 1.5, 0.8, 0.5, 0.3, 0.1],
-        description: "Safest option with lower win potential. 75% house edge.",
+        description: "Safest option with lower win potential. Dynamic house edge.",
         color: '#00FF00',
         emoji: '🟢',
         house_edge: 0.75
@@ -18,28 +20,76 @@ const PLINKO_MODES = {
     Medium: {
         rows: 12,
         multipliers: [0.0, 0.1, 0.2, 0.4, 0.6, 1.0, 2.5, 1.0, 0.6, 0.4, 0.2, 0.1, 0.0],
-        description: "Moderate risk with decent win potential. 85% house edge.",
+        description: "Moderate risk with decent win potential. Dynamic house edge.",
         color: '#FFA500',
         emoji: '🟠',
         house_edge: 0.85
     },
     Hard: {
         rows: 16,
-        multipliers: [0.0, 0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.5, 15.0, 1.5, 0.8, 0.5, 0.3, 0.2, 0.1, 0.0, 0.0],
-        description: "High risk gambling with big win potential. 92% house edge.",
+        multipliers: [0.0, 0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.5, 8.0, 1.5, 0.8, 0.5, 0.3, 0.2, 0.1, 0.0, 0.0], // REDUCED from 15x
+        description: "High risk gambling with big win potential. Dynamic house edge.",
         color: '#FF0000',
         emoji: '🔴',
         house_edge: 0.92
     },
     Nightmare: {
         rows: 20,
-        multipliers: [0.0, 0.0, 0.0, 0.1, 25.0, 0.2, 0.3, 0.5, 0.1, 0.1, 0.1, 0.5, 0.3, 0.2, 25.0, 0.1, 0.0, 0.0, 0.0],
-        description: "💀 NIGHTMARE MODE 💀 - Extreme risk, massive rewards! 97% house edge.",
+        multipliers: [0.0, 0.0, 0.0, 0.1, 6.0, 0.2, 0.3, 0.5, 0.1, 0.1, 0.1, 0.5, 0.3, 0.2, 6.0, 0.1, 0.0, 0.0, 0.0], // REDUCED from 25x to 6x
+        description: "💀 NIGHTMARE MODE 💀 - Economy-dependent rewards! Dynamic payouts based on server economy.",
         color: '#8B008B',
         emoji: '💀',
         house_edge: 0.97
     }
 };
+
+// Dynamic Plinko modes (updated by economy analyzer)
+let PLINKO_MODES = JSON.parse(JSON.stringify(BASE_PLINKO_MODES));
+
+/**
+ * Update Plinko modes with dynamic multipliers based on economy analysis
+ */
+async function updateDynamicMultipliers(guildId = null) {
+    try {
+        // Reset to base modes
+        PLINKO_MODES = JSON.parse(JSON.stringify(BASE_PLINKO_MODES));
+        
+        // Get dynamic multipliers for each mode
+        for (const [mode, modeData] of Object.entries(BASE_PLINKO_MODES)) {
+            const dynamicMultipliers = await economyAnalyzer.getDynamicMultipliers(
+                'plinko', 
+                modeData.multipliers, 
+                guildId
+            );
+            
+            // Update the mode with new multipliers
+            PLINKO_MODES[mode].multipliers = dynamicMultipliers;
+            
+            // Update description for nightmare mode to show current max
+            if (mode === 'Nightmare') {
+                const maxMultiplier = Math.max(...dynamicMultipliers);
+                PLINKO_MODES[mode].description = `💀 NIGHTMARE MODE 💀 - Economy-dependent rewards! Current Max: ${maxMultiplier}x`;
+            }
+        }
+        
+        console.log('Plinko multipliers updated based on economy analysis');
+        return true;
+        
+    } catch (error) {
+        console.error(`Error updating Plinko multipliers: ${error.message}`);
+        // Fall back to base modes if error
+        PLINKO_MODES = JSON.parse(JSON.stringify(BASE_PLINKO_MODES));
+        return false;
+    }
+}
+
+/**
+ * Get current Plinko modes (ensures they're updated)
+ */
+async function getCurrentPlinkoModes(guildId = null) {
+    await updateDynamicMultipliers(guildId);
+    return PLINKO_MODES;
+}
 
 /**
  * Randomize multipliers position while maintaining balance
@@ -358,6 +408,9 @@ function simulatePlinkoDrop(rows, slots, startPosition = 0.0) {
 
 module.exports = {
     PLINKO_MODES,
+    BASE_PLINKO_MODES,
+    updateDynamicMultipliers,
+    getCurrentPlinkoModes,
     randomizeMultipliers,
     createPlinkoImage,
     simulatePlinkoDrop

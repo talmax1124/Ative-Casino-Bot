@@ -182,61 +182,55 @@ module.exports = {
      */
     async processMoneyTransfer(senderId, recipientId, guildId, grossAmount, netAmount, taxAmount) {
         try {
-            // Use Firestore transaction to ensure atomicity
-            const senderRef = dbManager.db.collection('user_balances').doc(senderId);
-            const recipientRef = dbManager.db.collection('user_balances').doc(recipientId);
+            // Get both user balances first
+            const senderBalance = await dbManager.getUserBalance(senderId, guildId);
+            const recipientBalance = await dbManager.getUserBalance(recipientId, guildId);
 
-            const result = await dbManager.db.runTransaction(async (transaction) => {
-                // Get both user balances
-                const senderDoc = await transaction.get(senderRef);
-                const recipientDoc = await transaction.get(recipientRef);
+            // Double-check sender has enough funds
+            if (senderBalance.wallet < grossAmount) {
+                throw new Error('Insufficient funds');
+            }
 
-                if (!senderDoc.exists || !recipientDoc.exists) {
-                    throw new Error('User not found in database');
-                }
+            // Calculate new balances
+            const newSenderWallet = senderBalance.wallet - grossAmount;
+            const newRecipientWallet = recipientBalance.wallet + netAmount;
 
-                const senderData = senderDoc.data();
-                const recipientData = recipientDoc.data();
+            // Update sender balance
+            const senderUpdateSuccess = await dbManager.setUserBalance(
+                senderId, 
+                guildId, 
+                newSenderWallet, 
+                senderBalance.bank
+            );
 
-                // Double-check sender has enough funds
-                if (senderData.wallet < grossAmount) {
-                    throw new Error('Insufficient funds');
-                }
+            if (!senderUpdateSuccess) {
+                throw new Error('Failed to update sender balance');
+            }
 
-                // Update balances
-                const newSenderWallet = senderData.wallet - grossAmount;
-                const newRecipientWallet = recipientData.wallet + netAmount;
+            // Update recipient balance
+            const recipientUpdateSuccess = await dbManager.setUserBalance(
+                recipientId, 
+                guildId, 
+                newRecipientWallet, 
+                recipientBalance.bank
+            );
 
-                // Update sender
-                transaction.update(senderRef, {
-                    wallet: newSenderWallet,
-                    updated_at: new Date()
-                });
-
-                // Update recipient
-                transaction.update(recipientRef, {
-                    wallet: newRecipientWallet,
-                    updated_at: new Date()
-                });
-
-                return {
-                    newSenderBalance: newSenderWallet,
-                    newRecipientBalance: newRecipientWallet
-                };
-            });
+            if (!recipientUpdateSuccess) {
+                // Rollback sender balance if recipient update fails
+                await dbManager.setUserBalance(
+                    senderId, 
+                    guildId, 
+                    senderBalance.wallet, 
+                    senderBalance.bank
+                );
+                throw new Error('Failed to update recipient balance');
+            }
 
             // Add tax to lottery pool (only for designated server)
             if (guildId === DESIGNATED_SERVER_ID && taxAmount > 0) {
                 try {
-                    // Get lottery game instance from client if available
-                    const client = require('../index.js'); // This might need adjustment
-                    if (client.lotteryGame) {
-                        await client.lotteryGame.processMoneySendTax(guildId, taxAmount);
-                    } else {
-                        // Fallback direct database call
-                        await dbManager.addToLotteryPool(guildId, taxAmount);
-                    }
-                    logger.info(`Added ${taxAmount} from money transfer to lottery pool`);
+                    await dbManager.addToLotteryPool(guildId, taxAmount);
+                    logger.info(`Added ${fmt(taxAmount)} from money transfer to lottery pool`);
                 } catch (lotteryError) {
                     logger.error(`Error adding tax to lottery pool: ${lotteryError.message}`);
                     // Don't fail the transfer if lottery tax fails
@@ -245,8 +239,8 @@ module.exports = {
 
             return {
                 success: true,
-                newSenderBalance: result.newSenderBalance,
-                newRecipientBalance: result.newRecipientBalance
+                newSenderBalance: newSenderWallet,
+                newRecipientBalance: newRecipientWallet
             };
 
         } catch (error) {

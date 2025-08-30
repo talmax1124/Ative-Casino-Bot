@@ -6,6 +6,7 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
+const economyAnalyzer = require('../UTILS/economyAnalyzer');
 
 class PlinkoGameSession {
     constructor(userId, username, betAmount, channelId, mode = 'easy') {
@@ -20,35 +21,79 @@ class PlinkoGameSession {
         this.result = null;
         this.winAmount = 0;
         
-        // Define game modes and their multipliers
-        this.modes = {
+        // Define base game modes and their multipliers (before dynamic adjustment)
+        this.baseModes = {
             easy: {
-                name: '=â Easy',
+                name: 'ðŸŸ¢ Easy',
                 description: 'Lower risk, steady rewards',
                 multipliers: [0.5, 1.0, 1.2, 1.5, 2.0, 1.5, 1.2, 1.0, 0.5],
                 maxMultiplier: 2.0
             },
             medium: {
-                name: '=á Medium', 
+                name: 'ðŸŸ¡ Medium', 
                 description: 'Balanced risk and reward',
                 multipliers: [0.3, 0.8, 1.5, 2.5, 4.0, 2.5, 1.5, 0.8, 0.3],
                 maxMultiplier: 4.0
             },
             hard: {
-                name: '=à Hard',
+                name: 'ðŸŸ  Hard',
                 description: 'High risk, high reward',
                 multipliers: [0.1, 0.5, 1.0, 3.0, 8.0, 3.0, 1.0, 0.5, 0.1],
                 maxMultiplier: 8.0
             },
             nightmare: {
-                name: '=4 Nightmare',
-                description: 'Extreme risk, massive rewards',
-                multipliers: [0.0, 0.2, 0.5, 2.0, 16.0, 2.0, 0.5, 0.2, 0.0],
-                maxMultiplier: 16.0
+                name: 'ðŸ”´ Nightmare',
+                description: 'Extreme risk, economy-dependent rewards',
+                multipliers: [0.0, 0.1, 0.3, 1.2, 6.0, 1.2, 0.3, 0.1, 0.0], // REDUCED from 16x to 6x max
+                maxMultiplier: 6.0 // REDUCED significantly
             }
         };
         
+        // Initialize with base modes (will be updated with dynamic multipliers)
+        this.modes = JSON.parse(JSON.stringify(this.baseModes));
+        
         this.board = this.generateBoard();
+        
+        // Initialize dynamic multipliers (will be set when game starts)
+        this.guildId = null;
+        this.multipliersInitialized = false;
+    }
+
+    /**
+     * Initialize dynamic multipliers based on economy analysis
+     */
+    async initializeDynamicMultipliers(guildId = null) {
+        try {
+            this.guildId = guildId;
+            
+            // Get dynamic multipliers for plinko game
+            for (const [mode, modeData] of Object.entries(this.baseModes)) {
+                const dynamicMultipliers = await economyAnalyzer.getDynamicMultipliers(
+                    'plinko', 
+                    modeData.multipliers, 
+                    guildId
+                );
+                
+                // Update the multipliers and max multiplier
+                this.modes[mode].multipliers = dynamicMultipliers;
+                this.modes[mode].maxMultiplier = Math.max(...dynamicMultipliers);
+                
+                // Update description to reflect economy-based nature
+                if (mode === 'nightmare') {
+                    this.modes[mode].description = `Extreme risk, economy-dependent rewards (Current Max: ${this.modes[mode].maxMultiplier}x)`;
+                }
+            }
+            
+            // Regenerate board with updated multipliers
+            this.board = this.generateBoard();
+            this.multipliersInitialized = true;
+            
+        } catch (error) {
+            console.error(`Error initializing dynamic multipliers: ${error.message}`);
+            // Fall back to base multipliers if there's an error
+            this.modes = JSON.parse(JSON.stringify(this.baseModes));
+            this.multipliersInitialized = true;
+        }
     }
 
     generateBoard() {
@@ -66,7 +111,7 @@ class PlinkoGameSession {
             
             // Add pegs (represented by dots)
             for (let col = 0; col <= row; col++) {
-                line += 'Ï ';
+                line += 'ï¿½ ';
             }
             
             board.push(line.trim());
@@ -119,7 +164,7 @@ class PlinkoGameSession {
 
     getModeSelectionEmbed() {
         const embed = new EmbedBuilder()
-            .setTitle('<¯ Plinko - Select Difficulty')
+            .setTitle('<ï¿½ Plinko - Select Difficulty')
             .setDescription(`**Bet Amount:** ${fmt(this.betAmount)}\n\nChoose your risk level:`)
             .setColor(0x00FF00)
             .setThumbnail('https://i.imgur.com/plinko.png');
@@ -141,7 +186,7 @@ class PlinkoGameSession {
     getDropSelectionEmbed() {
         const mode = this.modes[this.mode];
         const embed = new EmbedBuilder()
-            .setTitle(`<¯ Plinko - ${mode.name}`)
+            .setTitle(`<ï¿½ Plinko - ${mode.name}`)
             .setDescription(`**Bet Amount:** ${fmt(this.betAmount)}\n**Mode:** ${mode.description}\n\nSelect where to drop the ball:`)
             .setColor(this.getModeColor())
             .setThumbnail('https://i.imgur.com/plinko.png');
@@ -149,7 +194,7 @@ class PlinkoGameSession {
         // Show the board
         const boardText = '```\n' + this.board.join('\n') + '\n```';
         embed.addFields({
-            name: '<² Plinko Board',
+            name: '<ï¿½ Plinko Board',
             value: boardText,
             inline: false
         });
@@ -157,7 +202,7 @@ class PlinkoGameSession {
         // Show multipliers
         const multiplierText = this.modes[this.mode].multipliers.map((m, i) => `${i + 1}: ${m}x`).join(' | ');
         embed.addFields({
-            name: '=° Slot Multipliers',
+            name: '=ï¿½ Slot Multipliers',
             value: `\`${multiplierText}\``,
             inline: false
         });
@@ -172,7 +217,7 @@ class PlinkoGameSession {
         const color = isWin ? 0x00FF00 : result.profit === 0 ? 0xFFFF00 : 0xFF0000;
         
         const embed = new EmbedBuilder()
-            .setTitle(`<¯ Plinko Result - ${mode.name}`)
+            .setTitle(`<ï¿½ Plinko Result - ${mode.name}`)
             .setColor(color)
             .setThumbnail('https://i.imgur.com/plinko.png');
 
@@ -191,7 +236,7 @@ class PlinkoGameSession {
         // Add result emoji
         if (result.profit > 0) {
             embed.addFields({
-                name: '<‰ Congratulations!',
+                name: '<ï¿½ Congratulations!',
                 value: `You won ${fmt(result.winnings)}!`,
                 inline: false
             });
@@ -228,11 +273,11 @@ class PlinkoGameSession {
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`plinko_mode_easy_${this.channelId}`)
-                    .setLabel('=â Easy')
+                    .setLabel('=ï¿½ Easy')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
                     .setCustomId(`plinko_mode_medium_${this.channelId}`)
-                    .setLabel('=á Medium')
+                    .setLabel('=ï¿½ Medium')
                     .setStyle(ButtonStyle.Primary)
             );
 
@@ -240,7 +285,7 @@ class PlinkoGameSession {
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`plinko_mode_hard_${this.channelId}`)
-                    .setLabel('=à Hard')
+                    .setLabel('=ï¿½ Hard')
                     .setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder()
                     .setCustomId(`plinko_mode_nightmare_${this.channelId}`)
@@ -312,27 +357,27 @@ class PlinkoGameSession {
 
     static getHelpEmbed() {
         return new EmbedBuilder()
-            .setTitle('<¯ Plinko Game Help')
+            .setTitle('<ï¿½ Plinko Game Help')
             .setDescription('Drop a ball down the Plinko board and watch it bounce!')
             .setColor(0x00FF00)
             .addFields(
                 {
-                    name: '<® How to Play',
+                    name: '<ï¿½ How to Play',
                     value: '1. Choose your difficulty mode\n2. Select where to drop the ball (1-9)\n3. Watch the ball bounce down the board\n4. Win based on which slot it lands in!',
                     inline: false
                 },
                 {
-                    name: '<¯ Difficulty Modes',
-                    value: '=â **Easy:** Lower risk, steady rewards (max 2x)\n=á **Medium:** Balanced risk/reward (max 4x)\n=à **Hard:** High risk, high reward (max 8x)\n=4 **Nightmare:** Extreme risk, massive rewards (max 16x)',
+                    name: '<ï¿½ Difficulty Modes',
+                    value: '=ï¿½ **Easy:** Lower risk, steady rewards (max 2x)\n=ï¿½ **Medium:** Balanced risk/reward (max 4x)\n=ï¿½ **Hard:** High risk, high reward (max 8x)\n=4 **Nightmare:** Extreme risk, massive rewards (max 16x)',
                     inline: false
                 },
                 {
-                    name: '=° Payouts',
+                    name: '=ï¿½ Payouts',
                     value: 'Each slot has a different multiplier. Center slots often have higher multipliers, but it depends on the mode!',
                     inline: false
                 },
                 {
-                    name: '<² RNG',
+                    name: '<ï¿½ RNG',
                     value: 'The ball bounces randomly at each peg using cryptographically secure randomization.',
                     inline: false
                 }
@@ -344,8 +389,12 @@ class PlinkoGameSession {
 // Game session management
 const activePlinkoGames = new Map();
 
-function startPlinkoGame(userId, username, betAmount, channelId) {
+async function startPlinkoGame(userId, username, betAmount, channelId, guildId = null) {
     const game = new PlinkoGameSession(userId, username, betAmount, channelId);
+    
+    // Initialize dynamic multipliers based on economy analysis
+    await game.initializeDynamicMultipliers(guildId);
+    
     activePlinkoGames.set(channelId, game);
     return game;
 }

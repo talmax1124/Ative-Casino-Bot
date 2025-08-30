@@ -7,7 +7,7 @@ const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmtFull, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-const { PLINKO_MODES, randomizeMultipliers, createPlinkoImage, simulatePlinkoDrop } = require('../UTILS/plinkoCanvas');
+const { PLINKO_MODES, getCurrentPlinkoModes, randomizeMultipliers, createPlinkoImage, simulatePlinkoDrop } = require('../UTILS/plinkoCanvas');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 // sessionManager removed (Firebase dependency) - using mock implementation
 const sessionManager = {
@@ -129,8 +129,9 @@ module.exports = {
                 return;
             }
 
-            // Get mode data
-            const modeData = PLINKO_MODES[selectedMode];
+            // Get dynamic mode data based on economy analysis
+            const currentModes = await getCurrentPlinkoModes(guildId);
+            const modeData = currentModes[selectedMode];
             if (!modeData) {
                 await interaction.editReply({ content: 'Invalid mode selected!' });
                 return;

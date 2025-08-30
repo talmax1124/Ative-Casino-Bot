@@ -1,0 +1,282 @@
+/**
+ * Vote command for Top.GG integration with progressive rewards
+ * Includes weekend bonuses and vote reminder functionality
+ */
+
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const dbManager = require('../UTILS/database');
+const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { secureRandomInt } = require('../UTILS/rng');
+const UITemplates = require('../UTILS/uiTemplates');
+const logger = require('../UTILS/logger');
+
+const TOPGG_BOT_ID = process.env.TOPGG_BOT_ID || 'your_bot_id';
+const TOPGG_VOTE_URL = `https://top.gg/bot/${TOPGG_BOT_ID}/vote`;
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('vote')
+        .setDescription('Vote for the bot on Top.GG to receive progressive rewards!'),
+
+    async execute(interaction) {
+        const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
+
+        try {
+            await dbManager.ensureUser(userId, interaction.user.displayName);
+            const balance = await dbManager.getUserBalance(userId, guildId);
+            
+            // Get current vote data
+            const voteData = await this.getUserVoteData(userId, guildId);
+            
+            // Check cooldown (12 hours for Top.GG votes)
+            const now = Date.now() / 1000;
+            const lastVote = voteData.last_vote_ts || 0;
+            const cooldown = 12 * 3600; // 12 hours
+
+            if (now - lastVote < cooldown) {
+                const remainingTime = Math.ceil(cooldown - (now - lastVote));
+                const hours = Math.floor(remainingTime / 3600);
+                const minutes = Math.floor((remainingTime % 3600) / 60);
+                
+                // Create vote reminder button
+                const voteButton = new ButtonBuilder()
+                    .setLabel('Vote on Top.GG')
+                    .setURL(TOPGG_VOTE_URL)
+                    .setStyle(ButtonStyle.Link);
+
+                const reminderButton = new ButtonBuilder()
+                    .setCustomId('vote_reminder')
+                    .setLabel(`Remind me in ${hours}h ${minutes}m`)
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('⏰');
+
+                const row = new ActionRowBuilder()
+                    .addComponents(voteButton, reminderButton);
+
+                const embed = new EmbedBuilder()
+                    .setTitle('⏰ Vote Cooldown Active')
+                    .setDescription(`You can vote again in ${hours}h ${minutes}m`)
+                    .addFields(
+                        { name: '🗳️ Current Vote Count', value: voteData.total_votes.toString(), inline: true },
+                        { name: '🎁 Next Reward', value: this.calculateNextReward(voteData.total_votes), inline: true },
+                        { name: '💰 Total Earned from Votes', value: fmtFull(voteData.total_earned || 0), inline: true }
+                    )
+                    .setColor(0xFFAA00)
+                    .setThumbnail(interaction.client.user.displayAvatarURL())
+                    .setFooter({ text: '🗳️ Vote Command • ATIVE Casino Bot' });
+
+                return await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
+            }
+
+            // Show vote interface
+            const nextReward = this.calculateNextReward(voteData.total_votes);
+            const isWeekend = this.isWeekend();
+            const weekendBonus = isWeekend ? ' + Weekend Bonus!' : '';
+
+            const voteButton = new ButtonBuilder()
+                .setLabel('Vote on Top.GG')
+                .setURL(TOPGG_VOTE_URL)
+                .setStyle(ButtonStyle.Link);
+
+            const checkVoteButton = new ButtonBuilder()
+                .setCustomId('check_vote')
+                .setLabel('I Voted - Claim Reward!')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('🎁');
+
+            const row = new ActionRowBuilder()
+                .addComponents(voteButton, checkVoteButton);
+
+            const embed = new EmbedBuilder()
+                .setTitle('🗳️ Vote for ATIVE Casino Bot!')
+                .setDescription(`Vote for our bot on Top.GG to receive amazing rewards!\n\n**Current Reward:** ${nextReward}${weekendBonus}`)
+                .addFields(
+                    { name: '🗳️ Your Vote Count', value: voteData.total_votes.toString(), inline: true },
+                    { name: '🎁 Reward This Vote', value: nextReward, inline: true },
+                    { name: '💰 Total Earned', value: fmtFull(voteData.total_earned || 0), inline: true },
+                    { name: '🎯 Special Perks', value: voteData.total_votes >= 10 ? '✅ /earnmoney unlocked!' : `${voteData.total_votes}/10 votes for /earnmoney`, inline: false }
+                )
+                .setColor(isWeekend ? 0xFF6B9D : 0x7289DA)
+                .setThumbnail(interaction.client.user.displayAvatarURL())
+                .setFooter({ text: isWeekend ? '🎉 Weekend Bonus Active! • Vote Command' : '🗳️ Vote Command • ATIVE Casino Bot' });
+
+            if (isWeekend) {
+                embed.addFields({ name: '🎉 Weekend Bonus', value: '+25% extra rewards!', inline: true });
+            }
+
+            await interaction.reply({ embeds: [embed], components: [row] });
+
+        } catch (error) {
+            logger.error(`Error processing vote command: ${error.message}`);
+            
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    const errorEmbed = UITemplates.createErrorEmbed('Vote', {
+                        description: 'Failed to process vote command. Please try again.',
+                        error: error.message,
+                        isLoss: false
+                    });
+
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } catch (replyError) {
+                    logger.error(`Failed to send vote error reply: ${replyError.message}`);
+                }
+            }
+        }
+    },
+
+    /**
+     * Calculate the reward amount for the next vote based on current vote count
+     */
+    calculateNextReward(currentVotes) {
+        // Base reward starts at 8K and increases by 2K per vote, with bonus milestones
+        let baseReward = 8000 + (currentVotes * 2000);
+        
+        // Bonus milestones
+        if (currentVotes >= 50) baseReward += 20000;
+        else if (currentVotes >= 25) baseReward += 15000;
+        else if (currentVotes >= 10) baseReward += 10000;
+        else if (currentVotes >= 5) baseReward += 5000;
+        
+        return fmtFull(baseReward);
+    },
+
+    /**
+     * Calculate actual reward amount (used when processing the vote)
+     */
+    calculateRewardAmount(currentVotes, isWeekend = false) {
+        let baseReward = 8000 + (currentVotes * 2000);
+        
+        // Bonus milestones
+        if (currentVotes >= 50) baseReward += 20000;
+        else if (currentVotes >= 25) baseReward += 15000;
+        else if (currentVotes >= 10) baseReward += 10000;
+        else if (currentVotes >= 5) baseReward += 5000;
+        
+        // Weekend bonus (+25%)
+        if (isWeekend) {
+            baseReward = Math.floor(baseReward * 1.25);
+        }
+        
+        return baseReward;
+    },
+
+    /**
+     * Check if it's currently weekend (Friday 6PM - Sunday 11:59PM EST)
+     */
+    isWeekend() {
+        const now = new Date();
+        const dayOfWeek = now.getUTCDay(); // 0 = Sunday, 1 = Monday, etc.
+        const hour = now.getUTCHours() - 5; // Convert to EST (rough)
+        
+        // Friday after 6PM, Saturday, or Sunday
+        return (dayOfWeek === 5 && hour >= 18) || dayOfWeek === 6 || dayOfWeek === 0;
+    },
+
+    /**
+     * Get user vote data from database
+     */
+    async getUserVoteData(userId, guildId) {
+        try {
+            // Try to get existing vote data
+            const voteData = await dbManager.getUserVoteData(userId, guildId);
+            return voteData || {
+                user_id: userId,
+                total_votes: 0,
+                last_vote_ts: 0,
+                total_earned: 0,
+                can_use_earnmoney: false
+            };
+        } catch (error) {
+            logger.error(`Error getting user vote data: ${error.message}`);
+            return {
+                user_id: userId,
+                total_votes: 0,
+                last_vote_ts: 0,
+                total_earned: 0,
+                can_use_earnmoney: false
+            };
+        }
+    },
+
+    /**
+     * Process a successful vote (called by webhook or button interaction)
+     */
+    async processVote(userId, guildId, interaction = null) {
+        try {
+            await dbManager.ensureUser(userId);
+            const voteData = await this.getUserVoteData(userId, guildId);
+            const balance = await dbManager.getUserBalance(userId, guildId);
+            
+            const isWeekend = this.isWeekend();
+            const rewardAmount = this.calculateRewardAmount(voteData.total_votes, isWeekend);
+            const newVoteCount = voteData.total_votes + 1;
+            const newTotalEarned = (voteData.total_earned || 0) + rewardAmount;
+            
+            // Update balance
+            const newWallet = balance.wallet + rewardAmount;
+            await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank);
+            
+            // Update vote data
+            await dbManager.updateUserVoteData(userId, guildId, {
+                total_votes: newVoteCount,
+                last_vote_ts: Date.now() / 1000,
+                total_earned: newTotalEarned,
+                can_use_earnmoney: newVoteCount >= 10
+            });
+
+            // Create success embed
+            const embed = new EmbedBuilder()
+                .setTitle('🎉 Vote Reward Claimed!')
+                .setDescription(`Thank you for voting! You received ${fmtFull(rewardAmount)}!`)
+                .addFields(
+                    { name: '💰 Reward Received', value: fmtFull(rewardAmount), inline: true },
+                    { name: '🗳️ Total Votes', value: newVoteCount.toString(), inline: true },
+                    { name: '💎 New Balance', value: fmtFull(newWallet), inline: true },
+                    { name: '📈 Change', value: fmtDelta(newWallet, balance.wallet), inline: true },
+                    { name: '💰 Total Vote Earnings', value: fmtFull(newTotalEarned), inline: true },
+                    { name: '🎁 Next Reward', value: this.calculateNextReward(newVoteCount), inline: true }
+                )
+                .setColor(isWeekend ? 0xFF6B9D : 0x00FF00)
+                .setThumbnail(interaction?.user?.displayAvatarURL() || null)
+                .setFooter({ 
+                    text: isWeekend ? '🎉 Weekend Bonus Applied! • Vote Reward' : '🗳️ Vote Reward • ATIVE Casino Bot' 
+                })
+                .setTimestamp();
+
+            if (newVoteCount === 10) {
+                embed.addFields({ 
+                    name: '🔓 Special Unlock!', 
+                    value: '**You can now use `/earnmoney` to claim all economy commands at once!**', 
+                    inline: false 
+                });
+            }
+
+            if (isWeekend) {
+                embed.addFields({ name: '🎉 Weekend Bonus', value: '+25% extra reward applied!', inline: true });
+            }
+
+            // Log the vote
+            await sendLogMessage(
+                interaction?.client,
+                'info',
+                `**Vote Reward Claimed**\n` +
+                `**User:** <@${userId}> (\`${userId}\`)\n` +
+                `**Reward:** ${fmtFull(rewardAmount)}\n` +
+                `**Vote Count:** ${newVoteCount}\n` +
+                `**Weekend Bonus:** ${isWeekend ? 'Yes' : 'No'}\n` +
+                `**New Balance:** ${fmtFull(newWallet)}\n` +
+                `**Earnmoney Unlocked:** ${newVoteCount >= 10 ? 'Yes' : 'No'}`,
+                userId,
+                guildId
+            );
+
+            return { success: true, embed, newVoteCount };
+
+        } catch (error) {
+            logger.error(`Error processing vote: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+};
