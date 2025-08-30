@@ -638,10 +638,16 @@ client.on('interactionCreate', async interaction => {
                         await showSpecificCategory(interaction, selectedCategory);
                     } catch (error) {
                         logger.error(`Error handling help category selection: ${error.message}`);
-                        await interaction.reply({ 
-                            content: 'An error occurred while loading help information. Please try again.', 
-                            ephemeral: true 
-                        });
+                        if (!interaction.replied && !interaction.deferred) {
+                            await interaction.reply({ 
+                                content: 'An error occurred while loading help information. Please try again.', 
+                                ephemeral: true 
+                            });
+                        } else if (interaction.deferred) {
+                            await interaction.editReply({ 
+                                content: 'An error occurred while loading help information. Please try again.' 
+                            });
+                        }
                     }
                 } else {
                     // Fallback - try to load help category directly

@@ -160,11 +160,7 @@ async function showMainHelp(interaction) {
             new ButtonBuilder()
                 .setCustomId('help_support')
                 .setLabel('💬 Support')
-                .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-                .setURL('https://github.com/anthropics/claude-code/issues')
-                .setLabel('🐛 Report Issue')
-                .setStyle(ButtonStyle.Link)
+                .setStyle(ButtonStyle.Secondary)
         );
 
     await interaction.reply({ 
