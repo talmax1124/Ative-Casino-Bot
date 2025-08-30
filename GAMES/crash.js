@@ -203,13 +203,18 @@ class OptimizedCrashGame {
         new ButtonBuilder()
           .setCustomId('crash_join')
           .setLabel('💰 Place Bet')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId('crash_start')
-          .setLabel('🚀 Start Game')
-          .setStyle(ButtonStyle.Primary)
-          .setDisabled(this.players.size === 0)
+          .setStyle(ButtonStyle.Success)
       );
+      
+      // Show start game button if there are players
+      if (this.players.size > 0) {
+        buttons.push(
+          new ButtonBuilder()
+            .setCustomId('crash_start')
+            .setLabel(`🚀 Start Game (${this.players.size} players)`)
+            .setStyle(ButtonStyle.Primary)
+        );
+      }
     } else if (this.state === 'running') {
       buttons.push(
         new ButtonBuilder()
@@ -419,6 +424,17 @@ async function handleJoinGame(interaction, game) {
     return await interaction.reply({ content: '❌ Betting is closed!', flags: MessageFlags.Ephemeral });
   }
   
+  const userId = interaction.user.id;
+  
+  // Check if user already has a bet placed
+  if (game.players.has(userId)) {
+    const player = game.players.get(userId);
+    return await interaction.reply({ 
+      content: `✅ You already have a bet of ${fmt(player.bet)} in this game! Wait for the game to start.`, 
+      flags: MessageFlags.Ephemeral 
+    });
+  }
+  
   // Show bet modal
   const modal = new ModalBuilder()
     .setCustomId('crash_bet_modal')
@@ -472,6 +488,15 @@ async function handleModalSubmit(interaction, client, game) {
   const username = interaction.user.displayName;
   const betAmountStr = interaction.fields.getTextInputValue('bet_amount');
   
+  // Check if user already has a bet placed (prevent double betting)
+  if (game.players.has(userId)) {
+    const player = game.players.get(userId);
+    return await interaction.reply({
+      content: `❌ You already have a bet of ${fmt(player.bet)} in this game!`,
+      flags: MessageFlags.Ephemeral
+    });
+  }
+  
   const betAmount = parseAmount(betAmountStr);
   if (!betAmount || betAmount < CRASH_CONFIG.min_bet || betAmount > CRASH_CONFIG.max_bet) {
     return await interaction.reply({
@@ -517,10 +542,18 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
     const betUsername = initialBetData.username;
     
     try {
+      logger.info(`Attempting to add ${betUsername} (${betUserId}) to crash game with initial bet ${fmt(initialBet)}`);
+      
       // Add player with initial bet automatically (addPlayer now handles balance checking and deduction)
       const addResult = await game.addPlayer(betUserId, betUsername, initialBet);
       if (addResult) {
-        logger.info(`Added ${betUsername} to crash game with initial bet ${fmt(initialBet)}`);
+        logger.info(`Successfully added ${betUsername} to crash game with initial bet ${fmt(initialBet)}. Players now: ${game.players.size}`);
+        
+        // Debug: Log the player's data
+        const player = game.players.get(betUserId);
+        if (player) {
+          logger.info(`Player data - bet: ${fmt(player.bet)}, username: ${player.username}`);
+        }
       } else {
         logger.warn(`Failed to add ${betUsername} to crash game (insufficient balance or other error)`);
       }
@@ -535,11 +568,13 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
   
   const message = await interaction.reply({
     embeds: [embed],
-    components,
-    fetchReply: true
+    components
   });
   
-  game.gameMessage = message;
+  // Fetch the message separately to avoid deprecation warning
+  const fetchedMessage = await interaction.fetchReply();
+  
+  game.gameMessage = fetchedMessage;
   
   // Start betting timer
   game.bettingTimeout = setTimeout(async () => {
