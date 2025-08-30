@@ -223,8 +223,7 @@ module.exports = {
                 interaction,
                 amount,
                 GameType.BLACKJACK,
-                1,        // Min bet: $1
-                500000    // Max bet: $500K
+                1        // Min bet: $1 (no max bet limit)
             );
 
             if (!validation.isValid) {

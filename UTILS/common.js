@@ -24,13 +24,17 @@ function fmt(amount) {
         
         // For very large numbers, use abbreviated format
         if (num >= 1_000_000_000_000) { // Trillions
-            return `$${(num / 1_000_000_000_000).toFixed(2)}T`;
+            const val = num / 1_000_000_000_000;
+            return `$${val % 1 === 0 ? val.toFixed(0) : val.toFixed(2)}T`;
         } else if (num >= 1_000_000_000) { // Billions
-            return `$${(num / 1_000_000_000).toFixed(2)}B`;
+            const val = num / 1_000_000_000;
+            return `$${val % 1 === 0 ? val.toFixed(0) : val.toFixed(2)}B`;
         } else if (num >= 1_000_000) { // Millions
-            return `$${(num / 1_000_000).toFixed(2)}M`;
+            const val = num / 1_000_000;
+            return `$${val % 1 === 0 ? val.toFixed(0) : val.toFixed(2)}M`;
         } else if (num >= 1_000) { // Thousands
-            return `$${(num / 1_000).toFixed(2)}K`;
+            const val = num / 1_000;
+            return `$${val % 1 === 0 ? val.toFixed(0) : val.toFixed(2)}K`;
         } else {
             // For smaller amounts, use regular formatting
             return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
