@@ -194,7 +194,7 @@ module.exports = {
         .setDescription('Play blackjack against the dealer!')
         .addStringOption(option =>
             option.setName('amount')
-                .setDescription('Amount to bet (supports K/M/B, "all", "half")')
+                .setDescription('Amount to bet (supports K/M/B, "all", "all in", "half")')
                 .setRequired(true)
         ),
 

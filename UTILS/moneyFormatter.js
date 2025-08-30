@@ -16,7 +16,7 @@ function parseAmount(amountStr) {
     const cleanStr = amountStr.trim().toLowerCase().replace(/[$]/g, '');
     
     // Handle special cases
-    if (cleanStr === 'all' || cleanStr === 'a') {
+    if (cleanStr === 'all' || cleanStr === 'a' || cleanStr === 'all in' || cleanStr === 'allin') {
         return 'all';
     }
     if (cleanStr === 'half' || cleanStr === 'h') {
