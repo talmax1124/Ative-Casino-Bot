@@ -434,7 +434,7 @@ module.exports = {
                 amount,
                 GameType.DUCK_GAME,
                 1,        // Min bet: $1
-                null      // No max bet limit
+                150000    // Max bet: $150K
             );
 
             if (!validation.isValid) {

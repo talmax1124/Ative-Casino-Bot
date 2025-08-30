@@ -18,7 +18,8 @@ const {
 } = require('discord.js');
 
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, parseAmount, resolveAmount } = require('../UTILS/common');
+const { fmt, getGuildId } = require('../UTILS/common');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const logger = require('../UTILS/logger');
 const battleshipRenderer = require('../UTILS/battleshipRenderer');
 const UITemplates = require('../UTILS/uiTemplates');
@@ -126,46 +127,28 @@ module.exports = {
                 return;
             }
 
-            // Ensure user exists in database
-            await dbManager.ensureUser(userId, username);
-            const balance = await dbManager.getUserBalance(userId, guildId);
-
-            // Parse and validate amount
+            // Validate and deduct bet amount using PayoutManager
             const amountStr = interaction.options.getString('amount');
-            let betAmount;
-            
-            const parsedAmount = parseAmount(amountStr);
-            if (parsedAmount === null) {
-                const embed = UITemplates.createErrorEmbed('❌ Invalid Amount', `"${amountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".`);
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
-            }
-            
-            betAmount = resolveAmount(parsedAmount, balance.wallet);
-            
-            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
-                const embed = UITemplates.createErrorEmbed('❌ Invalid Bet', 'Bet amount must be greater than 0!');
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
-            }
-
             const MIN_BET = 100;
             const MAX_BET = 1000000;
-            if (betAmount < MIN_BET) {
-                const embed = UITemplates.createErrorEmbed('❌ Minimum Bet', `Minimum bet is ${fmt(MIN_BET)}.`);
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            
+            const validation = await PayoutManager.validateAndDeductBet(
+                interaction,
+                amountStr,
+                GameType.BATTLESHIP,
+                MIN_BET,
+                150000
+            );
+            
+            if (!validation.isValid) {
+                await interaction.reply({
+                    embeds: [validation.errorEmbed],
+                    flags: MessageFlags.Ephemeral
+                });
                 return;
             }
-            if (betAmount > MAX_BET) {
-                const embed = UITemplates.createErrorEmbed('❌ Maximum Bet', `Maximum bet is ${fmt(MAX_BET)}.`);
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
-            }
-            if (betAmount > balance.wallet) {
-                const embed = UITemplates.createErrorEmbed('❌ Insufficient Balance', `You need ${fmt(betAmount)} but only have ${fmt(balance.wallet)}.`);
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
-            }
+            
+            const betAmount = validation.parsedAmount;
 
             // Create game session with enhanced protection  
             const sessionResult = await GameSessionIntegrator.createGameSession({
@@ -189,8 +172,7 @@ module.exports = {
                 return;
             }
 
-            // Deduct from creator wallet
-            await dbManager.updateUserBalance(userId, guildId, { wallet: balance.wallet - betAmount });
+            // Bet already deducted by PayoutManager
 
             // Create game
             const game = createBattleshipGame(channelId, interaction.user, betAmount);
@@ -318,12 +300,20 @@ module.exports = {
             return;
         }
 
-        // Check balance
-        await dbManager.ensureUser(userId, interaction.user.displayName);
-        const balance = await dbManager.getUserBalance(userId, guildId);
-        if (balance.wallet < game.betAmount) {
-            const embed = UITemplates.createErrorEmbed('❌ Insufficient Balance', `You need ${fmt(game.betAmount)} to join. You have ${fmt(balance.wallet)}.`);
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        // Validate and deduct bet amount using PayoutManager for joining player
+        const joinValidation = await PayoutManager.validateAndDeductBet(
+            interaction,
+            game.betAmount.toString(),
+            GameType.BATTLESHIP,
+            100, // MIN_BET
+            150000 // MAX_BET
+        );
+        
+        if (!joinValidation.isValid) {
+            await interaction.reply({
+                embeds: [joinValidation.errorEmbed],
+                flags: MessageFlags.Ephemeral
+            });
             return;
         }
 
@@ -357,13 +347,12 @@ module.exports = {
             return;
         }
 
-        // Deduct bet and add player
-        await dbManager.updateUserBalance(userId, guildId, { wallet: balance.wallet - game.betAmount });
+        // Add player (bet already deducted by PayoutManager)
         const success = game.addPlayer(interaction.user);
         
         if (!success) {
-            // Refund on failure
-            await dbManager.updateUserBalance(userId, guildId, { wallet: balance.wallet, game_active: false });
+            // Refund on failure using PayoutManager
+            await PayoutManager.refundBet(userId, guildId, game.betAmount, 'Failed to join Battleship game');
             const embed = UITemplates.createErrorEmbed('❌ Join Failed', 'Failed to join the game.');
             await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;

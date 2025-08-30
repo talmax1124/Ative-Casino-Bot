@@ -581,6 +581,14 @@ client.on('interactionCreate', async interaction => {
                     await panelCommand.handleSelectMenu(interaction);
                 }
             }
+            // Handle blackjack bet selection dropdown
+            else if (interaction.customId === 'blackjack_bet_select') {
+                const blackjackCommand = client.commands.get('blackjack');
+                if (blackjackCommand) {
+                    const betAmount = parseInt(interaction.values[0].replace('play_again_', ''));
+                    await blackjackCommand.startNewGame(interaction, betAmount);
+                }
+            }
             // Handle other select menus from different commands
             else if (interaction.customId === 'blackjack_help') {
                 const blackjackCommand = client.commands.get('blackjack');

@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const levelingSystem = require('../UTILS/levelingSystem');
 const UITemplates = require('../UTILS/uiTemplates');
@@ -68,71 +68,9 @@ module.exports = {
                 }
             }
 
-            // Ensure user exists
-            await dbManager.ensureUser(userId, username);
-            
-            const balance = await dbManager.getUserBalance(userId, guildId);
-            
-            // Parse bet amount
-            const amountStr = interaction.options.getString('amount');
-            let betAmount;
-            
-            const parsedAmount = parseAmount(amountStr);
-            if (parsedAmount === null) {
-                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
-                    description: `"${amountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".`,
-                    isLoss: false
-                });
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
-                return;
-            }
+            // User existence and bet validation handled by PayoutManager above
 
-            betAmount = resolveAmount(parsedAmount, balance.wallet);
-            
-            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
-                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
-                    description: 'Bet amount must be greater than 0!',
-                    isLoss: false
-                });
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
-                return;
-            }
-
-            // Validate bet amount
-            const MIN_BET = 100;
-            const MAX_BET = 50000;
-            
-            if (betAmount < MIN_BET) {
-                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
-                    description: `Minimum bet for UNO is ${fmt(MIN_BET)}!`,
-                    isLoss: false
-                });
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
-                return;
-            }
-            
-            if (betAmount > MAX_BET) {
-                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
-                    description: `Maximum bet for UNO is ${fmt(MAX_BET)}!`,
-                    isLoss: false
-                });
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
-                return;
-            }
-
-            if (betAmount > balance.wallet) {
-                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
-                    description: `You need ${fmt(betAmount)} but only have ${fmt(balance.wallet)} in your wallet.\n\nUse \`/withdraw\` to move money from your bank to your wallet.`,
-                    showBalance: true,
-                    userBalance: balance,
-                    isLoss: false
-                });
-                await interaction.followUp({ embeds: [errorEmbed] });
-                return;
-            }
-
-            // Deduct bet from starter
-            await dbManager.updateUserBalance(userId, guildId, -betAmount, 0);
+            // Bet already deducted by PayoutManager
 
             // Create game session with enhanced protection
             const sessionResult = await GameSessionIntegrator.createGameSession({
@@ -180,7 +118,7 @@ module.exports = {
             const lobbyEmbed = UITemplates.createStandardGameEmbed(
                 'Multiplayer UNO Game',
                 `**<@${userId}>** started a new UNO game!\n\n**Entry Fee:** ${fmt(betAmount)}\n**Prize Pool:** Grows with each player\n**Max Players:** ${game.maxPlayers}`,
-                balance.wallet - betAmount,
+                validation.newWallet,
                 {
                     minBet: MIN_BET,
                     maxBet: MAX_BET,
@@ -361,25 +299,27 @@ module.exports = {
                 return;
             }
 
-            // Check balance
-            await dbManager.ensureUser(userId, username);
-            const balance = await dbManager.getUserBalance(userId, guildId);
+            // Validate and deduct bet amount using PayoutManager for joining player
+            const joinValidation = await PayoutManager.validateAndDeductBet(
+                interaction,
+                game.starterBet.toString(),
+                GameType.UNO,
+                100, // MIN_BET
+                150000 // MAX_BET
+            );
             
-            if (balance.wallet < game.starterBet) {
-                const embed = game.getLobbyEmbed(`❌ **<@${userId}>** needs ${fmt(game.starterBet)} but only has ${fmt(balance.wallet)}!`);
+            if (!joinValidation.isValid) {
+                const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - ${joinValidation.errorEmbed.data.description}`);
                 const buttons = game.createLobbyButtons();
                 await interaction.update({ embeds: [embed], components: buttons });
                 return;
             }
 
-            // Deduct bet amount
-            await dbManager.updateUserBalance(userId, guildId, -game.starterBet, 0);
-
             // Add player
             const success = game.addPlayer(userId, `<@${userId}>`);
             if (!success) {
-                // Refund if couldn't add player
-                await dbManager.updateUserBalance(userId, guildId, game.starterBet, 0);
+                // Refund if couldn't add player using PayoutManager
+                await PayoutManager.refundBet(userId, guildId, game.starterBet, 'Failed to join UNO game');
                 const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - Failed to join game!`);
                 const buttons = game.createLobbyButtons();
                 await interaction.update({ embeds: [embed], components: buttons });
@@ -486,8 +426,8 @@ module.exports = {
                 return;
             }
 
-            // Remove player and refund
-            await dbManager.updateUserBalance(userId, guildId, game.starterBet, 0);
+            // Remove player and refund using PayoutManager
+            await PayoutManager.refundBet(userId, guildId, game.starterBet, 'Left UNO game');
 
             game.removePlayer(userId);
             

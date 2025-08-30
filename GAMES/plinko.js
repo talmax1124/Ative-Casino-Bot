@@ -5,8 +5,8 @@
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { secureRandomInt } = require('../UTILS/rng');
-const { fmt } = require('../UTILS/common');
-const economyAnalyzer = require('../UTILS/economyAnalyzer');
+const { fmt, sendLogMessage } = require('../UTILS/common');
+const logger = require('../UTILS/logger');
 
 class PlinkoGameSession {
     constructor(userId, username, betAmount, channelId, mode = 'easy') {
@@ -21,79 +21,48 @@ class PlinkoGameSession {
         this.result = null;
         this.winAmount = 0;
         
-        // Define base game modes and their multipliers (before dynamic adjustment)
+        // PROPERLY BALANCED MULTIPLIERS - WITH ACTUAL LOSS POSSIBILITIES
+        // Most slots should result in losses to maintain house edge
         this.baseModes = {
             easy: {
                 name: '🟢 Easy',
-                description: 'Lower risk, steady rewards',
-                multipliers: [0.5, 1.0, 1.2, 1.5, 2.0, 1.5, 1.2, 1.0, 0.5],
-                maxMultiplier: 2.0
+                description: 'Lower risk, moderate rewards',
+                multipliers: [0.3, 0.5, 0.7, 0.9, 1.8, 0.9, 0.7, 0.5, 0.3], // Only center wins
+                maxMultiplier: 1.8
             },
             medium: {
                 name: '🟡 Medium', 
                 description: 'Balanced risk and reward',
-                multipliers: [0.3, 0.8, 1.5, 2.5, 4.0, 2.5, 1.5, 0.8, 0.3],
-                maxMultiplier: 4.0
+                multipliers: [0.0, 0.3, 0.6, 1.2, 3.0, 1.2, 0.6, 0.3, 0.0], // Edge slots lose all
+                maxMultiplier: 3.0
             },
             hard: {
-                name: '🟠 Hard',
+                name: '🔴 Hard',
                 description: 'High risk, high reward',
-                multipliers: [0.1, 0.5, 1.0, 3.0, 8.0, 3.0, 1.0, 0.5, 0.1],
-                maxMultiplier: 8.0
+                multipliers: [0.0, 0.0, 0.4, 0.8, 5.5, 0.8, 0.4, 0.0, 0.0], // Most slots lose
+                maxMultiplier: 5.5
             },
             nightmare: {
-                name: '🔴 Nightmare',
-                description: 'Extreme risk, economy-dependent rewards',
-                multipliers: [0.0, 0.1, 0.3, 1.2, 6.0, 1.2, 0.3, 0.1, 0.0], // REDUCED from 16x to 6x max
-                maxMultiplier: 6.0 // REDUCED significantly
+                name: '💀 Nightmare',
+                description: 'Extreme risk, one winning slot',
+                multipliers: [0.0, 0.0, 0.0, 0.2, 10.0, 0.2, 0.0, 0.0, 0.0], // Only center wins big
+                maxMultiplier: 10.0
             }
         };
         
-        // Initialize with base modes (will be updated with dynamic multipliers)
-        this.modes = JSON.parse(JSON.stringify(this.baseModes));
+        // Use fixed modes (no more dynamic multipliers)
+        this.modes = this.baseModes;
         
         this.board = this.generateBoard();
-        
-        // Initialize dynamic multipliers (will be set when game starts)
-        this.guildId = null;
-        this.multipliersInitialized = false;
     }
 
     /**
-     * Initialize dynamic multipliers based on economy analysis
+     * Get final multipliers with house edge applied
+     * NO MORE DYNAMIC ADJUSTMENTS - Fixed multipliers only
      */
-    async initializeDynamicMultipliers(guildId = null) {
-        try {
-            this.guildId = guildId;
-            
-            // Get dynamic multipliers for plinko game
-            for (const [mode, modeData] of Object.entries(this.baseModes)) {
-                const dynamicMultipliers = await economyAnalyzer.getDynamicMultipliers(
-                    'plinko', 
-                    modeData.multipliers, 
-                    guildId
-                );
-                
-                // Update the multipliers and max multiplier
-                this.modes[mode].multipliers = dynamicMultipliers;
-                this.modes[mode].maxMultiplier = Math.max(...dynamicMultipliers);
-                
-                // Update description to reflect economy-based nature
-                if (mode === 'nightmare') {
-                    this.modes[mode].description = `Extreme risk, economy-dependent rewards (Current Max: ${this.modes[mode].maxMultiplier}x)`;
-                }
-            }
-            
-            // Regenerate board with updated multipliers
-            this.board = this.generateBoard();
-            this.multipliersInitialized = true;
-            
-        } catch (error) {
-            console.error(`Error initializing dynamic multipliers: ${error.message}`);
-            // Fall back to base multipliers if there's an error
-            this.modes = JSON.parse(JSON.stringify(this.baseModes));
-            this.multipliersInitialized = true;
-        }
+    getFinalMultipliers() {
+        // Return the fixed multipliers for the selected mode
+        return this.modes[this.mode].multipliers;
     }
 
     generateBoard() {
@@ -129,14 +98,14 @@ class PlinkoGameSession {
     }
 
     simulateDrop(dropPosition) {
-        // Simulate ball drop physics
+        // Simulate ball drop physics with PROPER RANDOMIZATION
         let position = dropPosition;
         const path = [position];
         const multipliers = this.modes[this.mode].multipliers;
         
-        // Simulate bounces down the board
+        // Simulate bounces down the board - PURE RANDOM, NO MANIPULATION
         for (let row = 1; row < 10; row++) {
-            // Each peg has a 50% chance to bounce left or right
+            // True 50/50 chance to bounce left or right
             const bounce = secureRandomInt(0, 2);
             if (bounce === 0 && position > 0) {
                 position -= 1; // Bounce left
@@ -153,12 +122,24 @@ class PlinkoGameSession {
         const multiplier = multipliers[finalSlot];
         const winnings = Math.floor(this.betAmount * multiplier);
         
+        // Log suspicious high wins for monitoring
+        if (multiplier >= 5.0) {
+            logger.warn(`Plinko High Win Alert: User ${this.userId} hit ${multiplier}x multiplier on ${this.mode} mode`);
+        }
+        
+        // Log all zero multiplier hits (total losses)
+        if (multiplier === 0.0) {
+            logger.info(`Plinko Total Loss: User ${this.userId} lost entire bet on ${this.mode} mode`);
+        }
+        
         return {
             path,
             finalSlot,
             multiplier,
             winnings,
-            profit: winnings - this.betAmount
+            profit: winnings - this.betAmount,
+            mode: this.mode,
+            betAmount: this.betAmount
         };
     }
 
@@ -386,15 +367,21 @@ class PlinkoGameSession {
     }
 }
 
-// Game session management
+// Game session management with anti-abuse tracking
 const activePlinkoGames = new Map();
+const userAbusivePatterns = new Map(); // Track potentially abusive patterns
 
-async function startPlinkoGame(userId, username, betAmount, channelId, guildId = null) {
-    const game = new PlinkoGameSession(userId, username, betAmount, channelId);
+function startPlinkoGame(userId, username, betAmount, channelId, mode = 'easy') {
+    // Check for rapid-fire gaming (anti-abuse)
+    const lastGameTime = userAbusivePatterns.get(userId);
+    if (lastGameTime && Date.now() - lastGameTime < 3000) {
+        throw new Error('Please wait 3 seconds between games');
+    }
     
-    // Initialize dynamic multipliers based on economy analysis
-    await game.initializeDynamicMultipliers(guildId);
+    const game = new PlinkoGameSession(userId, username, betAmount, channelId, mode);
     
+    // NO MORE DYNAMIC MULTIPLIERS - Using fixed multipliers only
+    userAbusivePatterns.set(userId, Date.now());
     activePlinkoGames.set(channelId, game);
     return game;
 }
@@ -404,6 +391,32 @@ function getPlinkoGame(channelId) {
 }
 
 function endPlinkoGame(channelId) {
+    const game = activePlinkoGames.get(channelId);
+    if (game && game.result) {
+        // Log game result for audit trail
+        const logData = {
+            userId: game.userId,
+            username: game.username,
+            mode: game.mode,
+            betAmount: game.betAmount,
+            multiplier: game.result.multiplier,
+            winnings: game.winAmount,
+            profit: game.result.profit,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Log suspicious patterns
+        if (game.result.multiplier >= 5.0) {
+            logger.warn(`Plinko Game Ended - HIGH WIN: ${JSON.stringify(logData)}`);
+        } else if (game.result.multiplier === 0.0) {
+            logger.info(`Plinko Game Ended - TOTAL LOSS: ${JSON.stringify(logData)}`);
+        }
+        
+        // Clean up excessive win tracking after 30 minutes
+        setTimeout(() => {
+            userAbusivePatterns.delete(game.userId);
+        }, 30 * 60 * 1000);
+    }
     return activePlinkoGames.delete(channelId);
 }
 

@@ -223,7 +223,8 @@ module.exports = {
                 interaction,
                 amount,
                 GameType.BLACKJACK,
-                1        // Min bet: $1 (no max bet limit)
+                1,       // Min bet: $1
+                150000   // Max bet: $150K
             );
 
             if (!validation.isValid) {
@@ -813,6 +814,45 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error ending blackjack game: ${error.message}`);
+        }
+    },
+
+    /**
+     * Start a new blackjack game from dropdown selection
+     */
+    async startNewGame(interaction, betAmount) {
+        try {
+            await interaction.deferUpdate();
+            
+            // Extract the bet amount and start a new game by calling the main execute function
+            const fakeInteraction = {
+                ...interaction,
+                options: {
+                    getString: (key) => key === 'amount' ? betAmount.toString() : null
+                },
+                deferReply: () => Promise.resolve(),
+                reply: interaction.editReply.bind(interaction),
+                editReply: interaction.editReply.bind(interaction),
+                replied: false,
+                deferred: true
+            };
+
+            // Call the main blackjack execute function with the fake interaction
+            await this.execute(fakeInteraction);
+            
+        } catch (error) {
+            logger.error(`Error starting new blackjack game from dropdown: ${error.message}`);
+            
+            try {
+                const errorMessage = 'Failed to start new game. Please use `/blackjack` command directly.';
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({ content: errorMessage, ephemeral: true });
+                } else {
+                    await interaction.followUp({ content: errorMessage, ephemeral: true });
+                }
+            } catch (replyError) {
+                logger.error(`Failed to send error message: ${replyError.message}`);
+            }
         }
     }
 };

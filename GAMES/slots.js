@@ -9,18 +9,19 @@ const path = require('path');
 const logger = require('../UTILS/logger');
 const { secureWeightedChoice } = require('../UTILS/rng');
 
-// Regular slot symbols with rarities and payouts (matching assets)
+// REBALANCED slot symbols - Now with proper house edge
+// Higher rarities for valuable symbols, lower payouts for balance
 const SLOT_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 35, payout: 2.0 },
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 30, payout: 2.5 },
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 25, payout: 3.0 },
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 20, payout: 4.0 },
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 15, payout: 5.0 },
-    'bar': { name: 'Bar', emoji: '📊', rarity: 12, payout: 6.0 },
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 8, payout: 10.0 },
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 5, payout: 20.0 },
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 3, payout: 50.0 },
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.5, payout: 200.0 }
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 40, payout: 1.5 },     // Most common, lowest payout
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 25, payout: 2.0 },         // Common
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 15, payout: 2.5 },       // Uncommon
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, payout: 3.0 },       // Uncommon
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 5, payout: 4.0 }, // Rare
+    'bar': { name: 'Bar', emoji: '📊', rarity: 3, payout: 6.0 },              // Rare
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1.5, payout: 10.0 }, // Very rare
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.4, payout: 25.0 },   // Ultra rare
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.1, payout: 100.0 },  // Legendary
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.01, payout: 500.0 }  // Near impossible
 };
 
 // Matrix mode symbols (increased win probability by 3%)
@@ -121,27 +122,8 @@ function calculatePayout(symbols, betAmount) {
         };
     }
 
-    // Check for two of a kind
-    const symbolCounts = {};
-    symbols.forEach(symbol => {
-        symbolCounts[symbol] = (symbolCounts[symbol] || 0) + 1;
-    });
-
-    for (const [symbol, count] of Object.entries(symbolCounts)) {
-        if (count === 2) {
-            const symbolData = SLOT_SYMBOLS[symbol];
-            const baseMultiplier = symbolData.payout;
-            const multiplier = baseMultiplier * TWO_MATCH_MULTIPLIER;
-            const payout = betAmount * multiplier;
-            
-            return {
-                won: true,
-                payout: payout,
-                multiplier: multiplier,
-                type: `🎊 Two ${symbolData.name}s!`
-            };
-        }
-    }
+    // REMOVED TWO-MATCH WINS - Now only 3 of a kind wins!
+    // This creates a proper house edge as most spins will lose
 
     // No matches
     return {

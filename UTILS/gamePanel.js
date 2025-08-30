@@ -106,76 +106,88 @@ class GamePanel {
     }
 
     /**
-     * Create play again buttons with multiple bet amounts
+     * Create play again dropdown with multiple bet amounts
      */
     static createPlayAgainButtons(options = {}) {
         const {
             lastBet = 0,
             balance = 0,
             minBet = 10,
+            maxBet = 150000, // Max bet limit
             showQuit = true
         } = options;
 
         const rows = [];
-        const buttons = [];
         
-        // Preset bet amounts to offer
-        const presetAmounts = [];
+        // Create dropdown options for bet amounts
+        const dropdownOptions = [];
         
         // Add same bet option if valid
-        if (lastBet > 0 && lastBet <= balance && lastBet >= minBet) {
-            buttons.push(
-                new ButtonBuilder()
-                    .setCustomId(`game_play_again_${lastBet}`)
-                    .setLabel(`Same Bet ($${lastBet.toLocaleString()})`)
-                    .setStyle(ButtonStyle.Success)
-                    .setEmoji('🔄')
-            );
+        if (lastBet > 0 && lastBet <= balance && lastBet >= minBet && lastBet <= maxBet) {
+            dropdownOptions.push({
+                label: `Same Bet - $${lastBet.toLocaleString()}`,
+                description: 'Play again with your previous bet',
+                value: `play_again_${lastBet}`,
+                emoji: '🔄'
+            });
         }
         
         // Add preset amount options based on balance
-        const possibleAmounts = [10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000];
+        const possibleAmounts = [100, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 150000];
         
         for (const amount of possibleAmounts) {
-            if (amount >= minBet && amount <= balance && amount !== lastBet) {
-                presetAmounts.push(amount);
+            if (amount >= minBet && amount <= Math.min(balance, maxBet) && amount !== lastBet) {
+                dropdownOptions.push({
+                    label: `$${amount.toLocaleString()}`,
+                    description: `Bet $${amount.toLocaleString()}`,
+                    value: `play_again_${amount}`,
+                    emoji: '💰'
+                });
+                
+                // Limit to 20 options (Discord limit is 25)
+                if (dropdownOptions.length >= 20) break;
             }
         }
         
-        // Take up to 3 preset amounts (prioritize smaller amounts for variety)
-        const selectedAmounts = presetAmounts.slice(0, 3);
+        // Add custom amounts
+        const customAmounts = [
+            { amount: Math.floor(balance * 0.1), label: '10% of Balance', emoji: '📊' },
+            { amount: Math.floor(balance * 0.25), label: '25% of Balance', emoji: '📈' },
+            { amount: Math.floor(balance * 0.5), label: '50% of Balance', emoji: '⚡' },
+            { amount: balance, label: 'All In', emoji: '🎰' }
+        ];
         
-        for (const amount of selectedAmounts) {
-            buttons.push(
-                new ButtonBuilder()
-                    .setCustomId(`game_play_again_${amount}`)
-                    .setLabel(`$${amount.toLocaleString()}`)
-                    .setStyle(ButtonStyle.Primary)
-                    .setEmoji('💰')
-            );
+        for (const custom of customAmounts) {
+            if (custom.amount >= minBet && custom.amount <= maxBet && 
+                custom.amount !== lastBet && 
+                !dropdownOptions.find(opt => opt.value === `play_again_${custom.amount}`) &&
+                dropdownOptions.length < 20) {
+                dropdownOptions.push({
+                    label: `${custom.label} - $${custom.amount.toLocaleString()}`,
+                    description: `Bet ${custom.label.toLowerCase()}`,
+                    value: `play_again_${custom.amount}`,
+                    emoji: custom.emoji
+                });
+            }
         }
         
-        // Add all-in option if balance is reasonable
-        if (balance > Math.max(...possibleAmounts.filter(a => a <= balance)) && balance >= minBet && buttons.length < 4) {
-            buttons.push(
-                new ButtonBuilder()
-                    .setCustomId(`game_play_again_${balance}`)
-                    .setLabel(`All In ($${balance.toLocaleString()})`)
-                    .setStyle(ButtonStyle.Danger)
-                    .setEmoji('🎰')
-            );
-        }
-        
-        // If we have play again buttons, add them to first row
-        if (buttons.length > 0) {
-            rows.push(new ActionRowBuilder().addComponents(buttons.slice(0, 5)));
+        // Create dropdown if we have options
+        if (dropdownOptions.length > 0) {
+            const dropdown = new StringSelectMenuBuilder()
+                .setCustomId('blackjack_bet_select')
+                .setPlaceholder('💰 Choose your bet amount to play again')
+                .setMinValues(1)
+                .setMaxValues(1)
+                .addOptions(dropdownOptions.slice(0, 25)); // Discord limit
+                
+            rows.push(new ActionRowBuilder().addComponents(dropdown));
         }
         
         // Add quit button in a second row if requested
         if (showQuit) {
             const quitButton = new ButtonBuilder()
                 .setCustomId('game_quit')
-                .setLabel('Quit')
+                .setLabel('Quit Game')
                 .setStyle(ButtonStyle.Secondary)
                 .setEmoji('🚪');
                 

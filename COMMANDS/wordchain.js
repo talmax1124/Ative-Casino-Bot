@@ -5,6 +5,7 @@
 const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder } = require('discord.js');
 const { fmt, getGuildId, sendLogMessage, setActiveGame, clearActiveGame } = require('../UTILS/common');
 const dbManager = require('../UTILS/database');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const logger = require('../UTILS/logger');
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const levelingSystem = require('../UTILS/levelingSystem');
@@ -199,10 +200,22 @@ module.exports = {
                 const p = game.players.get(i.user.id);
                 if (!p) return i.reply({ content: '❌ Join the game first.', ephemeral: true });
                 if (p.paidPot) return i.reply({ content: '❌ You already paid into the pot.', ephemeral: true });
-                const bal = await dbManager.getUserBalance(i.user.id, guildId);
-                if (bal.wallet < game.potAmount) {
-                    return i.reply({ content: `❌ Insufficient funds. Need ${fmt(game.potAmount)}, have ${fmt(bal.wallet)}.`, ephemeral: true });
+                // Validate and deduct pot amount using PayoutManager
+                const potValidation = await PayoutManager.validateAndDeductBet(
+                    i,
+                    game.potAmount.toString(),
+                    GameType.WORDCHAIN,
+                    1, // Minimum pot amount
+                    150000 // Maximum pot amount: 150K
+                );
+                
+                if (!potValidation.isValid) {
+                    return i.reply({ 
+                        content: `❌ ${potValidation.errorEmbed.data.description}`, 
+                        ephemeral: true 
+                    });
                 }
+                
                 // Create session for pot players
                 const sessionResult = await GameSessionIntegrator.createGameSession({
                     userId: i.user.id,
@@ -220,14 +233,9 @@ module.exports = {
                 });
                 
                 if (!sessionResult.success) {
+                    // Refund the pot amount if session creation fails
+                    await PayoutManager.refundBet(i.user.id, guildId, game.potAmount, 'WordChain session creation failed');
                     return i.reply({ content: '❌ Failed to create game session.', ephemeral: true });
-                }
-                
-                const ok = await dbManager.updateUserBalance(i.user.id, guildId, -game.potAmount, 0);
-                if (!ok) {
-                    // Clean up session on payment failure
-                    await GameSessionIntegrator.handleGameError(i.user.id, 'wordchain', game.potAmount, guildId, 'Payment failed');
-                    return i.reply({ content: '❌ Failed to deduct pot.', ephemeral: true });
                 }
                 
                 p.paidPot = true;
@@ -242,7 +250,7 @@ module.exports = {
                     return i.reply({ content: '❌ Host cannot leave while others joined.', ephemeral: true });
                 }
                 const p = game.players.get(i.user.id);
-                if (p.paidPot) await dbManager.updateUserBalance(i.user.id, guildId, game.potAmount, 0);
+                if (p.paidPot) await PayoutManager.refundBet(i.user.id, guildId, game.potAmount, 'Left WordChain game');
                 if (game.removePlayer(i.user.id)) {
                     await i.reply({ content: '👋 Left the game.', ephemeral: true });
                     await updatePanel();

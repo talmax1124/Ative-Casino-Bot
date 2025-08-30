@@ -340,6 +340,15 @@ class DatabaseAdapter {
      */
     async setUserBalance(userId, guildId = null, wallet = null, bank = null, kwargs = {}) {
         try {
+            // Safety check for undefined values
+            if (userId === undefined) {
+                logger.error('setUserBalance called with undefined userId');
+                return false;
+            }
+            if (guildId === undefined) {
+                guildId = null; // Convert undefined to null
+            }
+            
             const updateFields = ['updated_at = NOW()'];
             const updateValues = [];
 

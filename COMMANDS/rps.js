@@ -5,7 +5,8 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { 
     RPSGameSession,
@@ -93,78 +94,23 @@ module.exports = {
                 return;
             }*/
 
-            // Parse bet amount
+            // Use PayoutManager to validate and deduct bet IMMEDIATELY
             const amountStr = interaction.options.getString('amount');
-            let betAmount;
-            
-            const parsedAmount = parseAmount(amountStr);
-            if (parsedAmount === null) {
-                const embed = buildSessionEmbed({
-                    title: '❌ Invalid Amount',
-                    topFields: [{
-                        name: 'Bet Amount Error',
-                        value: `"${amountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".`
-                    }],
-                    stageText: 'INVALID BET',
-                    color: 0xFF0000,
-                    footer: 'Use numbers, K/M/B suffixes, "all", "half", or "quarter"'
-                });
-                
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            const validationResult = await PayoutManager.validateAndDeductBet(
+                interaction,
+                amountStr,
+                GameType.ROCKPAPERSCISSORS,
+                50,        // Min bet: $50
+                150000     // Max bet: $150K
+            );
+
+            if (!validationResult.isValid) {
+                await interaction.reply({ embeds: [validationResult.errorEmbed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
-            betAmount = resolveAmount(parsedAmount, balance.wallet);
-            
-            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
-                const embed = buildSessionEmbed({
-                    title: '❌ Invalid Bet',
-                    topFields: [{
-                        name: 'Bet Amount Error',
-                        value: 'Bet amount must be greater than 0!'
-                    }],
-                    stageText: 'INVALID BET',
-                    color: 0xFF0000,
-                    footer: 'RPS Game • ATIVE Casino'
-                });
-                
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
-            }
-
-            // Validate bet amount
-            const MIN_BET = 50;
-            if (betAmount < MIN_BET) {
-                const embed = buildSessionEmbed({
-                    title: '❌ Minimum Bet Required',
-                    topFields: [{
-                        name: 'Bet Too Low',
-                        value: `Minimum bet for RPS is ${fmt(MIN_BET)}!`
-                    }],
-                    stageText: 'BET TOO LOW',
-                    color: 0xFF0000,
-                    footer: 'Increase your bet amount to start playing'
-                });
-                
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
-            }
-
-            if (betAmount > balance.wallet) {
-                const embed = buildSessionEmbed({
-                    title: '❌ Insufficient Funds',
-                    topFields: [{
-                        name: 'Wallet Balance',
-                        value: `You only have ${fmt(balance.wallet)} in your wallet!`
-                    }],
-                    stageText: 'INSUFFICIENT FUNDS',
-                    color: 0xFF0000,
-                    footer: 'Use /balance to check your funds or /work to earn more'
-                });
-                
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
-            }
+            const betAmount = validationResult.parsedAmount;
+            const newWalletBalance = validationResult.newWallet;
 
             // Create game session
             const sessionResult = await GameSessionIntegrator.createGameSession({
@@ -188,12 +134,7 @@ module.exports = {
 
             const sessionId = sessionResult.sessionId;
 
-            // Deduct bet from player 1's wallet and set game as active
-            const newWalletBalance = balance.wallet - betAmount;
-            
-            await dbManager.updateUserBalance(userId, guildId, {
-                wallet: newWalletBalance
-            });
+            // Bet already deducted by PayoutManager
 
             // Create RPS game
             const rpsGame = startRPSGame(userId, username, betAmount, channelId);

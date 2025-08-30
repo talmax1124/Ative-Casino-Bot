@@ -148,7 +148,7 @@ class OptimizedCrashGame {
     let title, color, description;
     
     // Add owner info to distinguish between multiple games
-    const ownerInfo = this.ownerId ? `<@${this.ownerId}>'s ` : '';
+    const ownerInfo = this.ownerUsername ? `${this.ownerUsername}'s ` : '';
     
     switch (this.state) {
       case 'betting':
@@ -176,7 +176,7 @@ class OptimizedCrashGame {
       .setTitle(title)
       .setDescription(description)
       .setColor(color)
-      .setFooter({ text: this.ownerId ? 'Personal Crash Game • Others can start their own!' : 'Crash Game' })
+      .setFooter({ text: this.ownerUsername ? 'Personal Crash Game • Others can start their own!' : 'Crash Game' })
       .setTimestamp();
 
     // Add player list
@@ -365,7 +365,7 @@ class OptimizedCrashManager {
     this.games = new Map();
   }
 
-  createGame(channelId, guildId, sessionId = null, userId = null) {
+  createGame(channelId, guildId, sessionId = null, userId = null, username = null) {
     // Create unique game key: if userId provided, make it user-specific
     // This allows multiple independent crash sessions per channel
     let gameKey;
@@ -384,6 +384,7 @@ class OptimizedCrashManager {
     const game = new OptimizedCrashGame(channelId, guildId);
     game.gameKey = gameKey; // Store the key for later reference
     game.ownerId = userId; // Store who owns this game session
+    game.ownerUsername = username; // Store the owner's username
     this.games.set(gameKey, game);
     return game;
   }
@@ -591,7 +592,7 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
   
   // Always create a new user-specific game - this allows multiple independent sessions
   // Each user gets their own crash game that doesn't interfere with others
-  let game = crashManager.createGame(channelId, guildId, sessionId, userId);
+  let game = crashManager.createGame(channelId, guildId, sessionId, userId, username);
   game.sessionId = sessionId;
   
   // Check if there's an initial bet from the command

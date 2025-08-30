@@ -44,7 +44,9 @@ const GameType = {
     ROCKPAPERSCISSORS: 'rps',
     MATRIX_SLOTS: 'matrix_slots',
     DUCK_GAME: 'duck_game',
-    MULTI_SLOTS: 'multi_slots'
+    MULTI_SLOTS: 'multi_slots',
+    BATTLESHIP: 'battleship',
+    WORDCHAIN: 'wordchain'
 };
 
 // ========================= DATA CLASSES =========================
@@ -214,6 +216,14 @@ class PayoutManager {
      */
     static async processGamePayout(gameResult, interaction = null) {
         const { userId, guildId, gameType, betAmount, payout, won } = gameResult;
+        
+        // Log all game results for anti-abuse monitoring
+        const resultMultiplier = betAmount > 0 ? (payout / betAmount) : 0;
+        if (won && resultMultiplier >= 10) {
+            logger.warn(`HIGH WIN ALERT: User ${userId} won ${payout} (${resultMultiplier.toFixed(2)}x) in ${gameType}`);
+        } else if (!won && payout === 0) {
+            logger.info(`Total Loss: User ${userId} lost entire bet ${betAmount} in ${gameType}`);
+        }
         
         try {
             // Get current balance

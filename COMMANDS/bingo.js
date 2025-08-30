@@ -5,7 +5,8 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, AttachmentBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { 
     BingoGameSession,
     BingoInteractiveCardView,
@@ -55,72 +56,38 @@ module.exports = {
                 }
             }
 
-            // Ensure user exists
-            await dbManager.ensureUser(userId, username);
+            // User existence and balance validation handled by PayoutManager
             
-            const balance = await dbManager.getUserBalance(userId, guildId);
-            
-            // Parse bet amount
+            // Validate and deduct bet amount using PayoutManager
             const amountStr = interaction.options.getString('amount');
-            let betAmount;
-            
-            const parsedAmount = parseAmount(amountStr);
-            if (parsedAmount === null) {
-                await interaction.followUp({
-                    content: `❌ "${amountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".`,
-                    ephemeral: true
-                });
-                return;
-            }
-
-            betAmount = resolveAmount(parsedAmount, balance.wallet);
-            
-            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
-                await interaction.followUp({
-                    content: `❌ Bet amount must be greater than 0!`,
-                    ephemeral: true
-                });
-                return;
-            }
-
-            // Validate bet amount
             const MIN_BET = 50;
             const MAX_BET = 10000;
             
-            if (betAmount < MIN_BET) {
+            const validation = await PayoutManager.validateAndDeductBet(
+                interaction,
+                amountStr,
+                GameType.BINGO,
+                MIN_BET,
+                150000
+            );
+            
+            if (!validation.isValid) {
                 await interaction.followUp({
-                    content: `❌ Minimum bet for BINGO is ${fmt(MIN_BET)}!`,
+                    embeds: [validation.errorEmbed],
                     ephemeral: true
                 });
                 return;
             }
             
-            if (betAmount > MAX_BET) {
-                await interaction.followUp({
-                    content: `❌ Maximum bet for BINGO is ${fmt(MAX_BET)}!`,
-                    ephemeral: true
-                });
-                return;
-            }
-
-            if (betAmount > balance.wallet) {
-                await interaction.followUp({
-                    content: `❌ You need ${fmt(betAmount)} but only have ${fmt(balance.wallet)}!`,
-                    ephemeral: true
-                });
-                return;
-            }
-
-            // Deduct bet from starter
-            await dbManager.updateUserBalance(userId, guildId, -betAmount, 0);
+            const betAmount = validation.parsedAmount;
 
             // Create new game
             const game = startBingoGame(channelId, guildId, betAmount);
             const success = game.addPlayer(userId, `<@${userId}>`);
 
             if (!success) {
-                // Refund if couldn't create game
-                await dbManager.updateUserBalance(userId, guildId, betAmount, 0);
+                // Refund if couldn't create game using PayoutManager
+                await PayoutManager.refundBet(userId, guildId, betAmount, 'Failed to create BINGO game');
                 await interaction.followUp({
                     content: '❌ Failed to create game!',
                     ephemeral: true
@@ -279,25 +246,27 @@ module.exports = {
                 return;
             }
 
-            // Check balance
-            await dbManager.ensureUser(userId, username);
-            const balance = await dbManager.getUserBalance(userId, guildId);
+            // Validate and deduct bet amount using PayoutManager for joining player
+            const joinValidation = await PayoutManager.validateAndDeductBet(
+                interaction,
+                game.starterBet.toString(),
+                GameType.BINGO,
+                50, // MIN_BET
+                150000 // MAX_BET
+            );
             
-            if (balance.wallet < game.starterBet) {
-                const embed = game.getLobbyEmbed(`❌ **<@${userId}>** needs ${fmt(game.starterBet)} but only has ${fmt(balance.wallet)}!`);
+            if (!joinValidation.isValid) {
+                const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - ${joinValidation.errorEmbed.data.description}`);
                 const buttons = game.createLobbyButtons();
                 await interaction.update({ embeds: [embed], components: buttons });
                 return;
             }
 
-            // Deduct bet amount
-            await dbManager.updateUserBalance(userId, guildId, -game.starterBet, 0);
-
             // Add player
             const success = game.addPlayer(userId, `<@${userId}>`);
             if (!success) {
-                // Refund if couldn't add player
-                await dbManager.updateUserBalance(userId, guildId, game.starterBet, 0);
+                // Refund if couldn't add player using PayoutManager
+                await PayoutManager.refundBet(userId, guildId, game.starterBet, 'Failed to join BINGO game');
                 const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - Failed to join game (max players reached)!`);
                 const buttons = game.createLobbyButtons();
                 await interaction.update({ embeds: [embed], components: buttons });
@@ -405,8 +374,8 @@ module.exports = {
                 return;
             }
 
-            // Remove player and refund
-            await dbManager.updateUserBalance(userId, guildId, game.starterBet, 0);
+            // Remove player and refund using PayoutManager
+            await PayoutManager.refundBet(userId, guildId, game.starterBet, 'Left BINGO game');
 
             game.removePlayer(userId);
             

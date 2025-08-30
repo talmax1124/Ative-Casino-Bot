@@ -5,7 +5,8 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { 
     FishingGame, 
     startFishingGame, 
@@ -33,9 +34,6 @@ module.exports = {
         const username = interaction.user.displayName;
         
         try {
-            // Ensure user exists in database
-            await dbManager.ensureUser(userId, username);
-            
             // Modern session validation
             const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, 'fishing', guildId);
             if (!sessionValidation.valid) {
@@ -43,45 +41,26 @@ module.exports = {
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
             
-            // Get current balance
-            const balance = await dbManager.getUserBalance(userId, guildId);
-
-            // Parse bet amount
+            // Validate and deduct bet amount using PayoutManager
             const amountStr = interaction.options.getString('amount');
-            let betAmount;
             
-            const parsedAmount = parseAmount(amountStr);
-            if (parsedAmount === null) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Invalid Amount')
-                    .setDescription(`"${amountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".`)
-                    .setColor(0xFF0000);
-                
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
-            }
-
-            betAmount = resolveAmount(parsedAmount, balance.wallet);
+            const validation = await PayoutManager.validateAndDeductBet(
+                interaction,
+                amountStr,
+                GameType.FISHING,
+                1, // No minimum bet for fishing
+                150000 // Maximum bet: 150K
+            );
             
-            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Invalid Bet')
-                    .setDescription('Bet must be greater than $0!')
-                    .setColor(0xFF0000);
-                
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            if (!validation.isValid) {
+                await interaction.reply({
+                    embeds: [validation.errorEmbed],
+                    flags: MessageFlags.Ephemeral
+                });
                 return;
             }
-
-            if (betAmount > balance.wallet) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Insufficient Funds')
-                    .setDescription(`You only have ${fmt(balance.wallet)} in your wallet!\n\nUse \`/balance\` to check your funds.`)
-                    .setColor(0xFF0000);
-                
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                return;
-            }
+            
+            const betAmount = validation.parsedAmount;
 
             // Create game session with enhanced protection
             const sessionResult = await GameSessionIntegrator.createGameSession({
@@ -108,14 +87,13 @@ module.exports = {
                 return;
             }
 
-            // Deduct bet from wallet
-            const newWalletBalance = balance.wallet - betAmount;
-            await dbManager.updateUserBalance(userId, guildId, { wallet: newWalletBalance });
-
-            // Create fishing game
-            const fishingGame = startFishingGame(userId, username, betAmount, newWalletBalance);
+            // Create fishing game (bet already deducted by PayoutManager)
+            const fishingGame = startFishingGame(userId, username, betAmount, validation.newWallet);
             fishingGame.sessionId = sessionResult.sessionId; // Store session ID for completion
 
+            // Get current balance for bank amount in embed
+            const balance = await dbManager.getUserBalance(userId, guildId);
+            
             // Create initial embed and buttons
             const initialEmbed = fishingGame.getInitialEmbed(balance.bank);
             const buttons = fishingGame.createButtons();
@@ -132,7 +110,7 @@ module.exports = {
             await sendLogMessage(
                 interaction.client,
                 'info',
-                `🎣 **Fishing Game Started**\n**Player:** ${username} (\`${userId}\`)\n**Bet:** ${fmt(betAmount)}\n**Remaining Wallet:** ${fmt(newWalletBalance)}`,
+                `🎣 **Fishing Game Started**\n**Player:** ${username} (\`${userId}\`)\n**Bet:** ${fmt(betAmount)}\n**Remaining Wallet:** ${fmt(validation.newWallet)}`,
                 userId,
                 guildId
             );

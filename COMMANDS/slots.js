@@ -119,7 +119,7 @@ module.exports = {
                 amount,
                 GameType.SLOTS,
                 1,        // Min bet: $1
-                1000000   // Max bet: $1M
+                150000    // Max bet: $150K
             );
 
             if (!validation.isValid) {

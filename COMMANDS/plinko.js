@@ -8,7 +8,6 @@ const dbManager = require('../UTILS/database');
 const { fmtFull, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PLINKO_MODES, getCurrentPlinkoModes, randomizeMultipliers, createPlinkoImage, simulatePlinkoDrop } = require('../UTILS/plinkoCanvas');
-const economyAnalyzer = require('../UTILS/economyAnalyzer');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 // sessionManager removed (Firebase dependency) - using mock implementation
 const sessionManager = {
@@ -44,14 +43,7 @@ module.exports = {
                     { name: '🔴 Hard', value: 'Hard' },
                     { name: '💀 Nightmare', value: 'Nightmare' }
                 )
-        )
-        .addIntegerOption(option =>
-            option.setName('slot')
-                .setDescription('Drop slot (1-based, random if not specified)')
-                .setRequired(false)
-                .setMinValue(1)
-                .setMaxValue(25)
-        ),
+        ), // Removed slot option - drop position is always random
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -59,7 +51,7 @@ module.exports = {
         const username = interaction.user.displayName;
         const betAmountStr = interaction.options.getString('amount');
         const selectedMode = interaction.options.getString('mode') || 'Medium';
-        const selectedSlot = interaction.options.getInteger('slot');
+        // Slot is always random now
 
         try {
             // Immediately defer to prevent timeout
@@ -95,78 +87,36 @@ module.exports = {
                 return;
             }
 
-            // Parse and validate bet amount
-            const parsedAmount = parseAmount(betAmountStr);
-            if (parsedAmount === null) {
-                const embed = buildSessionEmbed({
-                    title: `❌ ${username}'s Plinko`,
-                    topFields: [
-                        { name: 'Invalid Amount', value: `"${betAmountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".` }
-                    ],
-                    color: 0xFF0000,
-                    footer: 'Plinko Game • Invalid Input'
-                });
+            // Use PayoutManager to validate and deduct bet IMMEDIATELY
+            const validationResult = await PayoutManager.validateAndDeductBet(
+                interaction,
+                betAmountStr,
+                GameType.PLINKO,
+                100, // Minimum bet: 100 chips
+                150000 // Maximum bet: 150K chips
+            );
 
-                await interaction.editReply({ embeds: [embed] });
+            if (!validationResult.isValid) {
+                await interaction.editReply({ embeds: [validationResult.errorEmbed] });
                 return;
             }
 
-            const betAmount = resolveAmount(parsedAmount, balance.wallet);
+            const betAmount = validationResult.parsedAmount;
+            const newWalletAfterBet = validationResult.newWallet;
 
-            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
-                const embed = buildSessionEmbed({
-                    title: `❌ ${username}'s Plinko`,
-                    topFields: [
-                        { name: 'Invalid Bet', value: 'Bet amount must be greater than 0!' }
-                    ],
-                    color: 0xFF0000,
-                    footer: 'Plinko Game'
-                });
-
-                await interaction.editReply({ embeds: [embed] });
-                return;
-            }
-
-            if (betAmount > balance.wallet) {
-                const embed = buildSessionEmbed({
-                    title: `❌ ${username}'s Plinko`,
-                    topFields: [
-                        { name: 'Insufficient Funds', value: `You need ${fmtFull(betAmount)} but only have ${fmtFull(balance.wallet)}!` }
-                    ],
-                    bankFields: [
-                        { name: 'Wallet', value: fmtFull(balance.wallet), inline: true },
-                        { name: 'Bank', value: fmtFull(balance.bank), inline: true }
-                    ],
-                    color: 0xFF0000,
-                    footer: 'Plinko Game'
-                });
-
-                await interaction.editReply({ embeds: [embed] });
-                return;
-            }
-
-            // Get dynamic mode data based on economy analysis
-            const currentModes = await getCurrentPlinkoModes(guildId);
-            const modeData = currentModes[selectedMode];
-            if (!modeData) {
-                await interaction.editReply({ content: 'Invalid mode selected!' });
-                return;
-            }
-
-            // Setup game parameters first - get dynamic multipliers from economy analyzer
-            const baseMultipliers = modeData.multipliers;
-            const economicMultipliers = economyAnalyzer.getGameMultipliers('plinko', selectedMode.toLowerCase());
-            const dynamicMultipliers = economicMultipliers.length > 0 ? economicMultipliers : baseMultipliers;
-            const multipliers = randomizeMultipliers(dynamicMultipliers);
-            const slots = multipliers.length;
+            // Use FIXED multipliers from plinko.js - NO DYNAMIC ADJUSTMENTS
+            const { startPlinkoGame } = require('../GAMES/plinko');
+            const normalizedMode = selectedMode.toLowerCase(); // Convert to lowercase
+            const gameSession = startPlinkoGame(userId, username, betAmount, interaction.channelId, normalizedMode);
             
-            // Determine drop slot
-            let dropSlot;
-            if (selectedSlot) {
-                dropSlot = Math.min(selectedSlot - 1, slots - 1); // Convert to 0-based
-            } else {
-                dropSlot = Math.floor(Math.random() * slots);
-            }
+            // Get base multipliers and randomize their positions 
+            const baseMultipliers = gameSession.modes[normalizedMode].multipliers;
+            const multipliers = [...baseMultipliers].sort(() => Math.random() - 0.5); // Shuffle positions
+            const slots = multipliers.length;
+            const modeData = gameSession.modes[normalizedMode];
+            
+            // Drop slot is always random
+            const dropSlot = Math.floor(Math.random() * slots);
 
             // Create game session using new system
             const sessionResult = await GameSessionIntegrator.createGameSession({
@@ -196,18 +146,26 @@ module.exports = {
             // Get updated balance after bet deduction
             const updatedBalance = await dbManager.getUserBalance(userId, guildId);
 
+            // Get mode colors
+            const modeColors = {
+                easy: 0x00FF00,    // Green
+                medium: 0xFFFF00,  // Yellow  
+                hard: 0xFF0000,    // Red
+                nightmare: 0x800080 // Purple
+            };
+
             // Show initial game setup with help info
             const setupEmbed = buildSessionEmbed({
                 title: `🎯 ${username}'s ${selectedMode} Plinko`,
                 topFields: [
-                    { name: '🎮 Game Starting!', value: `Preparing your plinko board...\n\n**Mode:** ${modeData.emoji} ${selectedMode}\n**Drop Slot:** #${dropSlot + 1}\n**Bet:** ${fmtFull(betAmount)}` },
-                    { name: '❓ How to Play', value: '• Ball drops from your chosen slot\n• Bounces randomly down the pegs\n• Lands in a multiplier slot at bottom\n• Win = Bet × Multiplier', inline: false }
+                    { name: '🎮 Game Starting!', value: `Preparing your plinko board...\n\n**Mode:** ${modeData.name}\n**Drop Slot:** Random\n**Bet:** ${fmtFull(betAmount)}` },
+                    { name: '❓ How to Play', value: '• Ball drops from a random starting position\n• Bounces randomly down the pegs\n• Lands in a multiplier slot at bottom\n• Win = Bet × Multiplier', inline: false }
                 ],
                 bankFields: [
                     { name: 'Difficulty Modes', value: '🟢 Easy: Safe multipliers\n🟡 Medium: Balanced risk\n🔴 Hard: High risk/reward\n💀 Nightmare: Extreme variance', inline: true }
                 ],
                 stageText: 'PREPARING BOARD',
-                color: parseInt(modeData.color.replace('#', ''), 16),
+                color: modeColors[normalizedMode] || 0x00FF00,
                 footer: 'Plinko • Get ready!'
             });
 
@@ -282,27 +240,37 @@ module.exports = {
 async function playAnimatedPlinko(interaction, gameData, guildId) {
     const { userId, username, betAmount, mode, modeData, multipliers, slots, dropSlot } = gameData;
     
+    // Get mode colors
+    const modeColors = {
+        Easy: 0x00FF00,      // Green
+        Medium: 0xFFFF00,    // Yellow  
+        Hard: 0xFF0000,      // Red
+        Nightmare: 0x800080  // Purple
+    };
+    
+    const rows = 10; // Fixed number of rows
+    
     try {
         // Map slot to simulation coordinates
         const startPos = dropSlot - ((slots - 1) / 2);
 
         // Run simulation to get ball path
         const { slotIndex: finalSlot, path: ballPath } = simulatePlinkoDrop(
-            modeData.rows,
+            rows,
             slots,
             startPos
         );
 
         const finalMultiplier = multipliers[finalSlot];
         const winnings = Math.floor(betAmount * finalMultiplier);
-        const won = winnings >= betAmount;
+        const won = winnings > 0; // Only a win if they get something back
 
         // Create animation frames
         const animationFrames = [];
         
         // Initial frame
         animationFrames.push(createPlinkoImage(
-            modeData.rows,
+            rows,
             slots,
             multipliers,
             null,
@@ -311,9 +279,9 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
         ));
 
         // Animation frames showing ball dropping
-        for (let i = 0; i <= Math.min(ballPath.length, modeData.rows + 1); i++) {
+        for (let i = 0; i <= Math.min(ballPath.length, rows + 1); i++) {
             animationFrames.push(createPlinkoImage(
-                modeData.rows,
+                rows,
                 slots,
                 multipliers,
                 ballPath,
@@ -324,11 +292,11 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
 
         // Final frame with winning slot highlighted
         animationFrames.push(createPlinkoImage(
-            modeData.rows,
+            rows,
             slots,
             multipliers,
             ballPath,
-            modeData.rows + 1,
+            rows + 1,
             mode,
             finalSlot
         ));
@@ -337,10 +305,10 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
         let embed = buildSessionEmbed({
             title: `🎯 ${username}'s ${mode} Plinko`,
             topFields: [
-                { name: 'Ball Released!', value: `🔴 Ball dropped from slot #${dropSlot + 1}!\nWatch it bounce through the pegs...` }
+                { name: 'Ball Released!', value: `🔴 Ball dropped from random position!\nWatch it bounce through the pegs...` }
             ],
             stageText: 'BALL DROPPING',
-            color: parseInt(modeData.color.replace('#', ''), 16),
+            color: modeColors[mode] || 0x00FF00,
             footer: 'Plinko • Ball in motion!'
         });
 
@@ -356,10 +324,10 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
             const frameEmbed = buildSessionEmbed({
                 title: `🎯 ${username}'s ${mode} Plinko`,
                 topFields: [
-                    { name: 'Ball Bouncing', value: `⚡ Ball bouncing through pegs...\nRow ${Math.min(i, modeData.rows)}/${modeData.rows}` }
+                    { name: 'Ball Bouncing', value: `⚡ Ball bouncing through pegs...\nRow ${Math.min(i, rows)}/${rows}` }
                 ],
                 stageText: 'BALL BOUNCING',
-                color: parseInt(modeData.color.replace('#', ''), 16),
+                color: modeColors[mode] || 0x00FF00,
                 footer: 'Plinko • Almost there!',
                 image: `attachment://plinko_frame_${i}.png`
             });
@@ -419,7 +387,7 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
             mode,
             dropSlot: finalSlot,
             finalMultiplier,
-            housedEdge: modeData.house_edge
+            housedEdge: 0.15 // 15% house edge
         }
     });
 
@@ -467,7 +435,7 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
         ],
         stageText: won ? 'WINNER!' : 'BETTER LUCK NEXT TIME',
         color: resultColor,
-        footer: `🏠 House Edge: ${(modeData.house_edge * 100).toFixed(0)}% | Full Animation Complete!`,
+        footer: `🏠 House Edge: 15% | Full Animation Complete!`,
         image: 'attachment://plinko_final.png'
     });
 

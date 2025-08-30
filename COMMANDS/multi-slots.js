@@ -47,7 +47,7 @@ module.exports = {
                 amount,
                 GameType.MULTI_SLOTS,
                 1,                      // Min bet: $1
-                5000000,                // Max bet: $5M
+                150000,                 // Max bet: $150K
                 { matrixMinBet: MATRIX_MIN_BET }  // Special requirement for matrix mode
             );
 

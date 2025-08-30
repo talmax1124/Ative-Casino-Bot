@@ -4,6 +4,7 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 // sessionManager removed (Firebase dependency) - using mock implementation
 const sessionManager = {
     getAllActiveSessions: () => [],
@@ -60,56 +61,24 @@ module.exports = {
       let betAmount = 0;
       let validation = null;
       
-      // If bet amount is provided, validate it (but don't deduct - crash game will handle that)
+      // If bet amount is provided, validate and deduct it using PayoutManager
       if (betAmountStr) {
-        const { parseAmount } = require('../UTILS/common');
-        const dbManager = require('../UTILS/database');
+        const validation = await PayoutManager.validateAndDeductBet(
+          interaction,
+          betAmountStr,
+          GameType.CRASH,
+          100, // Minimum bet
+          150000 // Maximum bet: 150K
+        );
         
-        // Parse bet amount
-        betAmount = parseAmount(betAmountStr);
-        if (!betAmount || betAmount < 100) {
-          const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-          const errorEmbed = buildSessionEmbed({
-            title: '❌ Invalid Bet Amount',
-            topFields: [{
-              name: 'Invalid Amount',
-              value: `Minimum bet is $100. You entered: ${betAmountStr}`,
-              inline: false
-            }],
-            stageText: 'INVALID BET',
-            color: 0xFF0000,
-            footer: 'Crash Game • Betting Error'
-          });
-          
+        if (!validation.isValid) {
           return await interaction.reply({
-            embeds: [errorEmbed],
+            embeds: [validation.errorEmbed],
             flags: MessageFlags.Ephemeral
           });
         }
         
-        // Check if user has sufficient funds (but don't deduct yet)
-        await dbManager.ensureUser(userId, username);
-        const balance = await dbManager.getUserBalance(userId, guildId);
-        
-        if (balance.wallet < betAmount) {
-          const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-          const errorEmbed = buildSessionEmbed({
-            title: '❌ Insufficient Funds',
-            topFields: [{
-              name: 'Not Enough Money',
-              value: `You need $${betAmount.toLocaleString()} but only have $${balance.wallet.toLocaleString()}`,
-              inline: false
-            }],
-            stageText: 'INSUFFICIENT FUNDS',
-            color: 0xFF0000,
-            footer: 'Crash Game • Balance Error'
-          });
-          
-          return await interaction.reply({
-            embeds: [errorEmbed],
-            flags: MessageFlags.Ephemeral
-          });
-        }
+        betAmount = validation.parsedAmount;
       }
 
       // Validate session before proceeding
