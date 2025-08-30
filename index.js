@@ -869,12 +869,14 @@ client.on('interactionCreate', async interaction => {
             // Handle crash buttons (namespace: crash_...)
             else if (customId.startsWith('crash_')) {
                 const crashGame = require('./GAMES/crash');
-                // Look for the user's specific game first, then any game in the channel
-                const game = crashGame.crashManager.getGame(interaction.channelId, interaction.user.id);
+                // Look for any game in the channel that users can interact with
+                const game = crashGame.crashManager.getGame(interaction.channelId);
                 if (game) {
+                    logger.info(`Crash button interaction: ${customId} by ${interaction.user.displayName} - game state: ${game.state}, players: ${game.players.size}`);
                     await crashGame.handleButtonInteraction(interaction, client, game);
                 } else {
-                    await interaction.reply({ content: '❌ No active crash game found for you. Use `/crash` to start your own game!', ephemeral: true });
+                    logger.warn(`No crash game found for button interaction: ${customId} by ${interaction.user.displayName} in channel ${interaction.channelId}`);
+                    await interaction.reply({ content: '❌ No active crash game found. The game may have ended or expired.', ephemeral: true });
                 }
             }
             // Handle poll buttons

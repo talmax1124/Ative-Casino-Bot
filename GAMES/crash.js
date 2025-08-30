@@ -28,7 +28,7 @@ const CRASH_CONFIG = {
   max_multiplier: 50.0,
   house_edge: 0.03,
   max_duration: 30,           // Max 30 seconds per game
-  betting_duration: 15        // 15 seconds to place bets
+  betting_duration: 60        // 60 seconds to place bets (was 15)
 };
 
 // Simple crash point generation
@@ -64,6 +64,7 @@ class OptimizedCrashGame {
     this.updateInterval = null;
     this.bettingTimeout = null;
     this.sessionId = null;
+    this.createdAt = Date.now();
     
     logger.info(`Created optimized crash game for channel ${channelId} with crash point ${this.crashPoint.toFixed(2)}x`);
   }
@@ -154,7 +155,8 @@ class OptimizedCrashGame {
       case 'betting':
         title = `💰 ${ownerInfo}Crash - Betting Phase`;
         color = 0x00FF00;
-        description = 'Place your bets! Game starts soon...';
+        const timeRemaining = this.bettingTimeout ? Math.max(0, Math.ceil((CRASH_CONFIG.betting_duration * 1000 - (Date.now() - (this.createdAt || Date.now()))) / 1000)) : CRASH_CONFIG.betting_duration;
+        description = `🎯 Place your bets! Minimum bet: ${fmt(CRASH_CONFIG.min_bet)}\n⏱️ Time remaining: ${timeRemaining}s${this.players.size > 0 ? '\n🎮 Game will auto-start when timer reaches 0' : ''}`;
         break;
       case 'running':
         title = `🚀 ${ownerInfo}Crash - ${this.currentMultiplier.toFixed(2)}x`;
@@ -483,6 +485,7 @@ async function handleButtonInteraction(interaction, client, game) {
 
 async function handleJoinGame(interaction, game) {
   if (game.state !== 'betting') {
+    logger.warn(`User ${interaction.user.displayName} tried to join crash game but state is '${game.state}' (not 'betting')`);
     return await interaction.reply({ content: '❌ Betting is closed!', flags: MessageFlags.Ephemeral });
   }
   
@@ -648,10 +651,23 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
   
   game.gameMessage = fetchedMessage;
   
-  // Start betting timer
+  // Start betting timer - only auto-start if players join
   game.bettingTimeout = setTimeout(async () => {
-    if (game.state === 'betting' && game.players.size > 0) {
-      await game.startGame();
+    if (game.state === 'betting') {
+      if (game.players.size > 0) {
+        logger.info(`Auto-starting crash game with ${game.players.size} players after ${CRASH_CONFIG.betting_duration}s`);
+        await game.startGame();
+      } else {
+        logger.info(`Crash game betting phase ended with no players - keeping betting open`);
+        // Keep the game in betting state but extend the timeout
+        game.bettingTimeout = setTimeout(async () => {
+          if (game.state === 'betting' && game.players.size === 0) {
+            game.state = 'finished';
+            await game.updateMessage();
+            logger.info(`Crash game expired due to no players joining`);
+          }
+        }, 300000); // 5 minutes total timeout
+      }
     }
   }, CRASH_CONFIG.betting_duration * 1000);
 }
