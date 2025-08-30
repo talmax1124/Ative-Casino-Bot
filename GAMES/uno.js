@@ -460,7 +460,7 @@ class UnoGameSession {
     // UI Generation Methods
     getLobbyEmbed(notification = null) {
         const embed = new EmbedBuilder()
-            .setTitle('<� UNO Game Lobby')
+            .setTitle('🎴 UNO Game Lobby')
             .setDescription('Join the UNO game!')
             .setColor(0xFF0000);
 
@@ -470,7 +470,7 @@ class UnoGameSession {
 
         if (this.players.size > 0) {
             const playerList = Array.from(this.players.values())
-                .map(p => `" **${p.username}**`)
+                .map(p => `• **${p.username}**`)
                 .join('\n');
 
             embed.addFields({
@@ -488,17 +488,17 @@ class UnoGameSession {
 
         embed.addFields({
             name: 'Game Info',
-            value: `" **Buy-in:** ${fmt(this.starterBet)}\n" **Min Players:** ${this.minPlayers}\n" **Max Players:** ${this.maxPlayers}\n" **Turn Timeout:** ${this.turnTimeout}s`,
+            value: `• **Buy-in:** ${fmt(this.starterBet)}\n• **Min Players:** ${this.minPlayers}\n• **Max Players:** ${this.maxPlayers}\n• **Turn Timeout:** ${this.turnTimeout}s`,
             inline: false
         });
 
-        embed.setFooter({ text: '<� Classic UNO with a twist!' });
+        embed.setFooter({ text: '🎴 Classic UNO with a twist!' });
         return embed;
     }
 
     getGameEmbed() {
         const embed = new EmbedBuilder()
-            .setTitle('<� UNO Game in Progress')
+            .setTitle('🎯 UNO Game in Progress')
             .setColor(this.getColorCode(this.currentColor));
 
         const currentPlayer = this.getCurrentPlayer();
@@ -515,24 +515,24 @@ class UnoGameSession {
             .map(p => {
                 let status = `**${p.username}:** ${p.hand.length} cards`;
                 if (p.hasCalledUno && p.hand.length === 1) {
-                    status += ' =% UNO!';
+                    status += ' 🔥 UNO!';
                 }
                 if (p.userId === currentPlayer.userId) {
-                    status = `� ${status}`;
+                    status = `🎯 ${status}`;
                 }
                 return status;
             })
             .join('\n');
 
         embed.addFields({
-            name: '=e Players',
+            name: '🎮 Players',
             value: playerStatus,
             inline: false
         });
 
         if (this.drawStack > 0) {
             embed.addFields({
-                name: '� Draw Stack',
+                name: '🎯 Draw Stack',
                 value: `+${this.drawStack} cards to draw!`,
                 inline: true
             });
@@ -540,7 +540,7 @@ class UnoGameSession {
 
         const remainingCards = this.deck.length;
         embed.addFields({
-            name: '=� Deck',
+            name: '🎯 Deck',
             value: `${remainingCards} cards remaining`,
             inline: true
         });
@@ -551,7 +551,7 @@ class UnoGameSession {
 
     getPlayerHandEmbed(player) {
         const embed = new EmbedBuilder()
-            .setTitle('<� Your UNO Hand')
+            .setTitle('🎯 Your UNO Hand')
             .setColor(0x0000FF);
 
         const topCard = this.getTopCard();
@@ -560,11 +560,11 @@ class UnoGameSession {
         embed.setDescription(
             `**Top Card:** ${topCard.toString()}\n` +
             `**Current Color:** ${this.currentColor || topCard.color}\n` +
-            `**Your Turn:** ${player.userId === this.getCurrentPlayer().userId ? 'Yes �' : 'No'}`
+            `**Your Turn:** ${player.userId === this.getCurrentPlayer().userId ? 'Yes 🎯' : 'No'}`
         );
 
         embed.addFields({
-            name: `<� Your Cards (${player.hand.length})`,
+            name: `🎯 Your Cards (${player.hand.length})`,
             value: player.getHandDisplay(true) || 'No cards',
             inline: false
         });
@@ -575,7 +575,7 @@ class UnoGameSession {
                 .join('\n');
 
             embed.addFields({
-                name: ' Playable Cards',
+                name: '✅ Playable Cards',
                 value: playableText,
                 inline: false
             });
@@ -583,7 +583,7 @@ class UnoGameSession {
 
         if (player.canCallUno()) {
             embed.addFields({
-                name: '=% UNO Available!',
+                name: '🔥 UNO Available!',
                 value: 'You can call UNO!',
                 inline: false
             });
@@ -609,12 +609,12 @@ class UnoGameSession {
                     .setCustomId(`uno_join_${this.channelId}`)
                     .setLabel('Join Game')
                     .setStyle(ButtonStyle.Success)
-                    .setEmoji('<�'),
+                    .setEmoji('🎯'),
                 new ButtonBuilder()
                     .setCustomId(`uno_start_${this.channelId}`)
                     .setLabel('Start Game')
                     .setStyle(ButtonStyle.Primary)
-                    .setEmoji('=�')
+                    .setEmoji('🚀')
             );
 
         const row2 = new ActionRowBuilder()
@@ -623,7 +623,7 @@ class UnoGameSession {
                     .setCustomId(`uno_leave_${this.channelId}`)
                     .setLabel('Leave Game')
                     .setStyle(ButtonStyle.Danger)
-                    .setEmoji('=�')
+                    .setEmoji('❌')
             );
 
         const row3 = new ActionRowBuilder()
@@ -646,18 +646,18 @@ class UnoGameSession {
                     .setCustomId(`uno_hand_${this.channelId}`)
                     .setLabel('Show Hand')
                     .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('<�'),
+                    .setEmoji('👁️'),
                 new ButtonBuilder()
                     .setCustomId(`uno_draw_${this.channelId}`)
                     .setLabel('Draw Card')
                     .setStyle(ButtonStyle.Primary)
-                    .setEmoji('=�')
+                    .setEmoji('🎴')
                     .setDisabled(!isCurrentPlayer),
                 new ButtonBuilder()
                     .setCustomId(`uno_play_${this.channelId}`)
                     .setLabel('Play Card')
                     .setStyle(ButtonStyle.Success)
-                    .setEmoji('�')
+                    .setEmoji('🎯')
                     .setDisabled(!isCurrentPlayer)
             );
 
@@ -667,13 +667,13 @@ class UnoGameSession {
                     .setCustomId(`uno_uno_${this.channelId}`)
                     .setLabel('Call UNO!')
                     .setStyle(ButtonStyle.Danger)
-                    .setEmoji('=%')
+                    .setEmoji('🔴')
                     .setDisabled(!player.canCallUno()),
                 new ButtonBuilder()
                     .setCustomId(`uno_status_${this.channelId}`)
                     .setLabel('Game Status')
                     .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('=�')
+                    .setEmoji('📊')
             );
 
         return [row1, row2];
@@ -681,39 +681,39 @@ class UnoGameSession {
 
     static getHelpEmbed() {
         const embed = new EmbedBuilder()
-            .setTitle('<� UNO Game Guide')
+            .setTitle('🎴 UNO Game Guide')
             .setDescription('Learn how to play UNO!')
             .setColor(0xFF0000);
 
         embed.addFields(
             {
-                name: '<� Game Overview',
-                value: '" **Players:** 2-8 per game\n" **Buy-in:** Set by game starter\n" **Goal:** Be first to play all your cards\n" **Prize:** Winner takes entire pot',
+                name: '🎯 Game Overview',
+                value: '• **Players:** 2-8 per game\n• **Buy-in:** Set by game starter\n• **Goal:** Be first to play all your cards\n• **Prize:** Winner takes entire pot',
                 inline: false
             },
             {
-                name: '=� How to Play',
-                value: '1. Use `/uno <amount>` to start a game\n2. Players join and starter begins the game\n3. Play cards that match color or number\n4. Use action cards strategically\n5. Call "UNO" when you have one card left\n6. First to empty their hand wins!',
+                name: '🎯 How to Play',
+                value: '1. Use `/uno ` to start a game\n2. Players join and starter begins the game\n3. Play cards that match color or number\n4. Use action cards strategically\n5. Call "UNO" when you have one card left\n6. First to empty their hand wins!',
                 inline: false
             },
             {
-                name: '<� Card Types',
-                value: '" **Number Cards:** 0-9 in four colors\n" **Skip:** Next player loses their turn\n" **Reverse:** Direction of play reverses\n" **+2:** Next player draws 2 cards\n" **Wild:** Choose any color\n" **Wild +4:** Choose color, next player draws 4',
+                name: '🎯 Card Types',
+                value: '• **Number Cards:** 0-9 in four colors\n• **Skip:** Next player loses their turn\n• **Reverse:** Direction of play reverses\n• **+2:** Next player draws 2 cards\n• **Wild:** Choose any color\n• **Wild +4:** Choose color, next player draws 4',
                 inline: false
             },
             {
-                name: '� Special Rules',
-                value: '" **UNO Call:** Must call when you have 1 card\n" **Penalty:** Draw 2 cards if you forget to call UNO\n" **Stacking:** +2 and +4 cards can be stacked\n" **Turn Timer:** 60 seconds per turn\n" **Auto-play:** Game continues if player times out',
+                name: '🎯 Special Rules',
+                value: '• **UNO Call:** Must call when you have 1 card\n• **Penalty:** Draw 2 cards if you forget to call UNO\n• **Stacking:** +2 and +4 cards can be stacked\n• **Turn Timer:** 60 seconds per turn\n• **Auto-play:** Game continues if player times out',
                 inline: false
             },
             {
-                name: '<� Winning',
-                value: '" First player to play all cards wins\n" Winner gets points based on cards in other players\' hands\n" Winner takes the entire prize pool\n" Games typically last 10-20 minutes',
+                name: '🎯 Winning',
+                value: '• First player to play all cards wins\n• Winner gets points based on cards in other players\' hands\n• Winner takes the entire prize pool\n• Games typically last 10-20 minutes',
                 inline: false
             }
         );
 
-        embed.setFooter({ text: '=� Use /uno <amount> to start playing! <�' });
+        embed.setFooter({ text: '🎯 Use /uno to start playing! 🎯' });
         return embed;
     }
 }

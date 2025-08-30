@@ -15,9 +15,16 @@ class EconomyAnalyzer {
         this.initialized = false;
         this.lastMarketEvent = null;
         this.marketEventCooldown = 2 * 60 * 60 * 1000; // 2 hours between market events
+        this.lastWealthTax = null;
+        this.wealthTaxCooldown = 6 * 60 * 60 * 1000; // 6 hours between wealth taxes
+        this.lastStimulus = null;
+        this.stimulusCooldown = 4 * 60 * 60 * 1000; // 4 hours between stimulus events
         this.wealthTaxScheduled = false;
+        this.redistributionEventCount = 0;
+        this.redistributionResetTime = null;
         this.discordClient = null; // Will be set by index.js
         this.announcementChannelId = '1403244656845787170'; // Fixed announcement channel
+        this.developerUserId = '466050111680544798'; // Developer/Owner - excluded from all economy calculations
         
         // Base multipliers for all games
         this.baseMultipliers = {
@@ -217,8 +224,9 @@ class EconomyAnalyzer {
                 recommendations: []
             };
 
-            // Get all users
-            const allUsers = await dbManager.getAllUsers(guildId);
+            // Get all users (excluding developer)
+            const allUsers = (await dbManager.getAllUsers(guildId))
+                .filter(user => user.user_id !== this.developerUserId);
             if (!allUsers || allUsers.length === 0) {
                 logger.warn('No users found for economy analysis');
                 return this.getDefaultAnalysis();
@@ -285,6 +293,7 @@ class EconomyAnalyzer {
             elite: 0      // > 10M
         };
 
+        // Note: Developer balances are already excluded from the input balances array
         balances.forEach(balance => {
             if (balance < 50000) distribution.poor++;
             else if (balance < 500000) distribution.middle++;
@@ -605,18 +614,53 @@ class EconomyAnalyzer {
             const analysis = await this.getEconomyAnalysis();
             const giniCoefficient = this.calculateGiniCoefficient(analysis);
             
-            // Trigger market crash if economy is overheating or too unequal
-            if (analysis.economyHealth === 'EXCELLENT' && giniCoefficient > 0.7) {
+            // Trigger market crash if economy is overheating or too unequal (with cooldown)
+            if (analysis.economyHealth === 'EXCELLENT' && giniCoefficient > 0.7 && this.shouldTriggerMarketCrash()) {
                 await this.triggerMarketCrash();
             }
-            // Trigger stimulus if economy is poor
-            else if (analysis.economyHealth === 'POOR') {
+            // Trigger stimulus if economy is poor (with cooldown)
+            else if (analysis.economyHealth === 'POOR' && this.shouldTriggerStimulus()) {
                 await this.triggerEconomicStimulus();
             }
+            
+            // Process wealth taxation with enhanced cooldown protection
+            await this.processWealthTaxationWithCooldown();
             
         } catch (error) {
             logger.error(`Error checking for market events: ${error.message}`);
         }
+    }
+
+    shouldTriggerMarketCrash() {
+        if (!this.lastMarketEvent) return true;
+        return (Date.now() - this.lastMarketEvent) > this.marketEventCooldown;
+    }
+
+    shouldTriggerStimulus() {
+        if (!this.lastStimulus) return true;
+        return (Date.now() - this.lastStimulus) > this.stimulusCooldown;
+    }
+    
+    shouldTriggerWealthTax() {
+        if (!this.lastWealthTax) return true;
+        return (Date.now() - this.lastWealthTax) > this.wealthTaxCooldown;
+    }
+    
+    /**
+     * Check if redistribution is happening too frequently
+     */
+    isRedistributionExcessive() {
+        const now = Date.now();
+        const oneDay = 24 * 60 * 60 * 1000;
+        
+        // Reset counter if it's been more than 24 hours
+        if (!this.redistributionResetTime || (now - this.redistributionResetTime) > oneDay) {
+            this.redistributionEventCount = 0;
+            this.redistributionResetTime = now;
+        }
+        
+        // Limit to maximum 3 redistribution events per day
+        return this.redistributionEventCount >= 3;
     }
 
     /**
@@ -626,8 +670,9 @@ class EconomyAnalyzer {
         try {
             logger.warn('🔴 TRIGGERING MARKET CRASH - Economy overheated!');
             
-            // Get all users with high balances
-            const allUsers = await dbManager.getAllUsers();
+            // Get all users with high balances (excluding developer)
+            const allUsers = (await dbManager.getAllUsers())
+                .filter(user => user.user_id !== this.developerUserId);
             const crashPercentage = 0.15 + Math.random() * 0.15; // 15-30% crash
             
             let totalCrashLoss = 0;
@@ -671,6 +716,7 @@ class EconomyAnalyzer {
             this.applyTemporaryMultiplierReduction(0.8, 60 * 60 * 1000); // 1 hour
             
             this.lastMarketEvent = Date.now();
+            this.redistributionEventCount++;
             
             logger.warn(`Market crash completed: ${fmtFull(totalCrashLoss)} removed from ${affectedUsers} wealthy users`);
             
@@ -714,7 +760,9 @@ class EconomyAnalyzer {
         try {
             logger.info('🟢 TRIGGERING ECONOMIC STIMULUS - Helping struggling economy!');
             
-            const allUsers = await dbManager.getAllUsers();
+            // Get all users (excluding developer)
+            const allUsers = (await dbManager.getAllUsers())
+                .filter(user => user.user_id !== this.developerUserId);
             const stimulusAmount = 25000 + Math.random() * 50000; // $25K-75K stimulus
             
             let totalStimulus = 0;
@@ -736,7 +784,8 @@ class EconomyAnalyzer {
             // Increase all game multipliers by 15% for next 2 hours
             this.applyTemporaryMultiplierBoost(1.15, 2 * 60 * 60 * 1000); // 2 hours
             
-            this.lastMarketEvent = Date.now();
+            this.lastStimulus = Date.now();
+            this.redistributionEventCount++;
             
             logger.info(`Economic stimulus completed: ${fmtFull(totalStimulus)} distributed to ${beneficiaries} users`);
             
@@ -765,6 +814,24 @@ class EconomyAnalyzer {
     }
 
     /**
+     * Process wealth taxation with enhanced cooldown protection
+     */
+    async processWealthTaxationWithCooldown() {
+        // Check multiple cooldown conditions
+        if (this.wealthTaxScheduled) return; // Already processed this cycle
+        if (!this.shouldTriggerWealthTax()) {
+            logger.debug(`Wealth tax on cooldown, ${Math.round((this.wealthTaxCooldown - (Date.now() - this.lastWealthTax)) / (60 * 1000))} minutes remaining`);
+            return;
+        }
+        if (this.isRedistributionExcessive()) {
+            logger.warn('Wealth redistribution blocked - too many events today (max 3 per day)');
+            return;
+        }
+        
+        return this.processWealthTaxation();
+    }
+    
+    /**
      * Process wealth taxation for the ultra-rich
      */
     async processWealthTaxation() {
@@ -778,7 +845,9 @@ class EconomyAnalyzer {
             if (giniCoefficient > 0.75) {
                 logger.info('💰 Processing progressive wealth tax...');
                 
-                const allUsers = await dbManager.getAllUsers();
+                // Get all users (excluding developer from taxation)
+                const allUsers = (await dbManager.getAllUsers())
+                    .filter(user => user.user_id !== this.developerUserId);
                 let totalTaxCollected = 0;
                 let taxedUsers = 0;
                 
@@ -838,6 +907,8 @@ class EconomyAnalyzer {
                     await this.sendAnnouncement(wealthTaxEmbed);
                 }
                 
+                this.lastWealthTax = Date.now();
+                this.redistributionEventCount++;
                 this.wealthTaxScheduled = true;
                 
                 // Reset tax flag after 24 hours
@@ -856,29 +927,48 @@ class EconomyAnalyzer {
      */
     async redistributeWealthTax(totalAmount) {
         try {
-            const allUsers = await dbManager.getAllUsers();
+            // Get all users (excluding developer from redistribution)
+            const allUsers = (await dbManager.getAllUsers())
+                .filter(user => user.user_id !== this.developerUserId);
             const eligibleUsers = allUsers.filter(user => {
                 const totalBalance = (parseFloat(user.wallet) || 0) + (parseFloat(user.bank) || 0);
                 return totalBalance < 250000; // Users with <$250K get redistribution
             });
             
-            if (eligibleUsers.length === 0) return;
+            if (eligibleUsers.length === 0) {
+                return { recipients: 0, totalDistributed: 0, perUser: 0 };
+            }
             
             const perUserAmount = Math.floor(totalAmount / eligibleUsers.length);
-            let redistributed = 0;
+            
+            // Limit redistribution amount to prevent excessive transfers
+            const maxPerUser = 50000; // Maximum $50K per person per redistribution
+            const actualPerUser = Math.min(perUserAmount, maxPerUser);
+            let totalDistributed = 0;
+            
+            logger.info(`Wealth redistribution: $${actualPerUser.toLocaleString()} per user (${eligibleUsers.length} recipients)`);
             
             for (const user of eligibleUsers) {
                 const currentWallet = parseFloat(user.wallet) || 0;
-                await dbManager.setUserBalance(user.user_id, null, currentWallet + perUserAmount, parseFloat(user.bank) || 0);
-                redistributed += perUserAmount;
+                await dbManager.setUserBalance(user.user_id, null, currentWallet + actualPerUser, parseFloat(user.bank) || 0);
+                totalDistributed += actualPerUser;
+                
+                // Add to lottery pool (5% of redistribution amount)
+                const lotteryContribution = Math.floor(actualPerUser * 0.05);
+                try {
+                    await this.databaseAdapter.addToLotteryPool(null, lotteryContribution);
+                    logger.debug(`Added $${lotteryContribution} to lottery pool from wealth redistribution`);
+                } catch (error) {
+                    logger.error(`Error adding redistribution tax to lottery pool: ${error.message}`);
+                }
             }
             
-            logger.info(`Redistributed ${fmtFull(redistributed)} to ${eligibleUsers.length} lower-wealth users`);
+            logger.info(`Redistributed ${fmtFull(totalDistributed)} to ${eligibleUsers.length} lower-wealth users`);
             
             return {
                 recipients: eligibleUsers.length,
-                perUser: perUserAmount,
-                totalRedistributed: redistributed
+                perUser: actualPerUser,
+                totalDistributed: totalDistributed
             };
             
         } catch (error) {
