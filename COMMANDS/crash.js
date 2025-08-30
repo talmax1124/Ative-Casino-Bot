@@ -61,6 +61,17 @@ module.exports = {
         return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
       }
 
+      // Quick balance check to provide better error messages
+      const dbManager = require('../UTILS/database');
+      const userBalance = await dbManager.getUserBalance(userId, guildId);
+      if (userBalance.wallet <= 0) {
+        const embed = new EmbedBuilder()
+          .setTitle('❌ Insufficient Funds')
+          .setDescription(`You need at least 10 coins to play Crash, but you have ${userBalance.wallet} coins.\n\nUse \`/work\` or other commands to earn more coins!`)
+          .setColor(0xFF0000);
+        return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      }
+
       // Create session for crash game with enhanced protection
       const sessionResult = await sessionGuard.createSafeSession({
         userId,
@@ -94,12 +105,22 @@ module.exports = {
     } catch (error) {
       logger.error(`crash command failed: ${error?.stack || error}`);
       
-      // Handle game error with session cleanup
-      await GameSessionIntegrator.handleGameError(userId, SMGameType.CRASH, 0, guildId, 'Crash game initialization error');
+      // Enhanced session cleanup with better error handling
+      try {
+        await GameSessionIntegrator.handleGameError(userId, SMGameType.CRASH, 0, guildId, 'Crash game initialization error');
+        
+        // Force cleanup any problematic sessions
+        const sessionGuard = require('../UTILS/sessionGuard');
+        await sessionGuard.forceCleanupUser(userId, guildId);
+        
+        logger.info(`Forced cleanup completed for user ${userId} after crash command failure`);
+      } catch (cleanupError) {
+        logger.error(`Failed to cleanup after crash command error: ${cleanupError.message}`);
+      }
       
       const embed = new EmbedBuilder()
         .setTitle('❌ Crash Error')
-        .setDescription('Failed to start or join the Crash game. Please try again.')
+        .setDescription('Failed to start the Crash game. Your session has been reset - please try again.')
         .setColor(0xFF0000);
 
       try {

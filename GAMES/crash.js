@@ -69,27 +69,27 @@ class OptimizedCrashGame {
   }
 
   async addPlayer(userId, username, betAmount) {
-    if (this.state !== 'betting') return false;
+    if (this.state !== 'betting') return { success: false, reason: 'BETTING_CLOSED' };
     
     // Don't add player if they're already in the game
-    if (this.players.has(userId)) return false;
+    if (this.players.has(userId)) return { success: false, reason: 'ALREADY_JOINED' };
     
     // Deduct bet upfront like other casino games
     try {
       const userBalance = await dbManager.getUserBalance(userId, this.guildId);
       if (userBalance.wallet < betAmount) {
         logger.warn(`Crash: ${username} has insufficient funds (${userBalance.wallet} < ${betAmount})`);
-        return false;
+        return { success: false, reason: 'INSUFFICIENT_FUNDS', currentBalance: userBalance.wallet };
       }
       
       const success = await dbManager.setUserBalance(userId, this.guildId, userBalance.wallet - betAmount, userBalance.bank);
       if (!success) {
         logger.error(`Crash: Failed to deduct bet for ${username}`);
-        return false;
+        return { success: false, reason: 'DEDUCTION_FAILED' };
       }
     } catch (error) {
       logger.error(`Crash: Balance error for ${userId}: ${error.message}`);
-      return false;
+      return { success: false, reason: 'BALANCE_ERROR', error: error.message };
     }
     
     this.players.set(userId, {
@@ -101,7 +101,7 @@ class OptimizedCrashGame {
     });
     
     logger.info(`Added ${username} to crash game with bet ${fmt(betAmount)}`);
-    return true;
+    return { success: true };
   }
 
   cashOut(userId) {
@@ -569,9 +569,31 @@ async function handleModalSubmit(interaction, client, game) {
   
   // Add to game (addPlayer now deducts bet upfront)
   const addResult = await game.addPlayer(userId, username, betAmount);
-  if (!addResult) {
+  if (!addResult.success) {
+    let errorMessage = '❌ Cannot join game at this time';
+    
+    switch (addResult.reason) {
+      case 'INSUFFICIENT_FUNDS':
+        errorMessage = `❌ Insufficient funds! You have ${fmt(addResult.currentBalance)} but need ${fmt(betAmount)}`;
+        break;
+      case 'ALREADY_JOINED':
+        errorMessage = '❌ You already have a bet placed in this game!';
+        break;
+      case 'BETTING_CLOSED':
+        errorMessage = '❌ Betting is closed for this game!';
+        break;
+      case 'DEDUCTION_FAILED':
+        errorMessage = '❌ Failed to process your bet. Please try again.';
+        break;
+      case 'BALANCE_ERROR':
+        errorMessage = '❌ Error checking your balance. Please try again.';
+        break;
+      default:
+        errorMessage += ` (${addResult.reason})`;
+    }
+    
     return await interaction.reply({
-      content: '❌ Cannot join game at this time (insufficient funds or already joined)',
+      content: errorMessage,
       flags: MessageFlags.Ephemeral
     });
   }
@@ -604,8 +626,8 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
     try {
       // Add player with initial bet automatically (addPlayer handles balance checking and deduction)
       const addResult = await game.addPlayer(betUserId, betUsername, initialBet);
-      if (!addResult) {
-        logger.warn(`Failed to add ${betUsername} to crash game with initial bet ${fmt(initialBet)}`);
+      if (!addResult.success) {
+        logger.warn(`Failed to add ${betUsername} to crash game with initial bet ${fmt(initialBet)}: ${addResult.reason}`);
       }
     } catch (error) {
       logger.error(`Exception adding player with initial bet: ${error.message}`);
