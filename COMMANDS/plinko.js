@@ -366,10 +366,8 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
 async function showFinalResults(interaction, gameData, finalImage, finalSlot, finalMultiplier, winnings, won, guildId) {
     const { userId, username, betAmount, mode, modeData, newWallet, sessionId } = gameData;
     
-    // Calculate net change (winnings - bet amount)
-    const netChange = winnings - betAmount;
-    const finalWallet = newWallet + netChange;
-    await dbManager.updateUserBalance(userId, guildId, netChange, 0);
+    // Winnings will be processed by PayoutManager
+    const finalWallet = newWallet + winnings;
 
     // Complete the session
     try {

@@ -623,14 +623,22 @@ module.exports = {
                 }
             }
 
-            // Update user balance with winnings (game_active handled by SessionManager)
-            if (totalPayout > 0) {
-                await dbManager.updateUserBalance(userId, guildId, totalPayout, 0);
-            }
-
-            // Record game result for statistics
-            const won = totalPayout > game.betAmount * (game.splitHands.length || 1);
+            // Process payout through proper system
             const totalBetAmount = game.betAmount * (game.splitHands.length || 1);
+            const won = totalPayout > 0;
+            
+            // Use PayoutManager for consistent payout handling
+            const gameResult = new GameResult({
+                userId,
+                guildId,
+                gameType: 'blackjack',
+                betAmount: totalBetAmount,
+                payout: totalPayout,
+                won: won,
+                metadata: { hands: results.length }
+            });
+
+            await PayoutManager.processGamePayout(gameResult);
             
             try {
                 await dbManager.recordGameResult(

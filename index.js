@@ -1045,6 +1045,18 @@ client.on('interactionCreate', async interaction => {
                     await leaderboardCommand.handleButtonInteraction(interaction, customId);
                 }
             }
+            // Handle treasurevault buttons (namespace: treasurevault_...)
+            else if (customId.startsWith('treasurevault_')) {
+                const treasurevaultCommand = client.commands.get('treasurevault');
+                if (treasurevaultCommand && treasurevaultCommand.handleButtonInteraction) {
+                    await treasurevaultCommand.handleButtonInteraction(interaction, customId);
+                } else {
+                    await interaction.reply({
+                        content: '❌ Treasure Vault game not available. Please try again.',
+                        ephemeral: true
+                    });
+                }
+            }
             // Handle panel system buttons
             else if (customId === 'confirm_restart_bot' || customId === 'cancel_restart_bot') {
                 await panelManager.handleButtonInteraction(interaction);
@@ -1757,11 +1769,79 @@ async function showFishingHelp(interaction) {
     await interaction.reply({ embeds: [embed], components: [closeButton], ephemeral: true });
 }
 
+// Graceful shutdown utility to check for active games
+async function checkActiveGames() {
+    const activeGameSessions = [];
+    
+    // Check each game command for active games
+    const gameCommands = ['blackjack', 'slots', 'crash', 'plinko', 'duck', 'treasurevault', 'fishing', 'uno', 'rps', 'multi-slots'];
+    
+    for (const gameName of gameCommands) {
+        const command = client.commands.get(gameName);
+        if (command) {
+            // Check if command has activeGames Map
+            if (command.activeGames && command.activeGames.size > 0) {
+                activeGameSessions.push({
+                    game: gameName,
+                    count: command.activeGames.size,
+                    players: Array.from(command.activeGames.keys())
+                });
+            }
+            
+            // Check for module-level activeGames exports
+            try {
+                const gameModule = require(`./COMMANDS/${gameName}.js`);
+                if (gameModule.activeGames && gameModule.activeGames.size > 0) {
+                    activeGameSessions.push({
+                        game: gameName,
+                        count: gameModule.activeGames.size,
+                        players: Array.from(gameModule.activeGames.keys())
+                    });
+                }
+            } catch (err) {
+                // Some games may not export activeGames
+            }
+        }
+    }
+    
+    return activeGameSessions;
+}
+
 // Graceful shutdown
 process.on('SIGINT', async () => {
     logger.info('Received SIGINT, shutting down gracefully...');
     
     try {
+        // Check for active games
+        const activeGames = await checkActiveGames();
+        
+        if (activeGames.length > 0) {
+            logger.warn('Active games detected, waiting for completion...');
+            logger.info(`Active games: ${activeGames.map(g => `${g.game} (${g.count} players)`).join(', ')}`);
+            
+            // Wait for games to complete (max 5 minutes)
+            const maxWaitTime = 5 * 60 * 1000; // 5 minutes
+            const startTime = Date.now();
+            
+            while (Date.now() - startTime < maxWaitTime) {
+                const currentActiveGames = await checkActiveGames();
+                if (currentActiveGames.length === 0) {
+                    logger.info('All games completed successfully');
+                    break;
+                }
+                
+                // Wait 5 seconds before checking again
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                logger.info(`Still waiting... Active games: ${currentActiveGames.map(g => `${g.game} (${g.count})`).join(', ')}`);
+            }
+            
+            // Final check
+            const remainingGames = await checkActiveGames();
+            if (remainingGames.length > 0) {
+                logger.warn(`Forcing shutdown with ${remainingGames.length} games still active after 5 minute wait`);
+            }
+        }
+        
         // sessionManager.shutdown() removed
         logger.info('Session Manager shutdown completed');
     } catch (error) {
@@ -1790,6 +1870,36 @@ process.on('SIGTERM', async () => {
         // Stop health check server
         if (healthCheckServer) {
             healthCheckServer.stop();
+        }
+        
+        // Check for active games
+        const activeGames = await checkActiveGames();
+        
+        if (activeGames.length > 0) {
+            logger.warn('Active games detected, waiting for completion...');
+            logger.info(`Active games: ${activeGames.map(g => `${g.game} (${g.count} players)`).join(', ')}`);
+            
+            // Wait for games to complete (max 3 minutes for SIGTERM - shorter than SIGINT)
+            const maxWaitTime = 3 * 60 * 1000; // 3 minutes
+            const startTime = Date.now();
+            
+            while (Date.now() - startTime < maxWaitTime) {
+                const currentActiveGames = await checkActiveGames();
+                if (currentActiveGames.length === 0) {
+                    logger.info('All games completed successfully');
+                    break;
+                }
+                
+                // Wait 5 seconds before checking again
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                logger.info(`Still waiting... Active games: ${currentActiveGames.map(g => `${g.game} (${g.count})`).join(', ')}`);
+            }
+            
+            // Final check
+            const remainingGames = await checkActiveGames();
+            if (remainingGames.length > 0) {
+                logger.warn(`Forcing shutdown with ${remainingGames.length} games still active after 3 minute wait`);
+            }
         }
         
         // sessionManager.shutdown() removed

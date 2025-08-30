@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
+const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage, parseAmount, resolveAmount, hasActiveGame, getActiveGame } = require('../UTILS/common');
 const UITemplates = require('../UTILS/uiTemplates');
 const logger = require('../UTILS/logger');
 
@@ -30,6 +30,18 @@ module.exports = {
 
             // Ensure user exists
             await dbManager.ensureUser(userId, username);
+
+            // Check if user has an active game - prevent withdrawals during games
+            if (hasActiveGame(userId)) {
+                const activeGameType = getActiveGame(userId);
+                
+                const errorEmbed = UITemplates.createErrorEmbed('Withdraw Blocked', {
+                    description: `You cannot withdraw money while playing **${activeGameType}**!\n\nFinish your current game first, then try again.`,
+                    isLoss: false
+                });
+
+                return await interaction.editReply({ embeds: [errorEmbed] });
+            }
 
             // Get current balance
             const balance = await dbManager.getUserBalance(userId, guildId);

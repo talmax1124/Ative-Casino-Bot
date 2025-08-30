@@ -179,7 +179,14 @@ class PayoutManager {
             });
         }
         
-        // Don't deduct bet upfront - will be handled during payout with net change
+        // Deduct bet upfront like a real casino
+        const success = await dbManager.setUserBalance(userId, guildId, currentWallet - parsedAmount, balance.bank);
+        if (!success) {
+            return new ValidationResult({
+                isValid: false,
+                errorEmbed: buildInvalidBetEmbed('Failed to process bet. Please try again.')
+            });
+        }
         
         // Set active game (only for legacy games, modern games use GameSessionIntegrator)
         const modernGames = ['blackjack', 'slots', 'crash', 'plinko', 'uno', 'wordchain', 'fishing', 'battleship'];
@@ -192,7 +199,7 @@ class PayoutManager {
         return new ValidationResult({
             isValid: true,
             parsedAmount: parsedAmount,
-            newWallet: currentWallet // Wallet hasn't changed yet
+            newWallet: currentWallet - parsedAmount // Wallet after bet deduction
         });
     }
     
@@ -209,9 +216,10 @@ class PayoutManager {
             // Get current balance
             const balance = await dbManager.getUserBalance(userId, guildId);
             
-            // Calculate net change (payout - bet amount)
-            const netChange = payout - betAmount;
-            let newWallet = balance.wallet + netChange;
+            // Since bet was already deducted, payout is the full amount to give back
+            // If player loses: payout = 0 (they get nothing back)
+            // If player wins: payout = bet + winnings (they get their bet back plus profit)
+            let newWallet = balance.wallet + payout;
             
             // Apply server booster bonus if applicable
             const boosterBonus = await this._calculateBoosterBonus(userId, guildId, payout);

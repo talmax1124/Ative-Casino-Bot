@@ -395,7 +395,50 @@ class DatabaseAdapter {
     // These methods return defaults for now - can be implemented later if needed
 
     async getUserStats(userId, guildId = null, gameType = null) {
-        return {};
+        try {
+            let query;
+            let params;
+
+            if (gameType) {
+                // Get stats for specific game type
+                query = 'SELECT * FROM user_stats WHERE user_id = ? AND game_type = ?';
+                params = [userId, gameType];
+            } else {
+                // Get all stats for user, organized by game type
+                query = 'SELECT * FROM user_stats WHERE user_id = ?';
+                params = [userId];
+            }
+
+            const [rows] = await this.pool.execute(query, params);
+
+            if (gameType) {
+                // Return single game stats or null
+                return rows.length > 0 ? rows[0] : null;
+            } else {
+                // Return all stats organized by game type
+                const statsMap = {};
+                for (const row of rows) {
+                    statsMap[row.game_type] = {
+                        wins: row.wins || 0,
+                        losses: row.losses || 0,
+                        total_wagered: parseFloat(row.total_wagered) || 0,
+                        total_won: parseFloat(row.total_won) || 0,
+                        biggest_win: parseFloat(row.biggest_win) || 0,
+                        biggest_loss: parseFloat(row.biggest_loss) || 0,
+                        total_wins: row.total_wins || 0,
+                        total_losses: row.total_losses || 0,
+                        total_games_played: row.total_games_played || 0,
+                        total_winnings: parseFloat(row.total_winnings) || 0,
+                        total_losses_amount: parseFloat(row.total_losses_amount) || 0,
+                        last_game_played: row.last_game_played
+                    };
+                }
+                return statsMap;
+            }
+        } catch (error) {
+            logger.error(`Failed to get user stats: ${error.message}`);
+            return gameType ? null : {};
+        }
     }
 
     async updateUserStats(userId, guildId = null, gameType = null, win = null, wagered = 0, result = 0, userProfile = null) {

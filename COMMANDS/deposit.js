@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
+const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage, parseAmount, resolveAmount, hasActiveGame, getActiveGame } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -29,6 +29,30 @@ module.exports = {
 
             // Ensure user exists
             await dbManager.ensureUser(userId, username);
+
+            // Check if user has an active game - prevent deposits during games
+            if (hasActiveGame(userId)) {
+                const activeGameType = getActiveGame(userId);
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+                
+                const topFields = [
+                    {
+                        name: '🎮 ACTIVE GAME DETECTED',
+                        value: `You cannot deposit money while playing **${activeGameType}**!\n\nFinish your current game first, then try again.`,
+                        inline: false
+                    }
+                ];
+
+                const embed = buildSessionEmbed({
+                    title: '❌ Deposit Blocked',
+                    topFields,
+                    stageText: 'GAME IN PROGRESS',
+                    color: 0xFF6600,
+                    footer: 'Banking System - Game Protection'
+                });
+
+                return await interaction.editReply({ embeds: [embed] });
+            }
 
             // Get current balance
             const balance = await dbManager.getUserBalance(userId, guildId);

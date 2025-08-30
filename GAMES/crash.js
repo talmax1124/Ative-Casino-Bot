@@ -68,8 +68,28 @@ class OptimizedCrashGame {
     logger.info(`Created optimized crash game for channel ${channelId} with crash point ${this.crashPoint.toFixed(2)}x`);
   }
 
-  addPlayer(userId, username, betAmount) {
+  async addPlayer(userId, username, betAmount) {
     if (this.state !== 'betting') return false;
+    
+    // Don't add player if they're already in the game
+    if (this.players.has(userId)) return false;
+    
+    // Deduct bet upfront like other casino games
+    try {
+      const userBalance = await dbManager.getUserBalance(userId, this.guildId);
+      if (userBalance.wallet < betAmount) {
+        return false; // Insufficient funds
+      }
+      
+      // Deduct the bet amount
+      const success = await dbManager.setUserBalance(userId, this.guildId, userBalance.wallet - betAmount, userBalance.bank);
+      if (!success) {
+        return false; // Failed to deduct
+      }
+    } catch (error) {
+      logger.error(`Failed to deduct bet for crash player ${userId}: ${error.message}`);
+      return false;
+    }
     
     this.players.set(userId, {
       username,
@@ -263,19 +283,17 @@ class OptimizedCrashGame {
       this.updateInterval = null;
     }
     
-    // Process all players with net changes
+    // Process all players - bet was already deducted, so we only add winnings back
     for (const [userId, player] of this.players.entries()) {
       try {
-        let netChange;
         if (player.cashedOut) {
-          // Player cashed out: net change = winnings - bet
-          netChange = player.winnings - player.bet;
+          // Player cashed out: give them their winnings
+          await dbManager.updateUserBalance(userId, this.guildId, player.winnings, 0);
+          logger.info(`Crash payout: ${player.username} won ${fmt(player.winnings)} (cashed out at ${player.cashOutMultiplier.toFixed(2)}x)`);
         } else {
-          // Player didn't cash out: lose the bet amount
-          netChange = -player.bet;
+          // Player didn't cash out: they lose their bet (already deducted, no action needed)
+          logger.info(`Crash loss: ${player.username} lost ${fmt(player.bet)} (didn't cash out)`);
         }
-        
-        await dbManager.updateUserBalance(userId, this.guildId, netChange, 0);
       } catch (error) {
         logger.error(`Failed to process crash payout for ${userId}: ${error.message}`);
       }
@@ -462,21 +480,11 @@ async function handleModalSubmit(interaction, client, game) {
     });
   }
   
-  // Check balance
-  const userBalance = await dbManager.getUserBalance(userId, game.guildId);
-  if (userBalance.wallet < betAmount) {
+  // Add to game (addPlayer now deducts bet upfront)
+  const addResult = await game.addPlayer(userId, username, betAmount);
+  if (!addResult) {
     return await interaction.reply({
-      content: `❌ Insufficient funds! You need ${fmt(betAmount)} but have ${fmt(userBalance.wallet)}`,
-      flags: MessageFlags.Ephemeral
-    });
-  }
-  
-  // Don't deduct bet upfront - will be handled when game ends
-  
-  // Add to game
-  if (!game.addPlayer(userId, username, betAmount)) {
-    return await interaction.reply({
-      content: '❌ Cannot join game at this time',
+      content: '❌ Cannot join game at this time (insufficient funds or already joined)',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -489,15 +497,36 @@ async function handleModalSubmit(interaction, client, game) {
 }
 
 // Main game execution function
-async function handleGameExecution(interaction, client, sessionId = null) {
+async function handleGameExecution(interaction, client, sessionId = null, initialBetData = null) {
   const channelId = interaction.channelId;
   const guildId = interaction.guildId;
+  const userId = interaction.user.id;
+  const username = interaction.user.displayName;
   
   // Get or create game
   let game = crashManager.getGame(channelId);
   if (!game || game.state === 'finished' || game.state === 'crashed') {
     game = crashManager.createGame(channelId, guildId);
     game.sessionId = sessionId;
+  }
+  
+  // Check if there's an initial bet from the command
+  if (initialBetData && initialBetData.initialBet > 0) {
+    const initialBet = initialBetData.initialBet;
+    const betUserId = initialBetData.userId;
+    const betUsername = initialBetData.username;
+    
+    try {
+      // Add player with initial bet automatically (addPlayer now handles balance checking and deduction)
+      const addResult = await game.addPlayer(betUserId, betUsername, initialBet);
+      if (addResult) {
+        logger.info(`Added ${betUsername} to crash game with initial bet ${fmt(initialBet)}`);
+      } else {
+        logger.warn(`Failed to add ${betUsername} to crash game (insufficient balance or other error)`);
+      }
+    } catch (error) {
+      logger.error(`Failed to add player with initial bet: ${error.message}`);
+    }
   }
   
   // Create initial message

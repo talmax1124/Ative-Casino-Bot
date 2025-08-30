@@ -472,8 +472,8 @@ module.exports = {
                 throw new Error(`Session creation failed: ${sessionResult.error}`);
             }
             
-            // Store the mode selection temporarily
-            activeGames.set(sessionResult.sessionId, { type: 'mode_select', betAmount, userBalance, guildId, sessionId: sessionResult.sessionId });
+            // Store the mode selection temporarily - use userId for consistency
+            activeGames.set(userId, { type: 'mode_select', betAmount, userBalance, guildId, sessionId: sessionResult.sessionId });
 
             // Log game start
             await sendLogMessage(
@@ -515,8 +515,9 @@ module.exports = {
             });
         }
 
-        // Clear mode selection timeout
+        // Clear mode selection timeout and remove the mode selection
         TimeoutManager.clearTimeout(userId);
+        activeGames.delete(userId);
 
         // Create game session
         const gameSession = new DuckGameSession(
