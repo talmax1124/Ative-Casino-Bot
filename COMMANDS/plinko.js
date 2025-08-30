@@ -173,7 +173,8 @@ module.exports = {
 
             const sessionId = sessionResult.sessionId;
 
-            // Don't deduct bet amount upfront - will calculate net change at the end
+            // Get updated balance after bet deduction
+            const updatedBalance = await dbManager.getUserBalance(userId, guildId);
 
             // Show initial game setup with help info
             const setupEmbed = buildSessionEmbed({
@@ -215,8 +216,8 @@ module.exports = {
                 multipliers,
                 slots,
                 dropSlot,
-                newWallet: balance.wallet,
-                bankBalance: balance.bank,
+                newWallet: updatedBalance.wallet,
+                bankBalance: updatedBalance.bank,
                 sessionId
             }, guildId);
 
