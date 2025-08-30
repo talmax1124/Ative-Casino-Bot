@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const levelingSystem = require('../UTILS/levelingSystem');
 const UITemplates = require('../UTILS/uiTemplates');
@@ -77,11 +77,21 @@ module.exports = {
             const amountStr = interaction.options.getString('amount');
             let betAmount;
             
-            try {
-                betAmount = parseAmount(amountStr, balance.wallet);
-            } catch (error) {
+            const parsedAmount = parseAmount(amountStr);
+            if (parsedAmount === null) {
                 const errorEmbed = UITemplates.createErrorEmbed('UNO', {
-                    description: `Invalid bet amount: ${error.message}`,
+                    description: `"${amountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".`,
+                    isLoss: false
+                });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                return;
+            }
+
+            betAmount = resolveAmount(parsedAmount, balance.wallet);
+            
+            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
+                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                    description: 'Bet amount must be greater than 0!',
                     isLoss: false
                 });
                 await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });

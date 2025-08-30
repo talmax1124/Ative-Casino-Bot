@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmtFull, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
+const { fmtFull, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PLINKO_MODES, getCurrentPlinkoModes, randomizeMultipliers, createPlinkoImage, simulatePlinkoDrop } = require('../UTILS/plinkoCanvas');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
@@ -95,9 +95,24 @@ module.exports = {
             }
 
             // Parse and validate bet amount
-            const betAmount = parseAmount(betAmountStr, balance.wallet);
+            const parsedAmount = parseAmount(betAmountStr);
+            if (parsedAmount === null) {
+                const embed = buildSessionEmbed({
+                    title: `❌ ${username}'s Plinko`,
+                    topFields: [
+                        { name: 'Invalid Amount', value: `"${betAmountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".` }
+                    ],
+                    color: 0xFF0000,
+                    footer: 'Plinko Game • Invalid Input'
+                });
 
-            if (betAmount <= 0) {
+                await interaction.editReply({ embeds: [embed] });
+                return;
+            }
+
+            const betAmount = resolveAmount(parsedAmount, balance.wallet);
+
+            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
                 const embed = buildSessionEmbed({
                     title: `❌ ${username}'s Plinko`,
                     topFields: [

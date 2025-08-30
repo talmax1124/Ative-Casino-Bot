@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, AttachmentBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
 const { 
     BingoGameSession,
     BingoInteractiveCardView,
@@ -64,11 +64,20 @@ module.exports = {
             const amountStr = interaction.options.getString('amount');
             let betAmount;
             
-            try {
-                betAmount = parseAmount(amountStr, balance.wallet);
-            } catch (error) {
+            const parsedAmount = parseAmount(amountStr);
+            if (parsedAmount === null) {
                 await interaction.followUp({
-                    content: `❌ Invalid bet amount: ${error.message}`,
+                    content: `❌ "${amountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".`,
+                    ephemeral: true
+                });
+                return;
+            }
+
+            betAmount = resolveAmount(parsedAmount, balance.wallet);
+            
+            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
+                await interaction.followUp({
+                    content: `❌ Bet amount must be greater than 0!`,
                     ephemeral: true
                 });
                 return;

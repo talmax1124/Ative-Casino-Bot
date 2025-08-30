@@ -18,7 +18,7 @@ const {
 } = require('discord.js');
 
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, parseAmount } = require('../UTILS/common');
+const { fmt, getGuildId, parseAmount, resolveAmount } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const battleshipRenderer = require('../UTILS/battleshipRenderer');
 const UITemplates = require('../UTILS/uiTemplates');
@@ -133,10 +133,18 @@ module.exports = {
             // Parse and validate amount
             const amountStr = interaction.options.getString('amount');
             let betAmount;
-            try {
-                betAmount = parseAmount(amountStr, balance.wallet);
-            } catch (e) {
-                const embed = UITemplates.createErrorEmbed('❌ Invalid Amount', e.message);
+            
+            const parsedAmount = parseAmount(amountStr);
+            if (parsedAmount === null) {
+                const embed = UITemplates.createErrorEmbed('❌ Invalid Amount', `"${amountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".`);
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return;
+            }
+            
+            betAmount = resolveAmount(parsedAmount, balance.wallet);
+            
+            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
+                const embed = UITemplates.createErrorEmbed('❌ Invalid Bet', 'Bet amount must be greater than 0!');
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }

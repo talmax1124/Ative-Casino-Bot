@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
 const { 
     FishingGame, 
     startFishingGame, 
@@ -50,20 +50,20 @@ module.exports = {
             const amountStr = interaction.options.getString('amount');
             let betAmount;
             
-            try {
-                betAmount = parseAmount(amountStr, balance.wallet);
-            } catch (error) {
+            const parsedAmount = parseAmount(amountStr);
+            if (parsedAmount === null) {
                 const embed = new EmbedBuilder()
                     .setTitle('❌ Invalid Amount')
-                    .setDescription(`Invalid amount format: ${error.message}`)
+                    .setDescription(`"${amountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".`)
                     .setColor(0xFF0000);
                 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
-            // Validate bet amount
-            if (betAmount <= 0) {
+            betAmount = resolveAmount(parsedAmount, balance.wallet);
+            
+            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
                 const embed = new EmbedBuilder()
                     .setTitle('❌ Invalid Bet')
                     .setDescription('Bet must be greater than $0!')

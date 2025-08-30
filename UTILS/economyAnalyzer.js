@@ -298,44 +298,53 @@ class EconomyAnalyzer {
             const analysis = await this.getEconomyAnalysis(guildId);
             const gameRatio = analysis.winLossRatios[game];
             
-            if (!gameRatio) {
-                logger.warn(`No game data found for ${game}, using base multipliers`);
-                return baseMultipliers;
-            }
-
-            // Calculate adjustment factor based on house edge
+            // Default adjustment factor
             let adjustmentFactor = 1.0;
+            let reason = 'No game data available, using default multipliers';
             
-            // Target house edge: 8-15% (healthy range)
-            const targetHouseEdge = 12;
-            const currentHouseEdge = gameRatio.houseEdge;
-            
-            if (currentHouseEdge < 5) {
-                // House edge too low, reduce multipliers significantly
-                adjustmentFactor = 0.6;
-                logger.info(`${game}: House edge too low (${currentHouseEdge.toFixed(1)}%), reducing multipliers to ${adjustmentFactor}`);
-            } else if (currentHouseEdge < 8) {
-                // House edge low, reduce multipliers moderately
-                adjustmentFactor = 0.75;
-                logger.info(`${game}: House edge low (${currentHouseEdge.toFixed(1)}%), reducing multipliers to ${adjustmentFactor}`);
-            } else if (currentHouseEdge > 25) {
-                // House edge too high, increase multipliers
-                adjustmentFactor = 1.3;
-                logger.info(`${game}: House edge too high (${currentHouseEdge.toFixed(1)}%), increasing multipliers to ${adjustmentFactor}`);
-            } else if (currentHouseEdge > 18) {
-                // House edge high, increase multipliers slightly
-                adjustmentFactor = 1.15;
-                logger.info(`${game}: House edge high (${currentHouseEdge.toFixed(1)}%), increasing multipliers to ${adjustmentFactor}`);
+            if (gameRatio && (gameRatio.totalGames || gameRatio.total_games || 0) > 10) {
+                // Only adjust if we have sufficient game data (at least 10 games)
+                const currentHouseEdge = gameRatio.houseEdge;
+                
+                if (currentHouseEdge < 5) {
+                    // House edge too low, reduce multipliers significantly
+                    adjustmentFactor = 0.6;
+                    reason = `House edge too low (${currentHouseEdge.toFixed(1)}%)`;
+                } else if (currentHouseEdge < 8) {
+                    // House edge low, reduce multipliers moderately
+                    adjustmentFactor = 0.75;
+                    reason = `House edge low (${currentHouseEdge.toFixed(1)}%)`;
+                } else if (currentHouseEdge > 25) {
+                    // House edge too high, increase multipliers
+                    adjustmentFactor = 1.3;
+                    reason = `House edge too high (${currentHouseEdge.toFixed(1)}%)`;
+                } else if (currentHouseEdge > 18) {
+                    // House edge high, increase multipliers slightly
+                    adjustmentFactor = 1.15;
+                    reason = `House edge high (${currentHouseEdge.toFixed(1)}%)`;
+                } else {
+                    // House edge in healthy range
+                    adjustmentFactor = 1.0;
+                    reason = `House edge healthy (${currentHouseEdge.toFixed(1)}%)`;
+                }
+            } else if (gameRatio) {
+                reason = `Insufficient game data (${gameRatio.totalGames || gameRatio.total_games || 0} games), using base multipliers`;
             }
 
             // Apply additional adjustments based on economy health
+            let economyAdjustment = 1.0;
             if (analysis.economyHealth === 'CRITICAL') {
-                adjustmentFactor *= 0.8; // Further reduce payouts
+                economyAdjustment = 0.8; // Further reduce payouts
+                reason += ` + CRITICAL economy (-20%)`;
             } else if (analysis.economyHealth === 'POOR') {
-                adjustmentFactor *= 0.9;
+                economyAdjustment = 0.9;
+                reason += ` + POOR economy (-10%)`;
             } else if (analysis.economyHealth === 'EXCELLENT') {
-                adjustmentFactor *= 1.1; // Slightly increase payouts
+                economyAdjustment = 1.1; // Slightly increase payouts
+                reason += ` + EXCELLENT economy (+10%)`;
             }
+
+            adjustmentFactor *= economyAdjustment;
 
             // Apply the adjustment factor
             const adjustedMultipliers = baseMultipliers.map(mult => {
@@ -343,7 +352,9 @@ class EconomyAnalyzer {
                 return Math.round(adjusted * 100) / 100; // Round to 2 decimal places
             });
 
-            logger.info(`${game}: Applied ${adjustmentFactor}x adjustment based on ${currentHouseEdge.toFixed(1)}% house edge and ${analysis.economyHealth} economy health`);
+            if (adjustmentFactor !== 1.0) {
+                logger.info(`${game}: Applied ${adjustmentFactor.toFixed(2)}x adjustment - ${reason}`);
+            }
             
             return adjustedMultipliers;
 

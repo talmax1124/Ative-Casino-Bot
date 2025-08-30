@@ -862,6 +862,71 @@ class DatabaseAdapter {
             return false;
         }
     }
+
+    // ========================= ECONOMY ANALYSIS OPERATIONS =========================
+
+    /**
+     * Get all users for a guild (for admin and analysis purposes)
+     * @param {string} guildId - Guild ID (kept for compatibility, data is global)
+     * @returns {Array} Array of user balance data
+     */
+    async getAllUsers(guildId = null) {
+        try {
+            const [rows] = await this.pool.execute(
+                'SELECT user_id, wallet, bank, username, created_at, updated_at FROM user_balances ORDER BY (wallet + bank) DESC'
+            );
+            return rows;
+        } catch (error) {
+            logger.error(`Error getting all users: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Get game statistics for economy analysis
+     * @param {string} guildId - Guild ID (kept for compatibility)
+     * @returns {Object} Game statistics by game type
+     */
+    async getGameStatistics(guildId = null) {
+        try {
+            const [rows] = await this.pool.execute(
+                `SELECT 
+                    game_type,
+                    COUNT(*) as total_games,
+                    SUM(wins) as total_wins,
+                    SUM(losses) as total_losses,
+                    SUM(total_wagered) as total_wagered,
+                    SUM(total_won) as total_won,
+                    AVG(total_wagered) as avg_bet,
+                    MAX(biggest_win) as biggest_win,
+                    MIN(biggest_loss) as biggest_loss
+                 FROM user_stats 
+                 WHERE game_type IS NOT NULL
+                 GROUP BY game_type
+                 HAVING total_games > 0
+                 ORDER BY total_wagered DESC`
+            );
+
+            const gameStats = {};
+            for (const row of rows) {
+                gameStats[row.game_type] = {
+                    total_games: row.total_games,
+                    total_wins: row.total_wins || 0,
+                    total_losses: row.total_losses || 0,
+                    total_wagered: parseFloat(row.total_wagered) || 0,
+                    total_won: parseFloat(row.total_won) || 0,
+                    avg_bet: parseFloat(row.avg_bet) || 0,
+                    biggest_win: parseFloat(row.biggest_win) || 0,
+                    biggest_loss: parseFloat(row.biggest_loss) || 0
+                };
+            }
+
+            return gameStats;
+        } catch (error) {
+            logger.error(`Error getting game statistics: ${error.message}`);
+            return {};
+        }
+    }
 }
 
 // Export singleton instance

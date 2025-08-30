@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { 
     RPSGameSession,
@@ -97,18 +97,35 @@ module.exports = {
             const amountStr = interaction.options.getString('amount');
             let betAmount;
             
-            try {
-                betAmount = parseAmount(amountStr, balance.wallet);
-            } catch (error) {
+            const parsedAmount = parseAmount(amountStr);
+            if (parsedAmount === null) {
                 const embed = buildSessionEmbed({
                     title: '❌ Invalid Amount',
                     topFields: [{
                         name: 'Bet Amount Error',
-                        value: `Invalid amount format: ${error.message}`
+                        value: `"${amountStr}" is not a valid amount. Use numbers, K/M/B suffixes, "all", or "half".`
                     }],
                     stageText: 'INVALID BET',
                     color: 0xFF0000,
                     footer: 'Use numbers, K/M/B suffixes, "all", "half", or "quarter"'
+                });
+                
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return;
+            }
+
+            betAmount = resolveAmount(parsedAmount, balance.wallet);
+            
+            if (!betAmount || betAmount <= 0 || isNaN(betAmount)) {
+                const embed = buildSessionEmbed({
+                    title: '❌ Invalid Bet',
+                    topFields: [{
+                        name: 'Bet Amount Error',
+                        value: 'Bet amount must be greater than 0!'
+                    }],
+                    stageText: 'INVALID BET',
+                    color: 0xFF0000,
+                    footer: 'RPS Game • ATIVE Casino'
                 });
                 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
