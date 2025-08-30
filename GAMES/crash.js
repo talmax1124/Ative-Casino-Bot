@@ -168,6 +168,11 @@ class OptimizedCrashGame {
         color = 0xFF0000;
         description = this.createVisualization();
         break;
+      case 'finished':
+        title = `🏁 ${ownerInfo}Game Finished`;
+        color = 0x666666;
+        description = `The game crashed at **${this.crashPoint.toFixed(2)}x**\n\nClick "Play Again" to start a new round!`;
+        break;
       default:
         title = `🎮 ${ownerInfo}Crash Game`;
         color = 0x999999;
@@ -229,6 +234,14 @@ class OptimizedCrashGame {
           .setCustomId('crash_cashout')
           .setLabel(`💸 Cash Out (${this.currentMultiplier.toFixed(2)}x)`)
           .setStyle(ButtonStyle.Danger)
+      );
+    } else if (this.state === 'crashed' || this.state === 'finished') {
+      // Game is over - offer to play again
+      buttons.push(
+        new ButtonBuilder()
+          .setCustomId('crash_play_again')
+          .setLabel('🎮 Play Again')
+          .setStyle(ButtonStyle.Secondary)
       );
     }
 
@@ -331,6 +344,12 @@ class OptimizedCrashGame {
     }
     
     logger.info(`Crash game crashed at ${this.crashPoint.toFixed(2)}x (${reason})`);
+    
+    // Keep the game results visible for a while, then finish
+    setTimeout(async () => {
+      this.state = 'finished';
+      await this.updateMessage();
+    }, 10000); // Show results for 10 seconds
   }
 
   async updateMessage() {
@@ -472,6 +491,9 @@ async function handleButtonInteraction(interaction, client, game) {
       case 'cashout':
         await handleCashOut(interaction, game);
         break;
+      case 'play_again':
+        await handlePlayAgain(interaction, game);
+        break;
       default:
         await interaction.reply({ content: '❌ Unknown action', flags: MessageFlags.Ephemeral });
     }
@@ -543,6 +565,69 @@ async function handleCashOut(interaction, game) {
     content: `✅ Cashed out at **${game.currentMultiplier.toFixed(2)}x** → +${fmt(winnings)}!`,
     flags: MessageFlags.Ephemeral
   });
+}
+
+async function handlePlayAgain(interaction, game) {
+  if (game.state !== 'crashed' && game.state !== 'finished') {
+    return await interaction.reply({ content: '❌ The current game is still active!', flags: MessageFlags.Ephemeral });
+  }
+  
+  const userId = interaction.user.id;
+  const username = interaction.user.displayName;
+  const channelId = interaction.channelId;
+  const guildId = interaction.guildId;
+  
+  try {
+    // Clean up the old game
+    game.cleanup();
+    crashManager.removeGame(channelId);
+    
+    // Create a completely new game
+    const newGame = crashManager.createGame(channelId, guildId, null, userId, username);
+    
+    // Create new embed and buttons
+    const embed = newGame.createEmbed();
+    const components = newGame.createButtons();
+    
+    // Reply with the new game
+    const message = await interaction.reply({
+      embeds: [embed],
+      components
+    });
+    
+    // Set up the new game message and timeout
+    const fetchedMessage = await interaction.fetchReply();
+    newGame.gameMessage = fetchedMessage;
+    
+    // Start betting timer
+    newGame.bettingTimeout = setTimeout(async () => {
+      if (newGame.state === 'betting') {
+        if (newGame.players.size > 0) {
+          logger.info(`Auto-starting crash game with ${newGame.players.size} players after ${CRASH_CONFIG.betting_duration}s`);
+          await newGame.startGame();
+        } else {
+          logger.info(`Crash game betting phase ended with no players - keeping betting open`);
+          // Keep the game in betting state but extend the timeout
+          newGame.bettingTimeout = setTimeout(async () => {
+            if (newGame.state === 'betting' && newGame.players.size === 0) {
+              newGame.state = 'finished';
+              await newGame.updateMessage();
+              logger.info(`Crash game expired due to no players joining`);
+            }
+          }, 300000); // 5 minutes total timeout
+        }
+      }
+    }, CRASH_CONFIG.betting_duration * 1000);
+    
+    logger.info(`New crash game started by ${username} via Play Again button`);
+    
+  } catch (error) {
+    logger.error(`Failed to start new crash game: ${error.message}`);
+    await interaction.reply({
+      content: '❌ Failed to start a new game. Please try using `/crash` instead.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
 }
 
 // Modal submission handler
