@@ -60,28 +60,56 @@ module.exports = {
       let betAmount = 0;
       let validation = null;
       
-      // If bet amount is provided, validate and process it
+      // If bet amount is provided, validate it (but don't deduct - crash game will handle that)
       if (betAmountStr) {
-        // Import PayoutManager for bet validation
-        const { PayoutManager, GameType } = require('../UTILS/gameUtils');
+        const { parseAmount } = require('../UTILS/common');
+        const dbManager = require('../UTILS/database');
         
-        validation = await PayoutManager.validateAndDeductBet(
-          interaction,
-          betAmountStr,
-          GameType.CRASH || 'crash',
-          100, // minimum bet
-          null, // no maximum
-          {} // no special requirements
-        );
-        
-        if (!validation.isValid) {
+        // Parse bet amount
+        betAmount = parseAmount(betAmountStr);
+        if (!betAmount || betAmount < 100) {
+          const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+          const errorEmbed = buildSessionEmbed({
+            title: '❌ Invalid Bet Amount',
+            topFields: [{
+              name: 'Invalid Amount',
+              value: `Minimum bet is $100. You entered: ${betAmountStr}`,
+              inline: false
+            }],
+            stageText: 'INVALID BET',
+            color: 0xFF0000,
+            footer: 'Crash Game • Betting Error'
+          });
+          
           return await interaction.reply({
-            embeds: [validation.errorEmbed],
+            embeds: [errorEmbed],
             flags: MessageFlags.Ephemeral
           });
         }
         
-        betAmount = validation.parsedAmount;
+        // Check if user has sufficient funds (but don't deduct yet)
+        await dbManager.ensureUser(userId, username);
+        const balance = await dbManager.getUserBalance(userId, guildId);
+        
+        if (balance.wallet < betAmount) {
+          const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+          const errorEmbed = buildSessionEmbed({
+            title: '❌ Insufficient Funds',
+            topFields: [{
+              name: 'Not Enough Money',
+              value: `You need $${betAmount.toLocaleString()} but only have $${balance.wallet.toLocaleString()}`,
+              inline: false
+            }],
+            stageText: 'INSUFFICIENT FUNDS',
+            color: 0xFF0000,
+            footer: 'Crash Game • Balance Error'
+          });
+          
+          return await interaction.reply({
+            embeds: [errorEmbed],
+            flags: MessageFlags.Ephemeral
+          });
+        }
       }
 
       // Validate session before proceeding
@@ -114,6 +142,7 @@ module.exports = {
       const sessionId = sessionResult.sessionId;
 
       // Pass session info to crash game handler with initial bet data
+      logger.info(`CRASH CMD: Passing initial bet data - betAmount: ${betAmount}, userId: ${userId}, username: ${username}`);
       const { handleGameExecution } = require('../GAMES/crash');
       await handleGameExecution(interaction, interaction.client, sessionId, {
         initialBet: betAmount,
