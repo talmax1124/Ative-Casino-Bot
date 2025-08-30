@@ -481,7 +481,13 @@ client.on('interactionCreate', async interaction => {
             else if (interaction.customId === 'crash_bet_modal') {
                 const crashGame = require('./GAMES/crash');
                 const game = crashGame.crashManager.getGame(interaction.channelId);
-                await crashGame.handleModalSubmit(interaction, client, game);
+                if (game) {
+                    logger.info(`Crash modal submit - gameKey: ${game.gameKey}, current players: ${game.players.size}`);
+                    await crashGame.handleModalSubmit(interaction, client, game);
+                } else {
+                    logger.error(`No crash game found for modal submit in channel ${interaction.channelId}`);
+                    await interaction.reply({ content: '❌ Game session expired. Please start a new game.', ephemeral: true });
+                }
             }
             // Handle bingo join modal
             else if (interaction.customId === 'bingo_join_modal') {
@@ -872,10 +878,12 @@ client.on('interactionCreate', async interaction => {
                 // Look for any game in the channel that users can interact with
                 const game = crashGame.crashManager.getGame(interaction.channelId);
                 if (game) {
-                    logger.info(`Crash button interaction: ${customId} by ${interaction.user.displayName} - game state: ${game.state}, players: ${game.players.size}`);
+                    logger.info(`Crash button interaction: ${customId} by ${interaction.user.displayName} - gameKey: ${game.gameKey}, state: ${game.state}, players: ${game.players.size}`);
                     await crashGame.handleButtonInteraction(interaction, client, game);
                 } else {
-                    logger.warn(`No crash game found for button interaction: ${customId} by ${interaction.user.displayName} in channel ${interaction.channelId}`);
+                    // Log all available games for debugging
+                    const allGames = crashGame.crashManager.getAllChannelGames(interaction.channelId);
+                    logger.warn(`No crash game found for button interaction: ${customId} by ${interaction.user.displayName} in channel ${interaction.channelId}. Total games in channel: ${allGames.length}`);
                     await interaction.reply({ content: '❌ No active crash game found. The game may have ended or expired.', ephemeral: true });
                 }
             }

@@ -387,13 +387,15 @@ class OptimizedCrashManager {
   }
 
   createGame(channelId, guildId, sessionId = null, userId = null, username = null) {
-    // Create unique game key: if userId provided, make it user-specific
-    // This allows multiple independent crash sessions per channel
+    // Create unique game key: use sessionId if provided, otherwise channelId
+    // This prevents multiple games conflicting in the same channel
     let gameKey;
-    if (userId) {
-      gameKey = `${channelId}_${userId}`; // User-specific game
+    if (sessionId) {
+      gameKey = sessionId; // Use session ID as key for better tracking
+    } else if (userId) {
+      gameKey = `${channelId}_${userId}`; // User-specific game fallback
     } else {
-      gameKey = sessionId || `${channelId}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+      gameKey = channelId; // Channel-wide game
     }
     
     // Clean up any existing game with this specific key
@@ -423,13 +425,19 @@ class OptimizedCrashManager {
     if (game) return game;
     
     // If not found, try to find any game in this channel
+    // Return the most recently created game in the channel
+    let mostRecentGame = null;
+    let mostRecentTime = 0;
     for (const [key, gameInstance] of this.games.entries()) {
       if (gameInstance.channelId === channelId) {
-        return gameInstance;
+        if (!mostRecentGame || gameInstance.createdAt > mostRecentTime) {
+          mostRecentGame = gameInstance;
+          mostRecentTime = gameInstance.createdAt;
+        }
       }
     }
     
-    return null;
+    return mostRecentGame;
   }
 
   getUserGame(channelId, userId) {
@@ -506,6 +514,8 @@ async function handleButtonInteraction(interaction, client, game) {
 }
 
 async function handleJoinGame(interaction, game) {
+  logger.info(`handleJoinGame called - gameKey: ${game.gameKey}, state: ${game.state}, existing players: ${game.players.size}`);
+  
   if (game.state !== 'betting') {
     logger.warn(`User ${interaction.user.displayName} tried to join crash game but state is '${game.state}' (not 'betting')`);
     return await interaction.reply({ content: '❌ Betting is closed!', flags: MessageFlags.Ephemeral });
@@ -516,6 +526,7 @@ async function handleJoinGame(interaction, game) {
   // Check if user already has a bet placed
   if (game.players.has(userId)) {
     const player = game.players.get(userId);
+    logger.info(`User ${interaction.user.displayName} already in game with bet ${player.bet}`);
     return await interaction.reply({ 
       content: `✅ You already have a bet of ${fmt(player.bet)} in this game! Wait for the game to start.`, 
       flags: MessageFlags.Ephemeral 
@@ -542,10 +553,16 @@ async function handleJoinGame(interaction, game) {
 
 async function handleStartGame(interaction, game) {
   if (game.players.size === 0) {
+    logger.warn(`Start game attempted but no players found in game state: ${game.state}, gameKey: ${game.gameKey}`);
     return await interaction.reply({ content: '❌ No players have joined!', flags: MessageFlags.Ephemeral });
   }
   
-  game.startGame();
+  logger.info(`Starting crash game with ${game.players.size} players`);
+  const started = await game.startGame();
+  if (!started) {
+    logger.error(`Failed to start crash game - state: ${game.state}, players: ${game.players.size}`);
+    return await interaction.reply({ content: '❌ Failed to start game. Please try again.', flags: MessageFlags.Ephemeral });
+  }
   await interaction.deferUpdate();
 }
 
@@ -656,7 +673,10 @@ async function handleModalSubmit(interaction, client, game) {
   }
   
   // Add to game (addPlayer now deducts bet upfront)
+  logger.info(`Adding player ${username} to game ${game.gameKey} with bet ${betAmount}`);
   const addResult = await game.addPlayer(userId, username, betAmount);
+  logger.info(`Add player result for ${username}: ${JSON.stringify(addResult)}`);
+  
   if (!addResult.success) {
     let errorMessage = '❌ Cannot join game at this time';
     
@@ -687,6 +707,7 @@ async function handleModalSubmit(interaction, client, game) {
   }
   
   await game.updateMessage();
+  logger.info(`Player ${username} successfully added to game. Total players now: ${game.players.size}`);
   await interaction.reply({
     content: `✅ Bet placed: ${fmt(betAmount)}! Good luck! 🍀`,
     flags: MessageFlags.Ephemeral
@@ -739,11 +760,12 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
   // Start betting timer - only auto-start if players join
   game.bettingTimeout = setTimeout(async () => {
     if (game.state === 'betting') {
+      logger.info(`Betting timeout reached for game ${game.gameKey} - players: ${game.players.size}, player list: ${Array.from(game.players.keys()).join(', ')}`);
       if (game.players.size > 0) {
-        logger.info(`Auto-starting crash game with ${game.players.size} players after ${CRASH_CONFIG.betting_duration}s`);
+        logger.info(`Auto-starting crash game ${game.gameKey} with ${game.players.size} players after ${CRASH_CONFIG.betting_duration}s`);
         await game.startGame();
       } else {
-        logger.info(`Crash game betting phase ended with no players - keeping betting open`);
+        logger.info(`Crash game ${game.gameKey} betting phase ended with no players - keeping betting open`);
         // Keep the game in betting state but extend the timeout
         game.bettingTimeout = setTimeout(async () => {
           if (game.state === 'betting' && game.players.size === 0) {

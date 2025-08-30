@@ -353,7 +353,27 @@ module.exports = {
                     if (game.tickInterval) clearInterval(game.tickInterval);
                     if (game.turnTimer) clearTimeout(game.turnTimer);
                     if (game.collector) game.collector.stop('dev-stop');
-                    for (const p of game.players.values()) clearActiveGame(p.user.id);
+                    
+                    // Complete all active sessions before clearing
+                    for (const p of game.players.values()) {
+                        clearActiveGame(p.user.id);
+                        
+                        // Complete session if exists
+                        if (p.sessionId) {
+                            try {
+                                await GameSessionIntegrator.completeGameSession(p.sessionId, {
+                                    outcome: 'CANCELLED',
+                                    reason: 'Game stopped by developer',
+                                    payout: 0,
+                                    won: false
+                                });
+                                logger.info(`Completed session ${p.sessionId} for user ${p.user.id} (dev stop)`);
+                            } catch (error) {
+                                logger.error(`Failed to complete session ${p.sessionId} on dev stop: ${error.message}`);
+                            }
+                        }
+                    }
+                    
                     if (game.turnMessage) {
                         try { await game.turnMessage.edit({ content: '🛑 Game stopped by developer.' }); } catch {}
                     }
