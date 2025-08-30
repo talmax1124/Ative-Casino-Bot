@@ -866,6 +866,48 @@ class DatabaseAdapter {
         }
     }
 
+    // ========================= LOTTERY POOL OPERATIONS =========================
+
+    /**
+     * Add amount to lottery pool
+     */
+    async addToLotteryPool(guildId, amount) {
+        try {
+            // For now, just log the lottery pool addition since we don't have lottery tables set up
+            logger.info(`Added ${amount} to lottery pool for guild ${guildId || 'global'}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error adding to lottery pool: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Get current lottery pool amount
+     */
+    async getLotteryPool(guildId) {
+        try {
+            // Return a default pool amount since lottery tables aren't implemented yet
+            return 100000; // $100K default pool
+        } catch (error) {
+            logger.error(`Error getting lottery pool: ${error.message}`);
+            return 0;
+        }
+    }
+
+    /**
+     * Set lottery pool amount
+     */
+    async setLotteryPool(guildId, amount) {
+        try {
+            logger.info(`Set lottery pool to ${amount} for guild ${guildId || 'global'}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error setting lottery pool: ${error.message}`);
+            return false;
+        }
+    }
+
     // ========================= ECONOMY ANALYSIS OPERATIONS =========================
 
     /**

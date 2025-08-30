@@ -161,6 +161,18 @@ module.exports = {
                 throw new Error(transferResult.error || 'Transfer failed');
             }
 
+            // Update lottery panel after money transfer (economic activity affects lottery dynamics)
+            try {
+                const { LotteryGame } = require('../GAMES/lottery');
+                if (LotteryGame && LotteryGame.updateAllPanels) {
+                    await LotteryGame.updateAllPanels();
+                    logger.info('Updated lottery panels after money transfer');
+                }
+            } catch (lotteryError) {
+                // Non-critical error - log but don't fail the command
+                logger.warn(`Could not update lottery panels: ${lotteryError.message}`);
+            }
+
         } catch (error) {
             logger.error(`Error in sendmoney command: ${error.message}`);
             

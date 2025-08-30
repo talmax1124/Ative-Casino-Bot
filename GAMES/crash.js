@@ -147,24 +147,27 @@ class OptimizedCrashGame {
   createEmbed() {
     let title, color, description;
     
+    // Add owner info to distinguish between multiple games
+    const ownerInfo = this.ownerId ? `<@${this.ownerId}>'s ` : '';
+    
     switch (this.state) {
       case 'betting':
-        title = '💰 Crash - Betting Phase';
+        title = `💰 ${ownerInfo}Crash - Betting Phase`;
         color = 0x00FF00;
         description = 'Place your bets! Game starts soon...';
         break;
       case 'running':
-        title = `🚀 Crash - ${this.currentMultiplier.toFixed(2)}x`;
+        title = `🚀 ${ownerInfo}Crash - ${this.currentMultiplier.toFixed(2)}x`;
         color = 0xFFAA00;
         description = this.createVisualization();
         break;
       case 'crashed':
-        title = `💥 CRASHED at ${this.crashPoint.toFixed(2)}x!`;
+        title = `💥 ${ownerInfo}CRASHED at ${this.crashPoint.toFixed(2)}x!`;
         color = 0xFF0000;
         description = this.createVisualization();
         break;
       default:
-        title = '🎮 Crash Game';
+        title = `🎮 ${ownerInfo}Crash Game`;
         color = 0x999999;
         description = 'Game ended';
     }
@@ -173,6 +176,7 @@ class OptimizedCrashGame {
       .setTitle(title)
       .setDescription(description)
       .setColor(color)
+      .setFooter({ text: this.ownerId ? 'Personal Crash Game • Others can start their own!' : 'Crash Game' })
       .setTimestamp();
 
     // Add player list
@@ -361,11 +365,17 @@ class OptimizedCrashManager {
     this.games = new Map();
   }
 
-  createGame(channelId, guildId, sessionId = null) {
-    // Use sessionId if provided, otherwise use channelId (for backward compatibility)
-    const gameKey = sessionId || channelId;
+  createGame(channelId, guildId, sessionId = null, userId = null) {
+    // Create unique game key: if userId provided, make it user-specific
+    // This allows multiple independent crash sessions per channel
+    let gameKey;
+    if (userId) {
+      gameKey = `${channelId}_${userId}`; // User-specific game
+    } else {
+      gameKey = sessionId || `${channelId}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    }
     
-    // Clean up any existing game with this key first
+    // Clean up any existing game with this specific key
     const existing = this.games.get(gameKey);
     if (existing) {
       existing.cleanup();
@@ -373,19 +383,64 @@ class OptimizedCrashManager {
     
     const game = new OptimizedCrashGame(channelId, guildId);
     game.gameKey = gameKey; // Store the key for later reference
+    game.ownerId = userId; // Store who owns this game session
     this.games.set(gameKey, game);
     return game;
   }
 
-  getGame(channelId) {
-    return this.games.get(channelId);
+  getGame(channelId, userId = null) {
+    // If userId is provided, look for user-specific game first
+    if (userId) {
+      const userGameKey = `${channelId}_${userId}`;
+      const userGame = this.games.get(userGameKey);
+      if (userGame) return userGame;
+    }
+    
+    // First try to get by channelId (legacy)
+    let game = this.games.get(channelId);
+    if (game) return game;
+    
+    // If not found, try to find any game in this channel
+    for (const [key, gameInstance] of this.games.entries()) {
+      if (gameInstance.channelId === channelId) {
+        return gameInstance;
+      }
+    }
+    
+    return null;
+  }
+
+  getUserGame(channelId, userId) {
+    const userGameKey = `${channelId}_${userId}`;
+    return this.games.get(userGameKey);
+  }
+
+  getAllChannelGames(channelId) {
+    const channelGames = [];
+    for (const [key, gameInstance] of this.games.entries()) {
+      if (gameInstance.channelId === channelId) {
+        channelGames.push(gameInstance);
+      }
+    }
+    return channelGames;
   }
 
   removeGame(channelId) {
-    const game = this.games.get(channelId);
+    // First try to remove by channelId
+    let game = this.games.get(channelId);
     if (game) {
       game.cleanup();
       this.games.delete(channelId);
+      return;
+    }
+    
+    // If not found by channelId, find by sessionId and remove
+    for (const [key, gameInstance] of this.games.entries()) {
+      if (gameInstance.channelId === channelId) {
+        gameInstance.cleanup();
+        this.games.delete(key);
+        return;
+      }
     }
   }
 
@@ -534,9 +589,9 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
   const userId = interaction.user.id;
   const username = interaction.user.displayName;
   
-  // Always create a fresh game for each crash command execution
-  // This prevents players from being added to other users' active games
-  let game = crashManager.createGame(channelId, guildId, sessionId);
+  // Always create a new user-specific game - this allows multiple independent sessions
+  // Each user gets their own crash game that doesn't interfere with others
+  let game = crashManager.createGame(channelId, guildId, sessionId, userId);
   game.sessionId = sessionId;
   
   // Check if there's an initial bet from the command

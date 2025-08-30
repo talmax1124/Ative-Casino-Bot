@@ -300,6 +300,8 @@ client.once('clientReady', async () => {
         
         // Initialize economy analyzer after database
         await economyAnalyzer.initialize();
+        // Set Discord client for market event announcements
+        economyAnalyzer.setDiscordClient(client);
         logger.info('Economy analyzer initialized successfully');
     } catch (error) {
         logger.error('Failed to initialize database and economy systems:', error);
@@ -858,11 +860,12 @@ client.on('interactionCreate', async interaction => {
             // Handle crash buttons (namespace: crash_...)
             else if (customId.startsWith('crash_')) {
                 const crashGame = require('./GAMES/crash');
-                const game = crashGame.crashManager.getGame(interaction.channelId);
+                // Look for the user's specific game first, then any game in the channel
+                const game = crashGame.crashManager.getGame(interaction.channelId, interaction.user.id);
                 if (game) {
                     await crashGame.handleButtonInteraction(interaction, client, game);
                 } else {
-                    await interaction.reply({ content: '❌ No active crash game found', ephemeral: true });
+                    await interaction.reply({ content: '❌ No active crash game found for you. Use `/crash` to start your own game!', ephemeral: true });
                 }
             }
             // Handle poll buttons

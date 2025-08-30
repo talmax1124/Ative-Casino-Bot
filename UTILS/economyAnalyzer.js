@@ -1,17 +1,73 @@
 /**
- * Economy Analyzer and Dynamic Multiplier System
- * Analyzes server economy health and adjusts game multipliers accordingly
+ * Advanced Economy Analyzer and Dynamic Multiplier System
+ * Comprehensive economic analysis with automatic rebalancing, market events, and wealth redistribution
  */
 
 const dbManager = require('./database');
 const logger = require('./logger');
-const { getGuildId } = require('./common');
+const { getGuildId, fmt, fmtFull } = require('./common');
+const { EmbedBuilder } = require('discord.js');
 
 class EconomyAnalyzer {
     constructor() {
         this.analysisCache = new Map();
         this.cacheExpiry = 5 * 60 * 1000; // 5 minutes cache
         this.initialized = false;
+        this.lastMarketEvent = null;
+        this.marketEventCooldown = 2 * 60 * 60 * 1000; // 2 hours between market events
+        this.wealthTaxScheduled = false;
+        this.discordClient = null; // Will be set by index.js
+        this.announcementChannelId = '1403244656845787170'; // Fixed announcement channel
+        
+        // Base multipliers for all games
+        this.baseMultipliers = {
+            slots: {
+                classic: [0, 0, 0.5, 1.5, 2.0, 5.0, 10.0, 25.0, 50.0],
+                premium: [0, 0, 1.0, 2.0, 3.0, 7.5, 15.0, 35.0, 75.0]
+            },
+            blackjack: {
+                win: 2.0,
+                blackjack: 2.5,
+                insurance: 3.0
+            },
+            plinko: {
+                easy: [0.0, 0.2, 0.5, 1.2, 1.5, 2.0, 1.5, 1.2, 0.5, 0.2, 0.0],
+                medium: [0.0, 0.1, 0.5, 1.0, 2.5, 1.0, 0.5, 0.1, 0.0],
+                nightmare: [0.0, 0.0, 0.0, 0.1, 6.0, 0.2, 0.3, 0.5, 0.1, 0.1, 0.1, 0.5, 0.3, 0.2, 6.0, 0.1, 0.0, 0.0, 0.0]
+            },
+            duck: {
+                easy: [1.10, 1.15, 1.25, 1.90, 2.20, 2.25, 2.40],
+                medium: [1.05, 1.25, 1.70, 2.00, 2.40],
+                hard: [1.50, 2.25, 3.00]
+            },
+            battleship: {
+                hit: 1.5,
+                sink: 3.0,
+                perfectGame: 10.0
+            },
+            fishing: {
+                common: [1.2, 1.5, 2.0],
+                rare: [3.0, 5.0, 8.0],
+                legendary: [15.0, 25.0, 50.0]
+            },
+            rps: {
+                win: 2.0,
+                tie: 1.0
+            },
+            bingo: {
+                line: 2.0,
+                fullHouse: 10.0,
+                blackout: 25.0
+            },
+            uno: {
+                win: 2.0,
+                uno: 3.0,
+                wildCard: 1.5
+            }
+        };
+        
+        // Current active multipliers (adjusted by economy)
+        this.activeMultipliers = JSON.parse(JSON.stringify(this.baseMultipliers));
     }
 
     async initialize() {
@@ -24,16 +80,119 @@ class EconomyAnalyzer {
     }
 
     /**
+     * Set Discord client for announcements
+     */
+    setDiscordClient(client) {
+        this.discordClient = client;
+        logger.info('Economy Analyzer: Discord client set for market event announcements');
+    }
+
+    /**
+     * Send announcement to the designated channel
+     */
+    async sendAnnouncement(embed) {
+        if (!this.discordClient) {
+            logger.warn('Cannot send market event announcement - Discord client not set');
+            return;
+        }
+
+        try {
+            const channel = await this.discordClient.channels.fetch(this.announcementChannelId);
+            if (channel) {
+                await channel.send({ embeds: [embed] });
+                logger.info(`Market event announcement sent to channel ${this.announcementChannelId}`);
+            } else {
+                logger.error(`Announcement channel ${this.announcementChannelId} not found`);
+            }
+        } catch (error) {
+            logger.error(`Error sending market event announcement: ${error.message}`);
+        }
+    }
+
+    /**
      * Start periodic economy analysis (every 10 minutes)
      */
     startPeriodicAnalysis() {
         setInterval(async () => {
             try {
                 await this.runFullEconomyAnalysis();
+                await this.checkForMarketEvents();
+                await this.processWealthTaxation();
             } catch (error) {
                 logger.error(`Error in periodic economy analysis: ${error.message}`);
             }
         }, 10 * 60 * 1000); // 10 minutes
+    }
+
+    /**
+     * Get game multipliers adjusted by economy
+     */
+    getGameMultipliers(gameType, subType = null) {
+        if (!this.activeMultipliers[gameType]) {
+            logger.warn(`Unknown game type: ${gameType}`);
+            return this.baseMultipliers[gameType] || {};
+        }
+
+        if (subType) {
+            return this.activeMultipliers[gameType][subType] || this.baseMultipliers[gameType][subType] || [];
+        }
+
+        return this.activeMultipliers[gameType];
+    }
+
+    /**
+     * Update all game multipliers based on economy health
+     */
+    async updateGameMultipliers(economyHealth, analysis) {
+        let adjustmentFactor = 1.0;
+        let reason = 'Normal economy';
+
+        // Determine adjustment factor based on economy health
+        switch (economyHealth) {
+            case 'POOR':
+                adjustmentFactor = 1.3; // Increase payouts by 30%
+                reason = 'Stimulating poor economy';
+                break;
+            case 'FAIR':
+                adjustmentFactor = 1.0; // Normal payouts
+                reason = 'Maintaining balanced economy';
+                break;
+            case 'GOOD':
+                adjustmentFactor = 0.85; // Reduce payouts by 15%
+                reason = 'Cooling overheating economy';
+                break;
+            case 'EXCELLENT':
+                adjustmentFactor = 0.7; // Reduce payouts by 30%
+                reason = 'Preventing economic bubble';
+                break;
+            default:
+                adjustmentFactor = 1.0;
+        }
+
+        // Additional adjustments based on wealth inequality
+        const giniCoefficient = this.calculateGiniCoefficient(analysis);
+        if (giniCoefficient > 0.8) {
+            adjustmentFactor *= 0.9; // Reduce multipliers further if too unequal
+            reason += ' + inequality adjustment';
+        }
+
+        // Apply adjustments to all games
+        for (const gameType in this.baseMultipliers) {
+            for (const subType in this.baseMultipliers[gameType]) {
+                const baseMultipliers = this.baseMultipliers[gameType][subType];
+                
+                if (Array.isArray(baseMultipliers)) {
+                    this.activeMultipliers[gameType][subType] = baseMultipliers.map(mult => 
+                        Math.round(mult * adjustmentFactor * 100) / 100
+                    );
+                } else {
+                    this.activeMultipliers[gameType][subType] = 
+                        Math.round(baseMultipliers * adjustmentFactor * 100) / 100;
+                }
+            }
+        }
+
+        logger.info(`Updated game multipliers: ${adjustmentFactor.toFixed(2)}x factor (${reason})`);
     }
 
     /**
@@ -49,6 +208,7 @@ class EconomyAnalyzer {
                 totalWealth: 0,
                 averageBalance: 0,
                 medianBalance: 0,
+                allBalances: [], // Store all balances for Gini coefficient
                 wealthDistribution: {},
                 gameStats: {},
                 winLossRatios: {},
@@ -67,7 +227,8 @@ class EconomyAnalyzer {
             analysis.totalUsers = allUsers.length;
 
             // Calculate wealth statistics
-            const balances = allUsers.map(user => (user.wallet || 0) + (user.bank || 0));
+            const balances = allUsers.map(user => (parseFloat(user.wallet) || 0) + (parseFloat(user.bank) || 0));
+            analysis.allBalances = [...balances]; // Store for Gini coefficient
             analysis.totalWealth = balances.reduce((sum, balance) => sum + balance, 0);
             analysis.averageBalance = analysis.totalWealth / analysis.totalUsers;
             
@@ -80,6 +241,9 @@ class EconomyAnalyzer {
 
             // Analyze wealth distribution
             analysis.wealthDistribution = this.analyzeWealthDistribution(balances);
+
+            // Update multipliers based on analysis
+            await this.updateGameMultipliers(analysis.economyHealth, analysis);
 
             // Get game statistics
             analysis.gameStats = await this.analyzeGameStatistics(guildId);
@@ -402,6 +566,386 @@ class EconomyAnalyzer {
             totalWealth: Math.floor(analysis.totalWealth),
             recommendations: analysis.recommendations.filter(r => r.type === 'CRITICAL').length
         };
+    }
+
+    /**
+     * Calculate Gini coefficient for wealth inequality
+     */
+    calculateGiniCoefficient(analysis) {
+        if (!analysis || !analysis.allBalances || analysis.allBalances.length === 0) {
+            return 0;
+        }
+
+        const balances = [...analysis.allBalances].sort((a, b) => a - b);
+        const n = balances.length;
+        const sum = balances.reduce((acc, val) => acc + val, 0);
+        
+        if (sum === 0) return 0;
+        
+        let index = 0;
+        let gini = 0;
+        
+        for (let i = 0; i < n; i++) {
+            index += 1;
+            gini += (2 * index - n - 1) * balances[i];
+        }
+        
+        return gini / (n * sum);
+    }
+
+    /**
+     * Check for and trigger market events
+     */
+    async checkForMarketEvents() {
+        if (this.lastMarketEvent && (Date.now() - this.lastMarketEvent) < this.marketEventCooldown) {
+            return; // Still in cooldown
+        }
+
+        try {
+            const analysis = await this.getEconomyAnalysis();
+            const giniCoefficient = this.calculateGiniCoefficient(analysis);
+            
+            // Trigger market crash if economy is overheating or too unequal
+            if (analysis.economyHealth === 'EXCELLENT' && giniCoefficient > 0.7) {
+                await this.triggerMarketCrash();
+            }
+            // Trigger stimulus if economy is poor
+            else if (analysis.economyHealth === 'POOR') {
+                await this.triggerEconomicStimulus();
+            }
+            
+        } catch (error) {
+            logger.error(`Error checking for market events: ${error.message}`);
+        }
+    }
+
+    /**
+     * Trigger a market crash event
+     */
+    async triggerMarketCrash() {
+        try {
+            logger.warn('🔴 TRIGGERING MARKET CRASH - Economy overheated!');
+            
+            // Get all users with high balances
+            const allUsers = await dbManager.getAllUsers();
+            const crashPercentage = 0.15 + Math.random() * 0.15; // 15-30% crash
+            
+            let totalCrashLoss = 0;
+            let affectedUsers = 0;
+            const crashCulprits = []; // Track the biggest wealth holders
+            
+            // Sort users by total balance to identify the biggest contributors to inequality
+            const wealthyUsers = allUsers
+                .map(user => ({
+                    ...user,
+                    totalBalance: (parseFloat(user.wallet) || 0) + (parseFloat(user.bank) || 0)
+                }))
+                .filter(user => user.totalBalance > 500000)
+                .sort((a, b) => b.totalBalance - a.totalBalance);
+            
+            for (const user of wealthyUsers) {
+                const lossAmount = user.totalBalance * crashPercentage;
+                const walletLoss = Math.min(lossAmount, parseFloat(user.wallet) || 0);
+                const bankLoss = lossAmount - walletLoss;
+                
+                const newWallet = Math.max(0, (parseFloat(user.wallet) || 0) - walletLoss);
+                const newBank = Math.max(0, (parseFloat(user.bank) || 0) - bankLoss);
+                
+                await dbManager.setUserBalance(user.user_id, null, newWallet, newBank);
+                
+                totalCrashLoss += lossAmount;
+                affectedUsers++;
+                
+                // Track the top 3 wealth holders as "crash culprits"
+                if (crashCulprits.length < 3) {
+                    crashCulprits.push({
+                        username: user.username || `User ${user.user_id}`,
+                        userId: user.user_id,
+                        previousBalance: user.totalBalance,
+                        lossAmount: lossAmount
+                    });
+                }
+            }
+            
+            // Reduce all game multipliers by 20% for next hour
+            this.applyTemporaryMultiplierReduction(0.8, 60 * 60 * 1000); // 1 hour
+            
+            this.lastMarketEvent = Date.now();
+            
+            logger.warn(`Market crash completed: ${fmtFull(totalCrashLoss)} removed from ${affectedUsers} wealthy users`);
+            
+            // Create culprits list for announcement
+            let culpritsText = 'No major wealth holders identified';
+            if (crashCulprits.length > 0) {
+                culpritsText = crashCulprits.map((culprit, index) => 
+                    `${index + 1}. **${culprit.username}** - Lost ${fmtFull(culprit.lossAmount)} (was ${fmtFull(culprit.previousBalance)})`
+                ).join('\n');
+            }
+
+            // Send market crash announcement
+            const crashEmbed = new EmbedBuilder()
+                .setTitle('📉 MARKET CRASH EVENT')
+                .setDescription('🔴 **The casino economy has overheated and triggered a market crash!**')
+                .addFields(
+                    { name: '💥 Impact', value: `${(crashPercentage * 100).toFixed(1)}% wealth reduction for high-balance users`, inline: true },
+                    { name: '👑 Affected Users', value: `${affectedUsers} wealthy players (>$500K)`, inline: true },
+                    { name: '💸 Total Removed', value: fmtFull(totalCrashLoss), inline: true },
+                    { name: '🏆 Biggest Wealth Holders (Top Contributors)', value: culpritsText, inline: false },
+                    { name: '🎮 Game Impact', value: 'All game multipliers reduced by 20% for 1 hour', inline: false },
+                    { name: '📊 Reason', value: 'Economy health: EXCELLENT + High wealth inequality detected', inline: false },
+                    { name: '⏰ Duration', value: 'Temporary multiplier reduction: 60 minutes', inline: false }
+                )
+                .setColor(0xFF4444) // Red for crash
+                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
+                .setFooter({ text: '📈 Economic Rebalancing • ATIVE Casino Economy' })
+                .setTimestamp();
+
+            await this.sendAnnouncement(crashEmbed);
+            
+        } catch (error) {
+            logger.error(`Error during market crash: ${error.message}`);
+        }
+    }
+
+    /**
+     * Trigger economic stimulus event
+     */
+    async triggerEconomicStimulus() {
+        try {
+            logger.info('🟢 TRIGGERING ECONOMIC STIMULUS - Helping struggling economy!');
+            
+            const allUsers = await dbManager.getAllUsers();
+            const stimulusAmount = 25000 + Math.random() * 50000; // $25K-75K stimulus
+            
+            let totalStimulus = 0;
+            let beneficiaries = 0;
+            
+            for (const user of allUsers) {
+                const totalBalance = (parseFloat(user.wallet) || 0) + (parseFloat(user.bank) || 0);
+                
+                // Give stimulus to users with <$100K total balance
+                if (totalBalance < 100000) {
+                    const currentWallet = parseFloat(user.wallet) || 0;
+                    await dbManager.setUserBalance(user.user_id, null, currentWallet + stimulusAmount, parseFloat(user.bank) || 0);
+                    
+                    totalStimulus += stimulusAmount;
+                    beneficiaries++;
+                }
+            }
+            
+            // Increase all game multipliers by 15% for next 2 hours
+            this.applyTemporaryMultiplierBoost(1.15, 2 * 60 * 60 * 1000); // 2 hours
+            
+            this.lastMarketEvent = Date.now();
+            
+            logger.info(`Economic stimulus completed: ${fmtFull(totalStimulus)} distributed to ${beneficiaries} users`);
+            
+            // Send economic stimulus announcement
+            const stimulusEmbed = new EmbedBuilder()
+                .setTitle('📈 ECONOMIC STIMULUS EVENT')
+                .setDescription('🟢 **The struggling economy has triggered a stimulus package!**')
+                .addFields(
+                    { name: '💰 Stimulus Amount', value: `${fmtFull(stimulusAmount)} per eligible user`, inline: true },
+                    { name: '🎯 Beneficiaries', value: `${beneficiaries} users with <$100K balance`, inline: true },
+                    { name: '📊 Total Distributed', value: fmtFull(totalStimulus), inline: true },
+                    { name: '🎮 Game Boost', value: 'All game multipliers increased by 15% for 2 hours', inline: false },
+                    { name: '📊 Reason', value: 'Economy health: POOR - Supporting struggling players', inline: false },
+                    { name: '⏰ Duration', value: 'Temporary multiplier boost: 120 minutes', inline: false }
+                )
+                .setColor(0x44FF44) // Green for stimulus
+                .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
+                .setFooter({ text: '💡 Economic Support • ATIVE Casino Economy' })
+                .setTimestamp();
+
+            await this.sendAnnouncement(stimulusEmbed);
+            
+        } catch (error) {
+            logger.error(`Error during economic stimulus: ${error.message}`);
+        }
+    }
+
+    /**
+     * Process wealth taxation for the ultra-rich
+     */
+    async processWealthTaxation() {
+        if (this.wealthTaxScheduled) return; // Already processed this cycle
+        
+        try {
+            const analysis = await this.getEconomyAnalysis();
+            const giniCoefficient = this.calculateGiniCoefficient(analysis);
+            
+            // Apply wealth tax if inequality is too high
+            if (giniCoefficient > 0.75) {
+                logger.info('💰 Processing progressive wealth tax...');
+                
+                const allUsers = await dbManager.getAllUsers();
+                let totalTaxCollected = 0;
+                let taxedUsers = 0;
+                
+                for (const user of allUsers) {
+                    const totalBalance = (parseFloat(user.wallet) || 0) + (parseFloat(user.bank) || 0);
+                    let taxRate = 0;
+                    
+                    // Progressive tax brackets
+                    if (totalBalance > 50000000) { // >$50M
+                        taxRate = 0.05; // 5% wealth tax
+                    } else if (totalBalance > 10000000) { // >$10M
+                        taxRate = 0.03; // 3% wealth tax
+                    } else if (totalBalance > 5000000) { // >$5M
+                        taxRate = 0.02; // 2% wealth tax
+                    }
+                    
+                    if (taxRate > 0) {
+                        const taxAmount = totalBalance * taxRate;
+                        
+                        // Take from bank first, then wallet
+                        let bankTax = Math.min(taxAmount, parseFloat(user.bank) || 0);
+                        let walletTax = taxAmount - bankTax;
+                        
+                        const newBank = Math.max(0, (parseFloat(user.bank) || 0) - bankTax);
+                        const newWallet = Math.max(0, (parseFloat(user.wallet) || 0) - walletTax);
+                        
+                        await dbManager.setUserBalance(user.user_id, null, newWallet, newBank);
+                        
+                        totalTaxCollected += bankTax + walletTax;
+                        taxedUsers++;
+                    }
+                }
+                
+                if (totalTaxCollected > 0) {
+                    logger.info(`Wealth tax collected: ${fmtFull(totalTaxCollected)} from ${taxedUsers} ultra-wealthy users`);
+                    
+                    // Distribute tax revenue as stimulus to poor users
+                    const redistributionInfo = await this.redistributeWealthTax(totalTaxCollected);
+
+                    // Send wealth tax announcement
+                    const wealthTaxEmbed = new EmbedBuilder()
+                        .setTitle('💰 PROGRESSIVE WEALTH TAX EVENT')
+                        .setDescription('⚖️ **High wealth inequality has triggered progressive taxation!**')
+                        .addFields(
+                            { name: '📊 Inequality Level', value: `Gini Coefficient: ${giniCoefficient.toFixed(3)} (Very High)`, inline: false },
+                            { name: '🏛️ Tax Brackets Applied', value: '>$50M: 5%\n>$10M: 3%\n>$5M: 2%', inline: true },
+                            { name: '👑 Taxed Users', value: `${taxedUsers} ultra-wealthy players`, inline: true },
+                            { name: '💸 Total Collected', value: fmtFull(totalTaxCollected), inline: true },
+                            { name: '🎯 Redistribution', value: `${redistributionInfo.recipients} users with <$250K received ${fmtFull(redistributionInfo.perUser)} each`, inline: false },
+                            { name: '📈 Impact', value: 'Reducing wealth inequality and supporting lower-income players', inline: false }
+                        )
+                        .setColor(0xFFD700) // Gold for taxation
+                        .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
+                        .setFooter({ text: '⚖️ Wealth Redistribution • ATIVE Casino Economy' })
+                        .setTimestamp();
+
+                    await this.sendAnnouncement(wealthTaxEmbed);
+                }
+                
+                this.wealthTaxScheduled = true;
+                
+                // Reset tax flag after 24 hours
+                setTimeout(() => {
+                    this.wealthTaxScheduled = false;
+                }, 24 * 60 * 60 * 1000);
+            }
+            
+        } catch (error) {
+            logger.error(`Error processing wealth taxation: ${error.message}`);
+        }
+    }
+
+    /**
+     * Redistribute wealth tax as stimulus to poor users
+     */
+    async redistributeWealthTax(totalAmount) {
+        try {
+            const allUsers = await dbManager.getAllUsers();
+            const eligibleUsers = allUsers.filter(user => {
+                const totalBalance = (parseFloat(user.wallet) || 0) + (parseFloat(user.bank) || 0);
+                return totalBalance < 250000; // Users with <$250K get redistribution
+            });
+            
+            if (eligibleUsers.length === 0) return;
+            
+            const perUserAmount = Math.floor(totalAmount / eligibleUsers.length);
+            let redistributed = 0;
+            
+            for (const user of eligibleUsers) {
+                const currentWallet = parseFloat(user.wallet) || 0;
+                await dbManager.setUserBalance(user.user_id, null, currentWallet + perUserAmount, parseFloat(user.bank) || 0);
+                redistributed += perUserAmount;
+            }
+            
+            logger.info(`Redistributed ${fmtFull(redistributed)} to ${eligibleUsers.length} lower-wealth users`);
+            
+            return {
+                recipients: eligibleUsers.length,
+                perUser: perUserAmount,
+                totalRedistributed: redistributed
+            };
+            
+        } catch (error) {
+            logger.error(`Error redistributing wealth tax: ${error.message}`);
+        }
+    }
+
+    /**
+     * Apply temporary multiplier reduction
+     */
+    applyTemporaryMultiplierReduction(factor, duration) {
+        // Store original multipliers
+        const originalMultipliers = JSON.parse(JSON.stringify(this.activeMultipliers));
+        
+        // Apply reduction
+        for (const gameType in this.activeMultipliers) {
+            for (const subType in this.activeMultipliers[gameType]) {
+                const multipliers = this.activeMultipliers[gameType][subType];
+                if (Array.isArray(multipliers)) {
+                    this.activeMultipliers[gameType][subType] = multipliers.map(mult => 
+                        Math.round(mult * factor * 100) / 100
+                    );
+                } else {
+                    this.activeMultipliers[gameType][subType] = 
+                        Math.round(multipliers * factor * 100) / 100;
+                }
+            }
+        }
+        
+        logger.info(`Applied temporary ${factor}x multiplier reduction for ${duration/1000/60} minutes`);
+        
+        // Restore original multipliers after duration
+        setTimeout(() => {
+            this.activeMultipliers = originalMultipliers;
+            logger.info('Temporary multiplier reduction expired - restored normal rates');
+        }, duration);
+    }
+
+    /**
+     * Apply temporary multiplier boost
+     */
+    applyTemporaryMultiplierBoost(factor, duration) {
+        // Store original multipliers
+        const originalMultipliers = JSON.parse(JSON.stringify(this.activeMultipliers));
+        
+        // Apply boost
+        for (const gameType in this.activeMultipliers) {
+            for (const subType in this.activeMultipliers[gameType]) {
+                const multipliers = this.activeMultipliers[gameType][subType];
+                if (Array.isArray(multipliers)) {
+                    this.activeMultipliers[gameType][subType] = multipliers.map(mult => 
+                        Math.round(mult * factor * 100) / 100
+                    );
+                } else {
+                    this.activeMultipliers[gameType][subType] = 
+                        Math.round(multipliers * factor * 100) / 100;
+                }
+            }
+        }
+        
+        logger.info(`Applied temporary ${factor}x multiplier boost for ${duration/1000/60} minutes`);
+        
+        // Restore original multipliers after duration
+        setTimeout(() => {
+            this.activeMultipliers = originalMultipliers;
+            logger.info('Temporary multiplier boost expired - restored normal rates');
+        }, duration);
     }
 }
 

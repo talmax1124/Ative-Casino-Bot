@@ -8,6 +8,7 @@ const dbManager = require('../UTILS/database');
 const { fmtFull, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PLINKO_MODES, getCurrentPlinkoModes, randomizeMultipliers, createPlinkoImage, simulatePlinkoDrop } = require('../UTILS/plinkoCanvas');
+const economyAnalyzer = require('../UTILS/economyAnalyzer');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 // sessionManager removed (Firebase dependency) - using mock implementation
 const sessionManager = {
@@ -152,8 +153,11 @@ module.exports = {
                 return;
             }
 
-            // Setup game parameters first
-            const multipliers = randomizeMultipliers(modeData.multipliers);
+            // Setup game parameters first - get dynamic multipliers from economy analyzer
+            const baseMultipliers = modeData.multipliers;
+            const economicMultipliers = economyAnalyzer.getGameMultipliers('plinko', selectedMode.toLowerCase());
+            const dynamicMultipliers = economicMultipliers.length > 0 ? economicMultipliers : baseMultipliers;
+            const multipliers = randomizeMultipliers(dynamicMultipliers);
             const slots = multipliers.length;
             
             // Determine drop slot
