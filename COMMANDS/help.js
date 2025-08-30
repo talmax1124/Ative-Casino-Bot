@@ -212,7 +212,7 @@ async function showSpecificCategory(interaction, category) {
                 .setStyle(ButtonStyle.Primary)
         );
 
-    if (interaction.replied) {
+    if (interaction.replied || interaction.deferred) {
         await interaction.editReply({ embeds: [embed], components: [backButton] });
     } else {
         await interaction.reply({ embeds: [embed], components: [backButton] });

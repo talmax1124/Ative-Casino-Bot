@@ -641,7 +641,7 @@ client.on('interactionCreate', async interaction => {
                         if (!interaction.replied && !interaction.deferred) {
                             await interaction.reply({ 
                                 content: 'An error occurred while loading help information. Please try again.', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral
                             });
                         } else if (interaction.deferred) {
                             await interaction.editReply({ 
