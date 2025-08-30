@@ -1360,7 +1360,8 @@ client.on('interactionCreate', async interaction => {
                     });
                 }
             }
-            // Handle vote buttons
+            // Handle vote buttons - TEMPORARILY COMMENTED OUT (Top.GG not configured)
+            /*
             else if (customId === 'check_vote' || customId === 'vote_reminder') {
                 const voteCommand = client.commands.get('vote');
                 
@@ -1387,6 +1388,7 @@ client.on('interactionCreate', async interaction => {
                     });
                 }
             }
+            */
             
         } catch (error) {
             logger.error(`Error handling button ${customId}:`, error);
@@ -1487,7 +1489,8 @@ const PORT = process.env.WEBHOOK_PORT || 3001;
 
 app.use(express.json());
 
-// Top.GG webhook endpoint
+// Top.GG webhook endpoint - TEMPORARILY COMMENTED OUT (Top.GG not configured)
+/*
 app.post('/topgg/webhook', async (req, res) => {
     const { type, user, bot } = req.body;
     
@@ -1524,6 +1527,7 @@ app.post('/topgg/webhook', async (req, res) => {
         res.status(200).json({ success: true, message: 'Webhook received but not processed' });
     }
 });
+*/
 
 // Health check endpoint
 app.get('/health', (req, res) => {

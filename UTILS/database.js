@@ -22,8 +22,8 @@ class DatabaseManager {
 
         // Use the database adapter (MariaDB only)
         try {
-            const DatabaseAdapter = require('./databaseAdapter');
-            this.databaseAdapter = DatabaseAdapter;
+            const databaseAdapter = require('./databaseAdapter');
+            this.databaseAdapter = databaseAdapter;
             await this.databaseAdapter.initialize();
             this.usingAdapter = true;
             this.initialized = true;

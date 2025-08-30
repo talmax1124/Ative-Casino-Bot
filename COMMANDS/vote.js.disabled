@@ -1,7 +1,11 @@
 /**
  * Vote command for Top.GG integration with progressive rewards
  * Includes weekend bonuses and vote reminder functionality
+ * 
+ * TEMPORARILY COMMENTED OUT - Top.GG not configured yet
  */
+
+/*
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
@@ -280,3 +284,5 @@ module.exports = {
         }
     }
 };
+
+*/

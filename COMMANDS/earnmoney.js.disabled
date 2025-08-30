@@ -1,7 +1,11 @@
 /**
  * EarnMoney command - Available only to users with 10+ votes
  * Combines all economy commands (/earn, /beg, /crime, /heist) into one
+ * 
+ * TEMPORARILY COMMENTED OUT - Depends on vote system which is not configured yet
  */
+
+/*
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
@@ -319,3 +323,5 @@ module.exports = {
         return emojis[command] || '💸';
     }
 };
+
+*/

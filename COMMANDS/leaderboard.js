@@ -158,7 +158,7 @@ async function showMoneyLeaderboard(interaction, guildId, isButtonUpdate = false
 
     // Categorize users by their economic tier
     for (const user of filteredUsers) {
-        const totalBalance = (user.wallet || 0) + (user.bank || 0);
+        const totalBalance = (parseFloat(user.wallet) || 0) + (parseFloat(user.bank) || 0);
         const tier = getEconomicTier(totalBalance);
         
         if (totalBalance > 0) { // Only show users with positive balance

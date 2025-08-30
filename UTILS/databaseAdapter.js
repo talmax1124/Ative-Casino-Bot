@@ -39,6 +39,9 @@ class DatabaseAdapter {
      * Initialize MariaDB connection pool with fixed configuration
      */
     async initializeMariaDB() {
+        // Ensure dotenv is loaded
+        require('dotenv').config();
+        
         const config = {
             host: process.env.MARIADB_HOST || 'localhost',
             port: parseInt(process.env.MARIADB_PORT) || 3306,
