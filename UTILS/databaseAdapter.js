@@ -466,6 +466,8 @@ class DatabaseAdapter {
 
     async getTopUsersByBalance(guildId, limit = 10) {
         try {
+            // Note: Balances are stored globally per user, not per guild
+            // GuildId parameter is kept for API consistency but not used in query
             const [rows] = await this.pool.execute(
                 `SELECT user_id, wallet, bank, username, 
                         (wallet + bank) as total_balance,
@@ -476,6 +478,8 @@ class DatabaseAdapter {
                  LIMIT ?`,
                 [limit]
             );
+            
+            logger.info(`Retrieved ${rows.length} users for balance leaderboard (limit: ${limit})`);
             return rows;
         } catch (error) {
             logger.error(`Failed to get top users by balance: ${error.message}`);
