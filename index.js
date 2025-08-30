@@ -3,7 +3,7 @@
  * Professional Discord casino bot built with JavaScript
  */
 
-const { Client, GatewayIntentBits, Collection, EmbedBuilder, MessageFlags } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v10');
 const fs = require('fs');
@@ -628,48 +628,45 @@ client.on('interactionCreate', async interaction => {
                     await unoCommand.handleCardSelection(interaction, cardIndex);
                 }
             }
-            // Handle help category selection
+            // Handle modern help category selection
             else if (interaction.customId === 'help_category_select') {
                 try {
                     const selectedCategory = interaction.values[0];
-                    const { showSpecificCategory } = require('./COMMANDS/help');
+                    logger.info(`Help category selected: ${selectedCategory} by user ${interaction.user.id}`);
                     
-                    // Defer the reply to give us time to process
+                    // Import help functions
+                    const { showCategoryHelp, handleHelpError } = require('./COMMANDS/help');
+                    
+                    // Always defer update for select menus to prevent timeout
                     if (!interaction.deferred && !interaction.replied) {
                         await interaction.deferUpdate();
                     }
                     
-                    await showSpecificCategory(interaction, selectedCategory);
+                    // Show the selected category
+                    await showCategoryHelp(interaction, selectedCategory);
+                    
                 } catch (error) {
-                    logger.error(`Error handling help category selection: ${error.message}`);
+                    logger.error(`Critical error in help category selection: ${error.message}\nStack: ${error.stack}`);
                     
-                    const safeErrorReply = async () => {
+                    // Use the centralized error handler
+                    try {
+                        const { handleHelpError } = require('./COMMANDS/help');
+                        await handleHelpError(interaction, error);
+                    } catch (fallbackError) {
+                        logger.error(`Fallback error handler failed: ${fallbackError.message}`);
+                        
+                        // Last resort error handling
                         try {
-                            const errorMessage = '❌ An error occurred while loading help information. Please try again.';
-                            
+                            const errorMessage = '⚠️ A critical error occurred. Please try `/help` again.';
                             if (interaction.deferred) {
-                                await interaction.editReply({ 
-                                    content: errorMessage,
-                                    embeds: [],
-                                    components: []
-                                });
-                            } else if (interaction.replied) {
-                                await interaction.followUp({ 
-                                    content: errorMessage, 
-                                    flags: MessageFlags.Ephemeral
-                                });
-                            } else {
-                                await interaction.reply({ 
-                                    content: errorMessage, 
-                                    flags: MessageFlags.Ephemeral
-                                });
+                                await interaction.editReply({ content: errorMessage, embeds: [], components: [] });
+                            } else if (!interaction.replied) {
+                                await interaction.reply({ content: errorMessage, flags: MessageFlags.Ephemeral });
                             }
-                        } catch (replyError) {
-                            logger.error(`Failed to send help category error: ${replyError.message}`);
+                        } catch (finalError) {
+                            logger.error(`Final error handler failed: ${finalError.message}`);
                         }
-                    };
-                    
-                    await safeErrorReply();
+                    }
                 }
             }
             // Handle UNO color selection
@@ -1134,74 +1131,114 @@ client.on('interactionCreate', async interaction => {
                 const { SetupInteractionHandler } = require('./UTILS/setupInteractionHandler');
                 await SetupInteractionHandler.handleSetupInteraction(interaction);
             }
-            // Handle help buttons
+            // Handle modern help system buttons
             else if (customId.startsWith('help_')) {
                 try {
-                    // Defer the update for consistent interaction handling
+                    logger.info(`Help button clicked: ${customId} by user ${interaction.user.id}`);
+                    
+                    // Import help functions
+                    const { showMainHelp, showCategoryHelp, handleHelpError, HELP_CATEGORIES } = require('./COMMANDS/help');
+                    
+                    // Always defer update for buttons
                     if (!interaction.deferred && !interaction.replied) {
                         await interaction.deferUpdate();
                     }
 
-                    if (customId === 'help_back_main') {
-                        const { showMainHelp } = require('./COMMANDS/help');
-                        await showMainHelp(interaction);
-                    } else if (customId === 'help_refresh') {
-                        // Determine current category from embed title
-                        const embed = interaction.message.embeds[0];
-                        let category = null;
-                        if (embed && embed.title) {
-                            if (embed.title.includes('Games')) category = 'games';
-                            else if (embed.title.includes('Economy')) category = 'economy';
-                            else if (embed.title.includes('Lottery')) category = 'lottery';
-                            else if (embed.title.includes('Admin')) category = 'admin';
-                            else if (embed.title.includes('Tier')) category = 'tiers';
-                            else if (embed.title.includes('Security')) category = 'security';
-                        }
-                        
-                        if (category) {
-                            const { showSpecificCategory } = require('./COMMANDS/help');
-                            await showSpecificCategory(interaction, category);
-                        } else {
-                            const { showMainHelp } = require('./COMMANDS/help');
-                            await showMainHelp(interaction);
-                        }
-                    } else if (customId === 'help_commands_list') {
-                        await showAllCommandsList(interaction);
-                    } else if (customId === 'help_getting_started') {
-                        await showGettingStartedGuide(interaction);
-                    } else if (customId === 'help_support') {
-                        await showSupportInfo(interaction);
-                    }
-                } catch (error) {
-                    logger.error(`Error handling help button ${customId}: ${error.message}`);
-                    
-                    const safeErrorReply = async () => {
-                        try {
-                            const errorMessage = '❌ An error occurred while processing help. Please try again.';
-                            
-                            if (interaction.deferred) {
+                    // Handle different button types
+                    switch (customId) {
+                        case 'help_back_main':
+                        case 'help_close':
+                            if (customId === 'help_close') {
+                                // Close help with a simple message
                                 await interaction.editReply({ 
-                                    content: errorMessage,
-                                    embeds: [],
-                                    components: []
-                                });
-                            } else if (interaction.replied) {
-                                await interaction.followUp({ 
-                                    content: errorMessage, 
-                                    flags: MessageFlags.Ephemeral
+                                    content: '✅ **Help closed!** Use `/help` anytime to access the help system again.', 
+                                    embeds: [], 
+                                    components: [] 
                                 });
                             } else {
-                                await interaction.reply({ 
-                                    content: errorMessage, 
-                                    flags: MessageFlags.Ephemeral
-                                });
+                                await showMainHelp(interaction);
                             }
-                        } catch (replyError) {
-                            logger.error(`Failed to send help button error: ${replyError.message}`);
-                        }
-                    };
+                            break;
+
+                        case 'help_refresh_category':
+                            // Determine current category from embed title
+                            const embed = interaction.message.embeds[0];
+                            let category = null;
+                            if (embed && embed.title) {
+                                // Match category based on title content
+                                for (const [key, catInfo] of Object.entries(HELP_CATEGORIES)) {
+                                    if (embed.title.includes(catInfo.name)) {
+                                        category = key;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (category) {
+                                await showCategoryHelp(interaction, category);
+                            } else {
+                                await showMainHelp(interaction);
+                            }
+                            break;
+
+                        case 'help_all_commands':
+                            await showAllCommandsList(interaction);
+                            break;
+
+                        case 'help_quick_start':
+                            await showQuickStartGuide(interaction);
+                            break;
+
+                        case 'help_tutorials':
+                            await showTutorialsList(interaction);
+                            break;
+
+                        case 'help_support':
+                            await showSupportInfo(interaction);
+                            break;
+
+                        case 'help_stats':
+                            await showBotStats(interaction);
+                            break;
+
+                        case 'help_changelog':
+                            await showChangelog(interaction);
+                            break;
+
+                        default:
+                            // Handle category-specific buttons (examples, tips, FAQ, tutorials)
+                            if (customId.includes('_examples_') || customId.includes('_tips_') || 
+                                customId.includes('_faq_') || customId.includes('_tutorial_')) {
+                                
+                                await showAdvancedHelpContent(interaction, customId);
+                            } else {
+                                logger.warn(`Unknown help button: ${customId}`);
+                                await showMainHelp(interaction);
+                            }
+                            break;
+                    }
+
+                } catch (error) {
+                    logger.error(`Critical error in help button ${customId}: ${error.message}\nStack: ${error.stack}`);
                     
-                    await safeErrorReply();
+                    // Use centralized error handling
+                    try {
+                        const { handleHelpError } = require('./COMMANDS/help');
+                        await handleHelpError(interaction, error);
+                    } catch (fallbackError) {
+                        logger.error(`Help button fallback error: ${fallbackError.message}`);
+                        
+                        try {
+                            const errorMessage = '⚠️ Help system error. Try `/help` to restart.';
+                            if (interaction.deferred) {
+                                await interaction.editReply({ content: errorMessage, embeds: [], components: [] });
+                            } else if (!interaction.replied) {
+                                await interaction.reply({ content: errorMessage, flags: MessageFlags.Ephemeral });
+                            }
+                        } catch (finalError) {
+                            logger.error(`Final help button error handler failed: ${finalError.message}`);
+                        }
+                    }
                 }
             }
             
@@ -1574,66 +1611,90 @@ process.on('uncaughtException', error => {
     process.exit(1);
 });
 
-// ========================= HELP SYSTEM HELPER FUNCTIONS =========================
+// ========================= MODERN HELP SYSTEM HELPER FUNCTIONS =========================
 
 /**
- * Show all commands list
+ * Show comprehensive commands list with modern UI
  */
 async function showAllCommandsList(interaction) {
     const embed = new EmbedBuilder()
-        .setTitle('📋 All Available Commands')
-        .setDescription('**Complete list of all bot commands organized by category:**')
+        .setTitle('📋 Complete Command Reference')
+        .setDescription('**🎯 All ATIVE Casino Bot commands organized by category**\n\n*Click any command name for detailed help and examples.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
         .addFields(
             {
-                name: '🎰 Casino Games',
-                value: '`/slots` `/multi-slots` `/blackjack` `/crash` `/fishing` `/plinko` `/rps` `/duck` `/bingo` `/uno` `/battleship` `/wordchain`',
+                name: '🎰 **Casino Games** 🎰',
+                value: '```yaml\nSlot Games:   /slots, /multi-slots\nCard Games:   /blackjack\nSkill Games:  /crash, /fishing, /plinko, /rps\nParty Games:  /duck, /bingo, /uno\nPvP Games:    /battleship, /wordchain\n```\n🎯 **All games include interactive help buttons**',
                 inline: false
             },
             {
-                name: '💰 Economy Commands',
-                value: '`/balance` `/work` `/beg` `/crime` `/heist` `/rob` `/sendmoney` `/leaderboard`',
+                name: '💰 **Economy & Finance** 💰',
+                value: '```yaml\nIncome:       /work, /beg, /crime, /heist\nManagement:   /balance, /sendmoney\nRisk:         /rob\nProgress:     /leaderboard\n```\n💡 **Pro Tip:** Use `/balance` panel for banking operations',
                 inline: false
             },
             {
-                name: '🎟️ Lottery System',
-                value: '`/lottery` `/purchaselottery` (use developer panel to refresh)',
+                name: '🎟️ **Lottery System** 🎟️',
+                value: '```yaml\nView Status:  /lottery\nBuy Tickets:  /purchaselottery <1-7>\nDrawings:     Every Sunday 10AM EST\n```\n🏆 **Weekly prizes with guaranteed winners**',
                 inline: false
             },
             {
-                name: '👑 Admin Commands',
-                value: '`/editmoney` `/crasheco` `/setup` `/panel` `/drawlottery` `/setuplottery` `/stopgame` `/stopcrash` `/polls`',
+                name: '👑 **Administration** 👑',
+                value: '```yaml\nSetup:        /setup, /panel\nEconomy:      /editmoney, /crasheco\nGames:        /stopgame, /stopcrash\nLottery:      /drawlottery, /setuplottery\nCommunity:    /polls\n```\n🔒 **Admin permissions required**',
                 inline: false
             },
             {
-                name: '📊 Information & Help',
-                value: '`/help` `/status` `/leaderboard`',
+                name: '📊 **Information & Stats** 📊',
+                value: '```yaml\nHelp System:  /help [category]\nBot Status:   /status\nRankings:     /leaderboard [type]\n```\n📈 **Real-time statistics and comprehensive help**',
+                inline: false
+            },
+            {
+                name: '🎯 **Command Usage Tips** 🎯',
+                value: '• **📱 Slash Commands:** All commands use `/` prefix\n• **❓ Interactive Help:** Most commands have help buttons\n• **🎮 Game Tutorials:** Use `?` button in games for rules\n• **⏰ Cooldowns:** Economy commands have cooldown timers\n• **🔒 Permissions:** Some commands require admin roles\n• **📊 Context Help:** Use `/help [category]` for detailed guides',
                 inline: false
             }
         )
         .setColor(0x3498DB)
-        .setThumbnail('📋')
-        .setFooter({ text: '📋 Commands List • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setThumbnail(interaction.client.user.displayAvatarURL())
+        .setFooter({ 
+            text: '📋 Command Reference • All 25+ Commands • ATIVE Casino Bot', 
+            iconURL: interaction.client.user.displayAvatarURL() 
+        })
         .setTimestamp();
 
-    const backButton = new ActionRowBuilder()
+    const navButtons = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
                 .setCustomId('help_back_main')
-                .setLabel('🔙 Back to Help')
+                .setLabel('🏠 Main Help')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🏠'),
+            new ButtonBuilder()
+                .setCustomId('help_quick_start')
+                .setLabel('🚀 Quick Start')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('🚀'),
+            new ButtonBuilder()
+                .setCustomId('help_tutorials')
+                .setLabel('📚 Tutorials')
                 .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📚'),
+            new ButtonBuilder()
+                .setCustomId('help_close')
+                .setLabel('❌ Close')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('❌')
         );
 
     const safeReply = async () => {
         try {
             if (interaction.deferred) {
-                await interaction.editReply({ embeds: [embed], components: [backButton] });
-            } else if (interaction.replied) {
-                await interaction.followUp({ embeds: [embed], components: [backButton] });
+                await interaction.editReply({ embeds: [embed], components: [navButtons] });
             } else {
-                await interaction.reply({ embeds: [embed], components: [backButton] });
+                await interaction.reply({ embeds: [embed], components: [navButtons] });
             }
         } catch (error) {
             logger.error(`Failed to send commands list: ${error.message}`);
+            const { handleHelpError } = require('./COMMANDS/help');
+            await handleHelpError(interaction, error);
         }
     };
 
@@ -1641,68 +1702,87 @@ async function showAllCommandsList(interaction) {
 }
 
 /**
- * Show getting started guide
+ * Modern quick start guide with step-by-step tutorial
  */
-async function showGettingStartedGuide(interaction) {
+async function showQuickStartGuide(interaction) {
     const embed = new EmbedBuilder()
-        .setTitle('🚀 Getting Started with ATIVE Casino Bot')
-        .setDescription('**New to the casino? Follow this step-by-step guide to get started!**')
+        .setTitle('🚀 Quick Start Tutorial')
+        .setDescription('**🎯 New Player? Get Started in 5 Minutes!**\n\n*Follow this interactive guide to master ATIVE Casino Bot quickly.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
         .addFields(
             {
-                name: '1️⃣ Check Your Starting Balance',
-                value: 'Use `/balance` to see your starting $1,000 wallet balance.\nYour wallet is for spending, your bank is for saving!',
+                name: '1️⃣ **Check Your Starting Funds** 💰',
+                value: '```bash\n/balance\n```\n🎯 **You start with $1,000 in your wallet!**\n💡 **Wallet** = spending money | **Bank** = secure savings with interest',
                 inline: false
             },
             {
-                name: '2️⃣ Earn More Money',
-                value: '• `/work` - Work various jobs (5K-30K every hour)\n• `/beg` - Ask for handouts (1K-10K every hour)\n• `/crime` - Quick petty crimes (1K-5K every 30min)\n• `/heist` - Big score attempts (10K-30K every 2.5hrs)',
+                name: '2️⃣ **Earn Your First Income** 💼',
+                value: '```bash\n/work    # $5K-30K every hour\n/beg     # $1K-10K every hour  \n/crime   # $1K-5K every 30min\n```\n🎯 **Pro Strategy:** Use all income sources for maximum earnings\n⏰ **Cooldowns prevent spam** - plan your income rotation',
                 inline: false
             },
             {
-                name: '3️⃣ Try Your First Game',
-                value: '• `/slots 100` - Simple slot machine (great for beginners)\n• `/blackjack 500` - Classic card game with strategy\n• `/fishing 250` - Risk vs reward fishing game\n• Remember to click the **?** button for game help!',
+                name: '3️⃣ **Play Your First Game** 🎰',
+                value: '```bash\n/slots 100        # Safe bet for beginners\n/blackjack 500    # Strategy-based card game\n/fishing 250      # Risk vs reward adventure\n```\n🎯 **Every game has a ? button** with full rules and strategies\n⚠️ **Start small** - learn the games before big bets',
                 inline: false
             },
             {
-                name: '4️⃣ Manage Your Money',
-                value: '• **Bank your earnings** to earn interest and protect from robbery\n• **Check your tier** - higher tiers get better benefits\n• **Send money** to friends with `/sendmoney`\n• **Rob others** with `/rob` (but be careful of the risks!)',
+                name: '4️⃣ **Secure Your Wealth** 🏦',
+                value: '• **📊 Use `/balance` panel** to deposit money into bank\n• **💰 Bank money earns interest** based on your tier\n• **🛡️ Banked money is safe** from robbery attempts\n• **📈 Higher total balance** = higher tier = more benefits',
                 inline: false
             },
             {
-                name: '5️⃣ Join the Community',
-                value: '• Buy **lottery tickets** for weekly big prizes\n• Check the **leaderboard** to see top players\n• **Play PvP games** like Battleship and UNO\n• **Follow the rules** and have fun!',
+                name: '5️⃣ **Join the Community** 🎉',
+                value: '```bash\n/purchaselottery 1    # Buy lottery tickets (Sunday draws)\n/leaderboard          # See top players and your rank\n/uno                  # Play social games with others\n```\n🎯 **Weekly lottery** has guaranteed winners with massive prizes',
                 inline: false
             },
             {
-                name: '💡 Pro Tips',
-                value: '• **Higher tiers** get interest on bank balance\n• **Can\'t rob 3+ tiers higher** - grow your wealth first\n• **All games have help buttons** - use them!\n• **Economy commands have cooldowns** - be patient',
+                name: '🎯 **Success Tips & Strategies** 🎯',
+                value: '• **🏦 Bank Priority:** Always bank excess funds for interest\n• **🎖️ Tier Focus:** Higher tiers = better protection & perks\n• **🎲 Smart Gaming:** Learn odds, use help buttons\n• **⏰ Cooldown Management:** Rotate all income sources\n• **🎟️ Lottery Strategy:** Max 7 tickets per week for best odds\n• **🤝 Community:** Join games, make friends, have fun!',
                 inline: false
             }
         )
         .setColor(0x2ECC71)
-        .setThumbnail('🚀')
-        .setFooter({ text: '🚀 Getting Started • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setThumbnail(interaction.client.user.displayAvatarURL())
+        .setFooter({ 
+            text: '🚀 Quick Start • 5-Minute Tutorial • ATIVE Casino Bot', 
+            iconURL: interaction.client.user.displayAvatarURL() 
+        })
         .setTimestamp();
 
-    const backButton = new ActionRowBuilder()
+    const actionButtons = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
                 .setCustomId('help_back_main')
-                .setLabel('🔙 Back to Help')
+                .setLabel('🏠 Main Help')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🏠'),
+            new ButtonBuilder()
+                .setCustomId('help_all_commands')
+                .setLabel('📋 All Commands')
                 .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📋'),
+            new ButtonBuilder()
+                .setCustomId('help_tutorials')
+                .setLabel('📚 More Tutorials')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('📚'),
+            new ButtonBuilder()
+                .setCustomId('help_close')
+                .setLabel('❌ Close')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('❌')
         );
 
     const safeReply = async () => {
         try {
             if (interaction.deferred) {
-                await interaction.editReply({ embeds: [embed], components: [backButton] });
-            } else if (interaction.replied) {
-                await interaction.followUp({ embeds: [embed], components: [backButton] });
+                await interaction.editReply({ embeds: [embed], components: [actionButtons] });
             } else {
-                await interaction.reply({ embeds: [embed], components: [backButton] });
+                await interaction.reply({ embeds: [embed], components: [actionButtons] });
             }
         } catch (error) {
-            logger.error(`Failed to send getting started guide: ${error.message}`);
+            logger.error(`Failed to send quick start guide: ${error.message}`);
+            const { handleHelpError } = require('./COMMANDS/help');
+            await handleHelpError(interaction, error);
         }
     };
 
@@ -1719,7 +1799,7 @@ async function showSupportInfo(interaction) {
         .addFields(
             {
                 name: '🐛 Report Bugs & Issues',
-                value: '**GitHub Issues:** [claude-code/issues](https://github.com/anthropics/claude-code/issues)\nDetailed bug reports help us fix issues faster!',
+                value: '**Contact Admins:** Report bugs directly to server administrators\nDetailed bug reports help us fix issues faster!',
                 inline: false
             },
             {
@@ -1749,7 +1829,7 @@ async function showSupportInfo(interaction) {
             }
         )
         .setColor(0x9B59B6)
-        .setThumbnail('💬')
+        .setThumbnail(interaction.client.user.displayAvatarURL())
         .setFooter({ text: '💬 Support Info • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
         .setTimestamp();
 
@@ -1813,7 +1893,7 @@ async function showSlotsHelp(interaction) {
             }
         )
         .setColor(0xFFD700)
-        .setThumbnail('🎰')
+        .setThumbnail(interaction.client.user.displayAvatarURL())
         .setFooter({ text: '🎰 Slots Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
         .setTimestamp();
 
@@ -2070,6 +2150,94 @@ process.on('SIGTERM', async () => {
     client.destroy();
     process.exit(0);
 });
+
+// ========================= ADDITIONAL HELP SYSTEM FUNCTIONS =========================
+
+/**
+ * Show tutorials list
+ */
+async function showTutorialsList(interaction) {
+    const embed = new EmbedBuilder()
+        .setTitle('📚 Tutorial Library')
+        .setDescription('**🎯 Available Tutorials and Guides**')
+        .addFields({
+            name: '📋 Current Tutorials',
+            value: '• 🚀 Quick Start Guide\n• 📋 All Commands\n• 💰 Economy Guide\n• 🎰 Game Strategies',
+            inline: false
+        })
+        .setColor(0x8E44AD);
+
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('help_back_main')
+                .setLabel('🏠 Back')
+                .setStyle(ButtonStyle.Primary)
+        );
+
+    if (interaction.deferred) {
+        await interaction.editReply({ embeds: [embed], components: [buttons] });
+    } else {
+        await interaction.reply({ embeds: [embed], components: [buttons] });
+    }
+}
+
+async function showBotStats(interaction) {
+    const embed = new EmbedBuilder()
+        .setTitle('📊 Bot Statistics')
+        .setDescription('📈 **Coming Soon!** Comprehensive statistics.')
+        .setColor(0x3498DB);
+    
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('help_back_main')
+                .setLabel('🏠 Back')
+                .setStyle(ButtonStyle.Primary)
+        );
+
+    if (interaction.deferred) {
+        await interaction.editReply({ embeds: [embed], components: [buttons] });
+    }
+}
+
+async function showChangelog(interaction) {
+    const embed = new EmbedBuilder()
+        .setTitle('📰 What\'s New')
+        .setDescription('🚀 **Coming Soon!** Latest updates.')
+        .setColor(0xE67E22);
+    
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('help_back_main')
+                .setLabel('🏠 Back')
+                .setStyle(ButtonStyle.Primary)
+        );
+
+    if (interaction.deferred) {
+        await interaction.editReply({ embeds: [embed], components: [buttons] });
+    }
+}
+
+async function showAdvancedHelpContent(interaction, customId) {
+    const embed = new EmbedBuilder()
+        .setTitle('🔧 Advanced Help')
+        .setDescription('⚡ **Coming Soon!** Advanced tutorials.')
+        .setColor(0x9B59B6);
+    
+    const buttons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('help_back_main')
+                .setLabel('🏠 Back')
+                .setStyle(ButtonStyle.Primary)
+        );
+
+    if (interaction.deferred) {
+        await interaction.editReply({ embeds: [embed], components: [buttons] });
+    }
+}
 
 // Start the bot
 client.login(TOKEN).catch(error => {

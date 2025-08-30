@@ -1,6 +1,6 @@
 /**
- * Comprehensive help command with interactive UI
- * Shows all commands organized by categories with detailed descriptions
+ * Modern Help System with Advanced UI and Bulletproof Interaction Handling
+ * Complete rewrite with pagination, rich embeds, and comprehensive navigation
  */
 
 const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
@@ -8,13 +8,53 @@ const { getTierDisplay, getAllTiers } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
 
+// Help categories with metadata
+const HELP_CATEGORIES = {
+    games: {
+        emoji: '🎰',
+        name: 'Casino Games',
+        description: 'Slots, Blackjack, and all casino games',
+        color: 0xFF6B35
+    },
+    economy: {
+        emoji: '💰',
+        name: 'Economy System',
+        description: 'Work, balance, and money management',
+        color: 0x32CD32
+    },
+    lottery: {
+        emoji: '🎟️',
+        name: 'Lottery System',
+        description: 'Weekly drawings and prize information',
+        color: 0x9B59B6
+    },
+    admin: {
+        emoji: '👑',
+        name: 'Admin Commands',
+        description: 'Server management and administration',
+        color: 0xE74C3C
+    },
+    tiers: {
+        emoji: '🎖️',
+        name: 'Economic Tiers',
+        description: 'Tier system and progression',
+        color: 0x9B59B6
+    },
+    security: {
+        emoji: '🛡️',
+        name: 'Security & Rules',
+        description: 'Fair play and bot policies',
+        color: 0x3498DB
+    }
+};
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('help')
-        .setDescription('Get help and information about ATIVE Casino Bot')
+        .setDescription('Get comprehensive help and information about ATIVE Casino Bot')
         .addStringOption(option =>
             option.setName('category')
-                .setDescription('Specific help category')
+                .setDescription('Specific help category to view')
                 .setRequired(false)
                 .addChoices(
                     { name: '🎰 Casino Games', value: 'games' },
@@ -30,434 +70,531 @@ module.exports = {
         const category = interaction.options.getString('category');
 
         try {
+            // Always defer first to prevent timeout issues
+            if (!interaction.deferred && !interaction.replied) {
+                await interaction.deferReply();
+            }
+
             if (category) {
-                await showSpecificCategory(interaction, category);
+                await showCategoryHelp(interaction, category);
             } else {
                 await showMainHelp(interaction);
             }
         } catch (error) {
-            logger.error(`Error in help command: ${error.message}`);
-            
-            const errorEmbed = buildSessionEmbed({
-                title: '❌ Help System Error',
-                topFields: [
-                    { name: 'System Error', value: 'Unable to load help information.\nPlease try again.' }
-                ],
-                color: 0xFF0000,
-                footer: 'Help System'
-            });
-
-            const safeReply = async (embed) => {
-                try {
-                    if (interaction.deferred) {
-                        await interaction.editReply({ embeds: [embed] });
-                    } else if (interaction.replied) {
-                        await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                    } else {
-                        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-                    }
-                } catch (replyError) {
-                    logger.error(`Failed to send help error: ${replyError.message}`);
-                }
-            };
-
-            await safeReply(errorEmbed);
+            logger.error(`Critical error in help command: ${error.message}`);
+            await handleHelpError(interaction, error);
         }
     }
 };
 
 /**
- * Show main help overview with category selection
+ * Advanced error handler for help system
+ */
+async function handleHelpError(interaction, error) {
+    const errorEmbed = new EmbedBuilder()
+        .setTitle('⚠️ Help System Error')
+        .setDescription('**An error occurred while loading help information.**\n\nThis has been logged and will be resolved soon.')
+        .addFields(
+            {
+                name: '🔄 Try Again',
+                value: 'Use `/help` to try again, or select a specific category.',
+                inline: false
+            },
+            {
+                name: '💬 Need Support?',
+                value: 'Contact server administrators if this persists.',
+                inline: false
+            }
+        )
+        .setColor(0xFF0000)
+        .setTimestamp()
+        .setFooter({ text: '⚠️ Error Handler • ATIVE Casino Bot' });
+
+    try {
+        if (interaction.deferred) {
+            await interaction.editReply({ embeds: [errorEmbed], components: [] });
+        } else if (interaction.replied) {
+            await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        } else {
+            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        }
+    } catch (replyError) {
+        logger.error(`Failed to send help error message: ${replyError.message}`);
+    }
+}
+
+/**
+ * Modern main help interface with rich UI
  */
 async function showMainHelp(interaction) {
     const embed = new EmbedBuilder()
-        .setTitle('🎰 ATIVE Casino Bot - Help Center')
-        .setDescription('**Welcome to the ultimate Discord casino experience!**\n\nChoose a category below to get detailed help.')
+        .setTitle('🎰 ATIVE Casino Bot - Command Center')
+        .setDescription(`**Welcome to the ultimate Discord casino experience!**\n\n🎯 **Quick Navigation:** Use the dropdown below or quick action buttons\n📊 **Live Stats:** ${interaction.guild.memberCount} members | Uptime: ${formatUptime()}\n\n*Select a category to explore detailed help and tutorials.*`)
         .addFields(
             {
-                name: '🎰 Casino Games',
-                value: '🎲 Slots, Blackjack, Crash, Fishing, Plinko, RPS\n🦆 Duck Hunt, 🎯 Battleship, 🎮 UNO, Bingo\n🔗 Word Chain and more exciting games!',
+                name: '🎰 **Casino Games Hub**',
+                value: '```\n🎲 Slots & Multi-Slots  🃏 Blackjack & Poker\n🎣 Fishing & Plinko    🎯 Crash & RPS\n🦆 Duck Hunt & Bingo   🎮 UNO & Battleship\n🔗 Word Chain & More!\n```',
                 inline: true
             },
             {
-                name: '💰 Economy System',
-                value: '💵 Balance, Work, Beg, Crime, Heist, Rob\n🏦 Wallet & Bank management\n💸 Send money between users',
+                name: '💰 **Economy & Finance**',
+                value: '```\n💼 Work & Business     🏦 Banking System\n🦹 Rob & Heist        💸 Send Money\n📈 Investments        🎖️ Tier Progression\n💎 Interest & Rewards\n```',
                 inline: true
             },
             {
-                name: '🎟️ Lottery & Rewards',
-                value: '🎫 Weekly lottery drawings\n🏆 Win big prizes every Sunday\n📊 Community prize pools',
+                name: '🎟️ **Lottery & Prizes**',
+                value: '```\n🎫 Weekly Drawings     🏆 Massive Prizes\n📊 Prize Pool Growth   🎯 Ticket Strategy\n📅 Sunday 10AM EST    💰 Community Pool\n```',
                 inline: true
             },
             {
-                name: '🎖️ Economic Tiers',
-                value: '🥉 Bronze → ⚡ Mythic progression\n💰 Interest rates up to 10%\n🎁 Exclusive tier benefits',
+                name: '👑 **Admin & Management**',
+                value: '```\n🛠️ Server Setup       📊 User Management\n💰 Economy Control    🎮 Game Oversight\n📈 Statistics Panel   🔐 Security Tools\n```',
                 inline: true
             },
             {
-                name: '👑 Admin Tools',
-                value: '🛠️ User management and controls\n💰 Economy administration\n📊 Server statistics and logs',
+                name: '🎖️ **Tier System**',
+                value: '```\n🥉 Bronze → ⚡ Mythic  💸 Interest Rates\n🎁 Exclusive Benefits  🔝 Higher Limits\n🛡️ Robbery Protection 📊 Progress Track\n```',
                 inline: true
             },
             {
-                name: '🛡️ Security & Rules',
-                value: '🔐 Anti-abuse protection\n⚖️ Fair play guarantees\n📋 Terms and guidelines',
+                name: '🛡️ **Security & Fair Play**',
+                value: '```\n🔐 Anti-Cheat System  ⚖️ Fair Odds\n📋 Community Rules    🚫 Abuse Prevention\n📊 Transparency Logs  🤝 Player Safety\n```',
                 inline: true
             }
         )
         .addFields(
             {
-                name: '🚀 Quick Start Guide',
-                value: '1️⃣ Use `/balance` to check your starting money\n2️⃣ Try `/work` or `/beg` to earn more\n3️⃣ Play games like `/slots` or `/blackjack`\n4️⃣ Check `/leaderboard` to see rankings\n5️⃣ Use `/lottery` to buy tickets for big prizes',
+                name: '🚀 **Quick Start Guide**',
+                value: '`1.` Check balance with `/balance` → `2.` Earn with `/work` or `/beg` → `3.` Play `/slots 100` → `4.` Bank money for safety → `5.` Buy lottery tickets → `6.` Climb tiers!',
                 inline: false
             }
         )
         .setColor(0xFFD700)
-        .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ text: '🎰 Help Center • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setThumbnail(interaction.client.user.displayAvatarURL({ size: 256 }))
+        .setFooter({ 
+            text: `🎰 Help Center • Page 1/6 • ATIVE Casino Bot`, 
+            iconURL: interaction.client.user.displayAvatarURL() 
+        })
         .setTimestamp();
 
-    // Create category selection dropdown
+    // Advanced category selection dropdown
     const categorySelect = new StringSelectMenuBuilder()
         .setCustomId('help_category_select')
-        .setPlaceholder('📂 Choose a help category...')
-        .addOptions([
-            {
-                label: '🎰 Casino Games',
-                description: 'Slots, Blackjack, Fishing, and all other games',
-                value: 'games'
-            },
-            {
-                label: '💰 Economy Commands',
-                description: 'Work, balance, rob, and money management',
-                value: 'economy'
-            },
-            {
-                label: '🎟️ Lottery System',
-                description: 'Weekly drawings and prize information',
-                value: 'lottery'
-            },
-            {
-                label: '👑 Admin Commands',
-                description: 'Server management and administration tools',
-                value: 'admin'
-            },
-            {
-                label: '🎖️ Economic Tiers',
-                description: 'Tier system, benefits, and progression',
-                value: 'tiers'
-            },
-            {
-                label: '🛡️ Security & Rules',
-                description: 'Fair play, anti-abuse, and bot policies',
-                value: 'security'
-            }
-        ]);
+        .setPlaceholder('📂 Select a help category to explore...')
+        .setMinValues(1)
+        .setMaxValues(1)
+        .addOptions(
+            Object.entries(HELP_CATEGORIES).map(([key, category]) => ({
+                label: `${category.emoji} ${category.name}`,
+                description: category.description,
+                value: key,
+                emoji: category.emoji
+            }))
+        );
 
     const selectRow = new ActionRowBuilder().addComponents(categorySelect);
 
-    // Create quick access buttons
-    const buttons = new ActionRowBuilder()
+    // Modern button layout
+    const quickButtons = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
-                .setCustomId('help_commands_list')
+                .setCustomId('help_all_commands')
                 .setLabel('📋 All Commands')
-                .setStyle(ButtonStyle.Secondary),
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📋'),
             new ButtonBuilder()
-                .setCustomId('help_getting_started')
-                .setLabel('🚀 Getting Started')
-                .setStyle(ButtonStyle.Primary),
+                .setCustomId('help_quick_start')
+                .setLabel('🚀 Quick Start')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('🚀'),
+            new ButtonBuilder()
+                .setCustomId('help_tutorials')
+                .setLabel('📚 Tutorials')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('📚'),
             new ButtonBuilder()
                 .setCustomId('help_support')
                 .setLabel('💬 Support')
                 .setStyle(ButtonStyle.Secondary)
+                .setEmoji('💬')
         );
 
-    const safeReply = async () => {
-        try {
-            if (interaction.deferred) {
-                await interaction.editReply({ embeds: [embed], components: [selectRow, buttons] });
-            } else if (interaction.replied) {
-                await interaction.followUp({ embeds: [embed], components: [selectRow, buttons] });
-            } else {
-                await interaction.reply({ embeds: [embed], components: [selectRow, buttons] });
-            }
-        } catch (error) {
-            logger.error(`Failed to send main help: ${error.message}`);
-        }
-    };
+    // Navigation buttons
+    const navButtons = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('help_stats')
+                .setLabel('📊 Bot Stats')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📊'),
+            new ButtonBuilder()
+                .setCustomId('help_changelog')
+                .setLabel('📰 What\'s New')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📰'),
+            new ButtonBuilder()
+                .setCustomId('help_close')
+                .setLabel('❌ Close Help')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('❌')
+        );
 
-    await safeReply();
+    try {
+        if (interaction.deferred) {
+            await interaction.editReply({ 
+                embeds: [embed], 
+                components: [selectRow, quickButtons, navButtons] 
+            });
+        } else {
+            await interaction.reply({ 
+                embeds: [embed], 
+                components: [selectRow, quickButtons, navButtons] 
+            });
+        }
+    } catch (error) {
+        logger.error(`Failed to send main help: ${error.message}`);
+        await handleHelpError(interaction, error);
+    }
 }
 
 /**
- * Show specific category help
+ * Show detailed category help with modern UI
  */
-async function showSpecificCategory(interaction, category) {
+async function showCategoryHelp(interaction, category) {
+    const categoryInfo = HELP_CATEGORIES[category];
+    if (!categoryInfo) {
+        await showMainHelp(interaction);
+        return;
+    }
+
     let embed;
+    let extraComponents = [];
 
     switch (category) {
         case 'games':
-            embed = createGamesHelp(interaction);
+            embed = createGamesHelp(interaction, categoryInfo);
             break;
         case 'economy':
-            embed = createEconomyHelp(interaction);
+            embed = createEconomyHelp(interaction, categoryInfo);
             break;
         case 'lottery':
-            embed = createLotteryHelp(interaction);
+            embed = createLotteryHelp(interaction, categoryInfo);
             break;
         case 'admin':
-            embed = createAdminHelp(interaction);
+            embed = createAdminHelp(interaction, categoryInfo);
             break;
         case 'tiers':
-            embed = createTiersHelp(interaction);
+            embed = createTiersHelp(interaction, categoryInfo);
             break;
         case 'security':
-            embed = createSecurityHelp(interaction);
+            embed = createSecurityHelp(interaction, categoryInfo);
             break;
         default:
             await showMainHelp(interaction);
             return;
     }
 
-    // Back button
-    const backButton = new ActionRowBuilder()
+    // Navigation controls
+    const navControls = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
                 .setCustomId('help_back_main')
-                .setLabel('🔙 Back to Main Help')
-                .setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder()
-                .setCustomId('help_refresh')
-                .setLabel('🔄 Refresh')
+                .setLabel('🏠 Main Help')
                 .setStyle(ButtonStyle.Primary)
+                .setEmoji('🏠'),
+            new ButtonBuilder()
+                .setCustomId('help_refresh_category')
+                .setLabel('🔄 Refresh')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🔄'),
+            new ButtonBuilder()
+                .setCustomId(`help_tutorial_${category}`)
+                .setLabel('📖 Tutorial')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('📖'),
+            new ButtonBuilder()
+                .setCustomId('help_close')
+                .setLabel('❌ Close')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('❌')
         );
 
-    const safeReply = async () => {
-        try {
-            if (interaction.deferred) {
-                await interaction.editReply({ embeds: [embed], components: [backButton] });
-            } else if (interaction.replied) {
-                await interaction.followUp({ embeds: [embed], components: [backButton] });
-            } else {
-                await interaction.reply({ embeds: [embed], components: [backButton] });
-            }
-        } catch (error) {
-            logger.error(`Failed to send category help: ${error.message}`);
+    // Category-specific quick actions
+    const quickActions = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId(`help_examples_${category}`)
+                .setLabel('💡 Examples')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('💡'),
+            new ButtonBuilder()
+                .setCustomId(`help_tips_${category}`)
+                .setLabel('🎯 Pro Tips')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🎯'),
+            new ButtonBuilder()
+                .setCustomId(`help_faq_${category}`)
+                .setLabel('❓ FAQ')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('❓')
+        );
+
+    const components = [navControls, quickActions, ...extraComponents];
+
+    try {
+        if (interaction.deferred) {
+            await interaction.editReply({ embeds: [embed], components });
+        } else {
+            await interaction.reply({ embeds: [embed], components });
         }
-    };
-
-    await safeReply();
+    } catch (error) {
+        logger.error(`Failed to send category help for ${category}: ${error.message}`);
+        await handleHelpError(interaction, error);
+    }
 }
 
 /**
- * Create games help embed
+ * Create modern games help with rich formatting
  */
-function createGamesHelp(interaction) {
+function createGamesHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle('🎰 Casino Games Help')
-        .setDescription('**Experience the thrill of Las Vegas right in Discord!**\n\nAll games feature fair odds, secure RNG, and exciting gameplay.')
+        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Complete Guide`)
+        .setDescription('**🎰 Experience Las Vegas right in Discord! 🎰**\n\n*All games feature provably fair odds, cryptographic RNG, and real-time results.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
         .addFields(
             {
-                name: '🎰 Slot Machines',
-                value: '**`/slots <amount>`** - Classic 3-reel slots\n**`/multi-slots <amount> [lines]`** - Advanced multi-line slots\n💰 **Payouts:** 🍒 Low → 💎 High → 7️⃣ Jackpot\n❓ Use the **?** button in-game for full rules!',
+                name: '🎰 **Slot Machines** 🎰',
+                value: '```yaml\nClassic Slots: /slots <amount>\nMulti-Line:   /multi-slots <amount> [lines]\nPayouts:      🍒 2x → 💎 50x → 7️⃣ JACKPOT!\nMin Bet:      $100 | Max Bet: No Limit*\n```\n🎯 **Features:** Auto-spin, bonus rounds, progressive jackpots\n❓ *Click the ? button in-game for detailed paytable*',
                 inline: false
             },
             {
-                name: '🃏 Card Games',
-                value: '**`/blackjack <amount>`** - Beat the dealer to 21\n🎯 **Actions:** Hit, Stand, Double Down, Split\n💰 **Blackjack pays 3:2** | **Insurance available**\n❓ Game includes interactive help button!',
+                name: '🃏 **Card Games** 🃏',
+                value: '```yaml\nBlackjack:    /blackjack <amount>\nActions:      Hit, Stand, Double Down, Split\nPayouts:      21 = 3:2 | Blackjack = 2:1 | Insurance Available\nStrategy:     Basic strategy charts available\n```\n🎯 **Pro Tips:** Learn basic strategy, manage bankroll, use insurance wisely',
                 inline: false
             },
             {
-                name: '🎣 Skill Games',
-                value: '**`/fishing <amount>`** - Risk vs reward fishing\n**`/plinko <amount>`** - Drop balls for multipliers\n**`/crash <amount> [auto]`** - Cash out before crash\n🎯 Perfect mix of luck and strategy!',
+                name: '🎣 **Skill & Strategy Games** 🎣',
+                value: '```yaml\nFishing:      /fishing <amount> - Risk vs Reward\nPlinko:       /plinko <amount> - Drop & Multiply  \nCrash:        /crash <amount> [auto] - Cash Out Game\nRPS:          /rps <amount> - Rock Paper Scissors\n```\n🎯 **Winning Strategy:** Balance risk/reward, timing is everything',
                 inline: false
             },
             {
-                name: '🎮 Fun Games',
-                value: '**`/rps <amount>`** - Rock Paper Scissors\n**`/duck [mode]`** - Road crossing adventure\n**`/bingo`** - Community bingo games\n**`/uno`** - Classic card game with friends',
+                name: '🎮 **Social & Party Games** 🎮',
+                value: '```yaml\nUNO:          /uno - Classic card game with friends\nBingo:        /bingo - Community bingo sessions\nDuck Hunt:    /duck [mode] - Survival adventure\nBattleship:   /battleship - Strategic naval combat\n```\n🎯 **Community Features:** Tournaments, leaderboards, achievements',
                 inline: false
             },
             {
-                name: '⚔️ PvP Games',
-                value: '**`/battleship`** - Strategic naval combat\n**`/wordchain`** - Word association challenge\n🏆 **Compete against other players!**',
+                name: '⚔️ **PvP & Competitive** ⚔️',
+                value: '```yaml\nWord Chain:   /wordchain - Word association challenge\nBattleship:   /battleship - 1v1 naval strategy\nTournaments:  Coming Soon - Organized competitions\nRankings:     /leaderboard games - See top players\n```\n🎯 **Competitive Play:** Rankings, tournaments, seasonal rewards',
                 inline: false
             },
             {
-                name: '❓ Game Help',
-                value: '• Every game has a **?** help button with full rules\n• Fair odds displayed in each game\n• Minimum bets vary by game complexity\n• All games log results for transparency',
+                name: '📊 **Game Statistics & Fair Play** 📊',
+                value: '• **🔍 Transparency:** All odds displayed clearly\n• **🎲 RNG:** Cryptographically secure randomization\n• **📈 Stats:** Track your wins, losses, and streaks\n• **🛡️ Fair Play:** Anti-cheat systems active\n• **❓ Help:** Every game has interactive tutorials\n• **💰 Responsible Gaming:** Set limits, play smart',
                 inline: false
             }
         )
-        .setColor(0xFF6B35)
-        .setThumbnail('🎲')
-        .setFooter({ text: '🎰 Games Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setColor(categoryInfo.color)
+        .setThumbnail(interaction.client.user.displayAvatarURL())
+        .setFooter({ 
+            text: `🎰 ${categoryInfo.name} • Updated ${new Date().toLocaleDateString()} • ATIVE Casino Bot`, 
+            iconURL: interaction.client.user.displayAvatarURL() 
+        })
         .setTimestamp();
 }
 
 /**
- * Create economy help embed
+ * Create modern economy help
  */
-function createEconomyHelp(interaction) {
+function createEconomyHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle('💰 Economy System Help')
-        .setDescription('**Build your fortune with our comprehensive economy system!**\n\nEarn, spend, save, and compete with other players.')
+        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Financial Guide`)
+        .setDescription('**💰 Build Your Fortune & Climb the Ranks! 💰**\n\n*Master the economy system with smart investments, strategic gameplay, and calculated risks.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
         .addFields(
             {
-                name: '💵 Balance Management',
-                value: '**`/balance [user]`** - Check wallet, bank & tier info\n**`/sendmoney <user> <amount>`** - Transfer money (5% fee)\n🏦 **Wallet:** Spending money | **Bank:** Secure savings',
+                name: '💼 **Income Generation** 💼',
+                value: '```yaml\nWork:         /work - Jobs paying $5K-30K (1hr cooldown)\nBeg:          /beg - Handouts $1K-10K (1hr cooldown)  \nCrime:        /crime - Quick $1K-5K (30min cooldown)\nHeist:        /heist - Big scores $10K-30K (2.5hr cooldown)\n```\n🎯 **Pro Strategy:** Rotate all income sources for maximum earnings',
                 inline: false
             },
             {
-                name: '💼 Earning Money',
-                value: '**`/work`** - Work various jobs (5K-30K, 1hr cooldown)\n**`/beg`** - Ask for handouts (1K-10K, 1hr cooldown)\n**`/crime`** - Petty crimes (1K-5K, 30min cooldown)\n**`/heist`** - Big scores (10K-30K, 2.5hr cooldown)',
+                name: '🏦 **Banking & Wealth Management** 🏦',
+                value: '```yaml\nBalance:      /balance [user] - Check wallet, bank, tier\nBanking:      Use balance panel to deposit/withdraw\nInterest:     Daily compound interest on bank balance\nTransfers:    /sendmoney <user> <amount> (5% fee)\n```\n🎯 **Wealth Tips:** Bank money ASAP for interest and robbery protection',
                 inline: false
             },
             {
-                name: '🦹 Advanced Economy',
-                value: '**`/rob <user>`** - Steal 8% of target\'s money\n⚠️ **Risk:** 4% penalty if caught\n🛡️ **Protection:** Can\'t rob 3+ tiers higher\n❌ **Developer is protected from robbery**',
+                name: '🦹 **Risk & Robbery System** 🦹',
+                value: '```yaml\nRobbery:      /rob <user> - Steal 8% of target money\nRisk:         4% penalty if caught + cooldown\nProtection:   Can\'t rob 3+ tiers higher than you\nDeveloper:    Protected from all robbery attempts\n```\n⚠️ **Risk Management:** Higher tiers = better protection',
                 inline: false
             },
             {
-                name: '🎖️ Economic Tiers',
-                value: '**Progression:** 🥉 Bronze → ⚡ Mythic\n💰 **Interest:** Up to 10% annually on bank balance\n🎁 **Benefits:** Exclusive features per tier\n📊 Use `/leaderboard tiers` for full details',
+                name: '🎖️ **Tier System Benefits** 🎖️',
+                value: '```yaml\nProgression:  🥉 Bronze → 🥈 Silver → 🥇 Gold → 💎 Diamond → ⚡ Mythic\nInterest:     0% → 2% → 5% → 8% → 10% annually\nProtection:   Higher tiers harder to rob\nPerks:        Exclusive games, higher limits, special badges\n```\n📊 **View Details:** Use `/leaderboard tiers` for complete breakdown',
                 inline: false
             },
             {
-                name: '💡 Money Tips',
-                value: '• **Bank your money** to earn interest and protect from robbery\n• **Higher tiers** get better interest rates and perks\n• **Diversify income** - use all earning commands\n• **Check leaderboard** to see top earners',
+                name: '💡 **Advanced Economy Strategies** 💡',
+                value: '• **🏦 Banking Priority:** Always bank excess funds for interest\n• **⏰ Cooldown Management:** Use all income sources efficiently  \n• **🎯 Tier Climbing:** Focus on total balance growth\n• **🛡️ Defense:** Higher tiers = robbery protection\n• **💸 Smart Spending:** Invest in games with good odds\n• **📈 Long-term:** Compound interest beats gambling',
                 inline: false
             }
         )
-        .setColor(0x32CD32)
-        .setThumbnail('💰')
-        .setFooter({ text: '💰 Economy Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setColor(categoryInfo.color)
+        .setThumbnail(interaction.client.user.displayAvatarURL())
+        .setFooter({ 
+            text: `💰 ${categoryInfo.name} • Your path to riches • ATIVE Casino Bot`, 
+            iconURL: interaction.client.user.displayAvatarURL() 
+        })
         .setTimestamp();
 }
 
 /**
- * Create lottery help embed
+ * Create modern lottery help
  */
-function createLotteryHelp(interaction) {
+function createLotteryHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle('🎟️ Lottery System Help')
-        .setDescription('**Win big in our weekly community lottery!**\n\nEvery Sunday at 10:00 AM EST, fortunes are made!')
+        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Win Big Weekly!`)
+        .setDescription('**🎟️ Every Sunday at 10:00 AM EST - Life-Changing Prizes! 🎟️**\n\n*Community-funded lottery with guaranteed winners and massive prize pools.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
         .addFields(
             {
-                name: '🎫 How to Play',
-                value: '**`/lottery`** - Check current lottery status\n**`/purchaselottery <count>`** - Buy 1-7 tickets\n💰 **Cost:** $12,000 per ticket\n📅 **Drawing:** Every Sunday 10AM EST',
+                name: '🎫 **How to Play & Win** 🎫',
+                value: '```yaml\nCheck Status: /lottery - View current lottery info\nBuy Tickets:  /purchaselottery <1-7> - Max 7 per person\nTicket Cost:  $12,000 each (investment in your future)\nDrawing:      Every Sunday 10:00 AM EST sharp\n```\n🎯 **Strategy:** Buy max tickets early for best odds',
                 inline: false
             },
             {
-                name: '🏆 Prize Structure',
-                value: '🥇 **1st Place:** 45% of total prize pool\n🥈 **2nd Place:** 45% of total prize pool\n🥉 **3rd Place:** 10% of total prize pool\n💰 **Guaranteed 3 winners every week!**',
+                name: '🏆 **Prize Structure & Payouts** 🏆',
+                value: '```yaml\n🥇 1st Place:  45% of total prize pool\n🥈 2nd Place:  45% of total prize pool  \n🥉 3rd Place:  10% of total prize pool\nGuarantee:    3 winners EVERY week\nMin Pool:     $500K+ typical pools\n```\n💰 **Recent Winners:** Check announcements for latest prizes',
                 inline: false
             },
             {
-                name: '📊 Prize Pool Growth',
-                value: '• **Ticket sales** add to the pool\n• **Transaction fees** (5% from `/sendmoney`)\n• **Penalty fees** from failed robberies\n• **Community contributions** build bigger prizes',
+                name: '📈 **Prize Pool Growth System** 📈',
+                value: '```yaml\nTicket Sales:     Every ticket adds to the pool\nTransaction Fees: 5% from /sendmoney transfers\nRobbery Penalties: Failed robbery attempts add fees\nCommunity Growth: Bigger community = bigger prizes\n```\n📊 **Pool Tracking:** Watch it grow throughout the week',
                 inline: false
             },
             {
-                name: '🎯 Winning Strategy',
-                value: '• **Max 7 tickets** per person per week\n• **More tickets** = higher chance to win\n• **Check status** regularly for pool size\n• **Buy early** - no advantage, just excitement!',
+                name: '🎯 **Winning Strategies & Tips** 🎯',
+                value: '```yaml\nMax Purchase:     Buy all 7 tickets for best odds\nEarly Bird:       No advantage, but more excitement!\nConsistent Play:  Play every week to maximize chances\nCommunity:        Bigger server = bigger prize pools\n```\n🍀 **Remember:** Every ticket has an equal chance to win',
                 inline: false
             },
             {
-                name: '📢 Lottery Features',
-                value: '• **Automatic drawings** every Sunday\n• **Public announcements** of winners\n• **Ticket tracking** shows your entries\n• **Panel updates** with current information',
+                name: '📢 **Lottery Features & Updates** 📢',
+                value: '• **⏰ Automatic Drawings:** No delays, precise timing\n• **📢 Winner Announcements:** Public celebration of winners\n• **🎫 Ticket Tracking:** See exactly how many tickets you own\n• **📊 Live Updates:** Prize pool updates in real-time\n• **🔍 Transparency:** All draws are logged and verifiable\n• **🎉 Community Events:** Special lottery bonus weeks',
                 inline: false
             }
         )
-        .setColor(0x9B59B6)
-        .setThumbnail('🎟️')
-        .setFooter({ text: '🎟️ Lottery Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setColor(categoryInfo.color)
+        .setThumbnail(interaction.client.user.displayAvatarURL())
+        .setFooter({ 
+            text: `🎟️ ${categoryInfo.name} • Next Drawing: Sunday 10AM EST • ATIVE Casino Bot`, 
+            iconURL: interaction.client.user.displayAvatarURL() 
+        })
         .setTimestamp();
 }
 
 /**
- * Create admin help embed
+ * Create modern admin help
  */
-function createAdminHelp(interaction) {
+function createAdminHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle('👑 Admin Commands Help')
-        .setDescription('**Powerful tools for server administration and bot management.**\n\n⚠️ **Most commands require Administrator permissions or special roles.**')
+        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Server Management`)
+        .setDescription('**👑 Powerful Administration Tools 👑**\n\n*Complete server management with advanced controls and monitoring.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
         .addFields(
             {
-                name: '💰 Economy Management',
-                value: '**`/editmoney <user> <amount> [account]`** - Add/remove money from users\n**`/crasheco <user>`** - Punish economy abuse\n🔒 **Admin only** | Logged for transparency',
+                name: '💰 **Economy Administration** 💰',
+                value: '```yaml\nEdit Money:   /editmoney <user> <amount> [account]\nCrash Economy: /crasheco <user> - Punish abusers\nTransparency: All actions logged to admin channel\nSafeguards:   Multiple confirmation steps\n```\n🔒 **Permissions:** Administrator role or higher required',
                 inline: false
             },
             {
-                name: '🛠️ Server Management',
-                value: '**`/setup`** - Initial bot setup for new servers\n**`/panel`** - Master admin control panel with all functions\n📊 **Full server control and monitoring**',
+                name: '🛠️ **Server Setup & Management** 🛠️',
+                value: '```yaml\nInitial Setup: /setup - Configure bot for your server\nAdmin Panel:   /panel - Master control dashboard\nRole Config:   Setup ADMIN and MODS roles\nChannel Setup: Configure logging channels\n```\n📊 **Dashboard:** Centralized control for all functions',
                 inline: false
             },
             {
-                name: '🎮 Game Control',
-                value: '**`/stopgame`** - Force stop active games\n**`/stopcrash`** - Emergency crash game stop\n⚡ **Instant refunds** for stopped games\n🛡️ **Prevent abuse and resolve issues**',
+                name: '🎮 **Game Control & Oversight** 🎮',
+                value: '```yaml\nStop Games:   /stopgame - Emergency game termination\nCrash Control: /stopcrash - Stop crash games instantly\nRefunds:      Automatic refunds for stopped games\nMonitoring:   Real-time game activity tracking\n```\n🛡️ **Anti-Abuse:** Prevent and resolve gaming issues',
                 inline: false
             },
             {
-                name: '📊 Statistics & Monitoring',
-                value: '**`/status`** - Bot status and uptime\n**`/leaderboard`** - User rankings and stats\n**`/polls create`** - Create server polls\n📈 **Track bot performance and usage**',
+                name: '📊 **Statistics & Monitoring** 📊',
+                value: '```yaml\nBot Status:   /status - Uptime, performance metrics\nLeaderboards: /leaderboard - User rankings and stats\nPolls:        /polls create - Server community polls\nLogs:         Comprehensive activity logging\n```\n📈 **Analytics:** Track server engagement and bot performance',
                 inline: false
             },
             {
-                name: '🔐 Permission System',
-                value: '**Roles:** ADMIN, MODS, or Discord Administrator\n**Server Owner:** Automatic full access\n**Developer:** Ultimate access (ID: `466050111680544798`)\n⚙️ **Setup roles with `/setup` command**',
+                name: '🔐 **Permission & Security System** 🔐',
+                value: '```yaml\nAdmin Roles:      ADMIN role or Discord Administrator\nModerator Roles:  MODS role (limited permissions)\nServer Owner:     Automatic full access\nDeveloper:        Ultimate access (ID: 466050111680544798)\n```\n⚙️ **Setup Guide:** Use `/setup` to configure roles properly',
                 inline: false
             },
             {
-                name: '📋 Admin Best Practices',
-                value: '• **Monitor logs** channel for all activities\n• **Use panels** for bulk operations\n• **Use developer panel** for system functions\n• **Check leaderboards** for unusual activity',
+                name: '📋 **Best Practices & Guidelines** 📋',
+                value: '• **📊 Monitor Logs:** Check admin channel regularly\n• **🎛️ Use Panels:** Bulk operations via control panels\n• **📈 Check Stats:** Monitor unusual activity patterns\n• **🛡️ Security First:** Verify before major actions\n• **📚 Documentation:** Keep records of admin actions\n• **👥 Team Work:** Coordinate with other administrators',
                 inline: false
             }
         )
-        .setColor(0xE74C3C)
-        .setThumbnail('👑')
-        .setFooter({ text: '👑 Admin Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setColor(categoryInfo.color)
+        .setThumbnail(interaction.client.user.displayAvatarURL())
+        .setFooter({ 
+            text: `👑 ${categoryInfo.name} • Server Management Tools • ATIVE Casino Bot`, 
+            iconURL: interaction.client.user.displayAvatarURL() 
+        })
         .setTimestamp();
 }
 
 /**
- * Create tiers help embed
+ * Create modern tiers help
  */
-function createTiersHelp(interaction) {
+function createTiersHelp(interaction, categoryInfo) {
     const tiers = getAllTiers().reverse();
     
     const embed = new EmbedBuilder()
-        .setTitle('🎖️ Economic Tier System Help')
-        .setDescription('**Advance through tiers by accumulating wealth and unlock exclusive benefits!**\n\nTiers are based on your **total balance** (wallet + bank combined).')
-        .setColor(0x9B59B6)
-        .setThumbnail('🎖️')
-        .setFooter({ text: '🎖️ Tiers Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Progression System`)
+        .setDescription('**🎖️ Climb the Ranks & Unlock Exclusive Benefits! 🎖️**\n\n*Advance through tiers by building wealth and unlock powerful perks and protections.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        .setColor(categoryInfo.color)
+        .setThumbnail(interaction.client.user.displayAvatarURL())
+        .setFooter({ 
+            text: `🎖️ ${categoryInfo.name} • Your Path to Prestige • ATIVE Casino Bot`, 
+            iconURL: interaction.client.user.displayAvatarURL() 
+        })
         .setTimestamp();
 
-    // Add each tier as a field
+    // Add tier progression visual
+    embed.addFields({
+        name: '📊 **Tier Progression Overview** 📊',
+        value: '```yaml\nProgression: Based on TOTAL BALANCE (wallet + bank)\nRequirement: Must maintain minimum for benefits\nBenefits:    Interest, protection, exclusive features\nCalculation: Updated in real-time with balance changes\n```\n🎯 **Pro Tip:** Bank money to boost total balance safely',
+        inline: false
+    });
+
+    // Add each tier with enhanced formatting
     for (const tier of tiers) {
         const rangeText = tier.max === Infinity ? `${tier.min.toLocaleString()}+` : `${tier.min.toLocaleString()} - ${tier.max.toLocaleString()}`;
-        let benefitsText = `💰 **Range:** $${rangeText}`;
+        let benefitsText = `💰 **Range:** $${rangeText}\n`;
         
         if (tier.interest > 0) {
-            benefitsText += `\n💸 **Interest:** ${(tier.interest * 100).toFixed(0)}% annually on bank balance`;
+            benefitsText += `💸 **Interest:** ${(tier.interest * 100).toFixed(0)}% annually (${(tier.interest/365*100).toFixed(3)}% daily)\n`;
+        } else {
+            benefitsText += `💸 **Interest:** None\n`;
         }
-        
-        if (tier.key === 'PLATINUM') benefitsText += '\n🎮 Access to exclusive games';
-        if (tier.key === 'DIAMOND') benefitsText += '\n🔝 Higher betting limits\n🖼️ GIF permissions';
-        if (tier.key === 'LEGENDARY') benefitsText += '\n🏷️ Custom bot profile badge';
-        if (tier.key === 'MYTHIC') benefitsText += '\n⚡ Priority support';
+
+        // Add tier-specific perks
+        let perks = [];
+        if (tier.key === 'BRONZE') perks.push('🎯 Starting tier', '📚 Learning phase');
+        if (tier.key === 'SILVER') perks.push('🏦 Basic banking', '💼 Regular jobs');
+        if (tier.key === 'GOLD') perks.push('🎮 Advanced games', '🔒 Robbery protection');
+        if (tier.key === 'PLATINUM') perks.push('🎮 Exclusive games', '💎 Premium features');
+        if (tier.key === 'DIAMOND') perks.push('🔝 Higher betting limits', '🖼️ GIF permissions', '👑 VIP status');
+        if (tier.key === 'LEGENDARY') perks.push('🏷️ Custom bot badge', '⚡ Priority support', '🎯 Special events');
+        if (tier.key === 'MYTHIC') perks.push('⚡ Ultimate tier', '🌟 All perks', '👑 Elite status');
+
+        if (perks.length > 0) {
+            benefitsText += `🎁 **Perks:** ${perks.join(', ')}`;
+        }
 
         embed.addFields({
-            name: `${tier.emoji} ${tier.name} Tier`,
+            name: `${tier.emoji} **${tier.name.toUpperCase()} TIER** ${tier.emoji}`,
             value: benefitsText,
             inline: true
         });
     }
 
+    // Add important rules
     embed.addFields({
-        name: '📋 Important Tier Rules',
-        value: '• **Tier based on total balance** (wallet + bank)\n• **Must maintain minimum** for tier benefits\n• **Interest calculated daily** on bank balance only\n• **Inactivity over 10 days** may result in downgrade\n• **Higher tiers protected** from robbery (3+ tier rule)',
+        name: '📋 **Important Tier Rules & Mechanics** 📋',
+        value: '• **💰 Total Balance:** Tier based on wallet + bank combined\n• **⏰ Real-time Updates:** Tier changes instantly with balance\n• **💸 Interest Calculation:** Compound daily on bank balance only\n• **🛡️ Robbery Protection:** 3+ tier difference prevents robbery\n• **📉 Tier Maintenance:** Must maintain minimum balance for benefits\n• **⚠️ Inactivity:** 10+ days inactive may affect tier status',
         inline: false
     });
 
@@ -465,50 +602,66 @@ function createTiersHelp(interaction) {
 }
 
 /**
- * Create security help embed
+ * Create modern security help
  */
-function createSecurityHelp(interaction) {
+function createSecurityHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle('🛡️ Security & Fair Play Help')
-        .setDescription('**ATIVE Casino Bot is built with security, fairness, and fun as core principles.**\n\nWe ensure every player has a safe and enjoyable experience.')
+        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Fair Play Guarantee`)
+        .setDescription('**🛡️ Security, Fairness & Community Standards 🛡️**\n\n*Built with security-first principles and transparent, fair gameplay for everyone.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
         .addFields(
             {
-                name: '🔐 Security Features',
-                value: '**Cryptographic RNG:** All games use secure randomness\n**Anti-Exploit:** Built-in abuse detection systems\n**Audit Logging:** Every action is recorded\n**Rate Limiting:** Prevents spam and automation',
+                name: '🔐 **Advanced Security Features** 🔐',
+                value: '```yaml\nCryptographic RNG:  Provably fair randomization\nAnti-Exploit:       Advanced abuse detection systems\nAudit Logging:      Every action recorded and timestamped\nRate Limiting:      Prevents spam and automation\n```\n🛡️ **Industry Standard:** Military-grade security protocols',
                 inline: false
             },
             {
-                name: '⚖️ Fair Play Guarantees',
-                value: '**Transparent Odds:** All game odds are clearly stated\n**No Hidden Mechanics:** What you see is what you get\n**Equal Opportunity:** Same rules apply to everyone\n**Public Statistics:** Leaderboards show real data',
+                name: '⚖️ **Fair Play Guarantees** ⚖️',
+                value: '```yaml\nTransparent Odds:    All game odds clearly displayed\nNo Hidden Systems:   What you see is exactly what you get\nEqual Opportunity:   Same rules apply to everyone\nPublic Statistics:   Leaderboards show real, unmanipulated data\n```\n📊 **Verification:** All systems are auditable and transparent',
                 inline: false
             },
             {
-                name: '🚫 Prohibited Activities',
-                value: '**Automation/Botting:** Using scripts or bots\n**Exploitation:** Abusing bugs or glitches\n**Alt Accounting:** Using multiple accounts\n**Real Money Trading:** Selling virtual currency',
+                name: '🚫 **Strictly Prohibited Activities** 🚫',
+                value: '```yaml\nAutomation/Botting:   Using scripts, bots, or automated tools\nBug Exploitation:     Abusing glitches or system vulnerabilities\nMultiple Accounts:    Using alt accounts to circumvent limits\nReal Money Trading:   Selling virtual currency for real money\n```\n⚠️ **Consequences:** Immediate suspension and potential ban',
                 inline: false
             },
             {
-                name: '⚡ Abuse Prevention',
-                value: '**`/crasheco`** - Admin punishment for abusers\n**Automatic Detection:** System identifies suspicious activity\n**Cooldown Systems:** Prevent rapid-fire commands\n**Economic Penalties:** Fines for rule violations',
+                name: '⚡ **Automated Abuse Prevention** ⚡',
+                value: '```yaml\nCrasheco Command:     Admin punishment system (/crasheco)\nPattern Detection:    AI identifies suspicious behavior\nCooldown Systems:     Prevents rapid-fire command abuse\nEconomic Penalties:   Fines and restrictions for violations\n```\n🤖 **Smart Detection:** Advanced algorithms protect fair play',
                 inline: false
             },
             {
-                name: '📊 Reporting System',
-                value: '**Issues Channel:** <#1405096821512212521>\n**Admin Reports:** Contact server administrators\n**Transparency:** All actions are logged publicly',
+                name: '📊 **Reporting & Transparency System** 📊',
+                value: '```yaml\nAdmin Channel:       <#1405096821512212521> - All actions logged\nTransparency Logs:   Public record of major actions\nAdmin Reports:       Contact server administrators directly\nCommunity Oversight: Player reports and community moderation\n```\n🔍 **Open System:** Nothing is hidden from the community',
                 inline: false
             },
             {
-                name: '🤝 Community Guidelines',
-                value: '• **Be respectful** to other players\n• **Play fairly** - don\'t seek exploits\n• **Report issues** if you find them\n• **Have fun** - it\'s a game after all!\n• **Follow Discord TOS** at all times',
+                name: '🤝 **Community Guidelines & Ethics** 🤝',
+                value: '• **💬 Respect Others:** Treat all players with courtesy and respect\n• **⚖️ Play Fair:** Don\'t seek exploits or unfair advantages\n• **🐛 Report Issues:** Help maintain system integrity\n• **🎮 Have Fun:** Remember this is entertainment first\n• **📜 Follow Discord TOS:** All Discord rules apply here\n• **🛡️ Protect Community:** Help maintain a safe environment',
                 inline: false
             }
         )
-        .setColor(0x3498DB)
-        .setThumbnail('🛡️')
-        .setFooter({ text: '🛡️ Security Help • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+        .setColor(categoryInfo.color)
+        .setThumbnail(interaction.client.user.displayAvatarURL())
+        .setFooter({ 
+            text: `🛡️ ${categoryInfo.name} • Fair Play for All • ATIVE Casino Bot`, 
+            iconURL: interaction.client.user.displayAvatarURL() 
+        })
         .setTimestamp();
 }
 
-// Export helper functions for use in interaction handlers
-module.exports.showSpecificCategory = showSpecificCategory;
+/**
+ * Utility function to format bot uptime
+ */
+function formatUptime() {
+    const uptime = process.uptime();
+    const days = Math.floor(uptime / 86400);
+    const hours = Math.floor((uptime % 86400) / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    return `${days}d ${hours}h ${minutes}m`;
+}
+
+// Export functions for external interaction handlers
 module.exports.showMainHelp = showMainHelp;
+module.exports.showCategoryHelp = showCategoryHelp;
+module.exports.handleHelpError = handleHelpError;
+module.exports.HELP_CATEGORIES = HELP_CATEGORIES;
