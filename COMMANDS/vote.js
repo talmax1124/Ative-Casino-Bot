@@ -118,13 +118,6 @@ module.exports = {
             const nextVoteTime = lastVoteTime + (12 * 60 * 60 * 1000); // 12 hours after last vote
             const hoursSinceLastVote = (currentTime - lastVoteTime) / (1000 * 60 * 60);
             
-            // Debug logging to help troubleshoot
-            logger.info(`Vote stats debug for ${interaction.user.username}:
-                Last vote time: ${lastVoteTime} (${new Date(lastVoteTime).toISOString()})
-                Current time: ${currentTime} (${new Date(currentTime).toISOString()})
-                Hours since last vote: ${hoursSinceLastVote.toFixed(2)}
-                Next vote time: ${nextVoteTime} (${new Date(nextVoteTime).toISOString()})`);
-            
             // Can vote if 12+ hours since last vote OR never voted
             const canVoteNow = (lastVoteTime === 0) || (currentTime >= nextVoteTime);
             

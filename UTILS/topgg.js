@@ -43,7 +43,6 @@ class TopGGManager {
             const userId = voteData.user;
             
             logger.info(`Top.GG vote received from user: ${userId}`);
-            logger.info(`Full Top.GG webhook payload: ${JSON.stringify(voteData)}`);
 
             // Process the vote reward
             await this.processVoteReward(userId, voteData);
@@ -105,16 +104,9 @@ class TopGGManager {
                 can_use_earnmoney: newVoteCount >= 10 && currentStreak > 0
             };
 
-            // Debug log what we're about to save
-            logger.info(`Saving vote data for user ${userId}: ${JSON.stringify(newVoteData)}`);
-            
             // Save vote data and add coins
             await dbManager.databaseAdapter.updateUserVoteData(userId, null, newVoteData);
             await dbManager.adjustWallet(userId, null, rewardAmount);
-
-            // Debug: Verify data was saved correctly
-            const savedData = await dbManager.databaseAdapter.getUserVoteData(userId);
-            logger.info(`Verified saved vote data for user ${userId}: ${JSON.stringify(savedData)}`);
 
             // Get user for notification
             const user = await this.client.users.fetch(userId);
