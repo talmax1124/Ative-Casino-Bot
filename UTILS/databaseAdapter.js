@@ -259,12 +259,36 @@ class DatabaseAdapter {
                 };
 
                 await this.executeQuery(
-                    `INSERT INTO user_balances 
+                    `INSERT IGNORE INTO user_balances 
                      (user_id, wallet, bank, last_earn_ts, last_rob_ts, game_active, 
                       last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts) 
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0]
                 );
+
+                // Re-fetch the user data in case it was already created by another process
+                const [newRows] = await this.executeQuery(
+                    'SELECT * FROM user_balances WHERE user_id = ?', 
+                    [userId]
+                );
+                
+                if (newRows.length > 0) {
+                    const row = newRows[0];
+                    return {
+                        user_id: userId,
+                        wallet: parseFloat(row.wallet),
+                        bank: parseFloat(row.bank),
+                        last_earn_ts: parseFloat(row.last_earn_ts),
+                        last_rob_ts: parseFloat(row.last_rob_ts),
+                        game_active: Boolean(row.game_active),
+                        last_work_ts: parseFloat(row.last_work_ts),
+                        last_beg_ts: parseFloat(row.last_beg_ts),
+                        last_crime_ts: parseFloat(row.last_crime_ts),
+                        last_heist_ts: parseFloat(row.last_heist_ts),
+                        created_at: row.created_at,
+                        updated_at: row.updated_at
+                    };
+                }
 
                 return defaultBalance;
             }
