@@ -779,12 +779,17 @@ class DatabaseAdapter {
      */
     async getUserVoteData(userId, guildId = null) {
         try {
+            logger.info(`GetUserVoteData called for user ${userId}`);
             const result = await this.executeQuery(
                 'SELECT * FROM user_votes WHERE user_id = ?',
                 [userId]
             );
             
-            return result.length > 0 ? result[0] : null;
+            logger.info(`GetUserVoteData query result for user ${userId}: ${JSON.stringify(result)}`);
+            const returnValue = result.length > 0 ? result[0] : null;
+            logger.info(`GetUserVoteData returning for user ${userId}: ${JSON.stringify(returnValue)}`);
+            
+            return returnValue;
         } catch (error) {
             logger.error(`Error getting user vote data: ${error.message}`);
             return null;
@@ -800,10 +805,14 @@ class DatabaseAdapter {
      */
     async updateUserVoteData(userId, guildId = null, voteData) {
         try {
+            logger.info(`UpdateUserVoteData called for user ${userId} with data: ${JSON.stringify(voteData)}`);
+            
             const existing = await this.executeQuery(
                 'SELECT user_id FROM user_votes WHERE user_id = ?',
                 [userId]
             );
+
+            logger.info(`Found ${existing.length} existing records for user ${userId}`);
 
             if (existing.length > 0) {
                 // Update existing record
@@ -827,7 +836,8 @@ class DatabaseAdapter {
                 );
             } else {
                 // Insert new record
-                await this.executeQuery(
+                logger.info(`Inserting new vote record for user ${userId}`);
+                const insertResult = await this.executeQuery(
                     `INSERT INTO user_votes 
                         (user_id, total_votes, last_vote_ts, total_earned, vote_streak, can_use_earnmoney) 
                      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -840,8 +850,10 @@ class DatabaseAdapter {
                         voteData.can_use_earnmoney
                     ]
                 );
+                logger.info(`Insert result: ${JSON.stringify(insertResult)}`);
             }
             
+            logger.info(`UpdateUserVoteData completed successfully for user ${userId}`);
             return true;
         } catch (error) {
             logger.error(`Error updating user vote data: ${error.message}`);
