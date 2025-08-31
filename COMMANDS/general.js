@@ -86,73 +86,83 @@ module.exports = {
                 // Check if this is the developer (Off-Economy status)
                 const isOffEconomy = targetUser.id === DEVELOPER_ID;
 
-            // Get aggregated win/loss stats across all games
-            const gameStats = await this.getAggregatedGameStats(userId, guildId);
+                // Get aggregated win/loss stats across all games
+                const gameStats = await this.getAggregatedGameStats(userId, guildId);
 
-            // Use gameSessionKit for consistent UI styling
-            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-            
-            const topFields = [];
-            
-            // Main balance information
-            topFields.push({
-                name: '💰 BALANCE OVERVIEW',
-                value: `💵 **Wallet:** ${fmtFull(balance.wallet)}\n🏦 **Bank:** ${fmtFull(balance.bank)}\n💎 **Total Worth:** ${fmtFull(totalBalance)}`,
-                inline: false
-            });
-
-            // Status information (tier or off-economy)
-            if (isOffEconomy) {
-                topFields.push({
-                    name: '🛡️ DEVELOPER STATUS',
-                    value: `**Status:** Off-Economy (Developer)\n**Protection:** Cannot be robbed\n**System Access:** Full admin privileges`,
-                    inline: false
-                });
-            } else {
-                topFields.push({
-                    name: '🎖️ ECONOMIC STATUS',
-                    value: `**Tier:** ${getTierDisplay(totalBalance)}\n**Interest Rate:** ${tier.interest > 0 ? `${(tier.interest * 100).toFixed(0)}% Annual` : 'None'}\n**Daily Interest:** ${dailyInterest > 0 ? fmtFull(dailyInterest) : 'None'}`,
-                    inline: false
-                });
-            }
-
-            // Gaming statistics
-            if (gameStats.totalGames > 0) {
-                const winRate = ((gameStats.totalWins / gameStats.totalGames) * 100).toFixed(1);
-                const netProfit = gameStats.totalWon - gameStats.totalWagered;
-                const netText = netProfit >= 0 ? `+${fmtFull(netProfit)}` : fmtFull(netProfit);
-                const netEmoji = netProfit >= 0 ? '✅' : '❌';
+                // Use gameSessionKit for consistent UI styling
+                const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
                 
+                const topFields = [];
+                
+                // Main balance information
                 topFields.push({
-                    name: '🎮 GAMING STATISTICS',
-                    value: `**Games Played:** ${gameStats.totalGames.toLocaleString()}\n**Win Rate:** ${winRate}% (${gameStats.totalWins}W/${gameStats.totalLosses}L)\n**Net Profit:** ${netEmoji} ${netText}`,
+                    name: '💰 BALANCE OVERVIEW',
+                    value: `💵 **Wallet:** ${fmtFull(balance.wallet)}\n🏦 **Bank:** ${fmtFull(balance.bank)}\n💎 **Total Worth:** ${fmtFull(totalBalance)}`,
                     inline: false
                 });
-            } else {
-                topFields.push({
-                    name: '🎮 GAMING STATISTICS',
-                    value: `**Games Played:** 0\n**Win Rate:** N/A\n**Net Profit:** No gambling activity`,
-                    inline: false
+
+                // Status information (tier or off-economy)
+                if (isOffEconomy) {
+                    topFields.push({
+                        name: '🛡️ DEVELOPER STATUS',
+                        value: `**Status:** Off-Economy (Developer)\n**Protection:** Cannot be robbed\n**System Access:** Full admin privileges`,
+                        inline: false
+                    });
+                } else {
+                    topFields.push({
+                        name: '🎖️ ECONOMIC STATUS',
+                        value: `**Tier:** ${getTierDisplay(totalBalance)}\n**Interest Rate:** ${tier.interest > 0 ? `${(tier.interest * 100).toFixed(0)}% Annual` : 'None'}\n**Daily Interest:** ${dailyInterest > 0 ? fmtFull(dailyInterest) : 'None'}`,
+                        inline: false
+                    });
+                }
+
+                // Gaming statistics
+                if (gameStats.totalGames > 0) {
+                    const winRate = ((gameStats.totalWins / gameStats.totalGames) * 100).toFixed(1);
+                    const netProfit = gameStats.totalWon - gameStats.totalWagered;
+                    const netText = netProfit >= 0 ? `+${fmtFull(netProfit)}` : fmtFull(netProfit);
+                    const netEmoji = netProfit >= 0 ? '✅' : '❌';
+                    
+                    topFields.push({
+                        name: '🎮 GAMING STATISTICS',
+                        value: `**Games Played:** ${gameStats.totalGames.toLocaleString()}\n**Win Rate:** ${winRate}% (${gameStats.totalWins}W/${gameStats.totalLosses}L)\n**Net Profit:** ${netEmoji} ${netText}`,
+                        inline: false
+                    });
+                } else {
+                    topFields.push({
+                        name: '🎮 GAMING STATISTICS',
+                        value: `**Games Played:** 0\n**Win Rate:** N/A\n**Net Profit:** No gambling activity`,
+                        inline: false
+                    });
+                }
+
+                // Bank fields for consistent layout
+                const bankFields = [
+                    { name: '💵 Wallet Balance', value: fmtFull(balance.wallet), inline: true },
+                    { name: '🏦 Bank Balance', value: fmtFull(balance.bank), inline: true },
+                    { name: '💎 Total Worth', value: fmtFull(totalBalance), inline: true }
+                ];
+
+                const embed = buildSessionEmbed({
+                    title: `💰 ${targetUser.displayName}'s Balance`,
+                    topFields,
+                    bankFields,
+                    stageText: isOffEconomy ? 'OFF-ECONOMY' : tier.name.toUpperCase(),
+                    color: isOffEconomy ? 0x9B59B6 : (tier.color || 0x3498DB),
+                    footer: `Balance Command • Use /mystats for detailed game statistics`
                 });
+
+                await interaction.reply({ embeds: [embed] });
+            } catch (error) {
+                logger.error(`Error in balance check: ${error.message}`);
+                
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({
+                        content: '❌ An error occurred while checking balance. Please try again.',
+                        ephemeral: true
+                    });
+                }
             }
-
-            // Bank fields for consistent layout
-            const bankFields = [
-                { name: '💵 Wallet Balance', value: fmtFull(balance.wallet), inline: true },
-                { name: '🏦 Bank Balance', value: fmtFull(balance.bank), inline: true },
-                { name: '💎 Total Worth', value: fmtFull(totalBalance), inline: true }
-            ];
-
-            const embed = buildSessionEmbed({
-                title: `💰 ${targetUser.displayName}'s Balance`,
-                topFields,
-                bankFields,
-                stageText: isOffEconomy ? 'OFF-ECONOMY' : tier.name.toUpperCase(),
-                color: isOffEconomy ? 0x9B59B6 : (tier.color || 0x3498DB),
-                footer: `Balance Command • Use /mystats for detailed game statistics`
-            });
-
-            await interaction.reply({ embeds: [embed] });
         } else {
             // Invalid subcommand - should not happen but handle gracefully
             await interaction.reply({
@@ -162,7 +172,7 @@ module.exports = {
             return;
         }
 
-        } catch (error) {
+    } catch (error) {
             logger.error(`Error in balance command: ${error.message}`);
             
             // Only reply if we haven't already replied
