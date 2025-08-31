@@ -872,6 +872,35 @@ class DatabaseAdapter {
 
         try {
             await this.executeQuery(createVoteTable);
+            
+            // Add vote_streak column if it doesn't exist (migration)
+            try {
+                await this.executeQuery(`
+                    ALTER TABLE user_votes 
+                    ADD COLUMN vote_streak INT NOT NULL DEFAULT 0 AFTER total_earned
+                `);
+                logger.info('Added vote_streak column to existing table');
+            } catch (alterError) {
+                // Column might already exist, which is fine
+                if (!alterError.message.includes('Duplicate column name')) {
+                    logger.warn(`Vote streak column migration: ${alterError.message}`);
+                }
+            }
+            
+            // Add index for vote_streak if it doesn't exist
+            try {
+                await this.executeQuery(`
+                    ALTER TABLE user_votes 
+                    ADD INDEX idx_vote_streak (vote_streak)
+                `);
+                logger.info('Added vote_streak index');
+            } catch (indexError) {
+                // Index might already exist
+                if (!indexError.message.includes('Duplicate key name')) {
+                    logger.warn(`Vote streak index creation: ${indexError.message}`);
+                }
+            }
+            
             logger.info('Vote tracking schema initialized');
             return true;
         } catch (error) {

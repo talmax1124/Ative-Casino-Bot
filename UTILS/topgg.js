@@ -195,12 +195,18 @@ class TopGGManager {
             try {
                 await user.send({ embeds: [embed] });
             } catch (dmError) {
-                // If DM fails, log to vote channel
-                await sendLogMessage(this.client, embed, process.env.LOG_CHANNEL_ID);
+                logger.info(`Failed to DM user ${user.username}, will only log to channel`);
             }
 
-            // Also send to vote log channel
-            await sendLogMessage(this.client, embed, process.env.LOG_CHANNEL_ID);
+            // Send to vote log channel
+            try {
+                const logChannel = await this.client.channels.fetch(process.env.LOG_CHANNEL_ID);
+                if (logChannel) {
+                    await logChannel.send({ embeds: [embed] });
+                }
+            } catch (channelError) {
+                logger.error(`Failed to send vote notification to log channel: ${channelError.message}`);
+            }
 
         } catch (error) {
             logger.error(`Failed to send vote notification: ${error.message}`);

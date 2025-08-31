@@ -3,9 +3,10 @@
  * Users can vote for rewards and check their vote status
  */
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt } = require('../UTILS/common');
+const logger = require('../UTILS/logger');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -75,7 +76,24 @@ module.exports = {
             })
             .setTimestamp();
 
-        await interaction.reply({ embeds: [voteEmbed] });
+        // Create vote buttons
+        const voteButtons = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setLabel('🗳️ Vote on Top.GG')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://top.gg/bot/1403236218900185088/vote'),
+                new ButtonBuilder()
+                    .setCustomId('vote_remind_me')
+                    .setLabel('⏰ Remind Me')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🔔')
+            );
+
+        await interaction.reply({ 
+            embeds: [voteEmbed], 
+            components: [voteButtons] 
+        });
     },
 
     async showVoteStats(interaction, userId) {
@@ -143,15 +161,39 @@ module.exports = {
                 .setFooter({ text: '🎰 ATIVE Casino • Vote every 12 hours!' })
                 .setTimestamp();
 
+            // Create action buttons
+            const actionButtons = new ActionRowBuilder();
+            
             if (canVoteNow) {
-                statsEmbed.addFields({
-                    name: '🔗 Ready to Vote?',
-                    value: '[🗳️ **Vote Now on Top.GG**](https://top.gg/bot/1403236218900185088/vote)',
-                    inline: false
-                });
+                actionButtons.addComponents(
+                    new ButtonBuilder()
+                        .setLabel('🗳️ Vote Now!')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL('https://top.gg/bot/1403236218900185088/vote'),
+                    new ButtonBuilder()
+                        .setCustomId('vote_remind_me')
+                        .setLabel('⏰ Remind Me')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('🔔')
+                );
+            } else {
+                actionButtons.addComponents(
+                    new ButtonBuilder()
+                        .setLabel('🗳️ Vote on Top.GG')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL('https://top.gg/bot/1403236218900185088/vote'),
+                    new ButtonBuilder()
+                        .setCustomId('vote_remind_me')
+                        .setLabel('⏰ Set Reminder')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('🔔')
+                );
             }
 
-            await interaction.reply({ embeds: [statsEmbed] });
+            await interaction.reply({ 
+                embeds: [statsEmbed],
+                components: [actionButtons]
+            });
 
         } catch (error) {
             console.error('Error getting vote stats:', error);
