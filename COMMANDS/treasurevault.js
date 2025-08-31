@@ -518,41 +518,9 @@ module.exports = {
      * Create door image based on state
      */
     async createDoorImage(state) {
-        let imageName = '';
-        
-        switch (state) {
-            case 'all_closed':
-                imageName = 'All Doors Closed.png';
-                break;
-            case 'door_1_open':
-                imageName = 'Door One Open.png';
-                break;
-            case 'door_2_open':
-                imageName = 'Door Two Open.png';
-                break;
-            case 'door_3_open':
-                imageName = 'Door Three Open.png';
-                break;
-            default:
-                imageName = 'All Doors Closed.png';
-        }
-
-        const imagePath = path.join(__dirname, '..', 'assets', 'treasure_vault', imageName);
-        
-        try {
-            // Check if file exists
-            await fs.access(imagePath);
-            
-            return new AttachmentBuilder(imagePath, { 
-                name: 'treasure_vault.png',
-                description: 'Treasure Vault Doors'
-            });
-        } catch (error) {
-            logger.warn(`Treasure vault image not found: ${imagePath}`);
-            
-            // Create a fallback text-based image
-            return this.createFallbackImage(state);
-        }
+        // Skip large asset files and use fallback canvas images to avoid Discord size limits
+        logger.info(`Creating fallback canvas image for state: ${state}`);
+        return this.createFallbackImage(state);
     },
 
     /**
