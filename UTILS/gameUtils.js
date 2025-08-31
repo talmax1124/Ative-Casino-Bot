@@ -184,8 +184,8 @@ class PayoutManager {
             });
         }
         
-        // Deduct bet upfront like a real casino
-        const success = await dbManager.setUserBalance(userId, guildId, currentWallet - parsedAmount, balance.bank);
+        // Deduct bet upfront like a real casino - use relative update to prevent race conditions
+        const success = await dbManager.updateUserBalance(userId, guildId, -parsedAmount, 0);
         if (!success) {
             return new ValidationResult({
                 isValid: false,
@@ -248,8 +248,9 @@ class PayoutManager {
                 gameResult.bonusTriggered = true;
             }
             
-            // Update balance
-            const success = await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank);
+            // Update balance - use relative update to prevent race conditions
+            const totalPayoutWithBonus = payoutValue + boosterBonus;
+            const success = await dbManager.updateUserBalance(userId, guildId, totalPayoutWithBonus, 0);
             
             if (!success) {
                 logger.error(`Failed to update balance for user ${userId} after game ${gameType}`);
@@ -259,6 +260,9 @@ class PayoutManager {
                     boosterBonus: 0
                 };
             }
+            
+            // Calculate new wallet for return value
+            newWallet = safeAdd(balance.wallet, totalPayoutWithBonus);
             
             // Extract profile data for leaderboard use
             let profileData = null;
@@ -324,10 +328,8 @@ class PayoutManager {
                 return false;
             }
             
-            const balance = await dbManager.getUserBalance(userId, guildId);
-            const newWallet = safeAdd(balance.wallet, refundAmount);
-            
-            const success = await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank);
+            // Use relative update for refunds to prevent race conditions
+            const success = await dbManager.updateUserBalance(userId, guildId, refundAmount, 0);
             
             if (success) {
                 // Clear active game (only for legacy games, modern games use GameSessionIntegrator)

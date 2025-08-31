@@ -190,10 +190,9 @@ module.exports = {
 
             const embed = game.createLobbyEmbed();
             const components = game.createGameButtons();
-            const bannerPath = path.join(__dirname, '..', 'assets', 'battleshipbanner.gif');
-            const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'battleshipbanner.gif' });
-
-            const msg = await interaction.reply({ embeds: [embed], components, files: [bannerAttachment] });
+            
+            // Skip banner attachment due to size limitations (11MB file)
+            const msg = await interaction.reply({ embeds: [embed], components });
             const fetchedMsg = await interaction.fetchReply();
             game.message = fetchedMsg;
             
@@ -221,7 +220,7 @@ module.exports = {
         try {
             switch (action) {
                 case 'join':
-                    await this.handleJoin(interaction, game, guildId);
+                    await this.handleJoin(interaction, game, channelId, guildId);
                     break;
                     
                 case 'start':
@@ -235,9 +234,21 @@ module.exports = {
                 case 'attack':
                     await this.handleAttack(interaction, game);
                     break;
+                
+                case 'fire':
+                    await this.handleUnifiedFire(interaction, game);
+                    break;
                     
                 case 'view_board':
                     await this.handleViewBoard(interaction, game);
+                    break;
+                    
+                case 'view_panel':
+                    // Just acknowledge the interaction since main panel is already visible
+                    await interaction.reply({ 
+                        content: '👆 The main game panel is located above. Use the Attack button to make your move!',
+                        flags: MessageFlags.Ephemeral 
+                    });
                     break;
                     
                 case 'help':
@@ -282,7 +293,7 @@ module.exports = {
         }
     },
 
-    async handleJoin(interaction, game, guildId) {
+    async handleJoin(interaction, game, channelId, guildId) {
         const userId = interaction.user.id;
         
         if (game.state !== 'lobby') {
@@ -364,9 +375,8 @@ module.exports = {
         // Update game display
         const embed = game.createLobbyEmbed();
         const components = game.createGameButtons();
-        const bannerPath = path.join(__dirname, '..', 'assets', 'battleshipbanner.gif');
-        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'battleshipbanner.gif' });
-        await interaction.update({ embeds: [embed], components, files: [bannerAttachment] });
+        // Skip banner attachment due to size limitations (11MB file)
+        await interaction.update({ embeds: [embed], components });
         
         if (game.players.size === 2) {
             await interaction.followUp({ 
@@ -445,16 +455,16 @@ module.exports = {
         // Create placement embed
         const placementEmbed = buildSessionEmbed({
             title: '⚓ Ship Placement Command Center',
-            description: allShipsPlaced
-                ? `**Status:** All ships deployed successfully!\n**Action:** Click "Ready for Battle" to confirm setup\n**Fleet:** Your naval forces await orders`
-                : `**Current Ship:** ${currentShip.name} (${currentShip.length} spaces)\n**Instructions:** Use "Place Ship" to position manually\n**Quick Option:** Use "Auto-Place All" for instant deployment`,
+            stageText: allShipsPlaced
+                ? `Status: All ships deployed successfully! Click "Ready for Battle" to confirm setup`
+                : `Current Ship: ${currentShip.name} (${currentShip.length} spaces) - Use "Place Ship" to position manually`,
             topFields: [
                 { name: '📍 Manual Placement', value: 'Select coordinates\nChoose direction\nPrecision control', inline: true },
                 { name: '🎲 Auto Placement', value: 'Instant deployment\nRandom positioning\nQuick setup', inline: true },
                 { name: '⚓ Fleet Status', value: allShipsPlaced ? '✅ Ready for Battle' : `${playerBoard.ships.filter(s => s.placed).length}/5 ships`, inline: true }
             ],
             color: allShipsPlaced ? 0x00FF00 : 0xFFA500,
-            footerText: 'Private ship placement • Strategic deployment • ATIVE Casino'
+            footer: 'Private ship placement • Strategic deployment'
         }).setImage('attachment://placement.png');
 
         await interaction.reply({ embeds: [placementEmbed], files: [attachment], components: [row], flags: MessageFlags.Ephemeral });
@@ -562,29 +572,328 @@ module.exports = {
             });
             viewType = 'Tactical Overview - Left: Your Fleet | Right: Enemy Waters';
         } else {
-            // Single board view
+            // Enhanced single board view with fleet status
             buffer = await playerBoard.getBoardImage({ 
-                title: `${interaction.user.displayName}'s Fleet`, 
-                showShips: true 
+                title: `${interaction.user.displayName}'s Fleet Command Center`,
+                showShips: true,
+                showAttacks: true,
+                includeShipLabels: true,
+                showDamageDetails: true
             });
-            viewType = 'Fleet Overview - Your Ships and Deployment';
+            viewType = 'Fleet Command Center - Ships, Positions & Battle Damage';
         }
 
         const attachment = new AttachmentBuilder(buffer, { name: 'boards.png' });
         
+        // Create detailed fleet status
+        const fleetStatus = this.generateFleetStatusReport(playerBoard);
+        
         const viewEmbed = buildSessionEmbed({
-            title: '📟 Tactical Board View',
-            description: viewType,
+            title: '📟 Fleet Command Center',
+            stageText: viewType,
             topFields: [
-                { name: '🚢 Your Fleet', value: 'Ships visible\nFull tactical view\nStrategic overview', inline: true },
-                { name: '🎯 Enemy Waters', value: opponentBoard ? 'Ships hidden\nAttack results shown\nTactical intelligence' : 'Awaiting opponent', inline: true },
+                { name: '🚢 Fleet Status Report', value: fleetStatus, inline: false },
+                { name: '🎯 Enemy Intelligence', value: opponentBoard ? 'Ships hidden\nAttack results shown\nTactical intelligence' : 'Awaiting opponent', inline: true },
                 { name: '📊 Battle Status', value: `Phase: ${game.state}\nTurn: ${game.currentTurn ? game.players.get(game.currentTurn)?.displayName || 'Unknown' : 'None'}`, inline: true }
             ],
             color: 0x1E88E5,
-            footerText: 'Strategic overview • Real-time battle status • ATIVE Casino'
+            footer: 'Private fleet overview • Your ships and positions • ATIVE Casino'
         }).setImage('attachment://boards.png');
 
         await interaction.reply({ embeds: [viewEmbed], files: [attachment], flags: MessageFlags.Ephemeral });
+    },
+
+    /**
+     * Generate detailed fleet status report showing each ship's position and health
+     */
+    generateFleetStatusReport(playerBoard) {
+        if (!playerBoard.ships || playerBoard.ships.length === 0) {
+            return '🚫 No ships deployed yet';
+        }
+
+        const statusLines = [];
+        let totalShips = 0;
+        let damagedShips = 0;
+        let sunkShips = 0;
+        let intactShips = 0;
+
+        for (const ship of playerBoard.ships) {
+            if (!ship.placed) {
+                continue;
+            }
+            
+            totalShips++;
+            const hitCount = ship.hits ? ship.hits.size : 0;
+            const totalLength = ship.length;
+            const isSunk = ship.isSunk ? ship.isSunk() : hitCount >= totalLength;
+            
+            let status;
+            let statusIcon;
+            
+            if (isSunk) {
+                status = 'SUNK';
+                statusIcon = '💀';
+                sunkShips++;
+            } else if (hitCount > 0) {
+                status = `DAMAGED (${hitCount}/${totalLength})`;
+                statusIcon = '🔥';
+                damagedShips++;
+            } else {
+                status = 'INTACT';
+                statusIcon = '✅';
+                intactShips++;
+            }
+            
+            // Get ship position range
+            let positionStr = 'Unknown';
+            if (ship.positions && ship.positions.length > 0) {
+                const startPos = ship.positions[0];
+                const endPos = ship.positions[ship.positions.length - 1];
+                const startCoord = `${String.fromCharCode('A'.charCodeAt(0) + startPos[1])}${startPos[0] + 1}`;
+                const endCoord = `${String.fromCharCode('A'.charCodeAt(0) + endPos[1])}${endPos[0] + 1}`;
+                positionStr = startPos[0] === endPos[0] && startPos[1] === endPos[1] ? startCoord : `${startCoord}-${endCoord}`;
+            }
+            
+            statusLines.push(`${statusIcon} **${ship.name}** (${ship.length}) - ${status}\n   📍 Position: ${positionStr}`);
+        }
+
+        const header = `**Fleet Overview: ${intactShips} Intact • ${damagedShips} Damaged • ${sunkShips} Sunk**\n\n`;
+        return header + statusLines.join('\n\n');
+    },
+
+    /**
+     * Handle unified fire attack from main panel (BINGO-style)
+     */
+    async handleUnifiedFire(interaction, game) {
+        const userId = interaction.user.id;
+        
+        if (!game.players.has(userId)) {
+            const embed = UITemplates.createErrorEmbed('❌ Not In Game', 'You are not a player in this game.');
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+        
+        if (game.state !== 'playing') {
+            const embed = UITemplates.createErrorEmbed('❌ Wrong Phase', 'The battle has not started yet.');
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+        
+        if (game.currentTurn !== userId) {
+            const embed = UITemplates.createErrorEmbed('❌ Not Your Turn', 'Wait for your turn to attack.');
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        // Check if coordinates are selected
+        const selection = this.attackSelections.get(userId);
+        if (!selection || typeof selection.row !== 'number' || typeof selection.col !== 'number') {
+            const embed = UITemplates.createErrorEmbed('❌ Select Target', 'Please select both row and column first using the dropdowns above.');
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        // Clear selections for next attack
+        this.attackSelections.delete(userId);
+
+        // Process the attack
+        const coord = { row: selection.row, col: selection.col, label: `${String.fromCharCode('A'.charCodeAt(0) + selection.col)}${selection.row + 1}` };
+        
+        const opponentId = game.getOpponent(userId);
+        const opponentBoard = game.boards.get(opponentId);
+        const { result, ship } = opponentBoard.attack(coord.row, coord.col);
+
+        if (result === 'already_attacked') {
+            const embed = UITemplates.createErrorEmbed('❌ Already Attacked', `You already attacked ${coord.label}.`);
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+
+        let resultMessage;
+        let continueAttacking = false;
+        
+        if (result === 'hit') {
+            resultMessage = `🎯 **HIT** at ${coord.label}! Enemy ship damaged!`;
+            continueAttacking = true;
+        } else if (result === 'sunk') {
+            resultMessage = `💥 **SUNK** the enemy ${ship.name} at ${coord.label}! Continue attacking!`;
+            continueAttacking = true;
+        } else {
+            resultMessage = `💧 **Missed** at ${coord.label}. Turn ends.`;
+            continueAttacking = false;
+        }
+
+        // Check win condition first
+        const winner = game.checkWinCondition();
+        if (winner) {
+            // Handle game end (same logic as before)
+            await this.handleGameWin(game, winner, interaction, resultMessage);
+            return;
+        }
+
+        // Switch turns only on miss
+        if (!continueAttacking) {
+            game.switchTurn();
+            await this.sendTurnNotification(game, interaction.client);
+        }
+
+        // Update main game message
+        const { embed: battleEmbed, battleImage } = await game.createBattleEmbed();
+        const battleComponents = game.createGameButtons();
+        try {
+            const battleAttachment = new AttachmentBuilder(battleImage, { name: 'battle.png' });
+            await game.message.edit({ embeds: [battleEmbed.setImage('attachment://battle.png')], files: [battleAttachment], components: battleComponents });
+        } catch (error) {
+            logger.warn(`Battle image too large in unified fire: ${error.message}`);
+            await game.message.edit({ embeds: [battleEmbed], files: [], components: battleComponents });
+        }
+
+        // Send attack result
+        await interaction.reply({ content: resultMessage, flags: MessageFlags.Ephemeral });
+    },
+
+    /**
+     * Send turn notification to current player with auto-delete
+     */
+    async sendTurnNotification(game, client) {
+        try {
+            const currentPlayerId = game.currentTurn;
+            const currentPlayer = game.players.get(currentPlayerId);
+            const playerBoard = game.boards.get(currentPlayerId);
+            
+            if (!currentPlayer || !playerBoard) return;
+
+            const shipsRemaining = playerBoard.getShipsRemaining();
+            
+            // Create turn notification embed
+            const turnEmbed = buildSessionEmbed({
+                title: '⚓ Your Turn!',
+                stageText: `${currentPlayer.displayName}, it's your turn to attack!\nYou have ${shipsRemaining} ships still alive.`,
+                topFields: [
+                    { name: '🎯 Your Mission', value: 'Choose enemy coordinates to attack\nUse the main game panel below', inline: true },
+                    { name: '📊 Your Fleet', value: `${shipsRemaining}/5 ships remaining\nStay strategic!`, inline: true }
+                ],
+                color: 0x00FF00,
+                footer: 'This message will auto-delete in 15 seconds'
+            });
+
+            // Create button to link to main panel
+            const panelButton = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('battleship_view_panel')
+                    .setLabel('📋 View Main Game Panel')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🎮')
+            );
+
+            // Send the notification (it will be public in the channel)
+            const channel = await client.channels.fetch(game.channelId);
+            if (channel) {
+                const message = await channel.send({
+                    content: `<@${currentPlayerId}>`,
+                    embeds: [turnEmbed],
+                    components: [panelButton]
+                });
+
+                // Auto-delete after 15 seconds
+                setTimeout(async () => {
+                    try {
+                        if (message.deletable) {
+                            await message.delete();
+                        }
+                    } catch (error) {
+                        // Message might already be deleted, ignore
+                    }
+                }, 15000);
+            }
+        } catch (error) {
+            logger.error(`Failed to send turn notification: ${error.message}`);
+        }
+    },
+
+    /**
+     * Handle game win scenario - end game and update database
+     */
+    async handleGameWin(game, winner, interaction, resultMessage) {
+        try {
+            // Mark game as completed
+            game.phase = 'completed';
+            game.winner = winner;
+            
+            // Get winner and loser info
+            const winnerPlayer = game.players.get(winner);
+            const loserId = [...game.players.keys()].find(id => id !== winner);
+            const loserPlayer = game.players.get(loserId);
+            
+            // Create victory embed
+            const victoryEmbed = buildSessionEmbed({
+                title: `🎉 BATTLESHIP VICTORY! 🎉`,
+                stageText: `${winnerPlayer.displayName} WINS THE BATTLE!`,
+                topFields: [
+                    { name: '🏆 Winner', value: `${winnerPlayer.displayName}\nAll enemy ships destroyed!`, inline: true },
+                    { name: '🪦 Defeated', value: `${loserPlayer.displayName}\nFleet completely sunk`, inline: true },
+                    { name: '⚓ Game Summary', value: `Battle concluded\nWell played by both commanders!`, inline: false }
+                ],
+                color: 0xFFD700, // Gold color for victory
+                footer: 'Thanks for playing Battleship! 🚢'
+            });
+
+            // Update the main game message
+            const channel = await interaction.client.channels.fetch(game.channelId);
+            if (channel && game.messageId) {
+                try {
+                    const message = await channel.messages.fetch(game.messageId);
+                    await message.edit({
+                        embeds: [victoryEmbed],
+                        components: [] // Remove all buttons since game is over
+                    });
+                } catch (error) {
+                    logger.error(`Failed to update game message: ${error.message}`);
+                }
+            }
+
+            // Send result message to the player who made the winning move
+            await interaction.reply({ 
+                content: resultMessage + `\n\n🎉 **CONGRATULATIONS!** You've won the battle!`, 
+                flags: MessageFlags.Ephemeral 
+            });
+
+            // Try to update database stats if available
+            try {
+                const db = require('../UTILS/database');
+                
+                // Update winner stats
+                await db.query(`
+                    UPDATE battleship_stats 
+                    SET games_won = games_won + 1, total_games = total_games + 1 
+                    WHERE user_id = ?
+                `, [winner]);
+                
+                // Update loser stats  
+                await db.query(`
+                    UPDATE battleship_stats 
+                    SET games_lost = games_lost + 1, total_games = total_games + 1 
+                    WHERE user_id = ?
+                `, [loserId]);
+
+                // Log the game completion
+                logger.info(`Battleship game completed - Winner: ${winnerPlayer.displayName} (${winner}), Loser: ${loserPlayer.displayName} (${loserId})`);
+                
+            } catch (dbError) {
+                logger.error(`Database error updating battleship stats: ${dbError.message}`);
+            }
+
+            // Remove game from session registry
+            const sessionKey = `${game.guildId}:${game.channelId}`;
+            SessionRegistry.delete(sessionKey);
+            
+        } catch (error) {
+            logger.error(`Error handling game win: ${error.message}`);
+            await interaction.followUp({ 
+                content: 'Game completed but there was an error processing the results.', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
     },
 
     // Additional button handlers for placement
@@ -662,7 +971,7 @@ module.exports = {
         // Show current board state
         let boardImage;
         try {
-            boardImage = await battleshipRenderer.renderBoard(playerBoard, false, true);
+            boardImage = await battleshipRenderer.renderSingleBoard(playerBoard, { showShips: true });
         } catch (error) {
             logger.error(`Error rendering placement board: ${error.message}`);
         }
@@ -697,6 +1006,9 @@ module.exports = {
 
     // Store user selections temporarily
     userSelections: new Map(), // userId -> { row, col, direction }
+    
+    // Store attack coordinates for unified panel
+    attackSelections: new Map(), // userId -> { row, col }
 
     async handleSelectMenu(interaction) {
         const userId = interaction.user.id;
@@ -711,7 +1023,24 @@ module.exports = {
         const selection = this.userSelections.get(userId);
 
         // Handle different types of selections
-        if (customId.includes('place_row_')) {
+        if (customId.includes('select_row')) {
+            const rowNum = parseInt(value.substring(1)); // Remove 'R' prefix
+            if (!this.attackSelections.has(userId)) {
+                this.attackSelections.set(userId, {});
+            }
+            this.attackSelections.get(userId).row = rowNum - 1; // Convert to 0-based
+            await interaction.update({ content: `🎯 Target: Row ${rowNum}` });
+        }
+        else if (customId.includes('select_col')) {
+            const colLetter = value.substring(1); // Remove 'C' prefix
+            const colNum = colLetter.charCodeAt(0) - 'A'.charCodeAt(0);
+            if (!this.attackSelections.has(userId)) {
+                this.attackSelections.set(userId, {});
+            }
+            this.attackSelections.get(userId).col = colNum;
+            await interaction.update({ content: `🎯 Target: Column ${colLetter}` });
+        }
+        else if (customId.includes('place_row_')) {
             const rowNum = parseInt(value.substring(1)); // Remove 'R' prefix
             selection.row = rowNum - 1; // Convert to 0-based
             await interaction.update({ content: `Selected row ${rowNum}`, components: interaction.message.components });
@@ -823,7 +1152,7 @@ module.exports = {
             return;
         }
 
-        // Update main game message
+        // Update main game message to reflect both players' status
         const gameEmbed = game.createPlacementEmbed();
         const gameComponents = game.createGameButtons();
         await game.message.edit({ embeds: [gameEmbed], components: gameComponents });
@@ -837,7 +1166,7 @@ module.exports = {
         
         const successEmbed = buildSessionEmbed({
             title: '✅ Auto-Placement Complete',
-            description: 'All ships have been deployed automatically!',
+            stageText: 'All ships have been deployed automatically!',
             color: 0x00FF00
         }).setImage('attachment://placement.png');
 
@@ -859,23 +1188,40 @@ module.exports = {
 
         if (allReady) {
             game.startBattle();
-            const { embed: battleEmbed, battleImage, bannerPath } = await game.createBattleEmbed();
+            const { embed: battleEmbed, battleImage } = await game.createBattleEmbed();
             const battleComponents = game.createGameButtons();
-            const battleAttachment = new AttachmentBuilder(battleImage, { name: 'battle.png' });
-            const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'battleshipbanner.gif' });
-            await game.message.edit({ embeds: [battleEmbed.setImage('attachment://battle.png')], files: [battleAttachment, bannerAttachment], components: battleComponents });
+            
+            try {
+                const battleAttachment = new AttachmentBuilder(battleImage, { name: 'battle.png' });
+                await game.message.edit({ 
+                    embeds: [battleEmbed.setImage('attachment://battle.png')], 
+                    files: [battleAttachment], 
+                    components: battleComponents 
+                });
+            } catch (error) {
+                // If the message is too large, try without the battle image
+                logger.warn(`Battle image too large, proceeding without image: ${error.message}`);
+                await game.message.edit({ 
+                    embeds: [battleEmbed], 
+                    files: [], 
+                    components: battleComponents 
+                });
+            }
             
             const readyEmbed = buildSessionEmbed({
                 title: '⚔️ Battle Commenced!',
-                description: 'All ships deployed. The naval battle begins now!',
+                stageText: 'All ships deployed. The naval battle begins now!',
                 color: 0xFF0000
             });
             
             await interaction.reply({ embeds: [readyEmbed], flags: MessageFlags.Ephemeral });
+
+            // Send turn notification to current player
+            await this.sendTurnNotification(game, interaction.client);
         } else {
             const waitEmbed = buildSessionEmbed({
                 title: '✅ Fleet Ready',
-                description: 'Your ships are ready! Waiting for opponent to finish placement...',
+                stageText: 'Your ships are ready! Waiting for opponent to finish placement...',
                 color: 0xFFA500
             });
             
@@ -961,7 +1307,7 @@ module.exports = {
         
         const successEmbed = buildSessionEmbed({
             title: '✅ Ship Placed Successfully',
-            description: `${currentShip.name} deployed at ${coord.label}!`,
+            stageText: `${currentShip.name} deployed at ${coord.label}!`,
             color: 0x00FF00
         }).setImage('attachment://placement.png');
 
@@ -1007,7 +1353,7 @@ module.exports = {
             resultMessage = `💥 **SUNK** the enemy ${ship.name} at ${coord.label}! Continue attacking!`;
             continueAttacking = true;
         } else {
-            resultMessage = `💧 **Miss** at ${coord.label}. Turn ends.`;
+            resultMessage = `💧 **Missed** at ${coord.label}. Turn ends.`;
             continueAttacking = false;
         }
 
@@ -1073,7 +1419,7 @@ module.exports = {
 
             const winEmbed = buildSessionEmbed({
                 title: '🏆 Victory Achieved!',
-                description: `${resultMessage}\n\n**Winner:** <@${winner}>\n**Prize:** ${fmt(winnings)}`,
+                stageText: `${resultMessage}\n\nWinner: <@${winner}>\nPrize: ${fmt(winnings)}`,
                 color: 0xFFD700
             });
             
@@ -1085,18 +1431,25 @@ module.exports = {
         // Switch turns only on miss (per official Battleship rules)
         if (!continueAttacking) {
             game.switchTurn();
+            // Send turn notification to new current player
+            await this.sendTurnNotification(game, interaction.client);
         }
 
         // Update main game message
-        const { embed: battleEmbed, battleImage, bannerPath } = await game.createBattleEmbed();
+        const { embed: battleEmbed, battleImage } = await game.createBattleEmbed();
         const battleComponents = game.createGameButtons();
-        const battleAttachment = new AttachmentBuilder(battleImage, { name: 'battle.png' });
-        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'battleshipbanner.gif' });
-        await game.message.edit({ embeds: [battleEmbed.setImage('attachment://battle.png')], files: [battleAttachment, bannerAttachment], components: battleComponents });
+        try {
+            const battleAttachment = new AttachmentBuilder(battleImage, { name: 'battle.png' });
+            await game.message.edit({ embeds: [battleEmbed.setImage('attachment://battle.png')], files: [battleAttachment], components: battleComponents });
+        } catch (error) {
+            // If too large, proceed without image
+            logger.warn(`Battle image too large in attack handler: ${error.message}`);
+            await game.message.edit({ embeds: [battleEmbed], files: [], components: battleComponents });
+        }
 
         const attackEmbed = buildSessionEmbed({
             title: '🎯 Attack Result',
-            description: resultMessage,
+            stageText: resultMessage,
             color: result === 'miss' ? 0x999999 : 0xFF0000
         });
         
@@ -1144,7 +1497,7 @@ module.exports = {
         const userId = interaction.user.id;
         this.userSelections.delete(userId);
         
-        const embed = UITemplates.createInfoEmbed('❌ Placement Cancelled', 'Ship placement has been cancelled.');
+        const embed = UITemplates.createErrorEmbed('❌ Placement Cancelled', 'Ship placement has been cancelled.');
         await interaction.update({ embeds: [embed], components: [] });
     },
 
@@ -1165,8 +1518,8 @@ module.exports = {
         const coord = { row: selection.attackRow, col: selection.attackCol };
         const result = await this.processAttackLogic(game, userId, coord);
 
-        const resultEmbed = UITemplates.createInfoEmbed(
-            result.hit ? '💥 Hit!' : '🌊 Miss!',
+        const resultEmbed = UITemplates.createSuccessEmbed(
+            result.hit ? '💥 Hit!' : '🌊 Missed!',
             result.message || `You ${result.hit ? 'hit' : 'missed'} at ${String.fromCharCode('A'.charCodeAt(0) + selection.attackCol)}${selection.attackRow + 1}${result.sunk ? ` and sunk their ${result.ship}!` : ''}`
         );
 
@@ -1177,7 +1530,7 @@ module.exports = {
         const userId = interaction.user.id;
         this.userSelections.delete(userId);
         
-        const embed = UITemplates.createInfoEmbed('❌ Attack Cancelled', 'Attack has been cancelled.');
+        const embed = UITemplates.createErrorEmbed('❌ Attack Cancelled', 'Attack has been cancelled.');
         await interaction.update({ embeds: [embed], components: [] });
     },
 
@@ -1186,24 +1539,29 @@ module.exports = {
         const opponentId = Array.from(game.players.keys()).find(id => id !== userId);
         const opponentBoard = game.boards.get(opponentId);
         
-        const result = opponentBoard.receiveAttack(coord.row, coord.col);
+        const { result, ship } = opponentBoard.attack(coord.row, coord.col);
         
         if (result === 'miss') {
             game.switchTurn();
         }
 
         // Update main game message
-        const { embed: battleEmbed, battleImage, bannerPath } = await game.createBattleEmbed();
+        const { embed: battleEmbed, battleImage } = await game.createBattleEmbed();
         const battleComponents = game.createGameButtons();
-        const battleAttachment = new AttachmentBuilder(battleImage, { name: 'battle.png' });
-        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'battleshipbanner.gif' });
-        await game.message.edit({ embeds: [battleEmbed.setImage('attachment://battle.png')], files: [battleAttachment, bannerAttachment], components: battleComponents });
+        try {
+            const battleAttachment = new AttachmentBuilder(battleImage, { name: 'battle.png' });
+            await game.message.edit({ embeds: [battleEmbed.setImage('attachment://battle.png')], files: [battleAttachment], components: battleComponents });
+        } catch (error) {
+            // If too large, proceed without image
+            logger.warn(`Battle image too large in processAttackLogic: ${error.message}`);
+            await game.message.edit({ embeds: [battleEmbed], files: [], components: battleComponents });
+        }
 
         return {
             hit: result !== 'miss',
             sunk: result === 'sunk',
-            message: result === 'miss' ? 'Miss!' : (result === 'hit' ? 'Hit!' : `Hit and sunk!`),
-            ship: result.ship || null
+            message: result === 'miss' ? 'Missed!' : (result === 'hit' ? 'Hit!' : `Hit and sunk the ${ship?.name || 'ship'}!`),
+            ship: ship || null
         };
     }
 };

@@ -4,13 +4,14 @@
  * Enhanced with Canvas rendering and proper state management
  */
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, StringSelectMenuBuilder } = require('discord.js');
 const path = require('path');
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const battleshipRenderer = require('../UTILS/battleshipRenderer');
 const UITemplates = require('../UTILS/uiTemplates');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 
 // Game constants - Official Battleship rules
 const BOARD_SIZE = 10;
@@ -369,14 +370,30 @@ class BattleshipGameSession {
             return `${user.displayName}: ${status}`;
         }).join('\n');
         
+        // Check if both players are ready
+        const allReady = Array.from(this.boards.values()).every(board => board.allShipsPlaced());
+        const readyCount = Array.from(this.boards.values()).filter(board => board.allShipsPlaced()).length;
+        
         const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
         
+        let stageText = 'PLACEMENT';
+        let color = 0x43A047;
+        let deploymentValue = `**Deploy your fleet strategically!**\n\`\`\`${progress}\`\`\``;
+        
+        if (allReady && this.players.size === 2) {
+            stageText = '⚔️ READY TO START BATTLE! ⚔️';
+            color = 0xFF5722;
+            deploymentValue = `**🎉 ALL FLEETS DEPLOYED! 🎉**\n\`\`\`${progress}\`\`\`\n\n**🚨 HOST: Click "Start" to begin the naval battle!**`;
+        } else if (readyCount > 0) {
+            deploymentValue = `**Fleet deployment in progress...**\n\`\`\`${progress}\`\`\`\n\n${readyCount === 1 ? '⏳ Waiting for opponent to finish placement...' : ''}`;
+        }
+        
         return buildSessionEmbed({
-            title: '🚢 Ship Placement Phase',
+            title: allReady && this.players.size === 2 ? '🚀 BATTLE READY!' : '🚢 Ship Placement Phase',
             topFields: [
                 {
-                    name: '🚢 FLEET DEPLOYMENT',
-                    value: `**Deploy your fleet strategically!**\n\`\`\`${progress}\`\`\``,
+                    name: allReady ? '🎯 BATTLE STATUS' : '🚢 FLEET DEPLOYMENT',
+                    value: deploymentValue,
                     inline: false
                 },
                 {
@@ -390,9 +407,9 @@ class BattleshipGameSession {
                 { name: '🎯 Strategy Tips', value: 'Spread ships out\nHide your patterns\nProtect large ships', inline: true },
                 { name: '⚡ Quick Options', value: 'Manual placement\nAuto-placement\nPrivate board view', inline: true }
             ],
-            stageText: 'PLACEMENT',
-            color: 0x43A047,
-            footer: 'Click "Ship Placement" to deploy your fleet privately • ATIVE Casino'
+            stageText,
+            color,
+            footer: allReady ? 'All fleets ready! Host can start the battle • ATIVE Casino' : 'Click "Ship Placement" to deploy your fleet privately • ATIVE Casino'
         });
     }
 
@@ -431,7 +448,6 @@ class BattleshipGameSession {
         
         const embed = buildSessionEmbed({
             title: '⚔️ Naval Combat',
-            description: `<@${this.currentTurn}>, it's your turn! You have ${this.boards.get(this.currentTurn).getShipsRemaining()} ships still unsunken!`,
             topFields: [
                 {
                     name: '🎯 BATTLE STATUS',
@@ -440,7 +456,7 @@ class BattleshipGameSession {
                 },
                 {
                     name: '💥 COMBAT ACTION',
-                    value: '**Attack enemy coordinates!**\nHit, Miss, or Sunk will be announced',
+                    value: `<@${this.currentTurn}>, it's your turn! You have ${this.boards.get(this.currentTurn).getShipsRemaining()} ships still unsunken!\n**Attack enemy coordinates!** Hit, Miss, or Sunk will be announced`,
                     inline: false
                 }
             ],
@@ -451,10 +467,10 @@ class BattleshipGameSession {
             ],
             stageText: 'BATTLE',
             color: 0xE53935,
-            footer: 'Use "Attack" button to fire at enemy coordinates • ATIVE Casino'
-        }).setThumbnail('attachment://battleshipbanner.gif');
+            footer: 'Use "Attack" button to fire at enemy coordinates'
+        });
         
-        return { embed, battleImage, bannerPath: path.join(__dirname, '..', 'assets', 'battleshipbanner.gif') };
+        return { embed, battleImage };
     }
 
     createFinishedEmbed() {
@@ -535,16 +551,57 @@ class BattleshipGameSession {
                 break;
 
             case 'playing':
-                rows.push(new ActionRowBuilder().addComponents([
-                    new ButtonBuilder()
-                        .setCustomId('battleship_attack')
-                        .setLabel('💥 Fire Torpedoes!')
-                        .setStyle(ButtonStyle.Danger),
-                    new ButtonBuilder()
-                        .setCustomId('battleship_view_board')
-                        .setLabel('🔍 View Your Fleet Status')
-                        .setStyle(ButtonStyle.Secondary)
-                ]));
+                // Create unified control panel like BINGO
+                // Row selection dropdown
+                const rowOptions = [];
+                for (let row = 1; row <= 10; row++) {
+                    rowOptions.push({
+                        label: `Row ${row}`,
+                        value: `R${row}`,
+                        description: `Target row ${row}`,
+                        emoji: '🎯'
+                    });
+                }
+
+                // Column selection dropdown  
+                const colOptions = [];
+                for (let col = 0; col < 10; col++) {
+                    const colLetter = String.fromCharCode('A'.charCodeAt(0) + col);
+                    colOptions.push({
+                        label: `Column ${colLetter}`,
+                        value: `C${colLetter}`,
+                        description: `Target column ${colLetter}`,
+                        emoji: '🎯'
+                    });
+                }
+
+                // Attack controls row
+                const rowSelect = new StringSelectMenuBuilder()
+                    .setCustomId('battleship_select_row')
+                    .setPlaceholder('🔢 Select target row (1-10)')
+                    .addOptions(rowOptions.slice(0, 25)); // Discord limit
+
+                const colSelect = new StringSelectMenuBuilder()
+                    .setCustomId('battleship_select_col')
+                    .setPlaceholder('🔤 Select target column (A-J)')
+                    .addOptions(colOptions);
+
+                // Action buttons row
+                const fireButton = new ButtonBuilder()
+                    .setCustomId('battleship_fire')
+                    .setLabel('🚀 FIRE!')
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('💥');
+
+                const fleetButton = new ButtonBuilder()
+                    .setCustomId('battleship_view_board')
+                    .setLabel('📋 Fleet Status')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🚢');
+
+                rows.push(new ActionRowBuilder().addComponents(rowSelect));
+                rows.push(new ActionRowBuilder().addComponents(colSelect));  
+                rows.push(new ActionRowBuilder().addComponents(fireButton, fleetButton));
                 break;
 
             case 'finished':
@@ -567,10 +624,10 @@ class BattleshipGameSession {
         
         return buildSessionEmbed({
             title: '⚓ Battleship Strategy Guide',
-            description: `**Objective:** Be the first to sink all 5 of your opponent's ships!\n` +
-                        `\`\`\`Official Rules - Based on Classic Battleship Game\`\`\`\n` +
-                        `**🚢 Fleet:** 5 ships each (Carrier, Battleship, Cruiser, Submarine, Destroyer)\n` +
-                        `**🎯 Victory:** Sink all enemy ships to win the battle!`,
+            stageText: `Objective: Be the first to sink all 5 of your opponent's ships!\n` +
+                      `Official Rules - Based on Classic Battleship Game\n` +
+                      `Fleet: 5 ships each (Carrier, Battleship, Cruiser, Submarine, Destroyer)\n` +
+                      `Victory: Sink all enemy ships to win the battle!`,
             topFields: [
                 { name: '🚢 Your Fleet', value: shipList, inline: true },
                 { name: '📍 Placement Rules', value: '• Horizontal or Vertical only\n• No diagonal placement\n• Ships cannot overlap\n• Ships CAN touch edges', inline: true },
@@ -580,7 +637,7 @@ class BattleshipGameSession {
                 { name: '💡 Strategy Tips', value: '• Spread initial shots\n• Hunt around hits\n• Protect large ships\n• Think systematically', inline: true }
             ],
             color: 0x1E88E5,
-            footerText: 'Master naval warfare tactics • Based on official Battleship rules • ATIVE Casino'
+            footer: 'Master naval warfare tactics • Based on official Battleship rules'
         });
     }
 }

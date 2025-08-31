@@ -451,7 +451,8 @@ class DatabaseAdapter {
             return [false, balance.wallet];
         }
         
-        const success = await this.setUserBalance(userId, guildId, newWallet, balance.bank);
+        // Use updateUserBalance for relative changes instead of setUserBalance for absolute values
+        const success = await this.updateUserBalance(userId, guildId, delta, 0);
         return [success, newWallet];
     }
 
