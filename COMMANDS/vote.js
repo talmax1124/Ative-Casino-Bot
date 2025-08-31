@@ -112,13 +112,23 @@ module.exports = {
                 return;
             }
 
-            // Calculate time until next vote (12 hours)
+            // Calculate voting times
             const lastVoteTime = voteData.last_vote_ts || 0;
-            const nextVoteTime = lastVoteTime + (12 * 60 * 60 * 1000);
-            const canVoteNow = Date.now() >= nextVoteTime;
+            const currentTime = Date.now();
+            const nextVoteTime = lastVoteTime + (12 * 60 * 60 * 1000); // 12 hours after last vote
+            const hoursSinceLastVote = (currentTime - lastVoteTime) / (1000 * 60 * 60);
+            
+            // Debug logging to help troubleshoot
+            logger.info(`Vote stats debug for ${interaction.user.username}:
+                Last vote time: ${lastVoteTime} (${new Date(lastVoteTime).toISOString()})
+                Current time: ${currentTime} (${new Date(currentTime).toISOString()})
+                Hours since last vote: ${hoursSinceLastVote.toFixed(2)}
+                Next vote time: ${nextVoteTime} (${new Date(nextVoteTime).toISOString()})`);
+            
+            // Can vote if 12+ hours since last vote OR never voted
+            const canVoteNow = (lastVoteTime === 0) || (currentTime >= nextVoteTime);
             
             // Calculate current streak (check if still valid)
-            const hoursSinceLastVote = (Date.now() - lastVoteTime) / (1000 * 60 * 60);
             const storedStreak = voteData.vote_streak || 0;
             
             // Streak is broken if more than 25 hours since last vote (12h voting window + 13h grace)
@@ -146,7 +156,7 @@ module.exports = {
                     },
                     {
                         name: '⏰ Next Vote',
-                        value: canVoteNow ? '**Available Now!**' : `<t:${Math.floor(nextVoteTime / 1000)}:R>`,
+                        value: this.getNextVoteDisplay(canVoteNow, nextVoteTime, lastVoteTime, hoursSinceLastVote),
                         inline: true
                     },
                     {
@@ -233,6 +243,22 @@ module.exports = {
             return `🆕 **No streak yet**\nStart voting daily!`;
         } else {
             return `🔥 **${currentStreak} day${currentStreak !== 1 ? 's' : ''}**\nKeep it up!`;
+        }
+    },
+
+    /**
+     * Get next vote time display
+     */
+    getNextVoteDisplay(canVoteNow, nextVoteTime, lastVoteTime, hoursSinceLastVote) {
+        if (lastVoteTime === 0) {
+            return '🆕 **Ready Now!**\nFirst time voting';
+        } else if (canVoteNow) {
+            return '✅ **Available Now!**\nCan vote for rewards';
+        } else {
+            const hoursRemaining = 12 - hoursSinceLastVote;
+            const hours = Math.floor(hoursRemaining);
+            const minutes = Math.floor((hoursRemaining - hours) * 60);
+            return `⏳ **In ${hours}h ${minutes}m**\n<t:${Math.floor(nextVoteTime / 1000)}:R>`;
         }
     }
 };
