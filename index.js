@@ -1588,45 +1588,119 @@ const PORT = process.env.WEBHOOK_PORT || 3001;
 
 app.use(express.json());
 
-// Top.GG webhook endpoint - TEMPORARILY COMMENTED OUT (Top.GG not configured)
-/*
-app.post('/topgg/webhook', async (req, res) => {
-    const { type, user, bot } = req.body;
-    
-    // Verify it's a vote webhook
-    if (type === 'upvote') {
-        logger.info(`Received vote from user: ${user}`);
+// Role assignment webhook endpoint
+app.post('/role-assignment', async (req, res) => {
+    try {
+        const { userId, guildId, roleId, action, reason } = req.body;
         
-        try {
-            // Get vote command
-            const voteCommand = client.commands.get('vote');
-            
-            if (voteCommand) {
-                // Process the vote for all guilds the user is in
-                const guildId = null; // Use null for global vote processing
-                const result = await voteCommand.processVote(user, guildId, null);
-                
-                if (result.success) {
-                    logger.info(`Successfully processed vote for user ${user}: ${result.newVoteCount} total votes`);
-                    res.status(200).json({ success: true, message: 'Vote processed successfully' });
-                } else {
-                    logger.error(`Failed to process vote for user ${user}: ${result.error}`);
-                    res.status(500).json({ success: false, error: result.error });
-                }
-            } else {
-                logger.error('Vote command not found');
-                res.status(500).json({ success: false, error: 'Vote command not available' });
-            }
-        } catch (error) {
-            logger.error(`Error processing vote webhook: ${error.message}`);
-            res.status(500).json({ success: false, error: error.message });
+        // Validate required fields
+        if (!userId || !guildId || !roleId || !action) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Missing required fields: userId, guildId, roleId, action' 
+            });
         }
-    } else {
-        logger.info(`Received non-vote webhook: ${type}`);
-        res.status(200).json({ success: true, message: 'Webhook received but not processed' });
+        
+        // Validate action
+        if (!['assign', 'remove'].includes(action)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Invalid action. Must be "assign" or "remove"' 
+            });
+        }
+        
+        // Get guild and member
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Guild not found or bot not in guild' 
+            });
+        }
+        
+        const member = await guild.members.fetch(userId).catch(() => null);
+        if (!member) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'User not found in guild' 
+            });
+        }
+        
+        const role = guild.roles.cache.get(roleId);
+        if (!role) {
+            return res.status(404).json({ 
+                success: false, 
+                error: 'Role not found in guild' 
+            });
+        }
+        
+        // Perform role action
+        if (action === 'assign') {
+            if (member.roles.cache.has(roleId)) {
+                return res.status(200).json({ 
+                    success: true, 
+                    message: 'User already has this role',
+                    alreadyHadRole: true
+                });
+            }
+            
+            await member.roles.add(roleId, reason || 'Subscription purchase');
+            
+            logger.info(`Role assigned: ${role.name} to ${member.user.username} (${userId}) in ${guild.name}`);
+            
+            res.status(200).json({ 
+                success: true, 
+                message: `Role ${role.name} assigned successfully`,
+                action: 'assigned',
+                roleName: role.name,
+                userName: member.user.username
+            });
+            
+        } else { // action === 'remove'
+            if (!member.roles.cache.has(roleId)) {
+                return res.status(200).json({ 
+                    success: true, 
+                    message: 'User does not have this role',
+                    alreadyRemovedRole: true
+                });
+            }
+            
+            await member.roles.remove(roleId, reason || 'Subscription cancelled');
+            
+            logger.info(`Role removed: ${role.name} from ${member.user.username} (${userId}) in ${guild.name}`);
+            
+            res.status(200).json({ 
+                success: true, 
+                message: `Role ${role.name} removed successfully`,
+                action: 'removed',
+                roleName: role.name,
+                userName: member.user.username
+            });
+        }
+        
+    } catch (error) {
+        logger.error(`Role assignment webhook error: ${error.message}`);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
     }
 });
-*/
+
+// Top.GG webhook endpoint
+app.post('/topgg/webhook', async (req, res) => {
+    try {
+        // Initialize TopGG manager
+        const TopGGManager = require('./UTILS/topgg');
+        const topggManager = new TopGGManager(client);
+        
+        // Handle the webhook
+        await topggManager.handleVoteWebhook(req, res);
+    } catch (error) {
+        logger.error(`Top.GG webhook server error: ${error.message}`);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -1638,13 +1712,10 @@ app.get('/health', (req, res) => {
 });
 
 // Start webhook server
-if (IS_PRODUCTION) {
-    app.listen(PORT, () => {
-        logger.info(`Top.GG webhook server running on port ${PORT}`);
-    });
-} else {
-    logger.info('Webhook server disabled in development mode');
-}
+app.listen(PORT, () => {
+    logger.info(`Webhook server running on port ${PORT}`);
+    logger.info(`Available endpoints: /role-assignment, /topgg/webhook, /health`);
+});
 
 // Handle uncaught exceptions
 process.on('uncaughtException', error => {

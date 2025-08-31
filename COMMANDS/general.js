@@ -22,9 +22,45 @@ module.exports = {
             option.setName('user')
                 .setDescription('User to check balance for (admin only)')
                 .setRequired(false)
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('shop')
+                .setDescription('Get the link to the casino web shop')
         ),
 
     async execute(interaction) {
+        const subcommand = interaction.options.getSubcommand(false);
+        
+        if (subcommand === 'shop') {
+            const shopEmbed = new EmbedBuilder()
+                .setTitle('🛒 ATIVE Casino Web Shop')
+                .setDescription('**Purchase coins and VIP subscriptions through our secure web store!**')
+                .addFields(
+                    {
+                        name: '💰 Available Products',
+                        value: '• **200K Coins** - $9.99\n• **500K Coins** - $19.99\n• **1M Coins** - $39.99\n• **Diamond VIP** - $4.99/month\n• **Ruby VIP** - $9.99/month',
+                        inline: false
+                    },
+                    {
+                        name: '🔐 Secure Payment',
+                        value: '• **PayPal** payment processing\n• **Discord OAuth2** login\n• **Instant** coin delivery\n• **Automatic** role assignment',
+                        inline: false
+                    }
+                )
+                .setColor(0x00D4FF)
+                .setThumbnail(interaction.client.user.displayAvatarURL())
+                .setFooter({ text: '🎰 ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+                .setTimestamp();
+
+            await interaction.reply({
+                content: '🌐 **Visit our web shop:** https://ative-casino-bot-production.up.railway.app/shop',
+                embeds: [shopEmbed],
+                ephemeral: false
+            });
+            return;
+        }
+
         const targetUser = interaction.options.getUser('user') || interaction.user;
         const userId = targetUser.id;
         const guildId = await getGuildId(interaction);

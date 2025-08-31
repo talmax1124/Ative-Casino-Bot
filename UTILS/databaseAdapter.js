@@ -812,6 +812,7 @@ class DatabaseAdapter {
                         total_votes = ?,
                         last_vote_ts = ?,
                         total_earned = ?,
+                        vote_streak = ?,
                         can_use_earnmoney = ?,
                         updated_at = NOW()
                      WHERE user_id = ?`,
@@ -819,6 +820,7 @@ class DatabaseAdapter {
                         voteData.total_votes,
                         voteData.last_vote_ts,
                         voteData.total_earned,
+                        voteData.vote_streak,
                         voteData.can_use_earnmoney,
                         userId
                     ]
@@ -827,13 +829,14 @@ class DatabaseAdapter {
                 // Insert new record
                 await this.executeQuery(
                     `INSERT INTO user_votes 
-                        (user_id, total_votes, last_vote_ts, total_earned, can_use_earnmoney) 
-                     VALUES (?, ?, ?, ?, ?)`,
+                        (user_id, total_votes, last_vote_ts, total_earned, vote_streak, can_use_earnmoney) 
+                     VALUES (?, ?, ?, ?, ?, ?)`,
                     [
                         userId,
                         voteData.total_votes,
                         voteData.last_vote_ts,
                         voteData.total_earned,
+                        voteData.vote_streak,
                         voteData.can_use_earnmoney
                     ]
                 );
@@ -856,11 +859,13 @@ class DatabaseAdapter {
                 total_votes INT NOT NULL DEFAULT 0,
                 last_vote_ts BIGINT NOT NULL DEFAULT 0,
                 total_earned DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                vote_streak INT NOT NULL DEFAULT 0,
                 can_use_earnmoney BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX idx_total_votes (total_votes),
                 INDEX idx_last_vote (last_vote_ts),
+                INDEX idx_vote_streak (vote_streak),
                 INDEX idx_earnmoney (can_use_earnmoney)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         `;

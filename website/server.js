@@ -120,35 +120,40 @@ const PRODUCTS = {
     name: '💎 200K Coins Pack',
     price: '9.99',
     coins: 200000,
-    description: '200,000 casino coins for gaming'
+    description: '200,000 casino coins for gaming',
+    type: 'one_time'
   },
   coins_500k: {
     name: '👑 500K Coins Pack',
     price: '19.99',
     coins: 500000,
-    description: '500,000 casino coins for gaming'
+    description: '500,000 casino coins for gaming',
+    type: 'one_time'
   },
   coins_1m: {
     name: '🚀 1M Coins Pack',
     price: '39.99',
     coins: 1000000,
-    description: '1,000,000 casino coins for gaming'
+    description: '1,000,000 casino coins for gaming',
+    type: 'one_time'
   },
   diamond_subscription: {
     name: '💎 Diamond Subscription',
     price: '4.99',
     coins: 50000,
-    description: 'Monthly Diamond VIP subscription',
+    description: 'Monthly Diamond VIP subscription with 5% purchase bonus',
     roleId: '1411582691073196155',
-    type: 'subscription'
+    type: 'subscription',
+    planId: process.env.PAYPAL_DIAMOND_PLAN_ID || 'P-3RX065706M3469222L5IFM4I' // PayPal subscription plan ID
   },
   ruby_subscription: {
     name: '🔴 Ruby Subscription',
     price: '9.99',
     coins: 100000,
-    description: 'Monthly Ruby VIP subscription',
+    description: 'Monthly Ruby VIP subscription with 10% purchase bonus',
     roleId: '1411582733813158001',
-    type: 'subscription'
+    type: 'subscription',
+    planId: process.env.PAYPAL_RUBY_PLAN_ID || 'P-5ML4271244454362WXNWU5NQ' // PayPal subscription plan ID
   }
 };
 
@@ -181,7 +186,9 @@ app.use(passport.session());
 passport.use(new DiscordStrategy({
   clientID: process.env.DISCORD_OAUTH_CLIENT_ID || process.env.CLIENT_ID,
   clientSecret: process.env.DISCORD_OAUTH_CLIENT_SECRET,
-  callbackURL: process.env.DISCORD_OAUTH_REDIRECT_URI || '/auth/discord/callback',
+  callbackURL: process.env.NODE_ENV === 'production' 
+    ? 'https://ative-casino-bot-production.up.railway.app/auth/discord/callback'
+    : process.env.DISCORD_OAUTH_REDIRECT_URI || '/auth/discord/callback',
   scope: ['identify', 'email']
 }, async (accessToken, refreshToken, profile, done) => {
   try {
@@ -353,7 +360,121 @@ app.get('/shop', ensureAuthenticated, (req, res) => {
   });
 });
 
-// Create PayPal order endpoint
+// Create PayPal subscription for VIP plans
+app.post('/create-paypal-subscription', async (req, res) => {
+  try {
+    const { productType, userId, discordUsername } = req.body;
+
+    if (!productType || !userId || !discordUsername) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields' 
+      });
+    }
+
+    const product = PRODUCTS[productType];
+    if (!product || product.type !== 'subscription') {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid subscription product' 
+      });
+    }
+
+    // Create subscription using PayPal REST API
+    const subscriptionData = {
+      plan_id: product.planId,
+      start_time: new Date(Date.now() + 60000).toISOString(), // Start in 1 minute
+      quantity: "1",
+      shipping_amount: {
+        currency_code: "USD",
+        value: "0.00"
+      },
+      subscriber: {
+        name: {
+          given_name: discordUsername.split('#')[0],
+          surname: "User"
+        }
+      },
+      application_context: {
+        brand_name: "ATIVE Casino Bot",
+        locale: "en-US",
+        shipping_preference: "NO_SHIPPING",
+        user_action: "SUBSCRIBE_NOW",
+        payment_method: {
+          payer_selected: "PAYPAL",
+          payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED"
+        },
+        return_url: `${req.protocol}://${req.get('host')}/subscription-success`,
+        cancel_url: `${req.protocol}://${req.get('host')}/subscription-cancel`
+      },
+      custom_id: JSON.stringify({
+        userId: userId,
+        discordUsername: discordUsername,
+        productType: productType
+      })
+    };
+
+    const response = await fetch(`${process.env.NODE_ENV === 'production' ? 'https://api.paypal.com' : 'https://api.sandbox.paypal.com'}/v1/billing/subscriptions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await getPayPalAccessToken()}`,
+        'Accept': 'application/json',
+        'PayPal-Request-Id': `${userId}-${productType}-${Date.now()}`,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(subscriptionData)
+    });
+
+    const subscription = await response.json();
+
+    if (!response.ok) {
+      console.error('PayPal subscription creation error:', subscription);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create subscription'
+      });
+    }
+
+    // Get approval URL
+    const approvalUrl = subscription.links.find(link => link.rel === 'approve')?.href;
+
+    res.json({
+      success: true,
+      subscriptionId: subscription.id,
+      approvalUrl: approvalUrl
+    });
+
+  } catch (error) {
+    console.error('PayPal subscription creation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to create PayPal subscription' 
+    });
+  }
+});
+
+// Get PayPal access token
+async function getPayPalAccessToken() {
+  const clientId = process.env.PAYPAL_CLIENT_ID;
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  const baseURL = process.env.NODE_ENV === 'production' ? 'https://api.paypal.com' : 'https://api.sandbox.paypal.com';
+
+  const response = await fetch(`${baseURL}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Accept-Language': 'en_US',
+      'Authorization': `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+    },
+    body: 'grant_type=client_credentials'
+  });
+
+  const data = await response.json();
+  return data.access_token;
+}
+
+// Create PayPal order endpoint (for one-time purchases)
 app.post('/create-paypal-order', async (req, res) => {
   try {
     const { productType, userId, discordUsername } = req.body;
@@ -554,6 +675,13 @@ app.post('/capture-paypal-order', async (req, res) => {
           ) VALUES (?, ?, ?, 1, ?, NOW())
           ON DUPLICATE KEY UPDATE active = 1, paypal_order_id = ?, created_at = NOW()
         `, [userId, productType, product.roleId, orderId, orderId]);
+
+        // Assign Discord role via webhook to bot
+        try {
+          await assignDiscordRole(userId, product.roleId, product.name);
+        } catch (roleError) {
+          console.error('Failed to assign Discord role:', roleError);
+        }
       }
 
       // Send notification to Discord channel
@@ -585,6 +713,80 @@ app.post('/capture-paypal-order', async (req, res) => {
     });
   }
 });
+
+// Assign Discord role via bot API or webhook
+async function assignDiscordRole(userId, roleId, productName) {
+  try {
+    const botWebhookUrl = process.env.DISCORD_BOT_ROLE_WEBHOOK_URL;
+    
+    if (!botWebhookUrl) {
+      console.log('No bot role webhook URL configured, skipping role assignment');
+      return;
+    }
+
+    const roleData = {
+      userId: userId,
+      roleId: roleId,
+      productName: productName,
+      action: 'assign_role'
+    };
+
+    const response = await fetch(botWebhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.BOT_WEBHOOK_SECRET || 'default-secret'}`
+      },
+      body: JSON.stringify(roleData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Role assignment webhook failed: ${response.status}`);
+    }
+
+    console.log(`✅ Role assigned to ${userId}: ${productName} (${roleId})`);
+  } catch (error) {
+    console.error('Failed to assign Discord role:', error.message);
+    throw error;
+  }
+}
+
+// Remove Discord role via bot API or webhook
+async function removeDiscordRole(userId, roleId, productName) {
+  try {
+    const botWebhookUrl = process.env.DISCORD_BOT_ROLE_WEBHOOK_URL;
+    
+    if (!botWebhookUrl) {
+      console.log('No bot role webhook URL configured, skipping role removal');
+      return;
+    }
+
+    const roleData = {
+      userId: userId,
+      roleId: roleId,
+      productName: productName,
+      action: 'remove_role'
+    };
+
+    const response = await fetch(botWebhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.BOT_WEBHOOK_SECRET || 'default-secret'}`
+      },
+      body: JSON.stringify(roleData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Role removal webhook failed: ${response.status}`);
+    }
+
+    console.log(`✅ Role removed from ${userId}: ${productName} (${roleId})`);
+  } catch (error) {
+    console.error('Failed to remove Discord role:', error.message);
+    throw error;
+  }
+}
 
 // Send purchase notification to Discord via webhook
 async function sendPurchaseNotification(userId, discordUsername, product) {
@@ -701,6 +903,333 @@ async function getUserAvatar(userId) {
   }
   // Return default avatar if not found
   return '0'; // Default Discord avatar
+}
+
+// PayPal subscription webhook endpoint
+app.post('/paypal/webhook', async (req, res) => {
+  try {
+    const webhookEvent = req.body;
+    const eventType = webhookEvent.event_type;
+    
+    console.log(`PayPal webhook received: ${eventType}`);
+
+    switch (eventType) {
+      case 'BILLING.SUBSCRIPTION.ACTIVATED':
+        await handleSubscriptionActivated(webhookEvent);
+        break;
+      case 'PAYMENT.SALE.COMPLETED':
+        await handleSubscriptionPayment(webhookEvent);
+        break;
+      case 'BILLING.SUBSCRIPTION.CANCELLED':
+        await handleSubscriptionCancelled(webhookEvent);
+        break;
+      case 'BILLING.SUBSCRIPTION.SUSPENDED':
+        await handleSubscriptionSuspended(webhookEvent);
+        break;
+      default:
+        console.log(`Unhandled webhook event: ${eventType}`);
+    }
+
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('PayPal webhook error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Handle subscription activated
+async function handleSubscriptionActivated(webhookEvent) {
+  try {
+    const subscription = webhookEvent.resource;
+    const customId = subscription.custom_id;
+    
+    if (!customId) {
+      console.error('No custom_id in subscription activation');
+      return;
+    }
+
+    const customData = JSON.parse(customId);
+    const { userId, discordUsername, productType } = customData;
+    const product = PRODUCTS[productType];
+
+    if (!product) {
+      console.error(`Unknown product type: ${productType}`);
+      return;
+    }
+
+    // Add initial coins and activate subscription
+    await dbPool.execute(
+      'INSERT IGNORE INTO user_balances (user_id, username, wallet, bank) VALUES (?, ?, 1000.00, 0.00)',
+      [userId, discordUsername]
+    );
+
+    await dbPool.execute(
+      'UPDATE user_balances SET wallet = wallet + ? WHERE user_id = ?',
+      [product.coins, userId]
+    );
+
+    // Record subscription in database
+    await dbPool.execute(`
+      INSERT INTO user_subscriptions (
+        user_id, subscription_type, role_id, active, 
+        paypal_subscription_id, created_at
+      ) VALUES (?, ?, ?, 1, ?, NOW())
+      ON DUPLICATE KEY UPDATE 
+        active = 1, 
+        paypal_subscription_id = ?, 
+        created_at = NOW()
+    `, [userId, productType, product.roleId, subscription.id, subscription.id]);
+
+    // Assign Discord role
+    try {
+      await assignDiscordRole(userId, product.roleId, product.name);
+    } catch (roleError) {
+      console.error('Failed to assign Discord role:', roleError);
+    }
+
+    // Send notification
+    await sendSubscriptionNotification(userId, discordUsername, product, 'activated');
+
+    console.log(`✅ Subscription activated: ${discordUsername} - ${product.name}`);
+  } catch (error) {
+    console.error('Error handling subscription activation:', error);
+  }
+}
+
+// Handle subscription payment
+async function handleSubscriptionPayment(webhookEvent) {
+  try {
+    const payment = webhookEvent.resource;
+    const subscriptionId = payment.billing_agreement_id;
+
+    // Get subscription details from database
+    const [subscriptions] = await dbPool.execute(
+      'SELECT * FROM user_subscriptions WHERE paypal_subscription_id = ?',
+      [subscriptionId]
+    );
+
+    if (subscriptions.length === 0) {
+      console.error(`No subscription found for ID: ${subscriptionId}`);
+      return;
+    }
+
+    const subscription = subscriptions[0];
+    const product = PRODUCTS[subscription.subscription_type];
+
+    // Add monthly coins
+    await dbPool.execute(
+      'UPDATE user_balances SET wallet = wallet + ? WHERE user_id = ?',
+      [product.coins, subscription.user_id]
+    );
+
+    // Record payment
+    await dbPool.execute(`
+      INSERT INTO web_purchases (
+        user_id, username, product_type, product_name, 
+        coins_amount, price, paypal_order_id, 
+        payment_status, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'COMPLETED', NOW())
+    `, [
+      subscription.user_id, 
+      'Subscriber', 
+      subscription.subscription_type, 
+      product.name, 
+      product.coins, 
+      product.price, 
+      payment.id
+    ]);
+
+    console.log(`✅ Subscription payment processed: ${subscription.subscription_type} - ${product.coins} coins`);
+  } catch (error) {
+    console.error('Error handling subscription payment:', error);
+  }
+}
+
+// Handle subscription cancelled/suspended
+async function handleSubscriptionCancelled(webhookEvent) {
+  await handleSubscriptionStatusChange(webhookEvent, false, 'cancelled');
+}
+
+async function handleSubscriptionSuspended(webhookEvent) {
+  await handleSubscriptionStatusChange(webhookEvent, false, 'suspended');
+}
+
+async function handleSubscriptionStatusChange(webhookEvent, active, status) {
+  try {
+    const subscription = webhookEvent.resource;
+    const subscriptionId = subscription.id;
+
+    // Update subscription status in database
+    const [result] = await dbPool.execute(
+      'UPDATE user_subscriptions SET active = ? WHERE paypal_subscription_id = ?',
+      [active, subscriptionId]
+    );
+
+    if (result.affectedRows > 0) {
+      // Get subscription details for role removal
+      const [subscriptions] = await dbPool.execute(
+        'SELECT * FROM user_subscriptions WHERE paypal_subscription_id = ?',
+        [subscriptionId]
+      );
+
+      if (subscriptions.length > 0) {
+        const sub = subscriptions[0];
+        const product = PRODUCTS[sub.subscription_type];
+
+        // Remove Discord role if subscription is inactive
+        if (!active) {
+          try {
+            await removeDiscordRole(sub.user_id, product.roleId, product.name);
+          } catch (roleError) {
+            console.error('Failed to remove Discord role:', roleError);
+          }
+        }
+
+        console.log(`✅ Subscription ${status}: ${sub.subscription_type} for user ${sub.user_id}`);
+      }
+    }
+  } catch (error) {
+    console.error(`Error handling subscription ${status}:`, error);
+  }
+}
+
+// Send subscription notification
+async function sendSubscriptionNotification(userId, discordUsername, product, action) {
+  try {
+    const webhookUrl = process.env.DISCORD_PURCHASE_WEBHOOK_URL;
+    if (!webhookUrl) return;
+
+    const embed = {
+      title: action === 'activated' ? "🎭 VIP Subscription Activated!" : "❌ VIP Subscription Cancelled",
+      description: `<@${userId}> ${action === 'activated' ? 'is now a VIP member' : 'cancelled their VIP subscription'}!`,
+      color: action === 'activated' ? 0x00D4FF : 0xFF6B35,
+      fields: [
+        {
+          name: "💎 Subscription",
+          value: product.name,
+          inline: true
+        },
+        {
+          name: action === 'activated' ? "🎁 Monthly Coins" : "💔 Status",
+          value: action === 'activated' ? `${product.coins.toLocaleString()} coins` : "Cancelled",
+          inline: true
+        }
+      ],
+      footer: {
+        text: "🎰 ATIVE Casino • VIP Subscriptions",
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: [embed] })
+    });
+  } catch (error) {
+    console.error('Failed to send subscription notification:', error);
+  }
+}
+
+// Top.GG webhook endpoint for vote rewards
+app.post('/topgg/webhook', async (req, res) => {
+  try {
+    const webhookSecret = process.env.TOPGG_WEBHOOK_SECRET || 'topgg-webhook-secret';
+    const signature = req.headers['x-topgg-signature'];
+    
+    // Basic signature verification
+    if (!signature) {
+      return res.status(401).send('Unauthorized - No signature');
+    }
+
+    const voteData = req.body;
+    const userId = voteData.user;
+    
+    console.log(`Top.GG vote received from user: ${userId}`);
+
+    // Process vote reward (add coins to user)
+    const rewardAmount = 25000; // 25K coins per vote
+    
+    try {
+      // Ensure user exists and add coins
+      await dbPool.execute(
+        'INSERT IGNORE INTO user_balances (user_id, wallet, bank) VALUES (?, 1000.00, 0.00)',
+        [userId]
+      );
+      
+      await dbPool.execute(
+        'UPDATE user_balances SET wallet = wallet + ? WHERE user_id = ?',
+        [rewardAmount, userId]
+      );
+
+      // Update vote tracking
+      await dbPool.execute(`
+        INSERT INTO user_votes (user_id, total_votes, last_vote_ts, total_earned, can_use_earnmoney) 
+        VALUES (?, 1, ?, ?, TRUE)
+        ON DUPLICATE KEY UPDATE 
+          total_votes = total_votes + 1,
+          last_vote_ts = ?,
+          total_earned = total_earned + ?,
+          can_use_earnmoney = TRUE
+      `, [userId, Date.now(), rewardAmount, Date.now(), rewardAmount]);
+
+      console.log(`✅ Vote reward processed: User ${userId} received ${rewardAmount} coins`);
+      
+      // Send notification to Discord (optional)
+      try {
+        await sendVoteNotification(userId, rewardAmount);
+      } catch (notifyError) {
+        console.error('Failed to send vote notification:', notifyError);
+      }
+
+    } catch (dbError) {
+      console.error('Database error processing vote:', dbError);
+      return res.status(500).send('Database error');
+    }
+
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Top.GG webhook error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Send vote notification to Discord
+async function sendVoteNotification(userId, rewardAmount) {
+  try {
+    const webhookUrl = process.env.DISCORD_PURCHASE_WEBHOOK_URL;
+    if (!webhookUrl) return;
+
+    const embed = {
+      title: "🗳️ New Vote Received!",
+      description: `<@${userId}> just voted on Top.GG!`,
+      color: 0x00D4FF,
+      fields: [
+        {
+          name: "💰 Reward",
+          value: `${rewardAmount.toLocaleString()} coins`,
+          inline: true
+        },
+        {
+          name: "🔗 Vote Link",
+          value: "[Vote on Top.GG](https://top.gg/bot/1403236218900185088/vote)",
+          inline: true
+        }
+      ],
+      footer: {
+        text: "🎰 ATIVE Casino • Vote every 12 hours!",
+      },
+      timestamp: new Date().toISOString()
+    };
+
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: [embed] })
+    });
+  } catch (error) {
+    console.error('Failed to send vote notification:', error);
+  }
 }
 
 // Health check endpoint for Railway
