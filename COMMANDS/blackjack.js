@@ -224,7 +224,7 @@ module.exports = {
                 amount,
                 GameType.BLACKJACK,
                 1,          // Min bet: $1
-                Infinity    // No max bet limit
+                150000    // No max bet limit
             );
 
             if (!validation.isValid) {
