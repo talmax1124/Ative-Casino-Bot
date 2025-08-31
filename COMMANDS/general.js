@@ -171,22 +171,6 @@ module.exports = {
             });
             return;
         }
-
-    } catch (error) {
-            logger.error(`Error in balance command: ${error.message}`);
-            
-            // Only reply if we haven't already replied
-            if (!interaction.replied && !interaction.deferred) {
-                try {
-                    await interaction.reply({
-                        content: '❌ An error occurred while processing the balance command. Please try again.',
-                        ephemeral: true
-                    });
-                } catch (replyError) {
-                    logger.error(`Failed to send error reply: ${replyError.message}`);
-                }
-            }
-        }
     },
 
     /**
