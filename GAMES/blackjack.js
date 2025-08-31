@@ -244,6 +244,10 @@ class BlackjackGame {
         if (playerHand.isBusted()) {
             multiplier = 0;
             outcome = 'BUSTED';
+        } else if (playerHand.isBlackjack() && this.dealerHand.isBlackjack()) {
+            // Both have blackjack - it's a PUSH
+            multiplier = 1;
+            outcome = 'PUSH';
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
             multiplier = 2.5;
             outcome = 'BLACKJACK';
