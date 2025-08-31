@@ -206,7 +206,7 @@ class DatabaseAdapter {
      */
     async getUserBalance(userId, guildId = null) {
         try {
-            const [rows] = await this.executeQuery(
+            const rows = await this.executeQuery(
                 'SELECT * FROM user_balances WHERE user_id = ?', 
                 [userId]
             );
@@ -267,7 +267,7 @@ class DatabaseAdapter {
                 );
 
                 // Re-fetch the user data in case it was already created by another process
-                const [newRows] = await this.executeQuery(
+                const newRows = await this.executeQuery(
                     'SELECT * FROM user_balances WHERE user_id = ?', 
                     [userId]
                 );
@@ -689,7 +689,7 @@ class DatabaseAdapter {
      */
     async getServerConfig(serverId) {
         try {
-            const [rows] = await this.executeQuery(
+            const rows = await this.executeQuery(
                 'SELECT * FROM server_config WHERE server_id = ?',
                 [serverId]
             );
@@ -723,7 +723,7 @@ class DatabaseAdapter {
      */
     async saveServerConfig(serverId, serverName, config) {
         try {
-            const [existing] = await this.executeQuery(
+            const existing = await this.executeQuery(
                 'SELECT * FROM server_config WHERE server_id = ?',
                 [serverId]
             );
