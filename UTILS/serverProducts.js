@@ -7,37 +7,51 @@ const { EmbedBuilder } = require('discord.js');
 const dbManager = require('./database');
 const { fmt, sendLogMessage } = require('./common');
 const logger = require('./logger');
+const roleManager = require('./roleManager');
 
-// Product configuration - Define your server products here
+// Product configuration - Updated with actual Discord SKU IDs from Developer Portal
 const SERVER_PRODUCTS = {
-    // Example products - replace with your actual Discord Server Products SKU IDs
-    'small_coin_pack': {
-        id: 'sku_small_coins',
-        name: '🪙 Small Coin Pack',
-        description: '1,000 casino coins',
-        reward: 1000,
-        price: 0.99
+    // 200K Coins - Durable Product
+    'coins_200k': {
+        id: '1411565695802028290',
+        name: '💎 200K Coins Pack',
+        description: '200,000 casino coins - Durable purchase',
+        reward: 200000,
+        price: 9.99
     },
-    'medium_coin_pack': {
-        id: 'sku_medium_coins', 
-        name: '💰 Medium Coin Pack',
-        description: '5,000 casino coins + 10% bonus',
-        reward: 5500,
-        price: 4.99
+    // 500K Coins - Durable Product
+    'coins_500k': {
+        id: '1411566011680948377',
+        name: '👑 500K Coins Pack',
+        description: '500,000 casino coins - Durable purchase',
+        reward: 500000,
+        price: 19.99
     },
-    'large_coin_pack': {
-        id: 'sku_large_coins',
-        name: '💎 Large Coin Pack', 
-        description: '15,000 casino coins + 25% bonus',
-        reward: 18750,
-        price: 14.99
-    },
-    'mega_coin_pack': {
-        id: 'sku_mega_coins',
-        name: '👑 Mega Coin Pack',
-        description: '50,000 casino coins + 50% bonus',
-        reward: 75000, 
+    // 1M Coins - Durable Product
+    'coins_1m': {
+        id: '1411566149954441226',
+        name: '🚀 1M Coins Pack',
+        description: '1,000,000 casino coins - Durable purchase',
+        reward: 1000000,
         price: 39.99
+    },
+    // Diamond Subscription - User Subscription
+    'diamond_subscription': {
+        id: '1411543496866664479',
+        name: '💎 Diamond Subscription',
+        description: 'Premium subscription with exclusive benefits',
+        reward: 50000, // Monthly bonus coins
+        price: 4.99, // Monthly
+        type: 'subscription'
+    },
+    // Ruby Subscription - User Subscription
+    'ruby_subscription': {
+        id: '1411553720591712326',
+        name: '🔴 Ruby Subscription',
+        description: 'Ruby tier subscription with VIP perks',
+        reward: 100000, // Monthly bonus coins
+        price: 9.99, // Monthly
+        type: 'subscription'
     }
 };
 
@@ -73,29 +87,46 @@ async function handleEntitlementCreate(entitlement, client) {
 
         await dbManager.ensureUser(userId, user.displayName);
 
-        // Add the purchased amount to user's wallet
-        await dbManager.updateUserBalance(userId, guildId, product.reward, 0);
+        // Calculate final reward with subscription bonuses
+        const finalReward = await calculateRewardWithBonus(userId, guildId, product.reward, client);
         
-        // Record the purchase in database
-        await recordPurchase(entitlement, product, userId, guildId);
+        // Add the purchased amount to user's wallet
+        await dbManager.updateUserBalance(userId, guildId, finalReward, 0);
+        
+        // Award VIP role based on purchase tier
+        let roleResult = { success: false, message: 'No role configured' };
+        try {
+            const guild = client.guilds.cache.get(guildId);
+            if (guild) {
+                roleResult = await roleManager.awardPurchaseRole(guild, user, entitlement.sku_id);
+                logger.info(`Role award result for ${user.displayName}: ${roleResult.message}`);
+            }
+        } catch (roleError) {
+            logger.error(`Error awarding role: ${roleError.message}`);
+        }
+        
+        // Record the purchase in database  
+        await recordPurchase(entitlement, product, userId, guildId, roleResult, finalReward);
         
         // Log the purchase
         logger.info(`Processed purchase: ${user.displayName} bought ${product.name} for ${fmt(product.reward)} coins`);
         
         // Send notification to user (if possible)
-        await sendPurchaseNotification(user, product, client);
+        await sendPurchaseNotification(user, product, client, roleResult, finalReward);
         
-        // Send log to admin channel
-        await sendPurchaseLog(client, entitlement, product, user, guildId);
+        // Send purchase announcement to purchase channel
+        await sendPurchaseAnnouncement(client, product, user, guildId, finalReward);
+        
+        // Send log to admin channel (bot activity)
+        await sendPurchaseLog(client, entitlement, product, user, guildId, roleResult, finalReward);
 
-        // Consume the entitlement if it's a one-time purchase
-        if (entitlement.type === 8) { // APPLICATION_ENTITLEMENT_TYPE_ONE_TIME_PURCHASE
-            try {
-                await entitlement.consume();
-                logger.info(`Consumed entitlement: ${entitlement.id}`);
-            } catch (consumeError) {
-                logger.error(`Failed to consume entitlement ${entitlement.id}: ${consumeError.message}`);
-            }
+        // Handle different entitlement types
+        if (entitlement.type === 8) { // APPLICATION_ENTITLEMENT_TYPE_ONE_TIME_PURCHASE (Durable products)
+            // Don't consume durable products - they should remain active
+            logger.info(`Durable product purchased: ${entitlement.id}`);
+        } else if (entitlement.type === 1) { // USER_SUBSCRIPTION
+            // Subscriptions are automatically handled by Discord
+            logger.info(`Subscription activated: ${entitlement.id}`);
         }
 
     } catch (error) {
@@ -162,6 +193,39 @@ async function handleEntitlementDelete(entitlement, client) {
 }
 
 /**
+ * Calculate reward with subscription bonuses
+ */
+async function calculateRewardWithBonus(userId, guildId, baseReward, client) {
+    try {
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) return baseReward;
+
+        const member = await guild.members.fetch(userId).catch(() => null);
+        if (!member) return baseReward;
+
+        // Check for subscription roles using role IDs and apply bonuses
+        let bonusMultiplier = 1.0;
+        
+        if (member.roles.cache.has('1411582733813158001')) { // Ruby role ID
+            bonusMultiplier = 1.10; // 10% bonus for Ruby subscribers
+        } else if (member.roles.cache.has('1411582691073196155')) { // Diamond role ID
+            bonusMultiplier = 1.05; // 5% bonus for Diamond subscribers
+        }
+
+        const finalReward = Math.floor(baseReward * bonusMultiplier);
+        
+        if (bonusMultiplier > 1.0) {
+            logger.info(`Applied ${((bonusMultiplier - 1) * 100).toFixed(0)}% subscription bonus: ${baseReward} → ${finalReward} coins`);
+        }
+        
+        return finalReward;
+    } catch (error) {
+        logger.error(`Error calculating subscription bonus: ${error.message}`);
+        return baseReward;
+    }
+}
+
+/**
  * Find product configuration by SKU ID
  */
 function findProductBySku(skuId) {
@@ -171,7 +235,7 @@ function findProductBySku(skuId) {
 /**
  * Record purchase in database
  */
-async function recordPurchase(entitlement, product, userId, guildId) {
+async function recordPurchase(entitlement, product, userId, guildId, roleResult = null, finalReward = null) {
     try {
         // You'll need to create this table in your database
         await dbManager.query(`
@@ -181,10 +245,13 @@ async function recordPurchase(entitlement, product, userId, guildId) {
                 user_id, 
                 guild_id, 
                 product_name, 
-                reward_amount, 
-                price, 
+                reward_amount,
+                final_reward_amount,
+                price,
+                role_awarded,
+                role_name,
                 created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `, [
             entitlement.id,
             entitlement.sku_id, 
@@ -192,7 +259,10 @@ async function recordPurchase(entitlement, product, userId, guildId) {
             guildId,
             product.name,
             product.reward,
-            product.price
+            finalReward || product.reward,
+            product.price,
+            roleResult?.success || false,
+            roleResult?.roleName || null
         ]);
     } catch (error) {
         logger.error(`Failed to record purchase: ${error.message}`);
@@ -202,15 +272,42 @@ async function recordPurchase(entitlement, product, userId, guildId) {
 /**
  * Send purchase notification to user
  */
-async function sendPurchaseNotification(user, product, client) {
+async function sendPurchaseNotification(user, product, client, roleResult = null, finalReward = null) {
     try {
+        const actualReward = finalReward || product.reward;
+        const fields = [
+            { name: '🎁 Product', value: product.name, inline: false }
+        ];
+
+        // Show bonus information if applicable
+        if (finalReward && finalReward > product.reward) {
+            const bonusAmount = finalReward - product.reward;
+            const bonusPercent = Math.round(((finalReward / product.reward) - 1) * 100);
+            fields.push({ 
+                name: '💰 Reward', 
+                value: `${fmt(product.reward)} base coins + ${fmt(bonusAmount)} bonus (${bonusPercent}% subscription bonus)\n**Total: ${fmt(actualReward)} coins!** 🎉`, 
+                inline: false 
+            });
+        } else {
+            fields.push({ 
+                name: '💰 Reward', 
+                value: `${fmt(actualReward)} coins added to your wallet!`, 
+                inline: false 
+            });
+        }
+
+        // Add role information if awarded
+        if (roleResult?.success && roleResult.roleName) {
+            const roleText = roleResult.hadRole 
+                ? `You already had the ${roleResult.roleName} role!`
+                : `You've been awarded the ${roleResult.roleName} role! 🎭`;
+            fields.push({ name: '🎭 VIP Status', value: roleText, inline: false });
+        }
+
         const embed = new EmbedBuilder()
             .setTitle('🎉 Purchase Successful!')
             .setDescription(`Thank you for your purchase!`)
-            .addFields(
-                { name: '🎁 Product', value: product.name, inline: false },
-                { name: '💰 Reward', value: `${fmt(product.reward)} coins added to your wallet!`, inline: false }
-            )
+            .addFields(fields)
             .setColor(0x00FF00)
             .setTimestamp();
             
@@ -223,19 +320,85 @@ async function sendPurchaseNotification(user, product, client) {
 }
 
 /**
+ * Send purchase announcement to purchase channel
+ */
+async function sendPurchaseAnnouncement(client, product, user, guildId, finalReward = null) {
+    try {
+        const PURCHASE_CHANNEL_ID = '1403244656845787170'; // Purchase announcements channel
+        const announcementChannel = client.channels.cache.get(PURCHASE_CHANNEL_ID);
+        
+        if (!announcementChannel) {
+            logger.warn(`Purchase announcement channel ${PURCHASE_CHANNEL_ID} not found`);
+            return;
+        }
+
+        const actualReward = finalReward || product.reward;
+        
+        // Create announcement embed
+        let description = `🎉 **${user.displayName}** just purchased **${product.name}**!`;
+        
+        // Add bonus information if applicable
+        if (finalReward && finalReward > product.reward) {
+            const bonusAmount = finalReward - product.reward;
+            const bonusPercent = Math.round(((finalReward / product.reward) - 1) * 100);
+            description += `\n✨ **Subscription Bonus:** +${fmt(bonusAmount)} coins (${bonusPercent}% bonus)!`;
+        }
+        
+        const embed = new EmbedBuilder()
+            .setTitle('🛒 New Purchase!')
+            .setDescription(description)
+            .addFields(
+                { name: '💰 Coins Received', value: fmt(actualReward), inline: true },
+                { name: '💵 Price', value: `$${product.price}`, inline: true },
+                { name: '🎮 Ready to Play!', value: 'Use `/balance` to check your coins', inline: false }
+            )
+            .setColor(0x00FF00)
+            .setTimestamp()
+            .setThumbnail(user.displayAvatarURL());
+
+        await announcementChannel.send({ embeds: [embed] });
+        logger.info(`Sent purchase announcement for ${user.displayName} to channel ${PURCHASE_CHANNEL_ID}`);
+        
+    } catch (error) {
+        logger.error(`Error sending purchase announcement: ${error.message}`);
+    }
+}
+
+/**
  * Send purchase log to admin channel
  */
-async function sendPurchaseLog(client, entitlement, product, user, guildId) {
+async function sendPurchaseLog(client, entitlement, product, user, guildId, roleResult = null, finalReward = null) {
     try {
+        const actualReward = finalReward || product.reward;
+        let logMessage = `💳 **Server Product Purchase**\n` +
+            `**User:** ${user.displayName} (\`${user.id}\`)\n` +
+            `**Product:** ${product.name}\n` +
+            `**Base Reward:** ${fmt(product.reward)} coins\n`;
+
+        // Add bonus information if applicable
+        if (finalReward && finalReward > product.reward) {
+            const bonusAmount = finalReward - product.reward;
+            const bonusPercent = Math.round(((finalReward / product.reward) - 1) * 100);
+            logMessage += `**Subscription Bonus:** +${fmt(bonusAmount)} coins (${bonusPercent}%)\n` +
+                `**Final Reward:** ${fmt(actualReward)} coins 🎉\n`;
+        } else {
+            logMessage += `**Final Reward:** ${fmt(actualReward)} coins\n`;
+        }
+
+        logMessage += `**Price:** $${product.price}\n` +
+            `**Entitlement ID:** \`${entitlement.id}\``;
+
+        // Add role information to log
+        if (roleResult?.success && roleResult.roleName) {
+            logMessage += `\n**Role Awarded:** ${roleResult.roleName} 🎭`;
+        } else if (roleResult?.success === false) {
+            logMessage += `\n**Role Award:** Failed - ${roleResult.error || 'Unknown error'}`;
+        }
+
         await sendLogMessage(
             client,
             'info',
-            `💳 **Server Product Purchase**\n` +
-            `**User:** ${user.displayName} (\`${user.id}\`)\n` +
-            `**Product:** ${product.name}\n` +
-            `**Reward:** ${fmt(product.reward)} coins\n` +
-            `**Price:** $${product.price}\n` +
-            `**Entitlement ID:** \`${entitlement.id}\``,
+            logMessage,
             user.id,
             guildId
         );
@@ -272,7 +435,10 @@ async function initializePurchaseTable() {
                 guild_id VARCHAR(255),
                 product_name VARCHAR(255) NOT NULL,
                 reward_amount BIGINT NOT NULL,
+                final_reward_amount BIGINT NOT NULL,
                 price DECIMAL(10,2) NOT NULL,
+                role_awarded BOOLEAN DEFAULT FALSE,
+                role_name VARCHAR(255),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_user_id (user_id),
                 INDEX idx_guild_id (guild_id),

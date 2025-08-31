@@ -1295,6 +1295,18 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
             }
+            // Handle shop buttons
+            else if (customId === 'open_premium_shop' || customId === 'shop_help') {
+                const shopCommand = client.commands.get('shop');
+                if (shopCommand && shopCommand.handleButtonInteraction) {
+                    await shopCommand.handleButtonInteraction(interaction);
+                } else {
+                    await interaction.reply({
+                        content: '❌ Shop not available at the moment.',
+                        ephemeral: true
+                    });
+                }
+            }
             // Handle generic game buttons (game_play_again, game_quit)
             else if (customId.startsWith('game_')) {
                 const action = customId.substring('game_'.length);
