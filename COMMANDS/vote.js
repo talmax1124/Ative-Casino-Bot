@@ -117,9 +117,13 @@ module.exports = {
             const nextVoteTime = lastVoteTime + (12 * 60 * 60 * 1000);
             const canVoteNow = Date.now() >= nextVoteTime;
             
-            // Calculate current streak
+            // Calculate current streak (check if still valid)
             const hoursSinceLastVote = (Date.now() - lastVoteTime) / (1000 * 60 * 60);
-            const currentStreak = voteData.vote_streak || 0;
+            const storedStreak = voteData.vote_streak || 0;
+            
+            // Streak is broken if more than 25 hours since last vote (12h voting window + 13h grace)
+            const isStreakValid = hoursSinceLastVote <= 25 || lastVoteTime === 0;
+            const currentStreak = isStreakValid ? storedStreak : 0;
 
             const statsEmbed = new EmbedBuilder()
                 .setTitle('🗳️ Your Voting Statistics')
@@ -137,7 +141,7 @@ module.exports = {
                     },
                     {
                         name: '🔥 Current Streak',
-                        value: `${currentStreak} day${currentStreak !== 1 ? 's' : ''}`,
+                        value: this.getStreakDisplay(currentStreak, isStreakValid, storedStreak),
                         inline: true
                     },
                     {
@@ -146,8 +150,8 @@ module.exports = {
                         inline: true
                     },
                     {
-                        name: '🎯 Status',
-                        value: voteData.can_use_earnmoney ? '✅ Active Voter' : '❌ Need to vote',
+                        name: '🎯 /earnmoney Status',
+                        value: this.getEarnmoneyStatus(voteData.total_votes || 0, currentStreak, voteData.can_use_earnmoney),
                         inline: true
                     },
                     {
@@ -201,6 +205,34 @@ module.exports = {
                 content: '❌ Failed to retrieve voting statistics.',
                 ephemeral: true
             });
+        }
+    },
+
+    /**
+     * Get formatted earnmoney status message
+     */
+    getEarnmoneyStatus(totalVotes, currentStreak, canUseEarnmoney) {
+        if (totalVotes < 10) {
+            return `🔒 **Locked**\n${totalVotes}/10 votes needed`;
+        } else if (currentStreak === 0) {
+            return `❌ **Lost Streak**\nHave ${totalVotes} votes but streak broken`;
+        } else if (canUseEarnmoney) {
+            return `✅ **Unlocked**\n${totalVotes} votes, ${currentStreak} day streak`;
+        } else {
+            return `⏳ **Processing**\nShould unlock on next vote`;
+        }
+    },
+
+    /**
+     * Get formatted streak display
+     */
+    getStreakDisplay(currentStreak, isStreakValid, storedStreak) {
+        if (!isStreakValid && storedStreak > 0) {
+            return `💔 **Broken**\nWas ${storedStreak} day${storedStreak !== 1 ? 's' : ''}`;
+        } else if (currentStreak === 0) {
+            return `🆕 **No streak yet**\nStart voting daily!`;
+        } else {
+            return `🔥 **${currentStreak} day${currentStreak !== 1 ? 's' : ''}**\nKeep it up!`;
         }
     }
 };
