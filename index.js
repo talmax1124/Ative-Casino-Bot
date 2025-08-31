@@ -18,6 +18,7 @@ const { sendLogMessage } = require('./UTILS/common');
 const panelManager = require('./UTILS/panelManager');
 const { LotteryGame } = require('./GAMES/lottery');
 const levelingSystem = require('./UTILS/levelingSystem');
+const serverProducts = require('./UTILS/serverProducts');
 
 // Bot configuration
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -303,6 +304,10 @@ client.once('clientReady', async () => {
         // Set Discord client for market event announcements
         economyAnalyzer.setDiscordClient(client);
         logger.info('Economy analyzer initialized successfully');
+        
+        // Initialize server products database table
+        await serverProducts.initializePurchaseTable();
+        logger.info('Server products system initialized successfully');
     } catch (error) {
         logger.error('Failed to initialize database and economy systems:', error);
         process.exit(1);
@@ -1543,6 +1548,28 @@ client.on('messageCreate', async message => {
         logger.error(`Error processing message: ${error.message}`);
     }
 });
+
+// ========================= DISCORD SERVER PRODUCTS HANDLERS =========================
+
+// Handle entitlement creation (new purchases)
+client.on('entitlementCreate', async (entitlement) => {
+    logger.info(`Entitlement created: ${entitlement.id} for SKU: ${entitlement.sku_id}`);
+    await serverProducts.handleEntitlementCreate(entitlement, client);
+});
+
+// Handle entitlement updates (subscription renewals, etc.)
+client.on('entitlementUpdate', async (oldEntitlement, newEntitlement) => {
+    logger.info(`Entitlement updated: ${newEntitlement.id}`);
+    await serverProducts.handleEntitlementUpdate(oldEntitlement, newEntitlement, client);
+});
+
+// Handle entitlement deletions (refunds, cancellations)
+client.on('entitlementDelete', async (entitlement) => {
+    logger.info(`Entitlement deleted: ${entitlement.id}`);
+    await serverProducts.handleEntitlementDelete(entitlement, client);
+});
+
+// ========================= ERROR HANDLERS =========================
 
 client.on('error', error => {
     logger.error('Discord client error:', error);
