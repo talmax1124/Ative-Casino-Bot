@@ -11,11 +11,11 @@ const economyAnalyzer = require('./economyAnalyzer');
 const BASE_PLINKO_MODES = {
     Easy: {
         rows: 8,
-        multipliers: [0.1, 0.3, 0.5, 0.8, 1.5, 0.8, 0.5, 0.3, 0.1],
+        multipliers: [0.2, 0.4, 0.6, 0.8, 1.2, 0.8, 0.6, 0.4, 0.2],
         description: "Safest option with lower win potential. Dynamic house edge.",
         color: '#00FF00',
         emoji: '🟢',
-        house_edge: 0.75
+        house_edge: 0.65
     },
     Medium: {
         rows: 12,

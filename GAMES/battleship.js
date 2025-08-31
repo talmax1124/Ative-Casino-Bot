@@ -5,6 +5,7 @@
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
+const path = require('path');
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
@@ -453,7 +454,7 @@ class BattleshipGameSession {
             footer: 'Use "Attack" button to fire at enemy coordinates • ATIVE Casino'
         }).setThumbnail('attachment://battleshipbanner.gif');
         
-        return { embed, battleImage, bannerPath: '/Users/carlosdiazplaza/ative_casino_bot/assets/battleshipbanner.gif' };
+        return { embed, battleImage, bannerPath: path.join(__dirname, '..', 'assets', 'battleshipbanner.gif') };
     }
 
     createFinishedEmbed() {

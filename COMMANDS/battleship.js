@@ -17,6 +17,7 @@ const {
     StringSelectMenuBuilder
 } = require('discord.js');
 
+const path = require('path');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId } = require('../UTILS/common');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
@@ -189,10 +190,12 @@ module.exports = {
 
             const embed = game.createLobbyEmbed();
             const components = game.createGameButtons();
-            const bannerAttachment = new AttachmentBuilder('/Users/carlosdiazplaza/ative_casino_bot/assets/battleshipbanner.gif', { name: 'battleshipbanner.gif' });
+            const bannerPath = path.join(__dirname, '..', 'assets', 'battleshipbanner.gif');
+            const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'battleshipbanner.gif' });
 
-            const msg = await interaction.reply({ embeds: [embed], components, files: [bannerAttachment], fetchReply: true });
-            game.message = msg;
+            const msg = await interaction.reply({ embeds: [embed], components, files: [bannerAttachment] });
+            const fetchedMsg = await interaction.fetchReply();
+            game.message = fetchedMsg;
             
             logger.info(`Battleship game created by ${username} (${userId}) bet ${betAmount} in channel ${channelId}`);
 
@@ -361,7 +364,8 @@ module.exports = {
         // Update game display
         const embed = game.createLobbyEmbed();
         const components = game.createGameButtons();
-        const bannerAttachment = new AttachmentBuilder('/Users/carlosdiazplaza/ative_casino_bot/assets/battleshipbanner.gif', { name: 'battleshipbanner.gif' });
+        const bannerPath = path.join(__dirname, '..', 'assets', 'battleshipbanner.gif');
+        const bannerAttachment = new AttachmentBuilder(bannerPath, { name: 'battleshipbanner.gif' });
         await interaction.update({ embeds: [embed], components, files: [bannerAttachment] });
         
         if (game.players.size === 2) {
