@@ -18,10 +18,15 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('balance')
         .setDescription('Check your current balance')
-        .addUserOption(option =>
-            option.setName('user')
-                .setDescription('User to check balance for (admin only)')
-                .setRequired(false)
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('check')
+                .setDescription('Check your balance or another user\'s balance')
+                .addUserOption(option =>
+                    option.setName('user')
+                        .setDescription('User to check balance for (admin only)')
+                        .setRequired(false)
+                )
         )
         .addSubcommand(subcommand =>
             subcommand
@@ -30,7 +35,7 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        const subcommand = interaction.options.getSubcommand(false);
+        const subcommand = interaction.options.getSubcommand();
         
         if (subcommand === 'shop') {
             const shopEmbed = new EmbedBuilder()
@@ -59,28 +64,27 @@ module.exports = {
                 ephemeral: false
             });
             return;
-        }
+        } else if (subcommand === 'check') {
+            const targetUser = interaction.options.getUser('user') || interaction.user;
+            const userId = targetUser.id;
+            const guildId = await getGuildId(interaction);
 
-        const targetUser = interaction.options.getUser('user') || interaction.user;
-        const userId = targetUser.id;
-        const guildId = await getGuildId(interaction);
+            // Check if user is trying to check someone else's balance
+            if (targetUser.id !== interaction.user.id) {
+                // TODO: Check admin permissions
+                // For now, allow everyone to check
+            }
 
-        // Check if user is trying to check someone else's balance
-        if (targetUser.id !== interaction.user.id) {
-            // TODO: Check admin permissions
-            // For now, allow everyone to check
-        }
+            try {
+                await dbManager.ensureUser(userId, targetUser.displayName);
+                const balance = await dbManager.getUserBalance(userId, guildId);
 
-        try {
-            await dbManager.ensureUser(userId, targetUser.displayName);
-            const balance = await dbManager.getUserBalance(userId, guildId);
-
-            const totalBalance = balance.wallet + balance.bank;
-            const tier = getEconomicTier(totalBalance);
-            const dailyInterest = calculateDailyInterest(balance.bank, totalBalance);
-            
-            // Check if this is the developer (Off-Economy status)
-            const isOffEconomy = targetUser.id === DEVELOPER_ID;
+                const totalBalance = balance.wallet + balance.bank;
+                const tier = getEconomicTier(totalBalance);
+                const dailyInterest = calculateDailyInterest(balance.bank, totalBalance);
+                
+                // Check if this is the developer (Off-Economy status)
+                const isOffEconomy = targetUser.id === DEVELOPER_ID;
 
             // Get aggregated win/loss stats across all games
             const gameStats = await this.getAggregatedGameStats(userId, guildId);
@@ -149,25 +153,25 @@ module.exports = {
             });
 
             await interaction.reply({ embeds: [embed] });
+        } else {
+            // Invalid subcommand - should not happen but handle gracefully
+            await interaction.reply({
+                content: '❌ Invalid subcommand. Please try again.',
+                ephemeral: true
+            });
+            return;
+        }
 
         } catch (error) {
-            logger.error(`Error checking balance: ${error.message}`);
+            logger.error(`Error in balance command: ${error.message}`);
             
             // Only reply if we haven't already replied
             if (!interaction.replied && !interaction.deferred) {
                 try {
-                    const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-                    const errorEmbed = buildSessionEmbed({
-                        title: '❌ Balance Error',
-                        topFields: [
-                            { name: 'Error', value: 'Failed to retrieve balance information.\nPlease try again in a moment.' }
-                        ],
-                        stageText: 'ERROR',
-                        color: 0xFF0000,
-                        footer: 'Balance Command • Error occurred'
+                    await interaction.reply({
+                        content: '❌ An error occurred while processing the balance command. Please try again.',
+                        ephemeral: true
                     });
-
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                 } catch (replyError) {
                     logger.error(`Failed to send error reply: ${replyError.message}`);
                 }
