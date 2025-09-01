@@ -149,6 +149,43 @@ class BattleshipBoard {
         return this.ships.every(ship => ship.placed);
     }
 
+    autoPlaceAllShips() {
+        // Reset any existing placements
+        this.grid = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(CELL_EMPTY));
+        this.shipPositions.clear();
+        this.ships.forEach(ship => {
+            ship.placed = false;
+            ship.positions = [];
+            ship.hits.clear();
+        });
+        
+        // Try to place each ship randomly
+        for (const ship of this.ships) {
+            let placed = false;
+            let attempts = 0;
+            const maxAttempts = 100;
+            
+            while (!placed && attempts < maxAttempts) {
+                const row = secureRandomInt(0, BOARD_SIZE);
+                const col = secureRandomInt(0, BOARD_SIZE);
+                const direction = secureRandomInt(0, 2) === 0 ? HORIZONTAL : VERTICAL;
+                
+                if (this.placeShip(ship, row, col, direction)) {
+                    placed = true;
+                }
+                attempts++;
+            }
+            
+            if (!placed) {
+                logger.error(`Failed to auto-place ship ${ship.name} after ${maxAttempts} attempts`);
+                return false;
+            }
+        }
+        
+        this.placementComplete = true;
+        return true;
+    }
+
     attack(row, col) {
         if (row < 0 || row >= BOARD_SIZE || col < 0 || col >= BOARD_SIZE) {
             return { result: 'invalid', ship: null };
@@ -273,7 +310,24 @@ class BattleshipGameSession {
         if (!this.canStart()) return false;
         
         this.state = 'placing';
-        logger.info(`Battleship placement phase started in channel ${this.channelId}`);
+        
+        // Automatically place ships for both players
+        for (const [playerId, board] of this.boards.entries()) {
+            const success = board.autoPlaceAllShips();
+            if (!success) {
+                logger.error(`Failed to auto-place ships for player ${playerId}`);
+                return false;
+            }
+        }
+        
+        // Immediately start the battle after auto-placement
+        this.state = 'playing';
+        
+        // Random first player
+        const playerIds = Array.from(this.players.keys());
+        this.currentTurn = playerIds[secureRandomInt(0, playerIds.length)];
+        
+        logger.info(`Battleship game started with auto-placed ships in channel ${this.channelId}`);
         return true;
     }
 
@@ -446,29 +500,27 @@ class BattleshipGameSession {
         
         const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
         
-        const embed = buildSessionEmbed({
-            title: '⚔️ Naval Combat',
-            topFields: [
+        const embed = new EmbedBuilder()
+            .setTitle('⚔️ Naval Combat in Progress')
+            .setDescription(`**<@${this.currentTurn}>'s Turn to Attack!**\n\nClick the **Attack** button to fire at enemy coordinates.`)
+            .setColor(0xE53935)
+            .addFields(
                 {
                     name: '🎯 BATTLE STATUS',
-                    value: `**Current Turn:** ${currentPlayer.displayName}\n\`\`\`${statusLines.join('\n')}\`\`\``,
+                    value: `\`\`\`${statusLines.join('\n')}\`\`\``,
                     inline: false
                 },
                 {
-                    name: '💥 COMBAT ACTION',
-                    value: `<@${this.currentTurn}>, it's your turn! You have ${this.boards.get(this.currentTurn).getShipsRemaining()} ships still unsunken!\n**Attack enemy coordinates!** Hit, Miss, or Sunk will be announced`,
+                    name: '💥 CURRENT ACTION',
+                    value: `<@${this.currentTurn}> has **${this.boards.get(this.currentTurn).getShipsRemaining()} ships** remaining\n• Click **Attack** to choose target coordinates\n• Hit = Continue attacking\n• Miss = Turn ends`,
                     inline: false
-                }
-            ],
-            bankFields: [
-                { name: '🎯 Attack Phase', value: `${currentPlayer.displayName}'s turn\nChoose coordinates\n(A1 to J10)`, inline: true },
+                },
+                { name: '🎯 Turn', value: currentPlayer.displayName, inline: true },
                 { name: '💰 Prize Pool', value: (typeof this.betAmount === 'number' && this.betAmount > 0) ? fmt(this.betAmount * 2) : 'Free Play', inline: true },
-                { name: '📊 View Options', value: 'Your Board\nDual View\nAttack History', inline: true }
-            ],
-            stageText: 'BATTLE',
-            color: 0xE53935,
-            footer: 'Use "Attack" button to fire at enemy coordinates'
-        });
+                { name: '📊 Ships Left', value: `P1: ${this.boards.get(player1[0]).getShipsRemaining()}/5\nP2: ${this.boards.get(player2[0]).getShipsRemaining()}/5`, inline: true }
+            )
+            .setFooter({ text: 'Use "Attack" button to fire • "View Ships" to see your fleet' })
+            .setTimestamp();
         
         return { embed, battleImage };
     }
@@ -533,8 +585,8 @@ class BattleshipGameSession {
                     lobbyButtons.splice(1, 0,
                         new ButtonBuilder()
                             .setCustomId('battleship_start')
-                            .setLabel('🚢 Deploy Fleets & Begin Battle')
-                            .setStyle(ButtonStyle.Primary)
+                            .setLabel('⚔️ Start the Battle!')
+                            .setStyle(ButtonStyle.Danger)
                     );
                 }
 
@@ -551,57 +603,17 @@ class BattleshipGameSession {
                 break;
 
             case 'playing':
-                // Create unified control panel like BINGO
-                // Row selection dropdown
-                const rowOptions = [];
-                for (let row = 1; row <= 10; row++) {
-                    rowOptions.push({
-                        label: `Row ${row}`,
-                        value: `R${row}`,
-                        description: `Target row ${row}`,
-                        emoji: '🎯'
-                    });
-                }
-
-                // Column selection dropdown  
-                const colOptions = [];
-                for (let col = 0; col < 10; col++) {
-                    const colLetter = String.fromCharCode('A'.charCodeAt(0) + col);
-                    colOptions.push({
-                        label: `Column ${colLetter}`,
-                        value: `C${colLetter}`,
-                        description: `Target column ${colLetter}`,
-                        emoji: '🎯'
-                    });
-                }
-
-                // Attack controls row
-                const rowSelect = new StringSelectMenuBuilder()
-                    .setCustomId('battleship_select_row')
-                    .setPlaceholder('🔢 Select target row (1-10)')
-                    .addOptions(rowOptions.slice(0, 25)); // Discord limit
-
-                const colSelect = new StringSelectMenuBuilder()
-                    .setCustomId('battleship_select_col')
-                    .setPlaceholder('🔤 Select target column (A-J)')
-                    .addOptions(colOptions);
-
-                // Action buttons row
-                const fireButton = new ButtonBuilder()
-                    .setCustomId('battleship_fire')
-                    .setLabel('🚀 FIRE!')
-                    .setStyle(ButtonStyle.Danger)
-                    .setEmoji('💥');
-
-                const fleetButton = new ButtonBuilder()
-                    .setCustomId('battleship_view_board')
-                    .setLabel('📋 Fleet Status')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('🚢');
-
-                rows.push(new ActionRowBuilder().addComponents(rowSelect));
-                rows.push(new ActionRowBuilder().addComponents(colSelect));  
-                rows.push(new ActionRowBuilder().addComponents(fireButton, fleetButton));
+                // Simple attack and view buttons
+                rows.push(new ActionRowBuilder().addComponents([
+                    new ButtonBuilder()
+                        .setCustomId('battleship_attack')
+                        .setLabel('💥 Attack')
+                        .setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder()
+                        .setCustomId('battleship_view_ships')
+                        .setLabel('🚢 View Your Ships')
+                        .setStyle(ButtonStyle.Primary)
+                ]));
                 break;
 
             case 'finished':

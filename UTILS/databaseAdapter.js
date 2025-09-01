@@ -1064,6 +1064,42 @@ class DatabaseAdapter {
             return {};
         }
     }
+
+    /**
+     * Get user's most recent game activity
+     * @param {string} userId - Discord user ID
+     * @param {string} guildId - Guild ID (kept for compatibility)
+     * @returns {Object|null} Last activity data
+     */
+    async getUserLastActivity(userId, guildId = null) {
+        try {
+            const result = await this.executeQuery(
+                `SELECT 
+                    MAX(created_at) as lastGamePlayed,
+                    COUNT(*) as totalGames,
+                    game_type as lastGameType
+                FROM game_results 
+                WHERE user_id = ? 
+                GROUP BY user_id
+                ORDER BY lastGamePlayed DESC
+                LIMIT 1`,
+                [userId]
+            );
+
+            if (result.length === 0) {
+                return null;
+            }
+
+            return {
+                lastGamePlayed: result[0].lastGamePlayed,
+                totalGames: result[0].totalGames,
+                lastGameType: result[0].lastGameType
+            };
+        } catch (error) {
+            logger.error(`Error getting user last activity: ${error.message}`);
+            return null;
+        }
+    }
 }
 
 // Export singleton instance

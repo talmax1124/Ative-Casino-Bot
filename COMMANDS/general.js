@@ -871,6 +871,87 @@ const leaderboardCommand = {
     }
 };
 
+// Test XP command (Developer only)
+const testXpCommand = {
+    data: new SlashCommandBuilder()
+        .setName('testxp')
+        .setDescription('Test XP system (Developer only)')
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('User to give XP to')
+                .setRequired(false)
+        )
+        .addIntegerOption(option =>
+            option.setName('amount')
+                .setDescription('Amount of XP to give')
+                .setRequired(false)
+                .setMinValue(1)
+                .setMaxValue(10000)
+        ),
+
+    async execute(interaction) {
+        const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
+        
+        // Check if user is developer
+        if (userId !== '466050111680544798') {
+            return await interaction.reply({ 
+                content: '❌ This command is only available to the developer.', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+
+        try {
+            const targetUser = interaction.options.getUser('user') || interaction.user;
+            const xpAmount = interaction.options.getInteger('amount') || 100;
+            const targetUserId = targetUser.id;
+
+            logger.info(`Developer ${userId} is giving ${xpAmount} XP to ${targetUserId}`);
+
+            // Add XP
+            const result = await levelingSystem.addXp(targetUserId, guildId, xpAmount, 'developer_test');
+            
+            if (!result) {
+                return await interaction.reply({ 
+                    content: '❌ Failed to add XP. Check logs for details.', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+
+            let response = `✅ Added ${xpAmount} XP to ${targetUser.username}!\n`;
+            response += `New Total: ${result.totalXp} XP (Level ${result.level || result.newLevel})`;
+
+            if (result.leveledUp) {
+                response += `\n\n🎉 **LEVEL UP!** ${targetUser.username} is now level ${result.newLevel}!`;
+                
+                // Send level up notification
+                try {
+                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                    if (levelUpChannel) {
+                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(targetUser, result.newLevel);
+                        await levelUpChannel.send({ 
+                            content: `<@${targetUserId}>, you are now level ${result.newLevel}! (Test XP)`,
+                            embeds: [levelUpEmbed] 
+                        });
+                    }
+                } catch (levelError) {
+                    logger.error(`Failed to send test level up notification: ${levelError.message}`);
+                }
+            }
+
+            await interaction.reply({ content: response, flags: MessageFlags.Ephemeral });
+
+        } catch (error) {
+            logger.error(`Error in testxp command: ${error.message}`);
+            
+            await interaction.reply({ 
+                content: '❌ An error occurred while testing XP.', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+    }
+};
+
 // Export multiple commands
 module.exports = { 
     ...module.exports,
@@ -880,5 +961,6 @@ module.exports = {
     crimeCommand,
     heistCommand,
     profileCommand,
-    leaderboardCommand
+    leaderboardCommand,
+    testXpCommand
 };

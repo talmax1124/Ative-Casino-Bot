@@ -458,7 +458,7 @@ module.exports = {
                 userId,
                 guildId,
                 channelId: interaction.channelId,
-                gameType: SMGameType.DUCK_GAME,
+                gameType: SMGameType.DUCK,
                 betAmount,
                 timeout: 120000, // 2 minutes
                 metadata: {

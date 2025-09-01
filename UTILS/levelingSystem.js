@@ -72,11 +72,13 @@ class LevelingSystem {
             // Wait for database to be initialized
             if (!dbManager.initialized || !dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
                 logger.warn('Database not initialized yet, deferring leveling system initialization');
-                setTimeout(() => this.initDatabase(), 5000);
+                setTimeout(() => this.initDatabase(), 3000);
                 return;
             }
             
             const pool = dbManager.databaseAdapter.pool;
+            
+            logger.info('Initializing leveling system database tables...');
             
             // Create leveling table if not exists
             await pool.execute(`
@@ -109,6 +111,12 @@ class LevelingSystem {
      */
     async getUserLevel(userId, guildId) {
         try {
+            // Check if database is initialized
+            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
+                logger.error('Database not initialized when getting user level');
+                return null;
+            }
+            
             const pool = dbManager.databaseAdapter.pool;
             const [rows] = await pool.execute(
                 'SELECT * FROM user_levels WHERE user_id = ? AND guild_id = ?',
@@ -116,11 +124,16 @@ class LevelingSystem {
             );
 
             if (rows.length === 0) {
-                // Create new user entry with INSERT IGNORE to prevent duplicates
+                // Use UPSERT to create user entry safely
                 await pool.execute(
-                    'INSERT IGNORE INTO user_levels (user_id, guild_id) VALUES (?, ?)',
+                    `INSERT INTO user_levels (user_id, guild_id, level, xp, total_xp, games_played, games_won, messages_sent) 
+                     VALUES (?, ?, 1, 0, 0, 0, 0, 0)
+                     ON DUPLICATE KEY UPDATE user_id = user_id`,
                     [userId, guildId]
                 );
+                
+                logger.info(`Created/ensured level entry for user ${userId} in guild ${guildId}`);
+                
                 return {
                     level: 1,
                     xp: 0,
@@ -133,7 +146,7 @@ class LevelingSystem {
 
             return rows[0];
         } catch (error) {
-            logger.error(`Failed to get user level: ${error.message}`);
+            logger.error(`Failed to get user level for ${userId}: ${error.message}`, { error: error.stack });
             return null;
         }
     }
@@ -191,23 +204,40 @@ class LevelingSystem {
      */
     async addXp(userId, guildId, xpAmount, reason = 'unknown') {
         try {
+            // Check if database is initialized
+            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
+                logger.error('Database not initialized for leveling system');
+                return null;
+            }
+            
             const pool = dbManager.databaseAdapter.pool;
             
             // Get current user data
             const userData = await this.getUserLevel(userId, guildId);
-            if (!userData) return null;
+            if (!userData) {
+                logger.error(`Failed to get user data for ${userId} in guild ${guildId}`);
+                return null;
+            }
 
             const newTotalXp = userData.total_xp + xpAmount;
             const oldLevel = userData.level;
             const newLevel = this.calculateLevel(newTotalXp);
 
-            // Update XP
-            await pool.execute(
-                `UPDATE user_levels 
-                 SET xp = xp + ?, total_xp = ?, level = ?
-                 WHERE user_id = ? AND guild_id = ?`,
-                [xpAmount, newTotalXp, newLevel, userId, guildId]
+            logger.info(`Adding ${xpAmount} XP to user ${userId} (${reason}): ${userData.total_xp} -> ${newTotalXp}`);
+
+            // Use UPSERT to handle race conditions
+            const [result] = await pool.execute(
+                `INSERT INTO user_levels (user_id, guild_id, level, xp, total_xp, games_played, games_won, messages_sent) 
+                 VALUES (?, ?, ?, ?, ?, 0, 0, 0)
+                 ON DUPLICATE KEY UPDATE 
+                 xp = xp + ?, total_xp = ?, level = ?`,
+                [userId, guildId, newLevel, xpAmount, newTotalXp, xpAmount, newTotalXp, newLevel]
             );
+            
+            if (result.affectedRows === 0) {
+                logger.error(`Failed to upsert XP for user ${userId} - no rows affected`);
+                return null;
+            }
 
             // Check for level up
             if (newLevel > oldLevel) {
@@ -215,6 +245,8 @@ class LevelingSystem {
                     'UPDATE user_levels SET last_level_up = CURRENT_TIMESTAMP WHERE user_id = ? AND guild_id = ?',
                     [userId, guildId]
                 );
+                
+                logger.info(`USER LEVEL UP: ${userId} reached level ${newLevel} from ${oldLevel}!`);
 
                 return {
                     leveledUp: true,
@@ -232,7 +264,7 @@ class LevelingSystem {
                 xpGained: xpAmount
             };
         } catch (error) {
-            logger.error(`Failed to add XP: ${error.message}`);
+            logger.error(`Failed to add XP for user ${userId}: ${error.message}`, { error: error.stack });
             return null;
         }
     }
@@ -277,6 +309,12 @@ class LevelingSystem {
      */
     async handleGameComplete(userId, guildId, gameType, won = false, specialResult = null) {
         try {
+            // Check if database is initialized
+            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
+                logger.error('Database not initialized for game XP');
+                return null;
+            }
+            
             let xpAmount = XP_REWARDS.GAME_PLAYED;
             
             if (won) {
@@ -286,27 +324,36 @@ class LevelingSystem {
             if (specialResult === 'BLACKJACK') {
                 xpAmount += XP_REWARDS.BLACKJACK_WIN;
             }
+            
+            logger.info(`Awarding ${xpAmount} XP to user ${userId} for ${gameType} (won: ${won})`);
 
             // Add XP
             const result = await this.addXp(userId, guildId, xpAmount, `game_${gameType}`);
+            
+            if (!result) {
+                logger.error(`Failed to add XP for game completion: ${userId} ${gameType}`);
+                return null;
+            }
 
             // Update game stats
             const pool = dbManager.databaseAdapter.pool;
-            if (won) {
-                await pool.execute(
-                    'UPDATE user_levels SET games_played = games_played + 1, games_won = games_won + 1 WHERE user_id = ? AND guild_id = ?',
-                    [userId, guildId]
-                );
-            } else {
-                await pool.execute(
-                    'UPDATE user_levels SET games_played = games_played + 1 WHERE user_id = ? AND guild_id = ?',
-                    [userId, guildId]
-                );
+            const statsQuery = won 
+                ? 'UPDATE user_levels SET games_played = games_played + 1, games_won = games_won + 1 WHERE user_id = ? AND guild_id = ?'
+                : 'UPDATE user_levels SET games_played = games_played + 1 WHERE user_id = ? AND guild_id = ?';
+            
+            const [statsResult] = await pool.execute(statsQuery, [userId, guildId]);
+            
+            if (statsResult.affectedRows === 0) {
+                logger.warn(`No stats updated for user ${userId} - user may not exist in levels table`);
+            }
+            
+            if (result && result.leveledUp) {
+                logger.info(`🎉 User ${userId} leveled up to ${result.newLevel} after ${gameType}!`);
             }
 
             return result;
         } catch (error) {
-            logger.error(`Failed to handle game XP: ${error.message}`);
+            logger.error(`Failed to handle game XP for ${userId}: ${error.message}`, { error: error.stack });
             return null;
         }
     }

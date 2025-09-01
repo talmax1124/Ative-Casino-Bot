@@ -111,6 +111,11 @@ async function loadCommands() {
                     commands.push(command.leaderboardCommand.data.toJSON());
                     logger.info(`Loaded command: ${command.leaderboardCommand.data.name}`);
                 }
+                if (command.testXpCommand && command.testXpCommand.data) {
+                    client.commands.set(command.testXpCommand.data.name, command.testXpCommand);
+                    commands.push(command.testXpCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.testXpCommand.data.name}`);
+                }
             }
 
             // Handle special case for admin.js which has multiple commands
@@ -509,7 +514,7 @@ client.on('interactionCreate', async interaction => {
                 }
             }
             // Battleship modals
-            else if (interaction.customId === 'battleship_place_modal' || interaction.customId === 'battleship_attack_modal') {
+            else if (interaction.customId === 'battleship_place_modal' || interaction.customId.startsWith('battleship_attack_modal_')) {
                 const battleshipCommand = client.commands.get('battleship');
                 if (battleshipCommand && battleshipCommand.handleModal) {
                     await battleshipCommand.handleModal(interaction);

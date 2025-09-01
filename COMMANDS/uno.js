@@ -3,9 +3,10 @@
  * Handles multiplayer UNO games with betting system
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const levelingSystem = require('../UTILS/levelingSystem');
 const UITemplates = require('../UTILS/uiTemplates');
@@ -18,6 +19,10 @@ const {
     UNO_COLORS
 } = require('../GAMES/uno');
 const logger = require('../UTILS/logger');
+
+// Game limits
+const MIN_BET = 100;
+const MAX_BET = 150000;
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -36,8 +41,19 @@ module.exports = {
         const channelId = interaction.channelId;
         const guildId = await getGuildId(interaction);
         const username = interaction.user.displayName;
+        const betAmountStr = interaction.options.getString('amount');
 
         try {
+            // Parse bet amount
+            const betAmount = parseInt(betAmountStr);
+            if (isNaN(betAmount) || betAmount <= 0) {
+                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                    description: 'Invalid bet amount. Please enter a valid number.',
+                    isLoss: false
+                });
+                return await interaction.followUp({ embeds: [errorEmbed] });
+            }
+
             // Validate session before proceeding using modern session system
             const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, 'uno', guildId);
             if (!sessionValidation.valid) {
@@ -68,9 +84,18 @@ module.exports = {
                 }
             }
 
-            // User existence and bet validation handled by PayoutManager above
+            // Validate and deduct bet amount using PayoutManager
+            const validation = await PayoutManager.validateAndDeductBet(
+                interaction,
+                betAmountStr,
+                GameType.UNO,
+                MIN_BET,
+                MAX_BET
+            );
 
-            // Bet already deducted by PayoutManager
+            if (!validation.isValid) {
+                return await interaction.followUp({ embeds: [validation.errorEmbed] });
+            }
 
             // Create game session with enhanced protection
             const sessionResult = await GameSessionIntegrator.createGameSession({
@@ -461,9 +486,18 @@ module.exports = {
             }
 
             const player = game.players.get(userId);
-            const embed = game.getPlayerHandEmbed(player);
+            const { embed, handImage } = await game.getPlayerHandEmbed(player);
             
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            const messageData = { embeds: [embed], ephemeral: true };
+            
+            // Add image attachment if available
+            if (handImage) {
+                const { AttachmentBuilder } = require('discord.js');
+                const attachment = new AttachmentBuilder(handImage, { name: 'hand.png' });
+                messageData.files = [attachment];
+            }
+            
+            await interaction.reply(messageData);
 
         } catch (error) {
             logger.error(`Error showing hand: ${error.message}`);
@@ -492,11 +526,22 @@ module.exports = {
 
             const player = game.players.get(userId);
             
+            // Check if it's this player's turn
+            const currentPlayer = game.getCurrentPlayer();
+            if (currentPlayer.userId !== userId) {
+                await interaction.reply({
+                    content: `❌ It's not your turn! It's ${currentPlayer.username}'s turn.`,
+                    ephemeral: true
+                });
+                return;
+            }
+            
             // Handle draw stack first
-            if (game.drawStack > 0) {
+            if (game.drawStack > 0 && game.mustHandleDrawStack) {
+                const cardsDrawn = game.drawStack;
                 game.handleDrawStack();
                 await interaction.reply({
-                    content: `📚 You drew ${game.drawStack} cards due to action cards!`,
+                    content: `📚 You drew ${cardsDrawn} cards due to action cards!`,
                     ephemeral: true
                 });
             } else {
@@ -539,8 +584,18 @@ module.exports = {
             }
 
             const player = game.players.get(userId);
+            
+            // Check if it's this player's turn
+            const currentPlayer = game.getCurrentPlayer();
+            if (currentPlayer.userId !== userId) {
+                await interaction.reply({
+                    content: `❌ It's not your turn! It's ${currentPlayer.username}'s turn.`,
+                    ephemeral: true
+                });
+                return;
+            }
             const topCard = game.getTopCard();
-            const playableCards = player.getPlayableCards(topCard, game.currentColor);
+            const playableCards = player.getPlayableCards(topCard, game.currentColor, game.drawStack, game.mustHandleDrawStack);
 
             if (playableCards.length === 0) {
                 await interaction.reply({
@@ -735,20 +790,44 @@ module.exports = {
         try {
             const game = getUnoGame(channelId);
             const userId = interaction.user.id;
+            
+            if (!game || !game.players.has(userId)) {
+                await interaction.reply({
+                    content: '❌ You\'re not in this game!',
+                    ephemeral: true
+                });
+                return;
+            }
+            
             const player = game.players.get(userId);
             
             const success = game.callUno(player);
             
             if (success) {
-                await interaction.reply({
+                const unoReply = await interaction.reply({
                     content: '🔥 **UNO!** You called UNO!',
                     ephemeral: false
                 });
 
                 // Notify other players
+                let channelMessage = null;
                 if (game.gameChannel) {
-                    await game.gameChannel.send(`🔥 **${player.username}** called UNO!`);
+                    channelMessage = await game.gameChannel.send(`🔥 **${player.username}** called UNO!`);
                 }
+                
+                // Delete UNO messages after 5 seconds
+                setTimeout(() => {
+                    if (unoReply && unoReply.deletable) {
+                        unoReply.delete().catch(err => {
+                            console.error('Error deleting UNO reply:', err.message);
+                        });
+                    }
+                    if (channelMessage && channelMessage.deletable) {
+                        channelMessage.delete().catch(err => {
+                            console.error('Error deleting UNO channel message:', err.message);
+                        });
+                    }
+                }, 5000);
             } else {
                 await interaction.reply({
                     content: '❌ Cannot call UNO right now!',
@@ -780,8 +859,18 @@ module.exports = {
                 return;
             }
 
-            const embed = game.getGameEmbed();
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            const { embed, topCardImage } = await game.getGameEmbed();
+            
+            const messageData = { embeds: [embed], ephemeral: true };
+            
+            // Add image attachment if available
+            if (topCardImage) {
+                const { AttachmentBuilder } = require('discord.js');
+                const attachment = new AttachmentBuilder(topCardImage, { name: 'topcard.png' });
+                messageData.files = [attachment];
+            }
+            
+            await interaction.reply(messageData);
 
         } catch (error) {
             logger.error(`Error showing game status: ${error.message}`);
@@ -800,15 +889,24 @@ module.exports = {
             const game = getUnoGame(channelId);
             if (!game || !game.gameChannel || !game.mainGameInteraction) return;
 
-            const embed = game.getGameEmbed();
+            const { embed, topCardImage } = await game.getGameEmbed();
             const samplePlayer = Array.from(game.players.values())[0];
             const buttons = game.createGameButtons(samplePlayer);
 
+            const messageData = { embeds: [embed], components: buttons };
+            
+            // Add image attachment if available
+            if (topCardImage) {
+                const { AttachmentBuilder } = require('discord.js');
+                const attachment = new AttachmentBuilder(topCardImage, { name: 'topcard.png' });
+                messageData.files = [attachment];
+            }
+
             try {
-                await game.mainGameInteraction.editReply({ embeds: [embed], components: buttons });
+                await game.mainGameInteraction.editReply(messageData);
             } catch (editError) {
                 // If we can't edit the original message, send a new one
-                await game.gameChannel.send({ embeds: [embed], components: buttons });
+                await game.gameChannel.send(messageData);
             }
 
         } catch (error) {

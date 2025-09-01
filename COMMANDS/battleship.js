@@ -235,6 +235,10 @@ module.exports = {
                     await this.handleAttack(interaction, game);
                     break;
                 
+                case 'view_ships':
+                    await this.handleViewShips(interaction, game);
+                    break;
+                
                 case 'fire':
                     await this.handleUnifiedFire(interaction, game);
                     break;
@@ -399,10 +403,29 @@ module.exports = {
             return;
         }
         
-        game.startPlacement();
-        const embed = game.createPlacementEmbed();
+        // Start with automatic ship placement
+        const success = game.startPlacement();
+        if (!success) {
+            const embed = UITemplates.createErrorEmbed('❌ Error', 'Failed to start game. Please try again.');
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
+        }
+        
+        // Game is now in playing state with auto-placed ships
+        const { embed, battleImage } = await game.createBattleEmbed();
         const components = game.createGameButtons();
+        
+        // Store game message reference
+        game.message = interaction.message;
+        
         await interaction.update({ embeds: [embed], components });
+        
+        // Notify current player it's their turn
+        const currentPlayer = game.players.get(game.currentTurn);
+        await interaction.followUp({
+            content: `⚓ **Battle Started!** <@${game.currentTurn}>, it's your turn to attack! Click the Attack button.`,
+            allowedMentions: { users: [game.currentTurn] }
+        });
     },
 
     async handleShipPlacement(interaction, game) {
@@ -491,62 +514,83 @@ module.exports = {
             return;
         }
 
-        // Create attack coordinate dropdowns
-        const rowOptions = [];
-        for (let row = 1; row <= BOARD_SIZE; row++) {
-            rowOptions.push({
-                label: `Row ${row}`,
-                value: `R${row}`,
-                description: `Target row ${row}`
-            });
+        // Show attack modal for coordinate input
+        const modal = new ModalBuilder()
+            .setCustomId(`battleship_attack_modal_${game.channelId}`)
+            .setTitle('🎯 Enter Attack Coordinates');
+            
+        const coordinateInput = new TextInputBuilder()
+            .setCustomId('coordinates')
+            .setLabel('Target Coordinates (e.g., A5, B3, J10)')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Enter coordinates like: A5')
+            .setMinLength(2)
+            .setMaxLength(3)
+            .setRequired(true);
+            
+        const actionRow = new ActionRowBuilder().addComponents(coordinateInput);
+        modal.addComponents(actionRow);
+        
+        await interaction.showModal(modal);
+    },
+
+    async handleViewShips(interaction, game) {
+        const userId = interaction.user.id;
+        
+        if (!game.players.has(userId)) {
+            const embed = UITemplates.createErrorEmbed('❌ Not In Game', 'You are not a player in this game.');
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return;
         }
 
-        const colOptions = [];
-        for (let col = 0; col < BOARD_SIZE; col++) {
-            const colLetter = String.fromCharCode('A'.charCodeAt(0) + col);
-            colOptions.push({
-                label: `Column ${colLetter}`,
-                value: `C${colLetter}`,
-                description: `Target column ${colLetter}`
-            });
+        const playerBoard = game.boards.get(userId);
+        const opponentId = game.getOpponent(userId);
+        const opponentBoard = opponentId ? game.boards.get(opponentId) : null;
+
+        // Create ship status view
+        const shipStatus = playerBoard.ships.map(ship => {
+            const hits = ship.getHitCount();
+            const status = ship.isSunk() ? '💥 SUNK' : hits > 0 ? `🔥 Damaged (${hits}/${ship.length})` : '✅ Intact';
+            return `${ship.emoji} **${ship.name}**: ${status}`;
+        }).join('\n');
+
+        // Create attack history
+        const attackHistory = [];
+        for (let row = 0; row < BOARD_SIZE; row++) {
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                if (opponentBoard && (opponentBoard.grid[row][col] === 2 || opponentBoard.grid[row][col] === 3)) {
+                    const letter = String.fromCharCode(65 + col);
+                    const coord = `${letter}${row + 1}`;
+                    const result = opponentBoard.grid[row][col] === 2 ? 'HIT' : 'MISS';
+                    attackHistory.push(`${coord}: ${result}`);
+                }
+            }
         }
 
-        const attackRowSelect = new StringSelectMenuBuilder()
-            .setCustomId(`battleship_attack_row_${userId}`)
-            .setPlaceholder('🔢 Select target row (1-10)')
-            .addOptions(rowOptions);
-
-        const attackColSelect = new StringSelectMenuBuilder()
-            .setCustomId(`battleship_attack_col_${userId}`)
-            .setPlaceholder('🔤 Select target column (A-J)')
-            .addOptions(colOptions);
-
-        const fireButton = new ButtonBuilder()
-            .setCustomId(`battleship_fire_attack_${userId}`)
-            .setLabel('🚀 Fire!')
-            .setStyle(ButtonStyle.Danger)
-            .setDisabled(true); // Initially disabled until both selections are made
-
-        const cancelAttackButton = new ButtonBuilder()
-            .setCustomId(`battleship_cancel_attack_${userId}`)
-            .setLabel('❌ Cancel')
-            .setStyle(ButtonStyle.Secondary);
-
-        const attackEmbed = new EmbedBuilder()
-            .setTitle('🎯 Target Enemy Position')
-            .setDescription('Select the row and column to attack, then fire!')
-            .setColor(0xFF0000)
-            .setFooter({ text: 'Choose your target carefully!' });
-
-        await interaction.reply({
-            embeds: [attackEmbed],
-            components: [
-                new ActionRowBuilder().addComponents(attackRowSelect),
-                new ActionRowBuilder().addComponents(attackColSelect),
-                new ActionRowBuilder().addComponents(fireButton, cancelAttackButton)
-            ],
-            flags: MessageFlags.Ephemeral
+        // Generate visual board showing player's ships and damage
+        const battleshipRenderer = require('../UTILS/battleshipRenderer');
+        const boardImage = await battleshipRenderer.renderSingleBoard(playerBoard, {
+            title: `${interaction.user.displayName}'s Fleet`,
+            showShips: true, // Show player's own ships
+            showAttacks: true, // Show where they've been hit
+            width: 600,
+            height: 700
         });
+
+        const embed = new EmbedBuilder()
+            .setTitle('🚢 Your Fleet Status')
+            .setColor(0x1E88E5)
+            .setDescription('**Your ship positions and battle damage**')
+            .addFields(
+                { name: '🛡️ Your Ships', value: shipStatus || 'No ships', inline: false },
+                { name: '🎯 Your Attacks', value: attackHistory.slice(-10).join('\n') || 'No attacks yet', inline: true },
+                { name: '📊 Battle Stats', value: `Ships Remaining: ${playerBoard.getShipsRemaining()}/${playerBoard.ships.length}\nTurn: ${game.currentTurn === userId ? 'YOUR TURN' : 'Opponent\'s turn'}`, inline: true }
+            )
+            .setImage('attachment://fleet.png')
+            .setFooter({ text: 'Private fleet view • ATIVE Casino' });
+
+        const attachment = new AttachmentBuilder(boardImage, { name: 'fleet.png' });
+        await interaction.reply({ embeds: [embed], files: [attachment], flags: MessageFlags.Ephemeral });
     },
 
     async handleViewBoard(interaction, game) {
@@ -711,16 +755,20 @@ module.exports = {
 
         let resultMessage;
         let continueAttacking = false;
+        let embedColor = 0x808080;
         
         if (result === 'hit') {
-            resultMessage = `🎯 **HIT** at ${coord.label}! Enemy ship damaged!`;
+            resultMessage = `🎯 **HIT!** You hit an enemy ship at ${coord.label}!\n\n⚡ **You get another turn!**`;
             continueAttacking = true;
+            embedColor = 0xFFA500;
         } else if (result === 'sunk') {
-            resultMessage = `💥 **SUNK** the enemy ${ship.name} at ${coord.label}! Continue attacking!`;
+            resultMessage = `💥 **SHIP SUNK!**\n\nYou destroyed the enemy **${ship.name}** at ${coord.label}!\n\n🔥 **Continue your assault!**`;
             continueAttacking = true;
+            embedColor = 0xFF0000;
         } else {
-            resultMessage = `💧 **Missed** at ${coord.label}. Turn ends.`;
+            resultMessage = `💧 **MISS!** Your shot at ${coord.label} hit only water.\n\n⏳ Turn passes to opponent.`;
             continueAttacking = false;
+            embedColor = 0x3498DB;
         }
 
         // Check win condition first
@@ -1244,7 +1292,7 @@ module.exports = {
         try {
             if (interaction.customId === 'battleship_place_modal') {
                 await this.handlePlaceModal(interaction, game);
-            } else if (interaction.customId === 'battleship_attack_modal') {
+            } else if (interaction.customId.startsWith('battleship_attack_modal_')) {
                 await this.handleAttackModal(interaction, game, guildId);
             } else {
                 const embed = UITemplates.createErrorEmbed('❌ Unknown Modal', 'Unknown modal interaction.');
@@ -1324,7 +1372,7 @@ module.exports = {
             return;
         }
 
-        const coordInput = interaction.fields.getTextInputValue('coordinate');
+        const coordInput = interaction.fields.getTextInputValue('coordinates');
         const coord = parseCoordinate(coordInput);
         
         if (!coord) {
@@ -1345,16 +1393,20 @@ module.exports = {
 
         let resultMessage;
         let continueAttacking = false;
+        let embedColor = 0x808080;
         
         if (result === 'hit') {
-            resultMessage = `🎯 **HIT** at ${coord.label}! Enemy ship damaged!`;
+            resultMessage = `🎯 **HIT!** You hit an enemy ship at ${coord.label}!\n\n⚡ **You get another turn!**`;
             continueAttacking = true;
+            embedColor = 0xFFA500;
         } else if (result === 'sunk') {
-            resultMessage = `💥 **SUNK** the enemy ${ship.name} at ${coord.label}! Continue attacking!`;
+            resultMessage = `💥 **SHIP SUNK!**\n\nYou destroyed the enemy **${ship.name}** at ${coord.label}!\n\n🔥 **Continue your assault!**`;
             continueAttacking = true;
+            embedColor = 0xFF0000;
         } else {
-            resultMessage = `💧 **Missed** at ${coord.label}. Turn ends.`;
+            resultMessage = `💧 **MISS!** Your shot at ${coord.label} hit only water.\n\n⏳ Turn passes to opponent.`;
             continueAttacking = false;
+            embedColor = 0x3498DB;
         }
 
         // Check win condition
@@ -1438,19 +1490,24 @@ module.exports = {
         // Update main game message
         const { embed: battleEmbed, battleImage } = await game.createBattleEmbed();
         const battleComponents = game.createGameButtons();
-        try {
-            const battleAttachment = new AttachmentBuilder(battleImage, { name: 'battle.png' });
-            await game.message.edit({ embeds: [battleEmbed.setImage('attachment://battle.png')], files: [battleAttachment], components: battleComponents });
-        } catch (error) {
-            // If too large, proceed without image
-            logger.warn(`Battle image too large in attack handler: ${error.message}`);
+        
+        // Only use image if it exists
+        if (battleImage) {
+            try {
+                const battleAttachment = new AttachmentBuilder(battleImage, { name: 'battle.png' });
+                await game.message.edit({ embeds: [battleEmbed.setImage('attachment://battle.png')], files: [battleAttachment], components: battleComponents });
+            } catch (error) {
+                logger.warn(`Battle image error in attack handler: ${error.message}`);
+                await game.message.edit({ embeds: [battleEmbed], files: [], components: battleComponents });
+            }
+        } else {
             await game.message.edit({ embeds: [battleEmbed], files: [], components: battleComponents });
         }
 
         const attackEmbed = buildSessionEmbed({
             title: '🎯 Attack Result',
             stageText: resultMessage,
-            color: result === 'miss' ? 0x999999 : 0xFF0000
+            color: embedColor
         });
         
         await interaction.reply({ embeds: [attackEmbed], flags: MessageFlags.Ephemeral });

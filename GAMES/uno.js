@@ -56,13 +56,29 @@ class UnoCard {
         return path.join(baseDir, `${this.color}_${this.value}.png`);
     }
 
-    canPlayOn(topCard, currentColor = null) {
-        // Wild cards can be played on anything
+    canPlayOn(topCard, currentColor = null, drawStack = 0, mustHandleDrawStack = false) {
+        // Wild cards can ALWAYS be played on anything (even in draw stack situations)
         if (this.type === 'wild') {
             return true;
         }
+        
+        // If there's a draw stack that must be handled, only allow stackable cards
+        if (drawStack > 0 && mustHandleDrawStack) {
+            // Allow stacking Draw 2 on Draw 2
+            if (topCard.value === 'Draw' && this.value === 'Draw') {
+                return true;
+            }
+            
+            // Allow stacking Draw 4 on Draw 4 (both must be wild cards)
+            if (topCard.value === 'Wild_Draw' && this.value === 'Wild_Draw') {
+                return true;
+            }
+            
+            // No other cards can be played when draw stack must be handled
+            return false;
+        }
 
-        // Same color or same value
+        // Same color or same value (including numbers)
         if (this.color === topCard.color || this.value === topCard.value) {
             return true;
         }
@@ -103,10 +119,10 @@ class UnoPlayer {
         return null;
     }
 
-    getPlayableCards(topCard, currentColor = null) {
+    getPlayableCards(topCard, currentColor = null, drawStack = 0, mustHandleDrawStack = false) {
         return this.hand
             .map((card, index) => ({ card, index }))
-            .filter(({ card }) => card.canPlayOn(topCard, currentColor));
+            .filter(({ card }) => card.canPlayOn(topCard, currentColor, drawStack, mustHandleDrawStack));
     }
 
     getHandValue() {
@@ -145,6 +161,7 @@ class UnoGameSession {
         this.gameEnded = false;
         this.currentColor = null;
         this.drawStack = 0; // For stacking +2 and +4 cards
+        this.mustHandleDrawStack = false; // Forces next player to handle draw stack
         this.winner = null;
         this.gameStartTime = null;
         this.turnTimeout = 60; // 60 seconds per turn
@@ -317,6 +334,40 @@ class UnoGameSession {
 
         if (attempts < this.players.size) {
             this.startTurnTimeout();
+            this.sendTurnNotification();
+        }
+    }
+
+    /**
+     * Send turn notification to current player
+     */
+    async sendTurnNotification() {
+        if (!this.gameChannel || !this.gameActive) return;
+        
+        try {
+            const currentPlayer = this.getCurrentPlayer();
+            if (!currentPlayer) return;
+            
+            let message = `<@${currentPlayer.userId}>, it's your turn!`;
+            
+            // Add special messages for draw stack situations
+            if (this.drawStack > 0 && this.mustHandleDrawStack) {
+                message += `\n🎯 **You must draw ${this.drawStack} cards OR play a stackable card!**`;
+            }
+            
+            const sentMessage = await this.gameChannel.send(message);
+            
+            // Delete the message after 10 seconds
+            setTimeout(() => {
+                if (sentMessage && sentMessage.deletable) {
+                    sentMessage.delete().catch(err => {
+                        console.error('Error deleting turn notification:', err.message);
+                    });
+                }
+            }, 10000);
+            
+        } catch (error) {
+            console.error('Error sending turn notification:', error.message);
         }
     }
 
@@ -325,24 +376,44 @@ class UnoGameSession {
     }
 
     playCard(player, cardIndex, chosenColor = null) {
-        const card = player.removeCard(cardIndex);
+        // Validate card can be played before removing from hand
+        const card = player.hand[cardIndex];
         if (!card) return false;
+        
+        const topCard = this.getTopCard();
+        if (!card.canPlayOn(topCard, this.currentColor, this.drawStack, this.mustHandleDrawStack)) {
+            return false;
+        }
+        
+        // Remove card from player's hand
+        const playedCard = player.removeCard(cardIndex);
+        if (!playedCard) return false;
 
         // Place card on discard pile
-        this.discardPile.push(card);
+        this.discardPile.push(playedCard);
 
         // Handle wild card color change
-        if (card.type === 'wild') {
+        if (playedCard.type === 'wild') {
             this.currentColor = chosenColor || UNO_COLORS[secureRandomInt(0, UNO_COLORS.length)];
-            card.color = this.currentColor; // Temporarily set for display
+            playedCard.color = this.currentColor; // Temporarily set for display
         } else {
-            this.currentColor = card.color;
+            this.currentColor = playedCard.color;
         }
 
         // Handle action cards
-        if (card.type === 'action' || (card.type === 'wild' && card.value === 'Wild_Draw')) {
-            this.handleActionCard(card);
+        if (playedCard.type === 'action' || (playedCard.type === 'wild' && playedCard.value === 'Wild_Draw')) {
+            // If this card was played to handle a draw stack, don't reset the flag yet
+            const wasHandlingDrawStack = this.mustHandleDrawStack;
+            this.handleActionCard(playedCard);
+            
+            // If a stackable card was played to handle a draw stack, keep the flag active
+            if (wasHandlingDrawStack && (playedCard.value === 'Draw' || 
+                                       playedCard.value === 'Wild_Draw')) {
+                this.mustHandleDrawStack = true; // Keep forcing next player to handle
+            }
         } else {
+            // Reset draw stack handling for non-action cards
+            this.mustHandleDrawStack = false;
             this.nextTurn();
         }
 
@@ -380,17 +451,24 @@ class UnoGameSession {
             case 'Draw':
                 this.drawStack += 2;
                 this.nextTurn();
+                // Next player must handle draw stack (draw or stack)
+                this.mustHandleDrawStack = true;
                 break;
 
             case 'Wild_Draw':
                 this.drawStack += 4;
                 this.nextTurn();
+                // Next player must handle draw stack (draw or stack)
+                this.mustHandleDrawStack = true;
                 break;
 
             default:
                 this.nextTurn();
                 break;
         }
+        
+        // Send turn notification
+        this.sendTurnNotification();
     }
 
     handleDrawStack() {
@@ -398,6 +476,7 @@ class UnoGameSession {
             const currentPlayer = this.getCurrentPlayer();
             this.drawCard(currentPlayer, this.drawStack);
             this.drawStack = 0;
+            this.mustHandleDrawStack = false;
             this.nextTurn();
             return true;
         }
@@ -496,7 +575,7 @@ class UnoGameSession {
         return embed;
     }
 
-    getGameEmbed() {
+    async getGameEmbed() {
         const embed = new EmbedBuilder()
             .setTitle('🎯 UNO Game in Progress')
             .setColor(this.getColorCode(this.currentColor));
@@ -504,17 +583,23 @@ class UnoGameSession {
         const currentPlayer = this.getCurrentPlayer();
         const topCard = this.getTopCard();
 
-        embed.setDescription(
-            `**Current Player:** ${currentPlayer.username}\n` +
+        // Ensure we have valid data
+        if (!currentPlayer || !topCard) {
+            embed.setDescription('Game state error - please restart the game.');
+            return { embed, topCardImage: null };
+        }
+
+        const description = `**Current Player:** ${currentPlayer.username || 'Unknown'}\n` +
             `**Top Card:** ${topCard.toString()}\n` +
-            `**Current Color:** ${this.currentColor || topCard.color}`
-        );
+            `**Current Color:** ${this.currentColor || topCard.color || 'Unknown'}`;
+
+        embed.setDescription(description);
 
         // Player status
         const playerStatus = Array.from(this.players.values())
             .map(p => {
-                let status = `**${p.username}:** ${p.hand.length} cards`;
-                if (p.hasCalledUno && p.hand.length === 1) {
+                let status = `**${p.username || 'Unknown'}:** ${p.hand ? p.hand.length : 0} cards`;
+                if (p.hasCalledUno && p.hand && p.hand.length === 1) {
                     status += ' 🔥 UNO!';
                 }
                 if (p.userId === currentPlayer.userId) {
@@ -526,7 +611,7 @@ class UnoGameSession {
 
         embed.addFields({
             name: '🎮 Players',
-            value: playerStatus,
+            value: playerStatus || 'No players found',
             inline: false
         });
 
@@ -538,24 +623,40 @@ class UnoGameSession {
             });
         }
 
-        const remainingCards = this.deck.length;
+        const remainingCards = this.deck ? this.deck.length : 0;
         embed.addFields({
             name: '🎯 Deck',
             value: `${remainingCards} cards remaining`,
             inline: true
         });
 
-        embed.setFooter({ text: `Direction: ${this.direction === 1 ? 'Clockwise' : 'Counter-clockwise'} | Prize Pool: ${fmt(this.players.size * this.starterBet)}` });
-        return embed;
+        const footerText = `Direction: ${this.direction === 1 ? 'Clockwise' : 'Counter-clockwise'} | Prize Pool: ${fmt((this.players?.size || 0) * (this.starterBet || 0))}`;
+        embed.setFooter({ text: footerText });
+
+        // Generate top card image
+        try {
+            const unoRenderer = require('../UTILS/unoRenderer');
+            const topCardImage = await unoRenderer.renderTopCard(topCard, {
+                width: 200,
+                height: 280,
+                title: 'Current Card'
+            });
+            
+            embed.setThumbnail('attachment://topcard.png');
+            return { embed, topCardImage };
+        } catch (error) {
+            console.error('Error generating UNO top card image:', error.message);
+            return { embed, topCardImage: null };
+        }
     }
 
-    getPlayerHandEmbed(player) {
+    async getPlayerHandEmbed(player) {
         const embed = new EmbedBuilder()
             .setTitle('🎯 Your UNO Hand')
             .setColor(0x0000FF);
 
         const topCard = this.getTopCard();
-        const playableCards = player.getPlayableCards(topCard, this.currentColor);
+        const playableCards = player.getPlayableCards(topCard, this.currentColor, this.drawStack, this.mustHandleDrawStack);
 
         embed.setDescription(
             `**Top Card:** ${topCard.toString()}\n` +
@@ -589,7 +690,21 @@ class UnoGameSession {
             });
         }
 
-        return embed;
+        // Generate hand image
+        try {
+            const unoRenderer = require('../UTILS/unoRenderer');
+            const handImage = await unoRenderer.renderPlayerHand(player.hand, {
+                maxCards: 10,
+                width: 900,
+                height: 250
+            });
+            
+            embed.setImage('attachment://hand.png');
+            return { embed, handImage };
+        } catch (error) {
+            console.error('Error generating UNO hand image:', error.message);
+            return { embed, handImage: null };
+        }
     }
 
     getColorCode(color) {
@@ -651,14 +766,12 @@ class UnoGameSession {
                     .setCustomId(`uno_draw_${this.channelId}`)
                     .setLabel('Draw Card')
                     .setStyle(ButtonStyle.Primary)
-                    .setEmoji('🎴')
-                    .setDisabled(!isCurrentPlayer),
+                    .setEmoji('🎴'),
                 new ButtonBuilder()
                     .setCustomId(`uno_play_${this.channelId}`)
                     .setLabel('Play Card')
                     .setStyle(ButtonStyle.Success)
                     .setEmoji('🎯')
-                    .setDisabled(!isCurrentPlayer)
             );
 
         const row2 = new ActionRowBuilder()
