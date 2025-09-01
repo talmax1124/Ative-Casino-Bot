@@ -134,6 +134,17 @@ class LevelingSystem {
                 
                 logger.info(`Created/ensured level entry for user ${userId} in guild ${guildId}`);
                 
+                // Query again to get the actual data (in case it was updated by another process)
+                const [newRows] = await pool.execute(
+                    'SELECT * FROM user_levels WHERE user_id = ? AND guild_id = ?',
+                    [userId, guildId]
+                );
+                
+                if (newRows.length > 0) {
+                    return newRows[0];
+                }
+                
+                // Fallback to default values if still not found
                 return {
                     level: 1,
                     xp: 0,
