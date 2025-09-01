@@ -148,6 +148,41 @@ class DatabaseAdapter {
                 setup_date VARCHAR(50) DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS lottery_tickets (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(20) NOT NULL,
+                guild_id VARCHAR(20) NOT NULL,
+                ticket_count INT NOT NULL DEFAULT 1,
+                purchase_cost DECIMAL(20,2) NOT NULL,
+                week_start DATE NOT NULL,
+                purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user_guild_week (user_id, guild_id, week_start),
+                INDEX idx_week_start (week_start)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS lottery_info (
+                guild_id VARCHAR(20) PRIMARY KEY,
+                total_tickets INT NOT NULL DEFAULT 0,
+                total_prize DECIMAL(20,2) NOT NULL DEFAULT 400000.00,
+                next_drawing TIMESTAMP NULL,
+                current_week_start DATE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS lottery_winners (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(20) NOT NULL,
+                guild_id VARCHAR(20) NOT NULL,
+                week_start DATE NOT NULL,
+                tickets_owned INT NOT NULL,
+                total_tickets INT NOT NULL,
+                prize_amount DECIMAL(20,2) NOT NULL,
+                won_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_week_start (week_start),
+                INDEX idx_user_id (user_id)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -545,11 +580,112 @@ class DatabaseAdapter {
     }
 
     async getUserLotteryTickets(userId, guildId) {
-        return 0;
+        try {
+            // Get current week start (Sunday)
+            const currentWeekStart = this.getCurrentWeekStart();
+            
+            const [rows] = await this.pool.execute(
+                `SELECT COALESCE(SUM(ticket_count), 0) as total_tickets 
+                 FROM lottery_tickets 
+                 WHERE user_id = ? AND guild_id = ? AND week_start = ?`,
+                [userId, guildId, currentWeekStart]
+            );
+            
+            return rows[0].total_tickets || 0;
+        } catch (error) {
+            logger.error(`Failed to get user lottery tickets: ${error.message}`);
+            return 0;
+        }
     }
 
     async purchaseLotteryTickets(userId, guildId, ticketCount, totalCost) {
-        return false;
+        const connection = await this.pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            
+            // Get current week start
+            const currentWeekStart = this.getCurrentWeekStart();
+            
+            // Deduct cost from user wallet
+            const [updateResult] = await connection.execute(
+                'UPDATE user_balances SET wallet = wallet - ? WHERE user_id = ? AND wallet >= ?',
+                [totalCost, userId, totalCost]
+            );
+            
+            if (updateResult.affectedRows === 0) {
+                await connection.rollback();
+                return false; // Insufficient funds
+            }
+            
+            // Insert lottery tickets
+            await connection.execute(
+                'INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, purchase_cost, week_start) VALUES (?, ?, ?, ?, ?)',
+                [userId, guildId, ticketCount, totalCost, currentWeekStart]
+            );
+            
+            // Update lottery info
+            await connection.execute(
+                `INSERT INTO lottery_info (guild_id, total_tickets, current_week_start) 
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE total_tickets = total_tickets + ?`,
+                [guildId, ticketCount, currentWeekStart, ticketCount]
+            );
+            
+            await connection.commit();
+            return true;
+        } catch (error) {
+            await connection.rollback();
+            logger.error(`Failed to purchase lottery tickets: ${error.message}`);
+            return false;
+        } finally {
+            connection.release();
+        }
+    }
+
+    async getLotteryInfo(guildId) {
+        try {
+            const currentWeekStart = this.getCurrentWeekStart();
+            
+            const [rows] = await this.pool.execute(
+                'SELECT * FROM lottery_info WHERE guild_id = ?',
+                [guildId]
+            );
+            
+            if (rows.length === 0) {
+                // Create default lottery info for guild
+                await this.pool.execute(
+                    'INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start) VALUES (?, 0, 400000.00, ?)',
+                    [guildId, currentWeekStart]
+                );
+                
+                return {
+                    total_tickets: 0,
+                    total_prize: 400000,
+                    next_drawing: null,
+                    current_week_start: currentWeekStart
+                };
+            }
+            
+            return rows[0];
+        } catch (error) {
+            logger.error(`Failed to get lottery info: ${error.message}`);
+            return {
+                total_tickets: 0,
+                total_prize: 400000,
+                next_drawing: null,
+                current_week_start: this.getCurrentWeekStart()
+            };
+        }
+    }
+
+    getCurrentWeekStart() {
+        const now = new Date();
+        const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        const daysToSubtract = dayOfWeek; // Days since Sunday
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - daysToSubtract);
+        weekStart.setHours(0, 0, 0, 0);
+        return weekStart.toISOString().split('T')[0]; // Return YYYY-MM-DD format
     }
 
     async getTopUsersByBalance(guildId, limit = 10) {

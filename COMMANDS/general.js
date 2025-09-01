@@ -952,6 +952,227 @@ const testXpCommand = {
     }
 };
 
+// Set XP command (Developer only) - Sets absolute XP values
+const setXpCommand = {
+    data: new SlashCommandBuilder()
+        .setName('setxp')
+        .setDescription('Set absolute XP and level for a user (Developer only)')
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('User to set XP for')
+                .setRequired(true)
+        )
+        .addIntegerOption(option =>
+            option.setName('xp')
+                .setDescription('Total XP to set')
+                .setRequired(true)
+                .setMinValue(0)
+                .setMaxValue(100000)
+        )
+        .addIntegerOption(option =>
+            option.setName('level')
+                .setDescription('Level to set (optional - will calculate from XP if not provided)')
+                .setRequired(false)
+                .setMinValue(1)
+                .setMaxValue(100)
+        ),
+
+    async execute(interaction) {
+        const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
+        
+        // Check if user is developer
+        if (userId !== '466050111680544798') {
+            return await interaction.reply({ 
+                content: '❌ This command is only available to the developer.', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+
+        try {
+            const targetUser = interaction.options.getUser('user');
+            const newTotalXp = interaction.options.getInteger('xp');
+            const manualLevel = interaction.options.getInteger('level');
+            const targetUserId = targetUser.id;
+
+            // Calculate level from XP if not manually provided
+            const newLevel = manualLevel || levelingSystem.calculateLevel(newTotalXp);
+
+            logger.info(`Developer ${userId} is setting ${targetUserId} to ${newTotalXp} XP (Level ${newLevel})`);
+
+            // Check if database is initialized
+            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
+                return await interaction.reply({ 
+                    content: '❌ Database not initialized.', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+
+            const pool = dbManager.databaseAdapter.pool;
+
+            // Get current user data to see old values
+            const oldData = await levelingSystem.getUserLevel(targetUserId, guildId);
+            if (!oldData) {
+                return await interaction.reply({ 
+                    content: '❌ Failed to get user data.', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+
+            // Use direct database update for absolute XP setting
+            const [result] = await pool.execute(
+                `INSERT INTO user_levels (user_id, guild_id, level, xp, total_xp, games_played, games_won, messages_sent, last_level_up) 
+                 VALUES (?, ?, ?, ?, ?, 0, 0, 0, CURRENT_TIMESTAMP)
+                 ON DUPLICATE KEY UPDATE 
+                 level = ?, xp = ?, total_xp = ?, last_level_up = CURRENT_TIMESTAMP`,
+                [targetUserId, guildId, newLevel, newTotalXp, newTotalXp, newLevel, newTotalXp, newTotalXp]
+            );
+
+            if (result.affectedRows === 0) {
+                return await interaction.reply({ 
+                    content: '❌ Failed to set XP. Check logs for details.', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+
+            let response = `✅ Set XP for ${targetUser.username}!\n`;
+            response += `Previous: ${oldData.total_xp} XP (Level ${oldData.level})\n`;
+            response += `New: ${newTotalXp} XP (Level ${newLevel})`;
+
+            if (newLevel > oldData.level) {
+                response += `\n\n🎉 **LEVEL UP!** ${targetUser.username} is now level ${newLevel}!`;
+                
+                // Send level up notification if leveled up
+                try {
+                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                    if (levelUpChannel) {
+                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(targetUser, newLevel);
+                        await levelUpChannel.send({ 
+                            content: `<@${targetUserId}>, you are now level ${newLevel}! (Manual XP Set)`,
+                            embeds: [levelUpEmbed] 
+                        });
+                    }
+                } catch (levelError) {
+                    logger.error(`Failed to send manual level up notification: ${levelError.message}`);
+                }
+            }
+
+            await interaction.reply({ content: response, flags: MessageFlags.Ephemeral });
+
+        } catch (error) {
+            logger.error(`Error in setxp command: ${error.message}`);
+            
+            await interaction.reply({ 
+                content: '❌ An error occurred while setting XP.', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+    }
+};
+
+// Debug XP command (Developer only) - Check XP tracking status
+const debugXpCommand = {
+    data: new SlashCommandBuilder()
+        .setName('debugxp')
+        .setDescription('Debug XP system for a user (Developer only)')
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('User to debug XP for')
+                .setRequired(true)
+        ),
+
+    async execute(interaction) {
+        const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
+        
+        // Check if user is developer
+        if (userId !== '466050111680544798') {
+            return await interaction.reply({ 
+                content: '❌ This command is only available to the developer.', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+
+        try {
+            const targetUser = interaction.options.getUser('user');
+            const targetUserId = targetUser.id;
+
+            // Check database connection
+            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
+                return await interaction.reply({ 
+                    content: '❌ Database not initialized.', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+
+            const pool = dbManager.databaseAdapter.pool;
+
+            // Get raw database data
+            const [rows] = await pool.execute(
+                'SELECT * FROM user_levels WHERE user_id = ? AND guild_id = ?',
+                [targetUserId, guildId]
+            );
+
+            let response = `🔍 **XP Debug for ${targetUser.username}**\n\n`;
+
+            if (rows.length === 0) {
+                response += '❌ **No record found in database**\n';
+                response += 'User has never received XP or their record is missing.\n\n';
+                
+                // Try to create a fresh record
+                response += '🔧 **Creating fresh user record...**\n';
+                const userData = await levelingSystem.getUserLevel(targetUserId, guildId);
+                if (userData) {
+                    response += `✅ User record created: Level ${userData.level}, ${userData.total_xp} XP`;
+                } else {
+                    response += '❌ Failed to create user record';
+                }
+            } else {
+                const data = rows[0];
+                response += `📊 **Database Record:**\n`;
+                response += `• Level: ${data.level}\n`;
+                response += `• Current XP: ${data.xp}\n`;
+                response += `• Total XP: ${data.total_xp}\n`;
+                response += `• Games Played: ${data.games_played}\n`;
+                response += `• Games Won: ${data.games_won}\n`;
+                response += `• Messages Sent: ${data.messages_sent}\n`;
+                response += `• Last Level Up: ${data.last_level_up || 'Never'}\n\n`;
+
+                // Calculate expected level
+                const expectedLevel = levelingSystem.calculateLevel(data.total_xp);
+                if (expectedLevel !== data.level) {
+                    response += `⚠️ **Level Mismatch!**\n`;
+                    response += `Expected Level: ${expectedLevel} (from ${data.total_xp} XP)\n`;
+                    response += `Stored Level: ${data.level}\n\n`;
+                }
+
+                // Test adding XP
+                response += `🧪 **Testing XP Addition...**\n`;
+                const testResult = await levelingSystem.addXp(targetUserId, guildId, 1, 'debug_test');
+                if (testResult) {
+                    response += `✅ XP system working - added 1 XP successfully\n`;
+                    response += `New Total: ${testResult.totalXp} XP`;
+                    if (testResult.leveledUp) {
+                        response += ` (LEVEL UP to ${testResult.newLevel}!)`;
+                    }
+                } else {
+                    response += `❌ XP system failed - check logs for errors`;
+                }
+            }
+
+            await interaction.reply({ content: response, flags: MessageFlags.Ephemeral });
+
+        } catch (error) {
+            logger.error(`Error in debugxp command: ${error.message}`, { error: error.stack });
+            
+            await interaction.reply({ 
+                content: `❌ An error occurred during XP debug: ${error.message}`, 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+    }
+};
+
 // Export multiple commands
 module.exports = { 
     ...module.exports,
@@ -962,5 +1183,7 @@ module.exports = {
     heistCommand,
     profileCommand,
     leaderboardCommand,
-    testXpCommand
+    testXpCommand,
+    setXpCommand,
+    debugXpCommand
 };

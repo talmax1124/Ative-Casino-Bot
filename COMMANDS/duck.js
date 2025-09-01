@@ -254,12 +254,13 @@ class ModeSelectView {
  * Duck Game Session
  */
 class DuckGameSession {
-    constructor(userId, betAmount, userBalance, mode, guildId) {
+    constructor(userId, betAmount, userBalance, mode, guildId, sessionId = null) {
         this.userId = userId;
         this.betAmount = betAmount;
         this.userBalance = userBalance;
         this.mode = mode;
         this.guildId = guildId;
+        this.sessionId = sessionId;
         this.config = GAME_MODES[mode];
         this.position = -1; // Start in grass
         this.hazardPos = getSecureHazard(this.config.lanes);
@@ -525,7 +526,8 @@ module.exports = {
             gameData.betAmount, 
             gameData.userBalance, 
             mode, 
-            gameData.guildId
+            gameData.guildId,
+            gameData.sessionId
         );
 
         activeGames.set(userId, gameSession);
@@ -578,6 +580,15 @@ module.exports = {
         // Clear timeout and refund
         TimeoutManager.clearTimeout(userId);
         activeGames.delete(userId);
+
+        // Cancel session if it exists
+        if (gameData.sessionId) {
+            try {
+                await GameSessionIntegrator.cancelGameSession(gameData.sessionId, 'User cancelled game');
+            } catch (sessionError) {
+                logger.error(`Failed to cancel duck game session: ${sessionError.message}`);
+            }
+        }
 
         await PayoutManager.refundBet(userId, guildId, betAmount, 'Game cancelled');
 
@@ -756,6 +767,20 @@ module.exports = {
             // Clean up
             activeGames.delete(gameSession.userId);
             TimeoutManager.clearTimeout(gameSession.userId);
+
+            // Complete session if it exists
+            if (gameSession.sessionId) {
+                try {
+                    await GameSessionIntegrator.completeGameSession(gameSession.sessionId, {
+                        outcome: won ? 'WON' : 'LOST',
+                        payout: payout,
+                        won: won,
+                        netChange: payout - gameSession.betAmount
+                    });
+                } catch (sessionError) {
+                    logger.error(`Failed to complete duck game session: ${sessionError.message}`);
+                }
+            }
 
             // Log game end
             await sendLogMessage(

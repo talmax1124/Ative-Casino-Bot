@@ -252,6 +252,20 @@ class DatabaseManager {
         return false;
     }
 
+    async getUserLotteryTickets(userId, guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserLotteryTickets(userId, guildId);
+        }
+        return 0;
+    }
+
+    async getLotteryInfo(guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getLotteryInfo(guildId);
+        }
+        return { total_tickets: 0, total_prize: 400000 };
+    }
+
     /**
      * Add money to lottery prize pool (from money transfer tax)
      * @param {string} guildId - Guild ID

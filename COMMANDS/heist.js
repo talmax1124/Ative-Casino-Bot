@@ -3,11 +3,12 @@
  * 10K-30K range with 2.5 hour cooldown
  */
 
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -44,6 +45,30 @@ module.exports = {
                     footer: 'Heist Command'
                 });
 
+                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            }
+
+            // Create game session
+            const sessionResult = await GameSessionIntegrator.createGameSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: 'heist',
+                betAmount: 0, // No bet for heist
+                timeout: 60000, // 1 minute for Heist
+                metadata: {
+                    gamePhase: 'active',
+                    singlePlayer: true
+                },
+                interaction
+            });
+            
+            if (!sessionResult.success) {
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Session Error')
+                    .setDescription(`Failed to create game session: ${sessionResult.error}`)
+                    .setColor(0xFF0000);
+                
                 return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
@@ -137,6 +162,14 @@ module.exports = {
                 userId,
                 guildId
             );
+
+            // Complete session
+            await GameSessionIntegrator.completeGameSession(sessionResult.sessionId, {
+                outcome: 'WON',
+                payout: earning,
+                won: true,
+                netChange: earning
+            });
 
         } catch (error) {
             logger.error(`Error processing heist command: ${error.message}`);

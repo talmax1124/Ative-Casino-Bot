@@ -5,38 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
-// sessionManager removed (Firebase dependency) - using mock implementation
-const sessionManager = {
-    getAllActiveSessions: () => [],
-    getSessionStats: () => ({ active: 0, total: 0 }),
-    getActiveSessionCount: () => 0,
-    getUserSessions: (userId) => [],
-    getSession: (sessionId) => null,
-    endSession: async (sessionId) => ({ success: true }),
-    cancelSession: async (sessionId, reason) => ({ success: true }),
-    cancelUserSessions: async (userId, reason) => ({ success: true }),
-    createSession: async (sessionConfig) => {
-        try {
-            const sessionId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            return {
-                success: true, 
-                sessionId,
-                session: {
-                    ...sessionConfig,
-                    sessionId,
-                    createdAt: Date.now(),
-                    state: 'active'
-                }
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error.message || 'Failed to create mock session'
-            };
-        }
-    },
-    forceCleanup: async () => ({ success: true })
-};
+// Using real GameSessionIntegrator for session management
 const SMGameType = { CRASH: 'crash' };
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const sessionGuard = require('../UTILS/sessionGuard');

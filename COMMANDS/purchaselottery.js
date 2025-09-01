@@ -183,14 +183,14 @@ module.exports = {
         const guildId = await getGuildId(interaction);
 
         try {
-            if (action.startsWith('buy_')) {
-                const ticketCount = parseInt(action.split('_')[1]);
+            if (action.startsWith('lottery_buy_')) {
+                const ticketCount = parseInt(action.split('_')[2]);
                 await this.purchaseTickets(interaction, userId, guildId, ticketCount);
-            } else if (action === 'view_tickets') {
+            } else if (action === 'lottery_view_tickets') {
                 await this.showUserTickets(interaction, userId, guildId);
-            } else if (action === 'rules') {
+            } else if (action === 'lottery_rules') {
                 await this.showLotteryRules(interaction);
-            } else if (action === 'cancel') {
+            } else if (action === 'lottery_cancel') {
                 const embed = new EmbedBuilder()
                     .setColor(UITemplates.getColors().INFO)
                     .setTitle('🎫 Lottery Purchase Cancelled')

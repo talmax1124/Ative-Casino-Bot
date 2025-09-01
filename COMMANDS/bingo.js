@@ -17,6 +17,7 @@ const {
 } = require('../GAMES/bingo');
 const { createBingoCardImage, createGameStatusImage, getBingoColumn } = require('../UTILS/bingoImageGenerator');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -81,12 +82,45 @@ module.exports = {
             
             const betAmount = validation.parsedAmount;
 
+            // Create game session
+            const sessionResult = await GameSessionIntegrator.createGameSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: 'bingo',
+                betAmount,
+                timeout: 900000, // 15 minutes for Bingo
+                metadata: {
+                    gamePhase: 'lobby',
+                    multiplayer: true
+                },
+                interaction
+            });
+            
+            if (!sessionResult.success) {
+                await PayoutManager.refundBet(userId, guildId, betAmount, 'Failed to create session');
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Session Error')
+                    .setDescription(`Failed to create game session: ${sessionResult.error}`)
+                    .setColor(0xFF0000);
+                
+                await interaction.followUp({ embeds: [embed], ephemeral: true });
+                return;
+            }
+
             // Create new game
             const game = startBingoGame(channelId, guildId, betAmount);
+            game.sessionId = sessionResult.sessionId; // Store session ID
             const success = game.addPlayer(userId, `<@${userId}>`);
 
             if (!success) {
-                // Refund if couldn't create game using PayoutManager
+                // Complete session and refund if couldn't create game
+                await GameSessionIntegrator.completeGameSession(sessionResult.sessionId, {
+                    outcome: 'FAILED',
+                    payout: 0,
+                    won: false,
+                    netChange: 0
+                });
                 await PayoutManager.refundBet(userId, guildId, betAmount, 'Failed to create BINGO game');
                 await interaction.followUp({
                     content: '❌ Failed to create game!',

@@ -4,17 +4,7 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
-// sessionManager removed (Firebase dependency) - using mock implementation
-const sessionManager = {
-    getAllActiveSessions: () => [],
-    getSessionStats: () => ({ active: 0, total: 0 }),
-    getActiveSessionCount: () => 0,
-    getUserSessions: (userId) => [],
-    getSession: (sessionId) => null,
-    endSession: async (sessionId) => ({ success: true }),
-    cancelSession: async (sessionId, reason) => ({ success: true }),
-    cancelUserSessions: async (userId, reason) => ({ success: true })
-};
+// Mock sessionManager removed - using real GameSessionIntegrator
 const SessionState = { ACTIVE: 'active', PAUSED: 'paused', COMPLETED: 'completed', CANCELLED: 'cancelled', ERROR: 'error', TIMEOUT: 'timeout' };
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const sessionGuard = require('../UTILS/sessionGuard');
@@ -86,7 +76,7 @@ module.exports = {
      * Stop games for a specific user
      */
     async stopUserGames(interaction, targetUser) {
-        const userSessions = sessionManager.getUserSessions(targetUser.id);
+        let userSessions = GameSessionIntegrator.getUserActiveSessions(targetUser.id);
 
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -170,7 +160,7 @@ module.exports = {
      * Handle stopping user's own games
      */
     async handleStopMyGames(interaction, userId, username) {
-        const userSessions = sessionManager.getUserSessions(userId);
+        let userSessions = GameSessionIntegrator.getUserActiveSessions(userId);
 
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -254,7 +244,7 @@ module.exports = {
      * Handle listing user's games
      */
     async handleListMyGames(interaction, userId, username) {
-        const userSessions = sessionManager.getUserSessions(userId);
+        let userSessions = GameSessionIntegrator.getUserActiveSessions(userId);
 
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -274,7 +264,7 @@ module.exports = {
         
         userSessions.forEach((session, index) => {
             const duration = Math.round((Date.now() - session.createdAt) / 1000);
-            const timeoutRemaining = sessionManager.getTimeoutRemaining(session.sessionId);
+            const timeoutRemaining = session.timeout || 300000; // Default 5 minutes if no timeout data
             
             topFields.push({
                 name: `${session.gameType.toUpperCase()} Game`,
@@ -321,7 +311,7 @@ module.exports = {
      * Developer: List all active sessions
      */
     async handleDevListAll(interaction) {
-        const allSessions = sessionManager.getAllActiveSessions();
+        const allSessions = GameSessionIntegrator.getAllActiveSessions();
 
         if (allSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -360,7 +350,7 @@ module.exports = {
             });
         });
 
-        const stats = sessionManager.getSessionStats();
+        const stats = GameSessionIntegrator.getStats();
 
         const embed = buildSessionEmbed({
             title: '🔧 All Active Sessions',
@@ -396,7 +386,7 @@ module.exports = {
             return;
         }
 
-        const userSessions = sessionManager.getUserSessions(targetUser.id);
+        let userSessions = GameSessionIntegrator.getUserActiveSessions(targetUser.id);
 
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -413,11 +403,27 @@ module.exports = {
         }
 
         // Stop all user sessions
-        const results = await sessionManager.cancelUserSessions(
-            targetUser.id,
-            'Developer force stop',
-            interaction.user.id
-        );
+        const targetUserSessions = GameSessionIntegrator.getUserActiveSessions(targetUser.id);
+        const results = [];
+        
+        for (const session of targetUserSessions) {
+            try {
+                const result = await GameSessionIntegrator.cancelGameSession(
+                    session.sessionId,
+                    'Developer force stop',
+                    interaction.user.id
+                );
+                results.push({
+                    success: result.success,
+                    refunded: result.refunded || false
+                });
+            } catch (error) {
+                results.push({
+                    success: false,
+                    refunded: false
+                });
+            }
+        }
 
         const successful = results.filter(r => r.success);
         const refunded = results.filter(r => r.refunded);
@@ -452,7 +458,7 @@ module.exports = {
      * Developer: Force cleanup stale sessions
      */
     async handleDevCleanup(interaction, cleanupMinutes) {
-        const result = await sessionManager.forceCleanup(cleanupMinutes);
+        const result = await GameSessionIntegrator.cleanupStale(cleanupMinutes);
 
         const embed = buildSessionEmbed({
             title: '🔧 Force Cleanup Complete',
@@ -475,7 +481,7 @@ module.exports = {
      * Developer: Show session statistics
      */
     async handleDevStats(interaction) {
-        const stats = sessionManager.getSessionStats();
+        const stats = GameSessionIntegrator.getStats();
 
         const embed = buildSessionEmbed({
             title: '🔧 Session Manager Statistics',
@@ -506,7 +512,7 @@ module.exports = {
         const guildId = await getGuildId(interaction);
         
         // Get initial session count
-        const userSessions = sessionManager.getUserSessions(userId);
+        let userSessions = GameSessionIntegrator.getUserActiveSessions(userId);
         
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -523,7 +529,7 @@ module.exports = {
         }
         
         // Use enhanced cleanup from GameSessionIntegrator
-        const cleanup = await GameSessionIntegrator.forceCleanupUserSessions(userId, guildId, 'User requested force cleanup');
+        const cleanup = await GameSessionIntegrator.forceCleanupUser(userId, guildId, 'User requested force cleanup');
         
         const topFields = [
             { 

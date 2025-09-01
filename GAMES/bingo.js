@@ -8,6 +8,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
 
 // BINGO number ranges for each column
 const BINGO_RANGES = {
@@ -223,7 +224,7 @@ class BingoGameSession {
                 
                 const number = this.callNextNumber();
                 if (number === null) {
-                    this.endGame();
+                    await this.endGame();
                     return;
                 }
                 
@@ -388,9 +389,26 @@ class BingoGameSession {
         return '?';
     }
 
-    endGame() {
+    async endGame() {
         this.gameEnded = true;
         this.stopAutoCalling();
+        
+        // Complete session if it exists
+        if (this.sessionId) {
+            try {
+                const totalPot = this.players.size * this.starterBet;
+                const hasWinners = this.winners && this.winners.length > 0;
+                
+                await GameSessionIntegrator.completeGameSession(this.sessionId, {
+                    outcome: hasWinners ? 'WON' : 'LOST',
+                    payout: hasWinners ? totalPot : 0,
+                    won: hasWinners,
+                    netChange: hasWinners ? totalPot - this.starterBet : -this.starterBet
+                });
+            } catch (error) {
+                console.error('Failed to complete Bingo session:', error);
+            }
+        }
     }
 
     // Lobby embed using gameSessionKit
