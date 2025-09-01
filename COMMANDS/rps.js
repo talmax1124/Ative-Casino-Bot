@@ -448,13 +448,14 @@ module.exports = {
                 if (game.vsBot) {
                     // Bot game - only update human player
                     if (finalWinner === 1) {
-                        // Player wins vs bot
+                        // Player wins vs bot - pay out 2x their bet (original bet + winnings)
+                        const winnings = game.potAmount * 2; // Player gets 2x their bet when winning vs bot
                         await dbManager.updateUserBalance(game.player1Id, guildId, { 
-                            wallet: (await dbManager.getUserBalance(game.player1Id, guildId)).wallet + game.totalPot 
+                            wallet: (await dbManager.getUserBalance(game.player1Id, guildId)).wallet + winnings 
                         });
-                        await dbManager.updateUserStats(game.player1Id, guildId, 'rps', true, game.potAmount, game.totalPot);
+                        await dbManager.updateUserStats(game.player1Id, guildId, 'rps', true, game.potAmount, winnings);
                     } else {
-                        // Bot wins - player loses bet
+                        // Bot wins - player loses bet (already deducted)
                         await dbManager.updateUserStats(game.player1Id, guildId, 'rps', false, game.potAmount, 0);
                     }
                 } else {

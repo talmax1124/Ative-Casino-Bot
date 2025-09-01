@@ -673,7 +673,7 @@ class EconomyAnalyzer {
             // Get all users with high balances (excluding developer)
             const allUsers = (await dbManager.getAllUsers())
                 .filter(user => user.user_id !== this.developerUserId);
-            const crashPercentage = 0.15 + Math.random() * 0.15; // 15-30% crash
+            const crashPercentage = 0.05 + Math.random() * 0.08; // 5-13% crash
             
             let totalCrashLoss = 0;
             let affectedUsers = 0;
@@ -856,13 +856,13 @@ class EconomyAnalyzer {
                     const totalBalance = (parseFloat(user.wallet) || 0) + (parseFloat(user.bank) || 0);
                     let taxRate = 0;
                     
-                    // Progressive tax brackets
+                    // Progressive tax brackets (reduced rates)
                     if (totalBalance > 50000000) { // >$50M
-                        taxRate = 0.05; // 5% wealth tax
+                        taxRate = 0.025; // 2.5% wealth tax
                     } else if (totalBalance > 10000000) { // >$10M
-                        taxRate = 0.03; // 3% wealth tax
+                        taxRate = 0.015; // 1.5% wealth tax
                     } else if (totalBalance > 5000000) { // >$5M
-                        taxRate = 0.02; // 2% wealth tax
+                        taxRate = 0.01; // 1% wealth tax
                     }
                     
                     if (taxRate > 0) {
@@ -894,7 +894,7 @@ class EconomyAnalyzer {
                         .setDescription('⚖️ **High wealth inequality has triggered progressive taxation!**')
                         .addFields(
                             { name: '📊 Inequality Level', value: `Gini Coefficient: ${giniCoefficient.toFixed(3)} (Very High)`, inline: false },
-                            { name: '🏛️ Tax Brackets Applied', value: '>$50M: 5%\n>$10M: 3%\n>$5M: 2%', inline: true },
+                            { name: '🏛️ Tax Brackets Applied', value: '>$50M: 2.5%\n>$10M: 1.5%\n>$5M: 1.0%', inline: true },
                             { name: '👑 Taxed Users', value: `${taxedUsers} ultra-wealthy players`, inline: true },
                             { name: '💸 Total Collected', value: fmtFull(totalTaxCollected), inline: true },
                             { name: '🎯 Redistribution', value: `${redistributionInfo.recipients} users with <$250K received ${fmtFull(redistributionInfo.perUser)} each`, inline: false },

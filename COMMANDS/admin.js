@@ -140,13 +140,23 @@ const editMoneyCommand = {
             let oldAmount, newAmount;
             
             if (account === 'bank') {
-                newBank = Math.max(0, oldBank + amount); // Prevent negative balance
+                // For removal operations, ensure we don't remove more than available
+                if (amount < 0 && Math.abs(amount) > oldBank) {
+                    newBank = 0; // Can't remove more than what's available
+                } else {
+                    newBank = oldBank + amount;
+                }
                 accountEmoji = '🏦';
                 accountName = 'Bank';
                 oldAmount = oldBank;
                 newAmount = newBank;
             } else {
-                newWallet = Math.max(0, oldWallet + amount); // Prevent negative balance
+                // For removal operations, ensure we don't remove more than available
+                if (amount < 0 && Math.abs(amount) > oldWallet) {
+                    newWallet = 0; // Can't remove more than what's available
+                } else {
+                    newWallet = oldWallet + amount;
+                }
                 oldAmount = oldWallet;
                 newAmount = newWallet;
             }
