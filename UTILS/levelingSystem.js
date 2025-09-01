@@ -225,13 +225,15 @@ class LevelingSystem {
 
             logger.info(`Adding ${xpAmount} XP to user ${userId} (${reason}): ${userData.total_xp} -> ${newTotalXp}`);
 
-            // Ensure user exists first, then update
-            await this.getUserLevel(userId, guildId);
-            
-            // Now do a simple UPDATE since we know the record exists
+            // Use INSERT ... ON DUPLICATE KEY UPDATE for atomic upsert
             const [result] = await pool.execute(
-                'UPDATE user_levels SET total_xp = ?, level = ? WHERE user_id = ? AND guild_id = ?',
-                [newTotalXp, newLevel, userId, guildId]
+                `INSERT INTO user_levels (user_id, guild_id, level, xp, total_xp, games_played, games_won, messages_sent) 
+                 VALUES (?, ?, ?, ?, ?, 0, 0, 0)
+                 ON DUPLICATE KEY UPDATE 
+                 total_xp = VALUES(total_xp), 
+                 level = VALUES(level),
+                 updated_at = CURRENT_TIMESTAMP`,
+                [userId, guildId, newLevel, 0, newTotalXp]
             );
             
             if (result.affectedRows === 0) {
@@ -290,12 +292,18 @@ class LevelingSystem {
             // Add XP
             const result = await this.addXp(userId, guildId, XP_REWARDS.CHAT_MESSAGE, 'chat');
 
-            // Update message count
-            const pool = dbManager.databaseAdapter.pool;
-            await pool.execute(
-                'UPDATE user_levels SET messages_sent = messages_sent + 1 WHERE user_id = ? AND guild_id = ?',
-                [userId, guildId]
-            );
+            // Update message count using upsert to avoid race conditions
+            if (result) {
+                const pool = dbManager.databaseAdapter.pool;
+                await pool.execute(
+                    `INSERT INTO user_levels (user_id, guild_id, level, xp, total_xp, games_played, games_won, messages_sent) 
+                     VALUES (?, ?, 1, 0, 0, 0, 0, 1)
+                     ON DUPLICATE KEY UPDATE 
+                     messages_sent = messages_sent + 1,
+                     updated_at = CURRENT_TIMESTAMP`,
+                    [userId, guildId]
+                );
+            }
 
             return result;
         } catch (error) {
@@ -335,11 +343,20 @@ class LevelingSystem {
                 return null;
             }
 
-            // Update game stats
+            // Update game stats using upsert to avoid race conditions
             const pool = dbManager.databaseAdapter.pool;
             const statsQuery = won 
-                ? 'UPDATE user_levels SET games_played = games_played + 1, games_won = games_won + 1 WHERE user_id = ? AND guild_id = ?'
-                : 'UPDATE user_levels SET games_played = games_played + 1 WHERE user_id = ? AND guild_id = ?';
+                ? `INSERT INTO user_levels (user_id, guild_id, level, xp, total_xp, games_played, games_won, messages_sent) 
+                   VALUES (?, ?, 1, 0, 0, 1, 1, 0)
+                   ON DUPLICATE KEY UPDATE 
+                   games_played = games_played + 1, 
+                   games_won = games_won + 1,
+                   updated_at = CURRENT_TIMESTAMP`
+                : `INSERT INTO user_levels (user_id, guild_id, level, xp, total_xp, games_played, games_won, messages_sent) 
+                   VALUES (?, ?, 1, 0, 0, 1, 0, 0)
+                   ON DUPLICATE KEY UPDATE 
+                   games_played = games_played + 1,
+                   updated_at = CURRENT_TIMESTAMP`;
             
             const [statsResult] = await pool.execute(statsQuery, [userId, guildId]);
             
