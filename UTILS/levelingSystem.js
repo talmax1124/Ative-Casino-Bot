@@ -225,13 +225,13 @@ class LevelingSystem {
 
             logger.info(`Adding ${xpAmount} XP to user ${userId} (${reason}): ${userData.total_xp} -> ${newTotalXp}`);
 
-            // Use UPSERT to handle race conditions
+            // Ensure user exists first, then update
+            await this.getUserLevel(userId, guildId);
+            
+            // Now do a simple UPDATE since we know the record exists
             const [result] = await pool.execute(
-                `INSERT INTO user_levels (user_id, guild_id, level, xp, total_xp, games_played, games_won, messages_sent) 
-                 VALUES (?, ?, ?, ?, ?, 0, 0, 0)
-                 ON DUPLICATE KEY UPDATE 
-                 xp = xp + ?, total_xp = ?, level = ?`,
-                [userId, guildId, newLevel, xpAmount, newTotalXp, xpAmount, newTotalXp, newLevel]
+                'UPDATE user_levels SET total_xp = ?, level = ? WHERE user_id = ? AND guild_id = ?',
+                [newTotalXp, newLevel, userId, guildId]
             );
             
             if (result.affectedRows === 0) {

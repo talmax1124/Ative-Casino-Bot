@@ -116,6 +116,21 @@ async function loadCommands() {
                     commands.push(command.testXpCommand.data.toJSON());
                     logger.info(`Loaded command: ${command.testXpCommand.data.name}`);
                 }
+                if (command.setXpCommand && command.setXpCommand.data) {
+                    client.commands.set(command.setXpCommand.data.name, command.setXpCommand);
+                    commands.push(command.setXpCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.setXpCommand.data.name}`);
+                }
+                if (command.debugXpCommand && command.debugXpCommand.data) {
+                    client.commands.set(command.debugXpCommand.data.name, command.debugXpCommand);
+                    commands.push(command.debugXpCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.debugXpCommand.data.name}`);
+                }
+                if (command.fixXpCommand && command.fixXpCommand.data) {
+                    client.commands.set(command.fixXpCommand.data.name, command.fixXpCommand);
+                    commands.push(command.fixXpCommand.data.toJSON());
+                    logger.info(`Loaded command: ${command.fixXpCommand.data.name}`);
+                }
             }
 
             // Handle special case for admin.js which has multiple commands

@@ -1173,6 +1173,131 @@ const debugXpCommand = {
     }
 };
 
+// Fix XP command (Developer only) - Fix users with broken XP tracking
+const fixXpCommand = {
+    data: new SlashCommandBuilder()
+        .setName('fixxp')
+        .setDescription('Fix broken XP tracking for a user (Developer only)')
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('User to fix XP tracking for')
+                .setRequired(true)
+        ),
+
+    async execute(interaction) {
+        const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
+        
+        // Check if user is developer
+        if (userId !== '466050111680544798') {
+            return await interaction.reply({ 
+                content: '❌ This command is only available to the developer.', 
+                flags: MessageFlags.Ephemeral 
+            });
+        }
+
+        try {
+            const targetUser = interaction.options.getUser('user');
+            const targetUserId = targetUser.id;
+
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+            // Check database directly
+            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
+                return await interaction.editReply({ 
+                    content: '❌ Database not initialized.', 
+                });
+            }
+
+            const pool = dbManager.databaseAdapter.pool;
+
+            // Get current database record
+            const [rows] = await pool.execute(
+                'SELECT * FROM user_levels WHERE user_id = ? AND guild_id = ?',
+                [targetUserId, guildId]
+            );
+
+            let response = `🔧 **XP Fix for ${targetUser.username}**\n\n`;
+
+            if (rows.length === 0) {
+                // Create fresh record
+                response += '📋 **Status:** No database record found\n';
+                response += '🛠️ **Action:** Creating fresh user record...\n\n';
+                
+                const userData = await levelingSystem.getUserLevel(targetUserId, guildId);
+                if (userData) {
+                    response += `✅ **Result:** Created user record\n`;
+                    response += `• Level: ${userData.level}\n`;
+                    response += `• XP: ${userData.total_xp}\n\n`;
+                    
+                    // Test adding XP
+                    const testResult = await levelingSystem.addXp(targetUserId, guildId, 100, 'fix_test');
+                    if (testResult) {
+                        response += `🧪 **Test:** Added 100 XP successfully\n`;
+                        response += `• New Total: ${testResult.totalXp} XP\n`;
+                        response += `• Level: ${testResult.level || testResult.newLevel}`;
+                        
+                        if (testResult.leveledUp) {
+                            response += ` (LEVEL UP!)`;
+                        }
+                    } else {
+                        response += `❌ **Test:** Failed to add XP - still broken`;
+                    }
+                } else {
+                    response += `❌ **Result:** Failed to create user record`;
+                }
+            } else {
+                const data = rows[0];
+                response += `📋 **Current Database Record:**\n`;
+                response += `• Level: ${data.level}\n`;
+                response += `• Current XP: ${data.xp}\n`;
+                response += `• Total XP: ${data.total_xp}\n`;
+                response += `• Games Played: ${data.games_played}\n`;
+                response += `• Messages: ${data.messages_sent}\n\n`;
+
+                // Calculate what level should be
+                const expectedLevel = levelingSystem.calculateLevel(data.total_xp);
+                if (expectedLevel !== data.level) {
+                    response += `⚠️ **Issue Found:** Level mismatch!\n`;
+                    response += `• Expected Level: ${expectedLevel}\n`;
+                    response += `• Stored Level: ${data.level}\n\n`;
+                    
+                    response += `🛠️ **Fixing level...**\n`;
+                    await pool.execute(
+                        'UPDATE user_levels SET level = ? WHERE user_id = ? AND guild_id = ?',
+                        [expectedLevel, targetUserId, guildId]
+                    );
+                    response += `✅ Updated level to ${expectedLevel}\n\n`;
+                }
+
+                // Test adding XP
+                response += `🧪 **Testing XP Addition...**\n`;
+                const testResult = await levelingSystem.addXp(targetUserId, guildId, 50, 'fix_test');
+                if (testResult) {
+                    response += `✅ XP system working - added 50 XP successfully\n`;
+                    response += `• New Total: ${testResult.totalXp} XP\n`;
+                    response += `• Level: ${testResult.level || testResult.newLevel}`;
+                    
+                    if (testResult.leveledUp) {
+                        response += ` (LEVEL UP to ${testResult.newLevel}!)`;
+                    }
+                } else {
+                    response += `❌ XP system still broken - check logs`;
+                }
+            }
+
+            await interaction.editReply({ content: response });
+
+        } catch (error) {
+            logger.error(`Error in fixxp command: ${error.message}`, { error: error.stack });
+            
+            await interaction.editReply({ 
+                content: `❌ An error occurred during XP fix: ${error.message}`
+            });
+        }
+    }
+};
+
 // Export multiple commands
 module.exports = { 
     ...module.exports,
@@ -1185,5 +1310,6 @@ module.exports = {
     leaderboardCommand,
     testXpCommand,
     setXpCommand,
-    debugXpCommand
+    debugXpCommand,
+    fixXpCommand
 };
