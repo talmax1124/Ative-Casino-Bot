@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder, InteractionResponseFlags } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -72,12 +72,12 @@ module.exports = {
             }
 
             // Log the announcement
-            await dbManager.logModerationAction(
-                interaction.guild.id,
+            await dbManager.logAdminAction(
                 interaction.user.id,
-                targetChannel.id,
+                interaction.guild.id,
                 'announce',
-                `Sent announcement to #${targetChannel.name}: ${title}`
+                `Sent announcement to #${targetChannel.name}: ${title}`,
+                interaction.user.id
             );
 
             // Confirm the announcement was sent
