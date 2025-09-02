@@ -12,9 +12,9 @@
    - Go to Admin Panel → Nests → Generic
    - Click "Import Egg"
    - **Try eggs in this order:**
-     1. `egg-nodejs-uas-minimal.json` ⭐ **RECOMMENDED FIRST**
-     2. `egg-nodejs-uas-bot-simple.json` (if minimal works but you want more features)
-     3. `egg-nodejs-uas-bot.json` (full featured, may crash some panels)
+     1. `egg-nodejs-uas-final.json` ⭐ **RECOMMENDED - FIXES ALL ISSUES**
+     2. `egg-nodejs-uas-fixed.json` (alternative if final has issues)
+     3. `egg-nodejs-uas-minimal.json` (fallback option)
    - **If egg import crashes panel:** See `Egg_Import_Troubleshooting.md`
    - The egg includes:
      - ✅ Node.js 18+ support

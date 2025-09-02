@@ -6,36 +6,47 @@ If your Pterodactyl panel crashes when importing the UAS bot egg, try these solu
 
 ### **📁 Available Egg Files:**
 
-1. **`egg-nodejs-uas-minimal.json`** ⭐ **RECOMMENDED FIRST**
-   - Size: ~3KB
-   - Basic functionality
-   - Least likely to cause issues
-   - **Use this if others fail**
+1. **`egg-nodejs-uas-final.json`** ⭐ **RECOMMENDED - LATEST**
+   - Size: ~7KB
+   - Based on proven main casino bot egg structure
+   - **Fixes UAS subdirectory file conflicts**
+   - **Fixes installation hanging issues**
+   - **Fixes "Cannot find module" errors**
+   - Full Canvas + MySQL + Discord.js support
 
-2. **`egg-nodejs-uas-bot-simple.json`** 
+2. **`egg-nodejs-uas-minimal.json`** (Use if fixed version fails)
+   - Size: ~3KB
+   - Basic functionality only
+   - May get stuck in installation phase
+   - Requires manual dependency setup
+
+3. **`egg-nodejs-uas-bot-simple.json`** (Alternative)
    - Size: ~9KB  
    - More features than minimal
-   - Good balance of functionality/stability
+   - Good balance but may have issues
 
-3. **`egg-nodejs-uas-bot.json`** (Original)
+4. **`egg-nodejs-uas-bot.json`** (Original - Deprecated)
    - Size: ~13KB
-   - Full featured with extensive installation script
-   - **May cause panel crashes on some systems**
+   - Full featured but causes panel crashes
+   - **Not recommended**
 
 ## 🔧 **Solution Steps:**
 
-### **Step 1: Try Minimal Egg First**
+### **Step 1: Try Fixed Egg First (NEW)**
 ```bash
-# Use the minimal egg file
-egg-nodejs-uas-minimal.json
+# Use the new fixed egg file
+egg-nodejs-uas-fixed.json
 ```
 
 **Features:**
-- ✅ Git repository cloning
-- ✅ Auto-updates
-- ✅ Basic Node.js setup  
-- ✅ UAS subdirectory handling
-- ⚠️ Manual dependency installation needed
+- ✅ Based on main casino bot egg (proven stable)
+- ✅ Handles UAS subdirectory automatically  
+- ✅ Full Canvas + MySQL + Discord.js installation
+- ✅ Auto slash command deployment
+- ✅ **Fixes installation hanging issues**
+- ✅ Complete environment setup
+
+**If this fails, try the minimal egg as backup.**
 
 ### **Step 2: Manual Setup After Minimal Egg**
 
