@@ -4,13 +4,19 @@
  * Dynamic multipliers based on economy analysis
  */
 
-// Optional Canvas import - graceful fallback if not available
-let createCanvas;
-try {
-    ({ createCanvas } = require('canvas'));
-} catch (error) {
-    console.warn('Canvas module not available - plinko image generation disabled');
-    createCanvas = null;
+// Canvas will be imported on-demand to avoid startup failures
+let createCanvas = null;
+
+function getCanvas() {
+    if (createCanvas === null) {
+        try {
+            ({ createCanvas } = require('canvas'));
+        } catch (error) {
+            console.warn('Canvas module not available - plinko image generation disabled');
+            createCanvas = false; // Mark as failed to avoid re-trying
+        }
+    }
+    return createCanvas;
 }
 // economyAnalyzer moved to UAS bot - using static base modes for now
 
@@ -98,8 +104,9 @@ function randomizeMultipliers(baseMultipliers) {
  * Create a Plinko board image using Canvas
  */
 function createPlinkoImage(rows, slots, multipliers, ballPath = null, ballRow = -1, modeName = 'Easy', winningSlot = null) {
-    // Check if Canvas is available
-    if (!createCanvas) {
+    // Get Canvas on-demand
+    const canvasFunction = getCanvas();
+    if (!canvasFunction) {
         throw new Error('Canvas module not available - cannot generate plinko images');
     }
 
@@ -120,7 +127,7 @@ function createPlinkoImage(rows, slots, multipliers, ballPath = null, ballRow = 
     const colors = modeColors[modeName] || modeColors.Easy;
 
     // Create canvas
-    const canvas = createCanvas(width, height);
+    const canvas = canvasFunction(width, height);
     const ctx = canvas.getContext('2d');
 
     // Create gradient background
