@@ -11,7 +11,11 @@
    - Login as admin to Pterodactyl Panel
    - Go to Admin Panel → Nests → Generic
    - Click "Import Egg"
-   - Upload `egg-nodejs-uas-bot.json` from the uas folder
+   - **Try eggs in this order:**
+     1. `egg-nodejs-uas-minimal.json` ⭐ **RECOMMENDED FIRST**
+     2. `egg-nodejs-uas-bot-simple.json` (if minimal works but you want more features)
+     3. `egg-nodejs-uas-bot.json` (full featured, may crash some panels)
+   - **If egg import crashes panel:** See `Egg_Import_Troubleshooting.md`
    - The egg includes:
      - ✅ Node.js 18+ support
      - ✅ Canvas dependencies

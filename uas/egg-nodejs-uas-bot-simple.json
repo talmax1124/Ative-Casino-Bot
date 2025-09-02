@@ -1,0 +1,204 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - v1.0.0",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2024-09-02T20:00:00+00:00",
+    "name": "ATIVE UAS Bot",
+    "author": "support@ative.com",
+    "description": "ATIVE Utility & Security Bot - Node.js Discord bot with economy management, moderation, and utility functions. Supports Git deployment and auto-command registration.",
+    "features": null,
+    "docker_images": {
+        "ghcr.io/parkervcp/yolks:nodejs_18": "ghcr.io/parkervcp/yolks:nodejs_18",
+        "ghcr.io/parkervcp/yolks:nodejs_20": "ghcr.io/parkervcp/yolks:nodejs_20",
+        "ghcr.io/parkervcp/yolks:nodejs_21": "ghcr.io/parkervcp/yolks:nodejs_21"
+    },
+    "file_denylist": [],
+    "startup": "if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == \"1\" ]]; then git pull; fi; if [[ ! -z {{NODE_PACKAGES}} ]]; then /usr/local/bin/npm install {{NODE_PACKAGES}}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ \"{{DEPLOY_COMMANDS}}\" == \"1\" ]] && [[ -f scripts/deploy-commands.js ]]; then /usr/local/bin/node scripts/deploy-commands.js; fi; /usr/local/bin/{{CMD_RUN}} {{MAIN_FILE}}",
+    "config": {
+        "files": "{\r\n    \"package.json\": {\r\n        \"parser\": \"json\",\r\n        \"find\": {\r\n            \"scripts.start\": \"{{CMD_RUN}} {{MAIN_FILE}}\"\r\n        }\r\n    }\r\n}",
+        "startup": "{\r\n    \"done\": [\r\n        \"ATIVE Utility & Security Bot is ready!\",\r\n        \"Bot is ready!\",\r\n        \"Ready!\",\r\n        \"logged in\"\r\n    ]\r\n}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\ncd /mnt/server\n\necho \"Installing system dependencies...\"\napt update\napt install -y git curl wget build-essential python3 libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev pkg-config\n\nif [ -n \"${GIT_REPO}\" ]; then\n    echo \"Cloning Git repository: ${GIT_REPO}\"\n    rm -rf /mnt/server/* /mnt/server/.[!.]* 2>/dev/null || true\n    \n    if [ -z \"${GIT_BRANCH}\" ]; then\n        git clone ${GIT_REPO} /mnt/server\n    else\n        git clone --single-branch --branch ${GIT_BRANCH} ${GIT_REPO} /mnt/server\n    fi\n    \n    if [ -d \"uas\" ]; then\n        echo \"Moving UAS files from subdirectory...\"\n        cp -r uas/* .\n        rm -rf uas\n    fi\nfi\n\nif [ -f package.json ]; then\n    echo \"Installing Node.js dependencies...\"\n    npm install\nelse\n    echo \"Creating basic package.json...\"\n    npm init -y\n    npm install discord.js@^14.14.1 mysql2@^3.6.5 winston@^3.11.0 dotenv@^16.3.1 node-cron@^3.0.3 ms@^2.1.3\nfi\n\nmkdir -p logs scripts\nchown -R container:container /mnt/server\n\necho \"UAS Bot installation completed!\"",
+            "container": "node:18-bullseye",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Main File",
+            "description": "The main application file",
+            "env_variable": "MAIN_FILE",
+            "default_value": "index.js",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Run Command",
+            "description": "The command to run the application",
+            "env_variable": "CMD_RUN",
+            "default_value": "node",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Auto Update",
+            "description": "Auto pull from Git on startup (1=yes, 0=no)",
+            "env_variable": "AUTO_UPDATE",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Repository",
+            "description": "Git repository URL to clone from",
+            "env_variable": "GIT_REPO",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Branch",
+            "description": "Git branch to clone",
+            "env_variable": "GIT_BRANCH",
+            "default_value": "main",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Deploy Commands",
+            "description": "Auto deploy Discord slash commands (1=yes, 0=no)",
+            "env_variable": "DEPLOY_COMMANDS",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Discord Token",
+            "description": "Discord bot token",
+            "env_variable": "DISCORD_TOKEN",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Client ID",
+            "description": "Discord application client ID",
+            "env_variable": "CLIENT_ID",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Database Host",
+            "description": "MariaDB database host",
+            "env_variable": "MARIADB_HOST",
+            "default_value": "199.244.48.46",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Database Port",
+            "description": "MariaDB database port",
+            "env_variable": "MARIADB_PORT",
+            "default_value": "3306",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer",
+            "field_type": "text"
+        },
+        {
+            "name": "Database User",
+            "description": "MariaDB database username",
+            "env_variable": "MARIADB_USER",
+            "default_value": "u12_YoPN1LsWyi",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Database Password",
+            "description": "MariaDB database password",
+            "env_variable": "MARIADB_PASSWORD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Database Name",
+            "description": "MariaDB database name",
+            "env_variable": "MARIADB_DATABASE",
+            "default_value": "s12_ativebot",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Environment",
+            "description": "Application environment",
+            "env_variable": "ENVIRONMENT",
+            "default_value": "production",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Log Channel ID",
+            "description": "Discord channel ID for logs",
+            "env_variable": "LOG_CHANNEL_ID",
+            "default_value": "1405096821512212521",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Additional Packages",
+            "description": "Extra NPM packages to install",
+            "env_variable": "NODE_PACKAGES",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Server Port",
+            "description": "Port allocation for Pterodactyl",
+            "env_variable": "SERVER_PORT",
+            "default_value": "25566",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1024,65535",
+            "field_type": "text"
+        }
+    ]
+}
