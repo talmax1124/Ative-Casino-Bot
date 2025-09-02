@@ -4,7 +4,14 @@
  * Dynamic multipliers based on economy analysis
  */
 
-const { createCanvas } = require('canvas');
+// Optional Canvas import - graceful fallback if not available
+let createCanvas;
+try {
+    ({ createCanvas } = require('canvas'));
+} catch (error) {
+    console.warn('Canvas module not available - plinko image generation disabled');
+    createCanvas = null;
+}
 // economyAnalyzer moved to UAS bot - using static base modes for now
 
 // Base Plinko game modes (before dynamic adjustments)
@@ -91,6 +98,11 @@ function randomizeMultipliers(baseMultipliers) {
  * Create a Plinko board image using Canvas
  */
 function createPlinkoImage(rows, slots, multipliers, ballPath = null, ballRow = -1, modeName = 'Easy', winningSlot = null) {
+    // Check if Canvas is available
+    if (!createCanvas) {
+        throw new Error('Canvas module not available - cannot generate plinko images');
+    }
+
     // Enhanced image dimensions
     const width = 900;
     const height = 700;

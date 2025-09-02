@@ -136,7 +136,7 @@ async function startBot() {
         
         // Login to Discord
         logger.info('Logging in to Discord...');
-        await client.login(process.env.SECURITY_BOT_TOKEN);
+        await client.login(process.env.DISCORD_TOKEN || process.env.SECURITY_BOT_TOKEN);
         
     } catch (error) {
         logger.error('Failed to start bot:', error);

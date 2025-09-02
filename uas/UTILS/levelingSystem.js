@@ -60,6 +60,10 @@ const lastMessageTimes = new Map();
 
 class LevelingSystem {
     constructor() {
+        this.initAttempts = 0;
+        this.maxInitAttempts = 10; // Maximum 30 seconds of retries
+        this.isInitialized = false;
+        
         // Delay initialization to ensure database is ready
         setTimeout(() => this.initDatabase(), 3000);
     }
@@ -69,10 +73,21 @@ class LevelingSystem {
      */
     async initDatabase() {
         try {
+            // Stop retrying if already initialized
+            if (this.isInitialized) {
+                return;
+            }
+
             // Wait for database to be initialized
             if (!dbManager.initialized || !dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
-                logger.warn('Database not initialized yet, deferring leveling system initialization');
-                setTimeout(() => this.initDatabase(), 3000);
+                this.initAttempts++;
+                
+                if (this.initAttempts <= this.maxInitAttempts) {
+                    logger.debug(`Database not initialized yet, attempt ${this.initAttempts}/${this.maxInitAttempts}`);
+                    setTimeout(() => this.initDatabase(), 3000);
+                } else {
+                    logger.error('Database initialization failed after maximum attempts, leveling system disabled');
+                }
                 return;
             }
             
@@ -100,9 +115,11 @@ class LevelingSystem {
                 )
             `);
 
-            logger.info('Leveling system database initialized');
+            logger.info('Leveling system database initialized successfully');
+            this.isInitialized = true;
         } catch (error) {
             logger.error(`Failed to initialize leveling database: ${error.message}`);
+            this.initAttempts++;
         }
     }
 
