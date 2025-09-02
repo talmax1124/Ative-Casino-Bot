@@ -26,9 +26,10 @@
 1. **Create a new server using the UAS Bot egg:**
    - Name: `ATIVE UAS Bot`
    - Egg: `ATIVE UAS Bot - Node.js` (the one you just imported)
-   - Memory: 512MB (minimum, 1GB recommended)
+   - Memory: 512MB (minimum, 1GB recommended)  
    - Disk: 2GB (minimum)
    - CPU: 100%
+   - **Port Allocation**: 25566 (or any available port different from main bot's 25565)
 
 ## Step 3: Configure Server Variables
 
@@ -108,26 +109,34 @@
 
 ### Common Issues:
 
-1. **Module not found errors:**
+1. **Port Conflict:**
+   - **Error**: "Port already in use" or allocation conflicts
+   - **Solution**: UAS bot uses port **25566** by default (main casino bot uses 25565)
+   - **Note**: UAS bot doesn't actually use HTTP server, but Pterodactyl requires port allocation
+   - Change port in server allocation if 25566 is unavailable
+
+2. **Module not found errors:**
    ```bash
    rm -rf node_modules package-lock.json
    npm install
    ```
 
-2. **Database connection failed:**
-   - Verify `.env` database credentials
+3. **Database connection failed:**
+   - Verify database credentials in server variables
    - Check if main casino bot can connect from same VPS
+   - Ensure both bots use same database (shared economy system)
 
-3. **Discord login failed:**
-   - Verify `DISCORD_TOKEN` in `.env`
+4. **Discord login failed:**
+   - Verify `DISCORD_TOKEN` in server variables
    - Ensure bot has proper permissions in Discord Developer Portal
+   - Make sure you're using UAS bot token, not main casino bot token
 
-4. **Commands not registering:**
-   ```bash
-   npm run deploy-commands
-   ```
+5. **Commands not registering:**
+   - Set "Deploy Commands" to 1 in server variables
+   - Commands auto-deploy on startup
+   - Manual deployment: `npm run deploy-commands`
 
-5. **Permission errors:**
+6. **Permission errors:**
    ```bash
    chown -R container:container /home/container
    ```

@@ -203,6 +203,16 @@
             "user_editable": true,
             "rules": "nullable|string",
             "field_type": "text"
+        },
+        {
+            "name": "Server Port",
+            "description": "Port allocation for Pterodactyl (UAS bot doesn't use HTTP server, but Pterodactyl requires port allocation)",
+            "env_variable": "SERVER_PORT",
+            "default_value": "25566",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1024,65535",
+            "field_type": "text"
         }
     ]
 }
