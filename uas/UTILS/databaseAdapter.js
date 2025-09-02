@@ -57,6 +57,7 @@ class DatabaseAdapter {
         };
 
         logger.info(`Attempting MariaDB connection to ${config.host}:${config.port} database ${config.database} as user ${config.user}`);
+        logger.info(`MariaDB config loaded from environment: HOST=${process.env.MARIADB_HOST ? 'SET' : 'MISSING'}, USER=${process.env.MARIADB_USER ? 'SET' : 'MISSING'}, PASSWORD=${process.env.MARIADB_PASSWORD ? 'SET' : 'MISSING'}, DATABASE=${process.env.MARIADB_DATABASE ? 'SET' : 'MISSING'}`);
 
         this.pool = mysql.createPool(config);
         

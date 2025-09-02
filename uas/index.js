@@ -135,8 +135,12 @@ async function startBot() {
         await dbManager.initialize();
         
         // Login to Discord
+        const token = process.env.SECURITY_BOT_TOKEN || process.env.DISCORD_TOKEN;
+        if (!token) {
+            throw new Error('No Discord bot token found. Please set SECURITY_BOT_TOKEN or DISCORD_TOKEN environment variable.');
+        }
         logger.info('Logging in to Discord...');
-        await client.login(process.env.DISCORD_TOKEN || process.env.SECURITY_BOT_TOKEN);
+        await client.login(token);
         
     } catch (error) {
         logger.error('Failed to start bot:', error);
