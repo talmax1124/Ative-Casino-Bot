@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder, InteractionResponseFlags } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -83,7 +83,7 @@ module.exports = {
             // Confirm the announcement was sent
             await interaction.reply({
                 content: `✅ Announcement sent to ${targetChannel}!${mentionEveryone ? '\n⚠️ @everyone was mentioned.' : ''}`,
-                flags: InteractionResponseFlags.Ephemeral
+                ephemeral: true
             });
 
             logger.info(`Announcement sent to #${targetChannel.name} by ${interaction.user.username} (${interaction.user.id}): ${title}`);
@@ -93,7 +93,7 @@ module.exports = {
             
             await interaction.reply({
                 content: '❌ An error occurred while sending the announcement.',
-                flags: InteractionResponseFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
