@@ -1,0 +1,123 @@
+{
+  "_comment": "ATIVE UAS Bot - Emergency Recovery Version",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_at": "2025-09-02T22:00:00+00:00",
+  "name": "ATIVE UAS Bot - Emergency",
+  "author": "support@ative.com", 
+  "description": "Emergency recovery egg that forces fresh clone and proper file structure",
+  "features": ["databases"],
+  "docker_images": {
+    "Nodejs 20": "ghcr.io/ptero-eggs/yolks:nodejs_20",
+    "Nodejs 18": "ghcr.io/ptero-eggs/yolks:nodejs_18"
+  },
+  "file_denylist": [],
+  "startup": "echo \"Starting UAS bot...\"; /usr/local/bin/node \"/home/container/index.js\"",
+  "config": {
+    "files": "{}",
+    "startup": "{\r\n    \"done\": [\r\n        \"ATIVE Utility & Security Bot is ready!\",\r\n        \"Bot is ready!\",\r\n        \"Ready!\",\r\n        \"logged in\"\r\n    ]\r\n}",
+    "logs": "{}",
+    "stop": "^C"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/bash\r\n# Emergency UAS Bot Recovery Installation\r\necho \"=== EMERGENCY UAS BOT RECOVERY ===\"\r\n\r\n# Install system dependencies\r\napt update\r\napt install -y git curl jq file unzip make gcc g++ python3 python3-dev python3-pip\r\napt install -y libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev pkg-config\r\napt install -y default-mysql-client\r\n\r\n# Update npm\r\necho \"Updating npm...\"\r\nnpm install npm@latest --location=global\r\n\r\n# Ensure clean slate\r\necho \"Preparing clean installation directory...\"\r\nrm -rf /mnt/server/*\r\nrm -rf /mnt/server/.*\r\nmkdir -p /mnt/server\r\ncd /mnt/server\r\n\r\n# Force fresh clone\r\necho \"Force cloning latest repository...\"\r\nGIT_REPO=\"https://github.com/talmax1124/Ative-Casino-Bot.git\"\r\ngit clone --depth=1 --single-branch --branch main $GIT_REPO temp_repo\r\n\r\n# Extract UAS files to server root\r\necho \"Extracting UAS bot files...\"\r\nif [ -d \"temp_repo/uas\" ]; then\r\n    cp -r temp_repo/uas/* /mnt/server/\r\n    rm -rf temp_repo\r\n    echo \"UAS files extracted successfully\"\r\nelse\r\n    echo \"ERROR: UAS directory not found in repository\"\r\n    exit 1\r\nfi\r\n\r\n# Verify critical files\r\necho \"Verifying file structure...\"\r\nif [ ! -f \"index.js\" ]; then\r\n    echo \"ERROR: index.js not found\"\r\n    exit 1\r\nfi\r\nif [ ! -d \"UTILS\" ]; then\r\n    echo \"ERROR: UTILS directory not found\"\r\n    exit 1\r\nfi\r\nif [ ! -f \"UTILS/logger.js\" ]; then\r\n    echo \"ERROR: UTILS/logger.js not found\"\r\n    exit 1\r\nfi\r\necho \"File structure verified successfully\"\r\n\r\n# Install dependencies\r\necho \"Installing Node.js dependencies...\"\r\nif [ -f \"package.json\" ]; then\r\n    npm install\r\n    echo \"Dependencies installed from package.json\"\r\nelse\r\n    echo \"ERROR: package.json not found\"\r\n    exit 1\r\nfi\r\n\r\n# Create logs directory\r\nmkdir -p logs\r\n\r\necho \"=== UAS Bot Emergency Installation Complete ===\"\r\nexit 0",
+      "container": "node:20-bullseye",
+      "entrypoint": "bash"
+    }
+  },
+  "variables": [
+    {
+      "name": "Discord Token",
+      "description": "Discord bot token for UAS bot",
+      "env_variable": "SECURITY_BOT_TOKEN",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Client ID",
+      "description": "Discord application client ID",
+      "env_variable": "CLIENT_ID",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Database Host",
+      "description": "MariaDB database host",
+      "env_variable": "MARIADB_HOST",
+      "default_value": "199.244.48.46",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Database Port",
+      "description": "MariaDB database port",
+      "env_variable": "MARIADB_PORT",
+      "default_value": "3306",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer",
+      "field_type": "text"
+    },
+    {
+      "name": "Database User",
+      "description": "MariaDB database username",
+      "env_variable": "MARIADB_USER",
+      "default_value": "u12_YoPN1LsWyi",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Database Password",
+      "description": "MariaDB database password",
+      "env_variable": "MARIADB_PASSWORD",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Database Name",
+      "description": "MariaDB database name",
+      "env_variable": "MARIADB_DATABASE",
+      "default_value": "s12_ativebot",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Environment",
+      "description": "Application environment",
+      "env_variable": "ENVIRONMENT",
+      "default_value": "production",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Log Channel ID",
+      "description": "Discord channel ID for logs",
+      "env_variable": "LOG_CHANNEL_ID",
+      "default_value": "1405096821512212521",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    }
+  ]
+}
