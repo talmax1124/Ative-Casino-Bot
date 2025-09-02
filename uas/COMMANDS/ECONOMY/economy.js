@@ -6,7 +6,15 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const economyAnalyzer = require('../../UTILS/economyAnalyzer');
-const { getCurrentPlinkoModes, BASE_PLINKO_MODES } = require('../../UTILS/plinkoCanvas');
+// Optional plinko canvas import - graceful fallback if Canvas unavailable
+let getCurrentPlinkoModes, BASE_PLINKO_MODES;
+try {
+    ({ getCurrentPlinkoModes, BASE_PLINKO_MODES } = require('../../UTILS/plinkoCanvas'));
+} catch (error) {
+    console.warn('Plinko canvas functionality disabled - Canvas module not available');
+    getCurrentPlinkoModes = () => ({});
+    BASE_PLINKO_MODES = {};
+}
 const { fmt, fmtFull, getGuildId, sendLogMessage } = require('../../UTILS/common');
 const logger = require('../../UTILS/logger');
 

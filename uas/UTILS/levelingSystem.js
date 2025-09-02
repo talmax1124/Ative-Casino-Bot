@@ -83,7 +83,7 @@ class LevelingSystem {
                 this.initAttempts++;
                 
                 if (this.initAttempts <= this.maxInitAttempts) {
-                    logger.debug(`Database not initialized yet, attempt ${this.initAttempts}/${this.maxInitAttempts}`);
+                    logger.info(`Leveling system waiting for database (attempt ${this.initAttempts}/${this.maxInitAttempts})`);
                     setTimeout(() => this.initDatabase(), 3000);
                 } else {
                     logger.error('Database initialization failed after maximum attempts, leveling system disabled');
