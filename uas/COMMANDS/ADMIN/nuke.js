@@ -26,7 +26,7 @@ module.exports = {
             if (!targetChannel.manageable) {
                 return await interaction.reply({
                     content: '❌ I cannot manage this channel. Please check my permissions.',
-                    flags: InteractionResponseFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -94,7 +94,7 @@ module.exports = {
             try {
                 await interaction.followUp({
                     content: '❌ An error occurred while trying to nuke the channel.',
-                    flags: InteractionResponseFlags.Ephemeral
+                    ephemeral: true
                 });
             } catch (followUpError) {
                 logger.error('Error sending nuke error message:', followUpError);

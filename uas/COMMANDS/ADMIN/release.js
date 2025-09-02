@@ -38,10 +38,10 @@ module.exports = {
                     .setColor(0xFF0000)
                     .setTimestamp();
                 
-                return await interaction.reply({ embeds: [embed], flags: InteractionResponseFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
-            await interaction.deferReply({ flags: InteractionResponseFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             const targetUser = interaction.options.getUser('user');
             const reason = interaction.options.getString('reason') || 'Manual session release';
@@ -88,7 +88,7 @@ module.exports = {
             if (interaction.replied || interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: InteractionResponseFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     }

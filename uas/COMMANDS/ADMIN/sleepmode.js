@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, InteractionResponseFlags } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -91,7 +91,7 @@ module.exports = {
             
             await interaction.reply({
                 content: '❌ An error occurred while toggling sleep mode.',
-                flags: InteractionResponseFlags.Ephemeral
+                ephemeral: true
             });
         }
     }

@@ -12,7 +12,7 @@ module.exports = {
 
     async execute(interaction) {
         try {
-            await interaction.deferReply({ flags: InteractionResponseFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             const userId = interaction.user.id;
             const guildId = interaction.guild.id;

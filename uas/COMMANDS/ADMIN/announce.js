@@ -41,7 +41,7 @@ module.exports = {
             if (!targetChannel.permissionsFor(interaction.guild.members.me).has('SendMessages')) {
                 return await interaction.reply({
                     content: `❌ I don't have permission to send messages in ${targetChannel}.`,
-                    flags: InteractionResponseFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 

@@ -33,7 +33,7 @@ module.exports = {
             if (!targetChannel.manageable) {
                 return await interaction.reply({
                     content: '❌ I cannot manage this channel. Please check my permissions.',
-                    flags: InteractionResponseFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -66,7 +66,7 @@ module.exports = {
             
             await interaction.reply({
                 content: '❌ An error occurred while trying to set slowmode.',
-                flags: InteractionResponseFlags.Ephemeral
+                ephemeral: true
             });
         }
     }

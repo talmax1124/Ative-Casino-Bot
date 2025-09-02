@@ -68,7 +68,7 @@ module.exports = {
             
             await interaction.reply({
                 content: '❌ An error occurred while processing the refund request.',
-                flags: InteractionResponseFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -158,7 +158,7 @@ module.exports = {
         if (rows.length === 0) {
             return await interaction.reply({
                 content: '❌ Refund request not found or already processed.',
-                flags: InteractionResponseFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -174,7 +174,7 @@ module.exports = {
         if (!success) {
             return await interaction.reply({
                 content: '❌ Failed to update user balance. Please try again.',
-                flags: InteractionResponseFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -220,7 +220,7 @@ module.exports = {
         if (rows.length === 0) {
             return await interaction.reply({
                 content: '❌ Refund request not found or already processed.',
-                flags: InteractionResponseFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -268,7 +268,7 @@ module.exports = {
         if (rows.length === 0) {
             return await interaction.reply({
                 content: '✅ No pending refund requests.',
-                flags: InteractionResponseFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -290,7 +290,7 @@ module.exports = {
 
         await interaction.reply({
             embeds: [embed],
-            flags: InteractionResponseFlags.Ephemeral
+            ephemeral: true
         });
     }
 };
