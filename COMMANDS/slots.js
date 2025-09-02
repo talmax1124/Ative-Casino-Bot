@@ -7,7 +7,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ButtonBuilder, ActionRo
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { spinSlots, calculatePayout, createSlotDisplay, createSlotsImage, createSpinningSlotGIF } = require('../GAMES/slots');
-const economyAnalyzer = require('../UTILS/economyAnalyzer');
+// economyAnalyzer moved to UAS bot - using static base modes for now
 // sessionManager removed (Firebase dependency) - using mock implementation
 const sessionManager = {
     getAllActiveSessions: () => [],
@@ -260,8 +260,16 @@ module.exports = {
                     // Add booster bonus info if applicable
                     if (payoutResult.boosterBonus > 0) {
                         finalEmbed.addFields(
-                            { name: '🚀 Booster Bonus', value: fmt(payoutResult.boosterBonus), inline: true }
+                            { name: '🚀 Booster Bonus', value: `+${fmt(payoutResult.boosterBonus)} (2% boost!)`, inline: true }
                         );
+                        
+                        // Add celebration message for boosters
+                        if (result.won) {
+                            finalEmbed.setDescription(
+                                (finalEmbed.data.description || '') + 
+                                `\n\n✨ **Server Booster Bonus Applied!** You earned an extra 2% on your win!`
+                            );
+                        }
                     }
 
                     // Add help button

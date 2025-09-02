@@ -286,8 +286,48 @@ class BattleshipGameSession {
         this.winner = null;
         this.message = null;
         this.createdAt = Date.now();
+        this.sessionId = null; // For SessionManager integration
+        this.endGameVotes = new Set(); // Track players who voted to end
         
         logger.info(`Battleship game created in channel ${channelId} by ${hostUser.username}`);
+    }
+    
+    voteEndGame(userId) {
+        if (!this.players.has(userId)) return false;
+        
+        this.endGameVotes.add(userId);
+        
+        // Check if all players voted to end
+        if (this.endGameVotes.size === this.players.size && this.players.size === 2) {
+            return true; // Both players agree to end
+        }
+        
+        return false; // Not all players agree yet
+    }
+    
+    getEndGameVoteStatus() {
+        return {
+            votesNeeded: this.players.size,
+            currentVotes: this.endGameVotes.size,
+            voters: Array.from(this.endGameVotes)
+        };
+    }
+    
+    async endByConsent() {
+        this.state = 'finished';
+        this.winner = null; // No winner when ended by consent
+        
+        // End the session
+        if (this.sessionId) {
+            await GameSessionIntegrator.completeGameSession(this.sessionId, {
+                winner: null,
+                totalPlayers: this.players.size,
+                gameEnded: true,
+                endReason: 'mutual_consent'
+            });
+        }
+        
+        logger.info(`Battleship game ended by mutual consent in channel ${this.channelId}`);
     }
 
     addPlayer(user) {

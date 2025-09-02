@@ -1298,6 +1298,118 @@ const fixXpCommand = {
     }
 };
 
+// XP System Status Monitor Command
+const xpStatusCommand = {
+    name: 'xpstatus',
+    description: 'Monitor XP system status and recent activity (Developer only)',
+    async execute(interaction) {
+        await interaction.deferReply({ ephemeral: true });
+
+        if (interaction.user.id !== '466050111680544798') {
+            return interaction.editReply({ content: '❌ This command is for developers only.' });
+        }
+
+        try {
+            const guildId = interaction.guild.id;
+            
+            // Get recent XP activity
+            const pool = dbManager.databaseAdapter.pool;
+            const [recentActivity] = await pool.execute(
+                `SELECT u.user_id, u.level, u.total_xp, u.messages_sent, u.games_played, u.updated_at
+                 FROM user_levels u 
+                 WHERE u.guild_id = ? 
+                 ORDER BY u.updated_at DESC 
+                 LIMIT 10`,
+                [guildId]
+            );
+
+            // Get system metrics
+            const [levelDistribution] = await pool.execute(
+                `SELECT level, COUNT(*) as count 
+                 FROM user_levels 
+                 WHERE guild_id = ? 
+                 GROUP BY level 
+                 ORDER BY level`,
+                [guildId]
+            );
+
+            // Get stuck users at level 1
+            const [stuckUsers] = await pool.execute(
+                `SELECT user_id, total_xp, messages_sent, games_played, updated_at
+                 FROM user_levels 
+                 WHERE guild_id = ? AND level = 1 AND total_xp >= 50
+                 ORDER BY total_xp DESC
+                 LIMIT 5`,
+                [guildId]
+            );
+
+            const statusEmbed = new EmbedBuilder()
+                .setTitle('🔍 XP System Status Monitor')
+                .setColor('#00FF00')
+                .setTimestamp();
+
+            // Level distribution
+            if (levelDistribution.length > 0) {
+                const distribution = levelDistribution
+                    .map(d => `Level ${d.level}: ${d.count} users`)
+                    .slice(0, 10)
+                    .join('\n');
+                statusEmbed.addFields({ 
+                    name: '📊 Level Distribution', 
+                    value: distribution || 'No data', 
+                    inline: false 
+                });
+            }
+
+            // Recent activity
+            if (recentActivity.length > 0) {
+                const activity = recentActivity
+                    .map(u => `<@${u.user_id}>: L${u.level} (${u.total_xp} XP, ${u.messages_sent} msgs)`)
+                    .slice(0, 5)
+                    .join('\n');
+                statusEmbed.addFields({ 
+                    name: '⚡ Recent Activity', 
+                    value: activity || 'No recent activity', 
+                    inline: false 
+                });
+            }
+
+            // Stuck users
+            if (stuckUsers.length > 0) {
+                const stuck = stuckUsers
+                    .map(u => `<@${u.user_id}>: ${u.total_xp} XP (${u.messages_sent} msgs, ${u.games_played} games)`)
+                    .join('\n');
+                statusEmbed.addFields({ 
+                    name: '🚨 Users Stuck at Level 1', 
+                    value: stuck || 'No stuck users detected', 
+                    inline: false 
+                });
+            }
+
+            // XP Channel Configuration
+            const xpChannels = ['1403244656845787170', '1403845260509052948', '1411785562985336873', '1411518023482867712', '1411525744928227429'];
+            const channelList = xpChannels
+                .map(id => `<#${id}>`)
+                .join('\n');
+            statusEmbed.addFields({ 
+                name: '📍 XP Tracking Channels', 
+                value: channelList, 
+                inline: false 
+            });
+
+            await interaction.editReply({ embeds: [statusEmbed] });
+            logger.info(`XP Status command executed by ${interaction.user.tag}`);
+
+        } catch (error) {
+            logger.error(`Error in xpstatus command: ${error.message}`, { error: error.stack });
+            
+            await interaction.editReply({ 
+                content: `❌ An error occurred while checking XP status: ${error.message}`
+            });
+        }
+    }
+};
+
 // Export multiple commands
 module.exports = { 
     ...module.exports,
@@ -1311,5 +1423,6 @@ module.exports = {
     testXpCommand,
     setXpCommand,
     debugXpCommand,
-    fixXpCommand
+    fixXpCommand,
+    xpStatusCommand
 };

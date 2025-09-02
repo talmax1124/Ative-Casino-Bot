@@ -1,0 +1,208 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - v1.0.0",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2024-09-02T16:00:00+00:00",
+    "name": "ATIVE UAS Bot - Node.js",
+    "author": "support@ative.com",
+    "description": "ATIVE Utility & Security Bot - Node.js application with full dependency support including Canvas, MySQL2, Winston logging, and Discord.js v14. Optimized for economy management, moderation, and utility functions.",
+    "features": [
+        "eula",
+        "pid_limit"
+    ],
+    "docker_images": {
+        "ghcr.io/parkervcp/yolks:nodejs_18": "ghcr.io/parkervcp/yolks:nodejs_18",
+        "ghcr.io/parkervcp/yolks:nodejs_19": "ghcr.io/parkervcp/yolks:nodejs_19",
+        "ghcr.io/parkervcp/yolks:nodejs_20": "ghcr.io/parkervcp/yolks:nodejs_20",
+        "ghcr.io/parkervcp/yolks:nodejs_21": "ghcr.io/parkervcp/yolks:nodejs_21"
+    },
+    "file_denylist": [],
+    "startup": "if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == \"1\" ]]; then git pull; fi; if [[ ! -z {{NODE_PACKAGES}} ]]; then /usr/local/bin/npm install {{NODE_PACKAGES}}; fi; if [[ ! -z {{UNNODE_PACKAGES}} ]]; then /usr/local/bin/npm uninstall {{UNNODE_PACKAGES}}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ \"{{DEPLOY_COMMANDS}}\" == \"1\" ]]; then echo \"🚀 Deploying Discord slash commands...\"; /usr/local/bin/node scripts/deploy-commands.js || echo \"⚠️ Command deployment failed - continuing startup\"; fi; /usr/local/bin/{{CMD_RUN}} {{MAIN_FILE}}",
+    "config": {
+        "files": "{\r\n    \"package.json\": {\r\n        \"parser\": \"json\",\r\n        \"find\": {\r\n            \"scripts.start\": \"{{CMD_RUN}} {{MAIN_FILE}}\"\r\n        }\r\n    }\r\n}",
+        "startup": "{\r\n    \"done\": [\r\n        \"ATIVE Utility & Security Bot is ready!\",\r\n        \"Bot is ready!\",\r\n        \"ready!\",\r\n        \"Ready!\",\r\n        \"logged in\"\r\n    ]\r\n}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\r\n# ATIVE UAS Bot Installation Script\r\n# Node.js with Canvas, MySQL2, Discord.js v14 support + Git deployment\r\n\r\ncd /mnt/server\r\n\r\necho \"🔄 Updating package lists...\"\r\napt update\r\n\r\necho \"📦 Installing system dependencies for Canvas, MySQL, and Git...\"\r\napt install -y \\\r\n    build-essential \\\r\n    libcairo2-dev \\\r\n    libpango1.0-dev \\\r\n    libjpeg-dev \\\r\n    libgif-dev \\\r\n    librsvg2-dev \\\r\n    libfontconfig1-dev \\\r\n    python3 \\\r\n    python3-pip \\\r\n    pkg-config \\\r\n    default-mysql-client \\\r\n    git \\\r\n    curl \\\r\n    wget\r\n\r\n# Git Repository Handling\r\nif [ -n \"${GIT_REPO}\" ]; then\r\n    echo \"🗂️ Cloning repository: ${GIT_REPO}\"\r\n    \r\n    # Remove any existing files\r\n    rm -rf /mnt/server/* /mnt/server/.[!.]* || true\r\n    \r\n    if [ -z \"${GIT_BRANCH}\" ] || [ \"${GIT_BRANCH}\" == \"\" ]; then\r\n        echo \"📥 Cloning default branch from ${GIT_REPO}\"\r\n        git clone ${GIT_REPO} /mnt/server\r\n    else\r\n        echo \"📥 Cloning branch '${GIT_BRANCH}' from ${GIT_REPO}\"\r\n        git clone --single-branch --branch ${GIT_BRANCH} ${GIT_REPO} /mnt/server\r\n    fi\r\n    \r\n    if [ $? -eq 0 ]; then\r\n        echo \"✅ Repository cloned successfully\"\r\n    else\r\n        echo \"❌ Failed to clone repository\"\r\n        exit 1\r\n    fi\r\nelse\r\n    echo \"ℹ️ No Git repository specified, using uploaded files\"\r\nfi\r\n\r\n# Navigate to correct directory if UAS bot is in a subdirectory\r\nif [ -d \"uas\" ]; then\r\n    echo \"📂 Found UAS bot in 'uas' subdirectory, moving files...\"\r\n    cp -r uas/* .\r\n    rm -rf uas\r\nfi\r\n\r\n# Install Node.js dependencies\r\nif [ -f package.json ]; then\r\n    echo \"📦 Installing Node.js dependencies from package.json...\"\r\n    npm install --production\r\n    \r\n    # Ensure critical dependencies are installed\r\n    echo \"🎨 Installing Canvas with native dependencies...\"\r\n    npm install canvas --build-from-source\r\n    \r\n    echo \"🔧 Installing additional UAS bot dependencies...\"\r\n    npm install discord.js@^14.14.1 mysql2@^3.6.5 winston@^3.11.0 dotenv@^16.3.1 node-cron@^3.0.3 ms@^2.1.3\r\nelse\r\n    echo \"📝 No package.json found, creating basic UAS bot structure...\"\r\n    npm init -y --name=\"ative-uas-bot\" --version=\"1.0.0\" --main=\"index.js\"\r\n    \r\n    echo \"📦 Installing UAS bot dependencies...\"\r\n    npm install discord.js@^14.14.1 mysql2@^3.6.5 winston@^3.11.0 dotenv@^16.3.1 node-cron@^3.0.3 ms@^2.1.3 canvas --build-from-source\r\nfi\r\n\r\n# Create necessary directories\r\necho \"📁 Creating required directories...\"\r\nmkdir -p logs scripts\r\n\r\n# Set up environment template if .env doesn't exist\r\nif [ ! -f .env ] && [ -f .env.example ]; then\r\n    echo \"⚙️ Creating .env from .env.example template\"\r\n    cp .env.example .env\r\nfi\r\n\r\n# Verify critical files exist\r\nif [ ! -f index.js ]; then\r\n    echo \"⚠️ Warning: index.js not found - make sure your repository contains the UAS bot files\"\r\nfi\r\n\r\nif [ ! -f scripts/deploy-commands.js ]; then\r\n    echo \"⚠️ Warning: scripts/deploy-commands.js not found - slash command deployment may fail\"\r\nfi\r\n\r\n# Set proper permissions\r\necho \"🔐 Setting proper permissions...\"\r\nchown -R container:container /mnt/server\r\nchmod -R 755 /mnt/server\r\n\r\n# Display installation summary\r\necho \"\"\r\necho \"✅ ATIVE UAS Bot installation completed!\"\r\necho \"📊 Installation Summary:\"\r\necho \"   • Node.js dependencies: $([ -f package.json ] && echo 'Installed from package.json' || echo 'Basic setup created')\"\r\necho \"   • Canvas support: Installed with native compilation\"\r\necho \"   • Database support: MySQL2 ready\"\r\necho \"   • Discord.js v14: Ready for slash commands\"\r\necho \"   • Git repository: $([ -n \"${GIT_REPO}\" ] && echo \"${GIT_REPO}\" || echo 'None (using uploaded files)')\"\r\necho \"\"\r\necho \"🚀 Ready to start the UAS bot!\"\r\necho \"   Next: Configure your environment variables and start the server\"",
+            "container": "node:18-bullseye",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "Main File",
+            "description": "The main application file for the UAS bot (typically index.js)",
+            "env_variable": "MAIN_FILE",
+            "default_value": "index.js",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|ends_with:.js",
+            "field_type": "text"
+        },
+        {
+            "name": "Run Command",
+            "description": "The command to run the application (node, nodemon, etc.)",
+            "env_variable": "CMD_RUN",
+            "default_value": "node",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Auto Update from Git",
+            "description": "Automatically pull latest changes from Git repository on startup (1 = yes, 0 = no). Only works if deployed from Git.",
+            "env_variable": "AUTO_UPDATE",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Repository URL",
+            "description": "Git repository URL to clone the UAS bot from (e.g., https://github.com/username/uas-bot.git). Leave empty to upload files manually.",
+            "env_variable": "GIT_REPO",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Git Branch",
+            "description": "Specific Git branch to deploy (e.g., main, production, dev). Leave empty for repository default branch.",
+            "env_variable": "GIT_BRANCH",
+            "default_value": "main",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Deploy Commands",
+            "description": "Automatically deploy Discord slash commands on startup (1 = yes, 0 = no)",
+            "env_variable": "DEPLOY_COMMANDS",
+            "default_value": "1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Discord Bot Token",
+            "description": "Discord bot token for the UAS bot",
+            "env_variable": "DISCORD_TOKEN",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Discord Client ID",
+            "description": "Discord application client ID",
+            "env_variable": "CLIENT_ID",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "MariaDB Host",
+            "description": "MariaDB database host (shared with main casino bot)",
+            "env_variable": "MARIADB_HOST",
+            "default_value": "199.244.48.46",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "MariaDB Port",
+            "description": "MariaDB database port",
+            "env_variable": "MARIADB_PORT",
+            "default_value": "3306",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1,65535",
+            "field_type": "text"
+        },
+        {
+            "name": "MariaDB User",
+            "description": "MariaDB database username",
+            "env_variable": "MARIADB_USER",
+            "default_value": "u12_YoPN1LsWyi",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "MariaDB Password",
+            "description": "MariaDB database password",
+            "env_variable": "MARIADB_PASSWORD",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "MariaDB Database",
+            "description": "MariaDB database name (shared with main casino bot)",
+            "env_variable": "MARIADB_DATABASE",
+            "default_value": "s12_ativebot",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Environment",
+            "description": "Application environment (production/development)",
+            "env_variable": "ENVIRONMENT",
+            "default_value": "production",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Log Channel ID",
+            "description": "Discord channel ID for bot logs",
+            "env_variable": "LOG_CHANNEL_ID",
+            "default_value": "1405096821512212521",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Install Packages",
+            "description": "Additional NPM packages to install on startup (space separated)",
+            "env_variable": "NODE_PACKAGES",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        },
+        {
+            "name": "Uninstall Packages",
+            "description": "NPM packages to uninstall on startup (space separated)",
+            "env_variable": "UNNODE_PACKAGES",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string",
+            "field_type": "text"
+        }
+    ]
+}

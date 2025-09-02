@@ -680,13 +680,13 @@ class EconomyAnalyzer {
             const crashCulprits = []; // Track the biggest wealth holders
             
             // Sort users by total balance to identify the biggest contributors to inequality
-            // Only affect users with 1.5M+ total balance to protect smaller players
+            // Only affect users with 6.5M+ total balance to protect smaller players
             const wealthyUsers = allUsers
                 .map(user => ({
                     ...user,
                     totalBalance: (parseFloat(user.wallet) || 0) + (parseFloat(user.bank) || 0)
                 }))
-                .filter(user => user.totalBalance >= 1500000) // Only affect users with 1.5M or more
+                .filter(user => user.totalBalance >= 6500000) // Only affect users with 6.5M or more
                 .sort((a, b) => b.totalBalance - a.totalBalance);
             
             for (const user of wealthyUsers) {
@@ -735,7 +735,7 @@ class EconomyAnalyzer {
                 .setDescription('🔴 **The casino economy has overheated and triggered a market crash!**')
                 .addFields(
                     { name: '💥 Impact', value: `${(crashPercentage * 100).toFixed(1)}% wealth reduction for high-balance users`, inline: true },
-                    { name: '👑 Affected Users', value: `${affectedUsers} wealthy players (≥$1.5M)`, inline: true },
+                    { name: '👑 Affected Users', value: `${affectedUsers} wealthy players (≥$6.5M)`, inline: true },
                     { name: '💸 Total Removed', value: fmtFull(totalCrashLoss), inline: true },
                     { name: '🏆 Biggest Wealth Holders (Top Contributors)', value: culpritsText, inline: false },
                     { name: '🎮 Game Impact', value: 'All game multipliers reduced by 20% for 1 hour', inline: false },

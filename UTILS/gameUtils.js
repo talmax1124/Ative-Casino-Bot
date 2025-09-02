@@ -242,10 +242,13 @@ class PayoutManager {
             let newWallet = safeAdd(balance.wallet, payoutValue);
             
             // Apply server booster bonus if applicable
-            const boosterBonus = await this._calculateBoosterBonus(userId, guildId, payout);
+            const boosterInfo = await this._calculateBoosterBonus(userId, guildId, payout, interaction);
+            const boosterBonus = boosterInfo.amount;
             if (boosterBonus > 0) {
                 newWallet = safeAdd(newWallet, boosterBonus);
                 gameResult.bonusTriggered = true;
+                gameResult.isBooster = boosterInfo.isBooster;
+                gameResult.boosterBonusAmount = boosterBonus;
             }
             
             // Update balance - use relative update to prevent race conditions
@@ -268,6 +271,11 @@ class PayoutManager {
             let profileData = null;
             if (interaction) {
                 profileData = dbManager.extractProfileFromInteraction(interaction);
+            }
+            
+            // Log booster bonus if applied
+            if (boosterBonus > 0) {
+                logger.info(`Booster bonus applied for ${userId}: +${fmt(boosterBonus)} (2% boost)`);
             }
             
             // Update game statistics with profile data
@@ -293,7 +301,9 @@ class PayoutManager {
                 success: true,
                 newWallet: newWallet,
                 boosterBonus: boosterBonus,
-                finalPayout: payout + boosterBonus
+                finalPayout: payout + boosterBonus,
+                isBooster: gameResult.isBooster || false,
+                boosterPercentage: gameResult.isBooster ? 2 : 0
             };
             
         } catch (error) {
@@ -356,16 +366,33 @@ class PayoutManager {
     }
     
     /**
-     * Calculate server booster bonus (15% extra on wins)
+     * Calculate server booster bonus (2% extra on wins)
      * @param {string} userId - Discord user ID
      * @param {string} guildId - Guild ID
      * @param {number} payout - Base payout amount
-     * @returns {number} Bonus amount
+     * @param {Object} interaction - Discord interaction for member checking
+     * @returns {Object} Bonus info with amount and isBooster flag
      */
-    static async _calculateBoosterBonus(userId, guildId, payout) {
-        // TODO: Implement server booster check
-        // For now, return 0 - this would need Discord.js guild member fetching
-        return 0;
+    static async _calculateBoosterBonus(userId, guildId, payout, interaction = null) {
+        try {
+            // Check if we have the interaction and member data
+            if (interaction && interaction.member) {
+                // Check if user has booster role
+                const member = interaction.member;
+                const isBooster = member.premiumSinceTimestamp !== null && member.premiumSinceTimestamp > 0;
+                
+                if (isBooster && payout > 0) {
+                    // Calculate 2% bonus on winnings
+                    const bonusAmount = Math.floor(payout * 0.02);
+                    return { amount: bonusAmount, isBooster: true };
+                }
+            }
+            
+            return { amount: 0, isBooster: false };
+        } catch (error) {
+            logger.error(`Error checking booster status: ${error.message}`);
+            return { amount: 0, isBooster: false };
+        }
     }
 }
 

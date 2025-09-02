@@ -52,9 +52,10 @@ module.exports = {
         const maxTickets = 7;
         const remainingTickets = maxTickets - currentTickets;
         
-        // Calculate win probability
+        // Calculate win probability and buyable tickets
         const totalTickets = lotteryInfo.total_tickets || 0;
         const winProbability = totalTickets > 0 ? ((currentTickets / totalTickets) * 100).toFixed(2) : "0.00";
+        const maxBuyableNow = Math.min(remainingTickets, Math.floor(balance.wallet / ticketPrice), 7);
 
         const embed = new EmbedBuilder()
             .setColor(UITemplates.getColors().PRIMARY_GAME)
@@ -72,6 +73,11 @@ module.exports = {
                     inline: true
                 },
                 {
+                    name: '🛒 Can Buy Now',
+                    value: maxBuyableNow > 0 ? `Up to ${maxBuyableNow} ticket${maxBuyableNow > 1 ? 's' : ''}` : 'None available',
+                    inline: true
+                },
+                {
                     name: '🎯 Win Probability',
                     value: `${winProbability}%`,
                     inline: true
@@ -84,11 +90,6 @@ module.exports = {
                 {
                     name: '🎫 Ticket Price',
                     value: `$${ticketPrice.toLocaleString()} each`,
-                    inline: true
-                },
-                {
-                    name: '📊 Total Tickets Sold',
-                    value: `${totalTickets.toLocaleString()}`,
                     inline: true
                 }
             )
@@ -110,24 +111,56 @@ module.exports = {
         const components = [];
         
         if (remainingTickets > 0) {
-            // Ticket quantity buttons (1-7 or remaining)
-            const ticketRow = new ActionRowBuilder();
+            // Calculate what user can actually afford and is allowed to buy
             const maxBuyable = Math.min(remainingTickets, Math.floor(balance / ticketPrice), 7);
             
-            for (let i = 1; i <= Math.min(maxBuyable, 5); i++) {
-                const cost = i * ticketPrice;
-                ticketRow.addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`lottery_buy_${i}`)
-                        .setLabel(`${i} Ticket${i > 1 ? 's' : ''} ($${cost.toLocaleString()})`)
-                        .setStyle(ButtonStyle.Primary)
-                        .setEmoji('🎫')
-                        .setDisabled(balance < cost)
-                );
-            }
-            
             if (maxBuyable > 0) {
-                components.push(ticketRow);
+                // First row: 1-5 tickets (or max buyable if less than 5)
+                const ticketRow1 = new ActionRowBuilder();
+                const firstRowMax = Math.min(maxBuyable, 5);
+                
+                for (let i = 1; i <= firstRowMax; i++) {
+                    const cost = i * ticketPrice;
+                    ticketRow1.addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`lottery_buy_${i}`)
+                            .setLabel(`${i} Ticket${i > 1 ? 's' : ''} ($${cost.toLocaleString()})`)
+                            .setStyle(ButtonStyle.Primary)
+                            .setEmoji('🎫')
+                            .setDisabled(balance < cost)
+                    );
+                }
+                components.push(ticketRow1);
+                
+                // Second row: 6-7 tickets if user can afford them
+                if (maxBuyable > 5) {
+                    const ticketRow2 = new ActionRowBuilder();
+                    
+                    for (let i = 6; i <= maxBuyable; i++) {
+                        const cost = i * ticketPrice;
+                        ticketRow2.addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`lottery_buy_${i}`)
+                                .setLabel(`${i} Ticket${i > 1 ? 's' : ''} ($${cost.toLocaleString()})`)
+                                .setStyle(ButtonStyle.Primary)
+                                .setEmoji('🎫')
+                                .setDisabled(balance < cost)
+                        );
+                    }
+                    
+                    // Fill remaining slots with empty disabled buttons for better layout
+                    while (ticketRow2.components.length < 2) {
+                        ticketRow2.addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`lottery_empty_${ticketRow2.components.length}`)
+                                .setLabel('─')
+                                .setStyle(ButtonStyle.Secondary)
+                                .setDisabled(true)
+                        );
+                    }
+                    
+                    components.push(ticketRow2);
+                }
             }
 
             // Secondary actions row
@@ -183,14 +216,14 @@ module.exports = {
         const guildId = await getGuildId(interaction);
 
         try {
-            if (action.startsWith('lottery_buy_')) {
-                const ticketCount = parseInt(action.split('_')[2]);
+            if (action.startsWith('buy_')) {
+                const ticketCount = parseInt(action.split('_')[1]);
                 await this.purchaseTickets(interaction, userId, guildId, ticketCount);
-            } else if (action === 'lottery_view_tickets') {
+            } else if (action === 'view_tickets') {
                 await this.showUserTickets(interaction, userId, guildId);
-            } else if (action === 'lottery_rules') {
+            } else if (action === 'rules') {
                 await this.showLotteryRules(interaction);
-            } else if (action === 'lottery_cancel') {
+            } else if (action === 'cancel') {
                 const embed = new EmbedBuilder()
                     .setColor(UITemplates.getColors().INFO)
                     .setTitle('🎫 Lottery Purchase Cancelled')

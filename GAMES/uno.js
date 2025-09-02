@@ -8,6 +8,8 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const path = require('path');
+const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const logger = require('../UTILS/logger');
 
 // Card colors and types
 const UNO_COLORS = ['Red', 'Blue', 'Green', 'Yellow'];
@@ -170,6 +172,8 @@ class UnoGameSession {
         this.mainGameInteraction = null;
         this.maxPlayers = 8;
         this.minPlayers = 2;
+        this.sessionId = null; // For SessionManager integration
+        this.endGameVotes = new Set(); // Track players who voted to end
     }
 
     createDeck() {
@@ -313,6 +317,10 @@ class UnoGameSession {
 
     getCurrentPlayer() {
         const playerArray = Array.from(this.players.values());
+        // Ensure we have a valid index
+        if (this.currentPlayerIndex >= playerArray.length || this.currentPlayerIndex < 0) {
+            this.currentPlayerIndex = 0;
+        }
         return playerArray[this.currentPlayerIndex];
     }
 
@@ -515,7 +523,7 @@ class UnoGameSession {
         }
     }
 
-    endGame(winner = null) {
+    async endGame(winner = null) {
         this.gameEnded = true;
         this.winner = winner;
         this.clearTurnTimeout();
@@ -530,6 +538,37 @@ class UnoGameSession {
             }
             winner.points = totalPoints;
         }
+        
+        // End the session
+        if (this.sessionId) {
+            await GameSessionIntegrator.completeGameSession(this.sessionId, {
+                winner: winner ? winner.userId : null,
+                totalPlayers: this.players.size,
+                gameEnded: true,
+                endReason: winner ? 'winner' : 'voted'
+            });
+        }
+    }
+    
+    voteEndGame(userId) {
+        if (!this.players.has(userId)) return false;
+        
+        this.endGameVotes.add(userId);
+        
+        // Check if all players voted to end
+        if (this.endGameVotes.size === this.players.size && this.players.size >= 2) {
+            return true; // All players agree to end
+        }
+        
+        return false; // Not all players agree yet
+    }
+    
+    getEndGameVoteStatus() {
+        return {
+            votesNeeded: this.players.size,
+            currentVotes: this.endGameVotes.size,
+            voters: Array.from(this.endGameVotes)
+        };
     }
 
     forceEndGame() {
@@ -834,9 +873,32 @@ class UnoGameSession {
 // Game session management
 const activeUnoGames = new Map();
 
-function startUnoGame(channelId, guildId, starterBet) {
+async function startUnoGame(channelId, guildId, starterBet, hostUserId) {
     const game = new UnoGameSession(channelId, guildId, starterBet);
-    activeUnoGames.set(channelId, game);
+    
+    // Create session with GameSessionIntegrator
+    const sessionResult = await GameSessionIntegrator.createGameSession({
+        userId: hostUserId,
+        guildId: guildId,
+        channelId: channelId,
+        gameType: 'uno',
+        betAmount: 0, // No initial bet, players pay when joining
+        timeout: 1200000, // 20 minutes for UNO games
+        metadata: {
+            maxPlayers: game.maxPlayers,
+            minPlayers: game.minPlayers,
+            starterBet: starterBet
+        }
+    });
+    
+    if (sessionResult.success) {
+        game.sessionId = sessionResult.sessionId;
+        activeUnoGames.set(channelId, game);
+        logger.info(`UNO game session created: ${sessionResult.sessionId}`);
+    } else {
+        logger.error(`Failed to create UNO session: ${sessionResult.error}`);
+    }
+    
     return game;
 }
 
@@ -844,10 +906,21 @@ function getUnoGame(channelId) {
     return activeUnoGames.get(channelId) || null;
 }
 
-function endUnoGame(channelId) {
+async function endUnoGame(channelId) {
     const game = activeUnoGames.get(channelId);
     if (game) {
         game.clearTurnTimeout();
+        
+        // Complete session with GameSessionIntegrator
+        if (game.sessionId) {
+            await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                winner: game.winner ? game.winner.userId : null,
+                totalPlayers: game.players.size,
+                gameEnded: true
+            });
+            logger.info(`UNO game session completed: ${game.sessionId}`);
+        }
+        
         activeUnoGames.delete(channelId);
         return true;
     }

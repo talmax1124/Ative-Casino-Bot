@@ -12,12 +12,12 @@ require('dotenv').config();
 
 const logger = require('./UTILS/logger');
 const dbManager = require('./UTILS/database');
-const economyAnalyzer = require('./UTILS/economyAnalyzer');
+// Economy analyzer moved to UAS bot
 // Removed Firebase-dependent modules: economyMonitor, sessionManager
 const { sendLogMessage } = require('./UTILS/common');
 const panelManager = require('./UTILS/panelManager');
 const { LotteryGame } = require('./GAMES/lottery');
-const levelingSystem = require('./UTILS/levelingSystem');
+// Leveling system moved to UAS bot
 // Removed: const serverProducts = require('./UTILS/serverProducts'); // Web-based purchases now
 
 // Bot configuration
@@ -319,11 +319,8 @@ client.once('clientReady', async () => {
         await dbManager.initialize();
         logger.info('Database initialized successfully');
         
-        // Initialize economy analyzer after database
-        await economyAnalyzer.initialize();
-        // Set Discord client for market event announcements
-        economyAnalyzer.setDiscordClient(client);
-        logger.info('Economy analyzer initialized successfully');
+        // Economy analyzer moved to UAS bot
+        logger.info('Economy system now managed by UAS bot');
         
         // Initialize server products database table
         // Removed: serverProducts initialization - using web-based purchases now
@@ -1038,13 +1035,13 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('lottery_')) {
                 const action = customId.substring('lottery_'.length);
                 
-                // Try new lottery command first
+                // Try new lottery command first for specific actions
                 const lotteryCommand = client.commands.get('lottery');
                 if (lotteryCommand && lotteryCommand.handleButtonInteraction && 
                     ['buy_tickets', 'rules', 'my_tickets', 'prizes', 'cancel_game'].includes(action)) {
                     await lotteryCommand.handleButtonInteraction(interaction, action);
                 } 
-                // Try purchaselottery command for purchase-specific actions
+                // Try purchaselottery command for purchase-specific actions (buy_1, buy_2, view_tickets, etc.)
                 else {
                     const purchaseLotteryCommand = client.commands.get('purchaselottery');
                     if (purchaseLotteryCommand && purchaseLotteryCommand.handleButtonInteraction) {
@@ -1547,39 +1544,8 @@ client.on('messageCreate', async message => {
         // Check if this message is a follow-up to a panel action
         await panelManager.processFollowUpAction(message);
         
-        // Handle leveling XP for chat activity (only in specific server)
-        if (message.guild && message.guild.id === '1403244656845787167') {
-            const xpResult = await levelingSystem.handleChatMessage(
-                message.author.id, 
-                message.guild.id,
-                message.channel.id
-            );
-            
-            // Check for level up
-            if (xpResult && xpResult.leveledUp) {
-                try {
-                    // Generate random reward between 3K and 12K
-                    const reward = Math.floor(Math.random() * (12000 - 3000 + 1)) + 3000;
-                    
-                    // Add reward to user's bank
-                    await dbManager.updateUserBalance(message.author.id, message.guild.id, 0, reward);
-                    
-                    // Create custom level up embed with reward info
-                    const rewardText = `💰 **+$${reward.toLocaleString()}** added to your bank!`;
-                    const levelUpEmbed = levelingSystem.createLevelUpEmbed(message.author, xpResult.newLevel, rewardText);
-                    
-                    // Send to current channel where user is typing
-                    await message.channel.send({ 
-                        content: `🎉 <@${message.author.id}>, you leveled up to level ${xpResult.newLevel}!`,
-                        embeds: [levelUpEmbed] 
-                    });
-                    
-                    logger.info(`User ${message.author.tag} leveled up to ${xpResult.newLevel} and received $${reward} bank reward`);
-                } catch (levelError) {
-                    logger.error(`Failed to process level up reward: ${levelError.message}`);
-                }
-            }
-        }
+        // XP system moved to UAS bot
+        logger.debug(`XP system now handled by UAS bot`);
     } catch (error) {
         logger.error(`Error processing message: ${error.message}`);
     }

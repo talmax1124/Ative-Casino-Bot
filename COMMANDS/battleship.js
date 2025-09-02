@@ -25,7 +25,7 @@ const logger = require('../UTILS/logger');
 const battleshipRenderer = require('../UTILS/battleshipRenderer');
 const UITemplates = require('../UTILS/uiTemplates');
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
-const levelingSystem = require('../UTILS/levelingSystem');
+const levelingSystem = require('../UTILS/levelingSystem'); // Moved to UAS bot - using stub
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 
 const {

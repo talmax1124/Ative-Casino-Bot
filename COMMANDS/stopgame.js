@@ -76,7 +76,7 @@ module.exports = {
      * Stop games for a specific user
      */
     async stopUserGames(interaction, targetUser) {
-        let userSessions = GameSessionIntegrator.getUserActiveSessions(targetUser.id);
+        let userSessions = await GameSessionIntegrator.getActiveUserSessions(targetUser.id);
 
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -160,7 +160,7 @@ module.exports = {
      * Handle stopping user's own games
      */
     async handleStopMyGames(interaction, userId, username) {
-        let userSessions = GameSessionIntegrator.getUserActiveSessions(userId);
+        let userSessions = await GameSessionIntegrator.getActiveUserSessions(userId);
 
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -244,7 +244,7 @@ module.exports = {
      * Handle listing user's games
      */
     async handleListMyGames(interaction, userId, username) {
-        let userSessions = GameSessionIntegrator.getUserActiveSessions(userId);
+        let userSessions = await GameSessionIntegrator.getActiveUserSessions(userId);
 
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -386,7 +386,7 @@ module.exports = {
             return;
         }
 
-        let userSessions = GameSessionIntegrator.getUserActiveSessions(targetUser.id);
+        let userSessions = await GameSessionIntegrator.getActiveUserSessions(targetUser.id);
 
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -403,7 +403,7 @@ module.exports = {
         }
 
         // Stop all user sessions
-        const targetUserSessions = GameSessionIntegrator.getUserActiveSessions(targetUser.id);
+        const targetUserSessions = await GameSessionIntegrator.getActiveUserSessions(targetUser.id);
         const results = [];
         
         for (const session of targetUserSessions) {

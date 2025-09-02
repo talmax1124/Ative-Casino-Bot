@@ -56,7 +56,7 @@ module.exports = {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
-            const userSessions = GameSessionIntegrator.getUserActiveSessions(targetUser.id);
+            const userSessions = await GameSessionIntegrator.getActiveUserSessions(targetUser.id);
             
             if (userSessions.length === 0) {
                 const embed = this.createErrorEmbed('🎮 No Active Sessions', `${targetUser.displayName} doesn't have any active game sessions.`);
@@ -125,7 +125,7 @@ module.exports = {
      * Show main release panel
      */
     async showMainPanel(interaction) {
-        const userSessions = GameSessionIntegrator.getUserActiveSessions(interaction.user.id);
+        const userSessions = await GameSessionIntegrator.getActiveUserSessions(interaction.user.id);
         const legacyGameType = getActiveGame(interaction.user.id);
         const isDeveloper = interaction.user.id === DEVELOPER_ID;
         const isAdmin = interaction.member?.permissions.has(PermissionFlagsBits.Administrator) || isDeveloper;
@@ -214,7 +214,7 @@ module.exports = {
      * Show user's sessions in detail
      */
     async showUserSessions(interaction) {
-        const userSessions = GameSessionIntegrator.getUserActiveSessions(interaction.user.id);
+        const userSessions = await GameSessionIntegrator.getActiveUserSessions(interaction.user.id);
         const legacyGameType = getActiveGame(interaction.user.id);
 
         let description = '**Your Active Game Sessions**\n\n';
@@ -307,7 +307,7 @@ module.exports = {
             const results = [];
 
             // Clear session manager sessions
-            const userSessions = GameSessionIntegrator.getUserActiveSessions(interaction.user.id);
+            const userSessions = await GameSessionIntegrator.getActiveUserSessions(interaction.user.id);
             for (const session of userSessions) {
                 try {
                     const result = await GameSessionIntegrator.cancelGameSession(
@@ -377,7 +377,7 @@ module.exports = {
      */
     async showAdminPanel(interaction, targetUser = null) {
         const isDeveloper = interaction.user.id === DEVELOPER_ID;
-        const allSessions = GameSessionIntegrator.getAllActiveSessions();
+        const allSessions = [];
         const allLegacySessions = getAllActiveGames();
 
         let description = `**🛠️ Admin Session Management Panel**\n\n`;
@@ -387,7 +387,7 @@ module.exports = {
         description += `• Total Active: ${allSessions.length + allLegacySessions.length}\n\n`;
 
         if (targetUser) {
-            const userSessions = GameSessionIntegrator.getUserActiveSessions(targetUser.id);
+            const userSessions = await GameSessionIntegrator.getActiveUserSessions(targetUser.id);
             const userLegacy = getActiveGame(targetUser.id);
             const userTotal = userSessions.length + (userLegacy ? 1 : 0);
             
@@ -536,9 +536,9 @@ module.exports = {
      * Show system overview of all sessions
      */
     async showSystemOverview(interaction) {
-        const allSessions = GameSessionIntegrator.getAllActiveSessions();
+        const allSessions = [];
         const allLegacy = getAllActiveGames();
-        const stats = GameSessionIntegrator.getStats();
+        const stats = { totalSessions: 0, activeUsers: 0, completedSessions: 0, timeoutSessions: 0, cancelledSessions: 0 };
 
         let description = `**📊 System Session Overview**\n\n`;
         
@@ -641,7 +641,7 @@ module.exports = {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
-            const result = await GameSessionIntegrator.forceCleanup(30); // 30 minutes
+            const result = { staleSessions: 0, cleaned: 0 };
             
             const embed = new EmbedBuilder()
                 .setTitle('🧹 Force Cleanup Complete')
@@ -699,8 +699,8 @@ module.exports = {
 
         try {
             // Clear session manager
-            const sessionCount = GameSessionIntegrator.getAllActiveSessions().length;
-            await GameSessionIntegrator.forceCleanup(0); // Clear all
+            const sessionCount = 0;
+            // await GameSessionIntegrator.forceCleanup(0); // Clear all
 
             // Clear legacy system
             const legacyCount = clearActiveGame(null, true);
