@@ -29,6 +29,6 @@ module.exports = {
             logger.info('Anti-spam system initialized');
         }
         
-        logger.info('ATIVE Utility & Security Bot is ready!');
+        logger.info('ATIVE Utility & Security Bot is ready! [v2.1 - Discord.js v14 Compatibility Fixed]');
     }
 };
