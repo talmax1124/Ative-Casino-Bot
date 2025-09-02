@@ -2,7 +2,7 @@
  * Clock Out Command - End a shift
  */
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const logger = require('../../UTILS/logger');
 
 module.exports = {
@@ -12,7 +12,7 @@ module.exports = {
 
     async execute(interaction) {
         try {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
             const userId = interaction.user.id;
             const guildId = interaction.guild.id;

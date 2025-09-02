@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -33,7 +33,7 @@ module.exports = {
             if (!targetChannel.manageable) {
                 return await interaction.reply({
                     content: '❌ I cannot manage this channel. Please check my permissions.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -66,7 +66,7 @@ module.exports = {
             
             await interaction.reply({
                 content: '❌ An error occurred while trying to set slowmode.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

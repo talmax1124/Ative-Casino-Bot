@@ -2,7 +2,7 @@
  * Shift Command - Manage shift-related actions
  */
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const logger = require('../../UTILS/logger');
 
 module.exports = {
@@ -43,7 +43,7 @@ module.exports = {
 
     async execute(interaction) {
         try {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
             const subcommand = interaction.options.getSubcommand();
             const userId = interaction.user.id;

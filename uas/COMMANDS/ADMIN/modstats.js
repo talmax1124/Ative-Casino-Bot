@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -34,11 +34,11 @@ module.exports = {
             if (!isAuthorized) {
                 return await interaction.reply({
                     content: '❌ This command is restricted to Developers and Administrators only.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
             const targetUser = interaction.options.getUser('user');
             const timeframe = interaction.options.getString('timeframe') || 'all';

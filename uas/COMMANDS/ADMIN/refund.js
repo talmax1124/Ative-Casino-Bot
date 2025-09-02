@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -68,7 +68,7 @@ module.exports = {
             
             await interaction.reply({
                 content: '❌ An error occurred while processing the refund request.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     },
@@ -158,7 +158,7 @@ module.exports = {
         if (rows.length === 0) {
             return await interaction.reply({
                 content: '❌ Refund request not found or already processed.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -174,7 +174,7 @@ module.exports = {
         if (!success) {
             return await interaction.reply({
                 content: '❌ Failed to update user balance. Please try again.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -220,7 +220,7 @@ module.exports = {
         if (rows.length === 0) {
             return await interaction.reply({
                 content: '❌ Refund request not found or already processed.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -268,7 +268,7 @@ module.exports = {
         if (rows.length === 0) {
             return await interaction.reply({
                 content: '✅ No pending refund requests.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -290,7 +290,7 @@ module.exports = {
 
         await interaction.reply({
             embeds: [embed],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 };

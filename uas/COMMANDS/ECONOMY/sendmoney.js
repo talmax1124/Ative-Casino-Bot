@@ -3,7 +3,7 @@
  * Allows users to transfer money to each other with 5% tax going to lottery pool
  */
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const { fmt, getGuildId, sendLogMessage } = require('../../UTILS/common');
 const { validateAmount, formatMoneyFull } = require('../../UTILS/moneyFormatter');
@@ -35,7 +35,7 @@ module.exports = {
         if (targetUser.id === senderId) {
             await interaction.reply({
                 content: '❌ You cannot send money to yourself!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
             return;
         }
@@ -44,7 +44,7 @@ module.exports = {
         if (targetUser.bot) {
             await interaction.reply({
                 content: '❌ You cannot send money to bots!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
             return;
         }
@@ -63,7 +63,7 @@ module.exports = {
             if (!validation.isValid) {
                 await interaction.reply({
                     content: `❌ ${validation.error}`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 return;
             }
@@ -182,9 +182,9 @@ module.exports = {
                 .setColor(0xFF0000);
 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
         }
     },

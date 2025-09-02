@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -97,7 +97,7 @@ module.exports = {
             } else {
                 await interaction.reply({
                     content: '❌ An error occurred during lockdown.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
         }

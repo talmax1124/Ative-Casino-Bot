@@ -2,7 +2,7 @@
  * Clock In Command - Start a shift
  */
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const logger = require('../../UTILS/logger');
 
 module.exports = {
@@ -16,11 +16,11 @@ module.exports = {
             if (!interaction.guild) {
                 return await interaction.reply({
                     content: '❌ This command can only be used in a server.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
             const userId = interaction.user.id;
             const guildId = interaction.guild.id;

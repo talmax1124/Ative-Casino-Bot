@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -31,7 +31,7 @@ module.exports = {
             if (!member.moderatable) {
                 return await interaction.reply({
                     content: '❌ I cannot mute this user. They may have higher permissions than me.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -42,7 +42,7 @@ module.exports = {
             if (!durationMs || durationMs > ms('28d')) {
                 return await interaction.reply({
                     content: '❌ Invalid duration. Please use a valid duration (max 28 days). Examples: 10m, 1h, 2d',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -75,7 +75,7 @@ module.exports = {
             
             await interaction.reply({
                 content: '❌ An error occurred while trying to mute the user.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

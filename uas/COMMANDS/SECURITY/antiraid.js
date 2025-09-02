@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -140,7 +140,7 @@ module.exports = {
             
             await interaction.reply({
                 content: '❌ An error occurred while configuring anti-raid.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

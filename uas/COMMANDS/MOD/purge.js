@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -24,7 +24,7 @@ module.exports = {
             const targetUser = interaction.options.getUser('user');
 
             // Defer reply since this might take a moment
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
             // Fetch messages
             const messages = await interaction.channel.messages.fetch({ limit: 100 });
@@ -78,7 +78,7 @@ module.exports = {
             } else {
                 await interaction.reply({
                     content: '❌ An error occurred while trying to delete messages.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
         }

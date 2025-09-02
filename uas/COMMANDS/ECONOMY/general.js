@@ -159,7 +159,7 @@ module.exports = {
                 if (!interaction.replied && !interaction.deferred) {
                     await interaction.reply({
                         content: '❌ An error occurred while checking balance. Please try again.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -167,7 +167,7 @@ module.exports = {
             // Invalid subcommand - should not happen but handle gracefully
             await interaction.reply({
                 content: '❌ Invalid subcommand. Please try again.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
             return;
         }
@@ -1303,7 +1303,7 @@ const xpStatusCommand = {
     name: 'xpstatus',
     description: 'Monitor XP system status and recent activity (Developer only)',
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         if (interaction.user.id !== '466050111680544798') {
             return interaction.editReply({ content: '❌ This command is for developers only.' });
