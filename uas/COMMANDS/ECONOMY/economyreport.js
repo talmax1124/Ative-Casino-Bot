@@ -3,7 +3,7 @@
  * Provides manual control over economy monitoring and reporting
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 // economyMonitor removed (Firebase dependency) - using mock implementation
 const economyMonitor = {
     generateReport: async (type) => ({
@@ -53,7 +53,7 @@ module.exports = {
                 footer: 'Economy Report'
             });
 
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         const reportType = interaction.options.getString('type');

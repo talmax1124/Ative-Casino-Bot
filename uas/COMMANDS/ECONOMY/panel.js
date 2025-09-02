@@ -3,7 +3,7 @@
  * Provides Developer, Admin, and Mod control panels
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const panelManager = require('../../UTILS/panelManager');
 const logger = require('../../UTILS/logger');
 
@@ -55,7 +55,7 @@ module.exports = {
 
             const errorResponse = {
                 embeds: [errorEmbed],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             };
 
             if (interaction.replied) {
@@ -93,9 +93,9 @@ module.exports = {
                 .setColor('#ff0000');
 
             if (interaction.replied) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     },
@@ -107,7 +107,7 @@ module.exports = {
                     .setTitle('❌ Access Denied')
                     .setDescription('You do not have admin permissions.')
                     .setColor('#ff0000')],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -149,7 +149,7 @@ module.exports = {
                     .setTitle('❌ Access Denied')
                     .setDescription('You do not have moderator permissions.')
                     .setColor('#ff0000')],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -234,7 +234,7 @@ module.exports = {
     },
 
     async handleGameStats(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const dbManager = require('../../UTILS/database');
@@ -277,7 +277,7 @@ module.exports = {
     },
 
     async handleActiveGames(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const { getAllActiveGames } = require('../../UTILS/common');
@@ -348,7 +348,7 @@ module.exports = {
     },
 
     async handleEconomyReport(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         const embed = new EmbedBuilder()
             .setTitle('📊 Economy Health Report')
@@ -365,7 +365,7 @@ module.exports = {
     },
 
     async handleUserActivity(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         const embed = new EmbedBuilder()
             .setTitle('📋 User Activity Report')
@@ -473,7 +473,7 @@ module.exports = {
     },
 
     async handleRecentActivity(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         const embed = new EmbedBuilder()
             .setTitle('📋 Recent Activity Log')
@@ -490,7 +490,7 @@ module.exports = {
     },
 
     async handleAbuseCheck(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const dbManager = require('../../UTILS/database');
@@ -616,11 +616,11 @@ module.exports = {
                         .setTitle('❌ Invalid User ID')
                         .setDescription('Please enter a valid Discord user ID (17-20 digits).')
                         .setColor('#ff0000')],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             const dbManager = require('../../UTILS/database');
             const { getGuildId, fmt } = require('../../UTILS/common');
@@ -672,7 +672,7 @@ module.exports = {
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     },
@@ -688,7 +688,7 @@ module.exports = {
                         .setTitle('❌ Invalid Confirmation')
                         .setDescription('You must type "RESET" to confirm this action.')
                         .setColor('#ff0000')],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -698,11 +698,11 @@ module.exports = {
                         .setTitle('❌ Invalid User ID')
                         .setDescription('Please enter a valid Discord user ID (17-20 digits).')
                         .setColor('#ff0000')],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             const dbManager = require('../../UTILS/database');
             const { getGuildId, sendLogMessage } = require('../../UTILS/common');
@@ -742,7 +742,7 @@ module.exports = {
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     },
@@ -758,11 +758,11 @@ module.exports = {
                         .setTitle('❌ Invalid User ID')
                         .setDescription('Please enter a valid Discord user ID (17-20 digits).')
                         .setColor('#ff0000')],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             const { getAllActiveGames } = require('../../UTILS/common');
             const activeGames = getAllActiveGames();
@@ -812,7 +812,7 @@ module.exports = {
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     },
@@ -828,11 +828,11 @@ module.exports = {
                         .setTitle('❌ Invalid User ID')
                         .setDescription('Please enter a valid Discord user ID (17-20 digits).')
                         .setColor('#ff0000')],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             const { sendLogMessage } = require('../../UTILS/common');
 
@@ -894,7 +894,7 @@ module.exports = {
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     },
@@ -912,7 +912,7 @@ module.exports = {
                         .setTitle('❌ Invalid User ID')
                         .setDescription('Please enter a valid Discord user ID (17-20 digits).')
                         .setColor('#ff0000')],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -922,11 +922,11 @@ module.exports = {
                         .setTitle('❌ Invalid Duration')
                         .setDescription('Please enter a valid duration between 1 and 168 hours (1 week max).')
                         .setColor('#ff0000')],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             const { sendLogMessage } = require('../../UTILS/common');
             const dbManager = require('../../UTILS/database');
@@ -997,7 +997,7 @@ module.exports = {
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     }

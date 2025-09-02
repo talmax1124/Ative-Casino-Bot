@@ -3,7 +3,7 @@
  * Updated: Discord.js v14 compatibility - MessageFlags.Ephemeral
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const logger = require('../../UTILS/logger');
 
 module.exports = {
@@ -17,11 +17,11 @@ module.exports = {
             if (!interaction.guild) {
                 return await interaction.reply({
                     content: '❌ This command can only be used in a server.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             const userId = interaction.user.id;
             const guildId = interaction.guild.id;

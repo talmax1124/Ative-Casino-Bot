@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -26,7 +26,7 @@ module.exports = {
             if (!targetChannel.manageable) {
                 return await interaction.reply({
                     content: '❌ I cannot manage this channel. Please check my permissions.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -94,7 +94,7 @@ module.exports = {
             try {
                 await interaction.followUp({
                     content: '❌ An error occurred while trying to nuke the channel.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             } catch (followUpError) {
                 logger.error('Error sending nuke error message:', followUpError);

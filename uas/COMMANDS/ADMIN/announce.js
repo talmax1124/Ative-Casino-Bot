@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -41,7 +41,7 @@ module.exports = {
             if (!targetChannel.permissionsFor(interaction.guild.members.me).has('SendMessages')) {
                 return await interaction.reply({
                     content: `❌ I don't have permission to send messages in ${targetChannel}.`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -83,7 +83,7 @@ module.exports = {
             // Confirm the announcement was sent
             await interaction.reply({
                 content: `✅ Announcement sent to ${targetChannel}!${mentionEveryone ? '\n⚠️ @everyone was mentioned.' : ''}`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
 
             logger.info(`Announcement sent to #${targetChannel.name} by ${interaction.user.username} (${interaction.user.id}): ${title}`);
@@ -93,7 +93,7 @@ module.exports = {
             
             await interaction.reply({
                 content: '❌ An error occurred while sending the announcement.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }

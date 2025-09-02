@@ -3,7 +3,7 @@
  * Includes balance, earn, work, beg, crime, and other economy features
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage, getTierDisplay, getEconomicTier, calculateDailyInterest } = require('../../UTILS/common');
 const { secureRandomInt, secureRandomFloat, secureRandomChance } = require('../../UTILS/rng');
@@ -159,7 +159,7 @@ module.exports = {
                 if (!interaction.replied && !interaction.deferred) {
                     await interaction.reply({
                         content: '❌ An error occurred while checking balance. Please try again.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -167,7 +167,7 @@ module.exports = {
             // Invalid subcommand - should not happen but handle gracefully
             await interaction.reply({
                 content: '❌ Invalid subcommand. Please try again.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -257,7 +257,7 @@ const earnCommand = {
                     color: UITemplates.getColors().WARNING
                 });
 
-                return await interaction.reply({ embeds: [cooldownEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [cooldownEmbed], ephemeral: true });
             }
 
             // Calculate earnings (15K-30K base)
@@ -314,7 +314,7 @@ const earnCommand = {
                         isLoss: false
                     });
 
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 } catch (replyError) {
                     logger.error(`Failed to send earn error reply: ${replyError.message}`);
                 }
@@ -351,7 +351,7 @@ const workCommand = {
                     .setDescription(`You're still at work! Come back in ${hours}h ${minutes}m`)
                     .setColor(0xFFFF00);
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             // Work scenarios (5K-30K range)
@@ -402,7 +402,7 @@ const workCommand = {
                         .setDescription('Failed to process work. Please try again.')
                         .setColor(0xFF0000);
 
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 } catch (replyError) {
                     logger.error(`Failed to send work error reply: ${replyError.message}`);
                 }
@@ -442,7 +442,7 @@ const begCommand = {
                     .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
                     .setFooter({ text: '🤲 Beg Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             // Beg scenarios (1K-10K range)
@@ -505,7 +505,7 @@ const begCommand = {
                         .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
                         .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 } catch (replyError) {
                     logger.error(`Failed to send beg error reply: ${replyError.message}`);
                 }
@@ -544,7 +544,7 @@ const crimeCommand = {
                     .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
                     .setFooter({ text: '🚨 Crime Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             // Crime scenarios (1K-5K range)
@@ -607,7 +607,7 @@ const crimeCommand = {
                         .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
                         .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 } catch (replyError) {
                     logger.error(`Failed to send crime error reply: ${replyError.message}`);
                 }
@@ -647,7 +647,7 @@ const heistCommand = {
                     .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
                     .setFooter({ text: '🎭 Heist Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             // Heist scenarios with different tasks (10K-30K range)
@@ -751,7 +751,7 @@ const heistCommand = {
                         .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
                         .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 } catch (replyError) {
                     logger.error(`Failed to send heist error reply: ${replyError.message}`);
                 }
@@ -783,7 +783,7 @@ const profileCommand = {
             if (!levelData) {
                 return await interaction.reply({ 
                     content: 'Failed to retrieve profile data. Please try again later.', 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             }
 
@@ -799,7 +799,7 @@ const profileCommand = {
                 try {
                     await interaction.reply({ 
                         content: 'An error occurred while fetching the profile.', 
-                        flags: MessageFlags.Ephemeral 
+                        ephemeral: true 
                     });
                 } catch (replyError) {
                     logger.error(`Failed to send profile error reply: ${replyError.message}`);
@@ -825,7 +825,7 @@ const leaderboardCommand = {
             if (!leaderboard || leaderboard.length === 0) {
                 return await interaction.reply({ 
                     content: 'No leaderboard data available yet.', 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             }
 
@@ -861,7 +861,7 @@ const leaderboardCommand = {
                 try {
                     await interaction.reply({ 
                         content: 'An error occurred while fetching the leaderboard.', 
-                        flags: MessageFlags.Ephemeral 
+                        ephemeral: true 
                     });
                 } catch (replyError) {
                     logger.error(`Failed to send leaderboard error reply: ${replyError.message}`);
@@ -897,7 +897,7 @@ const testXpCommand = {
         if (userId !== '466050111680544798') {
             return await interaction.reply({ 
                 content: '❌ This command is only available to the developer.', 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
 
@@ -914,7 +914,7 @@ const testXpCommand = {
             if (!result) {
                 return await interaction.reply({ 
                     content: '❌ Failed to add XP. Check logs for details.', 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             }
 
@@ -939,14 +939,14 @@ const testXpCommand = {
                 }
             }
 
-            await interaction.reply({ content: response, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: response, ephemeral: true });
 
         } catch (error) {
             logger.error(`Error in testxp command: ${error.message}`);
             
             await interaction.reply({ 
                 content: '❌ An error occurred while testing XP.', 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
     }
@@ -985,7 +985,7 @@ const setXpCommand = {
         if (userId !== '466050111680544798') {
             return await interaction.reply({ 
                 content: '❌ This command is only available to the developer.', 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
 
@@ -1004,7 +1004,7 @@ const setXpCommand = {
             if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
                 return await interaction.reply({ 
                     content: '❌ Database not initialized.', 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             }
 
@@ -1015,7 +1015,7 @@ const setXpCommand = {
             if (!oldData) {
                 return await interaction.reply({ 
                     content: '❌ Failed to get user data.', 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             }
 
@@ -1031,7 +1031,7 @@ const setXpCommand = {
             if (result.affectedRows === 0) {
                 return await interaction.reply({ 
                     content: '❌ Failed to set XP. Check logs for details.', 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             }
 
@@ -1057,14 +1057,14 @@ const setXpCommand = {
                 }
             }
 
-            await interaction.reply({ content: response, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: response, ephemeral: true });
 
         } catch (error) {
             logger.error(`Error in setxp command: ${error.message}`);
             
             await interaction.reply({ 
                 content: '❌ An error occurred while setting XP.', 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
     }
@@ -1089,7 +1089,7 @@ const debugXpCommand = {
         if (userId !== '466050111680544798') {
             return await interaction.reply({ 
                 content: '❌ This command is only available to the developer.', 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
 
@@ -1101,7 +1101,7 @@ const debugXpCommand = {
             if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
                 return await interaction.reply({ 
                     content: '❌ Database not initialized.', 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             }
 
@@ -1160,14 +1160,14 @@ const debugXpCommand = {
                 }
             }
 
-            await interaction.reply({ content: response, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: response, ephemeral: true });
 
         } catch (error) {
             logger.error(`Error in debugxp command: ${error.message}`, { error: error.stack });
             
             await interaction.reply({ 
                 content: `❌ An error occurred during XP debug: ${error.message}`, 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
     }
@@ -1192,7 +1192,7 @@ const fixXpCommand = {
         if (userId !== '466050111680544798') {
             return await interaction.reply({ 
                 content: '❌ This command is only available to the developer.', 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
 
@@ -1200,7 +1200,7 @@ const fixXpCommand = {
             const targetUser = interaction.options.getUser('user');
             const targetUserId = targetUser.id;
 
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             // Check database directly
             if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
@@ -1303,7 +1303,7 @@ const xpStatusCommand = {
     name: 'xpstatus',
     description: 'Monitor XP system status and recent activity (Developer only)',
     async execute(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         if (interaction.user.id !== '466050111680544798') {
             return interaction.editReply({ content: '❌ This command is for developers only.' });

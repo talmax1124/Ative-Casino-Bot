@@ -3,7 +3,7 @@
  * Displays economy health and allows multiplier adjustments
  */
 
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const economyAnalyzer = require('../../UTILS/economyAnalyzer');
 // Disable plinko canvas functionality to avoid Canvas module dependency
@@ -54,7 +54,7 @@ module.exports = {
         const isAdmin = userId === DEVELOPER_ID; // Add more admin checks as needed
 
         try {
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             switch (subcommand) {
                 case 'status':
@@ -81,7 +81,7 @@ module.exports = {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({ 
                     content: '❌ An error occurred while processing the economy command.',
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             } else {
                 await interaction.editReply({ 

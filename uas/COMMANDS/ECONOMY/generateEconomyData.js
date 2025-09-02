@@ -3,7 +3,7 @@
  * Creates realistic user behavior patterns and fraud cases for ML training
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 // economyDataGenerator removed (Firebase dependency) - using mock implementation
 const economyDataGenerator = {
     generateSampleUsers: async (count) => ({ generated: count, users: [] }),
@@ -64,11 +64,11 @@ module.exports = {
                     footer: 'Economy Data Generator'
                 });
 
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [embed], ephemeral: true });
                 return;
             }
 
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             // Show initial status
             const initialEmbed = buildSessionEmbed({

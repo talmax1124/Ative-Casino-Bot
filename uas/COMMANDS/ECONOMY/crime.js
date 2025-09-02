@@ -3,7 +3,7 @@
  * 1K-5K range with 30 minute cooldown
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../../UTILS/common');
 const { secureRandomInt } = require('../../UTILS/rng');
@@ -39,7 +39,7 @@ module.exports = {
                     .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
                     .setFooter({ text: '🚨 Crime Command • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             // Crime scenarios (1K-5K range)
@@ -118,7 +118,7 @@ module.exports = {
                 .setThumbnail('https://cdn.discordapp.com/emojis/1104440894461378560.webp')
                 .setFooter({ text: '🛠️ Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() });
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     }
 };

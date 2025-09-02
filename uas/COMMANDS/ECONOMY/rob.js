@@ -4,7 +4,7 @@
  * Cannot rob 3+ tiers higher or the developer
 */
 
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const { fmt, fmtFull, getGuildId, sendLogMessage, getEconomicTier, getAllTiers } = require('../../UTILS/common');
 const { secureRandomChance } = require('../../UTILS/rng');
@@ -41,7 +41,7 @@ module.exports = {
                 footer: 'Rob Command'
             });
 
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         // Developer protection
@@ -55,7 +55,7 @@ module.exports = {
                 footer: 'Rob Command'
             });
 
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         // Bot protection
@@ -69,7 +69,7 @@ module.exports = {
                 footer: 'Rob Command'
             });
 
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         try {
@@ -98,7 +98,7 @@ module.exports = {
                     footer: 'Rob Command'
                 });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             // Get tier information
@@ -129,7 +129,7 @@ module.exports = {
                     footer: 'Rob Command'
                 });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             // Check if target has money to rob
@@ -143,7 +143,7 @@ module.exports = {
                     footer: 'Rob Command'
                 });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             // Calculate success rate based on tier difference and random factors
@@ -300,7 +300,7 @@ module.exports = {
                 footer: 'Rob Command'
             });
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     }
 };

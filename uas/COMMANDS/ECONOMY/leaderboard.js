@@ -3,7 +3,7 @@
  * Displays user rankings based on total balance and game statistics
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const { fmt, fmtFull, getGuildId, getTierDisplay, getEconomicTier, getAllTiers } = require('../../UTILS/common');
 const logger = require('../../UTILS/logger');
@@ -57,7 +57,7 @@ module.exports = {
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     },
@@ -106,7 +106,7 @@ module.exports = {
             try {
                 await interaction.editReply({ embeds: [errorEmbed], components: [] });
             } catch {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     }

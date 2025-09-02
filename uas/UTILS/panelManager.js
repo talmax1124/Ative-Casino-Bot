@@ -3,7 +3,7 @@
  * Handles Developer, Admin, and Mod panels with dropdown actions
  */
 
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const dbManager = require('./database');
@@ -51,7 +51,7 @@ class PanelManager {
                     .setTitle('❌ Access Denied')
                     .setDescription('You do not have developer permissions.')
                     .setColor('#ff0000')],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             };
         }
 
@@ -188,7 +188,7 @@ class PanelManager {
         return {
             embeds: [embed],
             components: [row],
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         };
     }
 
@@ -202,7 +202,7 @@ class PanelManager {
                     .setTitle('❌ Access Denied')
                     .setDescription('You do not have admin permissions.')
                     .setColor('#ff0000')],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             };
         }
 
@@ -264,7 +264,7 @@ class PanelManager {
         return {
             embeds: [embed],
             components: [row],
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         };
     }
 
@@ -278,7 +278,7 @@ class PanelManager {
                     .setTitle('❌ Access Denied')
                     .setDescription('You do not have moderator permissions.')
                     .setColor('#ff0000')],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             };
         }
 
@@ -334,7 +334,7 @@ class PanelManager {
         return {
             embeds: [embed],
             components: [row],
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         };
     }
 
@@ -348,7 +348,7 @@ class PanelManager {
                     .setTitle('❌ Access Denied')
                     .setDescription('You do not have developer permissions.')
                     .setColor('#ff0000')],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -404,7 +404,7 @@ class PanelManager {
                     .setTitle('❌ Action Failed')
                     .setDescription(`Failed to execute action: ${error.message}`)
                     .setColor('#ff0000')],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -413,7 +413,7 @@ class PanelManager {
      * Handle Commands List Action
      */
     async handleCommands(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const devModule = require('../COMMANDS/dev');
@@ -462,7 +462,7 @@ class PanelManager {
             .setColor('#FFA500')
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     /**
@@ -475,14 +475,14 @@ class PanelManager {
             .setColor('#FFA500')
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     /**
      * Handle Logs Action
      */
     async handleLogs(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const fs = require('fs').promises;
@@ -530,7 +530,7 @@ class PanelManager {
             .setColor('#FFA500')
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     /**
@@ -543,7 +543,7 @@ class PanelManager {
             .setColor('#FFA500')
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     /**
@@ -556,7 +556,7 @@ class PanelManager {
             .setColor('#FFA500')
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     /**
@@ -623,7 +623,7 @@ class PanelManager {
             if (options.length === 0) {
                 await interaction.reply({
                     content: '❌ No users with recent activity found. Refund functionality requires recent game activity to identify users.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -643,14 +643,14 @@ class PanelManager {
             await interaction.reply({ 
                 embeds: [embed], 
                 components: [row], 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
             
         } catch (error) {
             logger.error(`Error in handleRefund: ${error.message}`);
             await interaction.reply({
                 content: 'An error occurred while loading user list.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -665,7 +665,7 @@ class PanelManager {
             if (activeGames.length === 0) {
                 await interaction.reply({
                     content: '❌ No active games found to stop.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -704,14 +704,14 @@ class PanelManager {
             await interaction.reply({ 
                 embeds: [embed], 
                 components: [row], 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
             
         } catch (error) {
             logger.error(`Error in handleStopGame: ${error.message}`);
             await interaction.reply({
                 content: 'An error occurred while loading active games.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -745,7 +745,7 @@ class PanelManager {
         await interaction.reply({ 
             embeds: [embed], 
             components: [row], 
-            flags: MessageFlags.Ephemeral 
+            ephemeral: true 
         });
     }
 
@@ -753,7 +753,7 @@ class PanelManager {
      * Handle Database Backup Action
      */
     async handleDatabaseBackup(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const backupData = await dbManager.createBackup();
@@ -788,7 +788,7 @@ class PanelManager {
      * Handle System Stats Action
      */
     async handleSystemStats(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const { stdout: cpuInfo } = await execAsync('top -l 1 | grep "CPU usage"');
@@ -832,7 +832,7 @@ class PanelManager {
             .setColor('#ff0000')
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
         await sendLogMessage(interaction.client, 'error', `Emergency shutdown initiated by ${interaction.user.tag}`);
 
         process.exit(1);
@@ -842,7 +842,7 @@ class PanelManager {
      * Handle Clear All Games Action
      */
     async handleClearAllGames(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const clearedGames = await clearActiveGame(null, true); // Clear all games
@@ -1038,9 +1038,9 @@ class PanelManager {
                 .setColor(0xFF0000);
                 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     }
@@ -1099,9 +1099,9 @@ class PanelManager {
                 .setColor(0xFF0000);
                 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     }
@@ -1121,7 +1121,7 @@ class PanelManager {
                         .setTitle('❌ Invalid Amount')
                         .setDescription('Please enter a valid positive number.')
                         .setColor('#ff0000')],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -1131,11 +1131,11 @@ class PanelManager {
                         .setTitle('❌ Invalid User ID')
                         .setDescription('Please enter a valid Discord user ID (17-20 digits).')
                         .setColor('#ff0000')],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             const guildId = getGuildId(interaction.guild);
             await dbManager.updateUserBalance(userId, guildId, amount);
@@ -1168,7 +1168,7 @@ class PanelManager {
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     }
@@ -1206,9 +1206,9 @@ class PanelManager {
                 .setColor('#ff0000');
 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     }
@@ -1223,7 +1223,7 @@ class PanelManager {
                     .setTitle('❌ Access Denied')
                     .setDescription('You do not have developer permissions.')
                     .setColor('#ff0000')],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 

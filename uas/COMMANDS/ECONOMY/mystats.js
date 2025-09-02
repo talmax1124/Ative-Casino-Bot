@@ -3,7 +3,7 @@
  * Displays all game stats in a unified panel with pagination
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const { fmt, getGuildId, getTierDisplay, getEconomicTier } = require('../../UTILS/common');
 const logger = require('../../UTILS/logger');
@@ -62,7 +62,7 @@ module.exports = {
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     },
@@ -113,7 +113,7 @@ module.exports = {
                 await interaction.editReply({ embeds: [errorEmbed], components: [] });
             } catch {
                 // If edit fails, try followUp
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     },

@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const logger = require('../../UTILS/logger');
 
@@ -26,7 +26,7 @@ module.exports = {
             if (!member.isCommunicationDisabled()) {
                 return await interaction.reply({
                     content: '❌ This user is not currently muted.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -55,7 +55,7 @@ module.exports = {
             
             await interaction.reply({
                 content: '❌ An error occurred while trying to unmute the user.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }

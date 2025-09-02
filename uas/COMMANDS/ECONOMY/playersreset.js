@@ -3,7 +3,7 @@
  * Admin-only command to reset all players and give them random starting money
  */
 
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const { fmtFull, sendLogMessage, getGuildId } = require('../../UTILS/common');
 const { buildSessionEmbed } = require('../../UTILS/gameSessionKit');
@@ -57,7 +57,7 @@ module.exports = {
                 footer: 'Admin Protection Active'
             });
             
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         const confirm = interaction.options.getBoolean('confirm');
@@ -85,7 +85,7 @@ module.exports = {
                 footer: 'Set confirm to True to proceed'
             });
 
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         try {

@@ -3,7 +3,7 @@
  * Combines all economy commands (/earn, /beg, /crime, /heist) into one
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../../UTILS/database');
 const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage } = require('../../UTILS/common');
 const { secureRandomInt } = require('../../UTILS/rng');
@@ -52,7 +52,7 @@ module.exports = {
                     .setThumbnail(interaction.user.displayAvatarURL())
                     .setFooter({ text: '🔒 EarnMoney Command • Voting Required' });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             const balance = await dbManager.getUserBalance(userId, guildId);
@@ -84,7 +84,7 @@ module.exports = {
                     .setThumbnail(interaction.user.displayAvatarURL())
                     .setFooter({ text: '⏰ EarnMoney Command • All on Cooldown' });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             // Update balance with total earnings
@@ -152,7 +152,7 @@ module.exports = {
                         isLoss: false
                     });
 
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 } catch (replyError) {
                     logger.error(`Failed to send earnmoney error reply: ${replyError.message}`);
                 }

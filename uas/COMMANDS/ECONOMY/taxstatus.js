@@ -2,7 +2,7 @@
  * Tax Status Command - Check your inactivity tax status
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { fmt, getGuildId } = require('../../UTILS/common');
 const logger = require('../../UTILS/logger');
 
@@ -34,7 +34,7 @@ module.exports = {
                     .setDescription('Unable to retrieve tax status. Please try again.')
                     .setColor(0xFF0000);
 
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             let description = '';
@@ -100,7 +100,7 @@ module.exports = {
                 .setDescription('An error occurred while checking tax status.')
                 .setColor(0xFF0000);
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     }
 };

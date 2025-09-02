@@ -2,7 +2,7 @@
  * Interaction Create Event - Handle slash commands and interactions
  */
 
-const { EmbedBuilder, MessageFlags } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -41,7 +41,7 @@ module.exports = {
                 if (interaction.replied || interaction.deferred) {
                     await interaction.editReply({ embeds: [errorEmbed] });
                 } else {
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 }
             } catch (replyError) {
                 logger.error('Failed to send error reply:', replyError);

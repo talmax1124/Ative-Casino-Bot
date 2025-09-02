@@ -2,7 +2,7 @@
  * Wealth Status Command - Check your wealth tax status and gambling activity
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { fmt, getGuildId } = require('../../UTILS/common');
 const logger = require('../../UTILS/logger');
 
@@ -34,7 +34,7 @@ module.exports = {
                     .setDescription('Unable to retrieve wealth status. Please try again.')
                     .setColor(0xFF0000);
 
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             let description = '';
@@ -121,7 +121,7 @@ module.exports = {
                 .setDescription('An error occurred while checking wealth status.')
                 .setColor(0xFF0000);
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     }
 };
