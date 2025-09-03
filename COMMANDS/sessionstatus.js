@@ -7,7 +7,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
 const dbManager = require('../UTILS/database');
-const { getGuildId, fmt } = require('../UTILS/common');
+const { getGuildId, fmt, getActiveGame, clearActiveGame } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -40,9 +40,9 @@ module.exports = {
             // Debug all sessions
             sessionManager.debugSessions();
             
-            // Get user session
-            const activeSession = sessionManager.getActiveSession(userId);
-            const userSessions = activeSession ? [activeSession] : [];
+            // Get user sessions via Unified Session Manager
+            const activeSession = sessionManager.getUserActiveSession(userId);
+            const userSessions = sessionManager.getUserSessions(userId);
             
             // Get user balance to check legacy flags
             const balance = await dbManager.getUserBalance(userId, guildId);
@@ -93,8 +93,8 @@ module.exports = {
                 `Session ID: ${activeSession.sessionId}\n` +
                 `Game Type: ${activeSession.gameType}\n` +
                 `Bet Amount: ${fmt(activeSession.betAmount)}\n` +
-                `Started: <t:${Math.floor(activeSession.startTime / 1000)}:R>\n` +
-                `Active: ${activeSession.active}` :
+                `Started: <t:${Math.floor((activeSession.createdAt || Date.now()) / 1000)}:R>\n` +
+                `State: ${activeSession.state}` :
                 'No active sessions';
             
             embed.addFields(
@@ -147,21 +147,11 @@ module.exports = {
             // System status field (admin only)
             if (isAdmin) {
                 const stats = sessionManager.getStats();
-                
                 embed.addFields({
                     name: '📊 System Status',
                     value: `Total Active: ${stats.activeSessions}\n` +
                            `Total Sessions: ${stats.totalSessions}\n` +
                            `Users with Sessions: ${stats.usersWithSessions}`,
-                    inline: true
-                });
-                
-                embed.addFields({
-                    name: '🛡️ Guard Status',
-                    value: `Active Locks: ${guardStatus.activeLocks}\n` +
-                           `Recovery Attempts: ${guardStatus.recoveryAttempts}\n` +
-                           `Recent Conflicts: ${guardStatus.conflictStats.recentCount}\n` +
-                           `Total Conflicts: ${guardStatus.conflictStats.total}`,
                     inline: true
                 });
             }
@@ -220,24 +210,40 @@ module.exports = {
      */
     async attemptFixes(userId, guildId) {
         const results = [];
-        
         try {
-            // Force cleanup using SessionGuard
+            // Snapshot legacy states
+            const beforeBalance = await dbManager.getUserBalance(userId, guildId);
+            const beforeLegacy = getActiveGame(userId);
+
+            // Force cleanup sessions (also clears DB game_active)
             const cleanupResult = await sessionManager.forceCleanupUser(userId, guildId, 'Session status fix');
-            
+
             if (cleanupResult.success) {
                 results.push('✅ Force cleanup completed');
-                results.push('✅ All sessions cancelled');
-                results.push('✅ Legacy flags cleared');
-                results.push('✅ Locks and recovery attempts reset');
+                results.push(`✅ Sessions cancelled: ${cleanupResult.sessionsCleaned}`);
+                if (cleanupResult.totalRefunded > 0) {
+                    results.push(`💸 Refunded: ${fmt(cleanupResult.totalRefunded)}`);
+                }
+
+                // Re-check legacy flags and registry
+                const afterBalance = await dbManager.getUserBalance(userId, guildId);
+                if (beforeBalance.game_active && !afterBalance.game_active) {
+                    results.push('🧹 Cleared DB legacy flag: game_active');
+                }
+
+                // Clear legacy registry if present
+                const stillLegacy = getActiveGame(userId);
+                if (stillLegacy) {
+                    clearActiveGame(userId);
+                    results.push(`🧹 Cleared legacy registry entry: ${stillLegacy}`);
+                }
             } else {
                 results.push(`❌ Cleanup failed: ${cleanupResult.error}`);
             }
-            
         } catch (error) {
             results.push(`❌ Fix error: ${error.message}`);
         }
-        
+
         return results.join('\n');
     },
 

@@ -231,10 +231,10 @@ module.exports = {
                 logger.info(`Big matrix slots win: ${interaction.user.tag} (${userId}) won ${fmt(result.payout)} with ${result.multiplier}x multiplier`);
             }
 
-            // Complete session
+            // Complete session (payout already processed via PayoutManager above)
             await sessionManager.endSession(sessionResult.sessionId, {
                 outcome: result.won ? 'WON' : 'LOST',
-                payout: result.payout,
+                payout: 0,
                 won: result.won,
                 netChange: result.payout - betAmount
             });

@@ -584,7 +584,7 @@ module.exports = {
         // Cancel session if it exists
         if (gameData.sessionId) {
             try {
-                await GameSessionIntegrator.cancelGameSession(gameData.sessionId, 'User cancelled game');
+                await sessionManager.cancelSession(gameData.sessionId, 'User cancelled game', true);
             } catch (sessionError) {
                 logger.error(`Failed to cancel duck game session: ${sessionError.message}`);
             }
@@ -777,9 +777,7 @@ module.exports = {
                 won: won
             });
 
-            if (won && payout > 0) {
-                await PayoutManager.processGamePayout(gameResult);
-            }
+            // Payout handled via SessionManager below
 
             // Clean up
             activeGames.delete(gameSession.userId);

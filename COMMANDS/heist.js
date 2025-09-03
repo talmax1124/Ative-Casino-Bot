@@ -8,6 +8,7 @@ const dbManager = require('../UTILS/database');
 const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const { GameType } = require('../UTILS/gameUtils');
 const sessionManager = require('../UTILS/sessionManager');
 
 const logger = require('../UTILS/logger');
@@ -137,9 +138,8 @@ module.exports = {
 
             // Update balance and timestamp
             const newWallet = balance.wallet + earning;
-            await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank, {
-                last_heist_ts: now
-            });
+            // Update only the cooldown timestamp; sessionManager will handle the wallet credit
+            await dbManager.setUserBalance(userId, guildId, null, null, { last_heist_ts: now });
 
             const embed = buildSessionEmbed({
                 title: `🎭 ${interaction.user.displayName}'s Heist`,

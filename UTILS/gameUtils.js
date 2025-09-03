@@ -24,6 +24,7 @@ const {
     safeSubtract
 } = require('./common');
 const logger = require('./logger');
+const sessionManager = require('./sessionManager');
 
 // ========================= ENUMS AND CONSTANTS =========================
 
@@ -120,16 +121,39 @@ class PayoutManager {
         // Ensure user exists in database
         await dbManager.ensureUser(userId, interaction.user.displayName);
         
-        // Check if user already has active game
+        // Defensive legacy lock auto-clear using Unified Session Manager
         if (hasActiveGame(userId)) {
-            return new ValidationResult({
-                isValid: false,
-                errorEmbed: buildGameActiveEmbed()
-            });
+            try {
+                const canCreate = await sessionManager.canCreateSession(userId, guildId, gameType);
+                if (canCreate && canCreate.allowed) {
+                    // Legacy registry says active, but SessionManager allows creation -> clear stale lock
+                    clearActiveGame(userId);
+                } else {
+                    return new ValidationResult({
+                        isValid: false,
+                        errorEmbed: buildGameActiveEmbed()
+                    });
+                }
+            } catch (_) {
+                return new ValidationResult({
+                    isValid: false,
+                    errorEmbed: buildGameActiveEmbed()
+                });
+            }
         }
         
         // Get current balance
         const balance = await dbManager.getUserBalance(userId, guildId);
+        
+        // If database legacy flag is set but no active sessions, clear it
+        try {
+            if (balance.game_active) {
+                const active = sessionManager.getUserActiveSession(userId);
+                if (!active) {
+                    await dbManager.updateUserBalance(userId, guildId, 0, 0, { game_active: false });
+                }
+            }
+        } catch (_) {}
         const currentWallet = balance.wallet;
         
         // Parse and resolve amount
@@ -193,8 +217,13 @@ class PayoutManager {
             });
         }
         
-        // Set active game (only for legacy games, modern games use GameSessionIntegrator)
-        const modernGames = ['blackjack', 'slots', 'crash', 'plinko', 'uno', 'wordchain', 'fishing', 'battleship'];
+        // Set active game (only for legacy games, modern games use Unified Session Manager)
+        // Comprehensive list to avoid touching legacy registry for any supported game
+        const modernGames = [
+            'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
+            'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
+            'war','keno','spades','31','thirtyone','poker','lottery'
+        ];
         if (!modernGames.includes(gameType.toLowerCase())) {
             setActiveGame(userId, gameType);
         }
@@ -289,8 +318,12 @@ class PayoutManager {
                 profileData
             );
             
-            // Clear active game (only for legacy games, modern games use GameSessionIntegrator)
-            const modernGames = ['blackjack', 'slots', 'crash', 'plinko', 'uno', 'wordchain', 'fishing', 'battleship'];
+            // Clear active game (only for legacy games, modern games use Unified Session Manager)
+            const modernGames = [
+                'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
+                'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
+                'war','keno','spades','31','thirtyone','poker','lottery'
+            ];
             if (!modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);
             }
@@ -308,8 +341,12 @@ class PayoutManager {
             
         } catch (error) {
             logger.error(`Error processing payout for ${userId}: ${error.message}`);
-            // Clear active game (only for legacy games, modern games use GameSessionIntegrator)
-            const modernGames = ['blackjack', 'slots', 'crash', 'plinko', 'uno', 'wordchain', 'fishing', 'battleship'];
+            // Clear active game (only for legacy games, modern games use Unified Session Manager)
+            const modernGames = [
+                'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
+                'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
+                'war','keno','spades','31','thirtyone','poker','lottery'
+            ];
             if (!modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);
             }

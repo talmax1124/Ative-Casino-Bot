@@ -121,7 +121,7 @@ module.exports = {
      * Show main release panel
      */
     async showMainPanel(interaction) {
-        const userSessions = await GameSessionIntegrator.getActiveUserSessions(interaction.user.id);
+        const userSessions = sessionManager.getUserSessions(interaction.user.id).filter(s => s.state === 'active');
         const legacyGameType = getActiveGame(interaction.user.id);
         const isDeveloper = interaction.user.id === DEVELOPER_ID;
         const isAdmin = interaction.member?.permissions.has(PermissionFlagsBits.Administrator) || isDeveloper;
@@ -210,7 +210,7 @@ module.exports = {
      * Show user's sessions in detail
      */
     async showUserSessions(interaction) {
-        const userSessions = await GameSessionIntegrator.getActiveUserSessions(interaction.user.id);
+        const userSessions = sessionManager.getUserSessions(interaction.user.id).filter(s => s.state === 'active');
         const legacyGameType = getActiveGame(interaction.user.id);
 
         let description = '**Your Active Game Sessions**\n\n';
@@ -304,7 +304,7 @@ module.exports = {
 
             // Use unified session manager for cleanup
             const guildId = interaction.guildId;
-            const cleanupResult = await unifiedSessionManager.forceCleanupUser(
+            const cleanupResult = await sessionManager.forceCleanupUser(
                 interaction.user.id, 
                 guildId, 
                 'Manual release via /release command'
@@ -370,7 +370,7 @@ module.exports = {
      */
     async showAdminPanel(interaction, targetUser = null) {
         const isDeveloper = interaction.user.id === DEVELOPER_ID;
-        const allSessions = [];
+        const allSessions = Array.from(sessionManager.sessions.values()).filter(s => s.state === 'active');
         const allLegacySessions = getAllActiveGames();
 
         let description = `**🛠️ Admin Session Management Panel**\n\n`;

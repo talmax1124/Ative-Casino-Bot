@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage, clearActiveGame } = require('../UTILS/common');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { 
@@ -310,7 +310,8 @@ module.exports = {
                 channelId,
                 gameType: SMGameType.RPS,
                 betAmount: game.potAmount,
-                betPreDeducted: true,
+                // Let SessionManager deduct player 2's bet and set game_active
+                betPreDeducted: false,
                 timeout: 300000, // 5 minutes
                 metadata: {
                     gamePhase: 'playing',
@@ -332,8 +333,7 @@ module.exports = {
             // Store player2's session ID in the game
             game.player2SessionId = player2SessionResult.sessionId;
 
-            // Deduct bet from player 2 (already done by GameSessionIntegrator)
-            const newPlayer2Wallet = player2Balance.wallet - game.potAmount;
+            // Bet for player 2 has been deducted by SessionManager above
 
             // Add player 2 to the game
             game.addPlayer2(player2Id, player2Name);
@@ -468,57 +468,41 @@ module.exports = {
             // Game active status handled by SessionManager
             // Legacy flag clearing removed
 
+            // Determine payouts for each player
+            let p1Payout = 0;
+            let p2Payout = 0;
             if (finalWinner === 0) {
-                // Tie game - refund player (bot games don't involve player 2 wallet)
-                if (game.vsBot) {
-                    await dbManager.updateUserBalance(game.player1Id, guildId, { 
-                        wallet: (await dbManager.getUserBalance(game.player1Id, guildId)).wallet + game.potAmount 
-                    });
-                    // Record tie result for bot game
-                    await dbManager.updateUserStats(game.player1Id, guildId, 'rps', false, game.potAmount, 0);
-                } else {
-                    // Regular multiplayer tie - refund both players
-                    await dbManager.updateUserBalance(game.player1Id, guildId, { 
-                        wallet: (await dbManager.getUserBalance(game.player1Id, guildId)).wallet + game.potAmount 
-                    });
-                    await dbManager.updateUserBalance(game.player2Id, guildId, { 
-                        wallet: (await dbManager.getUserBalance(game.player2Id, guildId)).wallet + game.potAmount 
-                    });
-
-                    // Record tie results
-                    await dbManager.updateUserStats(game.player1Id, guildId, 'rps', false, game.potAmount, 0);
+                // Tie: refund bets
+                p1Payout = game.potAmount;
+                if (!game.vsBot) p2Payout = game.potAmount;
+                // Record tie stats
+                await dbManager.updateUserStats(game.player1Id, guildId, 'rps', false, game.potAmount, 0);
+                if (!game.vsBot) {
                     await dbManager.updateUserStats(game.player2Id, guildId, 'rps', false, game.potAmount, 0);
                 }
             } else {
-                // Someone won
-                const winnerId = finalWinner === 1 ? game.player1Id : game.player2Id;
-                const loserId = finalWinner === 1 ? game.player2Id : game.player1Id;
-                const winnerName = finalWinner === 1 ? game.player1Name : game.player2Name;
-                const loserName = finalWinner === 1 ? game.player2Name : game.player1Name;
-
+                // Win/Loss
                 if (game.vsBot) {
-                    // Bot game - only update human player
+                    // Only player 1 is a real user
                     if (finalWinner === 1) {
-                        // Player wins vs bot - pay out 2x their bet (original bet + winnings)
-                        const winnings = game.potAmount * 2; // Player gets 2x their bet when winning vs bot
-                        await dbManager.updateUserBalance(game.player1Id, guildId, { 
-                            wallet: (await dbManager.getUserBalance(game.player1Id, guildId)).wallet + winnings 
-                        });
-                        await dbManager.updateUserStats(game.player1Id, guildId, 'rps', true, game.potAmount, winnings);
+                        p1Payout = game.potAmount * 2; // return bet + profit
+                        await dbManager.updateUserStats(game.player1Id, guildId, 'rps', true, game.potAmount, p1Payout);
                     } else {
-                        // Bot wins - player loses bet (already deducted)
                         await dbManager.updateUserStats(game.player1Id, guildId, 'rps', false, game.potAmount, 0);
                     }
                 } else {
-                    // Regular multiplayer game
-                    // Give prize to winner
-                    await dbManager.updateUserBalance(winnerId, guildId, { 
-                        wallet: (await dbManager.getUserBalance(winnerId, guildId)).wallet + game.totalPot 
-                    });
-
-                    // Record game results
-                    await dbManager.updateUserStats(winnerId, guildId, 'rps', true, game.potAmount, game.totalPot);
-                    await dbManager.updateUserStats(loserId, guildId, 'rps', false, game.potAmount, 0);
+                    // Multiplayer
+                    if (finalWinner === 1) {
+                        p1Payout = game.totalPot; // both bets to winner
+                        p2Payout = 0;
+                        await dbManager.updateUserStats(game.player1Id, guildId, 'rps', true, game.potAmount, p1Payout);
+                        await dbManager.updateUserStats(game.player2Id, guildId, 'rps', false, game.potAmount, 0);
+                    } else if (finalWinner === 2) {
+                        p1Payout = 0;
+                        p2Payout = game.totalPot;
+                        await dbManager.updateUserStats(game.player2Id, guildId, 'rps', true, game.potAmount, p2Payout);
+                        await dbManager.updateUserStats(game.player1Id, guildId, 'rps', false, game.potAmount, 0);
+                    }
                 }
             }
 
@@ -550,15 +534,13 @@ module.exports = {
             logger.info(`RPS game completed in channel ${channelId}: ${finalWinner === 0 ? 'Tie' : 
                        finalWinner === 1 ? `${game.player1Name} wins` : `${game.player2Name} wins`}`);
 
-            // Complete the game sessions for both players
+            // Complete the game sessions for both players using SessionManager (handles wallet credit + flag)
             if (game.sessionId) {
                 try {
-                    // Complete player 1 session
                     await sessionManager.endSession(game.sessionId, {
-                        gameResult: finalWinner === 0 ? 'tie' : (finalWinner === 1 ? 'win' : 'loss'),
-                        finalScore: `${game.player1Wins}-${game.player2Wins}`,
-                        opponent: game.player2Name,
-                        prizePaid: finalWinner === 1 ? game.totalPot : (finalWinner === 0 && game.vsBot ? game.potAmount : 0)
+                        payout: p1Payout,
+                        won: finalWinner === 1,
+                        reason: finalWinner === 0 ? 'completed' : 'completed'
                     });
                     logger.info(`Completed RPS session ${game.sessionId} for player 1 (${game.player1Id})`);
                 } catch (sessionError) {
@@ -570,10 +552,9 @@ module.exports = {
             if (game.player2SessionId && !game.vsBot) {
                 try {
                     await sessionManager.endSession(game.player2SessionId, {
-                        gameResult: finalWinner === 0 ? 'tie' : (finalWinner === 2 ? 'win' : 'loss'),
-                        finalScore: `${game.player2Wins}-${game.player1Wins}`,
-                        opponent: game.player1Name,
-                        prizePaid: finalWinner === 2 ? game.totalPot : 0
+                        payout: p2Payout,
+                        won: finalWinner === 2,
+                        reason: 'completed'
                     });
                     logger.info(`Completed RPS session ${game.player2SessionId} for player 2 (${game.player2Id})`);
                 } catch (sessionError) {
@@ -583,6 +564,10 @@ module.exports = {
 
             // Remove game from active games
             endRPSGame(channelId);
+
+            // Extra safety: clear any legacy active-game flags
+            try { clearActiveGame(game.player1Id); } catch {}
+            if (!game.vsBot && game.player2Id) { try { clearActiveGame(game.player2Id); } catch {} }
 
         } catch (error) {
             logger.error(`Error ending RPS session: ${error.message}`, error);

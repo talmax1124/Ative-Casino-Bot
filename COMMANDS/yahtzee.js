@@ -520,7 +520,7 @@ module.exports = {
                 if (game.gameEnded) {
                     await this.endGame(interaction, userId, guildId, sessionId);
                 } else {
-                    const balance = game.betAmount > 0 ? await dbManager.getBalance(userId, guildId) : null;
+                const balance = game.betAmount > 0 ? await dbManager.getUserBalance(userId, guildId) : null;
                     await updateGameDisplay(interaction, game, balance);
                 }
             }
@@ -535,25 +535,20 @@ module.exports = {
             const { game } = gameData;
             const result = game.getResult();
 
-            // Process payout
+            // Compute payout (SessionManager will handle the credit)
             let payout = 0;
             let balanceChange = 0;
-            
             if (game.betAmount > 0) {
                 payout = result.payout;
                 balanceChange = payout - game.betAmount;
-                
-                if (payout > 0) {
-                    await PayoutManager.processPayout(userId, guildId, payout);
-                }
             }
 
             // Update display with final results
-            const balance = game.betAmount > 0 ? await dbManager.getBalance(userId, guildId) : null;
+            const balance = game.betAmount > 0 ? await dbManager.getUserBalance(userId, guildId) : null;
             await updateGameDisplay(interaction, game, balance);
 
-            // End session
-            await GameSessionIntegrator.endSession(sessionId, result.won ? GameResult.WIN : GameResult.LOSS, payout);
+            // End session (process payout + clear flags)
+            await sessionManager.endSession(sessionId, { payout, won: !!result.won, reason: 'completed' });
 
             // Add XP
             if (game.betAmount > 0) {
@@ -598,9 +593,6 @@ module.exports = {
             let refund = 0;
             if (game.rollsLeft === 3 && game.currentRound === 1) {
                 refund = game.betAmount;
-                if (refund > 0) {
-                    await PayoutManager.processPayout(userId, guildId, refund);
-                }
             }
 
             // End session
@@ -772,9 +764,6 @@ module.exports = {
             let refund = 0;
             if (game.rollsLeft === 3 && game.currentRound === 1) {
                 refund = game.betAmount;
-                if (refund > 0) {
-                    await PayoutManager.processPayout(userId, guildId, refund);
-                }
             }
 
             // End session

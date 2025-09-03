@@ -127,7 +127,7 @@ class UASConnector {
             logger.info(`UAS Connector: Releasing sessions for user ${userId} requested by ${requestedBy}`);
 
             // Use unified session manager for force cleanup
-            const result = await unifiedSessionManager.forceCleanupUser(
+            const result = await sessionManager.forceCleanupUser(
                 userId, 
                 guildId, 
                 `UAS release requested by ${requestedBy}`
@@ -176,13 +176,13 @@ class UASConnector {
                 };
             }
 
-            const result = await unifiedSessionManager.canStartGame(userId, guildId, gameType);
-
+            const result = await sessionManager.canCreateSession(userId, guildId, gameType);
             return {
                 success: true,
-                canStart: result.canStart,
+                canStart: !!result.allowed,
                 reason: result.reason,
-                activeSession: result.activeSession || null
+                details: result,
+                activeSession: result.existingSession || null
             };
 
         } catch (error) {
@@ -208,15 +208,14 @@ class UASConnector {
                 };
             }
 
-            const stats = unifiedSessionManager.getStats();
-
+            const stats = sessionManager.getStats();
             return {
                 success: true,
                 stats: {
                     totalSessions: stats.totalSessions,
                     activeSessions: stats.activeSessions,
-                    uniqueUsers: stats.uniqueUsers,
-                    locks: stats.locks
+                    uniqueUsers: stats.usersWithSessions,
+                    locks: (sessionManager.locks ? sessionManager.locks.size : undefined)
                 }
             };
 
@@ -253,16 +252,16 @@ class UASConnector {
 
             logger.warn(`UAS Connector: EMERGENCY CLEANUP requested by ${requestedBy}`);
 
-            const stats = unifiedSessionManager.getStats();
+            const stats = sessionManager.getStats();
             const sessionsCleaned = stats.activeSessions;
 
             // Force cleanup all sessions
-            const allSessions = Array.from(unifiedSessionManager.sessions.keys());
+            const allSessions = Array.from(sessionManager.sessions.keys());
             let cleanedCount = 0;
 
             for (const sessionId of allSessions) {
                 try {
-                    await unifiedSessionManager.cancelSession(sessionId, `Emergency cleanup by ${requestedBy}`, true);
+                    await sessionManager.cancelSession(sessionId, `Emergency cleanup by ${requestedBy}`, true);
                     cleanedCount++;
                 } catch (error) {
                     logger.error(`Failed to cleanup session ${sessionId}: ${error.message}`);

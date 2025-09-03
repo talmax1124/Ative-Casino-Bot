@@ -393,21 +393,23 @@ class BingoGameSession {
         this.gameEnded = true;
         this.stopAutoCalling();
         
-        // Complete session if it exists
-        if (this.sessionId) {
-            try {
-                const totalPot = this.players.size * this.starterBet;
-                const hasWinners = this.winners && this.winners.length > 0;
-                
-                await sessionManager.endSession(this.sessionId, {
-                    outcome: hasWinners ? 'WON' : 'LOST',
-                    payout: hasWinners ? totalPot : 0,
-                    won: hasWinners,
-                    netChange: hasWinners ? totalPot - this.starterBet : -this.starterBet
+        // Complete sessions for all players
+        try {
+            const totalPot = this.players.size * this.starterBet;
+            const winners = this.winners || [];
+            const prizePerWinner = winners.length > 0 ? (totalPot / winners.length) : 0;
+            for (const player of this.players.values()) {
+                const isWinner = winners.some(w => w.userId === player.userId);
+                const sessionId = player.sessionId || (isWinner ? this.sessionId : null);
+                if (!sessionId) continue;
+                await sessionManager.endSession(sessionId, {
+                    payout: isWinner ? prizePerWinner : 0,
+                    won: isWinner,
+                    reason: 'completed'
                 });
-            } catch (error) {
-                console.error('Failed to complete Bingo session:', error);
             }
+        } catch (error) {
+            console.error('Failed to complete Bingo sessions:', error);
         }
     }
 

@@ -331,7 +331,7 @@ module.exports = {
                 // Complete session
                 await sessionManager.endSession(sessionId, {
                     outcome: 'BLACKJACK',
-                    payout: result.payout,
+                    payout: 0, // Payout already processed by PayoutManager
                     won: result.won,
                     finalResult: result
                 });

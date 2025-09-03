@@ -124,8 +124,13 @@ module.exports = {
 
             // Create new game
             const game = startBingoGame(channelId, guildId, betAmount);
-            game.sessionId = sessionResult.sessionId; // Store session ID
+            game.sessionId = sessionResult.sessionId; // Store host session ID
             const success = game.addPlayer(userId, `<@${userId}>`);
+            // Attach host player's session ID for end-game processing
+            if (success) {
+                const hostPlayer = game.players.get(userId);
+                if (hostPlayer) hostPlayer.sessionId = sessionResult.sessionId;
+            }
 
             if (!success) {
                 // Complete session and refund if couldn't create game
@@ -334,6 +339,38 @@ module.exports = {
                 // Refund if couldn't add player using PayoutManager
                 await PayoutManager.refundBet(userId, guildId, game.starterBet, 'Failed to join BINGO game');
                 const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - Failed to join game (max players reached)!`);
+                const buttons = game.createLobbyButtons();
+                await interaction.update({ embeds: [embed], components: buttons });
+                return;
+            }
+
+            // Create a unified session for the joining player (bet already deducted)
+            try {
+                const joinSession = await sessionManager.createSession({
+                    userId,
+                    guildId,
+                    channelId,
+                    gameType: 'bingo',
+                    betAmount: game.starterBet,
+                    betPreDeducted: true,
+                    timeout: 900000,
+                    metadata: { gamePhase: 'lobby', multiplayer: true },
+                    interaction
+                });
+                if (!joinSession.success) {
+                    await PayoutManager.refundBet(userId, guildId, game.starterBet, 'Failed to create BINGO session');
+                    game.removePlayer(userId);
+                    const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - Failed to join game (session error)!`);
+                    const buttons = game.createLobbyButtons();
+                    await interaction.update({ embeds: [embed], components: buttons });
+                    return;
+                }
+                const player = game.players.get(userId);
+                if (player) player.sessionId = joinSession.sessionId;
+            } catch (sessErr) {
+                await PayoutManager.refundBet(userId, guildId, game.starterBet, 'Session error');
+                game.removePlayer(userId);
+                const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - Failed to join (session error)!`);
                 const buttons = game.createLobbyButtons();
                 await interaction.update({ embeds: [embed], components: buttons });
                 return;

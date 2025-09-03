@@ -190,13 +190,11 @@ async function handleBuffaloBonusStart(interaction, userId, betAmount, finalBala
         // Create bonus session
         const bonusSession = new BuffaloBonusSession(userId, betAmount, finalBalance, guildId);
         activeBonusGames.set(userId, bonusSession);
-        setActiveGame(userId, 'multi_slots');
 
         // Set timeout for bonus game
         TimeoutManager.setTimeout(userId, 300, () => {
             if (activeBonusGames.has(userId)) {
                 activeBonusGames.delete(userId);
-                clearActiveGame(userId);
             }
         });
 

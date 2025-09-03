@@ -27,17 +27,8 @@ async function ensureNoActiveGame(interaction) {
 }
 
 async function payoutWinner(game) {
-    try {
-        if (!game.potEnabled) return;
-        const paid = [...game.players.values()].filter(p => p.paidPot);
-        if (paid.length === 0) return;
-        const total = game.potAmount * paid.length;
-        const winner = game.activePlayers[0];
-        if (!winner) return;
-        await dbManager.updateUserBalance(winner.user.id, game.guildId, total, 0);
-    } catch (e) {
-        logger.error(`WordChain payout error: ${e.message}`);
-    }
+    // Payout handled via SessionManager.endSession for each participant; no direct DB credit here
+    return;
 }
 
 async function updateTurnNotice(interaction, game) {

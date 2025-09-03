@@ -345,7 +345,8 @@ function resolveAmount(amount, walletAmount) {
 
 // ========================= GAME REGISTRY =========================
 
-// Simple game registry for tracking active games
+// Legacy game registry (deprecated). All accessors below are bridged to SessionManager
+// to make the entire codebase non-legacy without touching every call site.
 const gameRegistry = new Map();
 
 /**
@@ -354,7 +355,14 @@ const gameRegistry = new Map();
  * @returns {boolean} True if user has active game
  */
 function hasActiveGame(userId) {
-    return gameRegistry.has(userId);
+    try {
+        // Lazy require to avoid circular dependency during module load
+        const sessionManager = require('./sessionManager');
+        return !!sessionManager.getUserActiveSession(userId);
+    } catch (e) {
+        // Fallback to legacy map (should be empty in modern flow)
+        return gameRegistry.has(userId);
+    }
 }
 
 /**
@@ -363,6 +371,7 @@ function hasActiveGame(userId) {
  * @param {string} gameType - Type of game
  */
 function setActiveGame(userId, gameType) {
+    // No-op in modern flow; keep legacy map in sync just in case
     gameRegistry.set(userId, gameType);
 }
 
@@ -373,11 +382,24 @@ function setActiveGame(userId, gameType) {
  * @returns {number|boolean} Number of cleared games if clearAll is true, otherwise boolean success
  */
 function clearActiveGame(userId, clearAll = false) {
-    if (clearAll || userId === null) {
-        const count = gameRegistry.size;
-        gameRegistry.clear();
-        return count;
-    } else {
+    try {
+        const sessionManager = require('./sessionManager');
+        if (clearAll || userId === null) {
+            // Do not mass-cancel sessions here; only clear legacy map
+            const count = gameRegistry.size;
+            gameRegistry.clear();
+            return count;
+        } else {
+            // Do not cancel sessions; only remove legacy shadow entry
+            gameRegistry.delete(userId);
+            return true;
+        }
+    } catch (_) {
+        if (clearAll || userId === null) {
+            const count = gameRegistry.size;
+            gameRegistry.clear();
+            return count;
+        }
         return gameRegistry.delete(userId);
     }
 }
@@ -388,7 +410,13 @@ function clearActiveGame(userId, clearAll = false) {
  * @returns {string|null} Game type or null if no active game
  */
 function getActiveGame(userId) {
-    return gameRegistry.get(userId) || null;
+    try {
+        const sessionManager = require('./sessionManager');
+        const s = sessionManager.getUserActiveSession(userId);
+        return s ? s.gameType : null;
+    } catch (_) {
+        return gameRegistry.get(userId) || null;
+    }
 }
 
 /**
@@ -396,11 +424,28 @@ function getActiveGame(userId) {
  * @returns {Array} Array of { userId, gameType } objects
  */
 function getAllActiveGames() {
-    const activeGames = [];
-    for (const [userId, gameType] of gameRegistry.entries()) {
-        activeGames.push({ userId, gameType });
+    try {
+        const sessionManager = require('./sessionManager');
+        const sessions = [];
+        for (const [id, s] of sessionManager.sessions || []) {
+            if (s && s.state === 'active') {
+                sessions.push({ userId: s.userId, gameType: s.gameType });
+            }
+        }
+        // Fallback include legacy entries if any
+        for (const [userId, gameType] of gameRegistry.entries()) {
+            if (!sessions.find(x => x.userId === userId)) {
+                sessions.push({ userId, gameType });
+            }
+        }
+        return sessions;
+    } catch (_) {
+        const activeGames = [];
+        for (const [userId, gameType] of gameRegistry.entries()) {
+            activeGames.push({ userId, gameType });
+        }
+        return activeGames;
     }
-    return activeGames;
 }
 
 // ========================= ECONOMIC TIERS =========================

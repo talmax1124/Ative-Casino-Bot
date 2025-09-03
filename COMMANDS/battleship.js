@@ -1460,7 +1460,8 @@ module.exports = {
             const winnerBalance = await dbManager.getUserBalance(winner, guildId);
             const winnings = game.betAmount * 2;
             
-            await dbManager.updateUserBalance(winner, guildId, { wallet: winnerBalance.wallet + winnings });
+            // Credit winnings via relative update (SessionManager clears flags)
+            await dbManager.updateUserBalance(winner, guildId, winnings, 0);
             // Note: No need to set game_active: false as sessions handle this
 
             // Record game results

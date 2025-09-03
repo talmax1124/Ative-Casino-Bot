@@ -120,7 +120,7 @@ module.exports = {
             // Create new game
             const game = startUnoGame(channelId, guildId, betAmount);
             const success = game.addPlayer(userId, `<@${userId}>`);
-
+            
             if (!success) {
                 // Handle game error with session cleanup and refund
                 try {
@@ -143,6 +143,9 @@ module.exports = {
             game.gameChannel = interaction.channel;
             game.mainGameInteraction = interaction;
             game.sessionId = sessionResult.sessionId;
+            // Also attach sessionId to host player for end-game processing
+            const hostPlayer = game.players.get(userId);
+            if (hostPlayer) hostPlayer.sessionId = sessionResult.sessionId;
 
             // Show lobby with standardized template
             const lobbyEmbed = UITemplates.createStandardGameEmbed(
@@ -377,6 +380,40 @@ module.exports = {
                 // Refund if couldn't add player using PayoutManager
                 await PayoutManager.refundBet(userId, guildId, game.starterBet, 'Failed to join UNO game');
                 const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - Failed to join game!`);
+                const buttons = game.createLobbyButtons();
+                await interaction.update({ embeds: [embed], components: buttons });
+                return;
+            }
+
+            // Create a unified session for the joining player (bet already deducted)
+            try {
+                const joinSession = await sessionManager.createSession({
+                    userId,
+                    guildId,
+                    channelId,
+                    gameType: 'uno',
+                    betAmount: game.starterBet,
+                    betPreDeducted: true,
+                    timeout: 300000,
+                    metadata: { gamePhase: 'lobby', multiplayer: true },
+                    interaction
+                });
+                if (!joinSession.success) {
+                    // Rollback: refund and remove player
+                    await PayoutManager.refundBet(userId, guildId, game.starterBet, 'Failed to create UNO session');
+                    game.players.delete(userId);
+                    const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - Failed to join game (session error)!`);
+                    const buttons = game.createLobbyButtons();
+                    await interaction.update({ embeds: [embed], components: buttons });
+                    return;
+                }
+                // Attach sessionId to player record for end-game payouts
+                const player = game.players.get(userId);
+                if (player) player.sessionId = joinSession.sessionId;
+            } catch (sessErr) {
+                await PayoutManager.refundBet(userId, guildId, game.starterBet, 'Session error');
+                game.players.delete(userId);
+                const embed = game.getLobbyEmbed(`❌ **<@${userId}>** - Failed to join (session error)!`);
                 const buttons = game.createLobbyButtons();
                 await interaction.update({ embeds: [embed], components: buttons });
                 return;
@@ -953,11 +990,8 @@ module.exports = {
             const game = getUnoGame(channelId);
             if (!game || !game.winner) return;
 
-            // Process payouts
+            // Process payouts via SessionManager at the end for each player
             const totalPot = game.players.size * game.starterBet;
-            
-            // Give prize to winner
-            await dbManager.updateUserBalance(game.winner.userId, guildId, totalPot, 0);
 
             // Record game results and add XP
             for (const player of game.players.values()) {
@@ -1029,15 +1063,20 @@ module.exports = {
                 guildId
             );
 
-            // Complete session if game has one
-            if (game.sessionId) {
-                await sessionManager.endSession(game.sessionId, {
-                    outcome: 'COMPLETED',
-                    payout: totalPot,
-                    won: true,
-                    winnerId: game.winner.userId,
-                    totalPlayers: game.players.size
-                });
+            // Complete sessions for all players
+            for (const player of game.players.values()) {
+                const isWinner = player.userId === game.winner.userId;
+                const sessionId = player.sessionId || (isWinner ? game.sessionId : null);
+                if (!sessionId) continue;
+                try {
+                    await sessionManager.endSession(sessionId, {
+                        payout: isWinner ? totalPot : 0,
+                        won: isWinner,
+                        reason: 'completed'
+                    });
+                } catch (e) {
+                    logger.warn(`UNO endSession failed for ${player.userId}: ${e.message}`);
+                }
             }
 
             // Clean up

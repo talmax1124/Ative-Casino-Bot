@@ -14,6 +14,7 @@ const { secureRandomInt } = require('../UTILS/rng');
 const { createCanvas, loadImage } = require('canvas');
 const path = require('path');
 const fs = require('fs').promises;
+const sessionManager = require('../UTILS/sessionManager');
 
 // Game session storage
 const activeGames = new Map();
@@ -69,10 +70,12 @@ module.exports = {
         const betAmountStr = interaction.options.getString('bet');
 
         try {
-            // Check if user already has an active game
-            if (activeGames.has(userId)) {
+            // Session guard (unified)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, 'treasurevault', interaction.client);
+            if (!check.allowed) {
                 return await interaction.reply({
-                    content: '🏛️ You already have an active Treasure Vault adventure! Finish it first.',
+                    embeds: [new EmbedBuilder().setTitle('❌ Session Error').setDescription(check.message).setColor(0xFF0000)],
                     flags: MessageFlags.Ephemeral
                 });
             }
@@ -96,7 +99,32 @@ module.exports = {
 
             const betAmount = validation.parsedAmount;
 
-            // Initialize game session
+            // Create unified game session (bet already deducted)
+            const createRes = await sessionManager.createSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: 'treasurevault',
+                betAmount,
+                betPreDeducted: true,
+                timeout: TREASURE_CONFIG.ROUNDS * TREASURE_CONFIG.DECISION_TIME + 60000, // rounds + buffer
+                metadata: {
+                    gamePhase: 'round_select',
+                    rounds: TREASURE_CONFIG.ROUNDS,
+                    decisionMs: TREASURE_CONFIG.DECISION_TIME
+                },
+                interaction
+            });
+            if (!createRes.success) {
+                // Refund on failure
+                await PayoutManager.refundBet(userId, guildId, betAmount, 'TreasureVault session create failed');
+                return await interaction.reply({
+                    embeds: [new EmbedBuilder().setTitle('❌ Session Error').setDescription(`Failed to create session: ${createRes.error}`).setColor(0xFF0000)],
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            // Initialize in-memory game data
             const gameSession = {
                 userId,
                 guildId,
@@ -105,7 +133,8 @@ module.exports = {
                 round: 1,
                 roundOutcomes: generateRoundOutcomes(),
                 gameStarted: Date.now(),
-                lastInteraction: Date.now()
+                lastInteraction: Date.now(),
+                sessionId: createRes.sessionId
             };
 
             activeGames.set(userId, gameSession);
@@ -123,6 +152,12 @@ module.exports = {
             
             // Clean up game session on error
             activeGames.delete(userId);
+            try {
+                const active = sessionManager.getUserActiveSession(userId);
+                if (active && active.gameType === 'treasurevault') {
+                    await sessionManager.cancelSession(active.sessionId, 'TreasureVault init error', true);
+                }
+            } catch {}
             
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Treasure Vault Error')
@@ -439,7 +474,7 @@ module.exports = {
                 break;
         }
 
-        // Process payout
+        // Process payout via PayoutManager for stats/booster
         const gameResult = new GameResult({
             userId,
             guildId,
@@ -495,6 +530,19 @@ module.exports = {
             files: [attachment],
             components: []
         });
+
+        // End session (no additional payout here to avoid double credit)
+        if (gameSession.sessionId) {
+            try {
+                await sessionManager.endSession(gameSession.sessionId, {
+                    payout: 0,
+                    won,
+                    reason: 'completed'
+                });
+            } catch (e) {
+                logger.warn(`Failed to end TreasureVault session: ${e.message}`);
+            }
+        }
     },
 
     /**
