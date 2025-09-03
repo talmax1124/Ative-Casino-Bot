@@ -25,15 +25,16 @@ class UnifiedSessionManager {
      */
     async canStartGame(userId, guildId, gameType) {
         try {
-            // Check for lock
+            // Check for lock (reduced from 5s to 1s for better UX)
             if (this.locks.has(userId)) {
                 const lockAge = Date.now() - this.locks.get(userId);
-                if (lockAge < 5000) { // 5 second lock
+                if (lockAge < 1000) { // 1 second lock to prevent spam only
                     return {
                         canStart: false,
                         reason: 'Please wait a moment before starting a new game.'
                     };
                 }
+                // Lock is old, remove it
                 this.locks.delete(userId);
             }
 
@@ -84,14 +85,21 @@ class UnifiedSessionManager {
             // Set lock to prevent rapid session creation
             this.locks.set(userId, Date.now());
 
-            // Double-check no active sessions
-            const canStart = await this.canStartGame(userId, guildId, gameType);
-            if (!canStart.canStart) {
-                this.locks.delete(userId);
-                return {
-                    success: false,
-                    error: canStart.reason
-                };
+            // Double-check no active sessions (but skip lock check since we just set it)
+            const userSessions = this.userToSessions.get(userId);
+            if (userSessions && userSessions.size > 0) {
+                for (const sessionId of userSessions) {
+                    const session = this.sessions.get(sessionId);
+                    if (session && session.active) {
+                        this.locks.delete(userId);
+                        return {
+                            success: false,
+                            error: `You already have an active ${session.gameType} game. Please finish it before starting a new one.`
+                        };
+                    }
+                }
+                // Clean up any stale session references
+                this.cleanupUserSessions(userId);
             }
 
             // Deduct bet if applicable

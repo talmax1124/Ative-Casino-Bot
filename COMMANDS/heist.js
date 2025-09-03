@@ -21,6 +21,9 @@ module.exports = {
         const guildId = await getGuildId(interaction);
 
         try {
+            // Defer the reply immediately to prevent timeout
+            await interaction.deferReply();
+            
             await dbManager.ensureUser(userId, interaction.user.displayName);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
@@ -45,7 +48,7 @@ module.exports = {
                     footer: 'Heist Command'
                 });
 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.editReply({ embeds: [embed] });
             }
 
             // Create game session
@@ -69,7 +72,7 @@ module.exports = {
                     .setDescription(`Failed to create game session: ${sessionResult.error}`)
                     .setColor(0xFF0000);
                 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.editReply({ embeds: [embed] });
             }
 
             // Heist scenarios with different tasks (10K-30K range)
@@ -146,7 +149,7 @@ module.exports = {
                 footer: 'Heist Command'
             });
 
-            await interaction.reply({ embeds: [embed] });
+            await interaction.editReply({ embeds: [embed] });
 
             // Log the heist
             await sendLogMessage(
@@ -185,7 +188,12 @@ module.exports = {
                 footer: 'Heist Command'
             });
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            // Try to reply if not already deferred/replied
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: [errorEmbed] });
+            } else if (!interaction.replied) {
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
         }
     }
 };
