@@ -113,6 +113,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: SMGameType.RPS,
                 betAmount,
+                betPreDeducted: true,
                 timeout: 60000, // 1 minute
                 metadata: {
                     gamePhase: 'waiting_for_opponent',
@@ -309,6 +310,7 @@ module.exports = {
                 channelId,
                 gameType: SMGameType.RPS,
                 betAmount: game.potAmount,
+                betPreDeducted: true,
                 timeout: 300000, // 5 minutes
                 metadata: {
                     gamePhase: 'playing',

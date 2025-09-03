@@ -106,6 +106,7 @@ module.exports = {
                 channelId,
                 gameType: 'uno',
                 betAmount,
+                betPreDeducted: true,
                 timeout: 300000, // 5 minutes for UNO
                 metadata: {
                     gamePhase: 'lobby',

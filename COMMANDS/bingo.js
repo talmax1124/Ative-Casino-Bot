@@ -102,6 +102,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: 'bingo',
                 betAmount,
+                betPreDeducted: true,
                 timeout: 900000, // 15 minutes for Bingo
                 metadata: {
                     gamePhase: 'lobby',

@@ -252,6 +252,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: SMGameType.BLACKJACK,
                 betAmount,
+                betPreDeducted: true,
                 timeout: 300000, // 5 minutes
                 metadata: {
                     gamePhase: 'dealing',

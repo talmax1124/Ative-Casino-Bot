@@ -74,6 +74,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: 'fishing',
                 betAmount,
+                betPreDeducted: true,
                 timeout: 300000, // 5 minutes for Fishing
                 metadata: {
                     gamePhase: 'active',

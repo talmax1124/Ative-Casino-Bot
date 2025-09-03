@@ -221,6 +221,7 @@ class UnifiedSessionManager extends EventEmitter {
             betAmount = 0,
             timeout = this.config.sessionTimeout,
             metadata = {},
+            betPreDeducted = false,
             interaction = null
         } = config;
 
@@ -265,40 +266,45 @@ class UnifiedSessionManager extends EventEmitter {
             // Handle bet amount if specified
             if (betAmount > 0) {
                 try {
-                    const balance = await dbManager.getUserBalance(userId, guildId);
-                    if (balance.wallet < betAmount) {
-                        this.locks.delete(userId);
-                        if (client) {
-                            await sendLogMessage(client, 'warn', `Insufficient funds for session (${gameType}). Wallet ${balance.wallet} < Bet ${betAmount}`, userId, guildId);
+                    if (!betPreDeducted) {
+                        const balance = await dbManager.getUserBalance(userId, guildId);
+                        if (balance.wallet < betAmount) {
+                            this.locks.delete(userId);
+                            if (client) {
+                                await sendLogMessage(client, 'warn', `Insufficient funds for session (${gameType}). Wallet ${balance.wallet} < Bet ${betAmount}`, userId, guildId);
+                            }
+                            return {
+                                success: false,
+                                error: 'Insufficient funds for this bet.',
+                                code: 'INSUFFICIENT_FUNDS',
+                                required: betAmount,
+                                available: balance.wallet
+                            };
                         }
-                        return {
-                            success: false,
-                            error: 'Insufficient funds for this bet.',
-                            code: 'INSUFFICIENT_FUNDS',
-                            required: betAmount,
-                            available: balance.wallet
-                        };
-                    }
 
-                    // Deduct bet amount
-                    const deductSuccess = await dbManager.updateUserBalance(
-                        userId, 
-                        guildId, 
-                        -betAmount, 
-                        0, 
-                        { game_active: true }
-                    );
+                        // Deduct bet amount
+                        const deductSuccess = await dbManager.updateUserBalance(
+                            userId, 
+                            guildId, 
+                            -betAmount, 
+                            0, 
+                            { game_active: true }
+                        );
 
-                    if (!deductSuccess) {
-                        this.locks.delete(userId);
-                        if (client) {
-                            await sendLogMessage(client, 'error', `Failed to process bet during session create (${gameType}) for user ${userId}`, userId, guildId);
+                        if (!deductSuccess) {
+                            this.locks.delete(userId);
+                            if (client) {
+                                await sendLogMessage(client, 'error', `Failed to process bet during session create (${gameType}) for user ${userId}`, userId, guildId);
+                            }
+                            return {
+                                success: false,
+                                error: 'Failed to process bet. Please try again.',
+                                code: 'BET_FAILED'
+                            };
                         }
-                        return {
-                            success: false,
-                            error: 'Failed to process bet. Please try again.',
-                            code: 'BET_FAILED'
-                        };
+                    } else {
+                        // Bet already deducted by upstream logic; set game_active only
+                        await dbManager.updateUserBalance(userId, guildId, 0, 0, { game_active: true });
                     }
                 } catch (betError) {
                     this.locks.delete(userId);

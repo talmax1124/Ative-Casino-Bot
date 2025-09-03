@@ -73,6 +73,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: 'multi-slots',
                 betAmount,
+                betPreDeducted: true,
                 timeout: 180000, // 3 minutes for Multi-Slots
                 metadata: {
                     gamePhase: 'active',

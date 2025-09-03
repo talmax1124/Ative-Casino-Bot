@@ -168,6 +168,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: 'battleship',
                 betAmount,
+                betPreDeducted: true,
                 timeout: 900000, // 15 minutes for Battleship
                 metadata: {
                     gamePhase: 'lobby',
@@ -391,6 +392,7 @@ module.exports = {
             channelId,
             gameType: 'battleship',
             betAmount: game.betAmount,
+            betPreDeducted: true,
             timeout: 900000, // 15 minutes for Battleship
             metadata: {
                 gamePhase: 'active',

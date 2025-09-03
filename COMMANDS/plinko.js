@@ -121,6 +121,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: SMGameType.PLINKO,
                 betAmount,
+                betPreDeducted: true,
                 timeout: 300000, // 5 minutes for plinko animation
                 metadata: {
                     mode: selectedMode,

@@ -226,6 +226,7 @@ module.exports = {
                     channelId: channel.id,
                     gameType: 'wordchain',
                     betAmount: game.potAmount,
+                    betPreDeducted: true,
                     timeout: 1800000, // 30 minutes for WordChain
                     metadata: {
                         gamePhase: 'active',

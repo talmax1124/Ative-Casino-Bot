@@ -134,6 +134,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: SMGameType.SLOTS,
                 betAmount,
+                betPreDeducted: true,
                 timeout: 60000, // 1 minute
                 metadata: {
                     gamePhase: 'spinning',

@@ -346,7 +346,7 @@ module.exports = {
     async execute(interaction) {
         try {
             const userId = interaction.user.id;
-            const guildId = getGuildId(interaction);
+            const guildId = await getGuildId(interaction);
             const betAmount = interaction.options.getInteger('bet') || 0;
 
             // Check for existing game
@@ -360,21 +360,37 @@ module.exports = {
             // Validate bet and get balance
             let balance = null;
             if (betAmount > 0) {
-                const validation = await PayoutManager.validateBet(userId, guildId, betAmount);
-                if (!validation.valid) {
-                    return await interaction.reply({
-                        content: validation.message,
-                        ephemeral: true
-                    });
+                const amountStr = betAmount.toString();
+                const validation = await PayoutManager.validateAndDeductBet(
+                    interaction,
+                    amountStr,
+                    GameType.YAHTZEE,
+                    1,
+                    10000000
+                );
+                if (!validation.isValid) {
+                    return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
                 }
-                balance = validation.balance;
-
-                // Deduct bet from balance
-                await PayoutManager.processBet(userId, guildId, betAmount);
+                balance = await dbManager.getUserBalance(userId, guildId);
             }
 
             // Start new game session
-            const sessionId = await GameSessionIntegrator.startSession(userId, guildId, SMGameType.YAHTZEE, betAmount);
+            const sessionResult = await sessionManager.createSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: SMGameType.YAHTZEE,
+                betAmount,
+                betPreDeducted: betAmount > 0,
+                timeout: 600000, // 10 minutes
+                metadata: { gamePhase: 'active', singlePlayer: true },
+                interaction
+            });
+            if (!sessionResult.success) {
+                const errorEmbed = new EmbedBuilder().setTitle('❌ Session Error').setDescription(`Failed to create game session: ${sessionResult.error}`).setColor(0xFF0000);
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
+            const sessionId = sessionResult.sessionId;
             
             // Create new game
             const game = new YahtzeeGame(userId, betAmount);
@@ -382,7 +398,13 @@ module.exports = {
 
             // Log game start
             logger.info(`User ${userId} started Yahtzee with bet ${betAmount}`);
-            await sendLogMessage(guildId, `🎲 **Yahtzee Started**\nUser: ${interaction.user.tag}\nBet: ${fmt(betAmount)}`);
+            await sendLogMessage(
+                interaction.client,
+                'info',
+                `🎲 **Yahtzee Started**\nUser: ${interaction.user.tag}\nBet: ${fmt(betAmount)}`,
+                userId,
+                guildId
+            );
 
             // Set timeout for game cleanup
             TimeoutManager.setTimeout(userId, 10 * 60 * 1000, () => {
@@ -455,13 +477,13 @@ module.exports = {
             game.toggleKeep(dieIndex);
             
             // Update display
-            const balance = game.betAmount > 0 ? await dbManager.getBalance(userId, guildId) : null;
+            const balance = game.betAmount > 0 ? await dbManager.getUserBalance(userId, guildId) : null;
             await updateGameDisplay(interaction, game, balance);
             
         } else if (customId === 'yahtzee_roll') {
             // Roll dice
             if (game.rollDice()) {
-                const balance = game.betAmount > 0 ? await dbManager.getBalance(userId, guildId) : null;
+                const balance = game.betAmount > 0 ? await dbManager.getUserBalance(userId, guildId) : null;
                 await updateGameDisplay(interaction, game, balance);
             }
             
@@ -582,7 +604,7 @@ module.exports = {
             }
 
             // End session
-            await GameSessionIntegrator.endSession(sessionId, GameResult.QUIT, refund);
+            await sessionManager.endSession(sessionId, { payout: refund, reason: 'cancelled' });
 
             // Cleanup
             activeGames.delete(userId);
@@ -756,7 +778,7 @@ module.exports = {
             }
 
             // End session
-            await GameSessionIntegrator.endSession(sessionId, GameResult.TIMEOUT, refund);
+            await sessionManager.endSession(sessionId, { payout: refund, reason: 'timeout' });
 
             // Cleanup
             activeGames.delete(userId);
