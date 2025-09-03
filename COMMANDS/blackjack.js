@@ -416,12 +416,12 @@ module.exports = {
         let game = null;
         let sessionId = null;
         
-        // Find user's active blackjack session from GameSessionIntegrator
-        const activeSessions = await GameSessionIntegrator.getActiveUserSessions(userId);
-        const blackjackSession = activeSessions.find(s => s.gameType === SMGameType.BLACKJACK);
+        // Get the unified session manager instance
+        const unifiedSessionManager = require('../UTILS/unifiedSessionManager');
+        const activeSession = unifiedSessionManager.getActiveSession(userId);
         
-        if (blackjackSession) {
-            sessionId = blackjackSession.sessionId;
+        if (activeSession && activeSession.gameType === SMGameType.BLACKJACK) {
+            sessionId = activeSession.sessionId;
             game = activeGames.get(sessionId);
         }
         

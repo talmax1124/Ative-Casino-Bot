@@ -434,8 +434,15 @@ class GameSessionIntegrator {
      */
     static async getActiveUserSessions(userId) {
         try {
-            const sessions = sessionManager.getUserSessions(userId);
-            return sessions.filter(s => s.state === 'active' || s.state === 'paused');
+            // Use unified session manager directly
+            const unifiedSessionManager = require('./unifiedSessionManager');
+            const activeSession = unifiedSessionManager.getActiveSession(userId);
+            
+            // Return array with active session if exists
+            if (activeSession) {
+                return [activeSession];
+            }
+            return [];
         } catch (error) {
             logger.error(`Error getting active user sessions: ${error.message}`);
             return [];
