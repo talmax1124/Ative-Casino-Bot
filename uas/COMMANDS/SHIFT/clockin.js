@@ -46,8 +46,11 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
+            // Determine user role
+            const userRole = isAdmin ? 'admin' : 'moderator';
+
             // Attempt to clock in
-            const result = await interaction.client.shiftManager.clockIn(userId, guildId, roleNames);
+            const result = await interaction.client.shiftManager.clockIn(userId, guildId, userRole);
             
             const embed = new EmbedBuilder()
                 .setTitle(result.success ? '✅ Clocked In' : '❌ Clock In Failed')
