@@ -5,6 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
+const { sendLogMessage } = require('../UTILS/common');
 // Using real GameSessionIntegrator for session management
 const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
@@ -21,6 +22,7 @@ module.exports = {
     const guildId = interaction.guildId;
 
     try {
+      logger.debug(`Crash execute called by ${username} (${userId}) in guild ${guildId}`);
 
       // Check if user can create session
       const canCreate = await sessionManager.canCreateSession(userId, guildId, GameType.CRASH);
@@ -74,6 +76,15 @@ module.exports = {
 
     } catch (error) {
       logger.error(`crash command failed: ${error?.stack || error}`);
+      try {
+        await sendLogMessage(
+          interaction.client,
+          'error',
+          `Crash error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+          userId,
+          guildId
+        );
+      } catch (_) {}
       
       // Enhanced session cleanup with better error handling
       try {
@@ -101,4 +112,3 @@ module.exports = {
     }
   }
 };
-

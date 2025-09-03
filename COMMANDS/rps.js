@@ -40,6 +40,7 @@ module.exports = {
         const username = interaction.user.displayName;
 
         try {
+            logger.debug(`RPS execute called by ${username} (${userId}) in guild ${guildId}`);
             // Validate session before proceeding
             const sessionValidation = await sessionManager.canCreateSession(userId, SMGameType.RPS, guildId);
             if (!sessionValidation.valid) {
@@ -157,6 +158,15 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error executing RPS command: ${error.message}`, { userId, error: error.stack });
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `RPS error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             
             // Handle game error with session cleanup and refund
             try {
@@ -199,6 +209,7 @@ module.exports = {
         const guildId = await getGuildId(interaction);
         
         try {
+            logger.debug(`RPS action '${action}' by ${userId} in guild ${guildId}`);
             const result = await handleRPSAction(interaction, action);
             
             if (result && result.success) {
@@ -233,7 +244,15 @@ module.exports = {
             }
         } catch (error) {
             logger.error(`Error handling RPS button interaction: ${error.message}`, { userId, action });
-            
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `RPS action error (${action}) for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             if (!interaction.replied) {
                 await interaction.reply({
                     content: '❌ An error occurred while processing your RPS action.',

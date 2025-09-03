@@ -397,6 +397,7 @@ module.exports = {
         const guildId = await getGuildId(interaction);
 
         try {
+            logger.debug(`Duck execute called by ${username} (${userId}) in guild ${guildId} amount='${amount}'`);
             // Validate session before proceeding
             const sessionValidation = await sessionManager.canCreateSession(userId, SMGameType.DUCK, guildId);
             if (!sessionValidation.valid) {
@@ -476,6 +477,15 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error in duck command: ${error.message}`);
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `Duck error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Game Error')
@@ -596,24 +606,41 @@ module.exports = {
     async handleGameAction(interaction, actionId) {
         const userId = interaction.user.id;
         const gameSession = activeGames.get(userId);
+        const guildId = await getGuildId(interaction);
+        try {
+            logger.debug(`Duck action '${actionId}' by ${userId} in guild ${guildId}`);
+            if (!gameSession || gameSession.type === 'mode_select') {
+                return await interaction.reply({ 
+                    content: 'No active duck game found.', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
 
-        if (!gameSession || gameSession.type === 'mode_select') {
-            return await interaction.reply({ 
-                content: 'No active duck game found.', 
-                flags: MessageFlags.Ephemeral 
-            });
-        }
-
-        switch (actionId) {
-            case 'forward':
-                await this.handleForward(interaction, gameSession);
-                break;
-            case 'stop':
-                await this.handleStop(interaction, gameSession);
-                break;
-            case 'help':
-                await this.handleHelp(interaction);
-                break;
+            switch (actionId) {
+                case 'forward':
+                    await this.handleForward(interaction, gameSession);
+                    break;
+                case 'stop':
+                    await this.handleStop(interaction, gameSession);
+                    break;
+                case 'help':
+                    await this.handleHelp(interaction);
+                    break;
+            }
+        } catch (error) {
+            logger.error(`Duck action error (${actionId}): ${error.message}`);
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `Duck action error (${actionId}) for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: '❌ Error processing action.', flags: MessageFlags.Ephemeral });
+            }
         }
     },
 

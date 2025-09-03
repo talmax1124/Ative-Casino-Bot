@@ -39,6 +39,7 @@ module.exports = {
         const username = interaction.user.displayName;
 
         try {
+            logger.debug(`BINGO execute called by ${username} (${userId}) in guild ${guildId}`);
             // Check if there's already a game in this channel
             const existingGame = getBingoGame(channelId);
             if (existingGame) {
@@ -148,6 +149,15 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error executing BINGO command: ${error.message}`, { userId, error: error.stack });
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `BINGO error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             
             await interaction.followUp({
                 content: '❌ An error occurred while creating the BINGO game. Please try again.',
@@ -165,6 +175,7 @@ module.exports = {
         const guildId = await getGuildId(interaction);
         
         try {
+            logger.debug(`BINGO action '${action}' by ${userId} in guild ${guildId}`);
             const result = handleBingoAction(interaction, action);
             
             if (result && result.success) {
@@ -203,7 +214,15 @@ module.exports = {
             }
         } catch (error) {
             logger.error(`Error handling BINGO button interaction: ${error.message}`, { userId, action });
-            
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `BINGO action error (${action}) for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: '❌ An error occurred while processing your BINGO action.',

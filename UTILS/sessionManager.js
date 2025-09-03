@@ -10,6 +10,7 @@
 
 const dbManager = require('./database');
 const logger = require('./logger');
+const { sendLogMessage } = require('./common');
 const { EventEmitter } = require('events');
 
 // Session states enum
@@ -218,8 +219,13 @@ class UnifiedSessionManager extends EventEmitter {
             gameType,
             betAmount = 0,
             timeout = this.config.sessionTimeout,
-            metadata = {}
+            metadata = {},
+            interaction = null
         } = config;
+
+        const client = interaction?.client;
+
+        this.log('debug', `createSession called for user ${userId} (${gameType}) in guild ${guildId} with bet ${betAmount}`);
 
         // Validate required parameters
         if (!userId || !guildId || !gameType) {
@@ -232,17 +238,18 @@ class UnifiedSessionManager extends EventEmitter {
             };
         }
 
-        // Set rate limit
+        // Set rate limit early to throttle rapid attempts
         this.rateLimits.set(userId, Date.now());
 
-        // Acquire lock
-        this.locks.set(userId, { timestamp: Date.now(), gameType });
-
         try {
-            // Comprehensive validation
+            // Comprehensive validation BEFORE acquiring user lock to avoid self-blocking
             const canCreate = await this.canCreateSession(userId, guildId, gameType);
             if (!canCreate.allowed) {
-                this.locks.delete(userId);
+                // Surface to log channel if available
+                if (client) {
+                    const level = (canCreate.reason === 'ERROR' || canCreate.reason === 'BET_ERROR' || canCreate.reason === 'CREATION_ERROR') ? 'error' : 'warn';
+                    await sendLogMessage(client, level, `Session create blocked for ${userId} (${gameType}) — ${canCreate.reason}: ${canCreate.message}`, userId, guildId);
+                }
                 return {
                     success: false,
                     error: canCreate.message,
@@ -251,12 +258,18 @@ class UnifiedSessionManager extends EventEmitter {
                 };
             }
 
+            // Acquire lock only after validation passes
+            this.locks.set(userId, { timestamp: Date.now(), gameType });
+
             // Handle bet amount if specified
             if (betAmount > 0) {
                 try {
                     const balance = await dbManager.getUserBalance(userId, guildId);
                     if (balance.wallet < betAmount) {
                         this.locks.delete(userId);
+                        if (client) {
+                            await sendLogMessage(client, 'warn', `Insufficient funds for session (${gameType}). Wallet ${balance.wallet} < Bet ${betAmount}`, userId, guildId);
+                        }
                         return {
                             success: false,
                             error: 'Insufficient funds for this bet.',
@@ -277,6 +290,9 @@ class UnifiedSessionManager extends EventEmitter {
 
                     if (!deductSuccess) {
                         this.locks.delete(userId);
+                        if (client) {
+                            await sendLogMessage(client, 'error', `Failed to process bet during session create (${gameType}) for user ${userId}`, userId, guildId);
+                        }
                         return {
                             success: false,
                             error: 'Failed to process bet. Please try again.',
@@ -286,6 +302,9 @@ class UnifiedSessionManager extends EventEmitter {
                 } catch (betError) {
                     this.locks.delete(userId);
                     this.log('error', `Bet processing failed for user ${userId}`, betError);
+                    if (client) {
+                        await sendLogMessage(client, 'error', `Bet error during session create (${gameType}): ${betError.message}`, userId, guildId);
+                    }
                     return {
                         success: false,
                         error: 'Failed to process bet.',
@@ -330,6 +349,7 @@ class UnifiedSessionManager extends EventEmitter {
 
             // Store session in all indexes
             this.sessions.set(sessionId, session);
+            this.log('debug', `Session object stored and indexed: ${sessionId}`);
             
             // User index
             if (!this.userSessions.has(userId)) {
@@ -370,6 +390,11 @@ class UnifiedSessionManager extends EventEmitter {
 
             this.log('info', `Session created: ${sessionId} for user ${userId} (${gameType})`);
 
+            // Debug log channel
+            if (client) {
+                await sendLogMessage(client, 'info', `Session created: ${sessionId} • ${gameType} • Bet ${betAmount}`, userId, guildId);
+            }
+
             return {
                 success: true,
                 sessionId,
@@ -392,6 +417,10 @@ class UnifiedSessionManager extends EventEmitter {
 
             this.log('error', `Session creation failed for user ${userId}`, error);
             this.stats.totalErrors++;
+
+            if (client) {
+                await sendLogMessage(client, 'error', `Session creation failed (${gameType}) for ${userId}: ${error.message}`, userId, guildId);
+            }
 
             return {
                 success: false,

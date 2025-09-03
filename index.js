@@ -1571,17 +1571,20 @@ client.on('messageCreate', async message => {
 
 // ========================= ERROR HANDLERS =========================
 
-client.on('error', error => {
+client.on('error', async error => {
     logger.error('Discord client error:', error);
+    try { await sendLogMessage(client, 'error', `Discord client error: ${error.message}`); } catch (_) {}
 });
 
-client.on('warn', warning => {
+client.on('warn', async warning => {
     logger.warn('Discord client warning:', warning);
+    try { await sendLogMessage(client, 'warn', `Discord client warning: ${warning}`); } catch (_) {}
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', error => {
+process.on('unhandledRejection', async error => {
     logger.error('Unhandled promise rejection:', error);
+    try { await sendLogMessage(client, 'error', `Unhandled rejection: ${error?.message || error}`); } catch (_) {}
 });
 
 // ========================= VOTE REMINDER SYSTEM =========================
@@ -1816,8 +1819,9 @@ app.listen(PORT, () => {
 });
 
 // Handle uncaught exceptions
-process.on('uncaughtException', error => {
+process.on('uncaughtException', async error => {
     logger.error('Uncaught exception:', error);
+    try { await sendLogMessage(client, 'error', `Uncaught exception: ${error?.message || error}`); } catch (_) {}
     process.exit(1);
 });
 

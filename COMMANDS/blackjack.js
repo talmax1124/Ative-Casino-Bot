@@ -204,12 +204,14 @@ module.exports = {
         const username = interaction.user.displayName;
         const amount = interaction.options.getString('amount');
         const guildId = await getGuildId(interaction);
+        logger.debug(`Blackjack execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}'`);
 
         let validation; // Declare validation at function scope
         
         try {
             // Validate session before proceeding using modern session system
             const canCreate = await sessionManager.canCreateSession(userId, guildId, SMGameType.BLACKJACK);
+            logger.debug(`canCreateSession result for ${userId}: ${JSON.stringify({ allowed: canCreate.allowed, reason: canCreate.reason })}`);
             if (!canCreate.allowed) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('❌ Session Error')
@@ -223,6 +225,7 @@ module.exports = {
             // Ensure user exists and get balance
             await dbManager.ensureUser(userId, username);
             const userBalance = await dbManager.getUserBalance(userId, guildId);
+            logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
             // Validate and deduct bet
             validation = await PayoutManager.validateAndDeductBet(
@@ -240,6 +243,7 @@ module.exports = {
             // Balance validation is handled by PayoutManager.validateAndDeductBet
 
             const betAmount = validation.parsedAmount;
+            logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
 
             // Create game session with enhanced protection
             const sessionResult = await sessionManager.createSession({
@@ -263,6 +267,7 @@ module.exports = {
             }
 
             const sessionId = sessionResult.sessionId;
+            logger.debug(`Blackjack session created: ${sessionId} for ${userId}`);
 
             // Create new game and link to session
             const game = new BlackjackGame(userId, betAmount);
@@ -299,6 +304,7 @@ module.exports = {
             }
             
             await interaction.reply(messageData);
+            logger.debug(`Initial blackjack message sent for session ${sessionId}`);
 
             // Session timeout is handled by sessionManager
 
@@ -369,6 +375,15 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error in blackjack command: ${error.message}`);
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `Blackjack error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             
             // Handle game error with session cleanup and refund
             let refundAmount = 0;
@@ -425,29 +440,30 @@ module.exports = {
     handleBlackjackAction: async function(interaction, actionId) {
         const userId = interaction.user.id;
         const guildId = await getGuildId(interaction);
-        
-        // Find active game by user's session
-        let game = null;
-        let sessionId = null;
-        
-        // Get the unified session manager instance
-        const unifiedSessionManager = require('../UTILS/unifiedSessionManager');
-        const activeSession = unifiedSessionManager.getActiveSession(userId);
-        
-        if (activeSession && activeSession.gameType === SMGameType.BLACKJACK) {
-            sessionId = activeSession.sessionId;
-            game = activeGames.get(sessionId);
-        }
-        
-        if (!game || !sessionId) {
-            return await interaction.reply({ content: 'No active blackjack game found.', flags: MessageFlags.Ephemeral });
-        }
+        logger.debug(`Blackjack action '${actionId}' by ${userId} in guild ${guildId}`);
+        try {
+            // Find active game by user's session
+            let game = null;
+            let sessionId = null;
+            
+            // Get the unified session manager instance
+            const unifiedSessionManager = require('../UTILS/unifiedSessionManager');
+            const activeSession = unifiedSessionManager.getActiveSession(userId);
+            
+            if (activeSession && activeSession.gameType === SMGameType.BLACKJACK) {
+                sessionId = activeSession.sessionId;
+                game = activeGames.get(sessionId);
+            }
+            
+            if (!game || !sessionId) {
+                return await interaction.reply({ content: 'No active blackjack game found.', flags: MessageFlags.Ephemeral });
+            }
 
-        const userBalance = await dbManager.getUserBalance(userId, guildId);
+            const userBalance = await dbManager.getUserBalance(userId, guildId);
 
-        switch (actionId) {
-            case 'hit':
-                try {
+            switch (actionId) {
+                case 'hit':
+                    try {
                     // Hit
                     game.hit();
 
@@ -582,9 +598,9 @@ module.exports = {
                 await interaction.update(updateData);
                 break;
 
-            case 'help':
-                const { embed: helpEmbed, components: helpComponents } = GamePanel.createHelpEmbed({
-                    gameType: 'blackjack',
+                case 'help':
+                    const { embed: helpEmbed, components: helpComponents } = GamePanel.createHelpEmbed({
+                        gameType: 'blackjack',
                     title: '🃏 Blackjack Help',
                     description: '**How to Play Blackjack**',
                     rules: [
@@ -608,6 +624,21 @@ module.exports = {
 
                 await interaction.reply({ embeds: [helpEmbed], components: helpComponents, flags: MessageFlags.Ephemeral });
                 break;
+            }
+        } catch (actionError) {
+            logger.error(`Blackjack action error (${actionId}): ${actionError.message}`);
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `Blackjack action error (${actionId}) for ${interaction.user.tag} (${userId}) — ${actionError.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: '❌ Error processing action.', flags: MessageFlags.Ephemeral });
+            }
         }
     },
 

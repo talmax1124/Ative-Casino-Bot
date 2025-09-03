@@ -19,6 +19,7 @@ const dbManager = require('../UTILS/database');
 const { fmt, parseAmount } = require('../UTILS/common');
 const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
+const { sendLogMessage } = require('../UTILS/common');
 
 // Optimized configuration - much more conservative
 const CRASH_CONFIG = {
@@ -507,6 +508,15 @@ async function handleButtonInteraction(interaction, client, game) {
     }
   } catch (error) {
     logger.error(`Crash button interaction error: ${error.message}`);
+    try {
+      await sendLogMessage(
+        client,
+        'error',
+        `Crash action error (${action}) for ${interaction.user.tag} (${interaction.user.id}) — ${error.message}`,
+        interaction.user.id,
+        interaction.guildId
+      );
+    } catch (_) {}
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({ content: '❌ An error occurred', flags: MessageFlags.Ephemeral });
     }

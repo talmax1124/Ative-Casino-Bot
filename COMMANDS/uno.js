@@ -44,6 +44,7 @@ module.exports = {
         const betAmountStr = interaction.options.getString('amount');
 
         try {
+            logger.debug(`UNO execute called by ${username} (${userId}) in guild ${guildId} amount='${betAmountStr}'`);
             // Parse bet amount
             const betAmount = parseInt(betAmountStr);
             if (isNaN(betAmount) || betAmount <= 0) {
@@ -175,6 +176,15 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error executing UNO command: ${error.message}`, { userId, error: error.stack });
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `UNO error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             
             // Handle game error with session cleanup and refund
             try {
@@ -205,6 +215,7 @@ module.exports = {
         const guildId = await getGuildId(interaction);
         
         try {
+            logger.debug(`UNO action '${action}' by ${userId} in guild ${guildId}`);
             const result = handleUnoAction(interaction, action);
             
             if (result && result.success) {
@@ -249,7 +260,15 @@ module.exports = {
             }
         } catch (error) {
             logger.error(`Error handling UNO button interaction: ${error.message}`, { userId, action });
-            
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `UNO action error (${action}) for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: '❌ An error occurred while processing your UNO action.',

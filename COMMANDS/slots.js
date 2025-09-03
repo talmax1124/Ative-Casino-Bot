@@ -91,8 +91,10 @@ module.exports = {
         const guildId = await getGuildId(interaction);
 
         try {
+            logger.debug(`Slots execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}'`);
             // Validate session before proceeding
             const canCreate = await sessionManager.canCreateSession(userId, guildId, SMGameType.SLOTS);
+            logger.debug(`canCreateSession result for ${userId}: ${JSON.stringify({ allowed: canCreate.allowed, reason: canCreate.reason })}`);
             if (!canCreate.allowed) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('❌ Session Error')
@@ -106,6 +108,7 @@ module.exports = {
             // Ensure user exists and get balance
             await dbManager.ensureUser(userId, username);
             const userBalance = await dbManager.getUserBalance(userId, guildId);
+            logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
             // Validate and deduct bet
             const validation = await PayoutManager.validateAndDeductBet(
@@ -121,6 +124,7 @@ module.exports = {
             }
 
             const betAmount = validation.parsedAmount;
+            logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
             const oldWallet = validation.newWallet + betAmount; // Wallet before bet
 
             // Create game session
@@ -143,6 +147,7 @@ module.exports = {
             }
 
             const sessionId = sessionResult.sessionId;
+            logger.debug(`Slots session created: ${sessionId} for ${userId}`);
 
             // Defer reply for animation and image generation
             await interaction.deferReply();
@@ -319,6 +324,15 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error in slots command: ${error.message}`);
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `Slots error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             
             // Handle game error with session cleanup and refund
             // Handle session error and cleanup

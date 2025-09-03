@@ -43,6 +43,7 @@ module.exports = {
         // Slot is always random now
 
         try {
+            logger.debug(`Plinko execute called by ${username} (${userId}) in guild ${guildId} amount='${betAmountStr}', mode='${selectedMode}'`);
             // Immediately defer to prevent timeout
             await interaction.deferReply();
 
@@ -190,6 +191,15 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error in plinko command: ${error.message}`);
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `Plinko error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             
             // Try to cancel session and refund on error
             try {

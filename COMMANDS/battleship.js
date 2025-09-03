@@ -19,7 +19,7 @@ const {
 
 const path = require('path');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const logger = require('../UTILS/logger');
 const battleshipRenderer = require('../UTILS/battleshipRenderer');
@@ -114,6 +114,7 @@ module.exports = {
         const username = interaction.user.displayName;
 
         try {
+            logger.debug(`Battleship execute called by ${username} (${userId}) in guild ${guildId}`);
             // Prevent multiple games in same channel
             const existing = getBattleshipGame(channelId);
             if (existing) {
@@ -206,6 +207,15 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Battleship /execute error: ${error.message}`);
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `Battleship error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             const embed = UITemplates.createErrorEmbed('❌ Game Error', 'Failed to start Battleship game.');
             await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => {});
         }
@@ -296,6 +306,15 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Battleship button error (${action}): ${error.message}`);
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `Battleship action error (${action}) for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             const embed = UITemplates.createErrorEmbed('❌ Button Error', 'Error processing button action.');
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
