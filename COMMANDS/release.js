@@ -4,8 +4,7 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } = require('discord.js');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
-const unifiedSessionManager = require('../UTILS/unifiedSessionManager');
+const sessionManager = require('../UTILS/sessionManager');
 const { clearActiveGame, getAllActiveGames, getActiveGame, sendLogMessage } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 
@@ -57,7 +56,7 @@ module.exports = {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
-            const userSessions = await GameSessionIntegrator.getActiveUserSessions(targetUser.id);
+            const userSessions = sessionManager.getUserSessions(targetUser.id).filter(s => s.state === 'active');
             
             if (userSessions.length === 0) {
                 const embed = this.createErrorEmbed('🎮 No Active Sessions', `${targetUser.displayName} doesn't have any active game sessions.`);
@@ -70,9 +69,9 @@ module.exports = {
             let refundTotal = 0;
             const results = [];
 
-            // Use unified session manager for force cleanup
+            // Use session manager for force cleanup
             const guildId = interaction.guildId;
-            const cleanupResult = await unifiedSessionManager.forceCleanupUser(
+            const cleanupResult = await sessionManager.forceCleanupUser(
                 targetUser.id, 
                 guildId, 
                 'Manual release via /release command'
@@ -381,7 +380,7 @@ module.exports = {
         description += `• Total Active: ${allSessions.length + allLegacySessions.length}\n\n`;
 
         if (targetUser) {
-            const userSessions = await GameSessionIntegrator.getActiveUserSessions(targetUser.id);
+            const userSessions = sessionManager.getUserSessions(targetUser.id).filter(s => s.state === 'active');
             const userLegacy = getActiveGame(targetUser.id);
             const userTotal = userSessions.length + (userLegacy ? 1 : 0);
             

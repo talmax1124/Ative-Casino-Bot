@@ -6,9 +6,8 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 // Using real GameSessionIntegrator for session management
-const SMGameType = { CRASH: 'crash' };
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
-const sessionGuard = require('../UTILS/sessionGuard');
+const sessionManager = require('../UTILS/sessionManager');
+const { SessionState } = sessionManager;
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -23,11 +22,14 @@ module.exports = {
 
     try {
 
-      // Validate session before proceeding
-      const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.CRASH, guildId);
-      if (!sessionValidation.valid) {
-        const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'crash', sessionValidation);
-        return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+      // Check if user can create session
+      const canCreate = await sessionManager.canCreateSession(userId, guildId, GameType.CRASH);
+      if (!canCreate.allowed) {
+        const embed = new EmbedBuilder()
+          .setTitle('❌ Session Error')
+          .setDescription(canCreate.message)
+          .setColor(0xFF0000);
+        return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       }
 
       // Quick balance check to provide better error messages
@@ -41,20 +43,19 @@ module.exports = {
         return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       }
 
-      // Create session for crash game with enhanced protection
-      const sessionResult = await sessionGuard.createSafeSession({
+      // Create session for crash game
+      const sessionResult = await sessionManager.createSession({
         userId,
         guildId,
         channelId: interaction.channelId,
-        gameType: SMGameType.CRASH,
+        gameType: GameType.CRASH,
         betAmount: 0, // No initial bet required
         timeout: 120000, // 2 minutes
         metadata: {
           gamePhase: 'joining',
           betPlaced: false,
           initialBet: 0
-        },
-        interaction
+        }
       });
 
       if (!sessionResult.success) {
@@ -76,11 +77,7 @@ module.exports = {
       
       // Enhanced session cleanup with better error handling
       try {
-        await GameSessionIntegrator.handleGameError(userId, SMGameType.CRASH, 0, guildId, 'Crash game initialization error');
-        
-        // Force cleanup any problematic sessions
-        const sessionGuard = require('../UTILS/sessionGuard');
-        await sessionGuard.forceCleanupUser(userId, guildId);
+        await sessionManager.forceCleanupUser(userId, guildId, 'Crash game initialization error');
         
         logger.info(`Forced cleanup completed for user ${userId} after crash command failure`);
       } catch (cleanupError) {

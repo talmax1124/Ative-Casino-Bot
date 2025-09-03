@@ -5,10 +5,9 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 // Mock sessionManager removed - using real GameSessionIntegrator
-const SessionState = { ACTIVE: 'active', PAUSED: 'paused', COMPLETED: 'completed', CANCELLED: 'cancelled', ERROR: 'error', TIMEOUT: 'timeout' };
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-const sessionGuard = require('../UTILS/sessionGuard');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
+const { SessionState } = sessionManager;
 const { getGuildId } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 
@@ -76,7 +75,7 @@ module.exports = {
      * Stop games for a specific user
      */
     async stopUserGames(interaction, targetUser) {
-        let userSessions = await GameSessionIntegrator.getActiveUserSessions(targetUser.id);
+        let userSessions = sessionManager.getUserSessions(targetUser.id).filter(s => s.state === SessionState.ACTIVE);
 
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({
@@ -101,8 +100,8 @@ module.exports = {
             betAmount: s.betAmount
         }));
         
-        // Use SessionGuard for safer cleanup
-        const guardResult = await sessionGuard.forceCleanupUser(targetUser.id, guildId);
+        // Use session manager for cleanup
+        const guardResult = await sessionManager.cancelUserSessions(targetUser.id, 'Admin stop command');
         
         // Create results based on cleanup success
         const results = guardResult.success ? 
@@ -185,8 +184,8 @@ module.exports = {
             betAmount: s.betAmount
         }));
         
-        // Use SessionGuard for safer cleanup
-        const guardResult = await sessionGuard.forceCleanupUser(userId, guildId);
+        // Use session manager for cleanup
+        const guardResult = await sessionManager.cancelUserSessions(userId, 'User stop command');
         
         // Create results based on cleanup success
         const results = guardResult.success ? 
@@ -386,7 +385,7 @@ module.exports = {
             return;
         }
 
-        let userSessions = await GameSessionIntegrator.getActiveUserSessions(targetUser.id);
+        let userSessions = sessionManager.getUserSessions(targetUser.id).filter(s => s.state === SessionState.ACTIVE);
 
         if (userSessions.length === 0) {
             const embed = buildSessionEmbed({

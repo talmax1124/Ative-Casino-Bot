@@ -24,7 +24,8 @@ const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const logger = require('../UTILS/logger');
 const battleshipRenderer = require('../UTILS/battleshipRenderer');
 const UITemplates = require('../UTILS/uiTemplates');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
+
 const levelingSystem = require('../UTILS/levelingSystem'); // Moved to UAS bot - using stub
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 

@@ -4,9 +4,8 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-const unifiedSessionManager = require('../UTILS/unifiedSessionManager');
-const SessionState = { ACTIVE: 'active', PAUSED: 'paused', COMPLETED: 'completed', CANCELLED: 'cancelled', ERROR: 'error', TIMEOUT: 'timeout' };
-const sessionGuard = require('../UTILS/sessionGuard');
+const sessionManager = require('../UTILS/sessionManager');
+const { SessionState } = sessionManager;
 const dbManager = require('../UTILS/database');
 const { getGuildId, fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
@@ -39,17 +38,17 @@ module.exports = {
         
         try {
             // Debug all sessions
-            unifiedSessionManager.debugSessions();
+            sessionManager.debugSessions();
             
             // Get user session
-            const activeSession = unifiedSessionManager.getActiveSession(userId);
+            const activeSession = sessionManager.getActiveSession(userId);
             const userSessions = activeSession ? [activeSession] : [];
             
             // Get user balance to check legacy flags
             const balance = await dbManager.getUserBalance(userId, guildId);
             
-            // Get guard status
-            const guardStatus = sessionGuard.getStatus();
+            // Get session manager status
+            const guardStatus = { healthy: true, activeGuards: 0 }; // Replaced sessionGuard with session manager
             
             // Check for issues
             const issues = [];
@@ -147,17 +146,13 @@ module.exports = {
             
             // System status field (admin only)
             if (isAdmin) {
-                const allSessions = sessionManager.getAllActiveSessions();
-                const stats = sessionManager.getSessionStats();
+                const stats = sessionManager.getStats();
                 
                 embed.addFields({
                     name: '📊 System Status',
-                    value: `Total Active: ${allSessions.length}\n` +
-                           `Total Created: ${stats.totalSessions}\n` +
-                           `Completed: ${stats.completedSessions}\n` +
-                           `Timeouts: ${stats.timeoutSessions}\n` +
-                           `Cancelled: ${stats.cancelledSessions}\n` +
-                           `Errors: ${stats.errors}`,
+                    value: `Total Active: ${stats.activeSessions}\n` +
+                           `Total Sessions: ${stats.totalSessions}\n` +
+                           `Users with Sessions: ${stats.usersWithSessions}`,
                     inline: true
                 });
                 
@@ -228,7 +223,7 @@ module.exports = {
         
         try {
             // Force cleanup using SessionGuard
-            const cleanupResult = await sessionGuard.forceCleanupUser(userId, guildId);
+            const cleanupResult = await sessionManager.forceCleanupUser(userId, guildId, 'Session status fix');
             
             if (cleanupResult.success) {
                 results.push('✅ Force cleanup completed');

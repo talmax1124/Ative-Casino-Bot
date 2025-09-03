@@ -8,7 +8,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
 
 // BINGO number ranges for each column
 const BINGO_RANGES = {

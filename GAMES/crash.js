@@ -17,7 +17,7 @@ const {
 
 const dbManager = require('../UTILS/database');
 const { fmt, parseAmount } = require('../UTILS/common');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 
 // Optimized configuration - much more conservative

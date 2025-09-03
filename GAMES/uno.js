@@ -8,7 +8,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const path = require('path');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 
 // Card colors and types

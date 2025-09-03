@@ -8,19 +8,8 @@ const { PayoutManager, GameType, GameResult, TimeoutManager } = require('../UTIL
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 const { getSecureHazard } = require('../UTILS/rng');
-// sessionManager removed (Firebase dependency) - using mock implementation
-const sessionManager = {
-    getAllActiveSessions: () => [],
-    getSessionStats: () => ({ active: 0, total: 0 }),
-    getActiveSessionCount: () => 0,
-    getUserSessions: (userId) => [],
-    getSession: (sessionId) => null,
-    endSession: async (sessionId) => ({ success: true }),
-    cancelSession: async (sessionId, reason) => ({ success: true }),
-    cancelUserSessions: async (userId, reason) => ({ success: true })
-};
 const SMGameType = { DUCK: 'duck' };
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const Canvas = require('canvas');

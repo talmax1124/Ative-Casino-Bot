@@ -8,7 +8,8 @@ const dbManager = require('../UTILS/database');
 const { fmt, fmtFull, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
+
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -52,18 +53,17 @@ module.exports = {
             }
 
             // Create game session
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
-                gameType: 'heist',
+                gameType: GameType.HEIST,
                 betAmount: 0, // No bet for heist
                 timeout: 60000, // 1 minute for Heist
                 metadata: {
                     gamePhase: 'active',
                     singlePlayer: true
-                },
-                interaction
+                }
             });
             
             if (!sessionResult.success) {
@@ -167,11 +167,10 @@ module.exports = {
             );
 
             // Complete session
-            await GameSessionIntegrator.completeGameSession(sessionResult.sessionId, {
-                outcome: 'WON',
+            await sessionManager.endSession(sessionResult.sessionId, {
                 payout: earning,
                 won: true,
-                netChange: earning
+                reason: 'completed'
             });
 
         } catch (error) {

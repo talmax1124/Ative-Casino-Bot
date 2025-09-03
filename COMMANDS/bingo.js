@@ -17,7 +17,7 @@ const {
 } = require('../GAMES/bingo');
 const { createBingoCardImage, createGameStatusImage, getBingoColumn } = require('../UTILS/bingoImageGenerator');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 
 module.exports = {

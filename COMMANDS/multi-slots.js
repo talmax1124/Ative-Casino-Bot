@@ -19,7 +19,7 @@ const {
     handleBuffaloBonusSpin 
 } = require('../GAMES/multi-slots');
 const dbManager = require('../UTILS/database');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 
 module.exports = {

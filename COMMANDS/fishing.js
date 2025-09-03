@@ -15,7 +15,7 @@ const {
     handleFishingAction 
 } = require('../GAMES/fishing');
 const logger = require('../UTILS/logger');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
 const levelingSystem = require('../UTILS/levelingSystem');
 
 module.exports = {

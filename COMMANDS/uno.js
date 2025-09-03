@@ -7,7 +7,7 @@ const { SlashCommandBuilder, EmbedBuilder, ModalBuilder, TextInputBuilder, TextI
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
-const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const sessionManager = require('../UTILS/sessionManager');
 const levelingSystem = require('../UTILS/levelingSystem');
 const UITemplates = require('../UTILS/uiTemplates');
 const { 

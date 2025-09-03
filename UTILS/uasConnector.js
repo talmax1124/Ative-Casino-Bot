@@ -3,9 +3,7 @@
  * Allows UAS to use /release and /stopgame functionality via API endpoints
  */
 
-const unifiedSessionManager = require('./unifiedSessionManager');
-const GameSessionIntegrator = require('./gameSessionIntegrator');
-const sessionGuard = require('./sessionGuard');
+const sessionManager = require('./sessionManager');
 const logger = require('./logger');
 const dbManager = require('./database');
 
@@ -46,8 +44,7 @@ class UASConnector {
                 };
             }
 
-            const activeSession = unifiedSessionManager.getActiveSession(userId);
-            const sessions = activeSession ? [activeSession] : [];
+            const sessions = sessionManager.getUserSessions(userId).filter(s => s.state === 'active');
 
             return {
                 success: true,
@@ -81,8 +78,8 @@ class UASConnector {
 
             logger.info(`UAS Connector: Stopping sessions for user ${userId} requested by ${requestedBy}`);
 
-            // Use session guard for safe cleanup
-            const result = await sessionGuard.forceCleanupUser(userId, guildId);
+            // Use session manager for safe cleanup
+            const result = await sessionManager.forceCleanupUser(userId, guildId, `UAS cleanup requested by ${requestedBy}`);
 
             if (result.success) {
                 logger.info(`UAS Connector: Successfully stopped ${result.sessionsCleaned} sessions for user ${userId}`);
