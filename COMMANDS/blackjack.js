@@ -446,9 +446,8 @@ module.exports = {
             let game = null;
             let sessionId = null;
             
-            // Get the unified session manager instance
-            const unifiedSessionManager = require('../UTILS/unifiedSessionManager');
-            const activeSession = unifiedSessionManager.getActiveSession(userId);
+        // Use sessionManager to find user's active session
+        const activeSession = sessionManager.getUserActiveSession(userId);
             
             if (activeSession && activeSession.gameType === SMGameType.BLACKJACK) {
                 sessionId = activeSession.sessionId;

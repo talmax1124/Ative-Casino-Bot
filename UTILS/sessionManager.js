@@ -95,6 +95,7 @@ class UnifiedSessionManager extends EventEmitter {
         this.createSession = this.createSession.bind(this);
         this.endSession = this.endSession.bind(this);
         this.getSession = this.getSession.bind(this);
+        this.updateSession = this.updateSession.bind(this);
         
         this.log('info', 'Unified Session Manager initialized successfully');
     }
@@ -565,6 +566,67 @@ class UnifiedSessionManager extends EventEmitter {
     getSession(sessionId) {
         if (!sessionId) return null;
         return this.sessions.get(sessionId) || null;
+    }
+
+    /**
+     * Update an existing session with partial data
+     * Safely merges fields like metadata and gameData, bumps activity, and records optional action tag
+     * @param {string} sessionId
+     * @param {Object} updates - Partial session fields to update
+     * @param {string|null} action - Optional action tag for auditing
+     */
+    async updateSession(sessionId, updates = {}, action = null) {
+        try {
+            const session = this.sessions.get(sessionId);
+            if (!session) {
+                this.log('warn', `updateSession called for missing session: ${sessionId}`);
+                return { success: false, error: 'SESSION_NOT_FOUND' };
+            }
+
+            // Merge metadata
+            if (updates.metadata && typeof updates.metadata === 'object') {
+                session.metadata = { ...(session.metadata || {}), ...updates.metadata };
+            }
+
+            // Merge gameData (allow top-level gameData holder)
+            if (updates.gameData && typeof updates.gameData === 'object') {
+                session.gameData = { ...(session.gameData || {}), ...updates.gameData };
+            }
+
+            // Allow certain top-level updates (state/timeout/channelId etc.)
+            const allowedTopLevel = ['state', 'channelId', 'timeout'];
+            for (const key of allowedTopLevel) {
+                if (Object.prototype.hasOwnProperty.call(updates, key)) {
+                    session[key] = updates[key];
+                }
+            }
+
+            // Update activity and stats
+            session.lastActivity = Date.now();
+            if (session.stats) session.stats.actions++;
+
+            // Handle timeout update
+            if (typeof updates.timeout === 'number' && updates.timeout > 0) {
+                if (session.timeoutHandle) clearTimeout(session.timeoutHandle);
+                session.timeout = updates.timeout;
+                session.timeoutHandle = setTimeout(() => this.handleTimeout(sessionId), updates.timeout);
+            }
+
+            // Optional action audit (support both param and updates.action)
+            const actionTag = action || updates.action;
+            if (actionTag) {
+                session.lastAction = actionTag;
+            }
+
+            // Persist back (Map holds reference, so not strictly required)
+            this.sessions.set(sessionId, session);
+
+            this.log('debug', `Session ${sessionId} updated${action ? ` (${action})` : ''}`);
+            return { success: true, session };
+        } catch (error) {
+            this.log('error', `updateSession failed for ${sessionId}`, error);
+            return { success: false, error: error.message };
+        }
     }
 
     /**
