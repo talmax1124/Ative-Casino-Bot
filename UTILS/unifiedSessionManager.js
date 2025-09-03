@@ -134,12 +134,14 @@ class UnifiedSessionManager {
 
             // Store session
             this.sessions.set(sessionId, session);
+            logger.info(`Stored session in sessions Map: ${sessionId}`);
             
             // Track user session
             if (!this.userToSessions.has(userId)) {
                 this.userToSessions.set(userId, new Set());
             }
             this.userToSessions.get(userId).add(sessionId);
+            logger.info(`Added session to user ${userId} tracking. User now has ${this.userToSessions.get(userId).size} sessions`);
 
             // Remove lock after successful creation
             this.locks.delete(userId);
@@ -325,14 +327,22 @@ class UnifiedSessionManager {
      */
     getActiveSession(userId) {
         const userSessions = this.userToSessions.get(userId);
-        if (!userSessions) return null;
+        logger.info(`Getting active session for user ${userId}: ${userSessions ? userSessions.size : 0} total sessions`);
+        
+        if (!userSessions || userSessions.size === 0) {
+            logger.info(`No sessions found for user ${userId}`);
+            return null;
+        }
 
         for (const sessionId of userSessions) {
             const session = this.sessions.get(sessionId);
+            logger.info(`Checking session ${sessionId}: ${session ? `active=${session.active}` : 'not found'}`);
             if (session && session.active) {
+                logger.info(`Found active session for user ${userId}: ${sessionId}`);
                 return session;
             }
         }
+        logger.info(`No active sessions found for user ${userId}`);
         return null;
     }
 
@@ -427,6 +437,28 @@ class UnifiedSessionManager {
     /**
      * Get session statistics
      */
+    /**
+     * Debug method to list all sessions
+     */
+    debugSessions() {
+        logger.info('=== SESSION DEBUG INFO ===');
+        logger.info(`Total sessions: ${this.sessions.size}`);
+        logger.info(`Total users with sessions: ${this.userToSessions.size}`);
+        
+        for (const [userId, sessionIds] of this.userToSessions) {
+            logger.info(`User ${userId}: ${sessionIds.size} sessions`);
+            for (const sessionId of sessionIds) {
+                const session = this.sessions.get(sessionId);
+                if (session) {
+                    logger.info(`  - ${sessionId}: ${session.gameType}, active=${session.active}`);
+                } else {
+                    logger.info(`  - ${sessionId}: SESSION NOT FOUND IN MAP`);
+                }
+            }
+        }
+        logger.info('=== END DEBUG INFO ===');
+    }
+
     getStats() {
         return {
             totalSessions: this.sessions.size,

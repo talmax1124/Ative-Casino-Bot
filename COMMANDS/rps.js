@@ -277,12 +277,36 @@ module.exports = {
                 return;
             }*/
 
-            // Deduct bet from player 2 and set game as active
-            const newPlayer2Wallet = player2Balance.wallet - game.potAmount;
-            
-            await dbManager.updateUserBalance(player2Id, guildId, {
-                wallet: newPlayer2Wallet
+            // Create session for player 2
+            const player2SessionResult = await GameSessionIntegrator.createGameSession({
+                userId: player2Id,
+                guildId,
+                channelId,
+                gameType: SMGameType.RPS,
+                betAmount: game.potAmount,
+                timeout: 300000, // 5 minutes
+                metadata: {
+                    gamePhase: 'playing',
+                    isPlayer2: true,
+                    player1Id: game.player1Id,
+                    player1Name: game.player1Name
+                },
+                interaction
             });
+
+            if (!player2SessionResult.success) {
+                await interaction.reply({
+                    content: `❌ Failed to create game session: ${player2SessionResult.error}`,
+                    ephemeral: true
+                });
+                return;
+            }
+
+            // Store player2's session ID in the game
+            game.player2SessionId = player2SessionResult.sessionId;
+
+            // Deduct bet from player 2 (already done by GameSessionIntegrator)
+            const newPlayer2Wallet = player2Balance.wallet - game.potAmount;
 
             // Add player 2 to the game
             game.addPlayer2(player2Id, player2Name);
@@ -499,18 +523,34 @@ module.exports = {
             logger.info(`RPS game completed in channel ${channelId}: ${finalWinner === 0 ? 'Tie' : 
                        finalWinner === 1 ? `${game.player1Name} wins` : `${game.player2Name} wins`}`);
 
-            // Complete the game session
+            // Complete the game sessions for both players
             if (game.sessionId) {
                 try {
+                    // Complete player 1 session
                     await GameSessionIntegrator.completeGameSession(game.sessionId, {
                         gameResult: finalWinner === 0 ? 'tie' : (finalWinner === 1 ? 'win' : 'loss'),
                         finalScore: `${game.player1Wins}-${game.player2Wins}`,
                         opponent: game.player2Name,
                         prizePaid: finalWinner === 1 ? game.totalPot : (finalWinner === 0 && game.vsBot ? game.potAmount : 0)
                     });
-                    logger.info(`Completed RPS session ${game.sessionId} for user ${game.player1Id}`);
+                    logger.info(`Completed RPS session ${game.sessionId} for player 1 (${game.player1Id})`);
                 } catch (sessionError) {
-                    logger.error(`Failed to complete RPS session: ${sessionError.message}`);
+                    logger.error(`Failed to complete player 1 RPS session: ${sessionError.message}`);
+                }
+            }
+            
+            // Complete player 2 session if exists (not for bot games)
+            if (game.player2SessionId && !game.vsBot) {
+                try {
+                    await GameSessionIntegrator.completeGameSession(game.player2SessionId, {
+                        gameResult: finalWinner === 0 ? 'tie' : (finalWinner === 2 ? 'win' : 'loss'),
+                        finalScore: `${game.player2Wins}-${game.player1Wins}`,
+                        opponent: game.player1Name,
+                        prizePaid: finalWinner === 2 ? game.totalPot : 0
+                    });
+                    logger.info(`Completed RPS session ${game.player2SessionId} for player 2 (${game.player2Id})`);
+                } catch (sessionError) {
+                    logger.error(`Failed to complete player 2 RPS session: ${sessionError.message}`);
                 }
             }
 

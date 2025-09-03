@@ -4,17 +4,7 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
-// sessionManager removed (Firebase dependency) - using mock implementation
-const sessionManager = {
-    getAllActiveSessions: () => [],
-    getSessionStats: () => ({ active: 0, total: 0 }),
-    getActiveSessionCount: () => 0,
-    getUserSessions: (userId) => [],
-    getSession: (sessionId) => null,
-    endSession: async (sessionId) => ({ success: true }),
-    cancelSession: async (sessionId, reason) => ({ success: true }),
-    cancelUserSessions: async (userId, reason) => ({ success: true })
-};
+const unifiedSessionManager = require('../UTILS/unifiedSessionManager');
 const SessionState = { ACTIVE: 'active', PAUSED: 'paused', COMPLETED: 'completed', CANCELLED: 'cancelled', ERROR: 'error', TIMEOUT: 'timeout' };
 const sessionGuard = require('../UTILS/sessionGuard');
 const dbManager = require('../UTILS/database');
@@ -48,8 +38,12 @@ module.exports = {
         const username = (targetUser && isAdmin) ? targetUser.username : interaction.user.username;
         
         try {
-            // Get user sessions
-            const userSessions = sessionManager.getUserSessions(userId);
+            // Debug all sessions
+            unifiedSessionManager.debugSessions();
+            
+            // Get user session
+            const activeSession = unifiedSessionManager.getActiveSession(userId);
+            const userSessions = activeSession ? [activeSession] : [];
             
             // Get user balance to check legacy flags
             const balance = await dbManager.getUserBalance(userId, guildId);
@@ -75,11 +69,8 @@ module.exports = {
                 issues.push(`⚠️ ${staleSessions.length} stale session(s) detected`);
             }
             
-            // Check for sessions without timeouts
-            const noTimeoutSessions = userSessions.filter(s => 
-                s.state === SessionState.ACTIVE && 
-                !sessionManager.timeouts.has(s.sessionId)
-            );
+            // Check for sessions without timeouts (skip this check for unified manager)
+            const noTimeoutSessions = [];
             
             if (noTimeoutSessions.length > 0) {
                 issues.push(`⏰ ${noTimeoutSessions.length} session(s) missing timeout protection`);
@@ -96,6 +87,20 @@ module.exports = {
                 .setTitle(`🎮 Session Status - ${username}`)
                 .setColor(issues.length > 0 ? 0xFFAA00 : 0x00FF00)
                 .setTimestamp();
+            
+            // Show raw session data
+            const sessionInfo = activeSession ? 
+                `**Active Session Found:**\n` +
+                `Session ID: ${activeSession.sessionId}\n` +
+                `Game Type: ${activeSession.gameType}\n` +
+                `Bet Amount: ${fmt(activeSession.betAmount)}\n` +
+                `Started: <t:${Math.floor(activeSession.startTime / 1000)}:R>\n` +
+                `Active: ${activeSession.active}` :
+                'No active sessions';
+            
+            embed.addFields(
+                { name: '📊 Session Info', value: sessionInfo }
+            );
             
             // Active sessions field
             if (userSessions.length > 0) {
