@@ -398,10 +398,11 @@ module.exports = {
 
         try {
             logger.debug(`Duck execute called by ${username} (${userId}) in guild ${guildId} amount='${amount}'`);
-            // Validate session before proceeding
-            const sessionValidation = await sessionManager.canCreateSession(userId, SMGameType.DUCK, guildId);
-            if (!sessionValidation.valid) {
-                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription("Cannot start game right now.").setColor(0xFF0000);
+            // Validate session before proceeding (correct order/flag)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, SMGameType.DUCK, interaction.client);
+            if (!check.allowed) {
+                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription(check.message).setColor(0xFF0000);
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 

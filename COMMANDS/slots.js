@@ -92,14 +92,14 @@ module.exports = {
 
         try {
             logger.debug(`Slots execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}'`);
-            // Validate session before proceeding
-            const canCreate = await sessionManager.canCreateSession(userId, guildId, SMGameType.SLOTS);
-            logger.debug(`canCreateSession result for ${userId}: ${JSON.stringify({ allowed: canCreate.allowed, reason: canCreate.reason })}`);
-            if (!canCreate.allowed) {
+            // Validate session before proceeding (via sessionGuard)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, SMGameType.SLOTS, interaction.client);
+            logger.debug(`canCreateSession result for ${userId}: ${JSON.stringify({ allowed: check.allowed, reason: check.code })}`);
+            if (!check.allowed) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('❌ Session Error')
-                    .setDescription(`${username}, you cannot start a slots game right now.`)
-                    .addFields({ name: 'Reason', value: canCreate.reason || 'Unknown session restriction', inline: false })
+                    .setDescription(check.message)
                     .setColor(0xFF0000)
                     .setTimestamp();
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });

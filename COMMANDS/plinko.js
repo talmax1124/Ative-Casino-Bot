@@ -69,10 +69,16 @@ module.exports = {
                 return;
             }*/
 
-            // Validate session using new system
-            const sessionValidation = await sessionManager.canCreateSession(userId, SMGameType.PLINKO, guildId);
-            if (!sessionValidation.valid) {
-                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription("Cannot start game right now.").setColor(0xFF0000);
+            // Validate session using new system (correct order/flag)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, SMGameType.PLINKO, interaction.client);
+            if (!check.allowed) {
+                const errorEmbed = buildSessionEmbed({
+                    title: `❌ ${username}'s Plinko`,
+                    topFields: [ { name: 'Session Error', value: check.message } ],
+                    color: 0xFF0000,
+                    footer: 'Plinko Game • Session Manager'
+                });
                 await interaction.editReply({ embeds: [errorEmbed] });
                 return;
             }

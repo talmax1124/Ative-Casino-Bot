@@ -34,13 +34,13 @@ module.exports = {
         const username = interaction.user.displayName;
         
         try {
-            // Modern session validation
-            const canCreate = await sessionManager.canCreateSession(userId, guildId, 'fishing');
-            if (!canCreate.allowed) {
+            // Modern session validation (via sessionGuard)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, 'fishing', interaction.client);
+            if (!check.allowed) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('❌ Session Error')
-                    .setDescription(`${username}, you cannot start a fishing game right now.`)
-                    .addFields({ name: 'Reason', value: canCreate.reason || 'Unknown session restriction', inline: false })
+                    .setDescription(check.message)
                     .setColor(0xFF0000)
                     .setTimestamp();
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });

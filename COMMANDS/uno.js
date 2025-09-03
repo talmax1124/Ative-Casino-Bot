@@ -55,10 +55,11 @@ module.exports = {
                 return await interaction.followUp({ embeds: [errorEmbed] });
             }
 
-            // Validate session before proceeding using modern session system
-            const sessionValidation = await sessionManager.canCreateSession(userId, 'uno', guildId);
-            if (!sessionValidation.valid) {
-                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription("Cannot start game right now.").setColor(0xFF0000);
+            // Validate session before proceeding using modern session system (correct order/flag)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, 'uno', interaction.client);
+            if (!check.allowed) {
+                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription(check.message).setColor(0xFF0000);
                 return await interaction.followUp({ embeds: [errorEmbed] });
             }
 

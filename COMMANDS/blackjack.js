@@ -209,14 +209,14 @@ module.exports = {
         let validation; // Declare validation at function scope
         
         try {
-            // Validate session before proceeding using modern session system
-            const canCreate = await sessionManager.canCreateSession(userId, guildId, SMGameType.BLACKJACK);
-            logger.debug(`canCreateSession result for ${userId}: ${JSON.stringify({ allowed: canCreate.allowed, reason: canCreate.reason })}`);
-            if (!canCreate.allowed) {
+            // Validate session before proceeding using modern session system (via sessionGuard)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, SMGameType.BLACKJACK, interaction.client);
+            logger.debug(`canCreateSession result for ${userId}: ${JSON.stringify({ allowed: check.allowed, reason: check.code })}`);
+            if (!check.allowed) {
                 const errorEmbed = new EmbedBuilder()
                     .setTitle('❌ Session Error')
-                    .setDescription(`${username}, you cannot start a blackjack game right now.`)
-                    .addFields({ name: 'Reason', value: canCreate.reason || 'Unknown session restriction', inline: false })
+                    .setDescription(check.message)
                     .setColor(0xFF0000)
                     .setTimestamp();
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });

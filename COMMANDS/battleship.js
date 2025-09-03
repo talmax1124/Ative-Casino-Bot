@@ -115,6 +115,14 @@ module.exports = {
 
         try {
             logger.debug(`Battleship execute called by ${username} (${userId}) in guild ${guildId}`);
+            // Session guard check
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, 'battleship', interaction.client);
+            if (!check.allowed) {
+                const embed = UITemplates.createErrorEmbed('❌ Session Error', check.message);
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return;
+            }
             // Prevent multiple games in same channel
             const existing = getBattleshipGame(channelId);
             if (existing) {
@@ -368,7 +376,15 @@ module.exports = {
             return;
         }
 
-        // Create session for joining player
+        // Create session for joining player (guarded)
+        const sessionGuard = require('../UTILS/sessionGuard');
+        const check = await sessionGuard.check(userId, guildId, 'battleship', interaction.client);
+        if (!check.allowed) {
+            const embed2 = UITemplates.createErrorEmbed('❌ Session Error', check.message);
+            await interaction.reply({ embeds: [embed2], flags: MessageFlags.Ephemeral });
+            return;
+        }
+        // Proceed to create session
         const sessionResult = await sessionManager.createSession({
             userId,
             guildId,

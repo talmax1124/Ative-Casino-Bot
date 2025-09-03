@@ -38,6 +38,13 @@ module.exports = {
         const guildId = await getGuildId(interaction);
 
         try {
+            // Guard session before any processing
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, 'multi-slots', interaction.client);
+            if (!check.allowed) {
+                const embed = new EmbedBuilder().setTitle('❌ Session Error').setDescription(check.message).setColor(0xFF0000);
+                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            }
             // Ensure user exists and get balance
             await dbManager.ensureUser(userId, interaction.user.displayName);
             const userBalance = await dbManager.getUserBalance(userId, guildId);

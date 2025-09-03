@@ -41,10 +41,11 @@ module.exports = {
 
         try {
             logger.debug(`RPS execute called by ${username} (${userId}) in guild ${guildId}`);
-            // Validate session before proceeding
-            const sessionValidation = await sessionManager.canCreateSession(userId, SMGameType.RPS, guildId);
-            if (!sessionValidation.valid) {
-                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription("Cannot start game right now.").setColor(0xFF0000);
+            // Validate session before proceeding (via sessionGuard)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, SMGameType.RPS, interaction.client);
+            if (!check.allowed) {
+                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription(check.message).setColor(0xFF0000);
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
@@ -294,7 +295,14 @@ module.exports = {
                 return;
             }*/
 
-            // Create session for player 2
+            // Create session for player 2 (guarded)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(player2Id, guildId, SMGameType.RPS, interaction.client);
+            if (!check.allowed) {
+                await interaction.reply({ content: `❌ ${check.message}`, ephemeral: true });
+                return;
+            }
+            // Proceed to create session
             const player2SessionResult = await sessionManager.createSession({
                 userId: player2Id,
                 guildId,

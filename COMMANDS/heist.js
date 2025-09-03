@@ -52,6 +52,17 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
+            // Session guard check (even for zero-bet sessions)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, 'heist', interaction.client);
+            if (!check.allowed) {
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Session Error')
+                    .setDescription(check.message)
+                    .setColor(0xFF0000);
+                return await interaction.editReply({ embeds: [embed] });
+            }
+
             // Create game session
             const sessionResult = await sessionManager.createSession({
                 userId,

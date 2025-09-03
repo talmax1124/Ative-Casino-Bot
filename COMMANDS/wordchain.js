@@ -147,10 +147,11 @@ module.exports = {
         const lives = interaction.options.getInteger('lives') ?? 3;
         const timeout = interaction.options.getInteger('timeout') ?? 30;
         
-        // Modern session validation
-        const sessionValidation = await sessionManager.canCreateSession(userId, 'wordchain', guildId);
-        if (!sessionValidation.valid) {
-            const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription("Cannot start game right now.").setColor(0xFF0000);
+        // Modern session validation (correct order/flag)
+        const sessionGuard = require('../UTILS/sessionGuard');
+        const check = await sessionGuard.check(userId, guildId, 'wordchain', interaction.client);
+        if (!check.allowed) {
+            const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription(check.message).setColor(0xFF0000);
             return await interaction.editReply({ embeds: [errorEmbed] });
         }
 
@@ -212,6 +213,12 @@ module.exports = {
                     });
                 }
                 
+                // Guard + create session for pot players
+                const sessionGuard = require('../UTILS/sessionGuard');
+                const check = await sessionGuard.check(i.user.id, guildId, 'wordchain', i.client);
+                if (!check.allowed) {
+                    return i.reply({ content: `❌ ${check.message}`, ephemeral: true });
+                }
                 // Create session for pot players
                 const sessionResult = await sessionManager.createSession({
                     userId: i.user.id,

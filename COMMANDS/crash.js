@@ -24,12 +24,13 @@ module.exports = {
     try {
       logger.debug(`Crash execute called by ${username} (${userId}) in guild ${guildId}`);
 
-      // Check if user can create session
-      const canCreate = await sessionManager.canCreateSession(userId, guildId, GameType.CRASH);
-      if (!canCreate.allowed) {
+      // Check if user can create session (via sessionGuard)
+      const sessionGuard = require('../UTILS/sessionGuard');
+      const check = await sessionGuard.check(userId, guildId, GameType.CRASH, interaction.client);
+      if (!check.allowed) {
         const embed = new EmbedBuilder()
           .setTitle('❌ Session Error')
-          .setDescription(canCreate.message)
+          .setDescription(check.message)
           .setColor(0xFF0000);
         return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       }

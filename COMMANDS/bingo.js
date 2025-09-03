@@ -59,6 +59,18 @@ module.exports = {
             }
 
             // User existence and balance validation handled by PayoutManager
+
+            // Session guard check
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, 'bingo', interaction.client);
+            if (!check.allowed) {
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Session Error')
+                    .setDescription(check.message)
+                    .setColor(0xFF0000);
+                await interaction.followUp({ embeds: [embed], ephemeral: true });
+                return;
+            }
             
             // Validate and deduct bet amount using PayoutManager
             const amountStr = interaction.options.getString('amount');
