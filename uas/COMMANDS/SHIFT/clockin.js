@@ -1,6 +1,7 @@
 /**
  * Clock In Command - Start a shift
  * Updated: Discord.js v14 compatibility - MessageFlags.Ephemeral
+ * TEST UPDATE: This should appear in server logs if git pull works
  */
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
