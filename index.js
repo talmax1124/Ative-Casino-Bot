@@ -511,6 +511,13 @@ client.on('interactionCreate', async interaction => {
                     await interaction.reply({ content: '❌ Game session expired. Please start a new game.', ephemeral: true });
                 }
             }
+            // stopmysession confirmation modal
+            else if (interaction.customId.startsWith('stopmysession_confirm')) {
+                const cmd = client.commands.get('stopmysession');
+                if (cmd && cmd.handleConfirmModal) {
+                    await cmd.handleConfirmModal(interaction);
+                }
+            }
             // Handle bingo join modal
             else if (interaction.customId === 'bingo_join_modal') {
                 const bingoCommand = client.commands.get('bingo');

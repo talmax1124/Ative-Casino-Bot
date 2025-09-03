@@ -173,13 +173,9 @@ module.exports = {
                 return;
             }
 
-            // Calculate final amounts
-            const finalWallet = game.walletAfter + game.currentWinnings;
+            // Calculate final amounts (wallet update handled by sessionManager payout)
             const netChange = game.currentWinnings - game.initialBet;
             const won = netChange >= 0;
-
-            // Update database (no longer setting game_active as it's handled by sessions)
-            await dbManager.updateUserBalance(userId, guildId, { wallet: finalWallet });
 
             // Record game result for statistics
             try {
@@ -203,23 +199,9 @@ module.exports = {
                 // Don't throw - game should still complete
             }
 
-            // Get updated balance for final embed
-            const updatedBalance = await dbManager.getUserBalance(userId, guildId);
-            
-            // Create and send final embed
+            // Prepare final embed after payout has been processed (below)
             const endType = result.lostToRedFish ? 'red' : 
                           result.reachedLimit ? 'limit' : 'stop';
-            
-            const finalEmbed = game.createFinalEmbed(updatedBalance.bank, endType);
-
-            // Send final result (use followUp to avoid interaction conflicts)
-            setTimeout(async () => {
-                try {
-                    await interaction.followUp({ embeds: [finalEmbed] });
-                } catch (followUpError) {
-                    logger.warn(`Failed to send fishing final embed: ${followUpError.message}`);
-                }
-            }, 1000);
 
             // Log game completion
             const logMessage = `🎣 **Fishing Game Completed**\n` +
@@ -258,7 +240,7 @@ module.exports = {
                 }
             }
             
-            // Complete session if exists
+            // Complete session if exists (this processes payout and clears active flag)
             if (game.sessionId) {
                 await sessionManager.endSession(game.sessionId, {
                     outcome: won ? 'WON' : 'LOST',
@@ -270,6 +252,18 @@ module.exports = {
 
             logger.info(`Fishing game completed: ${game.username} (${userId}) - ${won ? 'WIN' : 'LOSS'} ${fmt(netChange)}`);
 
+            // Get updated balance for final embed (post-payout)
+            const updatedBalance = await dbManager.getUserBalance(userId, guildId);
+            const finalEmbed = game.createFinalEmbed(updatedBalance.bank, endType);
+            // Send final result (use followUp to avoid interaction conflicts)
+            setTimeout(async () => {
+                try {
+                    await interaction.followUp({ embeds: [finalEmbed] });
+                } catch (followUpError) {
+                    logger.warn(`Failed to send fishing final embed: ${followUpError.message}`);
+                }
+            }, 1000);
+
             // Remove game from active games
             endFishingGame(userId);
 
@@ -279,11 +273,14 @@ module.exports = {
             // Ensure game is removed even if there was an error
             endFishingGame(userId);
             
-            // Try to clear game active status
+            // Best-effort: cancel any active session to ensure cleanup
             try {
-                await dbManager.updateUserBalance(userId, guildId, { game_active: false });
-            } catch (dbError) {
-                logger.error(`Failed to clear game_active status: ${dbError.message}`);
+                const active = sessionManager.getUserActiveSession(userId);
+                if (active) {
+                    await sessionManager.cancelSession(active.sessionId, 'Fishing end cleanup', true);
+                }
+            } catch (cleanupError) {
+                logger.error(`Failed fishing session cleanup: ${cleanupError.message}`);
             }
         }
     },

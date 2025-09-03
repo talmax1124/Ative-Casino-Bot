@@ -712,6 +712,26 @@ class UnifiedSessionManager extends EventEmitter {
     }
 
     /**
+     * Cancel all active sessions for a user (helper for legacy commands)
+     */
+    async cancelUserSessions(userId, reason = 'User requested cancel') {
+        try {
+            const sessions = this.getUserSessions(userId).filter(s => s.state === SessionState.ACTIVE);
+            let cancelled = 0;
+            let refunded = 0;
+            for (const s of sessions) {
+                if (s.betAmount > 0) refunded += s.betAmount;
+                await this.cancelSession(s.sessionId, reason, true);
+                cancelled++;
+            }
+            return { success: true, cancelled, refunded };
+        } catch (error) {
+            this.log('error', `cancelUserSessions error for ${userId}`, error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
      * Force cleanup all sessions for a user
      */
     async forceCleanupUser(userId, guildId, reason = 'Force cleanup') {

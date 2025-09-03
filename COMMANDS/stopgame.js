@@ -22,11 +22,11 @@ function isDeveloper(userId) {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('stopgame')
-        .setDescription('Stop a specific user\'s active game sessions')
+        .setDescription('Stop active game sessions (defaults to yourself)')
         .addUserOption(option =>
             option.setName('user')
-                .setDescription('User whose game sessions to stop')
-                .setRequired(true)
+                .setDescription('User whose game sessions to stop (optional)')
+                .setRequired(false)
         ),
 
     async execute(interaction) {
@@ -37,6 +37,12 @@ module.exports = {
 
         try {
             await interaction.deferReply({ ephemeral: true });
+
+            // If no target specified, stop caller's sessions
+            if (!targetUser) {
+                const username = interaction.user.displayName;
+                return await this.handleStopMyGames(interaction, userId, username);
+            }
 
             // Check if user can target another user (admin/dev only)
             if (targetUser.id !== userId && !isAdmin) {
