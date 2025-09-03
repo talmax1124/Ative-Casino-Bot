@@ -5,6 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits } = require('discord.js');
 const GameSessionIntegrator = require('../UTILS/gameSessionIntegrator');
+const unifiedSessionManager = require('../UTILS/unifiedSessionManager');
 const { clearActiveGame, getAllActiveGames, getActiveGame, sendLogMessage } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 
@@ -69,27 +70,23 @@ module.exports = {
             let refundTotal = 0;
             const results = [];
 
-            // Clear all sessions for the target user
-            for (const session of userSessions) {
-                try {
-                    const result = await GameSessionIntegrator.cancelGameSession(
-                        session.sessionId, 
-                        'Manual release via /release command', 
-                        interaction.user.id
-                    );
-                    
-                    if (result.success) {
-                        clearedCount++;
-                        if (result.refunded && session.betAmount > 0) {
-                            refundTotal += session.betAmount;
-                        }
-                        results.push(`✅ ${session.gameType} - Released`);
-                    } else {
-                        results.push(`❌ ${session.gameType} - Failed`);
-                    }
-                } catch (error) {
-                    results.push(`❌ ${session.gameType} - Error: ${error.message}`);
+            // Use unified session manager for force cleanup
+            const guildId = interaction.guildId;
+            const cleanupResult = await unifiedSessionManager.forceCleanupUser(
+                targetUser.id, 
+                guildId, 
+                'Manual release via /release command'
+            );
+            
+            if (cleanupResult.success) {
+                clearedCount = cleanupResult.sessionsCleaned;
+                refundTotal = cleanupResult.totalRefunded;
+                results.push(`✅ ${clearedCount} sessions - Released`);
+                if (refundTotal > 0) {
+                    results.push(`💰 $${refundTotal.toLocaleString()} - Refunded`);
                 }
+            } else {
+                results.push(`❌ Cleanup failed - ${cleanupResult.error}`);
             }
 
             let description = `**Sessions Released for ${targetUser.displayName}**\n\n`;
@@ -306,28 +303,25 @@ module.exports = {
             let refundTotal = 0;
             const results = [];
 
-            // Clear session manager sessions
-            const userSessions = await GameSessionIntegrator.getActiveUserSessions(interaction.user.id);
-            for (const session of userSessions) {
-                try {
-                    const result = await GameSessionIntegrator.cancelGameSession(
-                        session.sessionId, 
-                        'Manual release via /release command', 
-                        interaction.user.id
-                    );
-                    
-                    if (result.success) {
-                        clearedCount++;
-                        if (result.refunded && session.betAmount > 0) {
-                            refundTotal += session.betAmount;
-                        }
-                        results.push(`✅ ${session.gameType} - Released`);
-                    } else {
-                        results.push(`❌ ${session.gameType} - Failed`);
-                    }
-                } catch (error) {
-                    results.push(`❌ ${session.gameType} - Error: ${error.message}`);
+            // Use unified session manager for cleanup
+            const guildId = interaction.guildId;
+            const cleanupResult = await unifiedSessionManager.forceCleanupUser(
+                interaction.user.id, 
+                guildId, 
+                'Manual release via /release command'
+            );
+            
+            if (cleanupResult.success) {
+                clearedCount = cleanupResult.sessionsCleaned;
+                refundTotal = cleanupResult.totalRefunded;
+                if (clearedCount > 0) {
+                    results.push(`✅ ${clearedCount} sessions - Released`);
                 }
+                if (refundTotal > 0) {
+                    results.push(`💰 $${refundTotal.toLocaleString()} - Refunded`);
+                }
+            } else {
+                results.push(`❌ Cleanup failed - ${cleanupResult.error}`);
             }
 
             // Clear legacy system session
@@ -536,26 +530,25 @@ module.exports = {
      * Show system overview of all sessions
      */
     async showSystemOverview(interaction) {
-        const allSessions = [];
+        const unifiedStats = unifiedSessionManager.getStats();
         const allLegacy = getAllActiveGames();
-        const stats = { totalSessions: 0, activeUsers: 0, completedSessions: 0, timeoutSessions: 0, cancelledSessions: 0 };
 
         let description = `**📊 System Session Overview**\n\n`;
         
         description += `**Statistics:**\n`;
-        description += `• Total Sessions: ${stats.totalSessions}\n`;
-        description += `• Currently Active: ${allSessions.length}\n`;
+        description += `• Total Active: ${unifiedStats.activeSessions}\n`;
+        description += `• Active Users: ${unifiedStats.uniqueUsers}\n`;
         description += `• Legacy Active: ${allLegacy.length}\n`;
-        description += `• Active Users: ${stats.activeUsers}\n`;
-        description += `• Completed: ${stats.completedSessions}\n`;
-        description += `• Timeouts: ${stats.timeoutSessions}\n`;
-        description += `• Cancelled: ${stats.cancelledSessions}\n\n`;
+        description += `• Session Locks: ${unifiedStats.locks}\n`;
+        description += `• Combined Total: ${unifiedStats.activeSessions + allLegacy.length}\n\n`;
 
-        if (allSessions.length > 0) {
-            description += `**Recent Active Sessions:**\n`;
+        if (unifiedStats.activeSessions > 0) {
+            description += `**Active Sessions:**\n`;
+            const allSessions = Array.from(unifiedSessionManager.sessions.values());
             const recent = allSessions.slice(0, 10);
             recent.forEach((session, index) => {
-                description += `${index + 1}. **${session.gameType}** - <@${session.userId}> (${Math.floor(session.duration / 60000)}m)\n`;
+                const duration = Math.floor((Date.now() - session.startTime) / 60000);
+                description += `${index + 1}. **${session.gameType}** - <@${session.userId}> (${duration}m)\n`;
             });
             
             if (allSessions.length > 10) {

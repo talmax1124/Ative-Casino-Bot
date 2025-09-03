@@ -1663,10 +1663,14 @@ async function handleVoteReminder(interaction) {
 // ========================= TOP.GG WEBHOOK SERVER =========================
 
 const express = require('express');
+const uasConnector = require('./UTILS/uasConnector');
 const app = express();
 const PORT = process.env.WEBHOOK_PORT || 3001;
 
 app.use(express.json());
+
+// Initialize UAS Connector with Express app
+uasConnector.initialize(app);
 
 // Role assignment webhook endpoint
 app.post('/role-assignment', async (req, res) => {
@@ -1794,7 +1798,7 @@ app.get('/health', (req, res) => {
 // Start webhook server
 app.listen(PORT, () => {
     logger.info(`Webhook server running on port ${PORT}`);
-    logger.info(`Available endpoints: /role-assignment, /topgg/webhook, /health`);
+    logger.info(`Available endpoints: /role-assignment, /topgg/webhook, /health, /uas/sessions/*`);
 });
 
 // Handle uncaught exceptions

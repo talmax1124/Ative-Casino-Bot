@@ -3,37 +3,56 @@
  * Prevents session conflicts and ensures game stability
  */
 
-// sessionManager removed (Firebase dependency) - using mock implementation
+const unifiedSessionManager = require('./unifiedSessionManager');
+
+// Compatibility wrapper for existing code
 const sessionManager = {
-    canCreateSession: async (userId) => ({ allowed: true }),
-    createSession: async (sessionConfig) => {
-        try {
-            const sessionId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            return {
-                success: true, 
-                sessionId,
-                session: {
-                    ...sessionConfig,
-                    sessionId,
-                    createdAt: Date.now(),
-                    state: 'active'
-                }
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error.message || 'Failed to create mock session'
-            };
-        }
+    canCreateSession: async (userId, guildId) => {
+        const result = await unifiedSessionManager.canStartGame(userId, guildId);
+        return { allowed: result.canStart, reason: result.reason };
     },
-    endSession: async (sessionId) => ({ success: true }),
-    updateSession: async (sessionId, data) => ({ success: true }),
-    completeSession: async (sessionId, data) => ({ success: true }),
-    cancelSession: async (sessionId, reason, source) => ({ success: true }),
-    cancelUserSessions: async (userId, reason, source) => ({ success: true }),
-    getUserSessions: (userId) => [],
-    getSession: (sessionId) => null,
-    getActiveSessionCount: () => 0
+    createSession: async (sessionConfig) => {
+        return await unifiedSessionManager.startSession(
+            sessionConfig.userId,
+            sessionConfig.guildId,
+            sessionConfig.gameType,
+            sessionConfig.betAmount || 0,
+            sessionConfig.metadata || {}
+        );
+    },
+    endSession: async (sessionId, payout = 0) => {
+        return await unifiedSessionManager.endSession(sessionId, payout);
+    },
+    updateSession: async (sessionId, data) => {
+        unifiedSessionManager.updateActivity(sessionId);
+        return { success: true };
+    },
+    completeSession: async (sessionId, data) => {
+        const payout = data?.payout || 0;
+        return await unifiedSessionManager.endSession(sessionId, payout);
+    },
+    cancelSession: async (sessionId, reason, source) => {
+        return await unifiedSessionManager.cancelSession(sessionId, reason, true);
+    },
+    cancelUserSessions: async (userId, reason, source) => {
+        // Need guildId - we'll get it from any active session
+        const activeSession = unifiedSessionManager.getActiveSession(userId);
+        const guildId = activeSession?.guildId || null;
+        if (guildId) {
+            return await unifiedSessionManager.forceCleanupUser(userId, guildId, reason);
+        }
+        return { success: true, sessionsCleaned: 0, totalRefunded: 0 };
+    },
+    getUserSessions: (userId) => {
+        const session = unifiedSessionManager.getActiveSession(userId);
+        return session ? [session] : [];
+    },
+    getSession: (sessionId) => {
+        return unifiedSessionManager.sessions.get(sessionId) || null;
+    },
+    getActiveSessionCount: () => {
+        return unifiedSessionManager.getStats().activeSessions;
+    }
 };
 const GameType = { BLACKJACK: 'blackjack', SLOTS: 'slots', UNO: 'uno' };
 const SessionState = { ACTIVE: 'active', COMPLETED: 'completed', FAILED: 'failed' };
@@ -377,11 +396,8 @@ class SessionGuard {
         try {
             logger.warn(`Session Guard: Force cleanup initiated for user ${userId}`);
             
-            // Cancel all sessions
-            await sessionManager.cancelUserSessions(userId, 'Force cleanup', 'session-guard');
-            
-            // Clear legacy flags
-            await this.clearLegacyGameFlags(userId, guildId);
+            // Use unified session manager for cleanup
+            const result = await unifiedSessionManager.forceCleanupUser(userId, guildId, 'Force cleanup');
             
             // Clear locks and recovery attempts
             for (const [key] of this.sessionLocks) {
@@ -397,7 +413,11 @@ class SessionGuard {
             }
             
             logger.info(`Session Guard: Force cleanup completed for user ${userId}`);
-            return { success: true };
+            return { 
+                success: result.success,
+                sessionsCleaned: result.sessionsCleaned || 0,
+                totalRefunded: result.totalRefunded || 0
+            };
             
         } catch (error) {
             logger.error(`Session Guard: Force cleanup failed: ${error.message}`);

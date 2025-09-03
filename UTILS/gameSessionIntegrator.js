@@ -3,106 +3,49 @@
  * Provides common patterns and functions for game session management
  */
 
-// sessionManager removed (Firebase dependency) - using in-memory mock implementation
-const activeSessions = new Map(); // sessionId -> session data
-const userSessions = new Map();   // userId -> Set of sessionIds
+// Use the unified session manager
+const unifiedSessionManager = require('./unifiedSessionManager');
 
+// Compatibility wrapper for existing code
 const sessionManager = {
-    canCreateSession: async (userId) => ({ allowed: true }),
+    canCreateSession: async (userId) => {
+        // This is handled in unifiedSessionManager.canStartGame
+        return { allowed: true };
+    },
     createSession: async (sessionConfig) => {
-        try {
-            const sessionId = `mock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const session = {
-                ...sessionConfig,
-                sessionId,
-                createdAt: Date.now(),
-                state: 'active'
-            };
-            
-            // Store session
-            activeSessions.set(sessionId, session);
-            
-            // Track user sessions
-            if (!userSessions.has(sessionConfig.userId)) {
-                userSessions.set(sessionConfig.userId, new Set());
-            }
-            userSessions.get(sessionConfig.userId).add(sessionId);
-            
-            return {
-                success: true, 
-                sessionId,
-                session
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error.message || 'Failed to create mock session'
-            };
-        }
+        const result = await unifiedSessionManager.startSession(
+            sessionConfig.userId,
+            sessionConfig.guildId,
+            sessionConfig.gameType,
+            sessionConfig.betAmount || 0,
+            sessionConfig.metadata || {}
+        );
+        return result;
     },
     endSession: async (sessionId) => {
-        const session = activeSessions.get(sessionId);
-        if (session) {
-            session.state = 'ended';
-            activeSessions.delete(sessionId);
-            
-            // Remove from user tracking
-            if (userSessions.has(session.userId)) {
-                userSessions.get(session.userId).delete(sessionId);
-            }
-        }
-        return { success: true };
+        return await unifiedSessionManager.endSession(sessionId);
     },
     updateSession: async (sessionId, data) => {
-        const session = activeSessions.get(sessionId);
-        if (session) {
-            Object.assign(session, data);
-        }
+        unifiedSessionManager.updateActivity(sessionId);
         return { success: true };
     },
     completeSession: async (sessionId, data) => {
-        const session = activeSessions.get(sessionId);
-        if (session) {
-            session.state = 'completed';
-            Object.assign(session, data);
-            activeSessions.delete(sessionId);
-            
-            // Remove from user tracking
-            if (userSessions.has(session.userId)) {
-                userSessions.get(session.userId).delete(sessionId);
-            }
-        }
-        return { success: true };
+        const payout = data?.payout || 0;
+        return await unifiedSessionManager.endSession(sessionId, payout);
     },
     cancelSession: async (sessionId, reason) => {
-        const session = activeSessions.get(sessionId);
-        if (session) {
-            session.state = 'cancelled';
-            session.cancelReason = reason;
-            activeSessions.delete(sessionId);
-            
-            // Remove from user tracking
-            if (userSessions.has(session.userId)) {
-                userSessions.get(session.userId).delete(sessionId);
-            }
-        }
-        return { success: true };
+        return await unifiedSessionManager.cancelSession(sessionId, reason, true);
     },
     getUserSessions: (userId) => {
-        const sessionIds = userSessions.get(userId);
-        if (!sessionIds) return [];
-        
-        const sessions = [];
-        for (const sessionId of sessionIds) {
-            const session = activeSessions.get(sessionId);
-            if (session) {
-                sessions.push(session);
-            }
-        }
-        return sessions;
+        const session = unifiedSessionManager.getActiveSession(userId);
+        return session ? [session] : [];
     },
-    getActiveSessionCount: () => activeSessions.size,
-    getSession: (sessionId) => activeSessions.get(sessionId) || null
+    getActiveSessionCount: () => {
+        return unifiedSessionManager.getStats().activeSessions;
+    },
+    getSession: (sessionId) => {
+        return unifiedSessionManager.sessions.get(sessionId) || null;
+    }
 };
 const GameType = { BLACKJACK: 'blackjack', SLOTS: 'slots', UNO: 'uno' };
 const { buildSessionEmbed } = require('./gameSessionKit');
@@ -115,35 +58,14 @@ class GameSessionIntegrator {
      */
     static async validateGameSession(userId, gameType, guildId) {
         try {
-            // Check session limits
-            const canCreate = await sessionManager.canCreateSession(userId);
-            if (!canCreate.allowed) {
-                return {
-                    valid: false,
-                    error: 'SESSION_LIMIT',
-                    message: canCreate.reason + '\nUse `/stopgame` to cancel active sessions.'
-                };
-            }
-
-            // Check for existing sessions of the same game type
-            const userSessions = sessionManager.getUserSessions(userId);
-            const existingGame = userSessions.find(s => s.gameType === gameType);
+            // Use unified session manager to check if user can start game
+            const canStart = await unifiedSessionManager.canStartGame(userId, guildId, gameType);
             
-            if (existingGame) {
+            if (!canStart.canStart) {
                 return {
                     valid: false,
-                    error: 'GAME_ACTIVE',
-                    message: `You already have an active ${gameType} session.\nUse \`/stopgame\` to cancel it first.`
-                };
-            }
-
-            // Check legacy game_active field
-            const balance = await dbManager.getUserBalance(userId, guildId);
-            if (balance.game_active) {
-                return {
-                    valid: false,
-                    error: 'LEGACY_ACTIVE',
-                    message: 'You have an active game session.\nFinish it before starting a new game or use `/stopgame`.'
+                    error: canStart.activeSession ? 'GAME_ACTIVE' : 'SESSION_ERROR',
+                    message: canStart.reason || 'Cannot start game at this time.\nUse `/stopgame` to cancel active sessions.'
                 };
             }
 
@@ -450,44 +372,16 @@ class GameSessionIntegrator {
      */
     static async forceCleanupUserSessions(userId, guildId, reason = 'Force cleanup') {
         try {
-            logger.info(`Force cleanup initiated for user ${userId}: ${reason}`);
+            // Use unified session manager for force cleanup
+            const result = await unifiedSessionManager.forceCleanupUser(userId, guildId, reason);
             
-            // Cancel all sessions
-            const userSessions = sessionManager.getUserSessions(userId);
-            const cleanupResults = [];
-            
-            for (const session of userSessions) {
-                try {
-                    // Refund any bets
-                    if (session.betAmount > 0) {
-                        await dbManager.updateUserBalance(userId, guildId, session.betAmount, 0);
-                        logger.info(`Refunded ${session.betAmount} to user ${userId} from session ${session.sessionId}`);
-                    }
-                    
-                    // Cancel session
-                    await sessionManager.cancelSession(session.sessionId, reason, 'force-cleanup');
-                    cleanupResults.push({ sessionId: session.sessionId, success: true });
-                    
-                } catch (sessionError) {
-                    logger.error(`Failed to cleanup session ${session.sessionId}: ${sessionError.message}`);
-                    cleanupResults.push({ sessionId: session.sessionId, success: false, error: sessionError.message });
-                }
+            if (result.success) {
+                logger.info(`Force cleanup completed for user ${userId}. Cleaned ${result.sessionsCleaned} sessions, refunded ${result.totalRefunded}`);
+            } else {
+                logger.error(`Force cleanup failed for user ${userId}: ${result.error}`);
             }
             
-            // Clear legacy game_active flag
-            const balance = await dbManager.getUserBalance(userId, guildId);
-            if (balance.game_active) {
-                await dbManager.updateUserBalance(userId, guildId, 0, 0, { game_active: false });
-                logger.info(`Cleared legacy game_active flag for user ${userId}`);
-            }
-            
-            logger.info(`Force cleanup completed for user ${userId}. Cleaned ${cleanupResults.length} sessions`);
-            
-            return {
-                success: true,
-                sessionsCleanedUp: cleanupResults.length,
-                results: cleanupResults
-            };
+            return result;
             
         } catch (error) {
             logger.error(`Force cleanup failed for user ${userId}: ${error.message}`);
