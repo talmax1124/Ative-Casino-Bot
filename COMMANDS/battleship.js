@@ -153,7 +153,7 @@ module.exports = {
             const betAmount = validation.parsedAmount;
 
             // Create game session with enhanced protection  
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
@@ -180,9 +180,14 @@ module.exports = {
             const game = createBattleshipGame(channelId, interaction.user, betAmount);
             if (!game) {
                 // Handle game error with session cleanup and refund
-                await GameSessionIntegrator.handleGameError(userId, 'battleship', betAmount, guildId, 'Battleship game creation failed');
-                const embed = UITemplates.createErrorEmbed('❌ Game Creation Failed', 'Failed to create Battleship game.');
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                try {
+                    const userSession = sessionManager.getUserActiveSession(userId);
+                    if (userSession) {
+                        await sessionManager.cancelSession(userSession.sessionId, 'Battleship game creation error', true);
+                    }
+                } catch (sessionError) {
+                    logger.error(`Failed to handle battleship session error: ${sessionError.message}`);
+                }
                 return;
             }
             
@@ -345,7 +350,7 @@ module.exports = {
         }
 
         // Create session for joining player
-        const sessionResult = await GameSessionIntegrator.createGameSession({
+        const sessionResult = await sessionManager.createSession({
             userId,
             guildId,
             channelId,
@@ -1457,7 +1462,7 @@ module.exports = {
             
             // Complete sessions if they exist
             if (game.sessionId) {
-                await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                await sessionManager.endSession(game.sessionId, {
                     outcome: 'COMPLETED',
                     payout: winnings,
                     won: true,

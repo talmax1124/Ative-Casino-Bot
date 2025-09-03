@@ -35,9 +35,14 @@ module.exports = {
         
         try {
             // Modern session validation
-            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, 'fishing', guildId);
-            if (!sessionValidation.valid) {
-                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'fishing', sessionValidation);
+            const canCreate = await sessionManager.canCreateSession(userId, guildId, 'fishing');
+            if (!canCreate.allowed) {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Session Error')
+                    .setDescription(`${username}, you cannot start a fishing game right now.`)
+                    .addFields({ name: 'Reason', value: canCreate.reason || 'Unknown session restriction', inline: false })
+                    .setColor(0xFF0000)
+                    .setTimestamp();
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
             
@@ -63,7 +68,7 @@ module.exports = {
             const betAmount = validation.parsedAmount;
 
             // Create game session with enhanced protection
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
@@ -255,7 +260,7 @@ module.exports = {
             
             // Complete session if exists
             if (game.sessionId) {
-                await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                await sessionManager.endSession(game.sessionId, {
                     outcome: won ? 'WON' : 'LOST',
                     payout: game.currentWinnings,
                     won: won,

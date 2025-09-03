@@ -69,9 +69,9 @@ module.exports = {
             }*/
 
             // Validate session using new system
-            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.PLINKO, guildId);
+            const sessionValidation = await sessionManager.canCreateSession(userId, SMGameType.PLINKO, guildId);
             if (!sessionValidation.valid) {
-                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'plinko', sessionValidation);
+                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription("Cannot start game right now.").setColor(0xFF0000);
                 await interaction.editReply({ embeds: [errorEmbed] });
                 return;
             }
@@ -108,7 +108,7 @@ module.exports = {
             const dropSlot = Math.floor(Math.random() * slots);
 
             // Create game session using new system
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
@@ -164,7 +164,7 @@ module.exports = {
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             // Update session with game start
-            await GameSessionIntegrator.updateGameSession(sessionId, {
+            await sessionManager.updateSession(sessionId, {
                 gameData: {
                     gameStarted: true,
                     multipliers,
@@ -193,16 +193,12 @@ module.exports = {
             
             // Try to cancel session and refund on error
             try {
-                // Use GameSessionIntegrator for error handling (no refund needed since bet wasn't deducted)
-                await GameSessionIntegrator.handleGameError(
-                    userId, 
-                    SMGameType.PLINKO, 
-                    0, // No refund needed
-                    guildId, 
-                    'Plinko game error'
-                );
+                const userSession = sessionManager.getUserActiveSession(userId);
+                if (userSession) {
+                    await sessionManager.cancelSession(userSession.sessionId, 'Plinko game error', true);
+                }
             } catch (refundError) {
-                logger.error(`Failed to refund plinko bet: ${refundError.message}`);
+                logger.error(`Failed to handle plinko session error: ${refundError.message}`);
             }
 
             const errorEmbed = buildSessionEmbed({
@@ -352,7 +348,7 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
 
     // Complete the session
     try {
-        await GameSessionIntegrator.completeGameSession(sessionId, {
+        await sessionManager.endSession(sessionId, {
             finalSlot,
             finalMultiplier,
             winnings,

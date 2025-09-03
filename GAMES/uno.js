@@ -541,7 +541,7 @@ class UnoGameSession {
         
         // End the session
         if (this.sessionId) {
-            await GameSessionIntegrator.completeGameSession(this.sessionId, {
+            await sessionManager.endSession(this.sessionId, {
                 winner: winner ? winner.userId : null,
                 totalPlayers: this.players.size,
                 gameEnded: true,
@@ -877,7 +877,7 @@ async function startUnoGame(channelId, guildId, starterBet, hostUserId) {
     const game = new UnoGameSession(channelId, guildId, starterBet);
     
     // Create session with GameSessionIntegrator
-    const sessionResult = await GameSessionIntegrator.createGameSession({
+    const sessionResult = await sessionManager.createSession({
         userId: hostUserId,
         guildId: guildId,
         channelId: channelId,
@@ -913,7 +913,7 @@ async function endUnoGame(channelId) {
         
         // Complete session with GameSessionIntegrator
         if (game.sessionId) {
-            await GameSessionIntegrator.completeGameSession(game.sessionId, {
+            await sessionManager.endSession(game.sessionId, {
                 winner: game.winner ? game.winner.userId : null,
                 totalPlayers: game.players.size,
                 gameEnded: true

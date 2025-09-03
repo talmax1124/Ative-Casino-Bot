@@ -106,7 +106,7 @@ async function endGame(interaction, game, updatePanel) {
             
             // Complete session if exists
             if (p.sessionId) {
-                await GameSessionIntegrator.completeGameSession(p.sessionId, {
+                await sessionManager.endSession(p.sessionId, {
                     outcome: won ? 'WON' : 'LOST',
                     payout: won ? (game.potAmount * game.players.size) : 0,
                     won: won
@@ -148,13 +148,9 @@ module.exports = {
         const timeout = interaction.options.getInteger('timeout') ?? 30;
         
         // Modern session validation
-        const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, 'wordchain', guildId);
+        const sessionValidation = await sessionManager.canCreateSession(userId, 'wordchain', guildId);
         if (!sessionValidation.valid) {
-            const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(
-                interaction.user.displayName, 
-                'wordchain', 
-                sessionValidation
-            );
+            const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription("Cannot start game right now.").setColor(0xFF0000);
             return await interaction.editReply({ embeds: [errorEmbed] });
         }
 
@@ -217,7 +213,7 @@ module.exports = {
                 }
                 
                 // Create session for pot players
-                const sessionResult = await GameSessionIntegrator.createGameSession({
+                const sessionResult = await sessionManager.createSession({
                     userId: i.user.id,
                     guildId,
                     channelId: channel.id,
@@ -361,7 +357,7 @@ module.exports = {
                         // Complete session if exists
                         if (p.sessionId) {
                             try {
-                                await GameSessionIntegrator.completeGameSession(p.sessionId, {
+                                await sessionManager.endSession(p.sessionId, {
                                     outcome: 'CANCELLED',
                                     reason: 'Game stopped by developer',
                                     payout: 0,

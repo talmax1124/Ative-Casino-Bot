@@ -60,7 +60,7 @@ module.exports = {
             const oldWallet = validation.newWallet + betAmount;
 
             // Create game session
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
@@ -224,7 +224,7 @@ module.exports = {
             }
 
             // Complete session
-            await GameSessionIntegrator.completeGameSession(sessionResult.sessionId, {
+            await sessionManager.endSession(sessionResult.sessionId, {
                 outcome: result.won ? 'WON' : 'LOST',
                 payout: result.payout,
                 won: result.won,

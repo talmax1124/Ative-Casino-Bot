@@ -319,7 +319,7 @@ class BattleshipGameSession {
         
         // End the session
         if (this.sessionId) {
-            await GameSessionIntegrator.completeGameSession(this.sessionId, {
+            await sessionManager.endSession(this.sessionId, {
                 winner: null,
                 totalPlayers: this.players.size,
                 gameEnded: true,
@@ -578,6 +578,7 @@ class BattleshipGameSession {
         });
         
         const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const sessionManager = require('../UTILS/sessionManager');
         
         return buildSessionEmbed({
             title: '🏆 Naval Victory',

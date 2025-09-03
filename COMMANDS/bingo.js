@@ -83,7 +83,7 @@ module.exports = {
             const betAmount = validation.parsedAmount;
 
             // Create game session
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
@@ -115,7 +115,7 @@ module.exports = {
 
             if (!success) {
                 // Complete session and refund if couldn't create game
-                await GameSessionIntegrator.completeGameSession(sessionResult.sessionId, {
+                await sessionManager.endSession(sessionResult.sessionId, {
                     outcome: 'FAILED',
                     payout: 0,
                     won: false,

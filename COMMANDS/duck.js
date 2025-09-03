@@ -398,9 +398,9 @@ module.exports = {
 
         try {
             // Validate session before proceeding
-            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.DUCK, guildId);
+            const sessionValidation = await sessionManager.canCreateSession(userId, SMGameType.DUCK, guildId);
             if (!sessionValidation.valid) {
-                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'duck', sessionValidation);
+                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription("Cannot start game right now.").setColor(0xFF0000);
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
@@ -444,7 +444,7 @@ module.exports = {
             });
 
             // Create temporary session for mode selection
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
@@ -760,7 +760,7 @@ module.exports = {
             // Complete session if it exists
             if (gameSession.sessionId) {
                 try {
-                    await GameSessionIntegrator.completeGameSession(gameSession.sessionId, {
+                    await sessionManager.endSession(gameSession.sessionId, {
                         outcome: won ? 'WON' : 'LOST',
                         payout: payout,
                         won: won,

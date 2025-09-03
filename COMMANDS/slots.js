@@ -92,9 +92,14 @@ module.exports = {
 
         try {
             // Validate session before proceeding
-            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.SLOTS, guildId);
-            if (!sessionValidation.valid) {
-                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'slots', sessionValidation);
+            const canCreate = await sessionManager.canCreateSession(userId, guildId, SMGameType.SLOTS);
+            if (!canCreate.allowed) {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Session Error')
+                    .setDescription(`${username}, you cannot start a slots game right now.`)
+                    .addFields({ name: 'Reason', value: canCreate.reason || 'Unknown session restriction', inline: false })
+                    .setColor(0xFF0000)
+                    .setTimestamp();
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
@@ -119,7 +124,7 @@ module.exports = {
             const oldWallet = validation.newWallet + betAmount; // Wallet before bet
 
             // Create game session
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
@@ -147,7 +152,7 @@ module.exports = {
             const result = calculatePayout(symbols, betAmount);
 
             // Update session with spin results
-            await GameSessionIntegrator.updateGameSession(sessionId, {
+            await sessionManager.updateSession(sessionId, {
                 gameData: {
                     symbols,
                     result,
@@ -284,7 +289,7 @@ module.exports = {
                     await interaction.editReply(finalData);
                     
                     // Complete session after final result shown
-                    await GameSessionIntegrator.completeGameSession(sessionId, {
+                    await sessionManager.endSession(sessionId, {
                         outcome: result.won ? 'WIN' : 'LOSS',
                         symbols,
                         finalPayout: result.payout,
@@ -316,7 +321,15 @@ module.exports = {
             logger.error(`Error in slots command: ${error.message}`);
             
             // Handle game error with session cleanup and refund
-            await GameSessionIntegrator.handleGameError(userId, SMGameType.SLOTS, validation?.parsedAmount || 0, guildId, 'Slots game error');
+            // Handle session error and cleanup
+            try {
+                const userSession = sessionManager.getUserActiveSession(userId);
+                if (userSession) {
+                    await sessionManager.cancelSession(userSession.sessionId, 'Slots game error', true);
+                }
+            } catch (sessionError) {
+                logger.error(`Failed to handle session error: ${sessionError.message}`);
+            }
             
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Game Error')

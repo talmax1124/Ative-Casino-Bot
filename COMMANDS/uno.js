@@ -55,9 +55,9 @@ module.exports = {
             }
 
             // Validate session before proceeding using modern session system
-            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, 'uno', guildId);
+            const sessionValidation = await sessionManager.canCreateSession(userId, 'uno', guildId);
             if (!sessionValidation.valid) {
-                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'uno', sessionValidation);
+                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription("Cannot start game right now.").setColor(0xFF0000);
                 return await interaction.followUp({ embeds: [errorEmbed] });
             }
 
@@ -98,7 +98,7 @@ module.exports = {
             }
 
             // Create game session with enhanced protection
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId,
@@ -120,12 +120,14 @@ module.exports = {
 
             if (!success) {
                 // Handle game error with session cleanup and refund
-                await GameSessionIntegrator.handleGameError(userId, 'uno', betAmount, guildId, 'UNO game creation failed');
-                
-                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
-                    description: 'Failed to create the UNO game. Your bet has been refunded.',
-                    isLoss: false
-                });
+                try {
+                    const userSession = sessionManager.getUserActiveSession(userId);
+                    if (userSession) {
+                        await sessionManager.cancelSession(userSession.sessionId, 'UNO game creation error', true);
+                    }
+                } catch (sessionError) {
+                    logger.error(`Failed to handle UNO session error: ${sessionError.message}`);
+                }
                 await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                 return;
             }
@@ -175,13 +177,21 @@ module.exports = {
             logger.error(`Error executing UNO command: ${error.message}`, { userId, error: error.stack });
             
             // Handle game error with session cleanup and refund
-            await GameSessionIntegrator.handleGameError(userId, 'uno', 0, guildId, 'UNO game initialization error');
+            try {
+                const userSession = sessionManager.getUserActiveSession(userId);
+                if (userSession) {
+                    await sessionManager.cancelSession(userSession.sessionId, 'UNO command error', true);
+                }
+            } catch (sessionError) {
+                logger.error(`Failed to handle UNO session error: ${sessionError.message}`);
+            }
             
-            const errorEmbed = UITemplates.createErrorEmbed('UNO', {
-                description: 'An error occurred while creating the UNO game. Please try again.',
-                error: error.message,
-                isLoss: false
-            });
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ UNO Error')
+                .setDescription('An error occurred while starting UNO. Your bet has been refunded.')
+                .setColor(0xFF0000)
+                .setTimestamp();
+                
             await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
         }
     },
@@ -1000,7 +1010,7 @@ module.exports = {
 
             // Complete session if game has one
             if (game.sessionId) {
-                await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                await sessionManager.endSession(game.sessionId, {
                     outcome: 'COMPLETED',
                     payout: totalPot,
                     won: true,

@@ -38,9 +38,9 @@ module.exports = {
 
         try {
             // Validate session before proceeding
-            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.RPS, guildId);
+            const sessionValidation = await sessionManager.canCreateSession(userId, SMGameType.RPS, guildId);
             if (!sessionValidation.valid) {
-                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'rps', sessionValidation);
+                const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription("Cannot start game right now.").setColor(0xFF0000);
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
@@ -102,7 +102,7 @@ module.exports = {
             const newWalletBalance = validationResult.newWallet;
 
             // Create game session
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
@@ -156,14 +156,20 @@ module.exports = {
             logger.error(`Error executing RPS command: ${error.message}`, { userId, error: error.stack });
             
             // Handle game error with session cleanup and refund
-            await GameSessionIntegrator.handleGameError(userId, SMGameType.RPS, betAmount || 0, guildId, 'RPS game error');
-            
+            try {
+                const userSession = sessionManager.getUserActiveSession(userId);
+                if (userSession) {
+                    await sessionManager.cancelSession(userSession.sessionId, 'RPS game error', true);
+                }
+            } catch (sessionError) {
+                logger.error(`Failed to handle RPS session error: ${sessionError.message}`);
+            }
+
             const embed = buildSessionEmbed({
-                title: '❌ Command Error',
-                topFields: [{
-                    name: 'Game Error',
-                    value: 'An error occurred while starting the RPS game.\nYour bet has been refunded.'
-                }],
+                title: `❌ ${username}'s RPS`,
+                topFields: [
+                    { name: 'System Error', value: 'Something went wrong during the game. Please try again.' }
+                ],
                 stageText: 'ERROR OCCURRED',
                 color: 0xFF0000,
                 footer: 'Please try again or contact support if the issue persists'
@@ -202,7 +208,7 @@ module.exports = {
                         const game = getRPSGame(channelId);
                         if (game && game.sessionId) {
                             try {
-                                await GameSessionIntegrator.updateGameSession(game.sessionId, {
+                                await sessionManager.updateSession(game.sessionId, {
                                     gamePhase: 'playing',
                                     opponent: 'Casino Bot',
                                     vsBot: true
@@ -267,7 +273,7 @@ module.exports = {
             }*/
 
             // Create session for player 2
-            const player2SessionResult = await GameSessionIntegrator.createGameSession({
+            const player2SessionResult = await sessionManager.createSession({
                 userId: player2Id,
                 guildId,
                 channelId,
@@ -516,7 +522,7 @@ module.exports = {
             if (game.sessionId) {
                 try {
                     // Complete player 1 session
-                    await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                    await sessionManager.endSession(game.sessionId, {
                         gameResult: finalWinner === 0 ? 'tie' : (finalWinner === 1 ? 'win' : 'loss'),
                         finalScore: `${game.player1Wins}-${game.player2Wins}`,
                         opponent: game.player2Name,
@@ -531,7 +537,7 @@ module.exports = {
             // Complete player 2 session if exists (not for bot games)
             if (game.player2SessionId && !game.vsBot) {
                 try {
-                    await GameSessionIntegrator.completeGameSession(game.player2SessionId, {
+                    await sessionManager.endSession(game.player2SessionId, {
                         gameResult: finalWinner === 0 ? 'tie' : (finalWinner === 2 ? 'win' : 'loss'),
                         finalScore: `${game.player2Wins}-${game.player1Wins}`,
                         opponent: game.player1Name,

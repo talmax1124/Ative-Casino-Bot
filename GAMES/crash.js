@@ -331,7 +331,7 @@ class OptimizedCrashGame {
     if (this.sessionId) {
       try {
         const winners = Array.from(this.players.values()).filter(p => p.cashedOut);
-        await GameSessionIntegrator.completeGameSession(this.sessionId, {
+        await sessionManager.endSession(this.sessionId, {
           outcome: winners.length > 0 ? 'SOME_WINNERS' : 'ALL_LOST',
           crashPoint: this.crashPoint,
           totalPlayers: this.players.size,

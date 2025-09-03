@@ -4,7 +4,7 @@
  */
 
 const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { PayoutManager, GameType, GameResult, TimeoutManager } = require('../UTILS/gameUtils');
+const { PayoutManager, GameType, GameResult, TimeoutManager, parseAmount } = require('../UTILS/gameUtils');
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { BlackjackGame } = require('../GAMES/blackjack');
 const GamePanel = require('../UTILS/gamePanel');
@@ -207,9 +207,14 @@ module.exports = {
         
         try {
             // Validate session before proceeding using modern session system
-            const sessionValidation = await GameSessionIntegrator.validateGameSession(userId, SMGameType.BLACKJACK, guildId);
-            if (!sessionValidation.valid) {
-                const errorEmbed = GameSessionIntegrator.createValidationErrorEmbed(username, 'blackjack', sessionValidation);
+            const canCreate = await sessionManager.canCreateSession(userId, guildId, SMGameType.BLACKJACK);
+            if (!canCreate.allowed) {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Session Error')
+                    .setDescription(`${username}, you cannot start a blackjack game right now.`)
+                    .addFields({ name: 'Reason', value: canCreate.reason || 'Unknown session restriction', inline: false })
+                    .setColor(0xFF0000)
+                    .setTimestamp();
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
@@ -235,7 +240,7 @@ module.exports = {
             const betAmount = validation.parsedAmount;
 
             // Create game session with enhanced protection
-            const sessionResult = await GameSessionIntegrator.createGameSession({
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
                 channelId: interaction.channelId,
@@ -264,7 +269,7 @@ module.exports = {
             activeGames.set(sessionId, game); // Store by sessionId instead of userId
 
             // Update session with initial game data
-            await GameSessionIntegrator.updateGameSession(sessionId, {
+            await sessionManager.updateSession(sessionId, {
                 gameData: {
                     dealerHand: game.dealerHand.cards.map(c => c.toString()),
                     playerHand: game.playerHand.cards.map(c => c.toString()),
@@ -293,7 +298,7 @@ module.exports = {
             
             await interaction.reply(messageData);
 
-            // Session timeout is handled by GameSessionIntegrator
+            // Session timeout is handled by sessionManager
 
             // Check for immediate blackjack
             if (game.playerHand.isBlackjack()) {
@@ -315,7 +320,7 @@ module.exports = {
                 await PayoutManager.processGamePayout(gameResult);
                 
                 // Complete session
-                await GameSessionIntegrator.completeGameSession(sessionId, {
+                await sessionManager.endSession(sessionId, {
                     outcome: 'BLACKJACK',
                     payout: result.payout,
                     won: result.won,
@@ -372,7 +377,7 @@ module.exports = {
                 } else {
                     // Try to parse amount directly as fallback
                     const userBalance = await dbManager.getUserBalance(userId, guildId);
-                    const parsedAmount = PayoutManager.parseAmount(amount, userBalance.wallet);
+                    const parsedAmount = parseAmount(amount);
                     if (parsedAmount > 0) {
                         refundAmount = parsedAmount;
                     }
@@ -381,7 +386,15 @@ module.exports = {
                 logger.warn(`Could not determine refund amount: ${parseError.message}`);
             }
             
-            await GameSessionIntegrator.handleGameError(userId, SMGameType.BLACKJACK, refundAmount, guildId, 'Blackjack game initialization error');
+            // Handle session error and cleanup
+            try {
+                const userSession = sessionManager.getUserActiveSession(userId);
+                if (userSession) {
+                    await sessionManager.cancelSession(userSession.sessionId, 'Blackjack game initialization error', true);
+                }
+            } catch (sessionError) {
+                logger.error(`Failed to handle session error: ${sessionError.message}`);
+            }
             
             const { embed: errorEmbed } = GamePanel.createErrorEmbed({
                 title: '❌ Blackjack Error',
@@ -791,7 +804,7 @@ module.exports = {
 
             // Complete session if game has one
             if (game.sessionId) {
-                await GameSessionIntegrator.completeGameSession(game.sessionId, {
+                await sessionManager.endSession(game.sessionId, {
                     outcome: 'COMPLETED',
                     payout: totalPayout,
                     won: totalPayout > 0,

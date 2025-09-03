@@ -399,7 +399,7 @@ class BingoGameSession {
                 const totalPot = this.players.size * this.starterBet;
                 const hasWinners = this.winners && this.winners.length > 0;
                 
-                await GameSessionIntegrator.completeGameSession(this.sessionId, {
+                await sessionManager.endSession(this.sessionId, {
                     outcome: hasWinners ? 'WON' : 'LOST',
                     payout: hasWinners ? totalPot : 0,
                     won: hasWinners,
