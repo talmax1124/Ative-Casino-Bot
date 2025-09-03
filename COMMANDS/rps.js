@@ -20,6 +20,9 @@ const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
 const logger = require('../UTILS/logger');
 
+// Game type constant
+const SMGameType = { RPS: 'rps' };
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('rps')

@@ -16,6 +16,8 @@ const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 const levelingSystem = require('../UTILS/levelingSystem');
 
+// Game type constant
+const SMGameType = { BLACKJACK: 'blackjack' };
 
 // Active games storage (indexed by sessionId for better session management)
 const activeGames = new Map();
