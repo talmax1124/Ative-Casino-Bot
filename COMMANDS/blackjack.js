@@ -33,10 +33,16 @@ function createGameEmbed(game, user, showDealer = false, balance = null) {
     // Top fields for game information
     const topFields = [];
     
-    // Dealer's hand
-    const dealerDisplay = showDealer ? 
-        `${game.dealerHand.toString()} (${game.dealerHand.getValue()})` :
-        `${game.dealerHand.getDisplayString(true)} (??)`;
+    // Dealer's hand - when hidden, only show value of visible card
+    let dealerDisplay;
+    if (showDealer) {
+        dealerDisplay = `${game.dealerHand.toString()} (${game.dealerHand.getValue()})`;
+    } else {
+        // Only show the visible card's value, not the total
+        const visibleCard = game.dealerHand.cards[1]; // Second card is visible
+        const visibleValue = visibleCard ? visibleCard.getValue() : 0;
+        dealerDisplay = `${game.dealerHand.getDisplayString(true)} (${visibleValue})`;
+    }
     
     topFields.push({
         name: '🏠 DEALER HAND',

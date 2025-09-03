@@ -249,16 +249,16 @@ class BlackjackGame {
             multiplier = 1;
             outcome = 'PUSH';
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
-            multiplier = 2.5;
+            multiplier = 1.5;  // Fixed: Blackjack pays 3:2 (returns bet + 1.5x bet = 2.5x total, but payout is only the winnings)
             outcome = 'BLACKJACK';
         } else if (this.dealerHand.isBusted()) {
-            multiplier = 2;
+            multiplier = 1;  // Fixed: Regular win pays 1:1 (returns bet + 1x bet = 2x total, but payout is only the winnings)
             outcome = 'DEALER BUSTED';
         } else if (playerValue > dealerValue) {
-            multiplier = 2;
+            multiplier = 1;  // Fixed: Regular win pays 1:1 (returns bet + 1x bet = 2x total, but payout is only the winnings)
             outcome = 'WIN';
         } else if (playerValue === dealerValue) {
-            multiplier = 1;
+            multiplier = 0;  // Fixed: Push returns bet only (no winnings)
             outcome = 'PUSH';
         } else {
             multiplier = 0;
@@ -268,8 +268,8 @@ class BlackjackGame {
         return {
             outcome,
             multiplier,
-            payout: this.betAmount * multiplier,
-            won: multiplier > 1
+            payout: this.betAmount * multiplier,  // This is now the NET winnings, not total return
+            won: multiplier > 0
         };
     }
 
