@@ -575,6 +575,16 @@ class DatabaseManager {
     }
 
     /**
+     * Log moderation action
+     */
+    async logModerationAction(guildId, moderatorId, targetId, action, reason) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.logModerationAction(guildId, moderatorId, targetId, action, reason);
+        }
+        return false;
+    }
+
+    /**
      * Store user warning
      */
     async addUserWarning(userId, guildId, message, moderatorId) {

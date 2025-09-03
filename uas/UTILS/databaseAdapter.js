@@ -184,6 +184,34 @@ class DatabaseAdapter {
                 won_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_week_start (week_start),
                 INDEX idx_user_id (user_id)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS admin_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(20) NOT NULL,
+                guild_id VARCHAR(20) NOT NULL,
+                action VARCHAR(100) NOT NULL,
+                details TEXT,
+                moderator_id VARCHAR(20) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user_id (user_id),
+                INDEX idx_guild_id (guild_id),
+                INDEX idx_moderator_id (moderator_id),
+                INDEX idx_created_at (created_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS moderation_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                guild_id VARCHAR(20) NOT NULL,
+                moderator_id VARCHAR(20) NOT NULL,
+                target_id VARCHAR(20) NOT NULL,
+                action VARCHAR(100) NOT NULL,
+                reason TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_guild_id (guild_id),
+                INDEX idx_moderator_id (moderator_id),
+                INDEX idx_target_id (target_id),
+                INDEX idx_created_at (created_at)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -1253,6 +1281,50 @@ class DatabaseAdapter {
         } catch (error) {
             logger.error(`Error getting user last activity: ${error.message}`);
             return null;
+        }
+    }
+
+    /**
+     * Log admin action to database
+     * @param {string} userId - User ID who performed action
+     * @param {string} guildId - Guild ID
+     * @param {string} action - Action performed
+     * @param {string} details - Action details
+     * @param {string} moderatorId - Moderator ID
+     */
+    async logAdminAction(userId, guildId, action, details, moderatorId) {
+        try {
+            await this.executeQuery(
+                `INSERT INTO admin_logs (user_id, guild_id, action, details, moderator_id, created_at) 
+                VALUES (?, ?, ?, ?, ?, NOW())`,
+                [userId, guildId, action, details, moderatorId]
+            );
+            return true;
+        } catch (error) {
+            logger.error(`Error logging admin action: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Log moderation action to database
+     * @param {string} guildId - Guild ID
+     * @param {string} moderatorId - Moderator ID
+     * @param {string} targetId - Target ID (user/channel)
+     * @param {string} action - Action performed
+     * @param {string} reason - Reason for action
+     */
+    async logModerationAction(guildId, moderatorId, targetId, action, reason) {
+        try {
+            await this.executeQuery(
+                `INSERT INTO moderation_logs (guild_id, moderator_id, target_id, action, reason, created_at) 
+                VALUES (?, ?, ?, ?, ?, NOW())`,
+                [guildId, moderatorId, targetId, action, reason]
+            );
+            return true;
+        } catch (error) {
+            logger.error(`Error logging moderation action: ${error.message}`);
+            return false;
         }
     }
 }
