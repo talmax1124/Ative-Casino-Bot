@@ -664,6 +664,13 @@ client.on('interactionCreate', async interaction => {
                     await unoCommand.handleCardSelection(interaction, cardIndex);
                 }
             }
+            // Handle Yahtzee scoring category selection
+            else if (interaction.customId === 'yahtzee_score_category') {
+                const yahtzeeCommand = client.commands.get('yahtzee');
+                if (yahtzeeCommand && yahtzeeCommand.handleInteraction) {
+                    await yahtzeeCommand.handleInteraction(interaction);
+                }
+            }
             // Handle modern help category selection
             else if (interaction.customId === 'help_category_select') {
                 try {
@@ -995,6 +1002,13 @@ client.on('interactionCreate', async interaction => {
                 const plinkoCommand = client.commands.get('plinko');
                 if (plinkoCommand && plinkoCommand.handleButtonInteraction) {
                     await plinkoCommand.handleButtonInteraction(interaction, action, value);
+                }
+            }
+            // Handle Yahtzee buttons and selects
+            else if (customId.startsWith('yahtzee_')) {
+                const yahtzeeCommand = client.commands.get('yahtzee');
+                if (yahtzeeCommand && yahtzeeCommand.handleInteraction) {
+                    await yahtzeeCommand.handleInteraction(interaction);
                 }
             }
             // Handle Bingo buttons (namespace: bingo_{action}_{channelId})
