@@ -1,72 +1,67 @@
-# 🔄 CLAUDE UAS SYNC INSTRUCTIONS
+# 🔄 CLAUDE UAS INSTRUCTIONS - UPDATED
 
 ## **IMPORTANT: UAS Development & Deployment Workflow**
 
 ### **When working on UAS Security Bot:**
 
-**ALWAYS work in the PRIMARY UAS folder:**
+**ALWAYS work DIRECTLY in the standalone UAS repository:**
 ```
-/Users/carlosdiazplaza/ative_casino_bot/uas/
+/Users/carlosdiazplaza/uas-standalone-bot/
 ```
 
-**NEVER directly edit the standalone repository during development.**
+**This is now the ONLY UAS repository - no syncing needed!**
 
 ---
 
 ## **📁 Repository Structure:**
 
-### **Development Repository (PRIMARY):**
-- **Path:** `/Users/carlosdiazplaza/ative_casino_bot/uas/`
-- **Purpose:** Claude development, testing, modifications
-- **GitHub:** `https://github.com/talmax1124/Ative-Casino-Bot` (uas folder)
-
-### **Deployment Repository (SECONDARY):**
+### **UAS Security Bot Repository (ONLY):**
 - **Path:** `/Users/carlosdiazplaza/uas-standalone-bot/`
-- **Purpose:** Server deployment only
+- **Purpose:** Claude development, testing, modifications, AND server deployment
 - **GitHub:** `https://github.com/talmax1124/uas-security-bot`
+
+### **Casino Bot Repository (SEPARATE):**
+- **Path:** `/Users/carlosdiazplaza/ative_casino_bot/`
+- **Purpose:** Casino bot only (UAS folder removed)
+- **GitHub:** `https://github.com/talmax1124/Ative-Casino-Bot`
 
 ---
 
-## **🤖 CLAUDE SYNC WORKFLOW:**
+## **🤖 CLAUDE WORKFLOW (SIMPLIFIED):**
 
 ### **Step 1: Make Changes**
-- Work in `/Users/carlosdiazplaza/ative_casino_bot/uas/`
+- Work in `/Users/carlosdiazplaza/uas-standalone-bot/`
 - Edit, create, modify files as needed
 - Test changes locally if requested
 
-### **Step 2: Auto-Sync After Changes**
+### **Step 2: Commit and Push**
 **WHENEVER you make changes to UAS files, AUTOMATICALLY run these commands:**
 
 ```bash
-# Copy changes to standalone repository
-cp -r /Users/carlosdiazplaza/ative_casino_bot/uas/* /Users/carlosdiazplaza/uas-standalone-bot/
-
 # Navigate to standalone repository
 cd /Users/carlosdiazplaza/uas-standalone-bot/
 
 # Commit and push changes
-git add . && git commit -m "Sync UAS changes from development
+git add . && git commit -m "[Description of changes]
 
-🔄 Auto-synced from /uas/ development folder
 🤖 Generated with [Claude Code](https://claude.ai/code)
 
 Co-Authored-By: Claude <noreply@anthropic.com>" && git push
 ```
 
 ### **Step 3: Notify User**
-After syncing, tell the user:
-> "✅ **UAS changes synced to standalone repository!**  
+After changes, tell the user:
+> "✅ **UAS changes committed to repository!**  
 > The server will auto-update on restart with the latest changes."
 
 ---
 
 ## **⚠️ CRITICAL RULES:**
 
-1. **ALWAYS modify files in `/uas/` folder first**
-2. **ALWAYS sync changes to standalone repository after modifications** 
-3. **NEVER edit standalone repository directly during development**
-4. **ALWAYS use the sync commands above after UAS changes**
-5. **The user's server uses the standalone repository for deployment**
+1. **ALWAYS modify files in `/Users/carlosdiazplaza/uas-standalone-bot/` ONLY**
+2. **NEVER work in casino bot repository for UAS changes**
+3. **ALWAYS commit and push changes after UAS modifications**
+4. **The user's server uses this standalone repository for deployment**
 
 ---
 
