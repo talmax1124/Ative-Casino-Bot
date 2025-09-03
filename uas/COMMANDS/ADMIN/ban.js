@@ -39,11 +39,11 @@ module.exports = {
         try {
             // Check if user is admin
             const member = interaction.member;
-            const roleNames = member.roles.cache.map(role => role.name.toLowerCase());
-            const isAdmin = roleNames.some(role => role.includes('admin'));
-            const isDev = interaction.user.id === process.env.DEVELOPER_USER_ID;
+            const ADMIN_ROLE_ID = '1403278917028020235';
+            const DEV_USER_ID = '466050111680544798';
+            const isAdmin = member.roles.cache.has(ADMIN_ROLE_ID) || interaction.user.id === DEV_USER_ID;
 
-            if (!isAdmin && !isDev) {
+            if (!isAdmin) {
                 const embed = new EmbedBuilder()
                     .setTitle('❌ Access Denied')
                     .setDescription('This command is restricted to administrators only.')

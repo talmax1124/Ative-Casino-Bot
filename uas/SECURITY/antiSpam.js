@@ -25,9 +25,12 @@ class AntiSpam {
         
         // Ignore admins and mods
         if (message.member) {
-            const roleNames = message.member.roles.cache.map(role => role.name.toLowerCase());
-            const isStaff = roleNames.some(role => role.includes('admin') || role.includes('mod'));
-            if (isStaff) return;
+            const ADMIN_ROLE_ID = '1403278917028020235';
+            const MOD_ROLE_ID = '1405093493902413855';
+            const DEV_USER_ID = '466050111680544798';
+            const isAdmin = message.member.roles.cache.has(ADMIN_ROLE_ID) || message.author.id === DEV_USER_ID;
+            const isMod = message.member.roles.cache.has(MOD_ROLE_ID);
+            if (isAdmin || isMod) return;
         }
 
         const userId = message.author.id;

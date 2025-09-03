@@ -28,12 +28,13 @@ module.exports = {
         try {
             // Check if user is admin or mod
             const member = interaction.member;
-            const roleNames = member.roles.cache.map(role => role.name.toLowerCase());
-            const isAdmin = roleNames.some(role => role.includes('admin'));
-            const isMod = roleNames.some(role => role.includes('mod'));
-            const isDev = interaction.user.id === process.env.DEVELOPER_USER_ID;
+            const ADMIN_ROLE_ID = '1403278917028020235';
+            const MOD_ROLE_ID = '1405093493902413855';
+            const DEV_USER_ID = '466050111680544798';
+            const isAdmin = member.roles.cache.has(ADMIN_ROLE_ID) || interaction.user.id === DEV_USER_ID;
+            const isMod = member.roles.cache.has(MOD_ROLE_ID);
 
-            if (!isAdmin && !isMod && !isDev) {
+            if (!isAdmin && !isMod) {
                 const embed = new EmbedBuilder()
                     .setTitle('❌ Access Denied')
                     .setDescription('This command is restricted to administrators and moderators only.')
