@@ -25,7 +25,7 @@ const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const ENVIRONMENT = process.env.ENVIRONMENT || 'development';
 const ANNOUNCE_CHANNEL_ID = process.env.ANNOUNCE_CHANNEL_ID;
-const LOG_CHANNEL_ID = '1409016191049142434'; // Monitoring channel (log-only mode)
+const LOG_CHANNEL_ID = '1405096821512212521'; // General bot activity log channel
 
 // Validation
 if (!TOKEN) {
@@ -370,7 +370,7 @@ client.once('clientReady', async () => {
     // Send online announcement to logs channel (ONLY in development)
     if (IS_DEVELOPMENT) {
         try {
-            const logsChannel = await client.channels.fetch('1409016191049142434');
+            const logsChannel = await client.channels.fetch('1405096821512212521');
             if (logsChannel) {
                 await logsChannel.send('🎰 ATIVE Casino Bot is now online in DEVELOPMENT mode! Use `/help` to see commands.');
                 logger.info('Sent development announcement to logs channel');
@@ -2025,7 +2025,7 @@ async function showSupportInfo(interaction) {
             },
             {
                 name: '📊 Bot Logs & Monitoring',
-                value: '**Monitoring Channel:** <#1409016191049142434>\nAll bot activities are monitored and logged here.',
+                value: '**General Log Channel:** <#1405096821512212521>\n**Economy Monitor:** <#1409016191049142434>\nBot activities and economy monitored separately.',
                 inline: false
             },
             {

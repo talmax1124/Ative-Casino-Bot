@@ -537,13 +537,17 @@ function getTierBenefits(tierKey) {
 /**
  * Send log message to designated logging channel
  * @param {Client} bot - Discord bot client
- * @param {string} level - Log level (info, warn, error)
+ * @param {string} level - Log level (info, warn, error, economy)
  * @param {string} message - Log message
  * @param {string} userId - User ID (optional)
  * @param {string} guildId - Guild ID (optional)
  */
 async function sendLogMessage(bot, level, message, userId = null, guildId = null) {
-    const LOG_CHANNEL_ID = '1409016191049142434'; // Bot activity monitoring channel (log-only mode)
+    // Economy activities go to monitoring channel, everything else to general log channel
+    const ECONOMY_CHANNEL_ID = '1409016191049142434'; // Economy monitoring channel (log-only mode)
+    const GENERAL_LOG_CHANNEL_ID = '1405096821512212521'; // General bot activity log channel
+    
+    const LOG_CHANNEL_ID = (level === 'economy') ? ECONOMY_CHANNEL_ID : GENERAL_LOG_CHANNEL_ID;
     
     try {
         // Check if bot and bot.channels are defined
@@ -559,9 +563,10 @@ async function sendLogMessage(bot, level, message, userId = null, guildId = null
         }
         
         const colors = {
-            info: 0x00FF00,    // Green
-            warn: 0xFFFF00,    // Yellow
-            error: 0xFF0000    // Red
+            info: 0x00FF00,     // Green
+            warn: 0xFFFF00,     // Yellow
+            error: 0xFF0000,    // Red
+            economy: 0x00BFFF   // Deep Sky Blue
         };
         
         const embed = new EmbedBuilder()
@@ -569,13 +574,36 @@ async function sendLogMessage(bot, level, message, userId = null, guildId = null
             .setDescription(message)
             .setColor(colors[level] || 0x808080)
             .setTimestamp();
-            
+        
+        // Enhanced user information
         if (userId) {
-            embed.addFields({ name: 'User ID', value: userId, inline: true });
+            try {
+                const user = await bot.users.fetch(userId);
+                const userInfo = user ? `${user.displayName} (@${user.username})` : `Unknown User (${userId})`;
+                embed.addFields({ name: '👤 User', value: userInfo, inline: true });
+                embed.addFields({ name: '🆔 User ID', value: userId, inline: true });
+            } catch (error) {
+                embed.addFields({ name: '👤 User', value: `Unknown User (${userId})`, inline: true });
+                embed.addFields({ name: '🆔 User ID', value: userId, inline: true });
+            }
         }
         
+        // Enhanced guild information
         if (guildId) {
-            embed.addFields({ name: 'Guild ID', value: guildId, inline: true });
+            try {
+                const guild = await bot.guilds.fetch(guildId);
+                if (guild) {
+                    const guildLink = `https://discord.com/channels/${guildId}`;
+                    embed.addFields({ name: '🏰 Server', value: `[${guild.name}](${guildLink})`, inline: true });
+                    embed.addFields({ name: '🆔 Guild ID', value: guildId, inline: true });
+                } else {
+                    embed.addFields({ name: '🏰 Server', value: `Unknown Server (${guildId})`, inline: true });
+                    embed.addFields({ name: '🆔 Guild ID', value: guildId, inline: true });
+                }
+            } catch (error) {
+                embed.addFields({ name: '🏰 Server', value: `Unknown Server (${guildId})`, inline: true });
+                embed.addFields({ name: '🆔 Guild ID', value: guildId, inline: true });
+            }
         }
         
         await channel.send({ embeds: [embed] });

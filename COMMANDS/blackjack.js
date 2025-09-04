@@ -4,8 +4,8 @@
  */
 
 const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { PayoutManager, GameType, GameResult, TimeoutManager, parseAmount } = require('../UTILS/gameUtils');
-const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { PayoutManager, GameType, GameResult, TimeoutManager } = require('../UTILS/gameUtils');
+const { fmt, fmtDelta, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
 const { BlackjackGame } = require('../GAMES/blackjack');
 const GamePanel = require('../UTILS/gamePanel');
 const sessionManager = require('../UTILS/sessionManager');

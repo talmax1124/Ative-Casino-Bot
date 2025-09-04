@@ -77,7 +77,7 @@ function buildSessionEmbed(ui) {
     bankFields.forEach((field) => {
       const styledBankField = {
         name: `**${field.name}**`,
-        value: `\`\`\`fix\n${field.value}\n\`\`\``,
+        value: `\`\`\`yaml\n${field.value}\n\`\`\``,
         inline: field.inline !== false // Default to inline for banking
       };
       e.addFields(styledBankField);

@@ -5,8 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
-const { parseAmount } = require('../UTILS/gameUtils');
+const { fmt, fmtDelta, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
 const sessionManager = require('../UTILS/sessionManager');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
@@ -95,13 +94,8 @@ module.exports = {
                     throw new Error('Invalid amount format');
                 }
                 
-                if (parsed === 'all') {
-                    resolvedAmount = currentWallet;
-                } else if (parsed === 'half') {
-                    resolvedAmount = Math.floor(currentWallet / 2);
-                } else if (typeof parsed === 'number' && parsed > 0) {
-                    resolvedAmount = parsed;
-                } else {
+                resolvedAmount = resolveAmount(parsed, currentWallet);
+                if (resolvedAmount === null || resolvedAmount <= 0) {
                     throw new Error('Invalid amount format');
                 }
             } catch (error) {

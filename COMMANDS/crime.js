@@ -73,7 +73,7 @@ module.exports = {
             const topFields = [{
                 name: '🦹 CRIME COMPLETE',
                 value: `**${scenario.crime}**\n` +
-                       `\`\`\`fix\nEarnings: ${fmt(earning)}    Previous: ${fmt(balance.wallet)}    New Balance: ${fmt(newWallet)}\`\`\``,
+                       `\`\`\`diff\n+ Earnings: ${fmt(earning)}\n  Previous: ${fmt(balance.wallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
                 inline: false
             }];
 

@@ -76,7 +76,7 @@ module.exports = {
             const topFields = [{
                 name: '💼 WORK COMPLETED',
                 value: `**Job:** ${scenario.job}\n` +
-                       `\`\`\`fix\nEarnings: ${fmt(earning)}    Previous: ${fmt(balance.wallet)}    New Balance: ${fmt(newWallet)}\`\`\``,
+                       `\`\`\`diff\n+ Earnings: ${fmt(earning)}\n  Previous: ${fmt(balance.wallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
                 inline: false
             }];
 
