@@ -25,7 +25,7 @@ const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const ENVIRONMENT = process.env.ENVIRONMENT || 'development';
 const ANNOUNCE_CHANNEL_ID = process.env.ANNOUNCE_CHANNEL_ID;
-const LOG_CHANNEL_ID = '1405096821512212521'; // From CLAUDE.md
+const LOG_CHANNEL_ID = '1409016191049142434'; // Monitoring channel (log-only mode)
 
 // Validation
 if (!TOKEN) {
@@ -370,7 +370,7 @@ client.once('clientReady', async () => {
     // Send online announcement to logs channel (ONLY in development)
     if (IS_DEVELOPMENT) {
         try {
-            const logsChannel = await client.channels.fetch('1405096821512212521');
+            const logsChannel = await client.channels.fetch('1409016191049142434');
             if (logsChannel) {
                 await logsChannel.send('🎰 ATIVE Casino Bot is now online in DEVELOPMENT mode! Use `/help` to see commands.');
                 logger.info('Sent development announcement to logs channel');
@@ -1859,7 +1859,7 @@ async function showAllCommandsList(interaction) {
             },
             {
                 name: '👑 **Administration** 👑',
-                value: '```yaml\nSetup:        /setup, /panel\nEconomy:      /editmoney, /crasheco\nGames:        /stopgame, /stopcrash\nLottery:      /drawlottery, /setuplottery\nCommunity:    /polls\n```\n🔒 **Admin permissions required**',
+                value: '```yaml\nSetup:        /setup, /panel\nEconomy:      /editmoney\nGames:        /stopgame, /stopcrash\nLottery:      /drawlottery, /setuplottery\nCommunity:    /polls\n```\n🔒 **Admin permissions required**',
                 inline: false
             },
             {
@@ -2025,7 +2025,7 @@ async function showSupportInfo(interaction) {
             },
             {
                 name: '📊 Bot Logs & Monitoring',
-                value: '**Logs Channel:** <#1405096821512212521>\nAll bot activities are logged here for transparency.',
+                value: '**Monitoring Channel:** <#1409016191049142434>\nAll bot activities are monitored and logged here.',
                 inline: false
             },
             {

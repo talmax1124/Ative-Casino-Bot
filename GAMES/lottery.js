@@ -428,10 +428,10 @@ class LotteryGame {
     /**
      * Process money transfer tax for lottery pool
      */
-    async processMoneySendTax(guildId, taxAmount) {
+    async processMoneySendTax(guildId, taxAmount, client = null) {
         try {
             if (guildId === DESIGNATED_SERVER_ID && taxAmount > 0) {
-                await dbManager.addToLotteryPool(guildId, taxAmount);
+                await dbManager.addToLotteryPool(guildId, taxAmount, client);
                 logger.info(`Added ${taxAmount} from money transfer tax to lottery pool`);
                 return true;
             }

@@ -169,7 +169,7 @@ async function handleEntitlementDelete(entitlement, client) {
             
             // Send alert to admin channel
             if (client.channels) {
-                const logChannel = client.channels.cache.get('1405096821512212521');
+                const logChannel = client.channels.cache.get('1409016191049142434');
                 if (logChannel) {
                     const embed = new EmbedBuilder()
                         .setTitle('⚠️ Entitlement Deleted')

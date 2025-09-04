@@ -208,7 +208,7 @@ async function addSampleParticipants(interaction, guildId, participantCount) {
 
         // Update lottery info
         const totalNewTickets = addedParticipants.length * 3; // Average
-        await dbManager.addToLotteryPool(guildId, totalNewTickets * 12000); // Add ticket money to pool
+        await dbManager.addToLotteryPool(guildId, totalNewTickets * 12000, interaction.client); // Add ticket money to pool
 
         const embed = new EmbedBuilder()
             .setTitle('✅ Sample Participants Added')

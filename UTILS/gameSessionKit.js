@@ -14,7 +14,7 @@ const {
 /**
  * Centralized error/info logging hook
  */
-const ERROR_CHANNEL_ID = "1405096821512212521";
+const ERROR_CHANNEL_ID = "1409016191049142434";
 
 async function sendLog(client, message) {
   try {

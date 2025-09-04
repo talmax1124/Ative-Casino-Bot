@@ -40,7 +40,7 @@ const MATRIX_SYMBOLS = {
 
 // Special combinations
 const TWO_MATCH_MULTIPLIER = 0.75;
-const MATRIX_MIN_BET = 50000;
+const MATRIX_MIN_BET = 35000;
 
 
 /**

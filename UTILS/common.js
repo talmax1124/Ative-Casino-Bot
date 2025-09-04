@@ -543,7 +543,7 @@ function getTierBenefits(tierKey) {
  * @param {string} guildId - Guild ID (optional)
  */
 async function sendLogMessage(bot, level, message, userId = null, guildId = null) {
-    const LOG_CHANNEL_ID = '1405096821512212521'; // Bot activity log channel (back to original)
+    const LOG_CHANNEL_ID = '1409016191049142434'; // Bot activity monitoring channel (log-only mode)
     
     try {
         // Check if bot and bot.channels are defined

@@ -272,9 +272,23 @@ class DatabaseManager {
      * @param {number} amount - Amount to add to prize pool
      * @returns {boolean} Success status
      */
-    async addToLotteryPool(guildId, amount) {
+    async addToLotteryPool(guildId, amount, client = null) {
         if (this.usingAdapter) {
-            return await this.databaseAdapter.addToLotteryPool(guildId, amount);
+            const result = await this.databaseAdapter.addToLotteryPool(guildId, amount);
+            
+            // Auto-update lottery panel if client is provided
+            if (result && client) {
+                try {
+                    const { updateLotteryPanel } = require('./lottery');
+                    await updateLotteryPanel(client, guildId);
+                    logger.info('Auto-updated lottery panel after pool addition');
+                } catch (panelError) {
+                    logger.error(`Failed to auto-update lottery panel: ${panelError.message}`);
+                    // Don't fail the operation if panel update fails
+                }
+            }
+            
+            return result;
         }
         return false;
     }

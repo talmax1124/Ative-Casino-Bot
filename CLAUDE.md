@@ -67,10 +67,9 @@ ative_casino_bot/
 - Must be **modular and reusable**, supporting future expansion.  
 
 Examples:  
-- `/balance` → Show user’s balance.  
+- `/balance` → Show user's balance.  
 - `/slots` → Play slots.  
 - `/blackjack` → Play blackjack.  
-- `/crasheco` (Admin-only) → Warn and mute economy abusers.  
 
 ---
 
@@ -95,9 +94,9 @@ Examples:
   - Balances are stored persistently in **MariaDB database**.  
 
 - **Anti-Abuse Measures**:  
-  - `/crasheco` → Admin-only command to warn and auto-mute exploiters (5 minutes).  
+  - Admin monitoring and moderation tools available.  
   - Repeat offenders → permanent ban.  
-  - All suspicious activity must be logged in **channel `1405096821512212521`**.  
+  - All suspicious activity must be logged in **channel `1409016191049142434`**.  
 
 - **Fair & Balanced**:  
   - Games must ensure fair odds.  

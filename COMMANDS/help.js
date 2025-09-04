@@ -497,7 +497,7 @@ function createAdminHelp(interaction, categoryInfo) {
         .addFields(
             {
                 name: '💰 **Economy Administration** 💰',
-                value: '```yaml\nEdit Money:   /editmoney <user> <amount> [account]\nCrash Economy: /crasheco <user> - Punish abusers\nTransparency: All actions logged to admin channel\nSafeguards:   Multiple confirmation steps\n```\n🔒 **Permissions:** Administrator role or higher required',
+                value: '```yaml\nEdit Money:   /editmoney <user> <amount> [account]\nTransparency: All actions logged to admin channel\nSafeguards:   Multiple confirmation steps\n```\n🔒 **Permissions:** Administrator role or higher required',
                 inline: false
             },
             {
@@ -626,12 +626,12 @@ function createSecurityHelp(interaction, categoryInfo) {
             },
             {
                 name: '⚡ **Automated Abuse Prevention** ⚡',
-                value: '```yaml\nCrasheco Command:     Admin punishment system (/crasheco)\nPattern Detection:    AI identifies suspicious behavior\nCooldown Systems:     Prevents rapid-fire command abuse\nEconomic Penalties:   Fines and restrictions for violations\n```\n🤖 **Smart Detection:** Advanced algorithms protect fair play',
+                value: '```yaml\nPattern Detection:    AI identifies suspicious behavior\nCooldown Systems:     Prevents rapid-fire command abuse\nEconomic Penalties:   Fines and restrictions for violations\nAdmin Monitoring:     All actions logged and tracked\n```\n🤖 **Smart Detection:** Advanced algorithms protect fair play',
                 inline: false
             },
             {
                 name: '📊 **Reporting & Transparency System** 📊',
-                value: '```yaml\nAdmin Channel:       <#1405096821512212521> - All actions logged\nTransparency Logs:   Public record of major actions\nAdmin Reports:       Contact server administrators directly\nCommunity Oversight: Player reports and community moderation\n```\n🔍 **Open System:** Nothing is hidden from the community',
+                value: '```yaml\nMonitoring Channel:  <#1409016191049142434> - All activity logged\nTransparency Logs:   Public record of major actions\nAdmin Reports:       Contact server administrators directly\nCommunity Oversight: Player reports and community moderation\n```\n🔍 **Open System:** All activity is monitored and logged',
                 inline: false
             },
             {
