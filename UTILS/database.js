@@ -455,6 +455,20 @@ class DatabaseManager {
     }
 
     /**
+     * Get game history for a user
+     * @param {string} userId - Discord user ID
+     * @param {string} gameType - Optional game type filter
+     * @param {number} limit - Number of results to return
+     * @returns {Array} Array of game results
+     */
+    async getGameHistory(userId, gameType = null, limit = 20) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getGameHistory(userId, gameType, limit);
+        }
+        return [];
+    }
+
+    /**
      * Update global user statistics for leaderboard
      * @param {string} userId - Discord user ID
      * @param {boolean} win - Whether the game was won

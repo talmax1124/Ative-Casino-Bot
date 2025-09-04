@@ -321,52 +321,11 @@ module.exports = {
                 const results = game.getResults();
                 const result = results[0];
 
-                // Process payout
-                const gameResult = new GameResult({
-                    userId: userId,
-                    guildId: guildId,
-                    gameType: GameType.BLACKJACK,
-                    betAmount: betAmount,
-                    payout: result.payout,
-                    won: result.won,
-                    specialResult: 'BLACKJACK'
-                });
-
-                await PayoutManager.processGamePayout(gameResult);
+                // Mark game as ended to pass control to endGame function
+                game.gameEnded = true;
                 
-                // Complete session
-                await sessionManager.endSession(sessionId, {
-                    outcome: 'BLACKJACK',
-                    payout: 0, // Payout already processed by PayoutManager
-                    won: result.won,
-                    finalResult: result
-                });
-
-                activeGames.delete(sessionId);
-
-                // Create final embed showing blackjack
-                const finalEmbed = createGameEmbed(game, interaction.user, true, userBalance);
-                const tableImage = await createGameTableImage(game, true);
-                
-                // Get updated balance for play again buttons
-                const updatedBalance = await dbManager.getUserBalance(userId, guildId);
-                
-                const finalData = {
-                    content: `🎉 **BLACKJACK!** You won ${fmt(result.payout)}!`,
-                    embeds: [finalEmbed], 
-                    components: GamePanel.createGameButtons({ 
-                        actions: ['play_again_multi', 'quit'],
-                        lastBet: betAmount,
-                        balance: updatedBalance.wallet
-                    })
-                };
-                
-                if (tableImage) {
-                    finalData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
-                    finalEmbed.setImage('attachment://blackjack-table.png');
-                }
-                
-                await interaction.editReply(finalData);
+                // Use endGame function to handle payout and cleanup
+                await module.exports.endGame(interaction, game, userId, guildId);
                 
                 return;
             }

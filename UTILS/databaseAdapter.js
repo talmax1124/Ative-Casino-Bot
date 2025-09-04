@@ -150,6 +150,20 @@ class DatabaseAdapter {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
+            `CREATE TABLE IF NOT EXISTS game_results (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(20) NOT NULL,
+                guild_id VARCHAR(20) NOT NULL,
+                game_type VARCHAR(50) NOT NULL,
+                bet_amount DECIMAL(20,2) NOT NULL,
+                payout DECIMAL(20,2) NOT NULL,
+                won BOOLEAN NOT NULL,
+                metadata JSON DEFAULT NULL,
+                played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user_game (user_id, game_type, played_at),
+                INDEX idx_played_at (played_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
             `CREATE TABLE IF NOT EXISTS lottery_tickets (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id VARCHAR(20) NOT NULL,
@@ -762,6 +776,13 @@ class DatabaseAdapter {
      */
     async recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
         try {
+            // Insert into game_results table for history tracking
+            await this.pool.execute(
+                `INSERT INTO game_results (user_id, guild_id, game_type, bet_amount, payout, won, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [userId, guildId, gameType, betAmount, payout, won, JSON.stringify(metadata)]
+            );
+            
             const statId = `${userId}_${gameType}`;
             
             // Check if user stats entry exists for this game type
@@ -823,6 +844,35 @@ class DatabaseAdapter {
         } catch (error) {
             logger.error(`Failed to record game result: ${error.message}`);
             return false;
+        }
+    }
+
+    /**
+     * Get game history for a specific user and/or game type
+     */
+    async getGameHistory(userId, gameType = null, limit = 20) {
+        try {
+            let query = `
+                SELECT gr.*, ub.username 
+                FROM game_results gr
+                LEFT JOIN user_balances ub ON gr.user_id = ub.user_id
+                WHERE gr.user_id = ?`;
+            
+            const params = [userId];
+            
+            if (gameType) {
+                query += ' AND gr.game_type = ?';
+                params.push(gameType);
+            }
+            
+            query += ' ORDER BY gr.played_at DESC LIMIT ?';
+            params.push(limit);
+            
+            const [results] = await this.pool.execute(query, params);
+            return results;
+        } catch (error) {
+            logger.error(`Error getting game history: ${error.message}`);
+            return [];
         }
     }
 
