@@ -273,9 +273,10 @@ module.exports = {
                     break;
                     
                 case 'view_panel':
-                    // Just acknowledge the interaction since main panel is already visible
+                    // Create a link to jump to the main game panel message
+                    const messageLink = `https://discord.com/channels/${interaction.guildId}/${game.channelId}/${game.message.id}`;
                     await interaction.reply({ 
-                        content: '👆 The main game panel is located above. Use the Attack button to make your move!',
+                        content: `🎮 **[Click here to go to the main game panel](${messageLink})**\n\nUse the Attack button on the main panel to make your move!`,
                         flags: MessageFlags.Ephemeral 
                     });
                     break;
@@ -931,9 +932,9 @@ module.exports = {
 
             // Update the main game message
             const channel = await interaction.client.channels.fetch(game.channelId);
-            if (channel && game.messageId) {
+            if (channel && game.message) {
                 try {
-                    const message = await channel.messages.fetch(game.messageId);
+                    const message = await channel.messages.fetch(game.message.id);
                     await message.edit({
                         embeds: [victoryEmbed],
                         components: [] // Remove all buttons since game is over
