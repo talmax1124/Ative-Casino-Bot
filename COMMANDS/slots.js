@@ -245,67 +245,73 @@ module.exports = {
             // Wait for animation to complete (GIF has 50 frames * ~50-250ms = ~7.5 seconds)
             setTimeout(async () => {
                 try {
-                    const staticImage = await createSlotsImage(symbols, result.won);
-                    
-                    // Create final result embed
-                    const finalEmbed = createSlotsEmbed(
-                        interaction.user,
-                        symbols,
-                        result,
-                        betAmount,
-                        finalBalance,
-                        oldWallet
-                    );
-
-                    // Add booster bonus info if applicable
-                    if (payoutResult.boosterBonus > 0) {
-                        finalEmbed.addFields(
-                            { name: '🚀 Booster Bonus', value: `+${fmt(payoutResult.boosterBonus)} (2% boost!)`, inline: true }
-                        );
+                    // Check if interaction is still valid before proceeding
+                    if (interaction.replied || interaction.deferred) {
+                        const staticImage = await createSlotsImage(symbols, result.won);
                         
-                        // Add celebration message for boosters
-                        if (result.won) {
-                            finalEmbed.setDescription(
-                                (finalEmbed.data.description || '') + 
-                                `\n\n✨ **Server Booster Bonus Applied!** You earned an extra 2% on your win!`
-                            );
-                        }
-                    }
-
-                    // Add help button
-                    const helpButton = new ActionRowBuilder()
-                        .addComponents(
-                            new ButtonBuilder()
-                                .setCustomId('slots_help')
-                                .setLabel('❓ How to Play')
-                                .setStyle(ButtonStyle.Secondary)
+                        // Create final result embed
+                        const finalEmbed = createSlotsEmbed(
+                            interaction.user,
+                            symbols,
+                            result,
+                            betAmount,
+                            finalBalance,
+                            oldWallet
                         );
 
-                    const finalData = { 
-                        embeds: [finalEmbed], 
-                        attachments: [], 
-                        components: [helpButton] 
-                    };
+                        // Add booster bonus info if applicable
+                        if (payoutResult.boosterBonus > 0) {
+                            finalEmbed.addFields(
+                                { name: '🚀 Booster Bonus', value: `+${fmt(payoutResult.boosterBonus)} (2% boost!)`, inline: true }
+                            );
+                            
+                            // Add celebration message for boosters
+                            if (result.won) {
+                                finalEmbed.setDescription(
+                                    (finalEmbed.data.description || '') + 
+                                    `\n\n✨ **Server Booster Bonus Applied!** You earned an extra 2% on your win!`
+                                );
+                            }
+                        }
 
-                    if (staticImage) {
-                        finalData.files = [{ attachment: staticImage, name: 'slots-result.png' }];
-                        finalEmbed.setImage('attachment://slots-result.png');
+                        // Add help button
+                        const helpButton = new ActionRowBuilder()
+                            .addComponents(
+                                new ButtonBuilder()
+                                    .setCustomId('slots_help')
+                                    .setLabel('❓ How to Play')
+                                    .setStyle(ButtonStyle.Secondary)
+                            );
+
+                        const finalData = { 
+                            embeds: [finalEmbed], 
+                            attachments: [], 
+                            components: [helpButton] 
+                        };
+
+                        if (staticImage) {
+                            finalData.files = [{ attachment: staticImage, name: 'slots-result.png' }];
+                            finalEmbed.setImage('attachment://slots-result.png');
+                        }
+
+                        await interaction.editReply(finalData);
+                        
+                        // Complete session after final result shown
+                        await sessionManager.endSession(sessionId, {
+                            outcome: result.won ? 'WIN' : 'LOSS',
+                            symbols,
+                            finalPayout: result.payout,
+                            multiplier: result.multiplier,
+                            won: result.won,
+                            netChange: result.payout - betAmount
+                        });
+                    } else {
+                        logger.warn(`Slots interaction expired for user ${userId}, cannot update to static result`);
                     }
-
-                    await interaction.editReply(finalData);
-                    
-                    // Complete session after final result shown
-                    await sessionManager.endSession(sessionId, {
-                        outcome: result.won ? 'WIN' : 'LOSS',
-                        symbols,
-                        finalPayout: result.payout,
-                        multiplier: result.multiplier,
-                        won: result.won,
-                        netChange: result.payout - betAmount
-                    });
                     
                 } catch (error) {
                     logger.error(`Error updating slots to static result: ${error.message}`);
+                    // Don't throw here as it would crash the setTimeout callback
                 }
             }, 8000); // 8 second delay to ensure GIF completes
 

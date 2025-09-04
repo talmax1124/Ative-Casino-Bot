@@ -1089,7 +1089,31 @@ client.on('interactionCreate', async interaction => {
             }
             // Handle game help buttons
             else if (customId === 'slots_help') {
-                await showSlotsHelp(interaction);
+                try {
+                    await showSlotsHelp(interaction);
+                } catch (error) {
+                    logger.error(`Error showing slots help: ${error.message}`);
+                    // If interaction has expired, don't try to reply
+                    if (error.message.includes('Unknown interaction') || error.code === 10062) {
+                        logger.warn(`Slots help interaction expired for user ${interaction.user.id}`);
+                        return;
+                    }
+                    // For other errors, try to send error response
+                    try {
+                        const errorEmbed = new EmbedBuilder()
+                            .setTitle('❌ Help Error')
+                            .setDescription('Unable to show help at this time.')
+                            .setColor(0xFF0000);
+                        
+                        if (interaction.replied || interaction.deferred) {
+                            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                        } else {
+                            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                        }
+                    } catch (replyError) {
+                        logger.error(`Failed to send help error reply: ${replyError.message}`);
+                    }
+                }
             }
             else if (customId === 'blackjack_help') {
                 await showBlackjackHelp(interaction);
@@ -1528,15 +1552,26 @@ client.on('interactionCreate', async interaction => {
         } catch (error) {
             logger.error(`Error handling button ${customId}:`, error);
 
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Button Error')
-                .setDescription('An error occurred while processing your action.')
-                .setColor(0xFF0000);
+            // Handle "Unknown interaction" errors gracefully (interaction expired)
+            if (error.message.includes('Unknown interaction') || error.code === 10062) {
+                logger.warn(`Button interaction expired for customId: ${customId}, user: ${interaction.user.id}`);
+                return; // Don't try to reply to expired interactions
+            }
 
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            // For other errors, try to send error response
+            try {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Button Error')
+                    .setDescription('An error occurred while processing your action.')
+                    .setColor(0xFF0000);
+
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } else {
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                }
+            } catch (replyError) {
+                logger.error(`Failed to send button error reply for ${customId}: ${replyError.message}`);
             }
         }
     }
