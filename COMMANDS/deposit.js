@@ -143,7 +143,7 @@ module.exports = {
                 const topFields = [
                     {
                         name: '❌ INSUFFICIENT FUNDS',
-                        value: `You don't have enough money in your wallet!\n\n**Deposit Amount:** ${fmt(resolvedAmount)}`,
+                        value: `You don't have enough money in your wallet!\n\n**Deposit Amount:** \`\`\`css\n${fmt(resolvedAmount)}\n\`\`\``,
                         inline: false
                     }
                 ];
@@ -204,20 +204,20 @@ module.exports = {
             const topFields = [
                 {
                     name: '✅ DEPOSIT SUCCESSFUL',
-                    value: `You successfully deposited **${fmt(depositAmount)}**\ninto your bank account!`,
+                    value: `You successfully deposited\n\`\`\`fix\n${fmt(depositAmount)}\n\`\`\`into your bank account!`,
                     inline: false
                 },
                 {
                     name: '💳 TRANSACTION SUMMARY',
-                    value: `**Amount:** ${fmt(depositAmount)}\n**From:** Wallet → Bank\n**Status:** Completed`,
+                    value: `**Amount:** __**${fmt(depositAmount)}**__\n**From:** Wallet → Bank\n**Status:** ✅ Completed`,
                     inline: false
                 }
             ];
 
             const bankFields = [
-                { name: '💵 Wallet', value: `${fmt(currentWallet)} → **${fmt(newBalance.wallet)}**`, inline: true },
-                { name: '🏦 Bank', value: `${fmt(currentBank)} → **${fmt(newBalance.bank)}**`, inline: true },
-                { name: '💎 Total', value: fmt(newBalance.wallet + newBalance.bank), inline: true }
+                { name: '💵 Wallet', value: `\`\`\`diff\n- ${fmt(currentWallet)}\n+ ${fmt(newBalance.wallet)}\n\`\`\``, inline: true },
+                { name: '🏦 Bank', value: `\`\`\`diff\n- ${fmt(currentBank)}\n+ ${fmt(newBalance.bank)}\n\`\`\``, inline: true },
+                { name: '💎 Total Worth', value: `__**${fmt(newBalance.wallet + newBalance.bank)}**__`, inline: true }
             ];
 
             const embed = buildSessionEmbed({

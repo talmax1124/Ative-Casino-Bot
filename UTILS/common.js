@@ -104,9 +104,18 @@ function fmtFull(amount) {
  */
 function fmtDelta(after, before) {
     try {
+        // Handle single parameter case (treat as change amount)
+        if (before === undefined) {
+            const amount = parseFloat(after);
+            if (isNaN(amount)) return '';
+            const sign = amount >= 0 ? '+' : '-';
+            return `(${sign}$${Math.abs(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+        }
+        
         const delta = parseFloat(after) - parseFloat(before);
+        if (isNaN(delta)) return '';
         const sign = delta >= 0 ? '+' : '-';
-        return `(${sign}${Math.abs(delta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+        return `(${sign}$${Math.abs(delta).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
     } catch (error) {
         return '';
     }

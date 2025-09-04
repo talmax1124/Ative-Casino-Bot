@@ -167,11 +167,11 @@ module.exports = {
             const successEmbed = buildSessionEmbed({
                 title: `🏧 ${username}'s Bank Withdrawal`,
                 topFields: [
-                    { name: '💸 WITHDRAWAL DETAILS', value: `Successfully withdrew ${fmt(withdrawAmount)} from your bank!`, inline: false }
+                    { name: '💸 WITHDRAWAL DETAILS', value: `Successfully withdrew\n\`\`\`fix\n${fmt(withdrawAmount)}\n\`\`\`from your bank!`, inline: false }
                 ],
                 bankFields: [
-                    { name: '💵 New Wallet', value: fmt(newBalance.wallet), inline: true },
-                    { name: '🏦 New Bank', value: fmt(newBalance.bank), inline: true },
+                    { name: '💵 New Wallet', value: `__**${fmt(newBalance.wallet)}**__`, inline: true },
+                    { name: '🏦 New Bank', value: `__**${fmt(newBalance.bank)}**__`, inline: true },
                     { name: '📈 Wallet Change', value: fmtDelta(withdrawAmount), inline: true }
                 ],
                 stageText: 'WITHDRAWAL COMPLETE',
