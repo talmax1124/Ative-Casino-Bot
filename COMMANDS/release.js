@@ -7,6 +7,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBui
 const sessionManager = require('../UTILS/sessionManager');
 const { clearActiveGame, getAllActiveGames, getActiveGame, sendLogMessage } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
+const SafeInteractionHandler = require('../UTILS/interactionHandler');
 
 // Developer ID for admin functions
 const DEVELOPER_ID = '466050111680544798';
@@ -29,7 +30,7 @@ module.exports = {
 
             // Check if user can target another user (admin/dev only)
             if (targetUser.id !== interaction.user.id && !isAdmin) {
-                return await interaction.reply({
+                return await SafeInteractionHandler.safeReply(interaction, {
                     embeds: [this.createErrorEmbed('❌ Access Denied', 'You can only release your own sessions. Admins can target other users.')],
                     flags: MessageFlags.Ephemeral
                 });
@@ -41,11 +42,10 @@ module.exports = {
             
             const errorEmbed = this.createErrorEmbed('❌ Command Error', 'An error occurred while processing the release command.');
             
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
+            await SafeInteractionHandler.safeReply(interaction, { 
+                embeds: [errorEmbed], 
+                flags: MessageFlags.Ephemeral 
+            });
         }
     },
 

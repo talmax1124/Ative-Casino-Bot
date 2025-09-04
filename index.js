@@ -16,6 +16,7 @@ const dbManager = require('./UTILS/database');
 // Removed Firebase-dependent modules: economyMonitor, sessionManager
 const { sendLogMessage } = require('./UTILS/common');
 const panelManager = require('./UTILS/panelManager');
+const SafeInteractionHandler = require('./UTILS/interactionHandler');
 const { LotteryGame } = require('./GAMES/lottery');
 // Leveling system moved to UAS bot
 // Removed: const serverProducts = require('./UTILS/serverProducts'); // Web-based purchases now
@@ -414,6 +415,12 @@ client.on('interactionCreate', async interaction => {
         try {
             await command.execute(interaction);
         } catch (error) {
+            // Skip logging for expired interactions
+            if (error.code === 10062) {
+                logger.debug(`Command interaction expired: ${interaction.commandName}`);
+                return;
+            }
+            
             logger.error(`Error executing command ${interaction.commandName}:`, error);
 
             // Send error log to designated channel
@@ -432,18 +439,17 @@ client.on('interactionCreate', async interaction => {
                 logger.error(`Failed to send error log: ${logError.message}`);
             }
 
-            // Send user-friendly error message
+            // Send user-friendly error message using safe handler
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Command Error')
                 .setDescription('An error occurred while processing your command. The administrators have been notified.')
                 .setColor(0xFF0000)
                 .setTimestamp();
 
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
+            await SafeInteractionHandler.safeReply(interaction, { 
+                embeds: [errorEmbed], 
+                flags: MessageFlags.Ephemeral 
+            });
         }
     }
     // Handle modal submissions
@@ -604,6 +610,11 @@ client.on('interactionCreate', async interaction => {
     // Handle select menu interactions
     else if (interaction.isStringSelectMenu()) {
         try {
+            // Check if interaction has expired
+            if (!SafeInteractionHandler.isValid(interaction)) {
+                logger.debug(`Select menu interaction expired: ${interaction.customId}`);
+                return;
+            }
             // Handle setup wizard select menus
             if (interaction.customId.startsWith('setup_')) {
                 const { SetupInteractionHandler } = require('./UTILS/setupInteractionHandler');
@@ -825,6 +836,12 @@ client.on('interactionCreate', async interaction => {
             }
             
         } catch (error) {
+            // Handle expired interactions
+            if (error.code === 10062) {
+                logger.debug(`Select menu interaction expired: ${interaction.customId}`);
+                return;
+            }
+            
             logger.error(`Error handling select menu ${interaction.customId}:`, error);
 
             const errorEmbed = new EmbedBuilder()
@@ -832,11 +849,10 @@ client.on('interactionCreate', async interaction => {
                 .setDescription('An error occurred while processing your selection.')
                 .setColor(0xFF0000);
 
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
+            await SafeInteractionHandler.safeReply(interaction, { 
+                embeds: [errorEmbed], 
+                flags: MessageFlags.Ephemeral 
+            });
         }
     }
     // Handle button interactions
@@ -844,6 +860,11 @@ client.on('interactionCreate', async interaction => {
         const customId = interaction.customId;
 
         try {
+            // Check if interaction has expired
+            if (!SafeInteractionHandler.isValid(interaction)) {
+                logger.debug(`Button interaction expired: ${customId}`);
+                return;
+            }
             // Handle blackjack buttons (format: bj-{userId}-{action})
             if (customId.startsWith('bj-')) {
                 const parts = customId.split('-');
@@ -858,9 +879,9 @@ client.on('interactionCreate', async interaction => {
                             await blackjackCommand.handleBlackjackAction(interaction, actionId);
                         }
                     } else {
-                        await interaction.reply({
+                        await SafeInteractionHandler.safeReply(interaction, {
                             content: 'This is not your game!',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 }
@@ -877,9 +898,9 @@ client.on('interactionCreate', async interaction => {
                         if (userId === interaction.user.id) {
                             await duckCommand.handleModeSelect(interaction, mode);
                         } else {
-                            await interaction.reply({
+                            await SafeInteractionHandler.safeReply(interaction, {
                                 content: 'This is not your game!',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                     } else if (customId.startsWith('duck-cancel-')) {
@@ -888,9 +909,9 @@ client.on('interactionCreate', async interaction => {
                         if (userId === interaction.user.id) {
                             await duckCommand.handleCancel(interaction);
                         } else {
-                            await interaction.reply({
+                            await SafeInteractionHandler.safeReply(interaction, {
                                 content: 'This is not your game!',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                     } else if (customId.startsWith('duck-')) {
@@ -900,9 +921,9 @@ client.on('interactionCreate', async interaction => {
                         if (userId === interaction.user.id) {
                             await duckCommand.handleGameAction(interaction, actionId);
                         } else {
-                            await interaction.reply({
+                            await SafeInteractionHandler.safeReply(interaction, {
                                 content: 'This is not your game!',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                     }
@@ -1550,29 +1571,24 @@ client.on('interactionCreate', async interaction => {
             */
             
         } catch (error) {
-            logger.error(`Error handling button ${customId}:`, error);
-
             // Handle "Unknown interaction" errors gracefully (interaction expired)
             if (error.message.includes('Unknown interaction') || error.code === 10062) {
-                logger.warn(`Button interaction expired for customId: ${customId}, user: ${interaction.user.id}`);
-                return; // Don't try to reply to expired interactions
+                logger.debug(`Button interaction expired for customId: ${customId}, user: ${interaction.user.id}`);
+                return; // Silently ignore expired interactions
             }
+            
+            logger.error(`Error handling button ${customId}:`, error);
 
-            // For other errors, try to send error response
-            try {
-                const errorEmbed = new EmbedBuilder()
-                    .setTitle('❌ Button Error')
-                    .setDescription('An error occurred while processing your action.')
-                    .setColor(0xFF0000);
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Button Error')
+                .setDescription('An error occurred while processing your action.')
+                .setColor(0xFF0000);
 
-                if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-                } else {
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-                }
-            } catch (replyError) {
-                logger.error(`Failed to send button error reply for ${customId}: ${replyError.message}`);
-            }
+            // Use safe interaction handler
+            await SafeInteractionHandler.safeReply(interaction, { 
+                embeds: [errorEmbed], 
+                flags: MessageFlags.Ephemeral 
+            });
         }
     }
     // Handle autocomplete interactions
