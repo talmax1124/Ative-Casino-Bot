@@ -63,9 +63,13 @@ module.exports = {
             const scenario = crimeScenarios[secureRandomInt(0, crimeScenarios.length)];
             const earning = secureRandomInt(scenario.min, scenario.max + 1);
 
+            // Validate and sanitize balance values
+            const currentWallet = parseFloat(balance.wallet) || 0;
+            const currentBank = parseFloat(balance.bank) || 0;
+            
             // Update balance and timestamp
-            const newWallet = balance.wallet + earning;
-            await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank, {
+            const newWallet = currentWallet + earning;
+            await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
                 last_crime_ts: now
             });
 
@@ -73,7 +77,7 @@ module.exports = {
             const topFields = [{
                 name: '🦹 CRIME COMPLETE',
                 value: `**${scenario.crime}**\n` +
-                       `\`\`\`diff\n+ Earnings: ${fmt(earning)}\n  Previous: ${fmt(balance.wallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
+                       `\`\`\`diff\n+ Earnings: ${fmt(earning)}\n  Previous: ${fmt(currentWallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
                 inline: false
             }];
 

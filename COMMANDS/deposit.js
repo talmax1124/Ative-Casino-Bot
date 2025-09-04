@@ -83,8 +83,8 @@ module.exports = {
 
             // Get current balance
             const balance = await dbManager.getUserBalance(userId, guildId);
-            const currentWallet = balance.wallet;
-            const currentBank = balance.bank;
+            const currentWallet = parseFloat(balance.wallet) || 0;
+            const currentBank = parseFloat(balance.bank) || 0;
 
             // Parse and resolve amount
             let resolvedAmount;
