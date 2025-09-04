@@ -28,27 +28,27 @@ const TREASURE_CONFIG = {
     // Possible outcomes per round (gets harder as rounds progress)
     ROUND_OUTCOMES: {
         1: { // Round 1 - Easy start
-            multipliers: [1.2, 1.5, 2.0],
+            multipliers: [1.1, 1.2, 1.3],
             traps: ['lose_25', 'lose_50']
         },
         2: { // Round 2 - Still generous
-            multipliers: [1.3, 1.8, 2.5],
+            multipliers: [1.2, 1.3, 1.5],
             traps: ['lose_25', 'lose_50', 'lose_all']
         },
         3: { // Round 3 - Getting riskier
-            multipliers: [1.5, 2.0, 3.0],
+            multipliers: [1.3, 1.5, 1.8],
             traps: ['lose_50', 'lose_75', 'lose_all']
         },
         4: { // Round 4 - High risk, high reward
-            multipliers: [2.0, 2.5, 4.0],
+            multipliers: [1.5, 1.8, 2.2],
             traps: ['lose_50', 'lose_all', 'lose_all']
         },
         5: { // Round 5 - Very dangerous
-            multipliers: [2.5, 3.0, 5.0],
+            multipliers: [1.8, 2.0, 2.5],
             traps: ['lose_75', 'lose_all', 'lose_all']
         },
         6: { // Round 6 - Final round, maximum danger
-            multipliers: [3.0, 5.0, 10.0],
+            multipliers: [2.0, 2.5, 3.5],
             traps: ['lose_all', 'lose_all', 'lose_all']
         }
     }
@@ -86,7 +86,7 @@ module.exports = {
                 betAmountStr,
                 GameType.TREASUREVAULT || 'treasurevault',
                 100, // minimum bet
-                10000000, // maximum bet: 10M
+                300000, // maximum bet: 300K (reduced due to high multipliers)
                 {} // no special requirements
             );
             
