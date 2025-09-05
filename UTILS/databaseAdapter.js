@@ -1736,14 +1736,28 @@ class DatabaseAdapter {
      */
     async getScratchDropSettings(guildId) {
         try {
-            const [result] = await this.executeQuery(
+            // For now, return default settings since we don't have scratch_drops table
+            // The manual drop system works, automatic drops can be added later
+            return {
+                guild_id: guildId,
+                drop_enabled: false, // Disable automatic drops for now
+                max_daily_drops: 2,
+                daily_drops: 0,
+                drop_count_reset: new Date().toISOString(),
+                next_drop_time: null
+            };
+
+            // Original code (commented out until we create scratch_drops table):
+            /*
+            const result = await this.executeQuery(
                 'SELECT * FROM scratch_drops WHERE guild_id = ?',
                 [guildId]
             );
 
-            if (result.length > 0) {
+            if (result && result.length > 0) {
                 return result[0];
             }
+            */
 
             // Create default settings
             const query = `
