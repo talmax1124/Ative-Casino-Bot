@@ -4,6 +4,7 @@ const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { validateAmount, formatMoneyFull } = require('../UTILS/moneyFormatter');
 const logger = require('../UTILS/logger');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const OffEconomyBadge = require('../UTILS/offEconomyBadge');
 
 // Simple transaction lock to prevent duplicate executions
 const transactionLocks = new Map();
@@ -45,6 +46,23 @@ module.exports = {
         if (targetUser.bot) {
             await interaction.reply({
                 content: '❌ You cannot send money to bots!',
+                flags: 64
+            });
+            return;
+        }
+
+        // Check economy type restrictions - Off Economy can only send to Off Economy
+        const senderOffEco = await OffEconomyBadge.isOffEconomy(senderId);
+        const targetOffEco = await OffEconomyBadge.isOffEconomy(targetUser.id);
+
+        if (senderOffEco !== targetOffEco) {
+            const economyType = senderOffEco ? 'Off Economy' : 'Regular Economy';
+            const targetEconomyType = targetOffEco ? 'Off Economy' : 'Regular Economy';
+            
+            await interaction.reply({
+                content: `🔴 **Economy Type Mismatch**\n\n` +
+                        `You (${economyType}) cannot send money to users from ${targetEconomyType}!\n\n` +
+                        `You can only send money to users in the same economy type.`,
                 flags: 64
             });
             return;

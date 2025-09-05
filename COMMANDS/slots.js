@@ -12,12 +12,15 @@ const SMGameType = { SLOTS: 'slots' };
 const sessionManager = require('../UTILS/sessionManager');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
+const OffEconomyBadge = require('../UTILS/offEconomyBadge');
 
 
 /**
  * Create slots result embed using gameSessionKit style
  */
-function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWallet) {
+async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWallet) {
+    // Get off economy badge for the user
+    const offEcoBadge = await OffEconomyBadge.getGamePanelBadge(user.id);
     const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
     
     const topFields = [];
@@ -65,7 +68,7 @@ function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWall
     }
 
     return buildSessionEmbed({
-        title: `🎰 ${user.displayName}'s Slots`,
+        title: `🎰 ${user.displayName}'s Slots${offEcoBadge}`,
         topFields,
         bankFields,
         stageText,
@@ -222,8 +225,9 @@ module.exports = {
 
             // Build a minimal "spinning" embed so users see the GIF first
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            const userOffEcoBadge = await OffEconomyBadge.getGamePanelBadge(interaction.user.id);
             const spinningEmbed = buildSessionEmbed({
-                title: `🎰 ${interaction.user.displayName}'s Slots`,
+                title: `🎰 ${interaction.user.displayName}'s Slots${userOffEcoBadge}`,
                 topFields: [
                     { name: 'Spinning', value: 'Reels are spinning... 🎞️', inline: false },
                 ],
@@ -250,7 +254,7 @@ module.exports = {
                         const staticImage = await createSlotsImage(symbols, result.won);
                         
                         // Create final result embed
-                        const finalEmbed = createSlotsEmbed(
+                        const finalEmbed = await createSlotsEmbed(
                             interaction.user,
                             symbols,
                             result,

@@ -96,10 +96,12 @@ class DatabaseAdapter {
                 last_heist_ts BIGINT NOT NULL DEFAULT 0,
                 daily_sent DECIMAL(20,2) NOT NULL DEFAULT 0.00,
                 last_send_reset BIGINT NOT NULL DEFAULT 0,
+                off_economy BOOLEAN NOT NULL DEFAULT FALSE,
                 username VARCHAR(100) DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                INDEX idx_updated_at (updated_at)
+                INDEX idx_updated_at (updated_at),
+                INDEX idx_off_economy (off_economy)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
             `CREATE TABLE IF NOT EXISTS user_stats (
@@ -329,6 +331,32 @@ class DatabaseAdapter {
                 }
             }
             
+            // Ensure off_economy column exists in user_balances table
+            try {
+                await connection.execute(`
+                    ALTER TABLE user_balances 
+                    ADD COLUMN off_economy BOOLEAN NOT NULL DEFAULT FALSE AFTER last_send_reset
+                `);
+                logger.info('Added off_economy column to user_balances table');
+            } catch (addColumnError) {
+                if (!addColumnError.message.includes('Duplicate column name')) {
+                    logger.debug(`Off economy column migration: ${addColumnError.message}`);
+                }
+            }
+            
+            // Add index for off_economy if it doesn't exist
+            try {
+                await connection.execute(`
+                    ALTER TABLE user_balances 
+                    ADD INDEX idx_off_economy (off_economy)
+                `);
+                logger.info('Added index for off_economy column');
+            } catch (indexError) {
+                if (!indexError.message.includes('Duplicate key name')) {
+                    logger.debug(`Off economy index migration: ${indexError.message}`);
+                }
+            }
+            
             logger.info('MariaDB schema initialized successfully');
         } finally {
             connection.release();
@@ -389,6 +417,7 @@ class DatabaseAdapter {
                     last_heist_ts: parseFloat(row.last_heist_ts),
                     daily_sent: parseFloat(row.daily_sent || 0),
                     last_send_reset: parseFloat(row.last_send_reset || 0),
+                    off_economy: Boolean(row.off_economy || false),
                     created_at: row.created_at,
                     updated_at: row.updated_at
                 };
@@ -407,6 +436,7 @@ class DatabaseAdapter {
                     last_heist_ts: 0.0,
                     daily_sent: 0.0,
                     last_send_reset: 0.0,
+                    off_economy: false,
                     created_at: new Date(),
                     updated_at: new Date()
                 };
@@ -414,9 +444,9 @@ class DatabaseAdapter {
                 await this.executeQuery(
                     `INSERT IGNORE INTO user_balances 
                      (user_id, wallet, bank, last_earn_ts, last_rob_ts, game_active, 
-                      last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts, daily_sent, last_send_reset) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+                      last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts, daily_sent, last_send_reset, off_economy) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false]
                 );
 
                 // Re-fetch the user data in case it was already created by another process
@@ -2186,6 +2216,90 @@ class DatabaseAdapter {
         } catch (error) {
             logger.error(`Error getting economic trends: ${error.message}`);
             return [];
+        }
+    }
+
+    /**
+     * Toggle user off economy status
+     */
+    async toggleOffEconomy(userId, offEconomy = null) {
+        try {
+            // Ensure user exists
+            await this.getUserBalance(userId);
+            
+            if (offEconomy === null) {
+                // Toggle current status
+                const result = await this.executeQuery(`
+                    UPDATE user_balances 
+                    SET off_economy = NOT off_economy 
+                    WHERE user_id = ?
+                `, [userId]);
+                
+                // Get new status
+                const statusResult = await this.executeQuery(`
+                    SELECT off_economy FROM user_balances WHERE user_id = ?
+                `, [userId]);
+                
+                return statusResult.length > 0 ? Boolean(statusResult[0].off_economy) : false;
+            } else {
+                // Set specific status
+                await this.executeQuery(`
+                    UPDATE user_balances 
+                    SET off_economy = ? 
+                    WHERE user_id = ?
+                `, [offEconomy, userId]);
+                
+                return offEconomy;
+            }
+        } catch (error) {
+            logger.error(`Error toggling off economy status: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get off economy leaderboard
+     */
+    async getOffEconomyLeaderboard(guildId, limit = 10) {
+        try {
+            const result = await this.executeQuery(`
+                SELECT 
+                    user_id,
+                    username,
+                    wallet + bank as total_balance,
+                    wallet,
+                    bank,
+                    off_economy
+                FROM user_balances 
+                WHERE off_economy = TRUE AND wallet + bank > 0
+                ORDER BY total_balance DESC
+                LIMIT ?
+            `, [limit]);
+
+            return result.map(row => ({
+                userId: row.user_id,
+                username: row.username || `User ${row.user_id}`,
+                totalBalance: parseFloat(row.total_balance),
+                wallet: parseFloat(row.wallet),
+                bank: parseFloat(row.bank),
+                offEconomy: Boolean(row.off_economy)
+            }));
+        } catch (error) {
+            logger.error(`Error getting off economy leaderboard: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Check if user is off economy
+     */
+    async isOffEconomy(userId) {
+        try {
+            const balance = await this.getUserBalance(userId);
+            return Boolean(balance.off_economy);
+        } catch (error) {
+            logger.error(`Error checking off economy status: ${error.message}`);
+            return false;
         }
     }
 }

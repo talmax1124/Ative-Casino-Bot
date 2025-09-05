@@ -1,0 +1,335 @@
+/**
+ * Leaderboard Command - Show wealth rankings with Off Economy support
+ * Displays regular and Off Economy leaderboards with interactive buttons
+ */
+
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { getGuildId } = require('../UTILS/common');
+const dbManager = require('../UTILS/database');
+const { fmt } = require('../UTILS/moneyFormatter');
+const logger = require('../UTILS/logger');
+
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('leaderboard')
+        .setDescription('View wealth leaderboards')
+        .addStringOption(option =>
+            option.setName('type')
+                .setDescription('Which leaderboard to show')
+                .setRequired(false)
+                .addChoices(
+                    { name: '🏆 Regular Economy', value: 'regular' },
+                    { name: '🔴 Off Economy', value: 'offeco' }
+                )
+        )
+        .addIntegerOption(option =>
+            option.setName('limit')
+                .setDescription('Number of users to show (1-25)')
+                .setMinValue(1)
+                .setMaxValue(25)
+                .setRequired(false)
+        ),
+
+    async execute(interaction) {
+        const type = interaction.options.getString('type') || 'regular';
+        const limit = interaction.options.getInteger('limit') || 10;
+        const guildId = await getGuildId(interaction);
+        
+        try {
+            await interaction.deferReply();
+
+            if (type === 'offeco') {
+                await this.showOffEconomyLeaderboard(interaction, guildId, limit);
+            } else {
+                await this.showRegularLeaderboard(interaction, guildId, limit);
+            }
+
+        } catch (error) {
+            logger.error(`Error in leaderboard command: ${error.message}`);
+            
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Error')
+                .setDescription('Failed to fetch leaderboard data. Please try again.')
+                .setColor(0xFF0000);
+
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: [errorEmbed] });
+            } else {
+                await interaction.reply({ embeds: [errorEmbed] });
+            }
+        }
+    },
+
+    async showRegularLeaderboard(interaction, guildId, limit) {
+        // Get regular economy users (not off economy)
+        const users = await dbManager.databaseAdapter.executeQuery(`
+            SELECT 
+                user_id,
+                username,
+                wallet + bank as total_balance,
+                wallet,
+                bank,
+                off_economy
+            FROM user_balances 
+            WHERE (off_economy = FALSE OR off_economy IS NULL) AND wallet + bank > 0
+            ORDER BY total_balance DESC
+            LIMIT ?
+        `, [limit]);
+
+        const totalUsers = await dbManager.databaseAdapter.executeQuery(`
+            SELECT COUNT(*) as count
+            FROM user_balances 
+            WHERE (off_economy = FALSE OR off_economy IS NULL) AND wallet + bank > 0
+        `);
+
+        const totalCount = totalUsers[0]?.count || 0;
+
+        let leaderboardText = '';
+        if (users.length === 0) {
+            leaderboardText = 'No users found in regular economy yet!';
+        } else {
+            for (let i = 0; i < users.length; i++) {
+                const user = users[i];
+                const rank = i + 1;
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
+                const username = user.username || `User ${user.user_id}`;
+                
+                leaderboardText += `${medal} **${username}**\n`;
+                leaderboardText += `   💰 ${fmt(user.total_balance)} (💳 ${fmt(user.wallet)} | 🏛️ ${fmt(user.bank)})\n\n`;
+            }
+        }
+
+        // Create action row with buttons
+        const actionRow = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('leaderboard_regular')
+                    .setLabel('🏆 Regular Economy')
+                    .setStyle(ButtonStyle.Primary)
+                    .setDisabled(true), // Currently selected
+                new ButtonBuilder()
+                    .setCustomId('leaderboard_offeco')
+                    .setLabel('🔴 Off Economy')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        const embed = new EmbedBuilder()
+            .setTitle('🏆 Regular Economy Leaderboard')
+            .setDescription(`Top ${limit} users in regular economy (${totalCount} total users)`)
+            .setColor(0xFFD700)
+            .addFields({
+                name: '💰 Wealth Rankings',
+                value: leaderboardText,
+                inline: false
+            })
+            .setFooter({ 
+                text: `🏆 Regular Economy • Use buttons to switch views • Top ${limit} of ${totalCount}` 
+            })
+            .setTimestamp();
+
+        // Add statistics if we have users
+        if (users.length > 0) {
+            const totalWealth = users.reduce((sum, u) => sum + parseFloat(u.total_balance), 0);
+            const avgWealth = totalWealth / users.length;
+            const topUser = users[0];
+            
+            embed.addFields({
+                name: '📊 Statistics',
+                value: `**Total Wealth:** ${fmt(totalWealth)}\n` +
+                       `**Average:** ${fmt(avgWealth)}\n` +
+                       `**Richest:** ${fmt(topUser.total_balance)}`,
+                inline: true
+            });
+
+            // Calculate banking statistics
+            const bankingUsers = users.filter(u => parseFloat(u.bank) > 0);
+            const avgBankRatio = bankingUsers.length > 0 
+                ? bankingUsers.reduce((sum, u) => sum + (parseFloat(u.bank) / parseFloat(u.total_balance)), 0) / bankingUsers.length * 100
+                : 0;
+
+            embed.addFields({
+                name: '🏛️ Banking Stats',
+                value: `**Users Banking:** ${bankingUsers.length}/${users.length}\n` +
+                       `**Avg Bank Ratio:** ${avgBankRatio.toFixed(1)}%\n` +
+                       `**Cash Heavy:** ${users.filter(u => parseFloat(u.wallet) > parseFloat(u.bank)).length} users`,
+                inline: true
+            });
+        }
+
+        await interaction.editReply({ embeds: [embed], components: [actionRow] });
+
+        // Set up button interaction collector
+        const filter = (i) => i.customId.startsWith('leaderboard_') && i.user.id === interaction.user.id;
+        const collector = interaction.channel.createMessageComponentCollector({ 
+            filter, 
+            time: 300000 // 5 minutes
+        });
+
+        collector.on('collect', async (i) => {
+            if (i.customId === 'leaderboard_offeco') {
+                await i.deferUpdate();
+                await this.showOffEconomyLeaderboard(i, guildId, limit, true);
+            } else if (i.customId === 'leaderboard_regular') {
+                await i.deferUpdate();
+                await this.showRegularLeaderboard(i, guildId, limit, true);
+            }
+        });
+
+        collector.on('end', () => {
+            // Disable buttons after collector ends
+            const disabledRow = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('leaderboard_regular_disabled')
+                        .setLabel('🏆 Regular Economy')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId('leaderboard_offeco_disabled')
+                        .setLabel('🔴 Off Economy')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true)
+                );
+
+            interaction.editReply({ components: [disabledRow] }).catch(() => {
+                // Ignore errors if message was deleted
+            });
+        });
+    },
+
+    async showOffEconomyLeaderboard(interaction, guildId, limit, isUpdate = false) {
+        // Get off economy users
+        const users = await dbManager.databaseAdapter.getOffEconomyLeaderboard(guildId, limit);
+        
+        const totalOffEcoUsers = await dbManager.databaseAdapter.executeQuery(`
+            SELECT COUNT(*) as count
+            FROM user_balances 
+            WHERE off_economy = TRUE AND wallet + bank > 0
+        `);
+
+        const totalCount = totalOffEcoUsers[0]?.count || 0;
+
+        let leaderboardText = '';
+        if (users.length === 0) {
+            leaderboardText = '🔴 No Off Economy users yet!\n\nAdmins can move users off economy using `/moveoffeco`';
+        } else {
+            for (let i = 0; i < users.length; i++) {
+                const user = users[i];
+                const rank = i + 1;
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
+                
+                leaderboardText += `${medal} **${user.username}** 🔴\n`;
+                leaderboardText += `   💰 ${fmt(user.totalBalance)} (💳 ${fmt(user.wallet)} | 🏛️ ${fmt(user.bank)})\n\n`;
+            }
+        }
+
+        // Create action row with buttons
+        const actionRow = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('leaderboard_regular')
+                    .setLabel('🏆 Regular Economy')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId('leaderboard_offeco')
+                    .setLabel('🔴 Off Economy')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true) // Currently selected
+            );
+
+        const embed = new EmbedBuilder()
+            .setTitle('🔴 Off Economy Leaderboard')
+            .setDescription(`Top ${limit} users in Off Economy (${totalCount} total users)`)
+            .setColor(0xFF6B6B)
+            .addFields({
+                name: '💰 Off Economy Rankings',
+                value: leaderboardText,
+                inline: false
+            })
+            .addFields({
+                name: '🔴 What is Off Economy?',
+                value: '• Separate competitive ranking system\n' +
+                       '• Players get special "OFF ECO" badges in games\n' +
+                       '• Compete only against other Off Economy players\n' +
+                       '• Money and gameplay work exactly the same',
+                inline: false
+            })
+            .setFooter({ 
+                text: `🔴 Off Economy • Exclusive leaderboard • Top ${limit} of ${totalCount}` 
+            })
+            .setTimestamp();
+
+        // Add statistics if we have users
+        if (users.length > 0) {
+            const totalWealth = users.reduce((sum, u) => sum + u.totalBalance, 0);
+            const avgWealth = totalWealth / users.length;
+            const topUser = users[0];
+            
+            embed.addFields({
+                name: '📊 Off Eco Statistics',
+                value: `**Total Wealth:** ${fmt(totalWealth)}\n` +
+                       `**Average:** ${fmt(avgWealth)}\n` +
+                       `**Richest:** ${fmt(topUser.totalBalance)}`,
+                inline: true
+            });
+
+            // Calculate banking statistics
+            const bankingUsers = users.filter(u => u.bank > 0);
+            const avgBankRatio = bankingUsers.length > 0 
+                ? bankingUsers.reduce((sum, u) => sum + (u.bank / u.totalBalance), 0) / bankingUsers.length * 100
+                : 0;
+
+            embed.addFields({
+                name: '🏛️ Banking Behavior',
+                value: `**Users Banking:** ${bankingUsers.length}/${users.length}\n` +
+                       `**Avg Bank Ratio:** ${avgBankRatio.toFixed(1)}%\n` +
+                       `**Cash Players:** ${users.filter(u => u.wallet > u.bank).length} users`,
+                inline: true
+            });
+        }
+
+        if (isUpdate) {
+            await interaction.editReply({ embeds: [embed], components: [actionRow] });
+        } else {
+            await interaction.editReply({ embeds: [embed], components: [actionRow] });
+
+            // Set up button interaction collector (same as regular)
+            const filter = (i) => i.customId.startsWith('leaderboard_') && i.user.id === interaction.user.id;
+            const collector = interaction.channel.createMessageComponentCollector({ 
+                filter, 
+                time: 300000 // 5 minutes
+            });
+
+            collector.on('collect', async (i) => {
+                if (i.customId === 'leaderboard_regular') {
+                    await i.deferUpdate();
+                    await this.showRegularLeaderboard(i, guildId, limit, true);
+                } else if (i.customId === 'leaderboard_offeco') {
+                    await i.deferUpdate();
+                    await this.showOffEconomyLeaderboard(i, guildId, limit, true);
+                }
+            });
+
+            collector.on('end', () => {
+                // Disable buttons after collector ends
+                const disabledRow = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('leaderboard_regular_disabled')
+                            .setLabel('🏆 Regular Economy')
+                            .setStyle(ButtonStyle.Primary)
+                            .setDisabled(true),
+                        new ButtonBuilder()
+                            .setCustomId('leaderboard_offeco_disabled')
+                            .setLabel('🔴 Off Economy')
+                            .setStyle(ButtonStyle.Secondary)
+                            .setDisabled(true)
+                    );
+
+                interaction.editReply({ components: [disabledRow] }).catch(() => {
+                    // Ignore errors if message was deleted
+                });
+            });
+        }
+    }
+};

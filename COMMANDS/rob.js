@@ -10,6 +10,7 @@ const { fmt, getGuildId, sendLogMessage, getEconomicTier, getAllTiers } = requir
 const { secureRandomChance } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
+const OffEconomyBadge = require('../UTILS/offEconomyBadge');
 
 const DEVELOPER_ID = '466050111680544798'; // From CLAUDE.md
 const ROB_COOLDOWN = 3600; // 1 hour cooldown
@@ -44,6 +45,31 @@ module.exports = {
                     stageText: 'INVALID ROBBERY',
                     color: 0xFF0000,
                     footer: 'Choose a different user to rob'
+                });
+
+                return await interaction.editReply({ embeds: [errorEmbed] });
+            }
+
+            // Check economy type restrictions - Off Economy can only rob Off Economy
+            const robberOffEco = await OffEconomyBadge.isOffEconomy(userId);
+            const targetOffEco = await OffEconomyBadge.isOffEconomy(targetId);
+
+            if (robberOffEco !== targetOffEco) {
+                const economyType = robberOffEco ? 'Off Economy' : 'Regular Economy';
+                const targetEconomyType = targetOffEco ? 'Off Economy' : 'Regular Economy';
+                
+                const errorEmbed = buildSessionEmbed({
+                    title: '🔴 Economy Type Mismatch',
+                    topFields: [
+                        { 
+                            name: '🚫 Cross-Economy Robbery Denied', 
+                            value: `You (${economyType}) cannot rob users from ${targetEconomyType}!\n\n` +
+                                   `You can only rob users in the same economy type.`
+                        }
+                    ],
+                    stageText: 'ECONOMY ISOLATION',
+                    color: 0xFF6B6B,
+                    footer: 'Find a target in your economy type'
                 });
 
                 return await interaction.editReply({ embeds: [errorEmbed] });

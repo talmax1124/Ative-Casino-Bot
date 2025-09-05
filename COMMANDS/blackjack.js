@@ -15,6 +15,7 @@ const logger = require('../UTILS/logger');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 const levelingSystem = require('../UTILS/levelingSystem');
+const OffEconomyBadge = require('../UTILS/offEconomyBadge');
 
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
@@ -29,7 +30,9 @@ const gamePanelUtil = new GamePanelUtil();
 /**
  * Create game embed with consistent styling using gameSessionKit
  */
-function createGameEmbed(game, user, showDealer = false, balance = null) {
+async function createGameEmbed(game, user, showDealer = false, balance = null) {
+    // Get off economy badge for the user
+    const offEcoBadge = await OffEconomyBadge.getGamePanelBadge(user.id);
     // Top fields for game information
     const topFields = [];
     
@@ -119,7 +122,7 @@ function createGameEmbed(game, user, showDealer = false, balance = null) {
     }
 
     return buildSessionEmbed({
-        title: `🃏 ${user.displayName}'s Blackjack`,
+        title: `🃏 ${user.displayName}'s Blackjack${offEcoBadge}`,
         topFields,
         bankFields,
         stageText,
@@ -296,7 +299,7 @@ module.exports = {
             }, 'initial_deal');
 
             // Create embed and table image
-            const embed = createGameEmbed(game, interaction.user, false, userBalance);
+            const embed = await createGameEmbed(game, interaction.user, false, userBalance);
             const actionRows = createGameButtons(userId, game);
             const tableImage = await createGameTableImage(game, false);
 
@@ -447,7 +450,7 @@ module.exports = {
                     }
 
                     // Update embed
-                    const hitEmbed = createGameEmbed(game, interaction.user, false, userBalance);
+                    const hitEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
                     const hitActionRows = createGameButtons(userId, game);
                     const tableImage = await createGameTableImage(game, false);
 
@@ -479,7 +482,7 @@ module.exports = {
                     // Move to next split hand
                     game.currentHandIndex++;
                     
-                    const standEmbed = createGameEmbed(game, interaction.user, false, userBalance);
+                    const standEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
                     const standActionRows = createGameButtons(userId, game);
                     const tableImage = await createGameTableImage(game, false);
 
@@ -547,7 +550,7 @@ module.exports = {
                 game.split();
 
                 // Update embed
-                const splitEmbed = createGameEmbed(game, interaction.user, false, userBalance);
+                const splitEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
                 const splitActionRows = createGameButtons(userId, game);
                 const tableImage = await createGameTableImage(game, false);
 
@@ -706,7 +709,7 @@ module.exports = {
 
             // Create final embed (before cleanup)
             const userBalance = await dbManager.getUserBalance(userId, guildId);
-            const finalEmbed = createGameEmbed(game, interaction.user, true, userBalance);
+            const finalEmbed = await createGameEmbed(game, interaction.user, true, userBalance);
             const tableImage = await createGameTableImage(game, true);
 
             // Create result message with enhanced safety checks
