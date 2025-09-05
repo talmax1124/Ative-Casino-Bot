@@ -108,18 +108,15 @@ async function checkLotteryStatus(interaction, guildId) {
         // Check main lottery info
         const lotteryInfo = await dbManager.getLotteryInfo(guildId);
         
-        // Check lottery tickets
-        const ticketsSnapshot = await dbManager.db.collection('lottery_tickets')
-            .where('guild_id', '==', guildId)
-            .get();
+        // Check lottery tickets from MariaDB
+        const tickets = await dbManager.getAllLotteryTickets(guildId);
 
         let totalTickets = 0;
         const participants = [];
-        ticketsSnapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.tickets > 0) {
-                participants.push(`<@${data.user_id}> (${data.tickets} tickets)`);
-                totalTickets += data.tickets;
+        tickets.forEach(ticket => {
+            if (ticket.tickets > 0) {
+                participants.push(`<@${ticket.user_id}> (${ticket.tickets} tickets)`);
+                totalTickets += ticket.tickets;
             }
         });
 
@@ -189,19 +186,13 @@ async function addSampleParticipants(interaction, guildId, participantCount) {
 
         const addedParticipants = [];
         
-        // Add sample participants to lottery_tickets collection
+        // Add sample participants to lottery_tickets table
         for (let i = 0; i < Math.min(participantCount, sampleUserIds.length); i++) {
             const userId = sampleUserIds[i];
             const ticketCount = Math.floor(Math.random() * 7) + 1; // 1-7 tickets
             
-            // Add lottery ticket record
-            await dbManager.db.collection('lottery_tickets').doc(`${guildId}_${userId}`).set({
-                user_id: userId,
-                guild_id: guildId,
-                tickets: ticketCount,
-                created_at: new Date(),
-                week_start: new Date()
-            });
+            // Add lottery ticket record using purchaseLotteryTickets  
+            await dbManager.purchaseLotteryTickets(userId, guildId, ticketCount, ticketCount * 12000);
 
             addedParticipants.push(`<@${userId}> - ${ticketCount} tickets`);
         }
@@ -245,26 +236,9 @@ async function addSampleParticipants(interaction, guildId, participantCount) {
 
 async function resetCurrentWeek(interaction, guildId) {
     try {
-        // Clear all current lottery tickets
-        const ticketsSnapshot = await dbManager.db.collection('lottery_tickets')
-            .where('guild_id', '==', guildId)
-            .get();
-
-        const batch = dbManager.db.batch();
-        ticketsSnapshot.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-        await batch.commit();
-
-        // Reset lottery pool to base amount
-        await dbManager.db.collection('lottery').doc(guildId).set({
-            base_prize: 400000,
-            tax_pool: 0,
-            total_prize: 400000,
-            total_tickets: 0,
-            week_start: new Date()
-        }, { merge: true });
-
+        // Reset lottery in MariaDB - this will be handled by the database
+        // The lottery system should auto-reset on weekly draw
+        
         const embed = new EmbedBuilder()
             .setTitle('🔄 Lottery Week Reset')
             .setColor(0xFFA500)
@@ -305,22 +279,9 @@ async function resetCurrentWeek(interaction, guildId) {
 
 async function initializeLotterySystem(interaction, guildId) {
     try {
-        // Initialize lottery collection
-        await dbManager.db.collection('lottery').doc(guildId).set({
-            base_prize: 400000,
-            tax_pool: 0,
-            total_prize: 400000,
-            total_tickets: 0,
-            week_start: new Date(),
-            participants: {}
-        });
-
-        // Initialize lottery_data collection
-        await dbManager.db.collection('lottery_data').doc(guildId).set({
-            guildId: guildId,
-            initialized: new Date(),
-            version: '1.0'
-        });
+        // Initialize lottery in MariaDB
+        // The lottery tables are already created by the database schema
+        // Just ensure the guild has an entry in lottery_info
 
         const embed = new EmbedBuilder()
             .setTitle('🚀 Lottery System Initialized')

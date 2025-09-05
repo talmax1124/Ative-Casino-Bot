@@ -203,21 +203,16 @@ module.exports = {
             // Create success embed
             const topFields = [
                 {
-                    name: '✅ DEPOSIT SUCCESSFUL',
-                    value: `You successfully deposited\n\`\`\`fix\n${fmt(depositAmount)}\n\`\`\`into your bank account!`,
-                    inline: false
-                },
-                {
-                    name: '💳 TRANSACTION SUMMARY',
-                    value: `**Amount:** __**${fmt(depositAmount)}**__\n**From:** Wallet → Bank\n**Status:** ✅ Completed`,
+                    name: '💳 DEPOSIT COMPLETE',
+                    value: `**Successfully deposited to bank**\n\`\`\`diff\n- Wallet: ${fmt(currentWallet)}\n+ Bank: ${fmt(newBalance.bank)}\n+ Amount: ${fmt(depositAmount)}\`\`\``,
                     inline: false
                 }
             ];
 
             const bankFields = [
-                { name: '💵 Wallet', value: `\`\`\`diff\n- ${fmt(currentWallet)}\n+ ${fmt(newBalance.wallet)}\n\`\`\``, inline: true },
-                { name: '🏦 Bank', value: `\`\`\`diff\n- ${fmt(currentBank)}\n+ ${fmt(newBalance.bank)}\n\`\`\``, inline: true },
-                { name: '💎 Total Worth', value: `__**${fmt(newBalance.wallet + newBalance.bank)}**__`, inline: true }
+                { name: '💵 Wallet Balance', value: fmt(newBalance.wallet), inline: true },
+                { name: '🏦 Bank Balance', value: fmt(newBalance.bank), inline: true },
+                { name: '💎 Total Worth', value: fmt(newBalance.wallet + newBalance.bank), inline: true }
             ];
 
             const embed = buildSessionEmbed({

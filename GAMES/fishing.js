@@ -494,10 +494,24 @@ function getFishingGame(userId) {
 /**
  * End and remove fishing game
  */
-function endFishingGame(userId) {
+async function endFishingGame(userId) {
     const game = activeFishingGames.get(userId);
     if (game) {
         activeFishingGames.delete(userId);
+        
+        // Also ensure session is properly ended
+        if (game.sessionId) {
+            try {
+                const sessionManager = require('../UTILS/sessionManager');
+                await sessionManager.endSession(game.sessionId, {
+                    outcome: 'COMPLETED',
+                    reason: 'Game ended'
+                });
+            } catch (error) {
+                logger.warn(`Failed to end session for fishing game: ${error.message}`);
+            }
+        }
+        
         logger.info(`Fishing game ended for user ${userId}`);
     }
     return game;

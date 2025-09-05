@@ -167,14 +167,18 @@ module.exports = {
             const successEmbed = buildSessionEmbed({
                 title: `🏧 ${username}'s Bank Withdrawal`,
                 topFields: [
-                    { name: '💸 WITHDRAWAL DETAILS', value: `Successfully withdrew\n\`\`\`fix\n${fmt(withdrawAmount)}\n\`\`\`from your bank!`, inline: false }
+                    { 
+                        name: '💸 WITHDRAWAL COMPLETE', 
+                        value: `**Successfully withdrew from bank**\n\`\`\`diff\n- Bank: ${fmt(currentBank)}\n+ Wallet: ${fmt(newBalance.wallet)}\n+ Amount: ${fmt(withdrawAmount)}\`\`\``, 
+                        inline: false 
+                    }
                 ],
                 bankFields: [
-                    { name: '💵 New Wallet', value: `__**${fmt(newBalance.wallet)}**__`, inline: true },
-                    { name: '🏦 New Bank', value: `__**${fmt(newBalance.bank)}**__`, inline: true },
-                    { name: '📈 Wallet Change', value: fmtDelta(withdrawAmount), inline: true }
+                    { name: '💵 Wallet Balance', value: fmt(newBalance.wallet), inline: true },
+                    { name: '🏦 Bank Balance', value: fmt(newBalance.bank), inline: true },
+                    { name: '💎 Total Worth', value: fmt(newBalance.wallet + newBalance.bank), inline: true }
                 ],
-                stageText: 'WITHDRAWAL COMPLETE',
+                stageText: 'WITHDRAWAL SUCCESS',
                 color: 0x00FF00,
                 footer: '🏧 Bank System • ATIVE Casino'
             });

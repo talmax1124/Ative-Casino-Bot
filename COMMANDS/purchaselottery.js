@@ -321,6 +321,16 @@ module.exports = {
                 guildId
             );
 
+            // Update lottery panel immediately after purchase
+            try {
+                if (interaction.client.lotteryGame && typeof interaction.client.lotteryGame.upsertLotteryPanel === 'function') {
+                    await interaction.client.lotteryGame.upsertLotteryPanel();
+                    logger.info('Lottery panel updated after ticket purchase');
+                }
+            } catch (panelError) {
+                logger.error(`Failed to update lottery panel after purchase: ${panelError.message}`);
+            }
+
         } else {
             const errorEmbed = UITemplates.createErrorEmbed('Lottery Purchase', {
                 description: 'Failed to process your ticket purchase. Please try again.',

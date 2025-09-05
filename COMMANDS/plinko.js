@@ -100,6 +100,11 @@ module.exports = {
             const betAmount = validationResult.parsedAmount;
             const newWalletAfterBet = validationResult.newWallet;
 
+            // Get proper mode data from plinkoCanvas
+            const { getCurrentPlinkoModes } = require('../UTILS/plinkoCanvas');
+            const allModes = await getCurrentPlinkoModes(guildId);
+            const modeData = allModes[selectedMode]; // Use original selectedMode (not lowercase)
+            
             // Use FIXED multipliers from plinko.js - NO DYNAMIC ADJUSTMENTS
             const { startPlinkoGame } = require('../GAMES/plinko');
             const normalizedMode = selectedMode.toLowerCase(); // Convert to lowercase
@@ -109,7 +114,6 @@ module.exports = {
             const baseMultipliers = gameSession.modes[normalizedMode].multipliers;
             const multipliers = [...baseMultipliers].sort(() => Math.random() - 0.5); // Shuffle positions
             const slots = multipliers.length;
-            const modeData = gameSession.modes[normalizedMode];
             
             // Drop slot is always random
             const dropSlot = Math.floor(Math.random() * slots);

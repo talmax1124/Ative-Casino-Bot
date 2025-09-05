@@ -157,7 +157,7 @@ async function getGuildId(interaction) {
  * @param {string} guildId - Guild ID
  * @returns {boolean} True if user has admin role
  */
-async function hasAdminRole(member, guildId) {
+async function hasAdminRole(member) {
     // Check if user is server owner
     if (member.guild.ownerId === member.id) {
         return true;
@@ -183,9 +183,9 @@ async function hasAdminRole(member, guildId) {
  * @param {string} guildId - Guild ID
  * @returns {boolean} True if user has mod role
  */
-async function hasModRole(member, guildId) {
+async function hasModRole(member) {
     // Admin users are also mods
-    if (await hasAdminRole(member, guildId)) {
+    if (await hasAdminRole(member)) {
         return true;
     }
     
@@ -261,6 +261,38 @@ function buildInvalidBetEmbed(reason) {
         .setDescription(reason)
         .setColor(0xFF0000)
         .setTimestamp();
+}
+
+/**
+ * Create error embed with optional support button for external servers
+ * @param {string} title - Error title
+ * @param {string} description - Error description
+ * @param {string} guildId - Guild ID to check if support button needed
+ * @returns {Object} Object containing embed and components array
+ */
+function buildErrorEmbedWithSupport(title, description, guildId) {
+    const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+    
+    const embed = new EmbedBuilder()
+        .setTitle(title)
+        .setDescription(description)
+        .setColor(0xFF0000)
+        .setTimestamp();
+
+    const components = [];
+    
+    // Add support button for external servers (not ATIVE main server)
+    if (guildId && guildId !== '1403244656845787167') {
+        const supportButton = new ButtonBuilder()
+            .setLabel('Get Support')
+            .setStyle(ButtonStyle.Link)
+            .setURL('https://discord.gg/ztEqhxeUuQ')
+            .setEmoji('🛟');
+
+        components.push(new ActionRowBuilder().addComponents(supportButton));
+    }
+
+    return { embed, components };
 }
 
 /**
@@ -436,7 +468,7 @@ function getAllActiveGames() {
     try {
         const sessionManager = require('./sessionManager');
         const sessions = [];
-        for (const [id, s] of sessionManager.sessions || []) {
+        for (const [, s] of sessionManager.sessions || []) {
             if (s && s.state === 'active') {
                 sessions.push({ userId: s.userId, gameType: s.gameType });
             }
@@ -638,6 +670,7 @@ module.exports = {
     buildInsufficientFundsEmbed,
     buildInvalidBetEmbed,
     buildGameActiveEmbed,
+    buildErrorEmbedWithSupport,
     
     // Amount parsing
     parseAmount,

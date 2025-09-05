@@ -266,6 +266,20 @@ class DatabaseManager {
         return { total_tickets: 0, total_prize: 400000 };
     }
 
+    async getAllLotteryTickets(guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getAllLotteryTickets(guildId);
+        }
+        return [];
+    }
+
+    async purchaseLotteryTickets(userId, guildId, ticketCount, totalCost) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.purchaseLotteryTickets(userId, guildId, ticketCount, totalCost);
+        }
+        return false;
+    }
+
     /**
      * Add money to lottery prize pool (from money transfer tax)
      * @param {string} guildId - Guild ID
@@ -770,6 +784,221 @@ class DatabaseManager {
             return await this.databaseAdapter.initializeVoteSchema();
         }
         return false;
+    }
+
+    // ========================= LEVEL SYSTEM OPERATIONS =========================
+
+    /**
+     * Get user level data
+     * @param {string} userId - User ID
+     * @param {string} guildId - Guild ID
+     * @returns {Object} User level data
+     */
+    async getUserLevel(userId, guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserLevel(userId, guildId);
+        }
+        throw new Error('Database not initialized');
+    }
+
+    /**
+     * Add XP to user
+     * @param {string} userId - User ID
+     * @param {string} guildId - Guild ID
+     * @param {number} xpAmount - Amount of XP to add
+     * @param {string} reason - Reason for XP gain
+     * @returns {Object} XP result with level up info
+     */
+    async addXpToUser(userId, guildId, xpAmount, reason = 'unknown') {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.addXpToUser(userId, guildId, xpAmount, reason);
+        }
+        throw new Error('Database not initialized');
+    }
+
+    /**
+     * Update game statistics
+     * @param {string} userId - User ID
+     * @param {string} guildId - Guild ID
+     * @param {boolean} won - Whether the user won
+     */
+    async updateGameStats(userId, guildId, won = false) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updateGameStats(userId, guildId, won);
+        }
+    }
+
+    /**
+     * Calculate level from total XP
+     * @param {number} totalXp - Total XP amount
+     * @returns {number} Calculated level
+     */
+    calculateLevel(totalXp) {
+        if (this.usingAdapter) {
+            return this.databaseAdapter.calculateLevel(totalXp);
+        }
+        return 1;
+    }
+
+    /**
+     * Calculate XP needed for next level
+     * @param {number} totalXp - Current total XP
+     * @returns {number} XP needed for next level
+     */
+    calculateXpForNextLevel(totalXp) {
+        if (this.usingAdapter) {
+            return this.databaseAdapter.calculateXpForNextLevel(totalXp);
+        }
+        return 100;
+    }
+
+    /**
+     * Get level leaderboard
+     * @param {string} guildId - Guild ID
+     * @param {number} limit - Number of users to return
+     * @returns {Array} Level leaderboard
+     */
+    async getLevelLeaderboard(guildId, limit = 10) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getLevelLeaderboard(guildId, limit);
+        }
+        return [];
+    }
+
+    // ========================= SCRATCH TICKET OPERATIONS =========================
+
+    /**
+     * Create a new scratch ticket
+     * @param {string} ticketId - Unique ticket ID
+     * @param {string} userId - User ID
+     * @param {string} guildId - Guild ID
+     * @param {string} channelId - Channel ID where ticket was dropped
+     * @param {Object} ticketData - Ticket metadata
+     * @param {Array} symbols - 3x3 grid of symbols
+     * @param {Array} winningCombination - Winning combination if any
+     * @param {number} wonAmount - Amount won (0 if losing ticket)
+     * @returns {boolean} Success status
+     */
+    async createScratchTicket(ticketId, userId, guildId, channelId, ticketData, symbols, winningCombination = null, wonAmount = 0) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.createScratchTicket(ticketId, userId, guildId, channelId, ticketData, symbols, winningCombination, wonAmount);
+        }
+        throw new Error('Database not initialized');
+    }
+
+    /**
+     * Get scratch ticket by ID
+     * @param {string} ticketId - Ticket ID
+     * @returns {Object|null} Ticket data
+     */
+    async getScratchTicket(ticketId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getScratchTicket(ticketId);
+        }
+        throw new Error('Database not initialized');
+    }
+
+    /**
+     * Update scratch ticket progress
+     * @param {string} ticketId - Ticket ID
+     * @param {Array} scratchedPositions - Array of scratched positions
+     * @param {string} status - Ticket status
+     * @returns {boolean} Success status
+     */
+    async updateScratchTicket(ticketId, scratchedPositions, status = 'scratching') {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updateScratchTicket(ticketId, scratchedPositions, status);
+        }
+        return false;
+    }
+
+    /**
+     * Complete scratch ticket (win or lose)
+     * @param {string} ticketId - Ticket ID
+     * @param {boolean} won - Whether the user won
+     * @param {number} winAmount - Amount won
+     * @returns {boolean} Success status
+     */
+    async completeScratchTicket(ticketId, won, winAmount = 0) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.completeScratchTicket(ticketId, won, winAmount);
+        }
+        return false;
+    }
+
+    /**
+     * Claim a scratch ticket for a user
+     * @param {string} ticketId - Ticket ID
+     * @param {string} userId - User ID claiming the ticket
+     * @returns {boolean} Success status
+     */
+    async claimScratchTicket(ticketId, userId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.claimScratchTicket(ticketId, userId);
+        }
+        return false;
+    }
+
+    /**
+     * Update scratched positions for a ticket
+     * @param {string} ticketId - Ticket ID
+     * @param {Array} scratchedPositions - Array of scratched position numbers
+     * @returns {boolean} Success status
+     */
+    async updateScratchedPositions(ticketId, scratchedPositions) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updateScratchedPositions(ticketId, scratchedPositions);
+        }
+        return false;
+    }
+
+    /**
+     * Get or create scratch drop settings for guild
+     * @param {string} guildId - Guild ID
+     * @returns {Object|null} Drop settings
+     */
+    async getScratchDropSettings(guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getScratchDropSettings(guildId);
+        }
+        return null;
+    }
+
+    /**
+     * Update scratch drop statistics
+     * @param {string} guildId - Guild ID
+     * @param {Date} nextDropTime - Next scheduled drop time
+     * @returns {boolean} Success status
+     */
+    async updateScratchDropStats(guildId, nextDropTime = null) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updateScratchDropStats(guildId, nextDropTime);
+        }
+        return false;
+    }
+
+    /**
+     * Clean up expired scratch tickets
+     * @returns {number} Number of expired tickets
+     */
+    async cleanupExpiredScratchTickets() {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.cleanupExpiredScratchTickets();
+        }
+        return 0;
+    }
+
+    /**
+     * Get user's active scratch tickets
+     * @param {string} userId - User ID
+     * @param {string} guildId - Guild ID
+     * @returns {Array} Active scratch tickets
+     */
+    async getUserActiveScratchTickets(userId, guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserActiveScratchTickets(userId, guildId);
+        }
+        return [];
     }
 }
 

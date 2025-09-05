@@ -452,6 +452,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: SMGameType.DUCK,
                 betAmount,
+                betPreDeducted: true, // Bet was already deducted by PayoutManager
                 timeout: 120000, // 2 minutes
                 metadata: {
                     gamePhase: 'mode_selection',

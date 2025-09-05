@@ -876,18 +876,22 @@ const activeUnoGames = new Map();
 async function startUnoGame(channelId, guildId, starterBet, hostUserId) {
     const game = new UnoGameSession(channelId, guildId, starterBet);
     
-    // Create session with GameSessionIntegrator
+    // Create session with proper bet handling
     const sessionResult = await sessionManager.createSession({
         userId: hostUserId,
         guildId: guildId,
         channelId: channelId,
         gameType: 'uno',
-        betAmount: 0, // No initial bet, players pay when joining
+        betAmount: starterBet,
+        betPreDeducted: true, // Bet was already deducted by UNO command
         timeout: 1200000, // 20 minutes for UNO games
         metadata: {
             maxPlayers: game.maxPlayers,
             minPlayers: game.minPlayers,
-            starterBet: starterBet
+            starterBet: starterBet,
+            gamePhase: 'lobby',
+            multiplayer: true,
+            waitingForPlayers: true
         }
     });
     
@@ -897,6 +901,7 @@ async function startUnoGame(channelId, guildId, starterBet, hostUserId) {
         logger.info(`UNO game session created: ${sessionResult.sessionId}`);
     } else {
         logger.error(`Failed to create UNO session: ${sessionResult.error}`);
+        return null; // Return null if session creation fails
     }
     
     return game;

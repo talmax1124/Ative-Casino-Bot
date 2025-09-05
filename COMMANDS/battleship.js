@@ -169,7 +169,7 @@ module.exports = {
                 gameType: 'battleship',
                 betAmount,
                 betPreDeducted: true,
-                timeout: 900000, // 15 minutes for Battleship
+                timeout: 1800000, // 30 minutes for Battleship
                 metadata: {
                     gamePhase: 'lobby',
                     multiplayer: true,
@@ -394,7 +394,7 @@ module.exports = {
             gameType: 'battleship',
             betAmount: game.betAmount,
             betPreDeducted: true,
-            timeout: 900000, // 15 minutes for Battleship
+            timeout: 1800000, // 30 minutes for Battleship
             metadata: {
                 gamePhase: 'active',
                 multiplayer: true,

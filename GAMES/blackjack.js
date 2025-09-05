@@ -58,6 +58,8 @@ class BlackjackHand {
     constructor() {
         this.cards = [];
         this.stood = false;
+        this.doubled = false;
+        this.betMultiplier = 1; // For tracking double down
     }
 
     addCard(card) {
@@ -70,6 +72,19 @@ class BlackjackHand {
 
     isStood() {
         return this.stood;
+    }
+
+    double() {
+        this.doubled = true;
+        this.betMultiplier = 2;
+    }
+
+    isDoubled() {
+        return this.doubled;
+    }
+
+    getBetMultiplier() {
+        return this.betMultiplier;
     }
 
     getValue() {
@@ -190,8 +205,14 @@ class BlackjackGame {
         const currentHand = this.getCurrentHand();
         if (currentHand.cards.length !== 2) return false; // Can only double on first two cards
         
-        this.doubled = true;
-        this.betAmount *= 2; // Double the bet
+        // Mark the current hand as doubled (this tracks it per hand for splits)
+        currentHand.double();
+        
+        // If this is the main hand (no splits), also set the global doubled flag
+        if (this.splitHands.length === 0) {
+            this.doubled = true;
+        }
+        
         currentHand.addCard(this.deck.dealCard()); // Deal one more card
         this.nextHand(); // Automatically stand after doubling
         return true;
@@ -265,11 +286,16 @@ class BlackjackGame {
             outcome = 'LOSE';
         }
 
+        // Calculate the effective bet amount for this hand (including double down)
+        const effectiveBet = this.betAmount * playerHand.getBetMultiplier();
+        
         return {
             outcome,
             multiplier,
-            payout: this.betAmount * multiplier,  // Total amount to return to player (including bet)
-            won: multiplier > 1  // Only wins if multiplier > 1 (push is not a win, but bet is returned)
+            payout: effectiveBet * multiplier,  // Total amount to return to player (including bet)
+            won: multiplier > 1,  // Only wins if multiplier > 1 (push is not a win, but bet is returned)
+            betAmount: effectiveBet,  // The actual bet amount for this hand
+            doubled: playerHand.isDoubled()  // Whether this hand was doubled
         };
     }
 

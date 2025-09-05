@@ -74,7 +74,7 @@ module.exports = {
             const topFields = [{
                 name: '🤲 BEGGING SUCCESS',
                 value: `**${scenario.person}** ${scenario.message}\n` +
-                       `\`\`\`fix\nReceived: ${fmt(earning)}    Previous: ${fmt(balance.wallet)}    New Balance: ${fmt(newWallet)}\`\`\``,
+                       `\`\`\`diff\n+ Received: ${fmt(earning)}\n  Previous: ${fmt(balance.wallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
                 inline: false
             }];
 

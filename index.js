@@ -18,6 +18,7 @@ const { sendLogMessage } = require('./UTILS/common');
 const panelManager = require('./UTILS/panelManager');
 const SafeInteractionHandler = require('./UTILS/interactionHandler');
 const { LotteryGame } = require('./GAMES/lottery');
+const ScratchTicketSystem = require('./GAMES/scratchTickets');
 // Leveling system moved to UAS bot
 // Removed: const serverProducts = require('./UTILS/serverProducts'); // Web-based purchases now
 
@@ -314,6 +315,10 @@ async function handleLotteryButtons(interaction, customId) {
 // Event handlers
 client.once('clientReady', async () => {
     logger.info(`ATIVE Casino Bot logged in as ${client.user.tag} (ID: ${client.user.id})`);
+    
+    // Set custom activity status
+    client.user.setActivity("you lose 😂", { type: 'WATCHING' });
+    logger.info('Bot activity status set');
 
     // Initialize database
     try {
@@ -347,6 +352,15 @@ client.once('clientReady', async () => {
         logger.info('Lottery system initialized successfully');
     } catch (error) {
         logger.error('Failed to initialize lottery system:', error);
+    }
+
+    // Initialize scratch ticket system
+    try {
+        client.scratchTicketSystem = new ScratchTicketSystem(client);
+        await client.scratchTicketSystem.initialize();
+        logger.info('Scratch ticket system initialized successfully');
+    } catch (error) {
+        logger.error('Failed to initialize scratch ticket system:', error);
     }
 
     // Initialize Economy Monitor
@@ -942,6 +956,18 @@ client.on('interactionCreate', async interaction => {
                     const allGames = crashGame.crashManager.getAllChannelGames(interaction.channelId);
                     logger.warn(`No crash game found for button interaction: ${customId} by ${interaction.user.displayName} in channel ${interaction.channelId}. Total games in channel: ${allGames.length}`);
                     await interaction.reply({ content: '❌ No active crash game found. The game may have ended or expired.', ephemeral: true });
+                }
+            }
+            // Handle scratch ticket buttons (claim_scratch_{ticketId} and scratch_{ticketId}_{position})
+            else if (customId.startsWith('claim_scratch_') || customId.startsWith('scratch_')) {
+                if (client.scratchTicketSystem) {
+                    await client.scratchTicketSystem.handleButtonInteraction(interaction);
+                } else {
+                    logger.error('Scratch ticket system not initialized');
+                    await SafeInteractionHandler.safeReply(interaction, {
+                        content: '❌ Scratch ticket system is not available.',
+                        flags: MessageFlags.Ephemeral
+                    });
                 }
             }
             // Handle poll buttons

@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, AttachmentBuilder } = require('discord.js');
 const { PayoutManager, GameType, GameResult, TimeoutManager } = require('../UTILS/gameUtils');
-const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, fmtDelta, getGuildId, sendLogMessage, buildErrorEmbedWithSupport } = require('../UTILS/common');
 const { YahtzeeGame, SCORING_CATEGORIES } = require('../GAMES/yahtzee');
 const GamePanel = require('../UTILS/gamePanel');
 const SMGameType = { YAHTZEE: 'yahtzee' };
@@ -417,16 +417,22 @@ module.exports = {
         } catch (error) {
             logger.error(`Yahtzee command error: ${error.message}`);
             
-            const embed = new EmbedBuilder()
-                .setTitle('❌ Command Error')
-                .setDescription(`An error occurred: ${error.message}`)
-                .setColor(0xFF0000)
-                .setTimestamp();
+            const guildId = await getGuildId(interaction);
+            const { embed, components } = buildErrorEmbedWithSupport(
+                '❌ Command Error',
+                `An error occurred: ${error.message}`,
+                guildId
+            );
+
+            const replyOptions = { embeds: [embed], ephemeral: true };
+            if (components.length > 0) {
+                replyOptions.components = components;
+            }
 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [embed], ephemeral: true });
+                await interaction.followUp(replyOptions);
             } else {
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply(replyOptions);
             }
         }
     },
@@ -455,18 +461,27 @@ module.exports = {
         } catch (error) {
             logger.error(`Yahtzee interaction error: ${error.message}`);
             
+            const guildId = await getGuildId(interaction);
+            const { embed, components } = buildErrorEmbedWithSupport(
+                '❌ Interaction Error',
+                'An error occurred processing your action.',
+                guildId
+            );
+
+            const replyOptions = { embeds: [embed], ephemeral: true };
+            if (components.length > 0) {
+                replyOptions.components = components;
+            }
+            
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({
-                    content: '❌ An error occurred processing your action.',
-                    ephemeral: true
-                });
+                await interaction.reply(replyOptions);
             }
         }
     },
 
     async handleButtonInteraction(interaction, game, sessionId) {
         const userId = interaction.user.id;
-        const guildId = getGuildId(interaction);
+        const guildId = await getGuildId(interaction);
         const customId = interaction.customId;
 
         await interaction.deferUpdate();
@@ -506,7 +521,7 @@ module.exports = {
 
     async handleSelectInteraction(interaction, game, sessionId) {
         const userId = interaction.user.id;
-        const guildId = getGuildId(interaction);
+        const guildId = await getGuildId(interaction);
         const selectedValue = interaction.values[0];
 
         await interaction.deferUpdate();

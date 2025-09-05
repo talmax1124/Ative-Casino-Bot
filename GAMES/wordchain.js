@@ -121,14 +121,23 @@ class WordValidator {
     }
 
     try {
-      // Node 18+ has global fetch
-      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(w)}`, { method: 'GET' });
+      // Node 18+ has global fetch - with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(w)}`, { 
+        method: 'GET',
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
       const ok = res && res.status === 200;
       this.cache.set(w, ok);
       return ok;
     } catch (e) {
       logger.warn(`Word validation fallback for '${w}': ${e.message}`);
-      const ok = this.fallback.has(w);
+      // Be more lenient with fallback - accept common word patterns
+      const ok = this.fallback.has(w) || w.length >= 3; // Accept 3+ letter words as fallback
       this.cache.set(w, ok);
       return ok;
     }

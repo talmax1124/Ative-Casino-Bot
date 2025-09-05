@@ -1,213 +1,198 @@
-# 🎰 ATIVE Casino Bot - Project Instructions
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+# 🎰 ATIVE Casino Bot
 
 ## Overview
-ATIVE Casino Bot is an **online casino-style Discord bot** built **entirely in JavaScript** using the **Discord.js v14 library**.  
-- **Primary Language & Framework**: JavaScript (Node.js) with Discord.js v14.  
-- **Purpose**: Provide a fun, casino-like environment in Discord with games, betting, and an economy system.  
-- **Testing & Runtime**: The bot is run locally with:  
+ATIVE Casino Bot is a Discord casino bot built entirely in JavaScript using Discord.js v14. It provides a complete casino ecosystem with betting, economy, and multiple games.
+
+## Development Commands
 
 ```bash
+# Run the bot
 node index.js
-```  
 
-After each test, verify the bot is running and then stop it cleanly with **Ctrl+C**.  
+# Development mode with auto-restart
+npm run dev
 
----
+# Linting
+npm run lint
+npm run lint:fix
 
-## Project Structure  
+# Testing
+npm test
+npm run test:health
 
-```
-ative_casino_bot/
-├── index.js                 # Main bot entry point
-├── package.json             # Dependencies and scripts
-├── COMMANDS/                # Slash command implementations
-│   ├── admin.js             # Admin commands
-│   ├── blackjack.js         # Blackjack command
-│   ├── dev.js               # Developer commands
-│   ├── general.js           # Economy commands (balance, work, etc.)
-│   ├── polls.js             # Polling system
-│   └── slots.js             # Slots command
-├── GAMES/                   # Game logic modules
-│   ├── blackjack.js         # Blackjack mechanics
-│   └── slots.js             # Slot machine mechanics
-├── UTILS/                   # Utility modules
-│   ├── common.js            # Common helpers
-│   ├── database.js          # MariaDB database operations
-│   ├── databaseAdapter.js   # Database adapter for MariaDB
-│   ├── gameUtils.js         # Game management utilities
-│   ├── logger.js            # Winston logging configuration
-│   └── rng.js               # Cryptographically secure RNG
-└── assets/                  # Game assets (images, sounds)
-    ├── blackjack/           # Card images
-    └── slots/               # Slot machine images
+# Stop cleanly with Ctrl+C
 ```
 
----
+## Architecture
 
-## High-Level Roles  
+### Core Systems
 
-- **Developer (Owner)**  
-  - Discord ID: `466050111680544798`.  
-  - Full access to all commands, economy management, and admin functionality.  
+#### Session Management (`UTILS/sessionManager.js`)
+- Unified session manager handles all game sessions
+- Prevents duplicate games and race conditions
+- Automatic timeout handling (5 minutes default)
+- Session states: CREATED, IN_PROGRESS, COMPLETED, CANCELLED, EXPIRED
+- All modern games use this system (blackjack, slots, crash, plinko, uno, etc.)
 
-- **Admins**  
-  - Based on server role during initial setup.  
-  - Can access all bot commands and manage users (ban, kick, reset balances, etc.).  
+#### Database Layer (`UTILS/database.js` + `UTILS/databaseAdapter.js`)
+- MariaDB as primary database
+- Adapter pattern for database abstraction
+- Key tables:
+  - `user_balances`: Wallet/bank balances
+  - `user_stats`: Aggregated game statistics
+  - `game_results`: Individual game history (added for tracking)
+  - `server_config`: Per-server configuration
+  - `lottery_tickets`, `lottery_info`, `lottery_winners`: Lottery system
 
-- **Moderators (Mods)**  
-  - Based on server role.  
-  - Can access all game/economy commands but **not admin-only commands** (ban, kick, economy overrides).  
+#### Economy System
+- Virtual currency with wallet/bank separation
+- Bet validation through `PayoutManager.validateAndDeductBet()`
+- Automatic payout processing with `PayoutManager.processGamePayout()`
+- Server booster bonus support (2% boost)
+- Anti-abuse monitoring with high-win alerts
 
----
+#### Game Framework
+- Games split between `/COMMANDS` (slash commands) and `/GAMES` (game logic)
+- Standardized game flow:
+  1. Session validation via `sessionGuard.check()`
+  2. Bet validation and deduction
+  3. Game session creation
+  4. Game logic execution
+  5. Payout processing
+  6. Session cleanup
+- All games must log results via `dbManager.recordGameResult()`
 
-## Commands  
+### Critical Channels
+- Error logs: `1405096821512212521`
+- Suspicious activity: `1409016191049142434`
+- Level up notifications: `1411018763008217208`
 
-- All commands are **slash-prefixed (`/`)**.  
-- Implemented in the **COMMANDS/** folder using `SlashCommandBuilder`.  
-- Must be **modular and reusable**, supporting future expansion.  
+### Key Patterns
 
-Examples:  
-- `/balance` → Show user's balance.  
-- `/slots` → Play slots.  
-- `/blackjack` → Play blackjack.  
+#### Command Structure
+```javascript
+// Standard command template
+module.exports = {
+    data: new SlashCommandBuilder()
+        .setName('commandname')
+        .setDescription('Description'),
+    async execute(interaction) {
+        // 1. Session guard check
+        // 2. Validate and deduct bet
+        // 3. Create session
+        // 4. Execute game logic
+        // 5. Process payout
+        // 6. End session
+    }
+}
+```
 
----
+#### Session Protection
+```javascript
+const sessionGuard = require('../UTILS/sessionGuard');
+const check = await sessionGuard.check(userId, guildId, gameType, interaction.client);
+if (!check.allowed) {
+    // Handle session error
+}
+```
 
-## Utilities  
+#### Bet Processing
+```javascript
+const validation = await PayoutManager.validateAndDeductBet(
+    interaction, amount, gameType, minBet, maxBet
+);
+if (!validation.isValid) {
+    return await interaction.reply({ embeds: [validation.errorEmbed] });
+}
+```
 
-- Located in **UTILS/** folder.  
-- Must be **reusable and modular**.  
-- Includes:  
-  - `common.js` → Shared helper functions.  
-  - `database.js` → MariaDB database operations.  
-  - `databaseAdapter.js` → Database adapter for MariaDB.  
-  - `rng.js` → Cryptographically secure random number generation.  
-  - `logger.js` → Centralized logging with Winston.  
-- If a new utility is needed, it should be added to **UTILS** instead of duplicating code.  
+## Game Limits
+- **Blackjack**: Min $1, Max $10M
+- **Slots**: Min $10, Max varies by type
+- **Treasure Vault**: Min $100, Max $300K (reduced due to multipliers up to 3.5x)
+- **Crash**: Min $10, Max $10M
 
----
+## Environment Variables
+Required in `.env`:
+- `DISCORD_TOKEN`
+- `CLIENT_ID`
+- `MARIADB_HOST`, `MARIADB_PORT`, `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_DATABASE`
+- `ENVIRONMENT` (development/production)
+- `ANNOUNCE_CHANNEL_ID` (optional)
 
-## Economy  
+## UAS Bot Integration
 
-- **Virtual Currency System**:  
-  - Users can earn and spend casino credits.  
-  - Balances are stored persistently in **MariaDB database**.  
+### Overview
+The UAS (Unified Administrative System) bot handles administrative functions separately from the casino bot. It provides moderation, security, and server management capabilities.
 
-- **Anti-Abuse Measures**:  
-  - Admin monitoring and moderation tools available.  
-  - Repeat offenders → permanent ban.  
-  - All suspicious activity must be logged in **channel `1409016191049142434`**.  
+### UAS Repository Structure
+- **Standalone Repository**: `/Users/carlosdiazplaza/uas-standalone-bot/`
+- **GitHub**: `https://github.com/talmax1124/uas-security-bot`
+- **Purpose**: Administrative commands, moderation, security features
+- **Auto-Update**: Server pulls from GitHub on restart
 
-- **Fair & Balanced**:  
-  - Games must ensure fair odds.  
-  - Any imbalance or error is logged.  
-
----
-
-## Games  
-
-- Supported games: **Blackjack, Slots, Roulette (future), etc.**  
-- Requirements:  
-  - Each game has its own file in **GAMES/**.  
-  - Must be fun, engaging, and casino-themed.  
-  - Each game must have a **“?” help button** with instructions.  
-  - All game actions/results logged to **channel `1405096821512212521`**.  
-
----
-
-## Logging  
-
-- **Logger**: All logs must use a consistent format via **Winston**.  
-- **Errors**: Must include the **command name + error message**.  
-- **Log Categories**:  
-  - Commands executed.  
-  - Game activity (start/end/results).  
-  - Economy actions (earn, spend, balance changes).  
-  - Admin/mod actions.  
-- **Error Channel**: All errors → **`1405096821512212521`**. 
-
-- If a game has an issue, turn the panel red and log the error with details.
-
-- **Log Format**:  
-  - Timestamp.  
-  - Command name.  
-  - User ID.  
-  - Action performed.  
-  - Result (success/error).
-  - Error message (if any).
-
-- Documentation for Commands, Utilites, Games, and All other features must be placed in the **Documentation & Tests/Documentation** folder. (This includes any new features or changes made to the bot. As well as any commands to deploy to Railway, VPS, etc.)
----
-
-## Images  
-
-- **Theme Consistency**: All images must match the casino aesthetic.  
-- **Use Canvas**: For generating and manipulating images.  
-- **Use Cases**: Displaying game results (slots reels, blackjack cards), balances, and stats.  
-- **Utilities**: Centralized in **UTILS/**. New image functions should go there.  
-- **Quality**: Images must be high-resolution and error-free.  
-
----
-
-## Database (MariaDB)  
-
-- **Storage Needs**:  
-  - User balances.  
-  - Game results.  
-  - Logs of actions for transparency.  
-
-- **Scalability**: Must handle large numbers of concurrent users.  
-- **Implementation**: Centralized in `UTILS/database.js` using MariaDB adapter.  
-
----
-
-## Testing  
-
-- Each command and utility must include **tests**. If need to create a test file, place it in the **Documentation & Tests/Tests** folder.  
-- Test via:  
-
+### Working with UAS
+When making changes to administrative functions:
+1. **ALWAYS** work in `/Users/carlosdiazplaza/uas-standalone-bot/`
+2. **NEVER** modify UAS files in the casino bot repository
+3. After changes, **ALWAYS** commit and push:
 ```bash
-node index.js
-```  
+cd /Users/carlosdiazplaza/uas-standalone-bot/
+git add . && git commit -m "[Description] 
 
-- Validate:  
-  - Commands execute without errors.  
-  - Games function fairly.  
-  - Database writes persist correctly.  
-  - Logs are generated consistently.  
+🤖 Generated with [Claude Code](https://claude.ai/code)
 
----
+Co-Authored-By: Claude <noreply@anthropic.com>" && git push
+```
+4. Notify user: "✅ UAS changes committed! Server will auto-update on restart."
 
-## Dependencies  
+### UAS Components
+- `/COMMANDS/ADMIN/`: Administrative commands (ban, kick, role management)
+- `/COMMANDS/MOD/`: Moderation commands (mute, warn, timeout)
+- `/COMMANDS/SECURITY/`: Security features (anti-raid, verification)
+- `/COMMANDS/UTILITY/`: Utility commands (server info, user info)
+- `/UTILS/`: Shared utilities for UAS functionality
 
-Main dependencies include:  
-- **discord.js v14** → Bot framework.  
-- **mysql2** → Database (MariaDB).  
-- **winston** → Logging.  
-- **canvas** → Image generation.  
-- **dotenv** → Environment management.  
-- **crypto (built-in)** → RNG.  
+## Important Rules
 
----
+### Code Organization
+- **Never create new files unless absolutely necessary** - prefer editing existing files
+- Utilities go in `/UTILS`, not duplicated across commands
+- Game logic separated from command handlers
+- Documentation goes in `/Documentation & Tests/`
+- UAS administrative functions stay in standalone repository
 
-## Environment Variables  
+### Session Management
+- Always use unified session manager for new games
+- Never bypass session guards
+- Properly end sessions on game completion or error
 
-Required:  
-- `DISCORD_TOKEN` → Bot token.  
-- `CLIENT_ID` → Discord application client ID.  
-- `MARIADB_HOST` → MariaDB host.  
-- `MARIADB_PORT` → MariaDB port.  
-- `MARIADB_USER` → MariaDB username.  
-- `MARIADB_PASSWORD` → MariaDB password.  
-- `MARIADB_DATABASE` → MariaDB database name.  
-- `ENVIRONMENT` → "development" or "production".  
-- `ANNOUNCE_CHANNEL_ID` → (Optional) Announcement channel.  
+### Error Handling
+- All errors logged via Winston logger
+- Game errors turn panel red and log details
+- Refund bets on critical errors
 
----
+### Security
+- Developer ID hardcoded: `466050111680544798`
+- Role-based permissions (Admin/Mod)
+- All suspicious activity logged
+- UAS bot handles server security and moderation
 
-## Important Instructions  
+### Database Operations
+- Use relative updates to prevent race conditions
+- Always validate numeric values before database operations
+- Record all game results for history tracking
 
-- **Do what is asked; nothing more, nothing less.**  
-- **Never create new files unless necessary.**  
-- Prefer editing existing files instead of duplicating.  
-- Documentation must go into the **Documentation & Tests/** folder.  
+## Testing Checklist
+- Commands execute without errors
+- Games function with correct odds
+- Database writes persist correctly
+- Sessions properly managed (no duplicates, proper cleanup)
+- Logs generated for all game activities
+- Refunds processed on errors
+- Always Show A To-Do List. As well, as make sure that the code that is generated to be tested thoroughly.
+- Make sure all games, commands, have consistent UI!

@@ -266,13 +266,13 @@ module.exports = {
             }, 1000);
 
             // Remove game from active games
-            endFishingGame(userId);
+            await endFishingGame(userId);
 
         } catch (error) {
             logger.error(`Error ending fishing session: ${error.message}`, { userId, error: error.stack });
             
             // Ensure game is removed even if there was an error
-            endFishingGame(userId);
+            await endFishingGame(userId);
             
             // Best-effort: cancel any active session to ensure cleanup
             try {

@@ -194,7 +194,7 @@ module.exports = {
         
         try {
             logger.debug(`BINGO action '${action}' by ${userId} in guild ${guildId}`);
-            const result = handleBingoAction(interaction, action);
+            const result = await handleBingoAction(interaction, action);
             
             if (result && result.success) {
                 switch (result.action) {

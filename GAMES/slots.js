@@ -589,8 +589,8 @@ async function createSpinningMatrixGIF(finalMatrix) {
             symbolImages[symbol] = await loadSymbolImage(symbol);
         }
 
-        // Animation parameters
-        const totalFrames = 60; // More frames for matrix animation
+        // Animation parameters - OPTIMIZED for performance
+        const totalFrames = 20; // Reduced from 60 for faster generation
         const cellSize = 200;
         const cellSpacing = 15;
         const startX = 100;
@@ -602,8 +602,8 @@ async function createSpinningMatrixGIF(finalMatrix) {
             matrixStrips[row] = [];
             for (let col = 0; col < 3; col++) {
                 const strip = [];
-                // Add random symbols before the final result
-                for (let j = 0; j < 20; j++) {
+                // Add random symbols before the final result - reduced for performance
+                for (let j = 0; j < 10; j++) {
                     strip.push(symbolKeys[Math.floor(Math.random() * symbolKeys.length)]);
                 }
                 // Add the final result at the end
@@ -616,7 +616,7 @@ async function createSpinningMatrixGIF(finalMatrix) {
         for (let frame = 0; frame < totalFrames; frame++) {
             // Variable delay - start fast, slow down at the end
             const progress = frame / (totalFrames - 1);
-            const delay = Math.floor(80 + (progress * progress * 250)); // 80ms to 330ms
+            const delay = Math.floor(40 + (progress * progress * 100)); // 40ms to 140ms - faster animation
             encoder.setDelay(delay);
             
             // Clear canvas

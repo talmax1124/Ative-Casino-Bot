@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage, buildErrorEmbedWithSupport } = require('../UTILS/common');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const sessionManager = require('../UTILS/sessionManager');
 const levelingSystem = require('../UTILS/levelingSystem');
@@ -99,53 +99,42 @@ module.exports = {
                 return await interaction.followUp({ embeds: [validation.errorEmbed] });
             }
 
-            // Create game session with enhanced protection
-            const sessionResult = await sessionManager.createSession({
-                userId,
-                guildId,
-                channelId,
-                gameType: 'uno',
-                betAmount,
-                betPreDeducted: true,
-                timeout: 300000, // 5 minutes for UNO
-                metadata: {
-                    gamePhase: 'lobby',
-                    multiplayer: true,
-                    waitingForPlayers: true,
-                    maxPlayers: 8
-                },
-                interaction
-            });
-
-            // Create new game
-            const game = startUnoGame(channelId, guildId, betAmount);
+            // Create new game (startUnoGame handles session creation internally)
+            const game = await startUnoGame(channelId, guildId, betAmount, userId);
+            
+            if (!game || !game.sessionId) {
+                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                    description: 'Failed to create UNO game session. Please try again.',
+                    isLoss: false
+                });
+                return await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+            }
+            
             const success = game.addPlayer(userId, `<@${userId}>`);
             
             if (!success) {
                 // Handle game error with session cleanup and refund
                 try {
-                    const userSession = sessionManager.getUserActiveSession(userId);
-                    if (userSession) {
-                        await sessionManager.cancelSession(userSession.sessionId, 'UNO game creation error', true);
+                    if (game.sessionId) {
+                        await sessionManager.cancelSession(game.sessionId, 'UNO game creation error', true);
                     }
                 } catch (sessionError) {
                     logger.error(`Failed to handle UNO session error: ${sessionError.message}`);
                 }
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
-                return;
-            }
-            
-            if (!sessionResult.success) {
-                throw new Error(`Session creation failed: ${sessionResult.error}`);
+                const errorEmbed = UITemplates.createErrorEmbed('UNO', {
+                    description: 'Failed to join UNO game. Please try again.',
+                    isLoss: false
+                });
+                return await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
             }
 
-            // Store game channel and session ID
+            // Store game channel and interaction
             game.gameChannel = interaction.channel;
             game.mainGameInteraction = interaction;
-            game.sessionId = sessionResult.sessionId;
+            // Session ID is already set by startUnoGame
             // Also attach sessionId to host player for end-game processing
             const hostPlayer = game.players.get(userId);
-            if (hostPlayer) hostPlayer.sessionId = sessionResult.sessionId;
+            if (hostPlayer) hostPlayer.sessionId = game.sessionId;
 
             // Show lobby with standardized template
             const lobbyEmbed = UITemplates.createStandardGameEmbed(
@@ -201,13 +190,18 @@ module.exports = {
                 logger.error(`Failed to handle UNO session error: ${sessionError.message}`);
             }
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ UNO Error')
-                .setDescription('An error occurred while starting UNO. Your bet has been refunded.')
-                .setColor(0xFF0000)
-                .setTimestamp();
+            const { embed, components } = buildErrorEmbedWithSupport(
+                '❌ UNO Error',
+                'An error occurred while starting UNO. Your bet has been refunded.',
+                guildId
+            );
+            
+            const replyOptions = { embeds: [embed], ephemeral: true };
+            if (components.length > 0) {
+                replyOptions.components = components;
+            }
                 
-            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.followUp(replyOptions);
         }
     },
 
@@ -221,7 +215,7 @@ module.exports = {
         
         try {
             logger.debug(`UNO action '${action}' by ${userId} in guild ${guildId}`);
-            const result = handleUnoAction(interaction, action);
+            const result = await handleUnoAction(interaction, action);
             
             if (result && result.success) {
                 switch (result.action) {

@@ -39,7 +39,7 @@ function createGameEmbed(game, user, showDealer = false, balance = null) {
         dealerDisplay = `${game.dealerHand.toString()} (${game.dealerHand.getValue()})`;
     } else {
         // Only show the visible card's value, not the total
-        const visibleCard = game.dealerHand.cards[1]; // Second card is visible
+        const visibleCard = game.dealerHand.cards[0]; // First card is visible
         const visibleValue = visibleCard ? visibleCard.getValue() : 0;
         dealerDisplay = `${game.dealerHand.getDisplayString(true)} (${visibleValue})`;
     }
@@ -57,8 +57,9 @@ function createGameEmbed(game, user, showDealer = false, balance = null) {
             const hand = game.splitHands[i];
             const isCurrentHand = i === game.currentHandIndex && !game.gameEnded;
             const status = hand.isBusted() ? ' [BUST]' : hand.isStood() ? ' [STAND]' : '';
+            const doubledStatus = hand.isDoubled() ? ' [DOUBLED]' : '';
             const indicator = isCurrentHand ? '→ ' : '  ';
-            playerDisplay += `${indicator}Hand ${i + 1}: ${hand.toString()} (${hand.getValue()})${status}\n`;
+            playerDisplay += `${indicator}Hand ${i + 1}: ${hand.toString()} (${hand.getValue()})${status}${doubledStatus}\n`;
         }
         topFields.push({
             name: '🎲 YOUR HANDS',
@@ -633,8 +634,11 @@ module.exports = {
                 }
             }
 
-            // Process payout through proper system
-            const totalBetAmount = game.betAmount * (game.splitHands.length || 1);
+            // Calculate total bet amount including double downs
+            let totalBetAmount = 0;
+            for (const result of results) {
+                totalBetAmount += result.betAmount || game.betAmount;
+            }
             const won = totalPayout > 0;
             
             // Use PayoutManager for consistent payout handling
@@ -677,7 +681,13 @@ module.exports = {
             // Check for level up and prepare notification
             let levelUpMessage = null;
             if (xpResult && xpResult.leveledUp) {
+                // Process level-up rewards
+                const levelReward = await levelingSystem.processLevelUpRewards(userId, guildId, xpResult.newLevel);
+                
                 levelUpMessage = `\n\n🎉 **LEVEL UP!** You are now level **${xpResult.newLevel}**!`;
+                if (levelReward) {
+                    levelUpMessage += `\n💰 **Level Reward:** +$${levelReward.money.toLocaleString()}`;
+                }
                 
                 // Send level up notification to the specified channel
                 try {
@@ -709,7 +719,8 @@ module.exports = {
                         const result = results[i] || {};
                         const payout = result.payout || 0;
                         const status = result.won ? '🎉 WIN!' : '💸 LOSE';
-                        handResults.push(`Hand ${i + 1}: ${status} ${fmt(payout)}`);
+                        const doubledText = result.doubled ? ' (DOUBLED)' : '';
+                        handResults.push(`Hand ${i + 1}: ${status} ${fmt(payout)}${doubledText}`);
                     }
                     resultMessage = handResults.join('\n');
                     resultMessage += `\n\n**Total Payout: ${fmt(totalPayout)}**`;

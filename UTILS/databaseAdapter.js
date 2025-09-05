@@ -172,7 +172,7 @@ class DatabaseAdapter {
                 purchase_cost DECIMAL(20,2) NOT NULL,
                 week_start DATE NOT NULL,
                 purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_user_guild_week (user_id, guild_id, week_start),
+                UNIQUE KEY unique_user_week (user_id, guild_id, week_start),
                 INDEX idx_week_start (week_start)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
@@ -197,6 +197,63 @@ class DatabaseAdapter {
                 won_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_week_start (week_start),
                 INDEX idx_user_id (user_id)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS user_levels (
+                user_id VARCHAR(20) NOT NULL,
+                guild_id VARCHAR(20) NOT NULL,
+                level INT NOT NULL DEFAULT 1,
+                xp INT NOT NULL DEFAULT 0,
+                total_xp INT NOT NULL DEFAULT 0,
+                games_played INT NOT NULL DEFAULT 0,
+                games_won INT NOT NULL DEFAULT 0,
+                messages_sent INT NOT NULL DEFAULT 0,
+                last_level_up TIMESTAMP NULL,
+                last_xp_gain TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, guild_id),
+                INDEX idx_level (level DESC),
+                INDEX idx_total_xp (total_xp DESC),
+                INDEX idx_updated_at (updated_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS scratch_tickets (
+                id VARCHAR(50) PRIMARY KEY,
+                user_id VARCHAR(20) NOT NULL,
+                guild_id VARCHAR(20) NOT NULL,
+                channel_id VARCHAR(20) NOT NULL,
+                ticket_data JSON NOT NULL,
+                symbols JSON NOT NULL,
+                winning_combination JSON DEFAULT NULL,
+                status ENUM('dropped', 'active', 'scratching', 'won', 'lost', 'expired') DEFAULT 'dropped',
+                scratched_positions JSON DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NOT NULL,
+                won_amount DECIMAL(20,2) DEFAULT 0.00,
+                claimed_by VARCHAR(20) DEFAULT NULL,
+                scratched_at TIMESTAMP NULL,
+                completed_at TIMESTAMP NULL,
+                INDEX idx_user_id (user_id),
+                INDEX idx_guild_id (guild_id),
+                INDEX idx_status (status),
+                INDEX idx_expires_at (expires_at),
+                INDEX idx_created_at (created_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS scratch_drops (
+                guild_id VARCHAR(20) PRIMARY KEY,
+                last_drop_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                daily_drops INT NOT NULL DEFAULT 0,
+                drop_count_reset DATE NOT NULL DEFAULT CURRENT_DATE,
+                total_drops INT NOT NULL DEFAULT 0,
+                total_wins INT NOT NULL DEFAULT 0,
+                total_winnings DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                next_drop_time TIMESTAMP NULL,
+                drop_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                max_daily_drops INT NOT NULL DEFAULT 2,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -215,7 +272,9 @@ class DatabaseAdapter {
                 `ALTER TABLE user_stats MODIFY COLUMN biggest_win DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
                 `ALTER TABLE user_stats MODIFY COLUMN biggest_loss DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
                 `ALTER TABLE user_stats MODIFY COLUMN total_winnings DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
-                `ALTER TABLE user_stats MODIFY COLUMN total_losses_amount DECIMAL(20,2) NOT NULL DEFAULT 0.00`
+                `ALTER TABLE user_stats MODIFY COLUMN total_losses_amount DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
+                // Fix scratch tickets status ENUM to include 'dropped'
+                `ALTER TABLE scratch_tickets MODIFY COLUMN status ENUM('dropped', 'active', 'scratching', 'won', 'lost', 'expired') DEFAULT 'dropped'`
             ];
             
             for (const query of alterQueries) {
@@ -648,10 +707,15 @@ class DatabaseAdapter {
                 return false; // Insufficient funds
             }
             
-            // Insert lottery tickets
+            // Insert or update lottery tickets (one record per user per week)
             await connection.execute(
-                'INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, purchase_cost, week_start) VALUES (?, ?, ?, ?, ?)',
-                [userId, guildId, ticketCount, totalCost, currentWeekStart]
+                `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, purchase_cost, week_start, purchased_at) 
+                 VALUES (?, ?, ?, ?, ?, NOW()) 
+                 ON DUPLICATE KEY UPDATE 
+                 ticket_count = ticket_count + ?, 
+                 purchase_cost = purchase_cost + ?,
+                 purchased_at = NOW()`,
+                [userId, guildId, ticketCount, totalCost, currentWeekStart, ticketCount, totalCost]
             );
             
             // Update lottery info
@@ -671,6 +735,19 @@ class DatabaseAdapter {
             return false;
         } finally {
             connection.release();
+        }
+    }
+
+    async getAllLotteryTickets(guildId) {
+        try {
+            const [rows] = await this.pool.execute(
+                'SELECT user_id, SUM(ticket_count) as tickets FROM lottery_tickets WHERE guild_id = ? AND week_start = (SELECT current_week_start FROM lottery_info WHERE guild_id = ?) GROUP BY user_id',
+                [guildId, guildId]
+            );
+            return rows;
+        } catch (error) {
+            logger.error(`Error getting all lottery tickets: ${error.message}`);
+            return [];
         }
     }
 
@@ -1145,7 +1222,16 @@ class DatabaseAdapter {
      */
     async addToLotteryPool(guildId, amount) {
         try {
-            // For now, just log the lottery pool addition since we don't have lottery tables set up
+            const query = `
+                INSERT INTO lottery (guild_id, total_prize, week_start) 
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                total_prize = total_prize + VALUES(total_prize)
+            `;
+            
+            const weekStart = this.getCurrentWeekStart();
+            await this.connection.execute(query, [guildId, amount, weekStart]);
+            
             logger.info(`Added ${amount} to lottery pool for guild ${guildId || 'global'}`);
             return true;
         } catch (error) {
@@ -1302,6 +1388,456 @@ class DatabaseAdapter {
         } catch (error) {
             logger.error(`Error getting user last activity: ${error.message}`);
             return null;
+        }
+    }
+
+    /**
+     * Get user level data
+     */
+    async getUserLevel(userId, guildId) {
+        try {
+            const [result] = await this.executeQuery(
+                `SELECT * FROM user_levels WHERE user_id = ? AND guild_id = ?`,
+                [userId, guildId]
+            );
+
+            if (result.length > 0) {
+                return result[0];
+            }
+
+            // Create initial level record
+            await this.executeQuery(
+                `INSERT INTO user_levels (user_id, guild_id, level, xp, total_xp) 
+                 VALUES (?, ?, 1, 0, 0)`,
+                [userId, guildId]
+            );
+
+            return {
+                user_id: userId,
+                guild_id: guildId,
+                level: 1,
+                xp: 0,
+                total_xp: 0,
+                games_played: 0,
+                games_won: 0,
+                messages_sent: 0,
+                last_level_up: null,
+                last_xp_gain: null,
+                created_at: new Date(),
+                updated_at: new Date()
+            };
+        } catch (error) {
+            logger.error(`Error getting user level: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Add XP to user
+     */
+    async addXpToUser(userId, guildId, xpAmount, reason = 'unknown') {
+        try {
+            // Ensure user level record exists
+            await this.getUserLevel(userId, guildId);
+
+            // Calculate new level
+            const currentData = await this.getUserLevel(userId, guildId);
+            const newTotalXp = currentData.total_xp + xpAmount;
+            const newLevel = this.calculateLevel(newTotalXp);
+            const newCurrentXp = this.calculateCurrentXp(newTotalXp);
+            const leveledUp = newLevel > currentData.level;
+
+            // Update XP and level
+            await this.executeQuery(
+                `UPDATE user_levels 
+                 SET xp = ?, total_xp = ?, level = ?, last_xp_gain = NOW(),
+                     last_level_up = CASE WHEN ? THEN NOW() ELSE last_level_up END
+                 WHERE user_id = ? AND guild_id = ?`,
+                [newCurrentXp, newTotalXp, newLevel, leveledUp, userId, guildId]
+            );
+
+            logger.info(`Added ${xpAmount} XP to ${userId} for ${reason} (Level: ${currentData.level} -> ${newLevel})`);
+
+            return {
+                leveledUp,
+                oldLevel: currentData.level,
+                newLevel,
+                xpGained: xpAmount,
+                newTotalXp,
+                newCurrentXp
+            };
+        } catch (error) {
+            logger.error(`Error adding XP: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Update game stats for user
+     */
+    async updateGameStats(userId, guildId, won = false) {
+        try {
+            await this.executeQuery(
+                `UPDATE user_levels 
+                 SET games_played = games_played + 1,
+                     games_won = games_won + CASE WHEN ? THEN 1 ELSE 0 END
+                 WHERE user_id = ? AND guild_id = ?`,
+                [won, userId, guildId]
+            );
+        } catch (error) {
+            logger.error(`Error updating game stats: ${error.message}`);
+        }
+    }
+
+    /**
+     * Calculate level from total XP
+     */
+    calculateLevel(totalXp) {
+        // Level formula: Level = floor(sqrt(totalXP / 100)) + 1
+        // This gives a nice progression curve where higher levels require more XP
+        return Math.floor(Math.sqrt(totalXp / 100)) + 1;
+    }
+
+    /**
+     * Calculate XP needed for a specific level
+     */
+    calculateXpForLevel(level) {
+        // XP needed = (level - 1)^2 * 100
+        return Math.pow(level - 1, 2) * 100;
+    }
+
+    /**
+     * Calculate current level XP (XP within current level)
+     */
+    calculateCurrentXp(totalXp) {
+        const level = this.calculateLevel(totalXp);
+        const xpForCurrentLevel = this.calculateXpForLevel(level);
+        return totalXp - xpForCurrentLevel;
+    }
+
+    /**
+     * Calculate XP needed for next level
+     */
+    calculateXpForNextLevel(totalXp) {
+        const currentLevel = this.calculateLevel(totalXp);
+        const xpForNextLevel = this.calculateXpForLevel(currentLevel + 1);
+        return xpForNextLevel - totalXp;
+    }
+
+    /**
+     * Get level leaderboard
+     */
+    async getLevelLeaderboard(guildId, limit = 10) {
+        try {
+            const [result] = await this.executeQuery(
+                `SELECT ul.*, ub.username 
+                 FROM user_levels ul
+                 LEFT JOIN user_balances ub ON ul.user_id = ub.user_id
+                 WHERE ul.guild_id = ?
+                 ORDER BY ul.total_xp DESC, ul.level DESC
+                 LIMIT ?`,
+                [guildId, limit]
+            );
+
+            return result;
+        } catch (error) {
+            logger.error(`Error getting level leaderboard: ${error.message}`);
+            return [];
+        }
+    }
+
+    // ========================= SCRATCH TICKET OPERATIONS =========================
+
+    /**
+     * Create a new scratch ticket
+     */
+    async createScratchTicket(ticketId, userId, guildId, channelId, ticketData, symbols, winningCombination = null, wonAmount = 0) {
+        try {
+            console.log(`[SCRATCH DEBUG] Creating ticket in DB: ${ticketId}, user: ${userId}, guild: ${guildId}`);
+            
+            const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+            
+            const query = `
+                INSERT INTO scratch_tickets (
+                    id, user_id, guild_id, channel_id, ticket_data, symbols, 
+                    winning_combination, expires_at, won_amount, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'dropped')
+            `;
+            
+            const params = [
+                ticketId, 
+                userId, 
+                guildId, 
+                channelId,
+                JSON.stringify(ticketData),
+                JSON.stringify(symbols),
+                winningCombination ? JSON.stringify(winningCombination) : null,
+                expiresAt,
+                wonAmount
+            ];
+            
+            console.log(`[SCRATCH DEBUG] SQL params:`, params);
+            
+            await this.executeQuery(query, params);
+            
+            console.log(`[SCRATCH DEBUG] Database insert successful for ticket ${ticketId}`);
+            logger.info(`Created scratch ticket ${ticketId} for user ${userId}`);
+            return true;
+        } catch (error) {
+            console.error(`[SCRATCH DEBUG] Database insert failed:`, error);
+            logger.error(`Error creating scratch ticket: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Get scratch ticket by ID
+     */
+    async getScratchTicket(ticketId) {
+        try {
+            console.log(`[SCRATCH DEBUG] Querying for ticket: ${ticketId}`);
+            
+            const result = await this.executeQuery(
+                'SELECT * FROM scratch_tickets WHERE id = ?',
+                [ticketId]
+            );
+            
+            console.log(`[SCRATCH DEBUG] Query result:`, result);
+            console.log(`[SCRATCH DEBUG] Result length: ${result ? result.length : 'undefined'}`);
+
+            if (result && result.length > 0) {
+                const ticket = result[0];
+                console.log(`[SCRATCH DEBUG] Found ticket:`, ticket);
+                
+                // Parse JSON fields
+                ticket.ticket_data = JSON.parse(ticket.ticket_data);
+                ticket.symbols = JSON.parse(ticket.symbols);
+                if (ticket.winning_combination) {
+                    ticket.winning_combination = JSON.parse(ticket.winning_combination);
+                }
+                if (ticket.scratched_positions) {
+                    ticket.scratched_positions = JSON.parse(ticket.scratched_positions);
+                }
+                return ticket;
+            }
+            
+            console.log(`[SCRATCH DEBUG] No ticket found with ID: ${ticketId}`);
+            return null;
+        } catch (error) {
+            console.error(`[SCRATCH DEBUG] Error in getScratchTicket:`, error);
+            logger.error(`Error getting scratch ticket: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Update scratch ticket progress
+     */
+    async updateScratchTicket(ticketId, scratchedPositions, status = 'scratching') {
+        try {
+            const query = `
+                UPDATE scratch_tickets 
+                SET scratched_positions = ?, status = ?, 
+                    scratched_at = CASE WHEN scratched_at IS NULL THEN NOW() ELSE scratched_at END
+                WHERE id = ?
+            `;
+            
+            await this.executeQuery(query, [
+                JSON.stringify(scratchedPositions),
+                status,
+                ticketId
+            ]);
+            
+            return true;
+        } catch (error) {
+            logger.error(`Error updating scratch ticket: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Complete scratch ticket (win or lose)
+     */
+    async completeScratchTicket(ticketId, won, winAmount = 0) {
+        try {
+            const status = won ? 'won' : 'lost';
+            const query = `
+                UPDATE scratch_tickets 
+                SET status = ?, won_amount = ?, completed_at = NOW()
+                WHERE id = ?
+            `;
+            
+            await this.executeQuery(query, [status, winAmount, ticketId]);
+            
+            // Update drop statistics if won
+            if (won) {
+                const ticket = await this.getScratchTicket(ticketId);
+                if (ticket) {
+                    await this.executeQuery(
+                        'UPDATE scratch_drops SET total_wins = total_wins + 1, total_winnings = total_winnings + ? WHERE guild_id = ?',
+                        [winAmount, ticket.guild_id]
+                    );
+                }
+            }
+            
+            return true;
+        } catch (error) {
+            logger.error(`Error completing scratch ticket: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Claim a scratch ticket for a user
+     */
+    async claimScratchTicket(ticketId, userId) {
+        try {
+            console.log(`[SCRATCH DEBUG] Claiming ticket ${ticketId} for user ${userId}`);
+            
+            const query = `
+                UPDATE scratch_tickets 
+                SET user_id = ?, status = 'active', claimed_by = ?
+                WHERE id = ? AND status = 'dropped'
+            `;
+            
+            const result = await this.executeQuery(query, [userId, userId, ticketId]);
+            console.log(`[SCRATCH DEBUG] Claim result:`, result);
+            console.log(`[SCRATCH DEBUG] Affected rows: ${result.affectedRows}`);
+            
+            return result.affectedRows > 0;
+        } catch (error) {
+            console.error(`[SCRATCH DEBUG] Error claiming ticket:`, error);
+            logger.error(`Error claiming scratch ticket: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Update scratched positions for a ticket
+     */
+    async updateScratchedPositions(ticketId, scratchedPositions) {
+        try {
+            const query = `
+                UPDATE scratch_tickets 
+                SET scratched_positions = ?, status = 'scratching'
+                WHERE id = ?
+            `;
+            
+            await this.executeQuery(query, [JSON.stringify(scratchedPositions), ticketId]);
+            return true;
+        } catch (error) {
+            logger.error(`Error updating scratched positions: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Get or create scratch drop settings for guild
+     */
+    async getScratchDropSettings(guildId) {
+        try {
+            const [result] = await this.executeQuery(
+                'SELECT * FROM scratch_drops WHERE guild_id = ?',
+                [guildId]
+            );
+
+            if (result.length > 0) {
+                return result[0];
+            }
+
+            // Create default settings
+            const query = `
+                INSERT INTO scratch_drops (guild_id, last_drop_time, daily_drops, drop_count_reset)
+                VALUES (?, NOW(), 0, CURRENT_DATE)
+            `;
+            
+            await this.executeQuery(query, [guildId]);
+            
+            return await this.getScratchDropSettings(guildId);
+        } catch (error) {
+            logger.error(`Error getting scratch drop settings: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Update scratch drop statistics
+     */
+    async updateScratchDropStats(guildId, nextDropTime = null) {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            
+            const query = `
+                UPDATE scratch_drops 
+                SET last_drop_time = NOW(),
+                    daily_drops = CASE 
+                        WHEN drop_count_reset < CURRENT_DATE THEN 1
+                        ELSE daily_drops + 1
+                    END,
+                    drop_count_reset = CURRENT_DATE,
+                    total_drops = total_drops + 1,
+                    next_drop_time = ?
+                WHERE guild_id = ?
+            `;
+            
+            await this.executeQuery(query, [nextDropTime, guildId]);
+            return true;
+        } catch (error) {
+            logger.error(`Error updating scratch drop stats: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Clean up expired scratch tickets
+     */
+    async cleanupExpiredScratchTickets() {
+        try {
+            const query = `
+                UPDATE scratch_tickets 
+                SET status = 'expired' 
+                WHERE status IN ('active', 'scratching') AND expires_at < NOW()
+            `;
+            
+            const [result] = await this.executeQuery(query, []);
+            
+            if (result.affectedRows > 0) {
+                logger.info(`Expired ${result.affectedRows} scratch tickets`);
+            }
+            
+            return result.affectedRows;
+        } catch (error) {
+            logger.error(`Error cleaning up expired tickets: ${error.message}`);
+            return 0;
+        }
+    }
+
+    /**
+     * Get user's active scratch tickets
+     */
+    async getUserActiveScratchTickets(userId, guildId) {
+        try {
+            const [result] = await this.executeQuery(
+                `SELECT * FROM scratch_tickets 
+                 WHERE user_id = ? AND guild_id = ? AND status IN ('active', 'scratching')
+                 ORDER BY created_at DESC`,
+                [userId, guildId]
+            );
+
+            return result.map(ticket => {
+                ticket.ticket_data = JSON.parse(ticket.ticket_data);
+                ticket.symbols = JSON.parse(ticket.symbols);
+                if (ticket.winning_combination) {
+                    ticket.winning_combination = JSON.parse(ticket.winning_combination);
+                }
+                if (ticket.scratched_positions) {
+                    ticket.scratched_positions = JSON.parse(ticket.scratched_positions);
+                }
+                return ticket;
+            });
+        } catch (error) {
+            logger.error(`Error getting user active scratch tickets: ${error.message}`);
+            return [];
         }
     }
 }
