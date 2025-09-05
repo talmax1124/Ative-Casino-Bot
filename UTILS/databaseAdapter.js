@@ -1813,7 +1813,7 @@ class DatabaseAdapter {
                 WHERE status IN ('active', 'scratching') AND expires_at < NOW()
             `;
             
-            const [result] = await this.executeQuery(query, []);
+            const result = await this.executeQuery(query, []);
             
             if (result.affectedRows > 0) {
                 logger.info(`Expired ${result.affectedRows} scratch tickets`);
