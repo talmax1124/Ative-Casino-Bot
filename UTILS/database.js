@@ -1000,6 +1000,105 @@ class DatabaseManager {
         }
         return [];
     }
+
+    // ========================= SHOP OPERATIONS =========================
+
+    /**
+     * Get all shop items by category
+     * @param {string} category - Category filter (optional)
+     * @returns {Array} Array of shop items
+     */
+    async getShopItems(category = null) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getShopItems(category);
+        }
+        return [];
+    }
+
+    /**
+     * Get shop item by ID
+     * @param {number} itemId - Item ID
+     * @returns {Object|null} Shop item
+     */
+    async getShopItem(itemId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getShopItem(itemId);
+        }
+        return null;
+    }
+
+    /**
+     * Purchase shop item for user
+     * @param {string} userId - User ID
+     * @param {number} itemId - Item ID
+     * @param {number} price - Price paid
+     * @returns {boolean} Success status
+     */
+    async purchaseShopItem(userId, itemId, price) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.purchaseShopItem(userId, itemId, price);
+        }
+        return false;
+    }
+
+    /**
+     * Get user's shop purchases
+     * @param {string} userId - User ID
+     * @param {boolean} activeOnly - Only return active purchases
+     * @returns {Array} Array of purchases with item details
+     */
+    async getUserShopPurchases(userId, activeOnly = true) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserShopPurchases(userId, activeOnly);
+        }
+        return [];
+    }
+
+    /**
+     * Get user's active boosts
+     * @param {string} userId - User ID
+     * @returns {Array} Array of active boosts
+     */
+    async getUserActiveBoosts(userId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserActiveBoosts(userId);
+        }
+        return [];
+    }
+
+    /**
+     * Check if user has specific boost active
+     * @param {string} userId - User ID
+     * @param {string} boostType - Type of boost to check
+     * @returns {Object|null} Boost details or null
+     */
+    async getUserBoost(userId, boostType) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserBoost(userId, boostType);
+        }
+        return null;
+    }
+
+    /**
+     * Clean up expired boosts and purchases
+     * @returns {number} Number of cleaned up items
+     */
+    async cleanupExpiredShopItems() {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.cleanupExpiredShopItems();
+        }
+        return 0;
+    }
+
+    /**
+     * Initialize shop with default items
+     */
+    async initializeShopItems() {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.initializeShopItems();
+        }
+        return false;
+    }
 }
 
 // Export singleton instance

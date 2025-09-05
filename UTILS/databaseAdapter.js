@@ -76,6 +76,7 @@ class DatabaseAdapter {
         // Initialize database schema if needed
         await this.initializeSchema();
         await this.initializeVoteSchema();
+        await this.initializeShopItems();
     }
 
     /**
@@ -254,6 +255,48 @@ class DatabaseAdapter {
                 max_daily_drops INT NOT NULL DEFAULT 2,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS shop_items (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                description TEXT NOT NULL,
+                category ENUM('boosts', 'unlocks', 'decorations', 'roles', 'utilities') NOT NULL,
+                price DECIMAL(20,2) NOT NULL,
+                duration_hours INT NULL,
+                metadata JSON DEFAULT NULL,
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_category (category),
+                INDEX idx_active (active),
+                INDEX idx_sort_order (sort_order)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS user_shop_purchases (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(20) NOT NULL,
+                item_id INT NOT NULL,
+                purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NULL,
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                metadata JSON DEFAULT NULL,
+                INDEX idx_user_id (user_id),
+                INDEX idx_item_id (item_id),
+                INDEX idx_expires_at (expires_at),
+                INDEX idx_active (active),
+                FOREIGN KEY (item_id) REFERENCES shop_items(id)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS user_active_boosts (
+                user_id VARCHAR(20) NOT NULL,
+                boost_type VARCHAR(50) NOT NULL,
+                multiplier DECIMAL(3,2) NOT NULL DEFAULT 1.00,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, boost_type),
+                INDEX idx_expires_at (expires_at)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -1883,6 +1926,373 @@ class DatabaseAdapter {
         } catch (error) {
             logger.error(`Error getting user active scratch tickets: ${error.message}`);
             return [];
+        }
+    }
+
+    // ========================= SHOP OPERATIONS =========================
+
+    /**
+     * Get all shop items by category
+     * @param {string} category - Category filter (optional)
+     * @returns {Array} Array of shop items
+     */
+    async getShopItems(category = null) {
+        try {
+            let query = 'SELECT * FROM shop_items WHERE active = true';
+            const params = [];
+
+            if (category) {
+                query += ' AND category = ?';
+                params.push(category);
+            }
+
+            query += ' ORDER BY sort_order ASC, price ASC';
+
+            const result = await this.executeQuery(query, params);
+            return result;
+        } catch (error) {
+            logger.error(`Error getting shop items: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Get shop item by ID
+     * @param {number} itemId - Item ID
+     * @returns {Object|null} Shop item
+     */
+    async getShopItem(itemId) {
+        try {
+            const result = await this.executeQuery(
+                'SELECT * FROM shop_items WHERE id = ? AND active = true',
+                [itemId]
+            );
+            return result.length > 0 ? result[0] : null;
+        } catch (error) {
+            logger.error(`Error getting shop item: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Purchase shop item for user
+     * @param {string} userId - User ID
+     * @param {number} itemId - Item ID
+     * @param {number} price - Price paid
+     * @returns {boolean} Success status
+     */
+    async purchaseShopItem(userId, itemId, price) {
+        const connection = await this.pool.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            // Get item details
+            const [itemResult] = await connection.execute(
+                'SELECT * FROM shop_items WHERE id = ? AND active = true',
+                [itemId]
+            );
+
+            if (itemResult.length === 0) {
+                await connection.rollback();
+                return false;
+            }
+
+            const item = itemResult[0];
+
+            // Check if user already has this permanent item
+            if (!item.duration_hours) {
+                const [existingResult] = await connection.execute(
+                    'SELECT id FROM user_shop_purchases WHERE user_id = ? AND item_id = ? AND active = true',
+                    [userId, itemId]
+                );
+
+                if (existingResult.length > 0) {
+                    await connection.rollback();
+                    logger.warn(`User ${userId} already owns permanent item ${itemId}`);
+                    return false;
+                }
+            }
+
+            // Deduct money from wallet
+            const [updateResult] = await connection.execute(
+                'UPDATE user_balances SET wallet = wallet - ? WHERE user_id = ? AND wallet >= ?',
+                [price, userId, price]
+            );
+
+            if (updateResult.affectedRows === 0) {
+                await connection.rollback();
+                return false; // Insufficient funds
+            }
+
+            // Calculate expiration time for time-limited items
+            let expiresAt = null;
+            if (item.duration_hours) {
+                expiresAt = new Date(Date.now() + (item.duration_hours * 60 * 60 * 1000));
+            }
+
+            // Record purchase
+            await connection.execute(
+                'INSERT INTO user_shop_purchases (user_id, item_id, expires_at) VALUES (?, ?, ?)',
+                [userId, itemId, expiresAt]
+            );
+
+            // If it's a boost item, add to active boosts
+            if (item.category === 'boosts') {
+                const metadata = item.metadata ? JSON.parse(item.metadata) : {};
+                const multiplier = metadata.multiplier || 1.5;
+                const boostType = metadata.boost_type || 'general';
+
+                await connection.execute(
+                    `INSERT INTO user_active_boosts (user_id, boost_type, multiplier, expires_at) 
+                     VALUES (?, ?, ?, ?) 
+                     ON DUPLICATE KEY UPDATE 
+                     multiplier = VALUES(multiplier), 
+                     expires_at = VALUES(expires_at)`,
+                    [userId, boostType, multiplier, expiresAt]
+                );
+            }
+
+            await connection.commit();
+            logger.info(`User ${userId} purchased item ${itemId} for ${price}`);
+            return true;
+        } catch (error) {
+            await connection.rollback();
+            logger.error(`Error purchasing shop item: ${error.message}`);
+            return false;
+        } finally {
+            connection.release();
+        }
+    }
+
+    /**
+     * Get user's shop purchases
+     * @param {string} userId - User ID
+     * @param {boolean} activeOnly - Only return active purchases
+     * @returns {Array} Array of purchases with item details
+     */
+    async getUserShopPurchases(userId, activeOnly = true) {
+        try {
+            let query = `
+                SELECT usp.*, si.name, si.description, si.category, si.duration_hours, si.metadata
+                FROM user_shop_purchases usp
+                LEFT JOIN shop_items si ON usp.item_id = si.id
+                WHERE usp.user_id = ?
+            `;
+
+            const params = [userId];
+
+            if (activeOnly) {
+                query += ' AND usp.active = true AND (usp.expires_at IS NULL OR usp.expires_at > NOW())';
+            }
+
+            query += ' ORDER BY usp.purchased_at DESC';
+
+            const result = await this.executeQuery(query, params);
+            return result;
+        } catch (error) {
+            logger.error(`Error getting user shop purchases: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Get user's active boosts
+     * @param {string} userId - User ID
+     * @returns {Array} Array of active boosts
+     */
+    async getUserActiveBoosts(userId) {
+        try {
+            const result = await this.executeQuery(
+                'SELECT * FROM user_active_boosts WHERE user_id = ? AND expires_at > NOW()',
+                [userId]
+            );
+            return result;
+        } catch (error) {
+            logger.error(`Error getting user active boosts: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Check if user has specific boost active
+     * @param {string} userId - User ID
+     * @param {string} boostType - Type of boost to check
+     * @returns {Object|null} Boost details or null
+     */
+    async getUserBoost(userId, boostType) {
+        try {
+            const result = await this.executeQuery(
+                'SELECT * FROM user_active_boosts WHERE user_id = ? AND boost_type = ? AND expires_at > NOW()',
+                [userId, boostType]
+            );
+            return result.length > 0 ? result[0] : null;
+        } catch (error) {
+            logger.error(`Error checking user boost: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Clean up expired boosts and purchases
+     * @returns {number} Number of cleaned up items
+     */
+    async cleanupExpiredShopItems() {
+        try {
+            let cleanedCount = 0;
+
+            // Cleanup expired boosts
+            const boostResult = await this.executeQuery(
+                'DELETE FROM user_active_boosts WHERE expires_at <= NOW()'
+            );
+            cleanedCount += boostResult.affectedRows;
+
+            // Mark expired purchases as inactive
+            const purchaseResult = await this.executeQuery(
+                'UPDATE user_shop_purchases SET active = false WHERE expires_at IS NOT NULL AND expires_at <= NOW() AND active = true'
+            );
+            cleanedCount += purchaseResult.affectedRows;
+
+            if (cleanedCount > 0) {
+                logger.info(`Cleaned up ${cleanedCount} expired shop items and boosts`);
+            }
+
+            return cleanedCount;
+        } catch (error) {
+            logger.error(`Error cleaning up expired shop items: ${error.message}`);
+            return 0;
+        }
+    }
+
+    /**
+     * Initialize shop with default items
+     */
+    async initializeShopItems() {
+        try {
+            const defaultItems = [
+                // Boosts
+                {
+                    name: '⚡ XP Boost',
+                    description: 'Double XP gain for 24 hours',
+                    category: 'boosts',
+                    price: 1000000,
+                    duration_hours: 24,
+                    metadata: JSON.stringify({ boost_type: 'xp', multiplier: 2.0 }),
+                    sort_order: 1
+                },
+                {
+                    name: '💰 Economy Boost',
+                    description: '1.5x earnings from all economy commands for 12 hours',
+                    category: 'boosts', 
+                    price: 2000000,
+                    duration_hours: 12,
+                    metadata: JSON.stringify({ boost_type: 'economy', multiplier: 1.5 }),
+                    sort_order: 2
+                },
+                {
+                    name: '🗳️ Vote Boost',
+                    description: 'Double vote rewards for the weekend',
+                    category: 'boosts',
+                    price: 1600000,
+                    duration_hours: 48,
+                    metadata: JSON.stringify({ boost_type: 'vote', multiplier: 2.0 }),
+                    sort_order: 3
+                },
+
+                // Unlocks
+                {
+                    name: '🔓 EarnMoney Unlock',
+                    description: 'Bypass the 10 vote requirement for /earnmoney for 1.5 weeks',
+                    category: 'unlocks',
+                    price: 10000000,
+                    duration_hours: 252,
+                    metadata: JSON.stringify({ unlock_type: 'earnmoney_bypass' }),
+                    sort_order: 1
+                },
+
+                // Decorations
+                {
+                    name: '🥇 Golden Frame',
+                    description: 'Golden border for your profile picture',
+                    category: 'decorations',
+                    price: 3000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ decoration_type: 'frame', color: 'gold' }),
+                    sort_order: 1
+                },
+                {
+                    name: '💎 Diamond Frame',
+                    description: 'Sparkling diamond border for your profile picture',
+                    category: 'decorations',
+                    price: 6000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ decoration_type: 'frame', color: 'diamond' }),
+                    sort_order: 2
+                },
+
+                // Role Colors
+                {
+                    name: '🔴 Red Name',
+                    description: 'Red colored username in chat',
+                    category: 'roles',
+                    price: 4000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#ff0000', role_name: 'Red VIP' }),
+                    sort_order: 1
+                },
+                {
+                    name: '🔵 Blue Name',
+                    description: 'Blue colored username in chat',
+                    category: 'roles',
+                    price: 4000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#0080ff', role_name: 'Blue VIP' }),
+                    sort_order: 2
+                },
+                {
+                    name: '🟣 Purple Name',
+                    description: 'Purple colored username in chat',
+                    category: 'roles',
+                    price: 8000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#8000ff', role_name: 'Purple VIP' }),
+                    sort_order: 3
+                },
+                {
+                    name: '🟡 Gold Name',
+                    description: 'Prestigious gold colored username',
+                    category: 'roles',
+                    price: 20000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#ffd700', role_name: 'Gold VIP' }),
+                    sort_order: 4
+                },
+
+                // Utilities
+                {
+                    name: '⏰ Cooldown Reducer',
+                    description: '50% faster cooldowns for work, beg, and crime commands',
+                    category: 'utilities',
+                    price: 12000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ utility_type: 'cooldown_reduction', reduction: 0.5 }),
+                    sort_order: 1
+                }
+            ];
+
+            // Insert items only if they don't exist
+            for (const item of defaultItems) {
+                await this.executeQuery(
+                    `INSERT IGNORE INTO shop_items (name, description, category, price, duration_hours, metadata, sort_order)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                    [item.name, item.description, item.category, item.price, item.duration_hours, item.metadata, item.sort_order]
+                );
+            }
+
+            logger.info('Shop items initialized successfully');
+            return true;
+        } catch (error) {
+            logger.error(`Error initializing shop items: ${error.message}`);
+            return false;
         }
     }
 }

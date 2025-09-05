@@ -8,6 +8,7 @@ const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -24,10 +25,11 @@ module.exports = {
             await interaction.deferReply();
             await dbManager.ensureUser(userId, username);
             
-            // Check if user has voting privileges for /earnmoney
+            // Check if user has voting privileges OR shop unlock for /earnmoney
             const voteData = await dbManager.getUserVoteData(userId, guildId);
+            const hasShopUnlock = await shopManager.hasEarnmoneyUnlock(userId);
             
-            if (!voteData || !voteData.can_use_earnmoney) {
+            if (!hasShopUnlock && (!voteData || !voteData.can_use_earnmoney)) {
                 const totalVotes = voteData?.total_votes || 0;
                 const currentStreak = voteData?.vote_streak || 0;
                 
@@ -35,11 +37,12 @@ module.exports = {
                     title: '🔒 EarnMoney Command Locked',
                     topFields: [
                         { name: '🗳️ Requirements Not Met', value: 'This command requires **10+ votes AND an active voting streak**!' },
-                        { name: '📊 Your Stats', value: `Votes: ${totalVotes}/10\nStreak: ${currentStreak} days` }
+                        { name: '📊 Your Stats', value: `Votes: ${totalVotes}/10\nStreak: ${currentStreak} days` },
+                        { name: '🛒 Alternative', value: 'You can also purchase the **EarnMoney Unlock** from `/shop browse` to bypass this requirement for 1.5 weeks!' }
                     ],
-                    stageText: 'VOTING REQUIRED',
+                    stageText: 'VOTING OR PURCHASE REQUIRED',
                     color: 0xFF6B6B,
-                    footer: 'Use /vote to start building your voting streak!'
+                    footer: 'Use /vote to start building your voting streak or visit the shop!'
                 });
 
                 return await interaction.editReply({ embeds: [lockEmbed] });
@@ -61,10 +64,14 @@ module.exports = {
             // Calculate total earnings
             const baseEarnings = Object.values(results).reduce((sum, result) => sum + (result.earned || 0), 0);
             
-            // Calculate server booster bonus (5% on total earnings)
-            const boosterInfo = calculateBoosterBonus(baseEarnings, interaction.member);
+            // Apply shop economy boosts
+            const boostResult = await shopManager.applyEconomyBoosts(userId, baseEarnings, 'earnmoney');
+            const boostedEarnings = boostResult.amount;
+            
+            // Calculate server booster bonus (5% on boosted earnings)
+            const boosterInfo = calculateBoosterBonus(boostedEarnings, interaction.member);
             const boosterBonus = boosterInfo.amount;
-            const totalEarned = baseEarnings + boosterBonus;
+            const totalEarned = boostedEarnings + boosterBonus;
             
             if (baseEarnings === 0) {
                 const cooldowns = Object.entries(results)
@@ -111,27 +118,83 @@ module.exports = {
                 }));
 
             // Banking information with boost display
-            const bankFields = [
-                { name: '💎 Total Earned', value: boosterInfo.isBooster ? `${fmt(totalEarned)} (🚀 +${fmt(boosterBonus)})` : fmt(totalEarned), inline: true },
-                { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                { name: boosterInfo.isBooster ? '🚀 Boost Active' : '📈 Change', value: boosterInfo.isBooster ? '+5% Bonus' : fmtDelta(totalEarned), inline: true }
-            ];
+            const boostDisplay = shopManager.formatBoostInfo(boostResult.boosts);
+            const hasShopBoosts = boostResult.boosted;
+            const hasServerBoost = boosterInfo.isBooster;
+            
+            const bankFields = [];
+            
+            if (hasShopBoosts && hasServerBoost) {
+                // Both shop and server boosts
+                bankFields.push(
+                    { name: '💎 Total Earned', value: `${fmt(totalEarned)}${boostDisplay} + 🚀 +${fmt(boosterBonus)}`, inline: true },
+                    { name: '💵 New Balance', value: fmt(newWallet), inline: true },
+                    { name: '🎯 Boosts Active', value: `Shop${boostDisplay} + Server Boost (+5%)`, inline: true }
+                );
+            } else if (hasShopBoosts) {
+                // Shop boosts only
+                bankFields.push(
+                    { name: '💎 Total Earned', value: `${fmt(totalEarned)}${boostDisplay}`, inline: true },
+                    { name: '💵 New Balance', value: fmt(newWallet), inline: true },
+                    { name: '🚀 Shop Boosts', value: boostDisplay.trim(), inline: true }
+                );
+            } else if (hasServerBoost) {
+                // Server boost only
+                bankFields.push(
+                    { name: '💎 Total Earned', value: `${fmt(totalEarned)} (🚀 +${fmt(boosterBonus)})`, inline: true },
+                    { name: '💵 New Balance', value: fmt(newWallet), inline: true },
+                    { name: '🚀 Boost Active', value: '+5% Server Boost', inline: true }
+                );
+            } else {
+                // No boosts
+                bankFields.push(
+                    { name: '💎 Total Earned', value: fmt(totalEarned), inline: true },
+                    { name: '💵 New Balance', value: fmt(newWallet), inline: true },
+                    { name: '📈 Change', value: fmtDelta(totalEarned), inline: true }
+                );
+            }
 
+            // Determine title and stage text based on active boosts
+            let titleSuffix = '';
+            let stageText = 'ALL COMMANDS CLAIMED';
+            
+            if (hasShopBoosts && hasServerBoost) {
+                titleSuffix = ' (🚀 SUPER BOOSTED)';
+                stageText = 'ALL COMMANDS CLAIMED + BOOSTS';
+            } else if (hasShopBoosts || hasServerBoost) {
+                titleSuffix = ' (🚀 BOOSTED)';
+                stageText = 'ALL COMMANDS CLAIMED + BOOST';
+            }
+            
             const successEmbed = buildSessionEmbed({
-                title: boosterInfo.isBooster ? `💰 ${username}'s EarnMoney Success! (🚀 BOOSTED)` : `💰 ${username}'s EarnMoney Success!`,
+                title: `💰 ${username}'s EarnMoney Success!${titleSuffix}`,
                 topFields: earnedFields,
                 bankFields,
-                stageText: boosterInfo.isBooster ? 'ALL COMMANDS CLAIMED + BOOST' : 'ALL COMMANDS CLAIMED',
+                stageText,
                 color: 0x00FF00,
-                footer: `🗳️ Exclusive to voters • ${earnedFields.length} commands claimed • ATIVE Casino`
+                footer: `🗳️ ${hasShopUnlock ? 'Shop unlock active (1.5 weeks)' : 'Exclusive to voters'} • ${earnedFields.length} commands claimed • ATIVE Casino`
             });
 
             await interaction.editReply({ embeds: [successEmbed] });
 
             // Log the earnmoney usage
-            const logMessage = boosterInfo.isBooster 
-                ? `EarnMoney claimed (BOOSTED): ${username} earned ${fmt(totalEarned)} (base: ${fmt(baseEarnings)} + boost: ${fmt(boosterBonus)}) from ${earnedFields.length} commands (Votes: ${voteData.total_votes}, Streak: ${voteData.vote_streak} days) - New Balance: ${fmt(newWallet)}`
-                : `EarnMoney claimed: ${username} earned ${fmt(totalEarned)} from ${earnedFields.length} commands (Votes: ${voteData.total_votes}, Streak: ${voteData.vote_streak} days) - New Balance: ${fmt(newWallet)}`;
+            let logMessage = `EarnMoney claimed: ${username} earned ${fmt(totalEarned)} from ${earnedFields.length} commands`;
+            
+            if (hasShopBoosts) {
+                logMessage += ` (Shop boost: ${fmt(baseEarnings)} -> ${fmt(boostedEarnings)})`;
+            }
+            
+            if (hasServerBoost) {
+                logMessage += ` (Server boost: +${fmt(boosterBonus)})`;
+            }
+            
+            if (hasShopUnlock) {
+                logMessage += ' (Shop unlock used)';
+            } else if (voteData) {
+                logMessage += ` (Votes: ${voteData.total_votes}, Streak: ${voteData.vote_streak} days)`;
+            }
+            
+            logMessage += ` - New Balance: ${fmt(newWallet)}`;
             
             await sendLogMessage(
                 interaction.client,
