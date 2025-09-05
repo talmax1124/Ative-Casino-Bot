@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
@@ -61,31 +61,43 @@ module.exports = {
             ];
 
             const scenario = crimeScenarios[secureRandomInt(0, crimeScenarios.length)];
-            const earning = secureRandomInt(scenario.min, scenario.max + 1);
+            const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
+
+            // Calculate server booster bonus (2%)
+            const boosterInfo = calculateBoosterBonus(baseEarning, interaction.member);
+            const boosterBonus = boosterInfo.amount;
+            const totalEarning = baseEarning + boosterBonus;
 
             // Validate and sanitize balance values
             const currentWallet = parseFloat(balance.wallet) || 0;
             const currentBank = parseFloat(balance.bank) || 0;
             
             // Update balance and timestamp
-            const newWallet = currentWallet + earning;
+            const newWallet = currentWallet + totalEarning;
             await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
                 last_crime_ts: now
             });
 
+            // Build earnings display with booster bonus if applicable
+            let earningsDisplay = `+ Earnings: ${fmt(baseEarning)}`;
+            if (boosterInfo.isBooster && boosterBonus > 0) {
+                earningsDisplay += `\n+ Booster Bonus (2%): ${fmt(boosterBonus)}`;
+                earningsDisplay += `\n= Total Earned: ${fmt(totalEarning)}`;
+            }
+
             // Crime details in topFields
             const topFields = [{
-                name: '🦹 CRIME COMPLETE',
+                name: boosterInfo.isBooster ? '🦹 CRIME COMPLETE (🚀 BOOSTED)' : '🦹 CRIME COMPLETE',
                 value: `**${scenario.crime}**\n` +
-                       `\`\`\`diff\n+ Earnings: ${fmt(earning)}\n  Previous: ${fmt(currentWallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
+                       `\`\`\`diff\n${earningsDisplay}\n  Previous: ${fmt(currentWallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
                 inline: false
             }];
 
             // Balance information in bankFields
             const bankFields = [
-                { name: 'Crime Earnings', value: fmt(earning), inline: true },
+                { name: 'Crime Earnings', value: fmt(totalEarning), inline: true },
                 { name: 'Current Balance', value: fmt(newWallet), inline: true },
-                { name: 'Next Crime Available', value: 'In 30 minutes', inline: true }
+                { name: boosterInfo.isBooster ? '🚀 Booster Status' : 'Next Crime Available', value: boosterInfo.isBooster ? 'Active (+2%)' : 'In 30 minutes', inline: true }
             ];
 
             // Stage text for current status
@@ -104,10 +116,14 @@ module.exports = {
             await interaction.editReply({ embeds: [embed] });
 
             // Log the crime
+            const logMessage = boosterInfo.isBooster 
+                ? `Crime completed (BOOSTED): ${username} ${scenario.crime.toLowerCase()} and earned ${fmt(totalEarning)} (base: ${fmt(baseEarning)} + boost: ${fmt(boosterBonus)}) - Balance: ${fmt(newWallet)}`
+                : `Crime completed: ${username} ${scenario.crime.toLowerCase()} and earned ${fmt(totalEarning)} - Balance: ${fmt(newWallet)}`;
+            
             await sendLogMessage(
                 interaction.client,
                 'economy',
-                `Crime completed: ${username} ${scenario.crime.toLowerCase()} and earned ${fmt(earning)} (Balance: ${fmt(newWallet)})`,
+                logMessage,
                 userId,
                 guildId
             );

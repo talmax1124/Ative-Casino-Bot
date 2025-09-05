@@ -270,8 +270,8 @@ class PayoutManager {
             // If player wins: payout = bet + winnings (they get their bet back plus profit)
             let newWallet = safeAdd(balance.wallet, payoutValue);
             
-            // Apply server booster bonus if applicable
-            const boosterInfo = await this._calculateBoosterBonus(userId, guildId, payout, interaction);
+            // Apply server booster bonus if applicable (only on wins, not pushes)
+            const boosterInfo = await this._calculateBoosterBonus(userId, guildId, payout, interaction, won);
             const boosterBonus = boosterInfo.amount;
             if (boosterBonus > 0) {
                 newWallet = safeAdd(newWallet, boosterBonus);
@@ -410,7 +410,7 @@ class PayoutManager {
      * @param {Object} interaction - Discord interaction for member checking
      * @returns {Object} Bonus info with amount and isBooster flag
      */
-    static async _calculateBoosterBonus(userId, guildId, payout, interaction = null) {
+    static async _calculateBoosterBonus(userId, guildId, payout, interaction = null, won = false) {
         try {
             // Check if we have the interaction and member data
             if (interaction && interaction.member) {
@@ -418,7 +418,8 @@ class PayoutManager {
                 const member = interaction.member;
                 const isBooster = member.premiumSinceTimestamp !== null && member.premiumSinceTimestamp > 0;
                 
-                if (isBooster && payout > 0) {
+                // Only apply bonus to actual wins, not pushes/ties
+                if (isBooster && payout > 0 && won) {
                     // Calculate 2% bonus on winnings
                     const bonusAmount = Math.floor(payout * 0.02);
                     return { amount: bonusAmount, isBooster: true };

@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
@@ -62,27 +62,39 @@ module.exports = {
             ];
 
             const scenario = begScenarios[secureRandomInt(0, begScenarios.length)];
-            const earning = secureRandomInt(scenario.min, scenario.max + 1);
+            const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
+
+            // Calculate server booster bonus (2%)
+            const boosterInfo = calculateBoosterBonus(baseEarning, interaction.member);
+            const boosterBonus = boosterInfo.amount;
+            const totalEarning = baseEarning + boosterBonus;
 
             // Update balance and timestamp
-            const newWallet = balance.wallet + earning;
+            const newWallet = balance.wallet + totalEarning;
             await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank, {
                 last_beg_ts: now
             });
 
+            // Build earnings display with booster bonus if applicable
+            let earningsDisplay = `+ Received: ${fmt(baseEarning)}`;
+            if (boosterInfo.isBooster && boosterBonus > 0) {
+                earningsDisplay += `\n+ Booster Bonus (2%): ${fmt(boosterBonus)}`;
+                earningsDisplay += `\n= Total Received: ${fmt(totalEarning)}`;
+            }
+
             // Begging details in topFields
             const topFields = [{
-                name: '🤲 BEGGING SUCCESS',
+                name: boosterInfo.isBooster ? '🤲 BEGGING SUCCESS (🚀 BOOSTED)' : '🤲 BEGGING SUCCESS',
                 value: `**${scenario.person}** ${scenario.message}\n` +
-                       `\`\`\`diff\n+ Received: ${fmt(earning)}\n  Previous: ${fmt(balance.wallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
+                       `\`\`\`diff\n${earningsDisplay}\n  Previous: ${fmt(balance.wallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
                 inline: false
             }];
 
             // Balance information in bankFields
             const bankFields = [
-                { name: 'Amount Received', value: fmt(earning), inline: true },
+                { name: 'Amount Received', value: fmt(totalEarning), inline: true },
                 { name: 'Current Balance', value: fmt(newWallet), inline: true },
-                { name: 'Next Beg Available', value: 'In 1 hour', inline: true }
+                { name: boosterInfo.isBooster ? '🚀 Booster Status' : 'Next Beg Available', value: boosterInfo.isBooster ? 'Active (+2%)' : 'In 1 hour', inline: true }
             ];
 
             // Stage text for current status
@@ -101,10 +113,14 @@ module.exports = {
             await interaction.editReply({ embeds: [embed] });
 
             // Log the begging
+            const logMessage = boosterInfo.isBooster 
+                ? `Beg success (BOOSTED): ${username} received ${fmt(totalEarning)} (base: ${fmt(baseEarning)} + boost: ${fmt(boosterBonus)}) from ${scenario.person} - Balance: ${fmt(newWallet)}`
+                : `Beg success: ${username} received ${fmt(totalEarning)} from ${scenario.person} - Balance: ${fmt(newWallet)}`;
+            
             await sendLogMessage(
                 interaction.client,
                 'economy',
-                `Beg success: ${username} received ${fmt(earning)} from ${scenario.person} (Balance: ${fmt(newWallet)})`,
+                logMessage,
                 userId,
                 guildId
             );

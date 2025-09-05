@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
@@ -64,31 +64,43 @@ module.exports = {
             ];
 
             const scenario = workScenarios[secureRandomInt(0, workScenarios.length)];
-            const earning = secureRandomInt(scenario.min, scenario.max + 1);
+            const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
+
+            // Calculate server booster bonus (2%)
+            const boosterInfo = calculateBoosterBonus(baseEarning, interaction.member);
+            const boosterBonus = boosterInfo.amount;
+            const totalEarning = baseEarning + boosterBonus;
 
             // Validate and sanitize balance values
             const currentWallet = parseFloat(balance.wallet) || 0;
             const currentBank = parseFloat(balance.bank) || 0;
             
             // Update balance and timestamp
-            const newWallet = currentWallet + earning;
+            const newWallet = currentWallet + totalEarning;
             await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
                 last_work_ts: now
             });
 
+            // Build earnings display with booster bonus if applicable
+            let earningsDisplay = `+ Earnings: ${fmt(baseEarning)}`;
+            if (boosterInfo.isBooster && boosterBonus > 0) {
+                earningsDisplay += `\n+ Booster Bonus (2%): ${fmt(boosterBonus)}`;
+                earningsDisplay += `\n= Total Earned: ${fmt(totalEarning)}`;
+            }
+
             // Work details in topFields
             const topFields = [{
-                name: '💼 WORK COMPLETED',
+                name: boosterInfo.isBooster ? '💼 WORK COMPLETED (🚀 BOOSTED)' : '💼 WORK COMPLETED',
                 value: `**Job:** ${scenario.job}\n` +
-                       `\`\`\`diff\n+ Earnings: ${fmt(earning)}\n  Previous: ${fmt(currentWallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
+                       `\`\`\`diff\n${earningsDisplay}\n  Previous: ${fmt(currentWallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
                 inline: false
             }];
 
             // Balance information in bankFields
             const bankFields = [
-                { name: 'Amount Earned', value: fmt(earning), inline: true },
+                { name: 'Amount Earned', value: fmt(totalEarning), inline: true },
                 { name: 'Current Balance', value: fmt(newWallet), inline: true },
-                { name: 'Next Work Available', value: 'In 1 hour', inline: true }
+                { name: boosterInfo.isBooster ? '🚀 Booster Status' : 'Next Work Available', value: boosterInfo.isBooster ? 'Active (+2%)' : 'In 1 hour', inline: true }
             ];
 
             // Stage text for current status
@@ -107,10 +119,14 @@ module.exports = {
             await interaction.editReply({ embeds: [embed] });
 
             // Log the work
+            const logMessage = boosterInfo.isBooster 
+                ? `Work completed (BOOSTED): ${username} worked as ${scenario.job} and earned ${fmt(totalEarning)} (base: ${fmt(baseEarning)} + boost: ${fmt(boosterBonus)}) - Balance: ${fmt(newWallet)}`
+                : `Work completed: ${username} worked as ${scenario.job} and earned ${fmt(totalEarning)} - Balance: ${fmt(newWallet)}`;
+            
             await sendLogMessage(
                 interaction.client,
                 'economy',
-                `Work completed: ${username} worked as ${scenario.job} and earned ${fmt(earning)} (Balance: ${fmt(newWallet)})`,
+                logMessage,
                 userId,
                 guildId
             );

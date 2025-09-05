@@ -599,7 +599,11 @@ class ScratchTicketSystem {
                 });
             }
 
-            const scratchedPositions = ticket.scratched_positions || [];
+            // Ensure scratchedPositions is always an array
+            let scratchedPositions = ticket.scratched_positions;
+            if (!Array.isArray(scratchedPositions)) {
+                scratchedPositions = [];
+            }
             
             if (scratchedPositions.includes(position)) {
                 return await interaction.reply({
@@ -905,7 +909,11 @@ class ScratchTicketSystem {
             }
 
             // Add position to scratched positions
-            const scratchedPositions = ticket.scratched_positions || [];
+            // Ensure scratchedPositions is always an array
+            let scratchedPositions = ticket.scratched_positions;
+            if (!Array.isArray(scratchedPositions)) {
+                scratchedPositions = [];
+            }
             
             if (scratchedPositions.includes(position)) {
                 await interaction.reply({
@@ -988,7 +996,11 @@ class ScratchTicketSystem {
      */
     async createScratchInterface(ticket, user) {
         try {
-            const scratchedPositions = ticket.scratched_positions || [];
+            // Ensure scratchedPositions is always an array
+            let scratchedPositions = ticket.scratched_positions;
+            if (!Array.isArray(scratchedPositions)) {
+                scratchedPositions = [];
+            }
             
             const embed = new EmbedBuilder()
                 .setTitle(`🎫 ${user.displayName}'s Scratch Ticket`)

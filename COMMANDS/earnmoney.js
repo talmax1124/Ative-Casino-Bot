@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
@@ -59,9 +59,14 @@ module.exports = {
             };
 
             // Calculate total earnings
-            const totalEarned = Object.values(results).reduce((sum, result) => sum + (result.earned || 0), 0);
+            const baseEarnings = Object.values(results).reduce((sum, result) => sum + (result.earned || 0), 0);
             
-            if (totalEarned === 0) {
+            // Calculate server booster bonus (2% on total earnings)
+            const boosterInfo = calculateBoosterBonus(baseEarnings, interaction.member);
+            const boosterBonus = boosterInfo.amount;
+            const totalEarned = baseEarnings + boosterBonus;
+            
+            if (baseEarnings === 0) {
                 const cooldowns = Object.entries(results)
                     .filter(([_, result]) => result.cooldownRemaining > 0)
                     .map(([command, result]) => {
@@ -105,18 +110,18 @@ module.exports = {
                     inline: true 
                 }));
 
-            // Banking information
+            // Banking information with boost display
             const bankFields = [
-                { name: '💎 Total Earned', value: fmt(totalEarned), inline: true },
+                { name: '💎 Total Earned', value: boosterInfo.isBooster ? `${fmt(totalEarned)} (🚀 +${fmt(boosterBonus)})` : fmt(totalEarned), inline: true },
                 { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                { name: '📈 Change', value: fmtDelta(totalEarned), inline: true }
+                { name: boosterInfo.isBooster ? '🚀 Boost Active' : '📈 Change', value: boosterInfo.isBooster ? '+2% Bonus' : fmtDelta(totalEarned), inline: true }
             ];
 
             const successEmbed = buildSessionEmbed({
-                title: `💰 ${username}'s EarnMoney Success!`,
+                title: boosterInfo.isBooster ? `💰 ${username}'s EarnMoney Success! (🚀 BOOSTED)` : `💰 ${username}'s EarnMoney Success!`,
                 topFields: earnedFields,
                 bankFields,
-                stageText: 'ALL COMMANDS CLAIMED',
+                stageText: boosterInfo.isBooster ? 'ALL COMMANDS CLAIMED + BOOST' : 'ALL COMMANDS CLAIMED',
                 color: 0x00FF00,
                 footer: `🗳️ Exclusive to voters • ${earnedFields.length} commands claimed • ATIVE Casino`
             });
@@ -124,10 +129,14 @@ module.exports = {
             await interaction.editReply({ embeds: [successEmbed] });
 
             // Log the earnmoney usage
+            const logMessage = boosterInfo.isBooster 
+                ? `EarnMoney claimed (BOOSTED): ${username} earned ${fmt(totalEarned)} (base: ${fmt(baseEarnings)} + boost: ${fmt(boosterBonus)}) from ${earnedFields.length} commands (Votes: ${voteData.total_votes}, Streak: ${voteData.vote_streak} days) - New Balance: ${fmt(newWallet)}`
+                : `EarnMoney claimed: ${username} earned ${fmt(totalEarned)} from ${earnedFields.length} commands (Votes: ${voteData.total_votes}, Streak: ${voteData.vote_streak} days) - New Balance: ${fmt(newWallet)}`;
+            
             await sendLogMessage(
                 interaction.client,
                 'economy',
-                `EarnMoney claimed: ${username} earned ${fmt(totalEarned)} from ${earnedFields.length} commands (Votes: ${voteData.total_votes}, Streak: ${voteData.vote_streak} days) - New Balance: ${fmt(newWallet)}`,
+                logMessage,
                 userId,
                 guildId
             );

@@ -1410,7 +1410,7 @@ class DatabaseAdapter {
      */
     async getUserLevel(userId, guildId) {
         try {
-            const [result] = await this.executeQuery(
+            const result = await this.executeQuery(
                 `SELECT * FROM user_levels WHERE user_id = ? AND guild_id = ?`,
                 [userId, guildId]
             );
@@ -1543,7 +1543,7 @@ class DatabaseAdapter {
      */
     async getLevelLeaderboard(guildId, limit = 10) {
         try {
-            const [result] = await this.executeQuery(
+            const result = await this.executeQuery(
                 `SELECT ul.*, ub.username 
                  FROM user_levels ul
                  LEFT JOIN user_balances ub ON ul.user_id = ub.user_id
@@ -1574,8 +1574,8 @@ class DatabaseAdapter {
             const query = `
                 INSERT INTO scratch_tickets (
                     id, user_id, guild_id, channel_id, ticket_data, symbols, 
-                    winning_combination, expires_at, won_amount, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'dropped')
+                    winning_combination, scratched_positions, expires_at, won_amount, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'dropped')
             `;
             
             const params = [
@@ -1586,6 +1586,7 @@ class DatabaseAdapter {
                 JSON.stringify(ticketData),
                 JSON.stringify(symbols),
                 winningCombination ? JSON.stringify(winningCombination) : null,
+                JSON.stringify([]), // Initialize with empty array
                 expiresAt,
                 wonAmount
             ];
@@ -1630,7 +1631,15 @@ class DatabaseAdapter {
                     ticket.winning_combination = JSON.parse(ticket.winning_combination);
                 }
                 if (ticket.scratched_positions) {
-                    ticket.scratched_positions = JSON.parse(ticket.scratched_positions);
+                    try {
+                        const parsed = JSON.parse(ticket.scratched_positions);
+                        // Ensure it's always an array
+                        ticket.scratched_positions = Array.isArray(parsed) ? parsed : [];
+                    } catch (e) {
+                        ticket.scratched_positions = [];
+                    }
+                } else {
+                    ticket.scratched_positions = [];
                 }
                 return ticket;
             }
@@ -1845,7 +1854,7 @@ class DatabaseAdapter {
      */
     async getUserActiveScratchTickets(userId, guildId) {
         try {
-            const [result] = await this.executeQuery(
+            const result = await this.executeQuery(
                 `SELECT * FROM scratch_tickets 
                  WHERE user_id = ? AND guild_id = ? AND status IN ('active', 'scratching')
                  ORDER BY created_at DESC`,
@@ -1859,7 +1868,15 @@ class DatabaseAdapter {
                     ticket.winning_combination = JSON.parse(ticket.winning_combination);
                 }
                 if (ticket.scratched_positions) {
-                    ticket.scratched_positions = JSON.parse(ticket.scratched_positions);
+                    try {
+                        const parsed = JSON.parse(ticket.scratched_positions);
+                        // Ensure it's always an array
+                        ticket.scratched_positions = Array.isArray(parsed) ? parsed : [];
+                    } catch (e) {
+                        ticket.scratched_positions = [];
+                    }
+                } else {
+                    ticket.scratched_positions = [];
                 }
                 return ticket;
             });

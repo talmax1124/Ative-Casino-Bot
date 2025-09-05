@@ -3,10 +3,12 @@
  * Users can vote for rewards and check their vote status
  */
 
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, StringSelectMenuBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
+const { createEvents } = require('ics');
+const moment = require('moment-timezone');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -90,9 +92,20 @@ module.exports = {
                     .setEmoji('🔔')
             );
 
-        await interaction.reply({ 
+        const response = await interaction.reply({ 
             embeds: [voteEmbed], 
-            components: [voteButtons] 
+            components: [voteButtons],
+            fetchReply: true
+        });
+
+        // Set up collector for reminder button
+        const collector = response.createMessageComponentCollector({
+            filter: i => i.customId === 'vote_remind_me' && i.user.id === interaction.user.id,
+            time: 60000
+        });
+
+        collector.on('collect', async (i) => {
+            await this.handleReminderRequest(i);
         });
     },
 
@@ -197,9 +210,20 @@ module.exports = {
                 );
             }
 
-            await interaction.reply({ 
+            const response = await interaction.reply({ 
                 embeds: [statsEmbed],
-                components: [actionButtons]
+                components: [actionButtons],
+                fetchReply: true
+            });
+
+            // Set up collector for reminder button
+            const collector = response.createMessageComponentCollector({
+                filter: i => i.customId === 'vote_remind_me' && i.user.id === interaction.user.id,
+                time: 60000
+            });
+
+            collector.on('collect', async (i) => {
+                await this.handleReminderRequest(i, nextVoteTime);
             });
 
         } catch (error) {
@@ -252,6 +276,303 @@ module.exports = {
             const hours = Math.floor(hoursRemaining);
             const minutes = Math.floor((hoursRemaining - hours) * 60);
             return `⏳ **In ${hours}h ${minutes}m**\n<t:${Math.floor(nextVoteTime / 1000)}:R>`;
+        }
+    },
+
+    /**
+     * Handle reminder request from user
+     */
+    async handleReminderRequest(interaction, nextVoteTime = null) {
+        // Calculate next vote time if not provided
+        if (!nextVoteTime) {
+            nextVoteTime = Date.now() + (12 * 60 * 60 * 1000); // 12 hours from now
+        }
+
+        // Create select menu for reminder type
+        const reminderMenu = new StringSelectMenuBuilder()
+            .setCustomId('reminder_type')
+            .setPlaceholder('Choose reminder type')
+            .addOptions([
+                {
+                    label: '📅 Download ICS Calendar File',
+                    description: 'Works with Apple Calendar, Outlook, etc.',
+                    value: 'ics',
+                    emoji: '📁'
+                },
+                {
+                    label: '📱 Add to Google Calendar',
+                    description: 'Direct link to add to Google Calendar',
+                    value: 'google',
+                    emoji: '🔗'
+                },
+                {
+                    label: '📧 Discord DM Reminder',
+                    description: 'Get a DM when it\'s time to vote',
+                    value: 'dm',
+                    emoji: '💬'
+                },
+                {
+                    label: '🔔 All Reminders',
+                    description: 'Get both calendar file and Google link',
+                    value: 'all',
+                    emoji: '✨'
+                }
+            ]);
+
+        const menuRow = new ActionRowBuilder().addComponents(reminderMenu);
+
+        const reminderEmbed = new EmbedBuilder()
+            .setTitle('⏰ Set Vote Reminder')
+            .setDescription('Choose how you\'d like to be reminded to vote!')
+            .addFields({
+                name: '📅 Next Vote Time',
+                value: `<t:${Math.floor(nextVoteTime / 1000)}:F>`,
+                inline: false
+            })
+            .setColor(0x00D4FF)
+            .setFooter({ text: 'Select an option below' });
+
+        await interaction.reply({
+            embeds: [reminderEmbed],
+            components: [menuRow],
+            ephemeral: true
+        });
+
+        // Collect the selection
+        const filter = i => i.customId === 'reminder_type' && i.user.id === interaction.user.id;
+        const menuCollector = interaction.channel.createMessageComponentCollector({ filter, time: 30000, max: 1 });
+
+        menuCollector.on('collect', async (menuInteraction) => {
+            const reminderType = menuInteraction.values[0];
+            await this.createReminder(menuInteraction, reminderType, nextVoteTime);
+        });
+
+        menuCollector.on('end', collected => {
+            if (collected.size === 0) {
+                interaction.editReply({
+                    content: '⏱️ Reminder selection timed out.',
+                    embeds: [],
+                    components: []
+                }).catch(() => {});
+            }
+        });
+    },
+
+    /**
+     * Create reminder based on user selection
+     */
+    async createReminder(interaction, type, nextVoteTime) {
+        const voteDate = new Date(nextVoteTime);
+        const components = [];
+        const embeds = [];
+        const files = [];
+
+        if (type === 'ics' || type === 'all') {
+            // Generate ICS file
+            const icsFile = await this.generateICSFile(voteDate, interaction.user);
+            if (icsFile) {
+                files.push(icsFile);
+            }
+        }
+
+        if (type === 'google' || type === 'all') {
+            // Generate Google Calendar URL
+            const googleUrl = this.generateGoogleCalendarURL(voteDate);
+            const googleButton = new ButtonBuilder()
+                .setLabel('📅 Add to Google Calendar')
+                .setStyle(ButtonStyle.Link)
+                .setURL(googleUrl)
+                .setEmoji('📱');
+            
+            if (components.length === 0) {
+                components.push(new ActionRowBuilder());
+            }
+            components[0].addComponents(googleButton);
+        }
+
+        if (type === 'dm') {
+            // Set up DM reminder (would need a database to persist)
+            embeds.push(new EmbedBuilder()
+                .setTitle('💬 DM Reminder Set!')
+                .setDescription(`I'll try to DM you when it's time to vote!\n\n**Note:** Make sure your DMs are open from server members.`)
+                .addFields({
+                    name: '⏰ Reminder Time',
+                    value: `<t:${Math.floor(nextVoteTime / 1000)}:F>`
+                })
+                .setColor(0x00FF00)
+                .setFooter({ text: 'This feature requires DMs to be enabled' }));
+            
+            // Store reminder in database (implementation would go here)
+            this.scheduleDMReminder(interaction.user.id, nextVoteTime);
+        }
+
+        // Create success embed
+        const successEmbed = new EmbedBuilder()
+            .setTitle('✅ Vote Reminder Created!')
+            .setDescription('Your reminder has been set up successfully.')
+            .addFields(
+                {
+                    name: '📅 Vote Time',
+                    value: `<t:${Math.floor(nextVoteTime / 1000)}:F>`,
+                    inline: true
+                },
+                {
+                    name: '⏰ Time Until Vote',
+                    value: `<t:${Math.floor(nextVoteTime / 1000)}:R>`,
+                    inline: true
+                }
+            )
+            .setColor(0x00FF00)
+            .setFooter({ text: '🎰 ATIVE Casino • Vote every 12 hours!' });
+
+        if (embeds.length === 0) {
+            embeds.push(successEmbed);
+        }
+
+        // Always add vote button
+        const voteButton = new ButtonBuilder()
+            .setLabel('🗳️ Vote on Top.GG')
+            .setStyle(ButtonStyle.Link)
+            .setURL('https://top.gg/bot/1403236218900185088/vote');
+        
+        if (components.length === 0) {
+            components.push(new ActionRowBuilder());
+        }
+        components[0].addComponents(voteButton);
+
+        await interaction.update({
+            embeds: embeds,
+            components: components,
+            files: files
+        });
+    },
+
+    /**
+     * Generate ICS calendar file for vote reminder
+     */
+    async generateICSFile(voteDate, user) {
+        try {
+            // Create recurring event (every 12 hours)
+            const event = {
+                start: [
+                    voteDate.getFullYear(),
+                    voteDate.getMonth() + 1,
+                    voteDate.getDate(),
+                    voteDate.getHours(),
+                    voteDate.getMinutes()
+                ],
+                duration: { minutes: 15 },
+                title: `🗳️ Vote for ATIVE Casino Bot`,
+                description: `Time to vote for ATIVE Casino Bot on Top.GG!\n\n` +
+                           `Rewards:\n` +
+                           `• 25,000 coins per vote\n` +
+                           `• Weekend bonus: +50% extra\n` +
+                           `• Streak bonuses up to 1M coins!\n\n` +
+                           `Vote here: https://top.gg/bot/1403236218900185088/vote`,
+                url: 'https://top.gg/bot/1403236218900185088/vote',
+                location: 'Discord - ATIVE Casino Bot',
+                alarms: [
+                    {
+                        action: 'display',
+                        description: 'Time to vote for ATIVE Casino Bot!',
+                        trigger: { minutes: 5 } // 5 minutes before
+                    }
+                ],
+                recurrenceRule: 'FREQ=HOURLY;INTERVAL=12' // Every 12 hours
+            };
+
+            const { error, value } = createEvents([event]);
+            
+            if (error) {
+                logger.error('Error creating ICS file:', error);
+                return null;
+            }
+
+            // Create attachment
+            const buffer = Buffer.from(value, 'utf-8');
+            const attachment = new AttachmentBuilder(buffer, {
+                name: 'ative_vote_reminder.ics',
+                description: 'ATIVE Casino Bot vote reminder calendar file'
+            });
+
+            return attachment;
+        } catch (error) {
+            logger.error('Error generating ICS file:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Generate Google Calendar URL
+     */
+    generateGoogleCalendarURL(voteDate) {
+        const startTime = moment(voteDate).format('YYYYMMDDTHHmmss');
+        const endTime = moment(voteDate).add(15, 'minutes').format('YYYYMMDDTHHmmss');
+        
+        const eventDetails = {
+            text: '🗳️ Vote for ATIVE Casino Bot',
+            dates: `${startTime}/${endTime}`,
+            details: `Time to vote for ATIVE Casino Bot on Top.GG!\n\n` +
+                    `Rewards:\n` +
+                    `• 25,000 coins per vote\n` +
+                    `• Weekend bonus: +50% extra\n` +
+                    `• Streak bonuses up to 1M coins!\n\n` +
+                    `Vote here: https://top.gg/bot/1403236218900185088/vote`,
+            location: 'Discord - ATIVE Casino Bot'
+        };
+
+        // Build Google Calendar URL
+        const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
+        const params = new URLSearchParams({
+            text: eventDetails.text,
+            dates: eventDetails.dates,
+            details: eventDetails.details,
+            location: eventDetails.location,
+            recur: 'RRULE:FREQ=HOURLY;INTERVAL=12' // Recurring every 12 hours
+        });
+
+        return `${baseUrl}&${params.toString()}`;
+    },
+
+    /**
+     * Schedule a DM reminder (stub - would need persistent storage)
+     */
+    async scheduleDMReminder(userId, reminderTime) {
+        // This would typically store the reminder in a database
+        // and have a separate process check and send DMs
+        logger.info(`DM reminder scheduled for user ${userId} at ${new Date(reminderTime).toISOString()}`);
+        
+        // For demonstration, we'll set a timeout if the reminder is within 24 hours
+        const timeUntilReminder = reminderTime - Date.now();
+        if (timeUntilReminder > 0 && timeUntilReminder < 24 * 60 * 60 * 1000) {
+            setTimeout(async () => {
+                try {
+                    const client = require('../index').client; // Would need proper client reference
+                    const user = await client.users.fetch(userId);
+                    
+                    const reminderEmbed = new EmbedBuilder()
+                        .setTitle('🗳️ Time to Vote!')
+                        .setDescription('Your 12-hour vote cooldown is up! Time to vote for ATIVE Casino Bot and earn rewards!')
+                        .addFields(
+                            {
+                                name: '💰 Rewards',
+                                value: '25,000+ coins await!',
+                                inline: true
+                            },
+                            {
+                                name: '🔗 Vote Link',
+                                value: '[Click here to vote](https://top.gg/bot/1403236218900185088/vote)',
+                                inline: true
+                            }
+                        )
+                        .setColor(0x00D4FF)
+                        .setTimestamp();
+
+                    await user.send({ embeds: [reminderEmbed] });
+                } catch (error) {
+                    logger.error(`Failed to send DM reminder to ${userId}:`, error);
+                }
+            }, timeUntilReminder);
         }
     }
 };

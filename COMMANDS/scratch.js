@@ -86,7 +86,11 @@ module.exports = {
 
             // Show active tickets
             for (const ticket of activeTickets) {
-                const scratchedPositions = ticket.scratched_positions || [];
+                // Ensure scratchedPositions is always an array
+                let scratchedPositions = ticket.scratched_positions;
+                if (!Array.isArray(scratchedPositions)) {
+                    scratchedPositions = [];
+                }
                 const timeLeft = Math.max(0, Math.floor((new Date(ticket.expires_at).getTime() - Date.now()) / 1000 / 60));
                 
                 const embed = new EmbedBuilder()
