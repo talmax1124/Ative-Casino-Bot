@@ -114,7 +114,8 @@ class GamePanel {
             balance = 0,
             minBet = 10,
             maxBet = 150000, // Max bet limit
-            showQuit = true
+            showQuit = true,
+            gameType = 'blackjack' // Add gameType parameter
         } = options;
 
         const rows = [];
@@ -174,7 +175,7 @@ class GamePanel {
         // Create dropdown if we have options
         if (dropdownOptions.length > 0) {
             const dropdown = new StringSelectMenuBuilder()
-                .setCustomId('blackjack_bet_select')
+                .setCustomId(`${gameType}_bet_select`)
                 .setPlaceholder('💰 Choose your bet amount to play again')
                 .setMinValues(1)
                 .setMaxValues(1)
@@ -216,7 +217,8 @@ class GamePanel {
                 lastBet,
                 balance,
                 minBet: 10,
-                showQuit: actions.includes('quit')
+                showQuit: actions.includes('quit'),
+                gameType: options.gameType || 'blackjack' // Pass through gameType
             });
         }
 

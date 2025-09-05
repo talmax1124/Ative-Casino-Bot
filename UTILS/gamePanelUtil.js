@@ -610,6 +610,259 @@ class GamePanelUtil {
 
         return new ActionRowBuilder().addComponents(hitButton, standButton, doubleButton, splitButton, helpButton);
     }
+
+    /**
+     * Create American Roulette wheel visualization
+     * @param {Object} config - Roulette configuration
+     * @returns {Buffer} Canvas buffer
+     */
+    async createRouletteWheel(config) {
+        if (!Canvas) {
+            logger.warn('Canvas not available for roulette wheel generation');
+            return null;
+        }
+
+        try {
+            const {
+                result = null,
+                currentBet = null,
+                isSpinning = false,
+                showResult = false
+            } = config;
+
+            // Larger canvas for better visibility
+            const canvas = Canvas.createCanvas(1000, 800);
+            const ctx = canvas.getContext('2d');
+
+            // Background with gradient
+            const bgGradient = ctx.createRadialGradient(500, 400, 0, 500, 400, 600);
+            bgGradient.addColorStop(0, '#1a1a2e');
+            bgGradient.addColorStop(1, '#16213e');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, 1000, 800);
+
+            // Draw outer wheel (larger)
+            const centerX = 500;
+            const centerY = 400;
+            const wheelRadius = 280; // Increased from 200
+
+            // Multiple outer rings for depth
+            for (let i = 0; i < 4; i++) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, wheelRadius + 30 - (i * 3), 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(139, 69, 19, ${0.8 - i * 0.15})`;
+                ctx.fill();
+                ctx.strokeStyle = i === 0 ? '#FFD700' : this.BORDER_COLOR;
+                ctx.lineWidth = i === 0 ? 6 : 2;
+                ctx.stroke();
+            }
+
+            // American roulette numbers in proper order
+            const wheelNumbers = [
+                0, 28, 9, 26, 30, 11, 7, 20, 32, 17, 5, 22, 34, 15, 3, 24, 36, 13, 1, '00',
+                27, 10, 25, 29, 12, 8, 19, 31, 18, 6, 21, 33, 16, 4, 23, 35, 14, 2
+            ];
+
+            const anglePerSlot = (Math.PI * 2) / 38;
+            
+            // Wheel rotation for spinning effect with frame-based animation
+            let wheelRotation = 0;
+            if (isSpinning) {
+                // Use a frame counter instead of time for smoother, consistent animation
+                const frameIndex = config.frameIndex || 0;
+                wheelRotation = (frameIndex * 6) * (Math.PI / 180); // 6 degrees per frame
+            }
+            
+            // Draw wheel segments with rotation
+            wheelNumbers.forEach((num, index) => {
+                const baseAngle = index * anglePerSlot;
+                const angle = baseAngle + wheelRotation;
+                const isGreen = num === 0 || num === '00';
+                const isRed = !isGreen && [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36].includes(num);
+                
+                // Enhanced segment colors with gradients
+                let color, shadowColor;
+                if (isGreen) {
+                    color = '#228B22';
+                    shadowColor = '#006400';
+                } else if (isRed) {
+                    color = '#DC143C';
+                    shadowColor = '#8B0000';
+                } else {
+                    color = '#2F2F2F';
+                    shadowColor = '#000000';
+                }
+
+                // Draw segment with gradient
+                const gradient = ctx.createRadialGradient(centerX, centerY, 50, centerX, centerY, wheelRadius);
+                gradient.addColorStop(0, color);
+                gradient.addColorStop(0.7, color);
+                gradient.addColorStop(1, shadowColor);
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, wheelRadius, angle, angle + anglePerSlot);
+                ctx.closePath();
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // Enhanced borders
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Draw number with better positioning and styling
+                const textRadius = wheelRadius - 45; // Increased margin
+                const textX = centerX + Math.cos(angle + anglePerSlot/2) * textRadius;
+                const textY = centerY + Math.sin(angle + anglePerSlot/2) * textRadius;
+                
+                ctx.save();
+                ctx.translate(textX, textY);
+                ctx.rotate(angle + anglePerSlot/2 + Math.PI/2);
+                
+                // Text shadow for better readability
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.font = 'bold 20px Arial'; // Larger font
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(num.toString(), 1, 1);
+                
+                // Actual text
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillText(num.toString(), 0, 0);
+                ctx.restore();
+
+                // Highlight winning number with pulsing effect
+                if (showResult && result !== null && num === result) {
+                    const time = Date.now();
+                    const pulseAlpha = 0.3 + 0.3 * Math.sin(time / 200);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(centerX, centerY);
+                    ctx.arc(centerX, centerY, wheelRadius, angle, angle + anglePerSlot);
+                    ctx.closePath();
+                    ctx.fillStyle = `rgba(255, 215, 0, ${pulseAlpha})`;
+                    ctx.fill();
+                    ctx.strokeStyle = '#FFD700';
+                    ctx.lineWidth = 6;
+                    ctx.stroke();
+                    
+                    // Extra glow effect
+                    ctx.shadowColor = '#FFD700';
+                    ctx.shadowBlur = 20;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+            });
+
+            // Enhanced inner circle with depth
+            const innerGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 70);
+            innerGradient.addColorStop(0, '#D2691E');
+            innerGradient.addColorStop(0.7, '#8B4513');
+            innerGradient.addColorStop(1, '#654321');
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 70, 0, Math.PI * 2);
+            ctx.fillStyle = innerGradient;
+            ctx.fill();
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Inner inner circle for more depth
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 35, 0, Math.PI * 2);
+            ctx.fillStyle = '#654321';
+            ctx.fill();
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Ball (always visible now, either spinning or at result)
+            let ballAngle;
+            if (showResult && result !== null) {
+                const resultIndex = wheelNumbers.findIndex(n => n === result);
+                ballAngle = resultIndex * anglePerSlot + anglePerSlot/2 + wheelRotation;
+            } else {
+                // Constant spinning ball animation - opposite direction to wheel  
+                const frameIndex = config.frameIndex || 0;
+                const baseSpeed = (frameIndex * 12) * (Math.PI / 180); // Faster than wheel, 12 degrees per frame
+                const wobble = Math.sin(frameIndex * 0.3) * 0.4; // Enhanced wobble
+                ballAngle = -baseSpeed + wobble; // Negative for opposite direction
+            }
+
+            // Enhanced ball positioning and size
+            const ballRadius = wheelRadius - 25 + (isSpinning ? Math.sin(Date.now() / 200) * 8 : 0); // More dramatic radius variation
+            const ballX = centerX + Math.cos(ballAngle) * ballRadius;
+            const ballY = centerY + Math.sin(ballAngle) * ballRadius;
+
+            // Ball glow effect
+            if (isSpinning) {
+                ctx.shadowColor = '#FFFFFF';
+                ctx.shadowBlur = 15;
+            }
+
+            // Larger ball with gradient
+            const ballGradient = ctx.createRadialGradient(ballX - 3, ballY - 3, 0, ballX, ballY, 15);
+            ballGradient.addColorStop(0, '#FFFFFF');
+            ballGradient.addColorStop(0.7, '#F0F0F0');
+            ballGradient.addColorStop(1, '#C0C0C0');
+
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, 15, 0, Math.PI * 2); // Larger ball
+            ctx.fillStyle = ballGradient;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            ctx.strokeStyle = '#808080';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Enhanced ball trail effect when spinning
+            if (isSpinning) {
+                const trailLength = 8;
+                for (let i = 1; i <= trailLength; i++) {
+                    const alpha = 0.6 - (i * 0.08);
+                    const trailAngle = ballAngle - (i * 0.4);
+                    const trailRadius = ballRadius - (i * 3);
+                    const trailX = centerX + Math.cos(trailAngle) * trailRadius;
+                    const trailY = centerY + Math.sin(trailAngle) * trailRadius;
+                    const trailSize = 15 - (i * 1.5);
+                    
+                    ctx.globalAlpha = alpha;
+                    const trailGradient = ctx.createRadialGradient(trailX, trailY, 0, trailX, trailY, trailSize);
+                    trailGradient.addColorStop(0, '#FFFFFF');
+                    trailGradient.addColorStop(1, '#CCCCCC');
+                    
+                    ctx.beginPath();
+                    ctx.arc(trailX, trailY, trailSize, 0, Math.PI * 2);
+                    ctx.fillStyle = trailGradient;
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1.0;
+            }
+
+            // No text overlays - clean roulette wheel only
+
+            return canvas.toBuffer('image/png');
+        } catch (error) {
+            logger.error(`Error creating roulette wheel: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Get number color for roulette
+     * @param {number|string} number 
+     * @returns {string}
+     */
+    getNumberColor(number) {
+        if (number === 0 || number === '00') return 'green';
+        const redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+        return redNumbers.includes(Number(number)) ? 'red' : 'black';
+    }
+
+    // Removed payout image generation - now using text-based embeds for better performance
 }
 
 module.exports = { GamePanelUtil };

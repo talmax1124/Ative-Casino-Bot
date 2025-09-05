@@ -649,6 +649,54 @@ client.on('interactionCreate', async interaction => {
                     await blackjackCommand.startNewGame(interaction, betAmount);
                 }
             }
+            // Handle roulette bet selection dropdown (for play again)
+            else if (interaction.customId === 'roulette_bet_select') {
+                const rouletteCommand = client.commands.get('roulette');
+                if (rouletteCommand) {
+                    const betAmount = parseInt(interaction.values[0].replace('play_again_', ''));
+                    await rouletteCommand.startNewGame(interaction, betAmount);
+                }
+            }
+            // Handle roulette number selection dropdown
+            else if (interaction.customId.startsWith('roulette-') && interaction.customId.includes('-number-select')) {
+                const parts = interaction.customId.split('-');
+                if (parts.length >= 3) {
+                    const userId = parts[1];
+                    
+                    // Verify the user is the game owner
+                    if (userId === interaction.user.id) {
+                        const rouletteCommand = client.commands.get('roulette');
+                        if (rouletteCommand && rouletteCommand.handleNumberSelect) {
+                            await rouletteCommand.handleNumberSelect(interaction, interaction.values[0]);
+                        }
+                    } else {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: 'This is not your game!',
+                            flags: MessageFlags.Ephemeral
+                        });
+                    }
+                }
+            }
+            // Handle roulette dozen selection dropdown
+            else if (interaction.customId.startsWith('roulette-') && interaction.customId.includes('-dozen-select')) {
+                const parts = interaction.customId.split('-');
+                if (parts.length >= 3) {
+                    const userId = parts[1];
+                    
+                    // Verify the user is the game owner
+                    if (userId === interaction.user.id) {
+                        const rouletteCommand = client.commands.get('roulette');
+                        if (rouletteCommand && rouletteCommand.handleDozenSelect) {
+                            await rouletteCommand.handleDozenSelect(interaction, interaction.values[0]);
+                        }
+                    } else {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: 'This is not your game!',
+                            flags: MessageFlags.Ephemeral
+                        });
+                    }
+                }
+            }
             // Handle other select menus from different commands
             else if (interaction.customId === 'blackjack_help') {
                 const blackjackCommand = client.commands.get('blackjack');
@@ -1037,6 +1085,27 @@ client.on('interactionCreate', async interaction => {
                         content: 'This is not your fishing session!',
                         ephemeral: true
                     });
+                }
+            }
+            // Handle roulette buttons (format: roulette-{userId}-{action})
+            else if (customId.startsWith('roulette-')) {
+                const parts = customId.split('-');
+                if (parts.length >= 3) {
+                    const userId = parts[1];
+                    const actionId = parts.slice(2).join('-');
+
+                    // Verify the user is the game owner
+                    if (userId === interaction.user.id) {
+                        const rouletteCommand = client.commands.get('roulette');
+                        if (rouletteCommand && rouletteCommand.handleRouletteAction) {
+                            await rouletteCommand.handleRouletteAction(interaction, actionId);
+                        }
+                    } else {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: 'This is not your game!',
+                            flags: MessageFlags.Ephemeral
+                        });
+                    }
                 }
             }
             // Handle RPS buttons (namespace: rps-{channelId}:{action})
@@ -1435,7 +1504,9 @@ client.on('interactionCreate', async interaction => {
                     if (embed && embed.title) {
                         if (embed.title.includes('Blackjack') || embed.title.includes('🃏')) {
                             gameType = 'blackjack';
-                        } else if (embed.title.includes('Slots') || embed.title.includes('🎰')) {
+                        } else if (embed.title.includes('Roulette') || embed.title.includes('American Roulette')) {
+                            gameType = 'roulette';
+                        } else if (embed.title.includes('Slots')) {
                             gameType = 'slots';
                         } else if (embed.title.includes('Crash') || embed.title.includes('🚁')) {
                             gameType = 'crash';
@@ -1466,6 +1537,32 @@ client.on('interactionCreate', async interaction => {
                                 flags: MessageFlags.Ephemeral
                             });
                         }
+                    } else if (gameType === 'roulette' && betAmount > 0) {
+                        // Start a new roulette game directly with the specified bet
+                        const rouletteCommand = require('./COMMANDS/roulette');
+                        
+                        // Create a fake interaction with the bet amount
+                        const fakeInteraction = {
+                            ...interaction,
+                            commandName: 'roulette',
+                            options: {
+                                getString: (name) => name === 'amount' ? betAmount.toString() : null
+                            },
+                            deferReply: async () => await interaction.deferUpdate(),
+                            editReply: async (data) => await interaction.editReply(data),
+                            reply: async (data) => await interaction.editReply(data),
+                            replied: false,
+                            deferred: true
+                        };
+                        
+                        try {
+                            await rouletteCommand.execute(fakeInteraction);
+                        } catch (error) {
+                            await interaction.reply({
+                                content: `❌ Error starting new game. Please use \`/roulette amount:${betAmount}\` directly.`,
+                                flags: MessageFlags.Ephemeral
+                            });
+                        }
                     } else {
                         await interaction.reply({
                             content: `🎮 To play ${gameType || 'again'} with bet $${betAmount}, please use the command directly.`,
@@ -1480,7 +1577,9 @@ client.on('interactionCreate', async interaction => {
                     if (embed && embed.title) {
                         if (embed.title.includes('Blackjack') || embed.title.includes('🃏')) {
                             gameType = 'blackjack';
-                        } else if (embed.title.includes('Slots') || embed.title.includes('🎰')) {
+                        } else if (embed.title.includes('Roulette') || embed.title.includes('American Roulette')) {
+                            gameType = 'roulette';
+                        } else if (embed.title.includes('Slots')) {
                             gameType = 'slots';
                         } else if (embed.title.includes('Crash') || embed.title.includes('🚁')) {
                             gameType = 'crash';
@@ -1544,21 +1643,18 @@ client.on('interactionCreate', async interaction => {
                         });
                     }
                 } else if (action === 'quit') {
-                    // Close the game interface
-                    await interaction.update({
-                        content: '🚪 Game session ended.',
-                        embeds: [],
-                        components: []
-                    });
+                    // End the game session but keep the message visible
+                    const endEmbed = new EmbedBuilder()
+                        .setTitle('🚪 Game Session Ended')
+                        .setDescription('The game session has been ended by the player.')
+                        .setColor(0x808080)
+                        .setTimestamp();
                     
-                    // Delete the message after a short delay
-                    setTimeout(async () => {
-                        try {
-                            await interaction.deleteReply();
-                        } catch (error) {
-                            // Ignore errors (message might already be deleted)
-                        }
-                    }, 3000);
+                    await interaction.update({
+                        content: null,
+                        embeds: [endEmbed],
+                        components: [] // Remove all buttons but keep the message
+                    });
                 } else {
                     await interaction.reply({
                         content: `❌ Unknown game action: ${action}`,
@@ -2348,7 +2444,7 @@ async function checkActiveGames() {
 const gracefulShutdown = require('./UTILS/gracefulShutdown');
 
 // Initialize graceful shutdown manager with client after ready
-client.once('ready', () => {
+client.once('clientReady', () => {
     gracefulShutdown.initialize(client);
 });
 

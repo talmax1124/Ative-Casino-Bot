@@ -288,6 +288,20 @@ class DatabaseAdapter {
                 }
             }
             
+            // Ensure last_xp_gain column exists in user_levels table
+            try {
+                await connection.execute(`
+                    ALTER TABLE user_levels 
+                    ADD COLUMN last_xp_gain TIMESTAMP NULL AFTER last_level_up
+                `);
+                logger.info('Added last_xp_gain column to user_levels table');
+            } catch (addColumnError) {
+                // Column might already exist
+                if (!addColumnError.message.includes('Duplicate column name')) {
+                    logger.debug(`Last XP gain column migration: ${addColumnError.message}`);
+                }
+            }
+            
             logger.info('MariaDB schema initialized successfully');
         } finally {
             connection.release();
@@ -1405,9 +1419,9 @@ class DatabaseAdapter {
                 return result[0];
             }
 
-            // Create initial level record
+            // Create initial level record - use INSERT IGNORE to prevent duplicates
             await this.executeQuery(
-                `INSERT INTO user_levels (user_id, guild_id, level, xp, total_xp) 
+                `INSERT IGNORE INTO user_levels (user_id, guild_id, level, xp, total_xp) 
                  VALUES (?, ?, 1, 0, 0)`,
                 [userId, guildId]
             );

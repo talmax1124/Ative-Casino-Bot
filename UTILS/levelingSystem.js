@@ -12,6 +12,7 @@ const XP_REWARDS = {
     // Game completion rewards
     GAME_COMPLETION: {
         'blackjack': { base: 15, win_bonus: 10 },
+        'roulette': { base: 12, win_bonus: 8 },
         'slots': { base: 8, win_bonus: 5 },
         'plinko': { base: 12, win_bonus: 8 },
         'crash': { base: 10, win_bonus: 7 },
@@ -94,11 +95,28 @@ class LevelingSystem {
                 }
             }
 
-            // Award XP
-            const result = await dbManager.addXpToUser(userId, guildId, totalXp, reasons.join(', '));
+            // Award XP with error handling for duplicates
+            let result = null;
+            try {
+                result = await dbManager.addXpToUser(userId, guildId, totalXp, reasons.join(', '));
+            } catch (xpError) {
+                if (xpError.message.includes('Duplicate entry')) {
+                    logger.debug(`User ${userId} already exists in leveling system, skipping XP award`);
+                    return null;
+                }
+                throw xpError;
+            }
             
-            // Update game stats
-            await dbManager.updateGameStats(userId, guildId, won);
+            // Update game stats with error handling
+            try {
+                await dbManager.updateGameStats(userId, guildId, won);
+            } catch (statsError) {
+                if (statsError.message.includes('Duplicate entry')) {
+                    logger.debug(`User ${userId} already has game stats, skipping update`);
+                } else {
+                    logger.warn(`Failed to update game stats for ${userId}: ${statsError.message}`);
+                }
+            }
 
             logger.info(`Awarded ${totalXp} XP to ${userId} for ${reasons.join(', ')}`);
             return result;

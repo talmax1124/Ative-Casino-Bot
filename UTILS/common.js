@@ -593,7 +593,7 @@ async function sendLogMessage(bot, level, message, userId = null, guildId = null
     try {
         // Check if bot and bot.channels are defined
         if (!bot || !bot.channels) {
-            logger.warn('Bot client or channels not available for logging');
+            logger.debug('Bot client or channels not available for logging (bot may be starting up)');
             return;
         }
         
