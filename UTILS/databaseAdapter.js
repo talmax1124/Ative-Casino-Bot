@@ -1606,8 +1606,8 @@ class DatabaseAdapter {
      */
     async updateGameStats(userId, guildId, won = false) {
         try {
-            // Ensure user level record exists first
-            await this.getUserLevel(userId, guildId);
+            // Ensure user level record exists first - pass true to create if missing
+            await this.getUserLevel(userId, guildId, true);
             
             const updateResult = await this.executeQuery(
                 `UPDATE user_levels 

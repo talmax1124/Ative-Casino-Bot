@@ -4,7 +4,7 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { getGuildId } = require('../UTILS/common');
+const { getGuildId, getTierDisplay } = require('../UTILS/common');
 const dbManager = require('../UTILS/database');
 const { fmt } = require('../UTILS/moneyFormatter');
 const logger = require('../UTILS/logger');
@@ -93,8 +93,9 @@ module.exports = {
                 const rank = i + 1;
                 const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
                 const username = user.username || `User ${user.user_id}`;
+                const tierDisplay = getTierDisplay(parseFloat(user.total_balance));
                 
-                leaderboardText += `${medal} **${username}**\n`;
+                leaderboardText += `${medal} **${username}** ${tierDisplay}\n`;
                 leaderboardText += `   💰 ${fmt(user.total_balance)} (💳 ${fmt(user.wallet)} | 🏛️ ${fmt(user.bank)})\n\n`;
             }
         }
@@ -170,12 +171,20 @@ module.exports = {
         });
 
         collector.on('collect', async (i) => {
-            if (i.customId === 'leaderboard_offeco' || i.customId === 'leaderboard_offeco_main') {
-                await i.deferUpdate();
-                await this.showOffEconomyLeaderboard(i, guildId, limit, true);
-            } else if (i.customId === 'leaderboard_regular') {
-                await i.deferUpdate();
-                await this.showRegularLeaderboard(i, guildId, limit, true);
+            try {
+                if (i.customId === 'leaderboard_offeco' || i.customId === 'leaderboard_offeco_main') {
+                    if (!i.deferred && !i.replied) {
+                        await i.deferUpdate();
+                    }
+                    await this.showOffEconomyLeaderboard(i, guildId, limit, true);
+                } else if (i.customId === 'leaderboard_regular') {
+                    if (!i.deferred && !i.replied) {
+                        await i.deferUpdate();
+                    }
+                    await this.showRegularLeaderboard(i, guildId, limit, true);
+                }
+            } catch (error) {
+                logger.error('Leaderboard button error:', error);
             }
         });
 
@@ -226,8 +235,9 @@ module.exports = {
                 const user = users[i];
                 const rank = i + 1;
                 const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
+                const tierDisplay = getTierDisplay(parseFloat(user.totalBalance));
                 
-                leaderboardText += `${medal} **${user.username}** 🔴\n`;
+                leaderboardText += `${medal} **${user.username}** ${tierDisplay} 🔴\n`;
                 leaderboardText += `   💰 ${fmt(user.totalBalance)} (💳 ${fmt(user.wallet)} | 🏛️ ${fmt(user.bank)})\n\n`;
             }
         }
@@ -315,12 +325,20 @@ module.exports = {
             });
 
             collector.on('collect', async (i) => {
-                if (i.customId === 'leaderboard_regular') {
-                    await i.deferUpdate();
-                    await this.showRegularLeaderboard(i, guildId, limit, true);
-                } else if (i.customId === 'leaderboard_offeco' || i.customId === 'leaderboard_offeco_main') {
-                    await i.deferUpdate();
-                    await this.showOffEconomyLeaderboard(i, guildId, limit, true);
+                try {
+                    if (i.customId === 'leaderboard_regular') {
+                        if (!i.deferred && !i.replied) {
+                            await i.deferUpdate();
+                        }
+                        await this.showRegularLeaderboard(i, guildId, limit, true);
+                    } else if (i.customId === 'leaderboard_offeco' || i.customId === 'leaderboard_offeco_main') {
+                        if (!i.deferred && !i.replied) {
+                            await i.deferUpdate();
+                        }
+                        await this.showOffEconomyLeaderboard(i, guildId, limit, true);
+                    }
+                } catch (error) {
+                    logger.error('Leaderboard button error:', error);
                 }
             });
 
