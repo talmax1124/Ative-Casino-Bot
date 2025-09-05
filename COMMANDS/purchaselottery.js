@@ -323,8 +323,9 @@ module.exports = {
 
             // Update lottery panel immediately after purchase
             try {
-                if (interaction.client.lotteryGame && typeof interaction.client.lotteryGame.upsertLotteryPanel === 'function') {
-                    await interaction.client.lotteryGame.upsertLotteryPanel();
+                const { updateLotteryPanel } = require('../UTILS/lottery');
+                if (updateLotteryPanel) {
+                    await updateLotteryPanel(interaction.client, guildId);
                     logger.info('Lottery panel updated after ticket purchase');
                 }
             } catch (panelError) {

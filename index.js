@@ -19,6 +19,7 @@ const panelManager = require('./UTILS/panelManager');
 const SafeInteractionHandler = require('./UTILS/interactionHandler');
 const { LotteryGame } = require('./GAMES/lottery');
 const ScratchTicketSystem = require('./GAMES/scratchTickets');
+const storageMonitor = require('./UTILS/storageMonitor');
 // Leveling system moved to UAS bot
 // Removed: const serverProducts = require('./UTILS/serverProducts'); // Web-based purchases now
 
@@ -377,6 +378,14 @@ client.once('clientReady', async () => {
         logger.info('Session Manager initialized successfully');
     } catch (error) {
         logger.error('Failed to initialize Session Manager:', error);
+    }
+
+    // Initialize Storage Monitor
+    try {
+        storageMonitor.startMonitoring(client);
+        logger.info('Storage monitoring initialized successfully');
+    } catch (error) {
+        logger.error('Failed to initialize storage monitor:', error);
     }
 
     // Send startup notification
@@ -2453,6 +2462,10 @@ process.on('SIGINT', async () => {
     logger.info('Received SIGINT, starting enhanced graceful shutdown...');
     
     try {
+        // Stop storage monitoring
+        storageMonitor.stopMonitoring();
+        logger.info('Storage monitoring stopped');
+        
         const result = await gracefulShutdown.initiateGracefulShutdown('SIGINT received', 5);
         logger.info(`Graceful shutdown completed: ${result.message}`);
     } catch (error) {
@@ -2478,6 +2491,10 @@ process.on('SIGTERM', async () => {
     logger.info('Received SIGTERM, starting enhanced graceful shutdown...');
     
     try {
+        // Stop storage monitoring
+        storageMonitor.stopMonitoring();
+        logger.info('Storage monitoring stopped');
+        
         // Stop health check server
         if (healthCheckServer) {
             healthCheckServer.stop();

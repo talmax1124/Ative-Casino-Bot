@@ -1479,7 +1479,7 @@ class DatabaseAdapter {
     /**
      * Get user level data
      */
-    async getUserLevel(userId, guildId) {
+    async getUserLevel(userId, guildId, createIfMissing = false) {
         try {
             const result = await this.executeQuery(
                 `SELECT * FROM user_levels WHERE user_id = ? AND guild_id = ?`,
@@ -1490,12 +1490,18 @@ class DatabaseAdapter {
                 return result[0];
             }
 
-            // Create initial level record - use INSERT IGNORE to prevent duplicates
-            await this.executeQuery(
-                `INSERT IGNORE INTO user_levels (user_id, guild_id, level, xp, total_xp) 
-                 VALUES (?, ?, 1, 0, 0)`,
-                [userId, guildId]
-            );
+            // Only create record if explicitly requested (for game operations, not just viewing)
+            if (createIfMissing) {
+                try {
+                    await this.executeQuery(
+                        `INSERT IGNORE INTO user_levels (user_id, guild_id, level, xp, total_xp) 
+                         VALUES (?, ?, 1, 0, 0)`,
+                        [userId, guildId]
+                    );
+                } catch (insertError) {
+                    logger.error(`Failed to create user level record: ${insertError.message}`);
+                }
+            }
 
             return {
                 user_id: userId,
@@ -1523,7 +1529,7 @@ class DatabaseAdapter {
     async addXpToUser(userId, guildId, xpAmount, reason = 'unknown') {
         try {
             // Ensure user level record exists first
-            const currentData = await this.getUserLevel(userId, guildId);
+            const currentData = await this.getUserLevel(userId, guildId, true);
             
             const newTotalXp = currentData.total_xp + xpAmount;
             const newLevel = this.calculateLevel(newTotalXp);
@@ -1548,8 +1554,29 @@ class DatabaseAdapter {
                     // Record doesn't exist, rollback and recreate
                     await this.executeQuery('ROLLBACK');
                     logger.warn(`User level record missing for ${userId}, recreating...`);
-                    await this.getUserLevel(userId, guildId); // This will create the record
-                    return await this.addXpToUser(userId, guildId, xpAmount, reason); // Retry
+                    
+                    // Force create the record
+                    try {
+                        await this.executeQuery(
+                            `INSERT IGNORE INTO user_levels (user_id, guild_id, level, xp, total_xp) 
+                             VALUES (?, ?, 1, 0, 0)`,
+                            [userId, guildId]
+                        );
+                        
+                        // Return default values instead of infinite recursion
+                        logger.info(`Created new user level record for ${userId}`);
+                        return {
+                            leveledUp: false,
+                            oldLevel: 1,
+                            newLevel: 1,
+                            xpGained: 0,
+                            newTotalXp: 0,
+                            newCurrentXp: 0
+                        };
+                    } catch (createError) {
+                        logger.error(`Failed to create user level record: ${createError.message}`);
+                        throw new Error('Unable to create user level record');
+                    }
                 }
 
                 await this.executeQuery('COMMIT');

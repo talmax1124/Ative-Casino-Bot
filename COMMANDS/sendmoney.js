@@ -230,10 +230,10 @@ module.exports = {
 
             // Update lottery panel after money transfer (economic activity affects lottery dynamics)
             try {
-                const { LotteryGame } = require('../UTILS/lottery');
-                if (LotteryGame && LotteryGame.updateAllPanels) {
-                    await LotteryGame.updateAllPanels();
-                    logger.info('Updated lottery panels after money transfer');
+                const { updateLotteryPanel } = require('../UTILS/lottery');
+                if (updateLotteryPanel) {
+                    await updateLotteryPanel(interaction.client, guildId);
+                    logger.info('Updated lottery panel after money transfer');
                 }
             } catch (lotteryError) {
                 // Non-critical error - log but don't fail the command
