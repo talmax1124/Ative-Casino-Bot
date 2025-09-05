@@ -2344,45 +2344,23 @@ async function checkActiveGames() {
     return activeGameSessions;
 }
 
+// Enhanced graceful shutdown with channel notifications
+const gracefulShutdown = require('./UTILS/gracefulShutdown');
+
+// Initialize graceful shutdown manager with client after ready
+client.once('ready', () => {
+    gracefulShutdown.initialize(client);
+});
+
 // Graceful shutdown
 process.on('SIGINT', async () => {
-    logger.info('Received SIGINT, shutting down gracefully...');
+    logger.info('Received SIGINT, starting enhanced graceful shutdown...');
     
     try {
-        // Check for active games
-        const activeGames = await checkActiveGames();
-        
-        if (activeGames.length > 0) {
-            logger.warn('Active games detected, waiting for completion...');
-            logger.info(`Active games: ${activeGames.map(g => `${g.game} (${g.count} players)`).join(', ')}`);
-            
-            // Wait for games to complete (max 5 minutes)
-            const maxWaitTime = 5 * 60 * 1000; // 5 minutes
-            const startTime = Date.now();
-            
-            while (Date.now() - startTime < maxWaitTime) {
-                const currentActiveGames = await checkActiveGames();
-                if (currentActiveGames.length === 0) {
-                    logger.info('All games completed successfully');
-                    break;
-                }
-                
-                // Wait 5 seconds before checking again
-                await new Promise(resolve => setTimeout(resolve, 5000));
-                logger.info(`Still waiting... Active games: ${currentActiveGames.map(g => `${g.game} (${g.count})`).join(', ')}`);
-            }
-            
-            // Final check
-            const remainingGames = await checkActiveGames();
-            if (remainingGames.length > 0) {
-                logger.warn(`Forcing shutdown with ${remainingGames.length} games still active after 5 minute wait`);
-            }
-        }
-        
-        // sessionManager.shutdown() removed
-        logger.info('Session Manager shutdown completed');
+        const result = await gracefulShutdown.initiateGracefulShutdown('SIGINT received', 5);
+        logger.info(`Graceful shutdown completed: ${result.message}`);
     } catch (error) {
-        logger.error('Error during Session Manager shutdown:', error);
+        logger.error(`Error during graceful shutdown: ${error.message}`);
     }
     
     client.destroy();
@@ -2401,7 +2379,7 @@ if (process.env.NODE_ENV === 'production' || process.env.ENVIRONMENT === 'produc
 
 // Enhanced shutdown handler for Railway
 process.on('SIGTERM', async () => {
-    logger.info('Received SIGTERM, shutting down gracefully...');
+    logger.info('Received SIGTERM, starting enhanced graceful shutdown...');
     
     try {
         // Stop health check server
@@ -2409,40 +2387,10 @@ process.on('SIGTERM', async () => {
             healthCheckServer.stop();
         }
         
-        // Check for active games
-        const activeGames = await checkActiveGames();
-        
-        if (activeGames.length > 0) {
-            logger.warn('Active games detected, waiting for completion...');
-            logger.info(`Active games: ${activeGames.map(g => `${g.game} (${g.count} players)`).join(', ')}`);
-            
-            // Wait for games to complete (max 3 minutes for SIGTERM - shorter than SIGINT)
-            const maxWaitTime = 3 * 60 * 1000; // 3 minutes
-            const startTime = Date.now();
-            
-            while (Date.now() - startTime < maxWaitTime) {
-                const currentActiveGames = await checkActiveGames();
-                if (currentActiveGames.length === 0) {
-                    logger.info('All games completed successfully');
-                    break;
-                }
-                
-                // Wait 5 seconds before checking again
-                await new Promise(resolve => setTimeout(resolve, 5000));
-                logger.info(`Still waiting... Active games: ${currentActiveGames.map(g => `${g.game} (${g.count})`).join(', ')}`);
-            }
-            
-            // Final check
-            const remainingGames = await checkActiveGames();
-            if (remainingGames.length > 0) {
-                logger.warn(`Forcing shutdown with ${remainingGames.length} games still active after 3 minute wait`);
-            }
-        }
-        
-        // sessionManager.shutdown() removed
-        logger.info('Session Manager shutdown completed');
+        const result = await gracefulShutdown.initiateGracefulShutdown('SIGTERM received (deployment)', 3);
+        logger.info(`Graceful shutdown completed: ${result.message}`);
     } catch (error) {
-        logger.error('Error during Session Manager shutdown:', error);
+        logger.error(`Error during graceful shutdown: ${error.message}`);
     }
     
     client.destroy();
