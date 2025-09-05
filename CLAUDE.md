@@ -112,9 +112,12 @@ if (!validation.isValid) {
 
 ## Game Limits
 - **Blackjack**: Min $1, Max $10M
-- **Slots**: Min $10, Max varies by type
+- **Roulette**: Min $10, Max $10M
+- **Slots**: Min $1, Max $175K (high multiplier limit - up to 100x)
+- **Multi-Slots**: Min $1, Max $175K (high multiplier limit - up to 100x)
+- **Plinko**: Min $100, Max $175K (high multiplier limit - up to 10x)  
+- **Crash**: Min $10, Max $175K (high multiplier limit - up to 15x)
 - **Treasure Vault**: Min $100, Max $300K (reduced due to multipliers up to 3.5x)
-- **Crash**: Min $10, Max $10M
 
 ## Environment Variables
 Required in `.env`:

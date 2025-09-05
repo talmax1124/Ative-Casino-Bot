@@ -89,7 +89,7 @@ module.exports = {
                 betAmountStr,
                 GameType.PLINKO,
                 100, // Minimum bet: 100 chips
-                150000 // Maximum bet: 150K chips
+                175000 // Maximum bet: 175K chips (high multiplier limit)
             );
 
             if (!validationResult.isValid) {

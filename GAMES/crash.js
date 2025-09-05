@@ -24,7 +24,7 @@ const { sendLogMessage } = require('../UTILS/common');
 // Optimized configuration - much more conservative
 const CRASH_CONFIG = {
   min_bet: 10,
-  max_bet: 100000,
+  max_bet: 175000,            // Max bet: $175K (high multiplier limit)
   update_interval: 1000,      // Update every 1 second (was 500ms)
   max_multiplier: 15.0,
   house_edge: 0.03,
