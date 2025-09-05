@@ -304,7 +304,7 @@ class PayoutManager {
             
             // Log booster bonus if applied
             if (boosterBonus > 0) {
-                logger.info(`Booster bonus applied for ${userId}: +${fmt(boosterBonus)} (2% boost)`);
+                logger.info(`Booster bonus applied for ${userId}: +${fmt(boosterBonus)} (5% boost)`);
             }
             
             // Update game statistics with profile data
@@ -403,7 +403,7 @@ class PayoutManager {
     }
     
     /**
-     * Calculate server booster bonus (2% extra on wins)
+     * Calculate server booster bonus (5% extra on wins)
      * @param {string} userId - Discord user ID
      * @param {string} guildId - Guild ID
      * @param {number} payout - Base payout amount
@@ -420,8 +420,8 @@ class PayoutManager {
                 
                 // Only apply bonus to actual wins, not pushes/ties
                 if (isBooster && payout > 0 && won) {
-                    // Calculate 2% bonus on winnings
-                    const bonusAmount = Math.floor(payout * 0.02);
+                    // Calculate 5% bonus on winnings
+                    const bonusAmount = Math.floor(payout * 0.05);
                     return { amount: bonusAmount, isBooster: true };
                 }
             }

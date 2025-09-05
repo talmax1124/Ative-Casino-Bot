@@ -52,7 +52,7 @@ npm run test:health
 - Virtual currency with wallet/bank separation
 - Bet validation through `PayoutManager.validateAndDeductBet()`
 - Automatic payout processing with `PayoutManager.processGamePayout()`
-- Server booster bonus support (2% boost)
+- Server booster bonus support (5% boost)
 - Anti-abuse monitoring with high-win alerts
 
 #### Game Framework
@@ -111,7 +111,7 @@ if (!validation.isValid) {
 ```
 
 ## Game Limits
-- **Blackjack**: Min $1, Max $10M
+- **Blackjack**: Min $1, No maximum (supports "all in" for entire wallet)
 - **Roulette**: Min $10, Max $10M
 - **Slots**: Min $1, Max $175K (high multiplier limit - up to 100x)
 - **Multi-Slots**: Min $1, Max $175K (high multiplier limit - up to 100x)

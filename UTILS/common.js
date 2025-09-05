@@ -717,7 +717,7 @@ function isServerBooster(member) {
 }
 
 /**
- * Calculate 2% server booster bonus
+ * Calculate 5% server booster bonus
  * @param {number} amount - Base amount to calculate bonus from
  * @param {Object} member - Discord guild member object
  * @returns {Object} Object containing bonus amount and whether user is booster
@@ -726,7 +726,7 @@ function calculateBoosterBonus(amount, member) {
     try {
         const isBooster = isServerBooster(member);
         if (isBooster && amount > 0) {
-            const bonusAmount = Math.floor(amount * 0.02);
+            const bonusAmount = Math.floor(amount * 0.05);
             return { amount: bonusAmount, isBooster: true };
         }
         return { amount: 0, isBooster: false };

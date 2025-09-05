@@ -66,7 +66,7 @@ module.exports = {
             const scenario = workScenarios[secureRandomInt(0, workScenarios.length)];
             const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
 
-            // Calculate server booster bonus (2%)
+            // Calculate server booster bonus (5%)
             const boosterInfo = calculateBoosterBonus(baseEarning, interaction.member);
             const boosterBonus = boosterInfo.amount;
             const totalEarning = baseEarning + boosterBonus;
@@ -84,7 +84,7 @@ module.exports = {
             // Build earnings display with booster bonus if applicable
             let earningsDisplay = `+ Earnings: ${fmt(baseEarning)}`;
             if (boosterInfo.isBooster && boosterBonus > 0) {
-                earningsDisplay += `\n+ Booster Bonus (2%): ${fmt(boosterBonus)}`;
+                earningsDisplay += `\n+ Booster Bonus (5%): ${fmt(boosterBonus)}`;
                 earningsDisplay += `\n= Total Earned: ${fmt(totalEarning)}`;
             }
 
@@ -100,7 +100,7 @@ module.exports = {
             const bankFields = [
                 { name: 'Amount Earned', value: fmt(totalEarning), inline: true },
                 { name: 'Current Balance', value: fmt(newWallet), inline: true },
-                { name: boosterInfo.isBooster ? '🚀 Booster Status' : 'Next Work Available', value: boosterInfo.isBooster ? 'Active (+2%)' : 'In 1 hour', inline: true }
+                { name: boosterInfo.isBooster ? '🚀 Booster Status' : 'Next Work Available', value: boosterInfo.isBooster ? 'Active (+5%)' : 'In 1 hour', inline: true }
             ];
 
             // Stage text for current status

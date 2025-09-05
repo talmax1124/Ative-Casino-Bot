@@ -61,7 +61,7 @@ module.exports = {
             // Calculate total earnings
             const baseEarnings = Object.values(results).reduce((sum, result) => sum + (result.earned || 0), 0);
             
-            // Calculate server booster bonus (2% on total earnings)
+            // Calculate server booster bonus (5% on total earnings)
             const boosterInfo = calculateBoosterBonus(baseEarnings, interaction.member);
             const boosterBonus = boosterInfo.amount;
             const totalEarned = baseEarnings + boosterBonus;
@@ -114,7 +114,7 @@ module.exports = {
             const bankFields = [
                 { name: '💎 Total Earned', value: boosterInfo.isBooster ? `${fmt(totalEarned)} (🚀 +${fmt(boosterBonus)})` : fmt(totalEarned), inline: true },
                 { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                { name: boosterInfo.isBooster ? '🚀 Boost Active' : '📈 Change', value: boosterInfo.isBooster ? '+2% Bonus' : fmtDelta(totalEarned), inline: true }
+                { name: boosterInfo.isBooster ? '🚀 Boost Active' : '📈 Change', value: boosterInfo.isBooster ? '+5% Bonus' : fmtDelta(totalEarned), inline: true }
             ];
 
             const successEmbed = buildSessionEmbed({
