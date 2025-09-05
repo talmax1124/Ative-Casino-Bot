@@ -94,6 +94,8 @@ class DatabaseAdapter {
                 last_beg_ts BIGINT NOT NULL DEFAULT 0,
                 last_crime_ts BIGINT NOT NULL DEFAULT 0,
                 last_heist_ts BIGINT NOT NULL DEFAULT 0,
+                daily_sent DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                last_send_reset BIGINT NOT NULL DEFAULT 0,
                 username VARCHAR(100) DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -302,6 +304,31 @@ class DatabaseAdapter {
                 }
             }
             
+            // Ensure daily send tracking columns exist in user_balances table
+            try {
+                await connection.execute(`
+                    ALTER TABLE user_balances 
+                    ADD COLUMN daily_sent DECIMAL(20,2) NOT NULL DEFAULT 0.00 AFTER last_heist_ts
+                `);
+                logger.info('Added daily_sent column to user_balances table');
+            } catch (addColumnError) {
+                if (!addColumnError.message.includes('Duplicate column name')) {
+                    logger.debug(`Daily sent column migration: ${addColumnError.message}`);
+                }
+            }
+            
+            try {
+                await connection.execute(`
+                    ALTER TABLE user_balances 
+                    ADD COLUMN last_send_reset BIGINT NOT NULL DEFAULT 0 AFTER daily_sent
+                `);
+                logger.info('Added last_send_reset column to user_balances table');
+            } catch (addColumnError) {
+                if (!addColumnError.message.includes('Duplicate column name')) {
+                    logger.debug(`Last send reset column migration: ${addColumnError.message}`);
+                }
+            }
+            
             logger.info('MariaDB schema initialized successfully');
         } finally {
             connection.release();
@@ -360,6 +387,8 @@ class DatabaseAdapter {
                     last_beg_ts: parseFloat(row.last_beg_ts),
                     last_crime_ts: parseFloat(row.last_crime_ts),
                     last_heist_ts: parseFloat(row.last_heist_ts),
+                    daily_sent: parseFloat(row.daily_sent || 0),
+                    last_send_reset: parseFloat(row.last_send_reset || 0),
                     created_at: row.created_at,
                     updated_at: row.updated_at
                 };
@@ -376,6 +405,8 @@ class DatabaseAdapter {
                     last_beg_ts: 0.0,
                     last_crime_ts: 0.0,
                     last_heist_ts: 0.0,
+                    daily_sent: 0.0,
+                    last_send_reset: 0.0,
                     created_at: new Date(),
                     updated_at: new Date()
                 };
@@ -383,9 +414,9 @@ class DatabaseAdapter {
                 await this.executeQuery(
                     `INSERT IGNORE INTO user_balances 
                      (user_id, wallet, bank, last_earn_ts, last_rob_ts, game_active, 
-                      last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0]
+                      last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts, daily_sent, last_send_reset) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
                 );
 
                 // Re-fetch the user data in case it was already created by another process
@@ -1451,35 +1482,52 @@ class DatabaseAdapter {
      */
     async addXpToUser(userId, guildId, xpAmount, reason = 'unknown') {
         try {
-            // Ensure user level record exists
-            await this.getUserLevel(userId, guildId);
-
-            // Calculate new level
+            // Ensure user level record exists first
             const currentData = await this.getUserLevel(userId, guildId);
+            
             const newTotalXp = currentData.total_xp + xpAmount;
             const newLevel = this.calculateLevel(newTotalXp);
             const newCurrentXp = this.calculateCurrentXp(newTotalXp);
             const leveledUp = newLevel > currentData.level;
 
-            // Update XP and level
-            await this.executeQuery(
-                `UPDATE user_levels 
-                 SET xp = ?, total_xp = ?, level = ?, last_xp_gain = NOW(),
-                     last_level_up = CASE WHEN ? THEN NOW() ELSE last_level_up END
-                 WHERE user_id = ? AND guild_id = ?`,
-                [newCurrentXp, newTotalXp, newLevel, leveledUp, userId, guildId]
-            );
+            // Use a transaction to ensure atomic updates
+            await this.executeQuery('START TRANSACTION');
+            
+            try {
+                // Update XP and level
+                const updateResult = await this.executeQuery(
+                    `UPDATE user_levels 
+                     SET xp = ?, total_xp = ?, level = ?, last_xp_gain = NOW(),
+                         last_level_up = CASE WHEN ? THEN NOW() ELSE last_level_up END
+                     WHERE user_id = ? AND guild_id = ?`,
+                    [newCurrentXp, newTotalXp, newLevel, leveledUp, userId, guildId]
+                );
 
-            logger.info(`Added ${xpAmount} XP to ${userId} for ${reason} (Level: ${currentData.level} -> ${newLevel})`);
+                // Check if update actually affected a row
+                if (updateResult.affectedRows === 0) {
+                    // Record doesn't exist, rollback and recreate
+                    await this.executeQuery('ROLLBACK');
+                    logger.warn(`User level record missing for ${userId}, recreating...`);
+                    await this.getUserLevel(userId, guildId); // This will create the record
+                    return await this.addXpToUser(userId, guildId, xpAmount, reason); // Retry
+                }
 
-            return {
-                leveledUp,
-                oldLevel: currentData.level,
-                newLevel,
-                xpGained: xpAmount,
-                newTotalXp,
-                newCurrentXp
-            };
+                await this.executeQuery('COMMIT');
+                
+                logger.info(`Added ${xpAmount} XP to ${userId} for ${reason} (Level: ${currentData.level} -> ${newLevel})`);
+
+                return {
+                    leveledUp,
+                    oldLevel: currentData.level,
+                    newLevel,
+                    xpGained: xpAmount,
+                    newTotalXp,
+                    newCurrentXp
+                };
+            } catch (transactionError) {
+                await this.executeQuery('ROLLBACK');
+                throw transactionError;
+            }
         } catch (error) {
             logger.error(`Error adding XP: ${error.message}`);
             throw error;
@@ -1491,13 +1539,21 @@ class DatabaseAdapter {
      */
     async updateGameStats(userId, guildId, won = false) {
         try {
-            await this.executeQuery(
+            // Ensure user level record exists first
+            await this.getUserLevel(userId, guildId);
+            
+            const updateResult = await this.executeQuery(
                 `UPDATE user_levels 
                  SET games_played = games_played + 1,
                      games_won = games_won + CASE WHEN ? THEN 1 ELSE 0 END
                  WHERE user_id = ? AND guild_id = ?`,
                 [won, userId, guildId]
             );
+            
+            // Log if no rows were affected (shouldn't happen after getUserLevel call)
+            if (updateResult.affectedRows === 0) {
+                logger.warn(`Failed to update game stats for ${userId} - no record found`);
+            }
         } catch (error) {
             logger.error(`Error updating game stats: ${error.message}`);
         }
@@ -1882,6 +1938,253 @@ class DatabaseAdapter {
             });
         } catch (error) {
             logger.error(`Error getting user active scratch tickets: ${error.message}`);
+            return [];
+        }
+    }
+
+    // ========================= ECONOMY ANALYSIS OPERATIONS =========================
+
+    /**
+     * Get comprehensive economy statistics
+     */
+    async getEconomyStats(guildId) {
+        try {
+            const stats = {
+                totalWealth: 0,
+                activeUsers: 0,
+                avgBalance: 0,
+                wealthDistribution: [],
+                topUsers: [],
+                totalTransactions: 0,
+                totalWagered: 0,
+                totalWon: 0,
+                winRate: 0,
+                lotteryPool: 0,
+                dailySendVolume: 0,
+                economicActivity: []
+            };
+
+            // Total wealth and user count
+            const wealthResult = await this.executeQuery(`
+                SELECT 
+                    COUNT(*) as user_count,
+                    SUM(wallet + bank) as total_wealth,
+                    AVG(wallet + bank) as avg_balance,
+                    SUM(daily_sent) as daily_send_volume
+                FROM user_balances 
+                WHERE wallet + bank > 0
+            `);
+
+            if (wealthResult.length > 0) {
+                const row = wealthResult[0];
+                stats.totalWealth = parseFloat(row.total_wealth || 0);
+                stats.activeUsers = parseInt(row.user_count || 0);
+                stats.avgBalance = parseFloat(row.avg_balance || 0);
+                stats.dailySendVolume = parseFloat(row.daily_send_volume || 0);
+            }
+
+            // Wealth distribution (tiers)
+            const distributionResult = await this.executeQuery(`
+                SELECT 
+                    CASE 
+                        WHEN wallet + bank >= 100000000 THEN 'Ultra Rich (100M+)'
+                        WHEN wallet + bank >= 50000000 THEN 'Very Rich (50M-100M)'
+                        WHEN wallet + bank >= 10000000 THEN 'Rich (10M-50M)'
+                        WHEN wallet + bank >= 1000000 THEN 'Wealthy (1M-10M)'
+                        WHEN wallet + bank >= 100000 THEN 'Upper Class (100K-1M)'
+                        WHEN wallet + bank >= 10000 THEN 'Middle Class (10K-100K)'
+                        WHEN wallet + bank >= 1000 THEN 'Working Class (1K-10K)'
+                        ELSE 'Poor (<1K)'
+                    END as tier,
+                    COUNT(*) as count,
+                    SUM(wallet + bank) as total_wealth
+                FROM user_balances 
+                WHERE wallet + bank > 0
+                GROUP BY tier
+                ORDER BY MIN(wallet + bank) DESC
+            `);
+
+            stats.wealthDistribution = distributionResult.map(row => ({
+                label: row.tier,
+                count: parseInt(row.count),
+                value: parseFloat(row.total_wealth)
+            }));
+
+            // Top users by wealth
+            const topUsersResult = await this.executeQuery(`
+                SELECT 
+                    user_id,
+                    username,
+                    wallet + bank as total_balance,
+                    wallet,
+                    bank
+                FROM user_balances 
+                WHERE wallet + bank > 0
+                ORDER BY total_balance DESC
+                LIMIT 10
+            `);
+
+            stats.topUsers = topUsersResult.map(row => ({
+                userId: row.user_id,
+                username: row.username || `User ${row.user_id}`,
+                totalBalance: parseFloat(row.total_balance),
+                wallet: parseFloat(row.wallet),
+                bank: parseFloat(row.bank)
+            }));
+
+            // Game statistics
+            const gameStatsResult = await this.executeQuery(`
+                SELECT 
+                    COUNT(*) as total_games,
+                    SUM(total_wagered) as total_wagered,
+                    SUM(total_winnings) as total_won,
+                    SUM(total_wins) as total_wins,
+                    SUM(total_losses) as total_losses
+                FROM user_stats
+            `);
+
+            if (gameStatsResult.length > 0) {
+                const row = gameStatsResult[0];
+                stats.totalTransactions = parseInt(row.total_games || 0);
+                stats.totalWagered = parseFloat(row.total_wagered || 0);
+                stats.totalWon = parseFloat(row.total_won || 0);
+                const totalGames = parseInt(row.total_wins || 0) + parseInt(row.total_losses || 0);
+                stats.winRate = totalGames > 0 ? (parseInt(row.total_wins || 0) / totalGames * 100) : 0;
+            }
+
+            // Game type breakdown
+            const gameTypeResult = await this.executeQuery(`
+                SELECT 
+                    game_type,
+                    SUM(total_wagered) as wagered,
+                    SUM(total_winnings) as won,
+                    SUM(total_wins) as wins,
+                    SUM(total_losses) as losses
+                FROM user_stats
+                WHERE game_type IS NOT NULL
+                GROUP BY game_type
+                ORDER BY wagered DESC
+            `);
+
+            stats.gameBreakdown = gameTypeResult.map(row => ({
+                game: row.game_type,
+                wagered: parseFloat(row.wagered || 0),
+                won: parseFloat(row.won || 0),
+                wins: parseInt(row.wins || 0),
+                losses: parseInt(row.losses || 0),
+                winRate: (parseInt(row.wins || 0) + parseInt(row.losses || 0)) > 0 
+                    ? (parseInt(row.wins || 0) / (parseInt(row.wins || 0) + parseInt(row.losses || 0)) * 100) 
+                    : 0
+            }));
+
+            // Lottery pool (for main server)
+            try {
+                const lotteryResult = await this.executeQuery(`
+                    SELECT pool_amount FROM lottery_info WHERE guild_id = ? ORDER BY created_at DESC LIMIT 1
+                `, [guildId]);
+                
+                if (lotteryResult.length > 0) {
+                    stats.lotteryPool = parseFloat(lotteryResult[0].pool_amount || 0);
+                }
+            } catch (lotteryError) {
+                // Lottery table might not exist
+                stats.lotteryPool = 0;
+            }
+
+            // Activity metrics (last 7 days)
+            try {
+                const activityResult = await this.executeQuery(`
+                    SELECT 
+                        DATE(updated_at) as date,
+                        COUNT(*) as active_users,
+                        SUM(wallet + bank) as total_wealth
+                    FROM user_balances 
+                    WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    GROUP BY DATE(updated_at)
+                    ORDER BY date DESC
+                    LIMIT 7
+                `);
+
+                stats.economicActivity = activityResult.map(row => ({
+                    date: row.date,
+                    activeUsers: parseInt(row.active_users),
+                    totalWealth: parseFloat(row.total_wealth)
+                }));
+            } catch (activityError) {
+                stats.economicActivity = [];
+            }
+
+            return stats;
+
+        } catch (error) {
+            logger.error(`Error getting economy stats: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Get user economic ranking
+     */
+    async getUserEconomicRank(userId) {
+        try {
+            const result = await this.executeQuery(`
+                SELECT 
+                    rank_num,
+                    total_balance,
+                    percentile
+                FROM (
+                    SELECT 
+                        user_id,
+                        wallet + bank as total_balance,
+                        ROW_NUMBER() OVER (ORDER BY wallet + bank DESC) as rank_num,
+                        PERCENT_RANK() OVER (ORDER BY wallet + bank DESC) * 100 as percentile
+                    FROM user_balances
+                    WHERE wallet + bank > 0
+                ) ranked
+                WHERE user_id = ?
+            `, [userId]);
+
+            if (result.length > 0) {
+                return {
+                    rank: parseInt(result[0].rank_num),
+                    balance: parseFloat(result[0].total_balance),
+                    percentile: parseFloat(result[0].percentile)
+                };
+            }
+
+            return null;
+        } catch (error) {
+            logger.error(`Error getting user economic rank: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Get economic trends over time
+     */
+    async getEconomicTrends(days = 30) {
+        try {
+            const result = await this.executeQuery(`
+                SELECT 
+                    DATE(updated_at) as date,
+                    COUNT(DISTINCT user_id) as active_users,
+                    AVG(wallet + bank) as avg_wealth,
+                    SUM(wallet + bank) as total_wealth
+                FROM user_balances 
+                WHERE updated_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                GROUP BY DATE(updated_at)
+                ORDER BY date ASC
+            `, [days]);
+
+            return result.map(row => ({
+                date: row.date,
+                activeUsers: parseInt(row.active_users),
+                avgWealth: parseFloat(row.avg_wealth || 0),
+                totalWealth: parseFloat(row.total_wealth || 0)
+            }));
+
+        } catch (error) {
+            logger.error(`Error getting economic trends: ${error.message}`);
             return [];
         }
     }

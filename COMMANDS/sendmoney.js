@@ -84,6 +84,15 @@ module.exports = {
             // Get sender's balance
             const senderBalance = await dbManager.getUserBalance(senderId, guildId);
             
+            // Check and reset daily send limit if needed
+            const today = Math.floor(now / (1000 * 60 * 60 * 24)); // Days since epoch
+            const lastResetDay = Math.floor((senderBalance.last_send_reset || 0) / (1000 * 60 * 60 * 24));
+            
+            let dailySent = senderBalance.daily_sent || 0;
+            if (today > lastResetDay) {
+                dailySent = 0; // Reset daily limit
+            }
+            
             // Validate and parse amount
             const validation = validateAmount(amountStr, senderBalance.wallet, 1000); // Minimum $1,000
             
@@ -95,6 +104,20 @@ module.exports = {
             }
             
             const amount = validation.amount;
+            
+            // Check daily send limit ($45M)
+            const DAILY_SEND_LIMIT = 45000000;
+            if (dailySent + amount > DAILY_SEND_LIMIT) {
+                const remaining = DAILY_SEND_LIMIT - dailySent;
+                await interaction.editReply({
+                    content: `❌ **Daily Send Limit Reached!**\n\n` +
+                            `You can send up to $45M per day.\n` +
+                            `Already sent today: ${fmt(dailySent)}\n` +
+                            `Remaining today: ${fmt(Math.max(0, remaining))}\n` +
+                            `Limit resets at midnight UTC.`
+                });
+                return;
+            }
 
             // Calculate tax (5% for lottery pool)
             const taxRate = 0.05;
@@ -109,7 +132,9 @@ module.exports = {
                 amount, 
                 netAmount, 
                 taxAmount,
-                interaction
+                interaction,
+                dailySent + amount,
+                now
             );
 
             if (transferResult.success) {
@@ -224,7 +249,7 @@ module.exports = {
     /**
      * Process money transfer between users with lottery tax
      */
-    async processMoneyTransfer(senderId, recipientId, guildId, grossAmount, netAmount, taxAmount, interaction) {
+    async processMoneyTransfer(senderId, recipientId, guildId, grossAmount, netAmount, taxAmount, interaction, newDailySent, timestamp) {
         try {
             // Get both user balances first
             const senderBalance = await dbManager.getUserBalance(senderId, guildId);
@@ -239,12 +264,16 @@ module.exports = {
             const newSenderWallet = senderBalance.wallet - grossAmount;
             const newRecipientWallet = recipientBalance.wallet + netAmount;
 
-            // Update sender balance
-            const senderUpdateSuccess = await dbManager.setUserBalance(
+            // Update sender balance with daily send tracking
+            const senderUpdateSuccess = await dbManager.updateUserBalance(
                 senderId, 
                 guildId, 
-                newSenderWallet, 
-                senderBalance.bank
+                -grossAmount, // Deduct from wallet
+                0, // No bank change
+                {
+                    daily_sent: newDailySent,
+                    last_send_reset: timestamp
+                }
             );
 
             if (!senderUpdateSuccess) {
@@ -252,20 +281,24 @@ module.exports = {
             }
 
             // Update recipient balance
-            const recipientUpdateSuccess = await dbManager.setUserBalance(
+            const recipientUpdateSuccess = await dbManager.updateUserBalance(
                 recipientId, 
                 guildId, 
-                newRecipientWallet, 
-                recipientBalance.bank
+                netAmount, // Add to wallet
+                0 // No bank change
             );
 
             if (!recipientUpdateSuccess) {
                 // Rollback sender balance if recipient update fails
-                await dbManager.setUserBalance(
+                await dbManager.updateUserBalance(
                     senderId, 
                     guildId, 
-                    senderBalance.wallet, 
-                    senderBalance.bank
+                    grossAmount, // Add back to wallet
+                    0, // No bank change
+                    {
+                        daily_sent: senderBalance.daily_sent || 0, // Reset to original
+                        last_send_reset: senderBalance.last_send_reset || 0 // Reset to original
+                    }
                 );
                 throw new Error('Failed to update recipient balance');
             }

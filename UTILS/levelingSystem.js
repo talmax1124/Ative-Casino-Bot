@@ -95,27 +95,24 @@ class LevelingSystem {
                 }
             }
 
-            // Award XP with error handling for duplicates
+            // Award XP with improved error handling
             let result = null;
             try {
                 result = await dbManager.addXpToUser(userId, guildId, totalXp, reasons.join(', '));
-            } catch (xpError) {
-                if (xpError.message.includes('Duplicate entry')) {
-                    logger.debug(`User ${userId} already exists in leveling system, skipping XP award`);
+                if (!result) {
+                    logger.warn(`Failed to award XP to ${userId}, result was null`);
                     return null;
                 }
-                throw xpError;
+            } catch (xpError) {
+                logger.error(`Error awarding XP to ${userId}: ${xpError.message}`);
+                return null;
             }
             
             // Update game stats with error handling
             try {
                 await dbManager.updateGameStats(userId, guildId, won);
             } catch (statsError) {
-                if (statsError.message.includes('Duplicate entry')) {
-                    logger.debug(`User ${userId} already has game stats, skipping update`);
-                } else {
-                    logger.warn(`Failed to update game stats for ${userId}: ${statsError.message}`);
-                }
+                logger.warn(`Failed to update game stats for ${userId}: ${statsError.message}`);
             }
 
             logger.info(`Awarded ${totalXp} XP to ${userId} for ${reasons.join(', ')}`);
@@ -143,9 +140,16 @@ class LevelingSystem {
             this.lastChatXp.set(userId, now);
 
             const xpAmount = XP_REWARDS.CHAT_MESSAGE;
-            const result = await dbManager.addXpToUser(userId, guildId, xpAmount, 'chat activity');
-            
-            return result;
+            try {
+                const result = await dbManager.addXpToUser(userId, guildId, xpAmount, 'chat activity');
+                if (!result) {
+                    logger.debug(`Failed to award chat XP to ${userId}, result was null`);
+                }
+                return result;
+            } catch (xpError) {
+                logger.error(`Error awarding chat XP to ${userId}: ${xpError.message}`);
+                return null;
+            }
 
         } catch (error) {
             logger.error(`Error handling chat XP: ${error.message}`);
