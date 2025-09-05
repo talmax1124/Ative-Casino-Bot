@@ -196,3 +196,4 @@ Co-Authored-By: Claude <noreply@anthropic.com>" && git push
 - Refunds processed on errors
 - Always Show A To-Do List. As well, as make sure that the code that is generated to be tested thoroughly.
 - Make sure all games, commands, have consistent UI!
+- When making a new feature, make it into a new git branch.
