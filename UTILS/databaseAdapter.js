@@ -793,12 +793,14 @@ class DatabaseAdapter {
                 [userId, guildId, ticketCount, totalCost, currentWeekStart, ticketCount, totalCost]
             );
             
-            // Update lottery info
+            // Update lottery info - add tickets and add ticket money to prize pool
             await connection.execute(
-                `INSERT INTO lottery_info (guild_id, total_tickets, current_week_start) 
-                 VALUES (?, ?, ?)
-                 ON DUPLICATE KEY UPDATE total_tickets = total_tickets + ?`,
-                [guildId, ticketCount, currentWeekStart, ticketCount]
+                `INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start) 
+                 VALUES (?, ?, 400000.00 + ?, ?)
+                 ON DUPLICATE KEY UPDATE 
+                 total_tickets = total_tickets + ?, 
+                 total_prize = total_prize + ?`,
+                [guildId, ticketCount, totalCost, currentWeekStart, ticketCount, totalCost]
             );
             
             await connection.commit();
@@ -1297,15 +1299,23 @@ class DatabaseAdapter {
      */
     async addToLotteryPool(guildId, amount) {
         try {
+            const currentWeekStart = this.getCurrentWeekStart();
+            
+            // First ensure the lottery_info record exists
+            await this.pool.execute(
+                `INSERT IGNORE INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start) 
+                 VALUES (?, 0, 400000.00, ?)`,
+                [guildId, currentWeekStart]
+            );
+            
+            // Now update the total_prize by adding the amount
             const query = `
-                INSERT INTO lottery (guild_id, total_prize, week_start) 
-                VALUES (?, ?, ?)
-                ON DUPLICATE KEY UPDATE 
-                total_prize = total_prize + VALUES(total_prize)
+                UPDATE lottery_info 
+                SET total_prize = total_prize + ?
+                WHERE guild_id = ?
             `;
             
-            const weekStart = this.getCurrentWeekStart();
-            await this.connection.execute(query, [guildId, amount, weekStart]);
+            await this.pool.execute(query, [amount, guildId]);
             
             logger.info(`Added ${amount} to lottery pool for guild ${guildId || 'global'}`);
             return true;
