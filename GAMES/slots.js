@@ -70,37 +70,62 @@ async function loadSymbolImage(symbol) {
 }
 
 /**
- * Get weighted random symbol
+ * Get weighted random symbol with entropy seeding
  */
-function getWeightedSymbol(matrixMode = false) {
+function getWeightedSymbol(matrixMode = false, entropy = 0) {
     const symbolDict = matrixMode ? MATRIX_SYMBOLS : SLOT_SYMBOLS;
     const symbols = Object.keys(symbolDict);
-    const weights = symbols.map(symbol => symbolDict[symbol].rarity);
     
-    return secureWeightedChoice(symbols, weights) || symbols[0];
+    // Add entropy-based weight adjustment to reduce patterns
+    const baseWeights = symbols.map(symbol => symbolDict[symbol].rarity);
+    const adjustedWeights = baseWeights.map((weight, index) => {
+        // Use entropy to slightly adjust weights (±5% variation)
+        const adjustment = Math.sin(entropy + index * 0.7) * 0.05;
+        return Math.max(0.01, weight * (1 + adjustment));
+    });
+    
+    return secureWeightedChoice(symbols, adjustedWeights) || symbols[0];
+}
+
+/**
+ * Generate entropy seed for better randomization
+ */
+function generateEntropy() {
+    return Date.now() * Math.PI + (Math.random() * 1000);
 }
 
 
 /**
- * Generate regular slot result (3 symbols)
+ * Generate regular slot result (3 symbols) with better randomization
  */
 function spinSlots() {
+    const entropy = generateEntropy();
     return [
-        getWeightedSymbol(),
-        getWeightedSymbol(),
-        getWeightedSymbol()
+        getWeightedSymbol(false, entropy),
+        getWeightedSymbol(false, entropy * 1.3),
+        getWeightedSymbol(false, entropy * 1.7)
     ];
 }
 
 /**
- * Generate matrix slot result (3x3 grid)
+ * Generate matrix slot result (3x3 grid) with improved distribution
  */
 function spinMatrixSlots() {
-    return [
-        [getWeightedSymbol(true), getWeightedSymbol(true), getWeightedSymbol(true)],
-        [getWeightedSymbol(true), getWeightedSymbol(true), getWeightedSymbol(true)],
-        [getWeightedSymbol(true), getWeightedSymbol(true), getWeightedSymbol(true)]
-    ];
+    const baseEntropy = generateEntropy();
+    const matrix = [];
+    
+    // Generate each position with unique entropy to reduce patterns
+    for (let row = 0; row < 3; row++) {
+        const matrixRow = [];
+        for (let col = 0; col < 3; col++) {
+            // Each position gets unique entropy based on position and base seed
+            const positionEntropy = baseEntropy * (1 + (row * 0.3) + (col * 0.5)) + (row * col * 0.2);
+            matrixRow.push(getWeightedSymbol(true, positionEntropy));
+        }
+        matrix.push(matrixRow);
+    }
+    
+    return matrix;
 }
 
 /**
@@ -242,7 +267,7 @@ function calculateMatrixPayout(matrix, betAmount) {
  */
 function createSlotDisplay(symbols) {
     const emojis = symbols.map(symbol => SLOT_SYMBOLS[symbol].emoji);
-    return `[ ${emojis[0]} | ${emojis[1]} | ${emojis[2]} ]`;
+    return `${emojis[0]} ${emojis[1]} ${emojis[2]}`;
 }
 
 
@@ -251,7 +276,7 @@ function createSlotDisplay(symbols) {
  */
 function createMatrixDisplay(matrix) {
     const lines = matrix.map(row => 
-        row.map(symbol => MATRIX_SYMBOLS[symbol].emoji).join(' | ')
+        row.map(symbol => MATRIX_SYMBOLS[symbol].emoji).join(' ')
     );
     return lines.join('\n');
 }
