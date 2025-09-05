@@ -110,7 +110,11 @@ module.exports = {
                 new ButtonBuilder()
                     .setCustomId('leaderboard_offeco')
                     .setLabel('🔴 Off Economy')
-                    .setStyle(ButtonStyle.Secondary)
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('leaderboard_offeco_main')
+                    .setLabel('OFF ECO LEADERBOARD')
+                    .setStyle(ButtonStyle.Danger)
             );
 
         const embed = new EmbedBuilder()
@@ -166,7 +170,7 @@ module.exports = {
         });
 
         collector.on('collect', async (i) => {
-            if (i.customId === 'leaderboard_offeco') {
+            if (i.customId === 'leaderboard_offeco' || i.customId === 'leaderboard_offeco_main') {
                 await i.deferUpdate();
                 await this.showOffEconomyLeaderboard(i, guildId, limit, true);
             } else if (i.customId === 'leaderboard_regular') {
@@ -188,6 +192,11 @@ module.exports = {
                         .setCustomId('leaderboard_offeco_disabled')
                         .setLabel('🔴 Off Economy')
                         .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId('leaderboard_offeco_main_disabled')
+                        .setLabel('OFF ECO LEADERBOARD')
+                        .setStyle(ButtonStyle.Danger)
                         .setDisabled(true)
                 );
 
@@ -234,6 +243,11 @@ module.exports = {
                     .setCustomId('leaderboard_offeco')
                     .setLabel('🔴 Off Economy')
                     .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true), // Currently selected
+                new ButtonBuilder()
+                    .setCustomId('leaderboard_offeco_main')
+                    .setLabel('OFF ECO LEADERBOARD')
+                    .setStyle(ButtonStyle.Danger)
                     .setDisabled(true) // Currently selected
             );
 
@@ -304,7 +318,7 @@ module.exports = {
                 if (i.customId === 'leaderboard_regular') {
                     await i.deferUpdate();
                     await this.showRegularLeaderboard(i, guildId, limit, true);
-                } else if (i.customId === 'leaderboard_offeco') {
+                } else if (i.customId === 'leaderboard_offeco' || i.customId === 'leaderboard_offeco_main') {
                     await i.deferUpdate();
                     await this.showOffEconomyLeaderboard(i, guildId, limit, true);
                 }
@@ -323,6 +337,11 @@ module.exports = {
                             .setCustomId('leaderboard_offeco_disabled')
                             .setLabel('🔴 Off Economy')
                             .setStyle(ButtonStyle.Secondary)
+                            .setDisabled(true),
+                        new ButtonBuilder()
+                            .setCustomId('leaderboard_offeco_main_disabled')
+                            .setLabel('OFF ECO LEADERBOARD')
+                            .setStyle(ButtonStyle.Danger)
                             .setDisabled(true)
                     );
 
