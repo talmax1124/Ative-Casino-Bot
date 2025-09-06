@@ -89,6 +89,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: 'russianroulette',
                 betAmount,
+                betPreDeducted: true, // Bet already deducted by PayoutManager
                 timeout: Math.max(300000, joinTime * 1000 + 60000), // joinTime + 1 minute buffer
                 metadata: {
                     gamePhase: 'joining',
@@ -98,7 +99,8 @@ module.exports = {
                     maxPlayers: ROULETTE_CONFIG.MAX_PLAYERS, // null = unlimited
                     joinTime: joinTime * 1000, // Convert to milliseconds
                     forceStart: forceStart
-                }
+                },
+                interaction
             });
 
             if (!sessionResult.success) {
@@ -140,9 +142,24 @@ module.exports = {
                 logger.error(`Failed to cleanup after Russian Roulette command error: ${cleanupError.message}`);
             }
 
+            // Create more specific error messages based on the error type
+            let errorTitle = '❌ Russian Roulette Error';
+            let errorDescription = 'Failed to start Russian Roulette game. Please try again.';
+            
+            if (error.message.includes('Insufficient funds')) {
+                errorTitle = '💰 Insufficient Funds';
+                errorDescription = `You need at least **${fmt(ROULETTE_CONFIG.MIN_BET)}** in your wallet to start Russian Roulette.\n\nUse \`/balance\` to check your funds or \`/withdraw\` to move money from your bank.`;
+            } else if (error.message.includes('Session creation failed')) {
+                errorTitle = '⏱️ Session Error';
+                errorDescription = 'Unable to create a game session. You might already have an active game running.\n\nUse \`/stopmysession\` to end any active sessions, then try again.';
+            } else if (error.message.includes('already have an active')) {
+                errorTitle = '🎮 Game Already Active';
+                errorDescription = 'You already have a game in progress. Finish your current game or use \`/stopmysession\` to end it.';
+            }
+
             const embed = new EmbedBuilder()
-                .setTitle('❌ Russian Roulette Error')
-                .setDescription('Failed to start Russian Roulette game. Please try again.')
+                .setTitle(errorTitle)
+                .setDescription(errorDescription)
                 .setColor(0xFF0000);
 
             try {

@@ -35,9 +35,11 @@ const CRASH_CONFIG = {
 };
 
 // Advanced crash point generation with CSPRNG
-function generateCrashPoint(userId, gameId) {
+function generateCrashPoint(userId = null, gameId = null) {
   // Use provably fair random for crash point generation
-  const fairRandom = generateProvablyFairRandom('crash', userId, 0, 10000);
+  // For multiplayer games, use a game-specific seed when no userId is provided
+  const seed = userId || `crash_game_${Date.now()}_${Math.random()}`;
+  const fairRandom = generateProvablyFairRandom('crash', seed, 0, 10000);
   const rand = fairRandom.value / 10000; // Convert to 0-1 range
   
   // Add volatility adjustment for more realistic crash patterns

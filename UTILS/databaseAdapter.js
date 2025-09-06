@@ -2451,6 +2451,27 @@ class DatabaseAdapter {
             return false;
         }
     }
+    
+    /**
+     * Toggle user's off-economy status
+     * @param {string} userId - User ID
+     * @param {boolean} offEconomyStatus - New off-economy status (true = off economy, false = on economy)
+     * @returns {boolean} Success status
+     */
+    async toggleOffEconomy(userId, offEconomyStatus) {
+        try {
+            await this.executeQuery(
+                'UPDATE user_balances SET off_economy = ? WHERE user_id = ?',
+                [offEconomyStatus, userId]
+            );
+            
+            logger.info(`Toggled off-economy status for ${userId} to ${offEconomyStatus}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error toggling off-economy status: ${error.message}`);
+            return false;
+        }
+    }
 }
 
 // Export singleton instance
