@@ -9,6 +9,58 @@ const dbManager = require('../UTILS/database');
 const { fmt } = require('../UTILS/moneyFormatter');
 const logger = require('../UTILS/logger');
 
+// Helper to chunk text into field-safe pieces (Discord: max 1024 per field)
+function chunkText(text, size = 950) {
+    if (!text) return ['No data'];
+    const chunks = [];
+    let i = 0;
+    while (i < text.length) {
+        chunks.push(text.slice(i, i + size));
+        i += size;
+    }
+    return chunks.length ? chunks : ['No data'];
+}
+
+// Helper to log embed diagnostics and Discord.js error details
+function logEmbedDiagnostics(embed, components = [], context = 'embed') {
+    try {
+        const data = typeof embed.toJSON === 'function' ? embed.toJSON() : (embed || {});
+        const titleLen = (data.title || '').length;
+        const descLen = (data.description || '').length;
+        const footerLen = (data.footer?.text || '').length;
+        const fields = Array.isArray(data.fields) ? data.fields : [];
+        const fieldCount = fields.length;
+        const fieldLens = fields.map((f, i) => ({ idx: i, nameLen: (f.name || '').length, valueLen: (f.value || '').length }));
+        const componentsCount = Array.isArray(components) ? components.length : 0;
+        const approxTotal = titleLen + descLen + footerLen + fieldLens.reduce((s, f) => s + f.nameLen + f.valueLen, 0);
+        logger.warn(`[${context}] Embed diagnostics: title=${titleLen}, desc=${descLen}, footer=${footerLen}, fields=${fieldCount}, components=${componentsCount}, approxTotal=${approxTotal}`);
+        if (fieldCount > 0) {
+            // Only log first few to avoid spam
+            const preview = fieldLens.slice(0, 5).map(f => `#${f.idx} name=${f.nameLen} value=${f.valueLen}`).join('; ');
+            logger.warn(`[${context}] Field lengths (first 5): ${preview}${fieldCount > 5 ? ' …' : ''}`);
+        }
+    } catch (e) {
+        logger.debug(`Failed to log embed diagnostics: ${e.message}`);
+    }
+}
+
+function logDiscordErrorDetails(error, context = 'discord') {
+    try {
+        const raw = error?.rawError || error?.data || error;
+        if (raw) {
+            logger.error(`[${context}] Raw error: ${typeof raw === 'object' ? JSON.stringify(raw) : String(raw)}`);
+        }
+        if (error?.errors) {
+            logger.error(`[${context}] Nested errors: ${JSON.stringify(error.errors)}`);
+        }
+        if (error?.requestBody) {
+            logger.error(`[${context}] Request body size: ${JSON.stringify({ jsonBytes: Buffer.byteLength(JSON.stringify(error.requestBody.json || {})) })}`);
+        }
+    } catch (e) {
+        logger.debug(`Failed to log discord error details: ${e.message}`);
+    }
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('leaderboard')
@@ -50,6 +102,7 @@ module.exports = {
             logger.error(`Error in leaderboard command: ${error.message}`);
             logger.error('Full leaderboard error stack:', error.stack);
             logger.error('Error details:', JSON.stringify(error, null, 2));
+            logDiscordErrorDetails(error, 'leaderboard_execute');
             
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Error')
@@ -111,6 +164,7 @@ module.exports = {
                 LIMIT ?
             `, [limit]);
         }
+        logger.info(`Regular leaderboard users fetched: ${users.length} (limit=${limit}, guildId=${guildId})`);
 
         let totalUsers;
         try {
@@ -174,15 +228,25 @@ module.exports = {
             .setTitle('🏆 Regular Economy Leaderboard')
             .setDescription(`Top ${limit} users in regular economy (${totalCount} total users)\n🏆 **W**ins • 💀 **L**osses • **WR** Win Rate`)
             .setColor(0xFFD700)
-            .addFields({
-                name: '💰 Wealth & Performance Rankings',
-                value: leaderboardText,
-                inline: false
-            })
+            // Discord enforces a 1024 char max per field; chunk long text
+            // into multiple fields to avoid AggregateError: "Received one or more errors"
             .setFooter({ 
                 text: `🏆 Regular Economy • Use buttons to switch views • Top ${limit} of ${totalCount}` 
             })
             .setTimestamp();
+
+        // Add leaderboard text as one or more fields (<=1024 each)
+        const lbChunks = chunkText(leaderboardText);
+        if (lbChunks.length > 1) {
+            logger.warn(`Regular leaderboard text chunked into ${lbChunks.length} fields. First chunk length: ${lbChunks[0].length}`);
+        }
+        lbChunks.forEach((chunk, idx) => {
+            embed.addFields({
+                name: idx === 0 ? '💰 Wealth & Performance Rankings' : '💰 Wealth & Performance Rankings (cont.)',
+                value: chunk,
+                inline: false
+            });
+        });
 
         // Add statistics if we have users
         if (users.length > 0) {
@@ -233,7 +297,14 @@ module.exports = {
             });
         }
 
-        await interaction.editReply({ embeds: [embed], components: [actionRow] });
+        try {
+            await interaction.editReply({ embeds: [embed], components: [actionRow] });
+        } catch (error) {
+            logger.error('Failed to send regular leaderboard embed:', error.message);
+            logEmbedDiagnostics(embed, [actionRow], 'regular_leaderboard');
+            logDiscordErrorDetails(error, 'regular_leaderboard');
+            throw error; // Let caller handle user-facing error
+        }
 
         // Set up button interaction collector
         const filter = (i) => i.customId.startsWith('leaderboard_') && i.user.id === interaction.user.id;
@@ -256,7 +327,8 @@ module.exports = {
                     await this.showRegularLeaderboard(i, guildId, limit, true);
                 }
             } catch (error) {
-                logger.error('Leaderboard button error:', error);
+                logger.error(`Leaderboard button error (customId=${i.customId}): ${error.message}`);
+                logDiscordErrorDetails(error, 'leaderboard_button');
             }
         });
 
@@ -330,6 +402,7 @@ module.exports = {
                 LIMIT ?
             `, [limit]);
         }
+        logger.info(`Off economy leaderboard users fetched: ${users.length} (limit=${limit}, guildId=${guildId})`);
         
         let totalOffEcoUsers;
         try {
@@ -391,23 +464,32 @@ module.exports = {
             .setTitle('🔴 Off Economy Leaderboard')
             .setDescription(`Top ${limit} users in Off Economy (${totalCount} total users)\n🏆 **W**ins • 💀 **L**osses • **WR** Win Rate`)
             .setColor(0xFF6B6B)
-            .addFields({
-                name: '💰 Off Economy Wealth & Performance Rankings',
-                value: leaderboardText,
-                inline: false
+            .setFooter({ 
+                text: `🔴 Off Economy • Exclusive leaderboard • Top ${limit} of ${totalCount}` 
             })
-            .addFields({
+            .setTimestamp();
+
+        // Add leaderboard text as one or more fields (<=1024 each)
+        const offEcoChunks = chunkText(leaderboardText);
+        if (offEcoChunks.length > 1) {
+            logger.warn(`Off economy leaderboard text chunked into ${offEcoChunks.length} fields. First chunk length: ${offEcoChunks[0].length}`);
+        }
+        offEcoChunks.forEach((chunk, idx) => {
+            embed.addFields({
+                name: idx === 0 ? '💰 Off Economy Wealth & Performance Rankings' : '💰 Off Economy Rankings (cont.)',
+                value: chunk,
+                inline: false
+            });
+        });
+
+        embed.addFields({
                 name: '🔴 What is Off Economy?',
                 value: '• Separate competitive ranking system\n' +
                        '• Players get special "OFF ECO" badges in games\n' +
                        '• Compete only against other Off Economy players\n' +
                        '• Money and gameplay work exactly the same',
                 inline: false
-            })
-            .setFooter({ 
-                text: `🔴 Off Economy • Exclusive leaderboard • Top ${limit} of ${totalCount}` 
-            })
-            .setTimestamp();
+            });
 
         // Add statistics if we have users
         if (users.length > 0) {
@@ -456,6 +538,15 @@ module.exports = {
                 value: topTiers || 'No tier data available',
                 inline: true
             });
+        }
+
+        try {
+            await interaction.editReply({ embeds: [embed], components: [actionRow] });
+        } catch (error) {
+            logger.error('Failed to send off economy leaderboard embed:', error.message);
+            logEmbedDiagnostics(embed, [actionRow], 'offeco_leaderboard');
+            logDiscordErrorDetails(error, 'offeco_leaderboard');
+            throw error;
         }
 
         if (isUpdate) {
