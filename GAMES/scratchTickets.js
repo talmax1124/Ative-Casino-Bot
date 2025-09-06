@@ -101,7 +101,7 @@ class ScratchTicketSystem {
                 // Schedule first drop tomorrow
                 const tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
-                tomorrow.setHours(Math.floor(Math.random() * 12) + 8, Math.floor(Math.random() * 60), 0, 0);
+                tomorrow.setHours(secureRandomInt(0, 12) + 8, secureRandomInt(0, 60), 0, 0);
                 
                 const timeUntilTomorrow = tomorrow.getTime() - Date.now();
                 
@@ -121,7 +121,7 @@ class ScratchTicketSystem {
             // Schedule within the random interval
             const minInterval = TICKET_CONFIG.DROP_INTERVALS.MIN;
             const maxInterval = TICKET_CONFIG.DROP_INTERVALS.MAX;
-            const randomInterval = minInterval + Math.random() * (maxInterval - minInterval);
+            const randomInterval = minInterval + secureRandomFloat(0, (maxInterval) - minInterval);
             
             const nextDropTime = new Date(Date.now() + randomInterval);
             
@@ -222,14 +222,14 @@ class ScratchTicketSystem {
                 // Sort by activity and pick a random one from the top 3
                 channelsWithActivity.sort((a, b) => b.activityScore - a.activityScore);
                 const topChannels = channelsWithActivity.slice(0, Math.min(3, channelsWithActivity.length));
-                const randomIndex = Math.floor(Math.random() * topChannels.length);
+                const randomIndex = secureRandomInt(0, topChannels.length);
                 return topChannels[randomIndex].channel;
             }
 
             // Fallback to any available text channel
             const channelArray = Array.from(textChannels.values());
             if (channelArray.length > 0) {
-                const randomIndex = Math.floor(Math.random() * channelArray.length);
+                const randomIndex = secureRandomInt(0, channelArray.length);
                 return channelArray[randomIndex];
             }
 
@@ -306,7 +306,7 @@ class ScratchTicketSystem {
         let winningCombination = null;
 
         // First, determine if this ticket wins
-        const winRoll = Math.random();
+        const winRoll = secureRandomFloat();
         let cumulativeChance = 0;
 
         for (const [prize, config] of Object.entries(TICKET_CONFIG.PRIZES)) {

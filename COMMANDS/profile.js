@@ -35,7 +35,7 @@ module.exports = {
 
         try {
             await interaction.deferReply();
-            await dbManager.ensureUser(userId, targetUser.username);
+            await dbManager.ensureUser(userId, targetUser.username, guildId);
 
             // Get user data
             const [balance, purchases, boosts, stats] = await Promise.all([

@@ -62,32 +62,55 @@ module.exports = {
 
     async showRegularLeaderboard(interaction, guildId, limit) {
         // Get regular economy users (excluding developers, admins, and off-economy users) with win/loss stats
-        const users = await dbManager.databaseAdapter.executeQuery(`
-            SELECT 
-                ub.user_id,
-                ub.username,
-                ub.wallet + ub.bank as total_balance,
-                ub.wallet,
-                ub.bank,
-                ub.off_economy,
-                COALESCE(SUM(us.total_wins), 0) as total_wins,
-                COALESCE(SUM(us.total_losses), 0) as total_losses,
-                COALESCE(SUM(us.total_games_played), 0) as total_games
-            FROM user_balances ub
-            LEFT JOIN user_stats us ON ub.user_id = us.user_id
-            WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL) 
-                AND ub.wallet + ub.bank > 0
-                AND ub.user_id != '466050111680544798'
-            GROUP BY ub.user_id, ub.username, ub.wallet, ub.bank, ub.off_economy
-            ORDER BY total_balance DESC
-            LIMIT ?
-        `, [limit]);
+        let users;
+        try {
+            users = await dbManager.databaseAdapter.executeQuery(`
+                SELECT 
+                    ub.user_id,
+                    ub.username,
+                    (ub.wallet + ub.bank) as total_balance,
+                    ub.wallet,
+                    ub.bank,
+                    ub.off_economy,
+                    COALESCE(us.total_wins, 0) as total_wins,
+                    COALESCE(us.total_losses, 0) as total_losses,
+                    COALESCE(us.total_games_played, 0) as total_games
+                FROM user_balances ub
+                LEFT JOIN user_stats us ON (ub.user_id = us.user_id AND us.guild_id = ?)
+                WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL) 
+                    AND (ub.wallet + ub.bank) > 0
+                    AND ub.user_id != '466050111680544798'
+                ORDER BY total_balance DESC
+                LIMIT ?
+            `, [guildId, limit]);
+        } catch (error) {
+            logger.error('Database error in regular leaderboard:', error);
+            // Fallback query without stats
+            users = await dbManager.databaseAdapter.executeQuery(`
+                SELECT 
+                    user_id,
+                    username,
+                    (wallet + bank) as total_balance,
+                    wallet,
+                    bank,
+                    off_economy,
+                    0 as total_wins,
+                    0 as total_losses,
+                    0 as total_games
+                FROM user_balances 
+                WHERE (off_economy = FALSE OR off_economy IS NULL) 
+                    AND (wallet + bank) > 0
+                    AND user_id != '466050111680544798'
+                ORDER BY total_balance DESC
+                LIMIT ?
+            `, [limit]);
+        }
 
         const totalUsers = await dbManager.databaseAdapter.executeQuery(`
             SELECT COUNT(*) as count
             FROM user_balances 
             WHERE (off_economy = FALSE OR off_economy IS NULL) 
-                AND wallet + bank > 0
+                AND (wallet + bank) > 0
                 AND user_id != '466050111680544798'
         `);
 
@@ -253,29 +276,50 @@ module.exports = {
 
     async showOffEconomyLeaderboard(interaction, guildId, limit, isUpdate = false) {
         // Get off economy users with win/loss stats
-        const users = await dbManager.databaseAdapter.executeQuery(`
-            SELECT 
-                ub.user_id,
-                ub.username,
-                ub.wallet + ub.bank as totalBalance,
-                ub.wallet,
-                ub.bank,
-                ub.off_economy,
-                COALESCE(SUM(us.total_wins), 0) as total_wins,
-                COALESCE(SUM(us.total_losses), 0) as total_losses,
-                COALESCE(SUM(us.total_games_played), 0) as total_games
-            FROM user_balances ub
-            LEFT JOIN user_stats us ON ub.user_id = us.user_id
-            WHERE ub.off_economy = TRUE AND ub.wallet + ub.bank > 0
-            GROUP BY ub.user_id, ub.username, ub.wallet, ub.bank, ub.off_economy
-            ORDER BY totalBalance DESC
-            LIMIT ?
-        `, [limit]);
+        let users;
+        try {
+            users = await dbManager.databaseAdapter.executeQuery(`
+                SELECT 
+                    ub.user_id,
+                    ub.username,
+                    (ub.wallet + ub.bank) as totalBalance,
+                    ub.wallet,
+                    ub.bank,
+                    ub.off_economy,
+                    COALESCE(us.total_wins, 0) as total_wins,
+                    COALESCE(us.total_losses, 0) as total_losses,
+                    COALESCE(us.total_games_played, 0) as total_games
+                FROM user_balances ub
+                LEFT JOIN user_stats us ON (ub.user_id = us.user_id AND us.guild_id = ?)
+                WHERE ub.off_economy = TRUE AND (ub.wallet + ub.bank) > 0
+                ORDER BY totalBalance DESC
+                LIMIT ?
+            `, [guildId, limit]);
+        } catch (error) {
+            logger.error('Database error in off economy leaderboard:', error);
+            // Fallback query without stats
+            users = await dbManager.databaseAdapter.executeQuery(`
+                SELECT 
+                    user_id,
+                    username,
+                    (wallet + bank) as totalBalance,
+                    wallet,
+                    bank,
+                    off_economy,
+                    0 as total_wins,
+                    0 as total_losses,
+                    0 as total_games
+                FROM user_balances 
+                WHERE off_economy = TRUE AND (wallet + bank) > 0
+                ORDER BY totalBalance DESC
+                LIMIT ?
+            `, [limit]);
+        }
         
         const totalOffEcoUsers = await dbManager.databaseAdapter.executeQuery(`
             SELECT COUNT(*) as count
             FROM user_balances 
-            WHERE off_economy = TRUE AND wallet + bank > 0
+            WHERE off_economy = TRUE AND (wallet + bank) > 0
         `);
 
         const totalCount = totalOffEcoUsers[0]?.count || 0;

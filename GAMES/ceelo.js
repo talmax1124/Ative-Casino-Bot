@@ -11,6 +11,7 @@ const dbManager = require('../UTILS/database');
 const sessionManager = require('../UTILS/sessionManager');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
+const { secureRandomInt, generateProvablyFairRandom, generateAntiStreakRandom } = require('../UTILS/rng');
 
 // CEELO Configuration
 const CONFIG = {
@@ -92,19 +93,26 @@ class CeeloGame {
     }
 
     /**
-     * Roll 3 dice for both player and house
+     * Roll 3 dice for both player and house using advanced CSPRNG
      */
     rollDice() {
+        // Generate provably fair dice rolls for player
+        const playerFairRoll = generateProvablyFairRandom('ceelo_player', this.userId, 0, 216); // 6^3 = 216 combinations
+        const playerRollValue = playerFairRoll.value;
+        
+        // Convert single value to three dice (base-6 decomposition)
         this.playerDice = [
-            Math.floor(Math.random() * 6) + 1,
-            Math.floor(Math.random() * 6) + 1,
-            Math.floor(Math.random() * 6) + 1
+            Math.floor(playerRollValue / 36) + 1,
+            Math.floor((playerRollValue % 36) / 6) + 1,
+            (playerRollValue % 6) + 1
         ].sort((a, b) => a - b);
         
+        // Generate house dice with anti-streak protection (check recent player results)
+        const possibleValues = [1, 2, 3, 4, 5, 6];
         this.houseDice = [
-            Math.floor(Math.random() * 6) + 1,
-            Math.floor(Math.random() * 6) + 1,
-            Math.floor(Math.random() * 6) + 1
+            generateAntiStreakRandom(this.playerDice, possibleValues, 2),
+            secureRandomInt(1, 7),
+            secureRandomInt(1, 7)
         ].sort((a, b) => a - b);
     }
 
@@ -216,7 +224,7 @@ class CeeloGame {
             }
 
             // Update session as completed
-            await sessionManager.updateSessionState(this.sessionId, sessionManager.SessionState.COMPLETED);
+            await sessionManager.updateSession(this.sessionId, { state: 'completed' });
 
             // Log game result
             await dbManager.recordGameResult(this.userId, this.guildId, GameType.CEELO, {

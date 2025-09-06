@@ -18,6 +18,7 @@ const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PayoutManager, GameResult } = require('../UTILS/gameUtils');
+const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('../UTILS/rng');
 
 // Game Configuration
 const CONFIG = {
@@ -87,12 +88,12 @@ class RussianRouletteGame {
         const chamber = new Array(CONFIG.CHAMBER_SIZE).fill(false);
         
         // Place 1-2 bullets randomly
-        const bulletCount = Math.random() < 0.7 ? 1 : 2; // 70% chance of 1 bullet, 30% chance of 2
+        const bulletCount = secureRandomFloat() < 0.7 ? 1 : 2; // 70% chance of 1 bullet, 30% chance of 2
         
         for (let i = 0; i < bulletCount; i++) {
             let position;
             do {
-                position = Math.floor(Math.random() * CONFIG.CHAMBER_SIZE);
+                position = secureRandomInt(0, CONFIG.CHAMBER_SIZE);
             } while (chamber[position]); // Ensure no duplicate positions
             
             chamber[position] = true;
@@ -387,7 +388,7 @@ class RussianRouletteGame {
         
         // Format player list in code blocks without order numbers (randomized display)
         const playerArray = Array.from(this.players.values());
-        const shuffledPlayers = [...playerArray].sort(() => Math.random() - 0.5); // Randomize display order
+        const shuffledPlayers = [...playerArray].sort(() => secureRandomFloat() - 0.5); // Randomize display order
         const playerList = shuffledPlayers.length > 0 ? 
             '```\n' + shuffledPlayers.map(player => `🎯 ${player.username}`).join('\n') + '\n```' : 
             '```\nWaiting for players...\n```';
@@ -618,7 +619,7 @@ class RussianRouletteGame {
      */
     pullTrigger() {
         // Check for jam first
-        if (Math.random() < CONFIG.JAM_CHANCE) {
+        if (secureRandomFloat() < CONFIG.JAM_CHANCE) {
             return { 
                 bullet: false, 
                 jammed: true, 
@@ -984,7 +985,7 @@ class RussianRouletteGame {
      */
     shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = secureRandomInt(0, (i + 1));
             [array[i], array[j]] = [array[j], array[i]];
         }
     }

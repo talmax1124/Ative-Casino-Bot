@@ -21,6 +21,7 @@ const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 const { sendLogMessage } = require('../UTILS/common');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
+const { secureRandomFloat, generateProvablyFairRandom, generateVolatilityAdjustedRandom } = require('../UTILS/rng');
 
 // Optimized configuration - much more conservative
 const CRASH_CONFIG = {
@@ -33,15 +34,35 @@ const CRASH_CONFIG = {
   betting_duration: 60        // 60 seconds to place bets (was 15)
 };
 
-// Simple crash point generation
-function generateCrashPoint() {
-  const rand = Math.random();
+// Advanced crash point generation with CSPRNG
+function generateCrashPoint(userId, gameId) {
+  // Use provably fair random for crash point generation
+  const fairRandom = generateProvablyFairRandom('crash', userId, 0, 10000);
+  const rand = fairRandom.value / 10000; // Convert to 0-1 range
   
-  // Simple probability curve - no complex math
-  if (rand < 0.33) return 1.0 + (Math.random() * 1.5); // 1.0x - 2.5x (33%)
-  if (rand < 0.66) return 2.5 + (Math.random() * 2.5); // 2.5x - 5.0x (33%)
-  if (rand < 0.90) return 5.0 + (Math.random() * 3);   // 5.0x - 8.0x (24%)
-  return Math.min(8.0, 8.0 + (Math.random() * 0));     // Max 8.0x (10%)
+  // Add volatility adjustment for more realistic crash patterns
+  const volatilityRandom = generateVolatilityAdjustedRandom(0, 1000, 0.6) / 1000;
+  
+  // Combine both randoms for enhanced unpredictability
+  const combinedRand = (rand * 0.7) + (volatilityRandom * 0.3);
+  
+  let crashPoint;
+  
+  // Enhanced probability curve with better distribution
+  if (combinedRand < 0.30) {
+    crashPoint = 1.0 + (secureRandomFloat() * 1.2); // 1.0x - 2.2x (30%)
+  } else if (combinedRand < 0.55) {
+    crashPoint = 2.2 + (secureRandomFloat() * 2.3); // 2.2x - 4.5x (25%)
+  } else if (combinedRand < 0.80) {
+    crashPoint = 4.5 + (secureRandomFloat() * 2.5); // 4.5x - 7.0x (25%)
+  } else if (combinedRand < 0.95) {
+    crashPoint = 7.0 + (secureRandomFloat() * 1.0); // 7.0x - 8.0x (15%)
+  } else {
+    crashPoint = 8.0; // Exactly max multiplier (5%)
+  }
+  
+  // Ensure we don't exceed maximum
+  return Math.min(CRASH_CONFIG.max_multiplier, Number(crashPoint.toFixed(2)));
 }
 
 // Simple multiplier calculation

@@ -131,7 +131,7 @@ class EconomicAnalyzer {
                     MAX(gr.payout / gr.bet_amount) as highest_multiplier
                 FROM game_results gr
                 LEFT JOIN user_balances ub ON gr.user_id = ub.user_id
-                WHERE gr.created_at >= ? 
+                WHERE gr.played_at >= ? 
                 AND gr.bet_amount > 0
                 AND gr.user_id != '466050111680544798'
                 AND (ub.off_economy IS NULL OR ub.off_economy = 0)
@@ -221,7 +221,7 @@ class EconomicAnalyzer {
                 FROM user_balances ub
                 LEFT JOIN user_stats us ON ub.user_id = us.user_id
                 LEFT JOIN game_results gr ON ub.user_id = gr.user_id 
-                    AND gr.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                    AND gr.played_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
                 WHERE ub.wallet + ub.bank > 0
                 AND ub.user_id != '466050111680544798'
                 AND (ub.off_economy IS NULL OR ub.off_economy = 0)
@@ -319,7 +319,7 @@ class EconomicAnalyzer {
                     SUM(gr.payout - gr.bet_amount) as net_change
                 FROM game_results gr
                 LEFT JOIN user_balances ub ON gr.user_id = ub.user_id
-                WHERE gr.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                WHERE gr.played_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
                 AND gr.user_id != '466050111680544798'
                 AND (ub.off_economy IS NULL OR ub.off_economy = 0)
             `);
@@ -332,7 +332,7 @@ class EconomicAnalyzer {
                     SUM(gr.payout - gr.bet_amount) as net_change
                 FROM game_results gr
                 LEFT JOIN user_balances ub ON gr.user_id = ub.user_id
-                WHERE gr.created_at BETWEEN DATE_SUB(NOW(), INTERVAL 14 DAY) AND DATE_SUB(NOW(), INTERVAL 7 DAY)
+                WHERE gr.played_at BETWEEN DATE_SUB(NOW(), INTERVAL 14 DAY) AND DATE_SUB(NOW(), INTERVAL 7 DAY)
                 AND gr.user_id != '466050111680544798'
                 AND (ub.off_economy IS NULL OR ub.off_economy = 0)
             `);
@@ -389,7 +389,7 @@ class EconomicAnalyzer {
                 FROM game_results gr
                 LEFT JOIN user_balances ub ON gr.user_id = ub.user_id
                 WHERE gr.payout > gr.bet_amount * 50 
-                AND gr.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                AND gr.played_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
                 AND gr.user_id != '466050111680544798'
                 AND (ub.off_economy IS NULL OR ub.off_economy = 0)
                 GROUP BY gr.user_id
@@ -407,7 +407,7 @@ class EconomicAnalyzer {
                 FROM game_results gr
                 LEFT JOIN user_balances ub ON gr.user_id = ub.user_id
                 WHERE gr.bet_amount > 1000000 
-                AND gr.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                AND gr.played_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
                 AND gr.user_id != '466050111680544798'
                 AND (ub.off_economy IS NULL OR ub.off_economy = 0)
             `);

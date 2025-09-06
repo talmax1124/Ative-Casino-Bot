@@ -11,6 +11,7 @@ const dbManager = require('../UTILS/database');
 const sessionManager = require('../UTILS/sessionManager');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
+const { secureRandomShuffle, generateProvablyFairRandom } = require('../UTILS/rng');
 
 // KENO Configuration
 const CONFIG = {
@@ -258,7 +259,7 @@ class KenoGame {
         
         // Randomly select remaining numbers
         for (let i = 0; i < remaining; i++) {
-            const randomIndex = Math.floor(Math.random() * availableNumbers.length);
+            const randomIndex = secureRandomInt(0, availableNumbers.length);
             this.selectedNumbers.push(availableNumbers.splice(randomIndex, 1)[0]);
         }
         
@@ -295,7 +296,7 @@ class KenoGame {
         const available = Array.from({length: CONFIG.TOTAL_NUMBERS}, (_, i) => i + 1);
         
         for (let i = 0; i < count; i++) {
-            const randomIndex = Math.floor(Math.random() * available.length);
+            const randomIndex = secureRandomInt(0, available.length);
             numbers.push(available.splice(randomIndex, 1)[0]);
         }
         
@@ -310,7 +311,7 @@ class KenoGame {
         this.drawnNumbers = [];
         
         for (let i = 0; i < CONFIG.DRAW_COUNT; i++) {
-            const randomIndex = Math.floor(Math.random() * available.length);
+            const randomIndex = secureRandomInt(0, available.length);
             this.drawnNumbers.push(available.splice(randomIndex, 1)[0]);
         }
         

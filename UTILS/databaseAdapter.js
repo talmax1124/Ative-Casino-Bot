@@ -649,8 +649,14 @@ class DatabaseAdapter {
     /**
      * Ensure user exists (compatibility method)
      */
-    async ensureUser(userId, username = null) {
+    async ensureUser(userId, username = null, guildId = null) {
         await this.getUserBalance(userId); // This will create user if not exists
+        
+        // Also ensure level record exists if guildId provided
+        if (guildId) {
+            await this.getUserLevel(userId, guildId);
+        }
+        
         if (username) {
             await this.updateUsername(userId, username);
         }

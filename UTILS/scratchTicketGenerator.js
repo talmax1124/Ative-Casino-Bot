@@ -13,6 +13,7 @@ try {
 
 const logger = require('./logger');
 const { fmtFull } = require('./common');
+const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('./rng');
 
 class ScratchTicketGenerator {
     constructor() {
@@ -102,9 +103,9 @@ class ScratchTicketGenerator {
         // Add some texture
         ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
         for (let i = 0; i < 100; i++) {
-            const x = Math.random() * this.TICKET_WIDTH;
-            const y = Math.random() * this.TICKET_HEIGHT;
-            const size = Math.random() * 2;
+            const x = secureRandomFloat(0, this.TICKET_WIDTH);
+            const y = secureRandomFloat(0, this.TICKET_HEIGHT);
+            const size = secureRandomFloat(0, 2);
             
             ctx.beginPath();
             ctx.arc(x, y, size, 0, Math.PI * 2);

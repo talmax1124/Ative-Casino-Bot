@@ -147,10 +147,11 @@ class DatabaseManager {
      * Ensure user exists (compatibility method)
      * @param {string} userId - Discord user ID
      * @param {string} username - Username (optional)
+     * @param {string} guildId - Guild ID (optional, for level records)
      */
-    async ensureUser(userId, username = null) {
+    async ensureUser(userId, username = null, guildId = null) {
         if (this.usingAdapter) {
-            await this.databaseAdapter.ensureUser(userId, username);
+            await this.databaseAdapter.ensureUser(userId, username, guildId);
         }
     }
 

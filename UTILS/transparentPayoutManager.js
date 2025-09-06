@@ -8,6 +8,7 @@ const logger = require('./logger');
 const economicStabilizer = require('./economicStabilizer');
 const industryStabilizer = require('./industryStabilizer');
 const volatilityManager = require('./volatilityManager');
+const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('./rng');
 
 class TransparentPayoutManager {
     constructor() {
@@ -290,7 +291,7 @@ class TransparentPayoutManager {
             '🌟 Achievement bonus!'
         ];
         
-        return reasons[Math.floor(Math.random() * reasons.length)];
+        return reasons[secureRandomInt(0, reasons.length)];
     }
     
     framePositively(message, context) {
@@ -301,7 +302,7 @@ class TransparentPayoutManager {
             `⭐ Excellent ${context.gameType} result!`
         ];
         
-        const frame = positiveFrames[Math.floor(Math.random() * positiveFrames.length)];
+        const frame = positiveFrames[secureRandomInt(0, positiveFrames.length)];
         return frame + (message || '');
     }
     

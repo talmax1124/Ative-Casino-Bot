@@ -7,7 +7,7 @@ const Canvas = require('canvas');
 const GIFEncoder = require('gif-encoder-2');
 const path = require('path');
 const logger = require('../UTILS/logger');
-const { secureWeightedChoice } = require('../UTILS/rng');
+const { secureWeightedChoice, secureRandomInt, secureRandomFloat } = require('../UTILS/rng');
 
 // REBALANCED slot symbols - Now with proper house edge
 // Higher rarities for valuable symbols, lower payouts for balance
@@ -88,10 +88,10 @@ function getWeightedSymbol(matrixMode = false, entropy = 0) {
 }
 
 /**
- * Generate entropy seed for better randomization
+ * Generate entropy seed using CSPRNG
  */
 function generateEntropy() {
-    return Date.now() * Math.PI + (Math.random() * 1000);
+    return Date.now() * Math.PI + (secureRandomFloat() * 1000);
 }
 
 
@@ -467,7 +467,7 @@ async function createSpinningSlotGIF(finalSymbols) {
             const strip = [];
             // Add random symbols before the final result
             for (let j = 0; j < 15; j++) {
-                strip.push(symbolKeys[Math.floor(Math.random() * symbolKeys.length)]);
+                strip.push(symbolKeys[secureRandomInt(0, symbolKeys.length)]);
             }
             // Add the final result at the end
             strip.push(finalSymbols[i]);
@@ -629,7 +629,7 @@ async function createSpinningMatrixGIF(finalMatrix) {
                 const strip = [];
                 // Add random symbols before the final result - reduced for performance
                 for (let j = 0; j < 10; j++) {
-                    strip.push(symbolKeys[Math.floor(Math.random() * symbolKeys.length)]);
+                    strip.push(symbolKeys[secureRandomInt(0, symbolKeys.length)]);
                 }
                 // Add the final result at the end
                 strip.push(finalMatrix[row][col]);

@@ -5,6 +5,7 @@
  */
 
 const { createCanvas } = require('canvas');
+const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('./rng');
 // economyAnalyzer moved to UAS bot - using static base modes for now
 
 // Base Plinko game modes (before dynamic adjustments)
@@ -81,7 +82,7 @@ function randomizeMultipliers(baseMultipliers) {
     const multipliers = [...baseMultipliers];
     // Fisher-Yates shuffle
     for (let i = multipliers.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = secureRandomInt(0, (i + 1));
         [multipliers[i], multipliers[j]] = [multipliers[j], multipliers[i]];
     }
     return multipliers;
@@ -365,12 +366,12 @@ function simulatePlinkoDrop(rows, slots, startPosition = 0.0) {
         }
 
         let bounce;
-        if (Math.random() < 0.3 && Math.abs(momentumBias) > 0.1) {
+        if (secureRandomFloat() < 0.3 && Math.abs(momentumBias) > 0.1) {
             // Follow momentum
-            bounce = momentumBias + (Math.random() - 0.5) * 0.8;
+            bounce = momentumBias + (secureRandomFloat() - 0.5) * 0.8;
         } else {
             // Random bounce
-            bounce = (Math.random() - 0.5) * 2.0;
+            bounce = (secureRandomFloat() - 0.5) * 2.0;
         }
 
         // Gravity bias (slight center pull)

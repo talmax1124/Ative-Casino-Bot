@@ -14,7 +14,7 @@ const logger = require('../UTILS/logger');
 // Russian Roulette Configuration
 const ROULETTE_CONFIG = {
     MIN_BET: 50,           // Minimum $50 entry
-    MAX_BET: 25000,        // Maximum $25K entry  
+    MAX_BET: null,         // No maximum bet limit - bet everything you have!
     MIN_PLAYERS: 2,        // Minimum 2 players to start
     MAX_PLAYERS: null,     // No player limit - unlimited players allowed
     JOIN_TIME: 60000,      // 60 seconds to join
@@ -27,7 +27,7 @@ module.exports = {
         .setDescription('🔫 Start a deadly game of Russian Roulette - last survivor wins all!')
         .addStringOption(option =>
             option.setName('bet')
-                .setDescription(`Entry amount ($${ROULETTE_CONFIG.MIN_BET} - $${ROULETTE_CONFIG.MAX_BET.toLocaleString()}) - supports K/M/B suffixes`)
+                .setDescription(`Entry amount (minimum $${ROULETTE_CONFIG.MIN_BET}, no maximum!) - supports K/M/B suffixes`)
                 .setRequired(true)
         )
         .addIntegerOption(option =>
@@ -66,13 +66,13 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // Use PayoutManager for bet validation and deduction
+            // Use PayoutManager for bet validation and deduction (no max bet limit)
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 betAmountStr,
                 GameType.RUSSIAN_ROULETTE,
                 ROULETTE_CONFIG.MIN_BET,
-                ROULETTE_CONFIG.MAX_BET
+                null  // No maximum bet limit
             );
             
             if (!validation.isValid) {

@@ -6,6 +6,7 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 const dbManager = require('../UTILS/database');
 const { fmtFull, getGuildId } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
+const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('../UTILS/rng');
 
 // Helper function to check admin permissions
 async function hasAdminPermissions(member) {
@@ -189,7 +190,7 @@ async function addSampleParticipants(interaction, guildId, participantCount) {
         // Add sample participants to lottery_tickets table
         for (let i = 0; i < Math.min(participantCount, sampleUserIds.length); i++) {
             const userId = sampleUserIds[i];
-            const ticketCount = Math.floor(Math.random() * 7) + 1; // 1-7 tickets
+            const ticketCount = secureRandomInt(0, 7) + 1; // 1-7 tickets
             
             // Add lottery ticket record using purchaseLotteryTickets  
             await dbManager.purchaseLotteryTickets(userId, guildId, ticketCount, ticketCount * 12000);

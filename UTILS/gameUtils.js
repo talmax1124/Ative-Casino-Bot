@@ -121,7 +121,7 @@ class PayoutManager {
         const guildId = await getGuildId(interaction);
         
         // Ensure user exists in database
-        await dbManager.ensureUser(userId, interaction.user.displayName);
+        await dbManager.ensureUser(userId, interaction.user.displayName, guildId);
         
         // Defensive legacy lock auto-clear using Unified Session Manager
         if (hasActiveGame(userId)) {
@@ -447,6 +447,7 @@ class GameValidator {
      */
     static async canStartGame(interaction, gameType) {
         const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
         
         // Check if user has active game
         if (hasActiveGame(userId)) {
@@ -457,7 +458,7 @@ class GameValidator {
         }
         
         // Check if user exists in database
-        await dbManager.ensureUser(userId, interaction.user.displayName);
+        await dbManager.ensureUser(userId, interaction.user.displayName, guildId);
         
         return {
             canStart: true,

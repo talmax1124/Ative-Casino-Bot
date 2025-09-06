@@ -32,7 +32,7 @@ class EconomicManager {
             blackjack: {
                 maxBet: 10000000, // $10M max
                 houseEdgeAdjustment: 0,
-                multiplierReduction: 0.1
+                multiplierReduction: 0.25  // Increased from 0.1 (10%) to 0.25 (25%)
             },
             slots: {
                 maxBet: 175000,

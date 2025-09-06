@@ -8,6 +8,7 @@ const logger = require('./logger');
 const dbManager = require('./database');
 const NodeCache = require('node-cache');
 const moment = require('moment');
+const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('./rng');
 
 class VolatilityManager {
     constructor() {
@@ -243,7 +244,7 @@ class VolatilityManager {
         const config = this.volatilityConfig.nearMissConfig;
         
         // Only generate near-miss for losses
-        if (actualResult.won || Math.random() > config.frequency) {
+        if (actualResult.won || secureRandomFloat() > config.frequency) {
             return null;
         }
         
@@ -253,7 +254,7 @@ class VolatilityManager {
             'jackpot_near': this.createJackpotNear(gameType, actualResult)
         };
         
-        const selectedType = config.types[Math.floor(Math.random() * config.types.length)];
+        const selectedType = config.types[secureRandomInt(0, config.types.length)];
         return nearMissTypes[selectedType];
     }
     

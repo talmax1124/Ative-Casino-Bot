@@ -108,6 +108,7 @@ module.exports = {
             
             // Use FIXED multipliers from plinko.js - NO DYNAMIC ADJUSTMENTS
             const { startPlinkoGame } = require('../GAMES/plinko');
+const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('../UTILS/rng');
             const normalizedMode = selectedMode.toLowerCase(); // Convert to lowercase
             const gameSession = startPlinkoGame(userId, username, betAmount, interaction.channelId, normalizedMode);
             
@@ -117,14 +118,14 @@ module.exports = {
             // Get UI-friendly multipliers (what players see on board)
             const uiMultipliers = await transparentPayoutManager.getDisplayMultipliers('plinko', baseMultipliers, userId);
             const displayMultipliers = uiMultipliers.map(m => m.display);
-            const shuffledMultipliers = [...displayMultipliers].sort(() => Math.random() - 0.5); // Shuffle for display
+            const shuffledMultipliers = [...displayMultipliers].sort(() => secureRandomFloat() - 0.5); // Shuffle for display
             
             // Keep original multipliers for payout calculations
-            const actualMultipliers = [...baseMultipliers].sort(() => Math.random() - 0.5);
+            const actualMultipliers = [...baseMultipliers].sort(() => secureRandomFloat() - 0.5);
             const slots = shuffledMultipliers.length;
             
             // Drop slot is always random
-            const dropSlot = Math.floor(Math.random() * slots);
+            const dropSlot = secureRandomInt(0, slots);
 
             // Create game session using new system
             const sessionResult = await sessionManager.createSession({

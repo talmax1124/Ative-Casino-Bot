@@ -190,7 +190,7 @@ class ProfileDecorator {
         
         for (let i = 0; i < sparkleCount; i++) {
             const angle = (Math.PI * 2 * i) / sparkleCount;
-            const distance = innerRadius + (outerRadius - innerRadius) * Math.random();
+            const distance = innerRadius + (outerRadius - innerRadius) * secureRandomFloat();
             const x = centerX + Math.cos(angle) * distance;
             const y = centerY + Math.sin(angle) * distance;
             
@@ -235,6 +235,7 @@ class ProfileDecorator {
         try {
             // Check if user has decorations enabled
             const dbManager = require('./database');
+const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('./rng');
             const userSettings = await dbManager.getUserSettings(userId);
             // Handle boolean conversion: null/undefined = true (default), 0/false = false, 1/true = true
             const decorationsEnabled = userSettings?.decorations_enabled == null ? true : Boolean(userSettings.decorations_enabled);
