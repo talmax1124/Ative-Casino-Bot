@@ -23,7 +23,7 @@ const DEVELOPER_ID = '466050111680544798';
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('economy')
-        .setDescription('📊 Complete economy analytics with server overview, personal stats, taxation, gambling & economic system data')
+        .setDescription('📊 Complete economy analytics with server overview and detailed economic data')
         .addUserOption(option =>
             option.setName('user')
                 .setDescription('User to focus personal analytics on (optional - defaults to you)')

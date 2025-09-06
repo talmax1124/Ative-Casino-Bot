@@ -26,6 +26,7 @@
   "author": "ATIVE Casino Team",
   "license": "MIT",
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.78",
     "axios": "^1.6.7",
     "canvas": "^3.2.0",
     "decimal.js": "^10.6.0",
