@@ -20,6 +20,7 @@ const { fmt, parseAmount } = require('../UTILS/common');
 const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 const { sendLogMessage } = require('../UTILS/common');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 
 // Optimized configuration - much more conservative
 const CRASH_CONFIG = {
@@ -313,6 +314,9 @@ class OptimizedCrashGame {
     // Process all players - bet was already deducted, so we only add winnings back
     for (const [userId, player] of this.players.entries()) {
       try {
+        const won = player.cashedOut;
+        const payout = won ? player.winnings : 0;
+        
         if (player.cashedOut) {
           // Player cashed out: give them their winnings
           await dbManager.updateUserBalance(userId, this.guildId, player.winnings, 0);
@@ -321,6 +325,25 @@ class OptimizedCrashGame {
           // Player didn't cash out: they lose their bet (already deducted, no action needed)
           logger.info(`Crash loss: ${player.username} lost ${fmt(player.bet)} (didn't cash out)`);
         }
+        
+        // Record game result for economic analysis
+        const gameResult = new GameResult({
+          userId,
+          guildId: this.guildId,
+          gameType: GameType.CRASH,
+          betAmount: player.bet,
+          payout: payout,
+          won: won,
+          metadata: {
+            crashPoint: this.crashPoint,
+            cashOutMultiplier: player.cashOutMultiplier || 0,
+            cashedOut: player.cashedOut,
+            houseEdge: CRASH_CONFIG.house_edge
+          }
+        });
+        
+        await PayoutManager.processGamePayout(gameResult);
+        
       } catch (error) {
         logger.error(`Failed to process crash payout for ${userId}: ${error.message}`);
       }

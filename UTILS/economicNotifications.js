@@ -13,7 +13,8 @@ class EconomicNotifications {
     constructor(client = null) {
         this.client = client;
         this.lastNotificationTime = 0;
-        this.notificationCooldown = 300000; // 5 minutes cooldown
+        this.notificationCooldown = 1800000; // 30 minutes cooldown
+        this.lastNotificationData = null; // Track last notification content to avoid duplicates
     }
 
     /**
@@ -32,10 +33,22 @@ class EconomicNotifications {
             return;
         }
 
-        // Rate limiting - don't spam the channel
+        // Smart alerting - avoid spam and duplicates
         const now = Date.now();
         if (now - this.lastNotificationTime < this.notificationCooldown) {
             logger.debug('Emergency notification rate-limited');
+            return;
+        }
+
+        // Check if this is a duplicate or minor change
+        const notificationHash = JSON.stringify({
+            trigger: emergencyData.trigger,
+            severity: emergencyData.severity,
+            affectedSystems: emergencyData.affectedSystems
+        });
+
+        if (this.lastNotificationData === notificationHash) {
+            logger.debug('Emergency notification skipped - duplicate content');
             return;
         }
 
@@ -186,6 +199,7 @@ class EconomicNotifications {
 
             await channel.send({ embeds: [embed] });
             this.lastNotificationTime = now;
+            this.lastNotificationData = notificationHash; // Store to prevent duplicates
 
             logger.info(`Economic emergency notification sent to channel ${MONITORING_CHANNEL_ID}`);
 

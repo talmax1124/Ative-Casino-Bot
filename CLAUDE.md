@@ -118,6 +118,8 @@ if (!validation.isValid) {
 - **Plinko**: Min $100, Max $175K (high multiplier limit - up to 10x)  
 - **Crash**: Min $10, Max $175K (high multiplier limit - up to 15x)
 - **Treasure Vault**: Min $100, Max $300K (reduced due to multipliers up to 3.5x)
+- **KENO**: Min $10, Max $50K (conservative multipliers - max 50x)
+- **CEELO**: Min $5, Max $25K (1:1 payouts, traditional dice game)
 
 ## Environment Variables
 Required in `.env`:
@@ -199,3 +201,4 @@ Co-Authored-By: Claude <noreply@anthropic.com>" && git push
 - Always Show A To-Do List. As well, as make sure that the code that is generated to be tested thoroughly.
 - Make sure all games, commands, have consistent UI!
 - When making a new feature, make it into a new git branch.
+- Try to not be verbose. Just show me what you are working on. Do not show me any code. Just a To do List, and (WORKING) and test each functionality completely after each completed to do list to ensure nothing breaks!

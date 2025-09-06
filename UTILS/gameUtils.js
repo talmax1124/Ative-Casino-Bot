@@ -47,7 +47,9 @@ const GameType = {
     DUCK_GAME: 'duck_game',
     MULTI_SLOTS: 'multi_slots',
     BATTLESHIP: 'battleship',
-    WORDCHAIN: 'wordchain'
+    WORDCHAIN: 'wordchain',
+    RUSSIAN_ROULETTE: 'russianroulette',
+    CEELO: 'ceelo'
 };
 
 // ========================= DATA CLASSES =========================

@@ -66,7 +66,7 @@ class AntiAbuseSystem {
         // Start continuous monitoring
         this.monitoringInterval = setInterval(() => {
             this.performContinuousMonitoring();
-        }, 30000); // Every 30 seconds
+        }, 900000); // Every 15 minutes
         
         // Daily cleanup of old data
         this.cleanupInterval = setInterval(() => {

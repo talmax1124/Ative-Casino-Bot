@@ -12,6 +12,7 @@ const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const SMGameType = { PLINKO: 'plinko' };
 const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -112,8 +113,15 @@ module.exports = {
             
             // Get base multipliers and randomize their positions 
             const baseMultipliers = gameSession.modes[normalizedMode].multipliers;
-            const multipliers = [...baseMultipliers].sort(() => Math.random() - 0.5); // Shuffle positions
-            const slots = multipliers.length;
+            
+            // Get UI-friendly multipliers (what players see on board)
+            const uiMultipliers = await transparentPayoutManager.getDisplayMultipliers('plinko', baseMultipliers, userId);
+            const displayMultipliers = uiMultipliers.map(m => m.display);
+            const shuffledMultipliers = [...displayMultipliers].sort(() => Math.random() - 0.5); // Shuffle for display
+            
+            // Keep original multipliers for payout calculations
+            const actualMultipliers = [...baseMultipliers].sort(() => Math.random() - 0.5);
+            const slots = shuffledMultipliers.length;
             
             // Drop slot is always random
             const dropSlot = Math.floor(Math.random() * slots);
@@ -131,6 +139,8 @@ module.exports = {
                     mode: selectedMode,
                     dropSlot,
                     slots,
+                    displayMultipliers: shuffledMultipliers,
+                    actualMultipliers: actualMultipliers,
                     interaction: {
                         id: interaction.id,
                         user: interaction.user.tag
@@ -179,7 +189,8 @@ module.exports = {
             await sessionManager.updateSession(sessionId, {
                 gameData: {
                     gameStarted: true,
-                    multipliers,
+                    displayMultipliers: shuffledMultipliers,
+                    actualMultipliers: actualMultipliers,
                     startTime: Date.now()
                 },
                 action: 'game_start'
@@ -192,7 +203,8 @@ module.exports = {
                 betAmount,
                 mode: selectedMode,
                 modeData,
-                multipliers,
+                displayMultipliers: shuffledMultipliers,  // For UI display
+                actualMultipliers: actualMultipliers,     // For payout calculation
                 slots,
                 dropSlot,
                 newWallet: updatedBalance.wallet,
@@ -244,7 +256,7 @@ module.exports = {
  * Play the full animated plinko game
  */
 async function playAnimatedPlinko(interaction, gameData, guildId) {
-    const { userId, username, betAmount, mode, modeData, multipliers, slots, dropSlot } = gameData;
+    const { userId, username, betAmount, mode, modeData, displayMultipliers, actualMultipliers, slots, dropSlot } = gameData;
     
     // Get mode colors
     const modeColors = {
@@ -267,18 +279,22 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
             startPos
         );
 
-        const finalMultiplier = multipliers[finalSlot];
-        const winnings = Math.floor(betAmount * finalMultiplier);
+        // Use display multipliers for UI, actual multipliers for payout
+        const finalDisplayMultiplier = displayMultipliers[finalSlot];
+        const finalActualMultiplier = actualMultipliers[finalSlot];
+        
+        // Calculate winnings using actual multiplier (behind the scenes)
+        const winnings = Math.floor(betAmount * finalActualMultiplier);
         const won = winnings > 0; // Only a win if they get something back
 
-        // Create animation frames
+        // Create animation frames using display multipliers for UI
         const animationFrames = [];
         
         // Initial frame
         animationFrames.push(createPlinkoImage(
             rows,
             slots,
-            multipliers,
+            displayMultipliers,
             null,
             -1,
             mode
@@ -289,7 +305,7 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
             animationFrames.push(createPlinkoImage(
                 rows,
                 slots,
-                multipliers,
+                displayMultipliers,
                 ballPath,
                 i,
                 mode
@@ -300,7 +316,7 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
         animationFrames.push(createPlinkoImage(
             rows,
             slots,
-            multipliers,
+            displayMultipliers,
             ballPath,
             rows + 1,
             mode,
@@ -347,7 +363,7 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
         await new Promise(resolve => setTimeout(resolve, 800));
 
         // Show final results
-        await showFinalResults(interaction, gameData, animationFrames[animationFrames.length - 1], finalSlot, finalMultiplier, winnings, won, guildId);
+        await showFinalResults(interaction, gameData, animationFrames[animationFrames.length - 1], finalSlot, finalDisplayMultiplier, winnings, won, guildId);
 
     } catch (error) {
         logger.error(`Error in animated plinko game: ${error.message}`);

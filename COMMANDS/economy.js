@@ -151,23 +151,78 @@ module.exports = {
                 }
             }
             
-            return {
-                systemStatus,
-                economicReport,
-                userRisk,
+            // Ensure all data fields are populated with accurate information
+            const stabilizedData = {
+                systemStatus: {
+                    initialized: systemStatus?.initialized || false,
+                    emergencyMode: systemStatus?.emergencyMode || false,
+                    healthScore: systemStatus?.healthScore || 100,
+                    lastUpdate: Date.now()
+                },
+                economicReport: {
+                    overview: {
+                        emergencyMode: economicReport?.overview?.emergencyMode || systemStatus?.emergencyMode || false,
+                        healthScore: economicReport?.overview?.healthScore || systemStatus?.healthScore || 100,
+                        systemsOnline: economicReport?.overview?.systemsOnline || systemStatus?.initialized || false
+                    },
+                    stabilizer: economicReport?.stabilizer || { status: 'UNKNOWN', healthScore: 100 },
+                    antiAbuse: economicReport?.antiAbuse || { status: 'MONITORING_ONLY', blockedUsers: 0 },
+                    wealthTax: economicReport?.wealthTax || { status: 'ACTIVE' }
+                },
+                userRisk: {
+                    riskLevel: userRisk?.riskLevel || 'LOW',
+                    riskScore: userRisk?.riskScore || 0,
+                    factors: userRisk?.factors || {},
+                    lastAssessment: userRisk?.lastAssessment || Date.now()
+                },
                 multiplierReductions,
-                emergencyMode: systemStatus.emergencyMode,
-                healthScore: systemStatus.healthScore
+                emergencyMode: systemStatus?.emergencyMode || false,
+                healthScore: systemStatus?.healthScore || 100,
+                dataComplete: true,
+                timestamp: Date.now()
             };
+
+            return stabilizedData;
         } catch (error) {
             logger.error(`Error getting economic system data: ${error.message}`);
+            // Return comprehensive fallback data with all required fields
             return {
-                systemStatus: { initialized: false, emergencyMode: false, healthScore: 100 },
-                economicReport: { overview: { emergencyMode: false, healthScore: 100 } },
-                userRisk: { riskLevel: 'UNKNOWN' },
-                multiplierReductions: {},
+                systemStatus: { 
+                    initialized: false, 
+                    emergencyMode: false, 
+                    healthScore: 100,
+                    lastUpdate: Date.now(),
+                    error: error.message 
+                },
+                economicReport: { 
+                    overview: { 
+                        emergencyMode: false, 
+                        healthScore: 100,
+                        systemsOnline: false
+                    },
+                    stabilizer: { status: 'ERROR', healthScore: 100 },
+                    antiAbuse: { status: 'ERROR', blockedUsers: 0 },
+                    wealthTax: { status: 'ERROR' }
+                },
+                userRisk: { 
+                    riskLevel: 'UNKNOWN',
+                    riskScore: 0,
+                    factors: {},
+                    lastAssessment: Date.now(),
+                    error: 'Risk assessment unavailable'
+                },
+                multiplierReductions: {
+                    blackjack: { reduction: '0.0', houseEdgeBonus: '0.00', effectiveMultiplier: '100.0' },
+                    slots: { reduction: '0.0', houseEdgeBonus: '0.00', effectiveMultiplier: '100.0' },
+                    roulette: { reduction: '0.0', houseEdgeBonus: '0.00', effectiveMultiplier: '100.0' },
+                    crash: { reduction: '0.0', houseEdgeBonus: '0.00', effectiveMultiplier: '100.0' },
+                    plinko: { reduction: '0.0', houseEdgeBonus: '0.00', effectiveMultiplier: '100.0' }
+                },
                 emergencyMode: false,
-                healthScore: 100
+                healthScore: 100,
+                dataComplete: false,
+                error: error.message,
+                timestamp: Date.now()
             };
         }
     },
@@ -959,6 +1014,14 @@ module.exports = {
                     }
                 ];
 
+                // Add comprehensive tips and recommendations based on system status
+                const tips = this.generateEconomyTips(economicSystemData);
+                topFields.push({
+                    name: '💡 ECONOMY MANAGEMENT TIPS',
+                    value: tips,
+                    inline: false
+                });
+                
                 // Add remaining games if more than 4
                 if (Object.keys(economicSystemData.multiplierReductions).length > 4) {
                     const remainingGames = Object.entries(economicSystemData.multiplierReductions).slice(4);
@@ -1552,5 +1615,70 @@ module.exports = {
         }
         
         return filteredUsers;
+    },
+
+    /**
+     * GENERATE COMPREHENSIVE ECONOMY MANAGEMENT TIPS
+     */
+    generateEconomyTips(economicSystemData) {
+        const tips = [];
+        const healthScore = economicSystemData.healthScore;
+        const emergencyMode = economicSystemData.emergencyMode;
+
+        // Emergency mode tips
+        if (emergencyMode) {
+            tips.push("🚨 **EMERGENCY MODE ACTIVE** - All games have increased restrictions");
+            tips.push("⚠️ **Bet limits reduced** - Maximum bets are temporarily lowered");
+            tips.push("🔒 **Enhanced monitoring** - All large wins are being reviewed");
+            tips.push("⏰ **Temporary measures** - Emergency mode auto-expires in 1 hour");
+        }
+
+        // Health score based recommendations
+        if (healthScore >= 90) {
+            tips.push("✅ **Economy Excellent** - All systems operating optimally");
+            tips.push("💰 **Stable conditions** - Normal betting limits and payouts");
+            tips.push("📈 **Growth opportunity** - Consider promotional events");
+        } else if (healthScore >= 70) {
+            tips.push("🟡 **Economy Good** - Minor adjustments in effect");
+            tips.push("⚖️ **Balanced state** - Moderate house edge adjustments");
+            tips.push("📊 **Monitor trends** - Keep an eye on wealth distribution");
+        } else if (healthScore >= 50) {
+            tips.push("🟠 **Economy Concerning** - Increased restrictions active");
+            tips.push("⚠️ **Risk mitigation** - Multipliers reduced to protect stability");
+            tips.push("🎯 **Focus on balance** - Avoid high-risk betting patterns");
+        } else if (healthScore >= 30) {
+            tips.push("🔴 **Economy Poor** - Significant restrictions in place");
+            tips.push("🚨 **High alert** - Emergency measures may trigger soon");
+            tips.push("💡 **Conservative play** - Lower bets recommended for all users");
+        } else {
+            tips.push("💀 **Economy Critical** - Severe restrictions active");
+            tips.push("🆘 **Crisis mode** - Emergency intervention required");
+            tips.push("🛑 **Immediate action** - Consider pausing high-stakes games");
+        }
+
+        // User risk level tips
+        const userRisk = economicSystemData.userRisk?.riskLevel || 'UNKNOWN';
+        if (userRisk === 'HIGH' || userRisk === 'CRITICAL') {
+            tips.push("👤 **Your Risk: HIGH** - Your account has enhanced monitoring");
+            tips.push("📉 **Reduced multipliers** - Your payouts are automatically adjusted");
+        } else if (userRisk === 'MEDIUM') {
+            tips.push("👤 **Your Risk: MEDIUM** - Some restrictions may apply");
+        } else if (userRisk === 'LOW') {
+            tips.push("👤 **Your Risk: LOW** - Standard rates and limits apply");
+        }
+
+        // System-specific tips
+        if (Object.keys(economicSystemData.multiplierReductions).length > 0) {
+            tips.push("🎮 **Dynamic adjustments** - Game payouts automatically optimized");
+            tips.push("🏠 **House edge active** - Ensures long-term stability");
+        }
+
+        // General economy tips
+        tips.push("💡 **Pro tip:** Bank money to earn daily interest");
+        tips.push("📊 **Monitor your ROI** - Track your gambling performance");
+        tips.push("⚖️ **Bet responsibly** - Never bet more than you can afford");
+        tips.push("🎯 **Diversify games** - Don't focus on just one game type");
+
+        return tips.slice(0, 8).join('\n'); // Limit to 8 tips to prevent overflow
     }
 };

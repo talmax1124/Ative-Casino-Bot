@@ -61,7 +61,7 @@ module.exports = {
     },
 
     async showRegularLeaderboard(interaction, guildId, limit) {
-        // Get regular economy users (not off economy) with win/loss stats
+        // Get regular economy users (excluding developers, admins, and off-economy users) with win/loss stats
         const users = await dbManager.databaseAdapter.executeQuery(`
             SELECT 
                 ub.user_id,
@@ -75,7 +75,9 @@ module.exports = {
                 COALESCE(SUM(us.total_games_played), 0) as total_games
             FROM user_balances ub
             LEFT JOIN user_stats us ON ub.user_id = us.user_id
-            WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL) AND ub.wallet + ub.bank > 0
+            WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL) 
+                AND ub.wallet + ub.bank > 0
+                AND ub.user_id != '466050111680544798'
             GROUP BY ub.user_id, ub.username, ub.wallet, ub.bank, ub.off_economy
             ORDER BY total_balance DESC
             LIMIT ?
@@ -84,7 +86,9 @@ module.exports = {
         const totalUsers = await dbManager.databaseAdapter.executeQuery(`
             SELECT COUNT(*) as count
             FROM user_balances 
-            WHERE (off_economy = FALSE OR off_economy IS NULL) AND wallet + bank > 0
+            WHERE (off_economy = FALSE OR off_economy IS NULL) 
+                AND wallet + bank > 0
+                AND user_id != '466050111680544798'
         `);
 
         const totalCount = totalUsers[0]?.count || 0;

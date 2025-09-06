@@ -42,10 +42,11 @@ async function createGameEmbed(game, user, showDealer = false, balance = null) {
     if (showDealer) {
         dealerDisplay = `${game.dealerHand.toString()} (${game.dealerHand.getValue()})`;
     } else {
-        // Only show the visible card's value, not the total
+        // Show only the face-up card (first card) and hide the second card
         const visibleCard = game.dealerHand.cards[0]; // First card is visible
         const visibleValue = visibleCard ? visibleCard.getValue() : 0;
-        dealerDisplay = `${game.dealerHand.getDisplayString(true)} (${visibleValue})`;
+        const hiddenCardDisplay = game.dealerHand.cards.length > 1 ? `${visibleCard.toString()} 🂠` : visibleCard.toString();
+        dealerDisplay = `${hiddenCardDisplay} (${visibleValue})`;
     }
     
     topFields.push({

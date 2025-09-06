@@ -13,6 +13,7 @@ const sessionManager = require('../UTILS/sessionManager');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const OffEconomyBadge = require('../UTILS/offEconomyBadge');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 
 
 /**
@@ -158,7 +159,25 @@ module.exports = {
 
             // Spin the slots for real result immediately
             const symbols = spinSlots();
-            const result = calculatePayout(symbols, betAmount);
+            const baseResult = calculatePayout(symbols, betAmount);
+            
+            // Apply transparent payout system - show full multiplier in UI but adjust actual payout
+            const transparentResult = await transparentPayoutManager.processTransparentPayout(
+                userId,
+                'slots',
+                betAmount,
+                baseResult.multiplier,
+                { symbols, winType: baseResult.type }
+            );
+            
+            // Use UI multiplier for display, actual payout for winnings
+            const result = {
+                ...baseResult,
+                multiplier: transparentResult.uiMultiplier,  // Show attractive multiplier
+                payout: transparentResult.actualPayout,     // Pay actual amount
+                displayMultiplier: transparentResult.uiMultiplier,
+                actualMultiplier: baseResult.multiplier
+            };
 
             // Update session with spin results
             await sessionManager.updateSession(sessionId, {

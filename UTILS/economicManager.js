@@ -110,7 +110,7 @@ class EconomicManager {
         // Monitor for critical economic events
         setInterval(async () => {
             await this.monitorEconomicHealth();
-        }, 30000); // Every 30 seconds
+        }, 1800000); // Every 30 minutes
         
         logger.info('Emergency procedures configured');
     }

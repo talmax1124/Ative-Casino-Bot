@@ -398,13 +398,23 @@ class DatabaseAdapter {
                 let wallet = parseFloat(row.wallet);
                 let bank = parseFloat(row.bank);
                 
+                let needsFix = false;
                 if (isNaN(wallet) || !isFinite(wallet)) {
                     logger.error(`Invalid wallet value in database for user ${userId}: ${row.wallet}, resetting to 0`);
                     wallet = 0;
+                    needsFix = true;
                 }
                 if (isNaN(bank) || !isFinite(bank)) {
                     logger.error(`Invalid bank value in database for user ${userId}: ${row.bank}, resetting to 0`);
                     bank = 0;
+                    needsFix = true;
+                }
+                
+                // Auto-fix NaN values in database
+                if (needsFix) {
+                    logger.info(`Auto-fixing NaN balance for user ${userId}`);
+                    const fixQuery = 'UPDATE user_balances SET wallet = ?, bank = ? WHERE user_id = ?';
+                    await this.query(fixQuery, [wallet, bank, userId]);
                 }
                 
                 return {
@@ -557,19 +567,19 @@ class DatabaseAdapter {
             const updateValues = [];
 
             if (wallet !== null) {
-                const walletValue = parseFloat(wallet);
+                let walletValue = parseFloat(wallet);
                 if (isNaN(walletValue) || !isFinite(walletValue)) {
-                    logger.error(`Invalid wallet value for user ${userId}: ${wallet} (converted to ${walletValue})`);
-                    return false;
+                    logger.error(`Invalid wallet value for user ${userId}: ${wallet} (converted to ${walletValue}), defaulting to 0`);
+                    walletValue = 0; // Default to 0 instead of failing
                 }
                 updateFields.push('wallet = ?');
                 updateValues.push(walletValue);
             }
             if (bank !== null) {
-                const bankValue = parseFloat(bank);
+                let bankValue = parseFloat(bank);
                 if (isNaN(bankValue) || !isFinite(bankValue)) {
-                    logger.error(`Invalid bank value for user ${userId}: ${bank} (converted to ${bankValue})`);
-                    return false;
+                    logger.error(`Invalid bank value for user ${userId}: ${bank} (converted to ${bankValue}), defaulting to 0`);
+                    bankValue = 0; // Default to 0 instead of failing
                 }
                 updateFields.push('bank = ?');
                 updateValues.push(bankValue);

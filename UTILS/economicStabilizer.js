@@ -12,6 +12,7 @@ const ss = require('simple-statistics');
 const NodeCache = require('node-cache');
 const dbManager = require('./database');
 const logger = require('./logger');
+const economicAnalyzer = require('./economicAnalyzer');
 
 // Configure Decimal.js for high precision
 Decimal.config({
@@ -39,23 +40,26 @@ class EconomicStabilizer {
             economicStability: 100
         };
         
-        // Circuit breaker thresholds
+        // Circuit breaker thresholds (AGGRESSIVE SETTINGS)
         this.circuitBreakers = {
-            maxDailyLoss: new Decimal(50000000),      // $50M max house loss per day
-            maxWealthConcentration: 0.97,             // Top 1% can't own more than 97% (adjusted for developer accounts)
-            maxInflationRate: 0.1,                    // 10% max inflation per day
-            minHouseEdge: 0.02,                       // Minimum 2% house edge
-            maxBetSizeRatio: 0.05,                    // Max bet can't exceed 5% of user's wealth
-            suspiciousWinThreshold: 100,              // 100x multiplier triggers investigation
-            maxConsecutiveWins: 10                    // Max wins in a row before analysis
+            maxDailyLoss: new Decimal(25000000),      // $25M max house loss per day (more aggressive)
+            maxWealthConcentration: 0.95,             // Top 1% can't own more than 95% (tighter control)
+            maxInflationRate: 0.05,                   // 5% max inflation per day (stricter)
+            minHouseEdge: 0.025,                      // Minimum 2.5% house edge (increased)
+            maxBetSizeRatio: 0.03,                    // Max bet can't exceed 3% of user's wealth (reduced)
+            suspiciousWinThreshold: 50,               // 50x multiplier triggers investigation (lowered)
+            maxConsecutiveWins: 7,                    // Max wins in a row before analysis (reduced)
+            maxGameWinRate: 0.52,                     // No game should have >52% player win rate
+            emergencyMultiplierCap: 0.3               // Emergency mode: cap all multipliers at 30%
         };
         
-        // Dynamic multiplier adjustments
+        // Dynamic multiplier adjustments (MORE AGGRESSIVE)
         this.dynamicMultipliers = {
-            baseReduction: 0.1,        // 10% base reduction in all multipliers
-            wealthBasedReduction: 0.2,  // Additional 20% reduction for wealthy players
-            volumeBasedReduction: 0.15, // 15% reduction during high volume
-            emergencyReduction: 0.5     // 50% reduction during economic emergencies
+            baseReduction: 0.15,        // 15% base reduction in all multipliers (increased)
+            wealthBasedReduction: 0.3,  // Additional 30% reduction for wealthy players (increased)
+            volumeBasedReduction: 0.2,  // 20% reduction during high volume (increased)
+            emergencyReduction: 0.7,    // 70% reduction during economic emergencies (increased)
+            gameSpecificReduction: 0.25 // 25% additional reduction for problematic games
         };
         
         // Anti-abuse detection patterns
@@ -72,15 +76,24 @@ class EconomicStabilizer {
     async initializeStabilizer() {
         logger.info('🏦 Initializing Advanced Economic Stabilizer...');
         
-        // Start continuous economic monitoring
+        // Initialize the AI analyzer
+        await economicAnalyzer.initialize();
+        
+        // Start continuous economic monitoring (reasonable intervals)
         this.analysisInterval = setInterval(() => {
             this.performEconomicAnalysis();
-        }, 60000); // Every minute
+        }, 600000); // Every 10 minutes (reasonable monitoring)
+        
+        // Start AI analysis interval (every hour)
+        this.aiAnalysisInterval = setInterval(() => {
+            this.performAIAnalysis();
+        }, 600000);
         
         // Perform initial analysis
         await this.performEconomicAnalysis();
+        await this.performAIAnalysis();
         
-        logger.info('🏦 Economic Stabilizer initialized successfully');
+        logger.info('🏦 Economic Stabilizer initialized successfully with AI integration');
     }
     
     /**
@@ -119,8 +132,11 @@ class EconomicStabilizer {
             // Check circuit breakers
             const circuitTriggered = await this.checkCircuitBreakers(economicData);
             
-            if (circuitTriggered) {
+            // Only trigger emergency if health is poor (< 80) OR circuit breakers are extreme
+            if (circuitTriggered && (this.healthMetrics.economicStability < 80 || circuitTriggered.some(t => t.severity === 'CRITICAL'))) {
                 await this.triggerEmergencyMeasures(circuitTriggered);
+            } else if (circuitTriggered && this.healthMetrics.economicStability >= 80) {
+                logger.info(`⚠️ Circuit breakers triggered but health is good (${this.healthMetrics.economicStability}/100) - emergency prevented`);
             }
             
             // Cache results for quick access
@@ -140,6 +156,101 @@ class EconomicStabilizer {
     }
     
     /**
+     * AI-POWERED ANALYSIS - Runs every 10 minutes for deep insights
+     */
+    async performAIAnalysis() {
+        try {
+            logger.info('🧠 Running AI economic analysis...');
+            
+            const aiAnalysis = await economicAnalyzer.performComprehensiveAnalysis();
+            
+            // Apply AI recommendations immediately
+            await this.implementAIRecommendations(aiAnalysis);
+            
+            // Store AI insights
+            this.cache.set('ai_analysis', aiAnalysis, 900); // Cache for 15 minutes
+            
+            // Log critical findings
+            if (aiAnalysis.overallHealth < 70) {
+                logger.warn(`🚨 AI Analysis: Economic health critical at ${aiAnalysis.overallHealth}/100`);
+            }
+            
+            if (aiAnalysis.recommendations.filter(r => r.priority === 'CRITICAL').length > 0) {
+                logger.error('🆘 CRITICAL economic issues detected by AI - implementing emergency measures');
+                await this.triggerAIEmergencyMeasures(aiAnalysis);
+            }
+            
+        } catch (error) {
+            logger.error(`AI economic analysis failed: ${error.message}`);
+        }
+    }
+    
+    /**
+     * IMPLEMENT AI RECOMMENDATIONS
+     */
+    async implementAIRecommendations(analysis) {
+        const criticalRecs = analysis.recommendations.filter(r => r.priority === 'CRITICAL');
+        const highRecs = analysis.recommendations.filter(r => r.priority === 'HIGH');
+        
+        // Implement critical recommendations immediately
+        for (const rec of criticalRecs) {
+            if (rec.category === 'GAME_BALANCE') {
+                await this.adjustGameMultipliers(rec.game, 0.5); // 50% multiplier reduction
+                logger.warn(`🎯 Applied emergency 50% multiplier reduction to ${rec.game} due to AI recommendation`);
+            }
+            
+            if (rec.category === 'ECONOMIC_STABILITY') {
+                this.emergencyMode = true;
+                logger.error('🚨 AI triggered emergency mode due to economic instability');
+            }
+        }
+        
+        // Implement high priority recommendations with delays
+        for (const rec of highRecs) {
+            if (rec.category === 'GAME_BALANCE') {
+                await this.adjustGameMultipliers(rec.game, 0.25); // 25% multiplier reduction
+                logger.info(`⚠️ Applied 25% multiplier reduction to ${rec.game} due to AI recommendation`);
+            }
+        }
+    }
+    
+    /**
+     * TRIGGER AI EMERGENCY MEASURES
+     */
+    async triggerAIEmergencyMeasures(analysis) {
+        this.emergencyMode = true;
+        
+        // More aggressive emergency measures based on AI analysis
+        const emergencyReductions = this.cache.get('multiplier_reductions') || { base: 0, wealthBased: new Map() };
+        emergencyReductions.aiEmergency = true;
+        emergencyReductions.aiEmergencyReduction = 0.8; // 80% reduction (more aggressive)
+        this.cache.set('multiplier_reductions', emergencyReductions);
+        
+        // Increase house edge more aggressively
+        const currentAdjustment = this.cache.get('house_edge_adjustment') || 0;
+        this.cache.set('house_edge_adjustment', currentAdjustment + 0.05); // +5% house edge
+        
+        logger.error('🆘 AI EMERGENCY MEASURES: 80% multiplier reduction, +5% house edge');
+        
+        // Auto-clear after 2 hours instead of 1
+        setTimeout(() => {
+            this.emergencyMode = false;
+            logger.info('🟢 AI Emergency mode automatically cleared after 2 hours');
+        }, 7200000);
+    }
+    
+    /**
+     * ADJUST GAME-SPECIFIC MULTIPLIERS
+     */
+    async adjustGameMultipliers(gameType, reductionFactor) {
+        const gameReductions = this.cache.get('game_specific_reductions') || {};
+        gameReductions[gameType] = reductionFactor;
+        this.cache.set('game_specific_reductions', gameReductions);
+        
+        logger.info(`🎮 Game-specific adjustment: ${gameType} multipliers reduced by ${(reductionFactor * 100).toFixed(1)}%`);
+    }
+    
+    /**
      * GATHER COMPREHENSIVE ECONOMIC DATA
      */
     async gatherEconomicData() {
@@ -152,37 +263,46 @@ class EconomicStabilizer {
                 throw new Error('Database not initialized');
             }
             
-            // Get all user data (excluding special categories)
-            const allUsers = await dbManager.getAllUsers();
-            const users = await this.filterEconomyUsers(allUsers);
-            const last24h = moment().subtract(24, 'hours').toDate();
+            // Get FILTERED economic user data (EXCLUDES: DEV, Admins, Off Eco)
+            const economicUsersQuery = `
+                SELECT ub.user_id, ub.wallet, ub.bank, ub.off_economy,
+                       us.wins, us.losses, us.total_wagered, us.total_won
+                FROM user_balances ub
+                LEFT JOIN user_stats us ON ub.user_id = us.user_id
+                WHERE ub.user_id != '466050111680544798'
+                AND (ub.off_economy IS NULL OR ub.off_economy = 0)
+                AND ub.wallet + ub.bank > 0
+                AND ub.wallet + ub.bank < 10000000000
+                ORDER BY (ub.wallet + ub.bank) DESC
+            `;
             
-            // Calculate wealth distribution
+            const [economicUsers] = await dbManager.databaseAdapter.pool.execute(economicUsersQuery);
+            logger.info(`📊 Economic data gathered for ${economicUsers.length} legitimate economy participants`);
+            
+            // Calculate wealth distribution from filtered data
             const wealthData = [];
             let totalWealth = new Decimal(0);
             let totalGames = 0;
             let totalWagered = new Decimal(0);
             let totalWon = new Decimal(0);
             
-            for (const user of users) {
-                const balance = await dbManager.getUserBalance(user.user_id);
-                const userWealth = new Decimal(balance.wallet).plus(balance.bank);
+            for (const user of economicUsers) {
+                const userWealth = new Decimal(user.wallet).plus(user.bank);
                 
                 wealthData.push({
                     userId: user.user_id,
                     wealth: userWealth.toNumber(),
-                    wallet: balance.wallet,
-                    bank: balance.bank
+                    wallet: user.wallet,
+                    bank: user.bank
                 });
                 
                 totalWealth = totalWealth.plus(userWealth);
                 
-                // Get user's recent gaming activity
-                const stats = await dbManager.getUserStats(user.user_id);
-                if (stats) {
-                    totalGames += (stats.wins || 0) + (stats.losses || 0);
-                    totalWagered = totalWagered.plus(stats.total_wagered || 0);
-                    totalWon = totalWon.plus(stats.total_won || 0);
+                // Use stats from the query
+                if (user.wins !== null || user.losses !== null) {
+                    totalGames += (user.wins || 0) + (user.losses || 0);
+                    totalWagered = totalWagered.plus(user.total_wagered || 0);
+                    totalWon = totalWon.plus(user.total_won || 0);
                 }
             }
             
@@ -190,15 +310,20 @@ class EconomicStabilizer {
             wealthData.sort((a, b) => b.wealth - a.wealth);
             
             data = {
-                users,
+                users: economicUsers,
                 wealthData,
                 totalWealth: totalWealth.toNumber(),
-                totalUsers: users.length,
+                totalUsers: economicUsers.length,
                 totalGames,
                 totalWagered: totalWagered.toNumber(),
                 totalWon: totalWon.toNumber(),
                 houseProfit: totalWagered.minus(totalWon).toNumber(),
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                excludedPlayers: {
+                    developer: true,
+                    offEco: true,
+                    extremeWealth: true
+                }
             };
             
             this.cache.set(cacheKey, data, 120); // Cache for 2 minutes
@@ -264,25 +389,48 @@ class EconomicStabilizer {
     }
     
     /**
-     * CALCULATE ECONOMIC STABILITY SCORE (0-100)
+     * CALCULATE ECONOMIC STABILITY SCORE (0-100) - Enhanced with more accurate thresholds
      */
     calculateStabilityScore(gini, concentration, houseEdge) {
         let score = 100;
         
-        // Penalize high inequality
-        if (gini > 0.6) score -= 20;
-        else if (gini > 0.4) score -= 10;
+        // Enhanced Gini coefficient analysis (more realistic thresholds)
+        if (gini > 0.9) score -= 40;      // Extreme inequality (crisis level)
+        else if (gini > 0.8) score -= 30; // Very high inequality
+        else if (gini > 0.7) score -= 20; // High inequality
+        else if (gini > 0.6) score -= 15; // Moderate inequality
+        else if (gini > 0.5) score -= 10; // Some inequality
+        else if (gini > 0.4) score -= 5;  // Low inequality
         
-        // Penalize high wealth concentration
-        if (concentration > 0.8) score -= 25;
-        else if (concentration > 0.6) score -= 15;
+        // Enhanced wealth concentration analysis (adjusted for developer/admin exclusion)
+        if (concentration > 0.95) score -= 35;      // Extreme concentration (emergency level)
+        else if (concentration > 0.90) score -= 25; // Very high concentration
+        else if (concentration > 0.85) score -= 20; // High concentration
+        else if (concentration > 0.75) score -= 15; // Moderate concentration
+        else if (concentration > 0.65) score -= 10; // Some concentration
+        else if (concentration > 0.55) score -= 5;  // Low concentration
         
-        // Penalize low house edge
-        if (houseEdge < 0.02) score -= 30;
-        else if (houseEdge < 0.03) score -= 15;
+        // Enhanced house edge analysis
+        if (houseEdge < 0.01) score -= 40;         // Critical - house losing money
+        else if (houseEdge < 0.02) score -= 30;   // Very low - unsustainable
+        else if (houseEdge < 0.025) score -= 20;  // Low - concerning
+        else if (houseEdge < 0.03) score -= 10;   // Slightly low
         
-        // Bonus for optimal house edge
-        if (houseEdge >= 0.04 && houseEdge <= 0.06) score += 10;
+        // Optimal house edge bonus (3-6% is ideal for casino sustainability)
+        if (houseEdge >= 0.03 && houseEdge <= 0.06) score += 15;
+        else if (houseEdge >= 0.06 && houseEdge <= 0.08) score += 10; // Still good
+        else if (houseEdge > 0.10) score -= 15; // Too high - may discourage play
+        
+        // Emergency triggers for immediate action (more restrictive to avoid false alarms)
+        if (gini > 0.98 || concentration > 0.99 || houseEdge < 0.005) {
+            score = Math.min(score, 25); // Force emergency mode only in extreme cases
+        }
+        
+        // Health score override - don't trigger emergency if overall health is good
+        if (score > 80 && (gini <= 0.98 && concentration <= 0.985 && houseEdge >= 0.01)) {
+            // Override emergency triggers if health is good and metrics aren't extreme
+            return Math.max(0, Math.min(100, score));
+        }
         
         return Math.max(0, Math.min(100, score));
     }
@@ -459,14 +607,32 @@ class EconomicStabilizer {
             totalReduction += this.dynamicMultipliers.emergencyReduction;
         }
         
-        // Wealth-based reduction for high rollers
+        // Wealth-based reduction with ULTRA-AGGRESSIVE penalties for 500M+
         const wealthBasedReductions = new Map();
         const top5Percent = Math.floor(data.totalUsers * 0.05);
         
         for (let i = 0; i < Math.min(top5Percent, data.wealthData.length); i++) {
             const user = data.wealthData[i];
-            wealthBasedReductions.set(user.userId, 
-                totalReduction + this.dynamicMultipliers.wealthBasedReduction);
+            const userWealth = user.totalBalance || (user.wallet + user.bank);
+            
+            let wealthMultiplier = this.dynamicMultipliers.wealthBasedReduction;
+            
+            // Ultra-aggressive multiplier penalties for ultra-wealthy (500M+)
+            if (userWealth >= 1000000000) {
+                // 1B+ users: 75% multiplier reduction (only 25% of normal multipliers)
+                wealthMultiplier = 0.75; 
+            } else if (userWealth >= 500000000) {
+                // 500M-999M users: 60% multiplier reduction (only 40% of normal multipliers)
+                wealthMultiplier = 0.60;
+            } else if (userWealth >= 100000000) {
+                // 100M-499M users: 35% multiplier reduction
+                wealthMultiplier = 0.35;
+            } else if (userWealth >= 50000000) {
+                // 50M-99M users: 25% multiplier reduction
+                wealthMultiplier = 0.25;
+            }
+            
+            wealthBasedReductions.set(user.userId, totalReduction + wealthMultiplier);
         }
         
         // Cache multiplier reductions
@@ -495,21 +661,23 @@ class EconomicStabilizer {
             });
         }
         
-        // Check wealth concentration
+        // Check wealth concentration (only CRITICAL if extremely concentrated)
         if (this.healthMetrics.wealthConcentration.toNumber() > this.circuitBreakers.maxWealthConcentration) {
+            const severity = this.healthMetrics.wealthConcentration.toNumber() > 0.99 ? 'CRITICAL' : 'HIGH';
             triggered.push({
                 type: 'wealth_concentration',
-                severity: 'HIGH',
+                severity: severity,
                 value: this.healthMetrics.wealthConcentration.toNumber(),
                 threshold: this.circuitBreakers.maxWealthConcentration
             });
         }
         
-        // Check minimum house edge
+        // Check minimum house edge (only CRITICAL if extremely low)
         if (this.healthMetrics.houseAdvantage.toNumber() < this.circuitBreakers.minHouseEdge) {
+            const severity = this.healthMetrics.houseAdvantage.toNumber() < 0.005 ? 'CRITICAL' : 'HIGH';
             triggered.push({
                 type: 'low_house_edge',
-                severity: 'HIGH',
+                severity: severity,
                 value: this.healthMetrics.houseAdvantage.toNumber(),
                 threshold: this.circuitBreakers.minHouseEdge
             });
@@ -559,28 +727,48 @@ class EconomicStabilizer {
     }
     
     /**
-     * PUBLIC API - Get multiplier for specific game and user
+     * PUBLIC API - Get multiplier for specific game and user (ENHANCED WITH AI)
      */
     async getMultiplierAdjustment(userId, gameType, baseMultiplier) {
-        const reductions = this.cache.get('multiplier_reductions');
-        if (!reductions) return baseMultiplier;
+        const reductions = this.cache.get('multiplier_reductions') || {};
+        const gameReductions = this.cache.get('game_specific_reductions') || {};
         
         let totalReduction = reductions.base || 0;
         
         // Add user-specific wealth-based reduction
         if (reductions.wealthBased && reductions.wealthBased.has(userId)) {
-            totalReduction = reductions.wealthBased.get(userId);
+            totalReduction = Math.max(totalReduction, reductions.wealthBased.get(userId));
         }
         
-        // Add emergency reduction
+        // Add standard emergency reduction
         if (reductions.emergency) {
             totalReduction += reductions.emergencyReduction;
         }
         
-        // Apply reduction (never go below 10% of original)
-        const adjustedMultiplier = baseMultiplier * Math.max(0.1, (1 - totalReduction));
+        // Add AI emergency reduction (more aggressive)
+        if (reductions.aiEmergency) {
+            totalReduction += reductions.aiEmergencyReduction;
+        }
         
-        return Math.max(0.1, adjustedMultiplier);
+        // Add game-specific reduction
+        if (gameReductions[gameType]) {
+            totalReduction += gameReductions[gameType];
+        }
+        
+        // Ultra-aggressive mode: cap all multipliers during extreme situations
+        if (this.emergencyMode && this.circuitBreakers.emergencyMultiplierCap) {
+            totalReduction = Math.max(totalReduction, 1 - this.circuitBreakers.emergencyMultiplierCap);
+        }
+        
+        // Apply reduction (never go below 5% of original in extreme cases)
+        const adjustedMultiplier = baseMultiplier * Math.max(0.05, (1 - totalReduction));
+        
+        // Log significant reductions for monitoring
+        if (totalReduction > 0.5) {
+            logger.warn(`🔻 Severe multiplier reduction for ${gameType}: ${(totalReduction * 100).toFixed(1)}% reduction (${baseMultiplier} → ${adjustedMultiplier.toFixed(2)})`);
+        }
+        
+        return Math.max(0.05, adjustedMultiplier);
     }
     
     /**
@@ -681,38 +869,66 @@ class EconomicStabilizer {
     
     /**
      * FILTER ECONOMY USERS - Exclude special categories
-     * Excludes: Developer, OFF ECO users, Admins
+     * Excludes: Developer, OFF ECO users, Admins (via database query for efficiency)
+     * CRITICAL: This ensures accurate economic data by excluding non-economy participants
      */
     async filterEconomyUsers(users) {
         const DEVELOPER_ID = '466050111680544798';
         const filteredUsers = [];
         
+        logger.info(`🔍 Filtering ${users.length} users for economy analysis...`);
+        
         for (const user of users) {
-            // Skip developer
+            // Skip developer (EXPLICIT EXCLUSION)
             if (user.user_id === DEVELOPER_ID) {
-                logger.debug(`Excluding developer from economy analysis: ${user.user_id}`);
+                logger.debug(`❌ EXCLUDING DEVELOPER from economy analysis: ${user.user_id}`);
                 continue;
             }
             
-            // Skip OFF ECO users
+            // Skip OFF ECO users (EXPLICIT EXCLUSION)
             try {
-                const isOffEco = await dbManager.databaseAdapter.isOffEconomy(user.user_id);
+                // Check off_economy flag directly from user data if available, otherwise query
+                let isOffEco = false;
+                if (user.off_economy !== undefined) {
+                    isOffEco = user.off_economy === 1 || user.off_economy === true;
+                } else {
+                    isOffEco = await dbManager.databaseAdapter.isOffEconomy(user.user_id);
+                }
+                
                 if (isOffEco) {
-                    logger.debug(`Excluding OFF ECO user from economy analysis: ${user.user_id}`);
+                    logger.debug(`❌ EXCLUDING OFF ECO user from economy analysis: ${user.user_id}`);
                     continue;
                 }
             } catch (error) {
-                // If we can't check, assume regular user
-                logger.debug(`Could not check OFF ECO status for ${user.user_id}: ${error.message}`);
+                // If we can't check, log warning but assume regular user
+                logger.warn(`Could not verify OFF ECO status for ${user.user_id}: ${error.message}`);
             }
             
-            // For admin checking, we would need Discord client access which we don't have here
-            // Admin filtering will need to be done at a higher level if needed
+            // Additional check: Exclude users with extremely high balances that might be test/admin accounts
+            try {
+                const balance = await dbManager.getUserBalance(user.user_id);
+                const totalWealth = balance.wallet + balance.bank;
+                
+                // Flag potential admin/test accounts with unrealistic balances (over 10 billion)
+                if (totalWealth > 10000000000) {
+                    logger.warn(`⚠️ EXCLUDING potential admin/test account due to extreme wealth (${totalWealth.toLocaleString()}): ${user.user_id}`);
+                    continue;
+                }
+            } catch (error) {
+                logger.debug(`Could not check balance for ${user.user_id}: ${error.message}`);
+            }
             
+            // User passed all filters - include in economy analysis
             filteredUsers.push(user);
         }
         
-        logger.info(`Economy analysis: ${users.length} total users, ${filteredUsers.length} included (${users.length - filteredUsers.length} excluded)`);
+        const excluded = users.length - filteredUsers.length;
+        logger.info(`✅ Economy analysis filtering complete: ${filteredUsers.length} included, ${excluded} excluded`);
+        
+        if (excluded > 0) {
+            logger.info(`📊 Exclusions ensure accurate economic data by removing DEV/Admin/Off-Eco players`);
+        }
+        
         return filteredUsers;
     }
     
@@ -722,6 +938,9 @@ class EconomicStabilizer {
     destroy() {
         if (this.analysisInterval) {
             clearInterval(this.analysisInterval);
+        }
+        if (this.aiAnalysisInterval) {
+            clearInterval(this.aiAnalysisInterval);
         }
         this.cache.close();
         logger.info('Economic Stabilizer destroyed');

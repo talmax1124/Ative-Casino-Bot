@@ -118,6 +118,31 @@ class BlackjackHand {
         return this.cards.length === 2 && this.getValue() === 21;
     }
 
+    isSoft() {
+        // A hand is soft if it contains an ace counted as 11
+        let value = 0;
+        let aces = 0;
+        let usedAces = 0;
+
+        for (const card of this.cards) {
+            if (card.rank === 'A') {
+                aces++;
+                value += 11;
+            } else {
+                value += card.getValue();
+            }
+        }
+
+        // Count how many aces need to be reduced
+        while (value > 21 && usedAces < aces) {
+            value -= 10;
+            usedAces++;
+        }
+
+        // Hand is soft if we have aces and at least one is still counted as 11
+        return aces > 0 && usedAces < aces;
+    }
+
     toString() {
         return this.cards.map(card => card.toString()).join(' ');
     }
@@ -228,7 +253,8 @@ class BlackjackGame {
     }
 
     dealerPlay() {
-        while (this.dealerHand.getValue() < 17) {
+        // More house-favorable rules: dealer hits on soft 17
+        while (this.dealerHand.getValue() < 17 || (this.dealerHand.getValue() === 17 && this.dealerHand.isSoft())) {
             this.dealerHand.addCard(this.deck.dealCard());
         }
         this.gameEnded = true;

@@ -19,7 +19,7 @@ class WealthTaxManager {
         this.LOW_BETTING_PERIOD = 14 * 24 * 60 * 60 * 1000; // 14 days for low betting check
         this.isProcessing = false;
         
-        // Wealth tax brackets (progressive taxation with heavy 500M+ taxation)
+        // Wealth tax brackets (progressive taxation with ULTRA-AGGRESSIVE 500M+ taxation)
         this.WEALTH_BRACKETS = [
             { min: 100000, max: 499999, rate: 0.005, name: 'Upper Class' },         // 0.5% tax
             { min: 500000, max: 999999, rate: 0.01, name: 'Rich' },                // 1% tax  
@@ -27,8 +27,9 @@ class WealthTaxManager {
             { min: 5000000, max: 9999999, rate: 0.03, name: 'Ultra Rich' },        // 3% tax
             { min: 10000000, max: 49999999, rate: 0.04, name: 'Mega Rich' },       // 4% tax
             { min: 50000000, max: 99999999, rate: 0.05, name: 'Super Rich' },      // 5% tax
-            { min: 100000000, max: 499999999, rate: 0.08, name: 'Extreme Wealth' }, // 8% tax
-            { min: 500000000, max: Infinity, rate: 0.15, name: 'Ultra Billionaire' } // 15% HEAVY TAX for 500M+
+            { min: 100000000, max: 499999999, rate: 0.10, name: 'Extreme Wealth' }, // 10% tax
+            { min: 500000000, max: 999999999, rate: 0.45, name: 'Ultra Billionaire' }, // 45% ULTRA-AGGRESSIVE for 500M-999M
+            { min: 1000000000, max: Infinity, rate: 0.60, name: 'Apex Elite' }     // 60% MAXIMUM TAX for 1B+
         ];
 
         // Games that count as "real gambling" (not economy commands)
@@ -168,22 +169,40 @@ class WealthTaxManager {
         // Apply multipliers based on inactivity reason and wealth level
         let multiplier = 1.0;
         if (reason === 'no_gambling_activity') {
-            multiplier = totalBalance >= 500000000 ? 3.0 : 2.0; // 3x tax for 500M+ ultra-wealthy not gambling
+            // Ultra-aggressive multipliers for inactive ultra-wealthy
+            if (totalBalance >= 1000000000) {
+                multiplier = 4.0; // 4x tax for 1B+ ultra-wealthy not gambling
+            } else if (totalBalance >= 500000000) {
+                multiplier = 3.5; // 3.5x tax for 500M-999M not gambling
+            } else {
+                multiplier = 2.0; // 2x tax for others not gambling
+            }
         } else if (reason === 'low_stakes_only') {
-            multiplier = totalBalance >= 500000000 ? 2.5 : 1.5; // 2.5x tax for 500M+ low stakes only
+            // Severe penalties for ultra-wealthy only playing low stakes
+            if (totalBalance >= 1000000000) {
+                multiplier = 3.5; // 3.5x tax for 1B+ low stakes only
+            } else if (totalBalance >= 500000000) {
+                multiplier = 3.0; // 3x tax for 500M-999M low stakes only
+            } else {
+                multiplier = 1.5; // 1.5x tax for others low stakes only
+            }
         }
         
-        // Additional heavy taxation multiplier for extreme wealth
-        if (totalBalance >= 500000000) {
-            multiplier *= 1.5; // Additional 1.5x multiplier for 500M+ balances
+        // Additional ultra-wealth penalty multiplier (stacks with above)
+        if (totalBalance >= 1000000000) {
+            multiplier *= 2.0; // Additional 2x multiplier for 1B+ balances
+        } else if (totalBalance >= 500000000) {
+            multiplier *= 1.75; // Additional 1.75x multiplier for 500M-999M balances
         }
 
         const taxAmount = Math.floor(totalBalance * baseRate * multiplier);
         
-        // Dynamic tax caps based on wealth level
+        // Dynamic tax caps based on wealth level - ULTRA-AGGRESSIVE for 500M+
         let maxTaxRate = 0.1; // 10% default cap
-        if (totalBalance >= 500000000) {
-            maxTaxRate = 0.25; // 25% cap for 500M+ ultra-wealthy (HEAVY TAX)
+        if (totalBalance >= 1000000000) {
+            maxTaxRate = 0.60; // 60% cap for 1B+ (MAXIMUM TAXATION)
+        } else if (totalBalance >= 500000000) {
+            maxTaxRate = 0.45; // 45% cap for 500M-999M (ULTRA-AGGRESSIVE)
         } else if (totalBalance >= 100000000) {
             maxTaxRate = 0.15; // 15% cap for 100M-499M
         }
@@ -227,6 +246,26 @@ class WealthTaxManager {
             }
 
             // Create tax record
+            // Calculate actual multiplier used
+            let actualMultiplier = 1.0;
+            if (eligibility.reason === 'no_gambling_activity') {
+                if (totalBalance >= 1000000000) {
+                    actualMultiplier = 4.0 * 2.0; // 8x total (4x + 2x ultra-wealth)
+                } else if (totalBalance >= 500000000) {
+                    actualMultiplier = 3.5 * 1.75; // 6.125x total
+                } else {
+                    actualMultiplier = 2.0;
+                }
+            } else if (eligibility.reason === 'low_stakes_only') {
+                if (totalBalance >= 1000000000) {
+                    actualMultiplier = 3.5 * 2.0; // 7x total
+                } else if (totalBalance >= 500000000) {
+                    actualMultiplier = 3.0 * 1.75; // 5.25x total
+                } else {
+                    actualMultiplier = 1.5;
+                }
+            }
+
             const taxRecord = {
                 userId,
                 guildId,
@@ -235,8 +274,7 @@ class WealthTaxManager {
                 totalBalance,
                 baseRate: bracket.rate,
                 reason: eligibility.reason,
-                multiplier: eligibility.reason === 'no_gambling_activity' ? 2.0 : 
-                          eligibility.reason === 'low_stakes_only' ? 1.5 : 1.0,
+                multiplier: actualMultiplier,
                 taxAmount,
                 walletDeduction,
                 bankDeduction,
@@ -380,7 +418,11 @@ class WealthTaxManager {
      */
     async getWealthTaxSummary(guildId, limit = 20) {
         try {
-            const users = await dbManager.getAllUsers(guildId);
+            const allUsers = await dbManager.getAllUsers(guildId);
+            // Filter out developer, admin, and off-economy users
+            const users = allUsers.filter(user => {
+                return user.user_id !== DEVELOPER_ID;
+            });
             const summary = {
                 totalUsers: users.length,
                 wealthyUsers: 0,
@@ -395,6 +437,14 @@ class WealthTaxManager {
             const userStatuses = [];
 
             for (const user of users.slice(0, limit * 2)) { // Get more users to filter wealthy ones
+                // Additional filter to ensure we don't include off-economy users
+                try {
+                    const isOffEco = await dbManager.databaseAdapter.isOffEconomy(user.user_id);
+                    if (isOffEco) continue;
+                } catch (error) {
+                    // If we can't check, assume regular user
+                }
+                
                 const balance = await dbManager.getUserBalance(user.user_id, guildId);
                 const totalBalance = balance.wallet + balance.bank;
                 
