@@ -61,17 +61,22 @@ module.exports = {
     },
 
     async showRegularLeaderboard(interaction, guildId, limit) {
-        // Get regular economy users (not off economy)
+        // Get regular economy users (not off economy) with win/loss stats
         const users = await dbManager.databaseAdapter.executeQuery(`
             SELECT 
-                user_id,
-                username,
-                wallet + bank as total_balance,
-                wallet,
-                bank,
-                off_economy
-            FROM user_balances 
-            WHERE (off_economy = FALSE OR off_economy IS NULL) AND wallet + bank > 0
+                ub.user_id,
+                ub.username,
+                ub.wallet + ub.bank as total_balance,
+                ub.wallet,
+                ub.bank,
+                ub.off_economy,
+                COALESCE(SUM(us.total_wins), 0) as total_wins,
+                COALESCE(SUM(us.total_losses), 0) as total_losses,
+                COALESCE(SUM(us.total_games_played), 0) as total_games
+            FROM user_balances ub
+            LEFT JOIN user_stats us ON ub.user_id = us.user_id
+            WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL) AND ub.wallet + ub.bank > 0
+            GROUP BY ub.user_id, ub.username, ub.wallet, ub.bank, ub.off_economy
             ORDER BY total_balance DESC
             LIMIT ?
         `, [limit]);
@@ -95,8 +100,15 @@ module.exports = {
                 const username = user.username || `User ${user.user_id}`;
                 const tierDisplay = getTierDisplay(parseFloat(user.total_balance));
                 
+                // Calculate win rate
+                const totalGames = parseInt(user.total_games) || 0;
+                const wins = parseInt(user.total_wins) || 0;
+                const losses = parseInt(user.total_losses) || 0;
+                const winRate = totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : '0.0';
+                
                 leaderboardText += `${medal} **${username}** ${tierDisplay}\n`;
-                leaderboardText += `   💰 ${fmt(user.total_balance)} (💳 ${fmt(user.wallet)} | 🏛️ ${fmt(user.bank)})\n\n`;
+                leaderboardText += `\`\`\`\n💰 ${fmt(user.total_balance)} (💳 ${fmt(user.wallet)} | 🏛️ ${fmt(user.bank)})\n`;
+                leaderboardText += `🎮 ${totalGames} games • 🏆 ${wins}W • 💀 ${losses}L • ${winRate}% WR\n\`\`\`\n`;
             }
         }
 
@@ -120,10 +132,10 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🏆 Regular Economy Leaderboard')
-            .setDescription(`Top ${limit} users in regular economy (${totalCount} total users)`)
+            .setDescription(`Top ${limit} users in regular economy (${totalCount} total users)\n🏆 **W**ins • 💀 **L**osses • **WR** Win Rate`)
             .setColor(0xFFD700)
             .addFields({
-                name: '💰 Wealth Rankings',
+                name: '💰 Wealth & Performance Rankings',
                 value: leaderboardText,
                 inline: false
             })
@@ -138,25 +150,45 @@ module.exports = {
             const avgWealth = totalWealth / users.length;
             const topUser = users[0];
             
+            // Calculate gaming stats
+            const totalGames = users.reduce((sum, u) => sum + (parseInt(u.total_games) || 0), 0);
+            const totalWins = users.reduce((sum, u) => sum + (parseInt(u.total_wins) || 0), 0);
+            const totalLosses = users.reduce((sum, u) => sum + (parseInt(u.total_losses) || 0), 0);
+            const overallWinRate = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : '0.0';
+            
             embed.addFields({
-                name: '📊 Statistics',
+                name: '📊 Wealth Statistics',
                 value: `**Total Wealth:** ${fmt(totalWealth)}\n` +
                        `**Average:** ${fmt(avgWealth)}\n` +
                        `**Richest:** ${fmt(topUser.total_balance)}`,
                 inline: true
             });
+            
+            embed.addFields({
+                name: '🎮 Gaming Statistics',
+                value: `**Total Games:** ${totalGames.toLocaleString()}\n` +
+                       `**Total Wins:** ${totalWins.toLocaleString()}\n` +
+                       `**Overall Win Rate:** ${overallWinRate}%`,
+                inline: true
+            });
 
-            // Calculate banking statistics
-            const bankingUsers = users.filter(u => parseFloat(u.bank) > 0);
-            const avgBankRatio = bankingUsers.length > 0 
-                ? bankingUsers.reduce((sum, u) => sum + (parseFloat(u.bank) / parseFloat(u.total_balance)), 0) / bankingUsers.length * 100
-                : 0;
+            // Calculate tier distribution
+            const tierCounts = {};
+            users.forEach(user => {
+                const tier = getTierDisplay(parseFloat(user.total_balance));
+                const tierName = tier.split(' ')[1] || 'Unknown'; // Extract tier name
+                tierCounts[tierName] = (tierCounts[tierName] || 0) + 1;
+            });
+            
+            const topTiers = Object.entries(tierCounts)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 3)
+                .map(([tier, count]) => `**${tier}:** ${count}`)
+                .join('\n');
 
             embed.addFields({
-                name: '🏛️ Banking Stats',
-                value: `**Users Banking:** ${bankingUsers.length}/${users.length}\n` +
-                       `**Avg Bank Ratio:** ${avgBankRatio.toFixed(1)}%\n` +
-                       `**Cash Heavy:** ${users.filter(u => parseFloat(u.wallet) > parseFloat(u.bank)).length} users`,
+                name: '🏆 Tier Distribution',
+                value: topTiers || 'No tier data available',
                 inline: true
             });
         }
@@ -216,8 +248,25 @@ module.exports = {
     },
 
     async showOffEconomyLeaderboard(interaction, guildId, limit, isUpdate = false) {
-        // Get off economy users
-        const users = await dbManager.databaseAdapter.getOffEconomyLeaderboard(guildId, limit);
+        // Get off economy users with win/loss stats
+        const users = await dbManager.databaseAdapter.executeQuery(`
+            SELECT 
+                ub.user_id,
+                ub.username,
+                ub.wallet + ub.bank as totalBalance,
+                ub.wallet,
+                ub.bank,
+                ub.off_economy,
+                COALESCE(SUM(us.total_wins), 0) as total_wins,
+                COALESCE(SUM(us.total_losses), 0) as total_losses,
+                COALESCE(SUM(us.total_games_played), 0) as total_games
+            FROM user_balances ub
+            LEFT JOIN user_stats us ON ub.user_id = us.user_id
+            WHERE ub.off_economy = TRUE AND ub.wallet + ub.bank > 0
+            GROUP BY ub.user_id, ub.username, ub.wallet, ub.bank, ub.off_economy
+            ORDER BY totalBalance DESC
+            LIMIT ?
+        `, [limit]);
         
         const totalOffEcoUsers = await dbManager.databaseAdapter.executeQuery(`
             SELECT COUNT(*) as count
@@ -237,8 +286,15 @@ module.exports = {
                 const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
                 const tierDisplay = getTierDisplay(parseFloat(user.totalBalance));
                 
+                // Calculate win rate
+                const totalGames = parseInt(user.total_games) || 0;
+                const wins = parseInt(user.total_wins) || 0;
+                const losses = parseInt(user.total_losses) || 0;
+                const winRate = totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : '0.0';
+                
                 leaderboardText += `${medal} **${user.username}** ${tierDisplay} 🔴\n`;
-                leaderboardText += `   💰 ${fmt(user.totalBalance)} (💳 ${fmt(user.wallet)} | 🏛️ ${fmt(user.bank)})\n\n`;
+                leaderboardText += `\`\`\`\n💰 ${fmt(user.totalBalance)} (💳 ${fmt(user.wallet)} | 🏛️ ${fmt(user.bank)})\n`;
+                leaderboardText += `🎮 ${totalGames} games • 🏆 ${wins}W • 💀 ${losses}L • ${winRate}% WR\n\`\`\`\n`;
             }
         }
 
@@ -263,10 +319,10 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🔴 Off Economy Leaderboard')
-            .setDescription(`Top ${limit} users in Off Economy (${totalCount} total users)`)
+            .setDescription(`Top ${limit} users in Off Economy (${totalCount} total users)\n🏆 **W**ins • 💀 **L**osses • **WR** Win Rate`)
             .setColor(0xFF6B6B)
             .addFields({
-                name: '💰 Off Economy Rankings',
+                name: '💰 Off Economy Wealth & Performance Rankings',
                 value: leaderboardText,
                 inline: false
             })
@@ -289,25 +345,45 @@ module.exports = {
             const avgWealth = totalWealth / users.length;
             const topUser = users[0];
             
+            // Calculate gaming stats for Off Economy
+            const totalGames = users.reduce((sum, u) => sum + (parseInt(u.total_games) || 0), 0);
+            const totalWins = users.reduce((sum, u) => sum + (parseInt(u.total_wins) || 0), 0);
+            const totalLosses = users.reduce((sum, u) => sum + (parseInt(u.total_losses) || 0), 0);
+            const overallWinRate = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : '0.0';
+            
             embed.addFields({
-                name: '📊 Off Eco Statistics',
+                name: '📊 Off Eco Wealth',
                 value: `**Total Wealth:** ${fmt(totalWealth)}\n` +
                        `**Average:** ${fmt(avgWealth)}\n` +
                        `**Richest:** ${fmt(topUser.totalBalance)}`,
                 inline: true
             });
+            
+            embed.addFields({
+                name: '🎮 Off Eco Gaming',
+                value: `**Total Games:** ${totalGames.toLocaleString()}\n` +
+                       `**Total Wins:** ${totalWins.toLocaleString()}\n` +
+                       `**Overall Win Rate:** ${overallWinRate}%`,
+                inline: true
+            });
 
-            // Calculate banking statistics
-            const bankingUsers = users.filter(u => u.bank > 0);
-            const avgBankRatio = bankingUsers.length > 0 
-                ? bankingUsers.reduce((sum, u) => sum + (u.bank / u.totalBalance), 0) / bankingUsers.length * 100
-                : 0;
+            // Calculate tier distribution for Off Economy
+            const tierCounts = {};
+            users.forEach(user => {
+                const tier = getTierDisplay(parseFloat(user.totalBalance));
+                const tierName = tier.split(' ')[1] || 'Unknown'; // Extract tier name
+                tierCounts[tierName] = (tierCounts[tierName] || 0) + 1;
+            });
+            
+            const topTiers = Object.entries(tierCounts)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 3)
+                .map(([tier, count]) => `**${tier}:** ${count}`)
+                .join('\n');
 
             embed.addFields({
-                name: '🏛️ Banking Behavior',
-                value: `**Users Banking:** ${bankingUsers.length}/${users.length}\n` +
-                       `**Avg Bank Ratio:** ${avgBankRatio.toFixed(1)}%\n` +
-                       `**Cash Players:** ${users.filter(u => u.wallet > u.bank).length} users`,
+                name: '🏆 Off Eco Tiers',
+                value: topTiers || 'No tier data available',
                 inline: true
             });
         }
