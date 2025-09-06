@@ -76,13 +76,13 @@ module.exports = {
                     COALESCE(us.total_losses, 0) as total_losses,
                     COALESCE(us.total_games_played, 0) as total_games
                 FROM user_balances ub
-                LEFT JOIN user_stats us ON (ub.user_id = us.user_id AND us.guild_id = ?)
+                LEFT JOIN user_stats us ON ub.user_id = us.user_id
                 WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL) 
                     AND (ub.wallet + ub.bank) > 0
                     AND ub.user_id != '466050111680544798'
                 ORDER BY total_balance DESC
                 LIMIT ?
-            `, [guildId, limit]);
+            `, [limit]);
         } catch (error) {
             logger.error('Database error in regular leaderboard:', error);
             // Fallback query without stats
@@ -290,11 +290,11 @@ module.exports = {
                     COALESCE(us.total_losses, 0) as total_losses,
                     COALESCE(us.total_games_played, 0) as total_games
                 FROM user_balances ub
-                LEFT JOIN user_stats us ON (ub.user_id = us.user_id AND us.guild_id = ?)
+                LEFT JOIN user_stats us ON ub.user_id = us.user_id
                 WHERE ub.off_economy = TRUE AND (ub.wallet + ub.bank) > 0
                 ORDER BY totalBalance DESC
                 LIMIT ?
-            `, [guildId, limit]);
+            `, [limit]);
         } catch (error) {
             logger.error('Database error in off economy leaderboard:', error);
             // Fallback query without stats

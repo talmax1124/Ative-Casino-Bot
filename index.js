@@ -2490,6 +2490,13 @@ const gracefulShutdown = require('./UTILS/gracefulShutdown');
 
 // Initialize graceful shutdown manager with client after ready
 client.once('clientReady', () => {
+    // Clear any stale game sessions from previous runs
+    const { clearActiveGame } = require('./UTILS/common');
+    const clearedCount = clearActiveGame(null, true); // Clear all stale sessions
+    if (clearedCount > 0) {
+        logger.info(`Cleared ${clearedCount} stale game sessions from previous run`);
+    }
+    
     gracefulShutdown.initialize(client);
 });
 
