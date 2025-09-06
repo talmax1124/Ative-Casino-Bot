@@ -46,6 +46,8 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error in leaderboard command: ${error.message}`);
+            logger.error('Full leaderboard error stack:', error.stack);
+            logger.error('Error details:', JSON.stringify(error, null, 2));
             
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Error')
@@ -84,7 +86,8 @@ module.exports = {
                 LIMIT ?
             `, [limit]);
         } catch (error) {
-            logger.error('Database error in regular leaderboard:', error);
+            logger.error('Database error in regular leaderboard:', error.message);
+            logger.error('Full error object:', error);
             // Fallback query without stats
             users = await dbManager.databaseAdapter.executeQuery(`
                 SELECT 
@@ -296,7 +299,8 @@ module.exports = {
                 LIMIT ?
             `, [limit]);
         } catch (error) {
-            logger.error('Database error in off economy leaderboard:', error);
+            logger.error('Database error in off economy leaderboard:', error.message);
+            logger.error('Full error object:', error);
             // Fallback query without stats
             users = await dbManager.databaseAdapter.executeQuery(`
                 SELECT 
