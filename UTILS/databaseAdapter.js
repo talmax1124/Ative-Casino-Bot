@@ -274,6 +274,17 @@ class DatabaseAdapter {
                 INDEX idx_sort_order (sort_order)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
+            // User Settings
+            `CREATE TABLE IF NOT EXISTS user_settings (
+                user_id VARCHAR(20) PRIMARY KEY,
+                role_color_enabled BOOLEAN DEFAULT TRUE,
+                decorations_enabled BOOLEAN DEFAULT TRUE,
+                active_decoration_id INT DEFAULT NULL,
+                settings JSON DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
             `CREATE TABLE IF NOT EXISTS user_shop_purchases (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id VARCHAR(20) NOT NULL,
@@ -371,9 +382,13 @@ class DatabaseAdapter {
      */
     async getUserBalance(userId, guildId = null) {
         try {
+            // Convert undefined to null for SQL compatibility
+            const safeUserId = userId ?? null;
+            const safeGuildId = guildId ?? null;
+
             const rows = await this.executeQuery(
                 'SELECT * FROM user_balances WHERE user_id = ?', 
-                [userId]
+                [safeUserId]
             );
             
             if (rows.length > 0) {
@@ -649,17 +664,22 @@ class DatabaseAdapter {
 
     async getUserStats(userId, guildId = null, gameType = null) {
         try {
+            // Convert undefined to null for SQL compatibility
+            const safeUserId = userId ?? null;
+            const safeGuildId = guildId ?? null;
+            const safeGameType = gameType ?? null;
+
             let query;
             let params;
 
-            if (gameType) {
+            if (safeGameType) {
                 // Get stats for specific game type
                 query = 'SELECT * FROM user_stats WHERE user_id = ? AND game_type = ?';
-                params = [userId, gameType];
+                params = [safeUserId, safeGameType];
             } else {
                 // Get all stats for user, organized by game type
                 query = 'SELECT * FROM user_stats WHERE user_id = ?';
-                params = [userId];
+                params = [safeUserId];
             }
 
             const [rows] = await this.pool.execute(query, params);
@@ -910,11 +930,20 @@ class DatabaseAdapter {
      */
     async recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
         try {
+            // Convert undefined to null for SQL compatibility
+            const safeUserId = userId ?? null;
+            const safeGuildId = guildId ?? null;
+            const safeGameType = gameType ?? null;
+            const safeBetAmount = betAmount ?? 0;
+            const safePayout = payout ?? 0;
+            const safeWon = won ?? false;
+            const safeMetadata = metadata ?? {};
+
             // Insert into game_results table for history tracking
             await this.pool.execute(
                 `INSERT INTO game_results (user_id, guild_id, game_type, bet_amount, payout, won, metadata)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [userId, guildId, gameType, betAmount, payout, won, JSON.stringify(metadata)]
+                [safeUserId, safeGuildId, safeGameType, safeBetAmount, safePayout, safeWon, JSON.stringify(safeMetadata)]
             );
             
             const statId = `${userId}_${gameType}`;
@@ -1420,6 +1449,10 @@ class DatabaseAdapter {
      */
     async getUserLastActivity(userId, guildId = null) {
         try {
+            // Convert undefined to null for SQL compatibility
+            const safeUserId = userId ?? null;
+            const safeGuildId = guildId ?? null;
+
             const result = await this.executeQuery(
                 `SELECT 
                     MAX(created_at) as lastGamePlayed,
@@ -1430,7 +1463,7 @@ class DatabaseAdapter {
                 GROUP BY user_id
                 ORDER BY lastGamePlayed DESC
                 LIMIT 1`,
-                [userId]
+                [safeUserId]
             );
 
             if (result.length === 0) {
@@ -1453,9 +1486,13 @@ class DatabaseAdapter {
      */
     async getUserLevel(userId, guildId) {
         try {
+            // Convert undefined to null for SQL compatibility
+            const safeUserId = userId ?? null;
+            const safeGuildId = guildId ?? null;
+
             const result = await this.executeQuery(
                 `SELECT * FROM user_levels WHERE user_id = ? AND guild_id = ?`,
-                [userId, guildId]
+                [safeUserId, safeGuildId]
             );
 
             if (result.length > 0) {
@@ -2279,19 +2316,109 @@ class DatabaseAdapter {
                 }
             ];
 
-            // Insert items only if they don't exist
+            // Insert items only if they don't exist (check by name)
             for (const item of defaultItems) {
-                await this.executeQuery(
-                    `INSERT IGNORE INTO shop_items (name, description, category, price, duration_hours, metadata, sort_order)
-                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                    [item.name, item.description, item.category, item.price, item.duration_hours, item.metadata, item.sort_order]
+                const existing = await this.executeQuery(
+                    'SELECT id FROM shop_items WHERE name = ?',
+                    [item.name]
                 );
+                
+                if (existing.length === 0) {
+                    await this.executeQuery(
+                        `INSERT INTO shop_items (name, description, category, price, duration_hours, metadata, sort_order)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [item.name, item.description, item.category, item.price, item.duration_hours, item.metadata, item.sort_order]
+                    );
+                }
             }
 
             logger.info('Shop items initialized successfully');
             return true;
         } catch (error) {
             logger.error(`Error initializing shop items: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Get user settings
+     * @param {string} userId - User ID
+     * @returns {Object|null} User settings object or null
+     */
+    async getUserSettings(userId) {
+        try {
+            const result = await this.executeQuery(
+                'SELECT * FROM user_settings WHERE user_id = ?',
+                [userId]
+            );
+            return result.length > 0 ? result[0] : null;
+        } catch (error) {
+            logger.error(`Error getting user settings: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Set user setting
+     * @param {string} userId - User ID
+     * @param {string} settingKey - Setting key
+     * @param {any} settingValue - Setting value
+     * @returns {boolean} Success status
+     */
+    async setUserSetting(userId, settingKey, settingValue) {
+        try {
+            // Insert or update user setting
+            await this.executeQuery(
+                `INSERT INTO user_settings (user_id, ${settingKey}) 
+                 VALUES (?, ?) 
+                 ON DUPLICATE KEY UPDATE 
+                 ${settingKey} = VALUES(${settingKey}), 
+                 updated_at = CURRENT_TIMESTAMP`,
+                [userId, settingValue]
+            );
+            
+            logger.info(`Updated user setting for ${userId}: ${settingKey} = ${settingValue}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error setting user setting: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Update user settings (multiple at once)
+     * @param {string} userId - User ID  
+     * @param {Object} settings - Settings object
+     * @returns {boolean} Success status
+     */
+    async updateUserSettings(userId, settings) {
+        try {
+            const settingKeys = Object.keys(settings);
+            const settingValues = Object.values(settings);
+            
+            if (settingKeys.length === 0) {
+                return true; // No settings to update
+            }
+            
+            // Build the query dynamically
+            const insertFields = ['user_id', ...settingKeys];
+            const insertValues = [userId, ...settingValues];
+            const updateFields = settingKeys.map(key => `${key} = VALUES(${key})`);
+            
+            const query = `
+                INSERT INTO user_settings (${insertFields.join(', ')}) 
+                VALUES (${insertFields.map(() => '?').join(', ')}) 
+                ON DUPLICATE KEY UPDATE 
+                ${updateFields.join(', ')}, 
+                updated_at = CURRENT_TIMESTAMP
+            `;
+            
+            await this.executeQuery(query, insertValues);
+            
+            logger.info(`Updated user settings for ${userId}: ${JSON.stringify(settings)}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error updating user settings: ${error.message}`);
             return false;
         }
     }

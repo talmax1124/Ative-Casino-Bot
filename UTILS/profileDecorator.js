@@ -233,16 +233,27 @@ class ProfileDecorator {
      */
     async generateUserProfile(userId, avatarUrl) {
         try {
-            // Get user's decorations
-            const decorations = await shopManager.getUserDecorations(userId);
+            // Check if user has decorations enabled
+            const dbManager = require('./database');
+            const userSettings = await dbManager.getUserSettings(userId);
+            // Handle boolean conversion: null/undefined = true (default), 0/false = false, 1/true = true
+            const decorationsEnabled = userSettings?.decorations_enabled == null ? true : Boolean(userSettings.decorations_enabled);
             
-            if (decorations.length === 0) {
-                // No decorations, return null to use original avatar
+            if (!decorationsEnabled) {
+                // Decorations are disabled, return null to use original avatar
                 return null;
             }
             
-            // Create decorated image
-            const decoratedBuffer = await this.createDecoratedProfile(avatarUrl, decorations);
+            // Get user's active decoration
+            const activeDecoration = await shopManager.getActiveDecoration(userId);
+            
+            if (!activeDecoration) {
+                // No active decoration, return null to use original avatar
+                return null;
+            }
+            
+            // Create decorated image with active decoration
+            const decoratedBuffer = await this.createDecoratedProfile(avatarUrl, [activeDecoration]);
             
             if (!decoratedBuffer) {
                 return null;

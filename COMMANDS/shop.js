@@ -22,49 +22,16 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('shop')
-        .setDescription('Browse and purchase items from the ATIVE Casino Shop')
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('browse')
-                .setDescription('Browse shop categories and items')
-        )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('inventory')
-                .setDescription('View your purchased items and active boosts')
-        )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('buy')
-                .setDescription('Purchase a specific item by ID')
-                .addIntegerOption(option =>
-                    option.setName('item_id')
-                        .setDescription('The ID of the item to purchase')
-                        .setRequired(true)
-                )
-        ),
+        .setDescription('Browse and purchase items from the ATIVE Casino Shop'),
 
     async execute(interaction) {
-        const subcommand = interaction.options.getSubcommand();
         const userId = interaction.user.id;
         const guildId = await getGuildId(interaction);
 
         try {
-            await interaction.deferReply();
             await dbManager.ensureUser(userId, interaction.user.username);
-
-            switch (subcommand) {
-                case 'browse':
-                    await this.handleBrowse(interaction, userId, guildId);
-                    break;
-                case 'inventory':
-                    await this.handleInventory(interaction, userId, guildId);
-                    break;
-                case 'buy':
-                    const itemId = interaction.options.getInteger('item_id');
-                    await this.handleDirectPurchase(interaction, userId, guildId, itemId);
-                    break;
-            }
+            // Just open the main shop browser directly
+            await this.handleBrowse(interaction, userId, guildId);
         } catch (error) {
             logger.error(`Error in shop command: ${error.message}`);
             
@@ -79,7 +46,8 @@ module.exports = {
             });
 
             try {
-                await interaction.editReply({ embeds: [errorEmbed] });
+                const replyMethod = interaction.deferred || interaction.replied ? 'editReply' : 'reply';
+                await interaction[replyMethod]({ embeds: [errorEmbed] });
             } catch (replyError) {
                 logger.error(`Failed to send shop error reply: ${replyError.message}`);
             }
@@ -162,10 +130,28 @@ module.exports = {
                     .setStyle(ButtonStyle.Success)
             );
 
-        const response = await interaction.editReply({
-            embeds: [browseEmbed],
-            components: [categoryRow, buttonRow]
-        });
+        // Check if this is a component interaction (button/select) or a command interaction
+        let response;
+        if (interaction.isButton()) {
+            // This is a button interaction - use update
+            response = await interaction.update({
+                embeds: [browseEmbed],
+                components: [categoryRow, buttonRow]
+            });
+        } else if (interaction.deferred || interaction.replied) {
+            // This is a deferred or replied interaction - use editReply
+            response = await interaction.editReply({
+                embeds: [browseEmbed],
+                components: [categoryRow, buttonRow]
+            });
+        } else {
+            // This is likely an initial command - defer and then editReply
+            await interaction.deferReply();
+            response = await interaction.editReply({
+                embeds: [browseEmbed],
+                components: [categoryRow, buttonRow]
+            });
+        }
 
         // Set up collectors for interactions
         const selectCollector = response.createMessageComponentCollector({
@@ -291,7 +277,7 @@ module.exports = {
 
         collector.on('collect', async (i) => {
             if (i.customId === 'shop_back') {
-                await this.handleBrowse(interaction, userId, guildId);
+                await this.handleBrowse(i, userId, guildId);
             } else if (i.customId.startsWith('shop_buy_')) {
                 const itemId = parseInt(i.customId.replace('shop_buy_', ''));
                 await this.handlePurchaseConfirmation(i, userId, guildId, itemId);
@@ -453,11 +439,6 @@ module.exports = {
 
             // Handle special item types
             await this.handleSpecialItemEffects(interaction, userId, guildId, item);
-            
-            // Process role assignments if this was a role purchase
-            if (item.category === 'roles') {
-                await shopManager.processUserRoles(interaction, userId);
-            }
         } else {
             const errorEmbed = buildSessionEmbed({
                 title: '❌ Purchase Failed',
@@ -481,14 +462,7 @@ module.exports = {
             
             // Handle role color purchases
             if (item.category === 'roles' && metadata.role_name && metadata.role_color) {
-                // This would integrate with Discord role management
-                // For now, just log that the role should be assigned
-                logger.info(`User ${userId} purchased role color: ${metadata.role_name} (${metadata.role_color})`);
-                
-                // In a full implementation, you would:
-                // 1. Create or find the role in the guild
-                // 2. Assign it to the user
-                // 3. Handle role hierarchy and permissions
+                await this.handleRolePurchase(interaction, userId, metadata);
             }
             
             // Handle earnmoney unlock
@@ -688,5 +662,76 @@ module.exports = {
             'general': 'General Boost'
         };
         return names[boostType] || boostType;
+    },
+
+    /**
+     * Handle role purchase - create and assign Discord role
+     */
+    async handleRolePurchase(interaction, userId, metadata) {
+        try {
+            const guild = interaction.guild;
+            const member = await guild.members.fetch(userId);
+            const roleName = metadata.role_name;
+            const roleColor = metadata.role_color;
+
+            // Check if role already exists
+            let role = guild.roles.cache.find(r => r.name === roleName);
+
+            if (!role) {
+                // Find the bot's highest role to position the new role below it
+                const botMember = guild.members.cache.get(interaction.client.user.id);
+                const botHighestRole = botMember.roles.highest;
+                
+                // Create the role with high position for color visibility
+                role = await guild.roles.create({
+                    name: roleName,
+                    color: roleColor,
+                    reason: `Shop purchase by ${member.user.username}`,
+                    permissions: [],
+                    position: Math.max(0, botHighestRole.position - 1) // Position just below bot's highest role
+                });
+                
+                logger.info(`Created new role: ${roleName} (${roleColor}) at position ${role.position} for user ${userId}`);
+            } else {
+                // If role exists but is low in hierarchy, move it up
+                const botMember = guild.members.cache.get(interaction.client.user.id);
+                const botHighestRole = botMember.roles.highest;
+                const targetPosition = Math.max(0, botHighestRole.position - 1);
+                
+                if (role.position < targetPosition) {
+                    await role.setPosition(targetPosition, `Moving ${roleName} up for color visibility`);
+                    logger.info(`Moved existing role ${roleName} to position ${targetPosition} for better visibility`);
+                }
+            }
+
+            // Remove any existing VIP roles from this user
+            const existingVipRoles = member.roles.cache.filter(r => 
+                r.name.includes('VIP') && r.name !== roleName
+            );
+            
+            if (existingVipRoles.size > 0) {
+                await member.roles.remove(existingVipRoles, 'Replacing with new VIP role purchase');
+                logger.info(`Removed ${existingVipRoles.size} existing VIP roles from user ${userId}`);
+            }
+
+            // Assign the role to the user
+            await member.roles.add(role, `Shop purchase: ${roleName}`);
+            
+            logger.info(`Assigned role ${roleName} to user ${userId} (${member.user.username})`);
+            
+            // Send confirmation message
+            await interaction.followUp({
+                content: `🎉 Your **${roleName}** role has been created and assigned! You now have a custom colored username.`,
+                ephemeral: true
+            });
+            
+        } catch (error) {
+            logger.error(`Error handling role purchase: ${error.message}`);
+            
+            await interaction.followUp({
+                content: `❌ There was an error creating your role. Please contact an administrator.`,
+                ephemeral: true
+            });
+        }
     }
 };

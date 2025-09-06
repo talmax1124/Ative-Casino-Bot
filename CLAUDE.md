@@ -125,7 +125,6 @@ Required in `.env`:
 - `CLIENT_ID`
 - `MARIADB_HOST`, `MARIADB_PORT`, `MARIADB_USER`, `MARIADB_PASSWORD`, `MARIADB_DATABASE`
 - `ENVIRONMENT` (development/production)
-- `ANNOUNCE_CHANNEL_ID` (optional)
 
 ## UAS Bot Integration
 

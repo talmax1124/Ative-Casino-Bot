@@ -26,7 +26,6 @@ const ScratchTicketSystem = require('./GAMES/scratchTickets');
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const ENVIRONMENT = process.env.ENVIRONMENT || 'development';
-const ANNOUNCE_CHANNEL_ID = process.env.ANNOUNCE_CHANNEL_ID;
 const LOG_CHANNEL_ID = '1405096821512212521'; // General bot activity log channel
 
 // Validation
@@ -397,15 +396,8 @@ client.once('clientReady', async () => {
         logger.info('Running in production mode - no announcement message');
     }
 
-    // Start announcement processor
-    startAnnouncementProcessor();
 });
 
-// Announcement processor disabled (Firebase dependency removed)
-async function startAnnouncementProcessor() {
-    logger.info('Announcement processor disabled (Firebase dependency removed)');
-    // No-op function - announcement processing removed with Firebase
-}
 
 // Premium role assignment disabled (Firebase dependency removed)
 async function handlePremiumRoleAssignment(userId) {
@@ -1475,6 +1467,27 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                     }
+                }
+            }
+            // Handle shop admin buttons
+            else if (customId.startsWith('admin_shop_')) {
+                try {
+                    const adminShopCommand = client.commands.get('admin-shop');
+                    if (adminShopCommand && adminShopCommand.handleButtonInteraction) {
+                        await adminShopCommand.handleButtonInteraction(interaction);
+                    } else {
+                        logger.warn(`Shop admin command not found or missing button handler`);
+                        await interaction.reply({
+                            content: '❌ Shop administration not available.',
+                            ephemeral: true
+                        });
+                    }
+                } catch (adminShopError) {
+                    logger.error(`Error handling shop admin button ${customId}:`, adminShopError);
+                    await interaction.reply({
+                        content: '❌ Shop administration error occurred.',
+                        ephemeral: true
+                    });
                 }
             }
             // Handle shop buttons

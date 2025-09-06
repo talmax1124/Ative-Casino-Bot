@@ -19,14 +19,16 @@ class WealthTaxManager {
         this.LOW_BETTING_PERIOD = 14 * 24 * 60 * 60 * 1000; // 14 days for low betting check
         this.isProcessing = false;
         
-        // Wealth tax brackets (progressive taxation on ultra-wealthy)
+        // Wealth tax brackets (progressive taxation with heavy 500M+ taxation)
         this.WEALTH_BRACKETS = [
-            { min: 100000, max: 499999, rate: 0.005, name: 'Upper Class' },      // 0.5% tax
-            { min: 500000, max: 999999, rate: 0.01, name: 'Rich' },             // 1% tax  
-            { min: 1000000, max: 4999999, rate: 0.02, name: 'Very Rich' },      // 2% tax
-            { min: 5000000, max: 9999999, rate: 0.03, name: 'Ultra Rich' },     // 3% tax
-            { min: 10000000, max: 49999999, rate: 0.04, name: 'Mega Rich' },    // 4% tax
-            { min: 50000000, max: Infinity, rate: 0.05, name: 'Billionaire' }   // 5% tax
+            { min: 100000, max: 499999, rate: 0.005, name: 'Upper Class' },         // 0.5% tax
+            { min: 500000, max: 999999, rate: 0.01, name: 'Rich' },                // 1% tax  
+            { min: 1000000, max: 4999999, rate: 0.02, name: 'Very Rich' },         // 2% tax
+            { min: 5000000, max: 9999999, rate: 0.03, name: 'Ultra Rich' },        // 3% tax
+            { min: 10000000, max: 49999999, rate: 0.04, name: 'Mega Rich' },       // 4% tax
+            { min: 50000000, max: 99999999, rate: 0.05, name: 'Super Rich' },      // 5% tax
+            { min: 100000000, max: 499999999, rate: 0.08, name: 'Extreme Wealth' }, // 8% tax
+            { min: 500000000, max: Infinity, rate: 0.15, name: 'Ultra Billionaire' } // 15% HEAVY TAX for 500M+
         ];
 
         // Games that count as "real gambling" (not economy commands)
@@ -163,18 +165,30 @@ class WealthTaxManager {
 
         let baseRate = bracket.rate;
         
-        // Apply multipliers based on inactivity reason
+        // Apply multipliers based on inactivity reason and wealth level
         let multiplier = 1.0;
         if (reason === 'no_gambling_activity') {
-            multiplier = 2.0; // Double tax for not gambling at all
+            multiplier = totalBalance >= 500000000 ? 3.0 : 2.0; // 3x tax for 500M+ ultra-wealthy not gambling
         } else if (reason === 'low_stakes_only') {
-            multiplier = 1.5; // 1.5x tax for low stakes only
+            multiplier = totalBalance >= 500000000 ? 2.5 : 1.5; // 2.5x tax for 500M+ low stakes only
+        }
+        
+        // Additional heavy taxation multiplier for extreme wealth
+        if (totalBalance >= 500000000) {
+            multiplier *= 1.5; // Additional 1.5x multiplier for 500M+ balances
         }
 
         const taxAmount = Math.floor(totalBalance * baseRate * multiplier);
         
-        // Cap at 10% of total wealth to prevent excessive taxation
-        const maxTax = Math.floor(totalBalance * 0.1);
+        // Dynamic tax caps based on wealth level
+        let maxTaxRate = 0.1; // 10% default cap
+        if (totalBalance >= 500000000) {
+            maxTaxRate = 0.25; // 25% cap for 500M+ ultra-wealthy (HEAVY TAX)
+        } else if (totalBalance >= 100000000) {
+            maxTaxRate = 0.15; // 15% cap for 100M-499M
+        }
+        
+        const maxTax = Math.floor(totalBalance * maxTaxRate);
         return Math.min(taxAmount, maxTax);
     }
 
@@ -381,11 +395,11 @@ class WealthTaxManager {
             const userStatuses = [];
 
             for (const user of users.slice(0, limit * 2)) { // Get more users to filter wealthy ones
-                const balance = await dbManager.getUserBalance(user.userId, guildId);
+                const balance = await dbManager.getUserBalance(user.user_id, guildId);
                 const totalBalance = balance.wallet + balance.bank;
                 
                 if (totalBalance >= this.WEALTH_THRESHOLD) {
-                    const status = await this.getUserWealthTaxStatus(user.userId, guildId);
+                    const status = await this.getUserWealthTaxStatus(user.user_id, guildId);
                     if (status) {
                         userStatuses.push({
                             ...status,

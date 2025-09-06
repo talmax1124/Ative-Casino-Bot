@@ -260,6 +260,72 @@ class ShopManager {
     }
 
     /**
+     * Get user's active/selected decoration
+     * @param {string} userId - User ID
+     * @returns {Object|null} Active decoration object or null
+     */
+    async getActiveDecoration(userId) {
+        try {
+            // Get user settings to find active decoration ID
+            const userSettings = await dbManager.getUserSettings(userId);
+            const activeDecorationId = userSettings?.active_decoration_id;
+            
+            if (!activeDecorationId) {
+                // No active decoration selected, return the first one if available
+                const decorations = await this.getUserDecorations(userId);
+                return decorations.length > 0 ? decorations[0] : null;
+            }
+            
+            // Find the specific decoration
+            const purchases = await dbManager.getUserShopPurchases(userId, true);
+            const activePurchase = purchases.find(purchase => 
+                purchase.id === activeDecorationId && purchase.category === 'decorations'
+            );
+            
+            if (!activePurchase) {
+                return null;
+            }
+            
+            const metadata = JSON.parse(activePurchase.metadata || '{}');
+            return {
+                id: activePurchase.id,
+                name: activePurchase.name,
+                type: metadata.decoration_type,
+                color: metadata.color,
+                metadata: metadata
+            };
+        } catch (error) {
+            logger.error(`Error getting active decoration: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Set user's active decoration
+     * @param {string} userId - User ID
+     * @param {number} decorationId - Decoration ID to set as active
+     * @returns {boolean} Success status
+     */
+    async setActiveDecoration(userId, decorationId) {
+        try {
+            // Verify the user owns this decoration
+            const decorations = await this.getUserDecorations(userId);
+            const decoration = decorations.find(d => d.id === decorationId);
+            
+            if (!decoration) {
+                return false;
+            }
+            
+            // Update user settings
+            await dbManager.setUserSetting(userId, 'active_decoration_id', decorationId);
+            return true;
+        } catch (error) {
+            logger.error(`Error setting active decoration: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
      * Get user's role color purchases
      * @param {string} userId - User ID
      * @returns {Array} Array of role color objects

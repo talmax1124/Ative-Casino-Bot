@@ -1099,6 +1099,47 @@ class DatabaseManager {
         }
         return false;
     }
+
+    // ========================= USER SETTINGS =========================
+
+    /**
+     * Get user settings
+     * @param {string} userId - User ID
+     * @returns {Object|null} User settings object or null
+     */
+    async getUserSettings(userId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserSettings(userId);
+        }
+        return null;
+    }
+
+    /**
+     * Set user setting
+     * @param {string} userId - User ID
+     * @param {string} settingKey - Setting key
+     * @param {any} settingValue - Setting value
+     * @returns {boolean} Success status
+     */
+    async setUserSetting(userId, settingKey, settingValue) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.setUserSetting(userId, settingKey, settingValue);
+        }
+        return false;
+    }
+
+    /**
+     * Update user settings (multiple at once)
+     * @param {string} userId - User ID  
+     * @param {Object} settings - Settings object
+     * @returns {boolean} Success status
+     */
+    async updateUserSettings(userId, settings) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updateUserSettings(userId, settings);
+        }
+        return false;
+    }
 }
 
 // Export singleton instance
