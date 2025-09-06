@@ -65,16 +65,19 @@ async function loadCommands() {
     const commands = [];
 
     for (const file of commandFiles) {
-        const filePath = path.join(commandsPath, file);
-        const command = require(filePath);
+        try {
+            const filePath = path.join(commandsPath, file);
+            logger.debug(`Loading command from: ${filePath}`);
+            
+            const command = require(filePath);
 
-        if ('data' in command && 'execute' in command) {
-            client.commands.set(command.data.name, command);
-            commands.push(command.data.toJSON());
-            logger.info(`Loaded command: ${command.data.name}`);
+            if ('data' in command && 'execute' in command) {
+                client.commands.set(command.data.name, command);
+                commands.push(command.data.toJSON());
+                logger.info(`Loaded command: ${command.data.name}`);
 
-            // Handle special case for dev.js which has multiple commands
-            if (file === 'dev.js') {
+                // Handle special case for dev.js which has multiple commands
+                if (file === 'dev.js') {
                 // Load additional commands from dev module
                 if (command.reloadCommand && command.reloadCommand.data) {
                     client.commands.set(command.reloadCommand.data.name, command.reloadCommand);
@@ -157,8 +160,11 @@ async function loadCommands() {
                     logger.info(`Loaded command: ${command.portalCommand.data.name}`);
                 }
             }
-        } else {
-            logger.warn(`Command at ${filePath} is missing required "data" or "execute" property`);
+            } else {
+                logger.warn(`Command file ${file} is missing 'data' or 'execute' property`);
+            }
+        } catch (error) {
+            logger.error(`Failed to load command ${file}: ${error.message}`);
         }
     }
 
