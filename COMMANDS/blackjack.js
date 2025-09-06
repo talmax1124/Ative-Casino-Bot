@@ -239,13 +239,13 @@ module.exports = {
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
-            // Validate and deduct bet (10M maximum limit)
+            // Validate and deduct bet (500K maximum limit - reduced from 10M)
             validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.BLACKJACK,
                 1,          // Min bet: $1
-                10000000    // Max bet: $10M
+                500000      // Max bet: $500K (reduced for balance)
             );
 
             if (!validation.isValid) {

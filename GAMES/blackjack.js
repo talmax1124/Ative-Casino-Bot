@@ -185,7 +185,11 @@ class BlackjackGame {
 
     canDouble() {
         const currentHand = this.getCurrentHand();
-        return currentHand.cards.length === 2 && !this.gameEnded;
+        if (this.gameEnded) return false;
+        if (currentHand.cards.length !== 2) return false;
+        // Slightly reduce player edge: allow double only on 9-11
+        const val = currentHand.getValue();
+        return val === 9 || val === 10 || val === 11;
     }
 
     split() {
@@ -297,13 +301,13 @@ class BlackjackGame {
             baseMultiplier = 1;
             outcome = 'PUSH';
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
-            baseMultiplier = 2.2;  // Blackjack pays reduced (return bet + 1.2x bet = 2.2x total) - MORE HOUSE FAVORED
+            baseMultiplier = 1.9;  // Further reduced blackjack payout (was 2.1)
             outcome = 'BLACKJACK';
         } else if (this.dealerHand.isBusted()) {
-            baseMultiplier = 1.9;  // Regular win pays reduced (return bet + 0.9x bet = 1.9x total) - MORE HOUSE FAVORED
+            baseMultiplier = 1.7;  // Further reduced regular win payout (was 1.85)
             outcome = 'DEALER BUSTED';
         } else if (playerValue > dealerValue) {
-            baseMultiplier = 1.9;  // Regular win pays reduced (return bet + 0.9x bet = 1.9x total) - MORE HOUSE FAVORED
+            baseMultiplier = 1.7;  // Further reduced regular win payout (was 1.85)
             outcome = 'WIN';
         } else if (playerValue === dealerValue) {
             baseMultiplier = 1;  // Push returns bet (1x multiplier)

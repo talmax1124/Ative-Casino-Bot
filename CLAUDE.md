@@ -111,7 +111,7 @@ if (!validation.isValid) {
 ```
 
 ## Game Limits
-- **Blackjack**: Min $1, No maximum (supports "all in" for entire wallet)
+- **Blackjack**: Min $1, Max $500K (reduced payouts: 1.9x blackjack, 1.7x regular wins)
 - **Roulette**: Min $10, Max $10M
 - **Slots**: Min $1, Max $175K (high multiplier limit - up to 100x)
 - **Multi-Slots**: Min $1, Max $175K (high multiplier limit - up to 100x)

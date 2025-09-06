@@ -134,6 +134,26 @@ module.exports = {
                 );
             } catch (_) {}
 
+            // Refund bet if it was deducted
+            if (validation?.isValid && validation.parsedAmount > 0) {
+                try {
+                    const refundSuccess = await PayoutManager.refundBet(
+                        userId,
+                        guildId,
+                        validation.parsedAmount,
+                        'Russian Roulette failed to start'
+                    );
+                    
+                    if (refundSuccess) {
+                        logger.info(`Refunded ${fmt(validation.parsedAmount)} to ${username} (${userId}) after Russian Roulette error`);
+                    } else {
+                        logger.error(`Failed to refund ${fmt(validation.parsedAmount)} to ${username} (${userId})`);
+                    }
+                } catch (refundError) {
+                    logger.error(`Refund error for ${username} (${userId}): ${refundError.message}`);
+                }
+            }
+
             // Enhanced session cleanup
             try {
                 await sessionManager.forceCleanupUser(userId, guildId, 'Russian Roulette initialization error');
@@ -145,6 +165,11 @@ module.exports = {
             // Create more specific error messages based on the error type
             let errorTitle = '❌ Russian Roulette Error';
             let errorDescription = 'Failed to start Russian Roulette game. Please try again.';
+            
+            // Add refund notice if bet was deducted
+            if (validation?.isValid && validation.parsedAmount > 0) {
+                errorDescription += `\n\n💰 Your bet of **${fmt(validation.parsedAmount)}** has been refunded.`;
+            }
             
             if (error.message.includes('Insufficient funds')) {
                 errorTitle = '💰 Insufficient Funds';

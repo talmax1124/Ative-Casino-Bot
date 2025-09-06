@@ -12,10 +12,10 @@ function parseAmount(amountStr) {
     if (!amountStr || typeof amountStr !== 'string') {
         return null;
     }
-    
+
     const cleanStr = amountStr.trim().toLowerCase().replace(/[$]/g, '');
-    
-    // Handle special cases
+
+    // Handle special cases (accept mixed-case user inputs like 'All', 'A')
     if (cleanStr === 'all' || cleanStr === 'a' || cleanStr === 'all in' || cleanStr === 'allin') {
         return 'all';
     }

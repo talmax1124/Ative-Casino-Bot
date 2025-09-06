@@ -318,17 +318,22 @@ function parseAmount(amountStr) {
     if (!amountStr || typeof amountStr !== 'string') {
         return null;
     }
-    
+
+    // Normalize case/spacing and strip currency symbols
     const cleanStr = amountStr.trim().toLowerCase().replace(/[$]/g, '');
-    
-    // Handle special cases
+
+    // Handle special cases (accept mixed-case user inputs like 'All', 'A')
     if (cleanStr === 'all' || cleanStr === 'a' || cleanStr === 'all in' || cleanStr === 'allin') {
         return 'all';
     }
     if (cleanStr === 'half' || cleanStr === 'h') {
         return 'half';
     }
-    
+    // Minor convenience alias
+    if (cleanStr === 'max') {
+        return 'all';
+    }
+
     // Remove commas and handle numeric values with suffixes
     const noCommas = cleanStr.replace(/,/g, '');
     const match = noCommas.match(/^(\d+(?:\.\d+)?)\s*([kmbt]?)$/);
