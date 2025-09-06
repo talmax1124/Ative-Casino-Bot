@@ -21,8 +21,32 @@ class EconomicAnalyzer {
         if (this.initialized) return;
         
         logger.info('🧠 Initializing AI-Powered Economic Analyzer...');
+        
+        // Wait for database to be ready before initializing
+        await this.waitForDatabaseReady();
+        
         this.initialized = true;
         logger.info('✅ Economic Analyzer ready');
+    }
+
+    /**
+     * Wait for database to be fully ready before running analysis
+     */
+    async waitForDatabaseReady(maxWaitTime = 10000) {
+        const startTime = Date.now();
+        
+        while (Date.now() - startTime < maxWaitTime) {
+            if (dbManager.databaseAdapter && dbManager.databaseAdapter.pool && dbManager.initialized) {
+                logger.debug('Database ready for economic analysis');
+                return true;
+            }
+            
+            // Wait 1 second before checking again
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        logger.warn('Economic analyzer proceeding without database connection');
+        return false;
     }
 
     /**
@@ -85,10 +109,10 @@ class EconomicAnalyzer {
         
         try {
             // Check if database is available
-            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
-                logger.warn('Database not available for game performance analysis');
+            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool || !dbManager.initialized) {
+                logger.debug('Database not ready for game performance analysis, skipping...');
                 return {
-                    status: 'database_unavailable',
+                    status: 'database_not_ready',
                     games: {},
                     overallPerformance: 'unknown'
                 };
@@ -175,10 +199,10 @@ class EconomicAnalyzer {
 
         try {
             // Check if database is available
-            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
-                logger.warn('Database not available for player behavior analysis');
+            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool || !dbManager.initialized) {
+                logger.debug('Database not ready for player behavior analysis, skipping...');
                 return {
-                    status: 'database_unavailable',
+                    status: 'database_not_ready',
                     ...playerStats
                 };
             }
@@ -278,10 +302,10 @@ class EconomicAnalyzer {
 
         try {
             // Check if database is available
-            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
-                logger.warn('Database not available for economic trends analysis');
+            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool || !dbManager.initialized) {
+                logger.debug('Database not ready for economic trends analysis, skipping...');
                 return {
-                    status: 'database_unavailable',
+                    status: 'database_not_ready',
                     ...trends
                 };
             }
@@ -351,10 +375,10 @@ class EconomicAnalyzer {
 
         try {
             // Check if database is available
-            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
-                logger.warn('Database not available for risk assessment');
+            if (!dbManager.databaseAdapter || !dbManager.databaseAdapter.pool || !dbManager.initialized) {
+                logger.debug('Database not ready for risk assessment, skipping...');
                 return {
-                    status: 'database_unavailable',
+                    status: 'database_not_ready',
                     ...risks
                 };
             }

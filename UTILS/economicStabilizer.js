@@ -89,9 +89,15 @@ class EconomicStabilizer {
             this.performAIAnalysis();
         }, 600000);
         
-        // Perform initial analysis
-        await this.performEconomicAnalysis();
-        await this.performAIAnalysis();
+        // Wait a bit for database to be fully ready, then perform initial analysis
+        setTimeout(async () => {
+            if (dbManager.initialized && dbManager.databaseAdapter && dbManager.databaseAdapter.pool) {
+                await this.performEconomicAnalysis();
+                await this.performAIAnalysis();
+            } else {
+                logger.debug('Skipping initial economic analysis - database not ready yet');
+            }
+        }, 5000); // Wait 5 seconds after initialization
         
         logger.info('🏦 Economic Stabilizer initialized successfully with AI integration');
     }
@@ -160,6 +166,12 @@ class EconomicStabilizer {
      */
     async performAIAnalysis() {
         try {
+            // Check if database is ready
+            if (!dbManager.initialized || !dbManager.databaseAdapter || !dbManager.databaseAdapter.pool) {
+                logger.debug('Skipping AI analysis - database not ready');
+                return;
+            }
+
             logger.info('🧠 Running AI economic analysis...');
             
             const aiAnalysis = await economicAnalyzer.performComprehensiveAnalysis();
