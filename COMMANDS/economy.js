@@ -177,7 +177,8 @@ module.exports = {
      * Analyzes ALL users, wealth distribution, activity, economic tiers
      */
     async getCompleteServerAnalysis(guildId) {
-        const users = await dbManager.getAllUsers(guildId);
+        const allUsers = await dbManager.getAllUsers(guildId);
+        const users = await this.filterEconomyUsers(allUsers, null); // No interaction for server analysis
         const analysis = {
             totalUsers: users.length,
             totalWealth: 0,
@@ -397,7 +398,8 @@ module.exports = {
      * Comprehensive gambling statistics, patterns, game analysis
      */
     async getCompleteGamblingAnalysis(guildId) {
-        const users = await dbManager.getAllUsers(guildId);
+        const allUsers = await dbManager.getAllUsers(guildId);
+        const users = await this.filterEconomyUsers(allUsers, null); // No interaction for server analysis
         const gameTypes = [
             'blackjack', 'slots', 'multi-slots', 'crash', 'duck', 'fishing',
             'plinko', 'rps', 'bingo', 'battleship', 'uno', 'roulette',
@@ -1150,8 +1152,10 @@ module.exports = {
         ctx.font = 'bold 24px Arial';
         ctx.textAlign = 'center';
         ctx.fillText('COMPLETE ECONOMY ANALYSIS', 600, 30);
-        ctx.font = 'bold 16px Arial';
-        ctx.fillText(`Focus: ${targetUser.displayName} | Server: ${serverData.totalUsers} users`, 600, 55);
+        ctx.font = 'bold 14px Arial';
+        // Truncate long display names to prevent overflow
+        const truncatedDisplayName = targetUser.displayName.length > 20 ? targetUser.displayName.substring(0, 17) + '...' : targetUser.displayName;
+        ctx.fillText(`Focus: ${truncatedDisplayName} | Server: ${serverData.totalUsers} users`, 600, 55);
 
         // SECTION 1: Wealth Distribution (Top Left)
         this.drawWealthDistributionChart(ctx, serverData, 50, 80, 280, 200);
@@ -1211,15 +1215,17 @@ module.exports = {
             startAngle += sliceAngle;
         });
 
-        // Legend
-        ctx.font = '10px Arial';
+        // Legend - moved inside chart area to prevent overflow
+        ctx.font = '9px Arial';
         ctx.textAlign = 'left';
         categories.forEach((category, i) => {
-            const legendY = y + height + 10 + (i * 12);
+            const legendY = y + height - 60 + (i * 12);
             ctx.fillStyle = category.color;
-            ctx.fillRect(x, legendY, 8, 8);
+            ctx.fillRect(x + 5, legendY, 6, 6);
             ctx.fillStyle = '#FFFFFF';
-            ctx.fillText(`${category.name}: ${category.value.toFixed(1)}%`, x + 12, legendY + 7);
+            // Truncate long text to prevent overflow
+            const shortName = category.name.length > 8 ? category.name.substring(0, 6) + '..' : category.name;
+            ctx.fillText(`${shortName}: ${category.value.toFixed(1)}%`, x + 14, legendY + 5);
         });
     },
 
@@ -1228,9 +1234,11 @@ module.exports = {
      */
     drawPersonalAnalyticsChart(ctx, personalData, x, y, width, height) {
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 14px Arial';
+        ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(`${personalData.username.toUpperCase()} ANALYTICS`, x + width/2, y - 10);
+        // Truncate long usernames to prevent overflow
+        const truncatedName = personalData.username.length > 15 ? personalData.username.substring(0, 12) + '...' : personalData.username;
+        ctx.fillText(`${truncatedName.toUpperCase()} ANALYTICS`, x + width/2, y - 10);
 
         // Wallet vs Bank pie chart
         const centerX = x + width/2;
@@ -1487,7 +1495,9 @@ module.exports = {
             ctx.save();
             ctx.translate(barX + (barWidth - 10)/2, y + height - 20);
             ctx.rotate(-Math.PI / 4);
-            ctx.fillText(indicator.name, 0, 0);
+            // Truncate long indicator names to prevent overflow
+            const shortIndicatorName = indicator.name.length > 10 ? indicator.name.substring(0, 8) + '..' : indicator.name;
+            ctx.fillText(shortIndicatorName, 0, 0);
             ctx.restore();
 
             // Value
@@ -1500,5 +1510,47 @@ module.exports = {
         ctx.fillStyle = '#FFFFFF';
         const economicHealth = this.calculateEconomicHealth(serverData);
         ctx.fillText(`Overall Economic Health: ${economicHealth}`, x + width/2, y + height - 5);
+    },
+
+    /**
+     * FILTER ECONOMY USERS - Exclude special categories
+     * Excludes: Developer, OFF ECO users, Admins with permissions
+     */
+    async filterEconomyUsers(users, interaction = null) {
+        const DEVELOPER_ID = '466050111680544798';
+        const filteredUsers = [];
+        
+        for (const user of users) {
+            // Skip developer
+            if (user.user_id === DEVELOPER_ID) {
+                continue;
+            }
+            
+            // Skip OFF ECO users
+            try {
+                const isOffEco = await dbManager.databaseAdapter.isOffEconomy(user.user_id);
+                if (isOffEco) {
+                    continue;
+                }
+            } catch (error) {
+                // If we can't check, assume regular user
+            }
+            
+            // Skip admin users (if we have Discord interaction to check permissions)
+            if (interaction && interaction.guild) {
+                try {
+                    const member = await interaction.guild.members.fetch(user.user_id).catch(() => null);
+                    if (member && member.permissions.has('Administrator')) {
+                        continue;
+                    }
+                } catch (error) {
+                    // If we can't check, assume regular user
+                }
+            }
+            
+            filteredUsers.push(user);
+        }
+        
+        return filteredUsers;
     }
 };

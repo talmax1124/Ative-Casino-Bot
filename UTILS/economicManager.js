@@ -591,7 +591,8 @@ class EconomicManager {
         try {
             const dbManager = require('./database');
             
-            // Get all users with significant wealth (>$1M)
+            // Get all users with significant wealth (>$1M) excluding special categories
+            const DEVELOPER_ID = '466050111680544798';
             const query = `
                 SELECT 
                     user_id,
@@ -602,15 +603,16 @@ class EconomicManager {
                     last_active
                 FROM user_balances 
                 WHERE (wallet + bank) > 1000000
+                AND user_id != ?
                 ORDER BY (wallet + bank) DESC
                 LIMIT 10
             `;
             
-            const wealthyUsers = await dbManager.query(query);
+            const wealthyUsers = await dbManager.query(query, [DEVELOPER_ID]);
             
-            // Calculate total server wealth
-            const totalWealthQuery = `SELECT SUM(wallet + bank) as total FROM user_balances`;
-            const totalResult = await dbManager.query(totalWealthQuery);
+            // Calculate total server wealth (excluding special categories)
+            const totalWealthQuery = `SELECT SUM(wallet + bank) as total FROM user_balances WHERE user_id != ?`;
+            const totalResult = await dbManager.query(totalWealthQuery, [DEVELOPER_ID]);
             const totalWealth = totalResult[0]?.total || 0;
             
             const analysis = {

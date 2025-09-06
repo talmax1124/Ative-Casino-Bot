@@ -152,8 +152,9 @@ class EconomicStabilizer {
                 throw new Error('Database not initialized');
             }
             
-            // Get all user data
-            const users = await dbManager.getAllUsers();
+            // Get all user data (excluding special categories)
+            const allUsers = await dbManager.getAllUsers();
+            const users = await this.filterEconomyUsers(allUsers);
             const last24h = moment().subtract(24, 'hours').toDate();
             
             // Calculate wealth distribution
@@ -676,6 +677,43 @@ class EconomicStabilizer {
             totalWealth: this.healthMetrics.totalWealth.toNumber(),
             anomalies: analysis?.anomalies?.length || 0
         };
+    }
+    
+    /**
+     * FILTER ECONOMY USERS - Exclude special categories
+     * Excludes: Developer, OFF ECO users, Admins
+     */
+    async filterEconomyUsers(users) {
+        const DEVELOPER_ID = '466050111680544798';
+        const filteredUsers = [];
+        
+        for (const user of users) {
+            // Skip developer
+            if (user.user_id === DEVELOPER_ID) {
+                logger.debug(`Excluding developer from economy analysis: ${user.user_id}`);
+                continue;
+            }
+            
+            // Skip OFF ECO users
+            try {
+                const isOffEco = await dbManager.databaseAdapter.isOffEconomy(user.user_id);
+                if (isOffEco) {
+                    logger.debug(`Excluding OFF ECO user from economy analysis: ${user.user_id}`);
+                    continue;
+                }
+            } catch (error) {
+                // If we can't check, assume regular user
+                logger.debug(`Could not check OFF ECO status for ${user.user_id}: ${error.message}`);
+            }
+            
+            // For admin checking, we would need Discord client access which we don't have here
+            // Admin filtering will need to be done at a higher level if needed
+            
+            filteredUsers.push(user);
+        }
+        
+        logger.info(`Economy analysis: ${users.length} total users, ${filteredUsers.length} included (${users.length - filteredUsers.length} excluded)`);
+        return filteredUsers;
     }
     
     /**

@@ -1279,6 +1279,18 @@ client.on('interactionCreate', async interaction => {
                     });
                 }
             }
+            // Handle economy pagination buttons (namespace: economy_page_...)
+            else if (customId.startsWith('economy_page_')) {
+                const economyCommand = client.commands.get('economy');
+                if (economyCommand && economyCommand.handleButtonInteraction) {
+                    await economyCommand.handleButtonInteraction(interaction, customId);
+                } else {
+                    await interaction.reply({
+                        content: '❌ Economy command handler not available.',
+                        ephemeral: true
+                    });
+                }
+            }
             // Handle panel system buttons
             else if (customId === 'confirm_restart_bot' || customId === 'cancel_restart_bot') {
                 await panelManager.handleButtonInteraction(interaction);

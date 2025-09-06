@@ -1455,7 +1455,7 @@ class DatabaseAdapter {
 
             const result = await this.executeQuery(
                 `SELECT 
-                    MAX(created_at) as lastGamePlayed,
+                    MAX(played_at) as lastGamePlayed,
                     COUNT(*) as totalGames,
                     game_type as lastGameType
                 FROM game_results 
