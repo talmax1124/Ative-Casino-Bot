@@ -9,8 +9,12 @@ const { createCanvas } = require('canvas');
 const dbManager = require('../UTILS/database');
 const wealthTaxManager = require('../UTILS/wealthTax');
 const shopManager = require('../UTILS/shopManager');
+const economicManager = require('../UTILS/economicManager');
+const economicStabilizer = require('../UTILS/economicStabilizer');
+const antiAbuseSystem = require('../UTILS/antiAbuseSystem');
 const { fmt, fmtFull, getGuildId, sendLogMessage, getEconomicTier, getTierDisplay, calculateDailyInterest, safeSubtract } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const { ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
 const logger = require('../UTILS/logger');
 
 // Developer ID for special analytics
@@ -19,7 +23,7 @@ const DEVELOPER_ID = '466050111680544798';
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('economy')
-        .setDescription('📊 Complete economy analytics with server overview, personal stats, taxation & gambling data')
+        .setDescription('📊 Complete economy analytics with server overview, personal stats, taxation, gambling & economic system data')
         .addUserOption(option =>
             option.setName('user')
                 .setDescription('User to focus personal analytics on (optional - defaults to you)')
@@ -37,22 +41,23 @@ module.exports = {
             await interaction.deferReply();
             logger.info(`Complete economy analytics requested by ${interaction.user.displayName} for ${username}`);
             
-            // MEGA DATA COLLECTION - EVERYTHING AT ONCE
-            const [serverData, personalData, taxationData, gamblingData] = await Promise.all([
+            // MEGA DATA COLLECTION - EVERYTHING AT ONCE INCLUDING ECONOMIC SYSTEMS
+            const [serverData, personalData, taxationData, gamblingData, economicSystemData] = await Promise.all([
                 this.getCompleteServerAnalysis(guildId),
                 this.getCompletePersonalAnalysis(targetId, username, guildId),  
                 this.getCompleteTaxationAnalysis(guildId),
-                this.getCompleteGamblingAnalysis(guildId)
+                this.getCompleteGamblingAnalysis(guildId),
+                this.getEconomicSystemData(targetId)
             ]);
             
             // GENERATE COMPREHENSIVE MULTI-PANEL CHART
             const chartBuffer = await this.generateMegaEconomyChart(serverData, personalData, taxationData, gamblingData, targetUser);
             const attachment = new AttachmentBuilder(chartBuffer, { name: 'mega-economy-analysis.png' });
 
-            // BUILD ULTRA-DETAILED EMBED WITH EVERYTHING
-            const megaEmbed = await this.buildMegaEconomyEmbed(serverData, personalData, taxationData, gamblingData, targetUser);
+            // BUILD ULTRA-DETAILED EMBED WITH EVERYTHING INCLUDING PAGINATION
+            const [megaEmbed, components] = await this.buildMegaEconomyEmbed(serverData, personalData, taxationData, gamblingData, economicSystemData, targetUser, 1);
             
-            await interaction.editReply({ embeds: [megaEmbed], files: [attachment] });
+            await interaction.editReply({ embeds: [megaEmbed], files: [attachment], components });
 
             // LOG THE COMPREHENSIVE ANALYSIS
             await sendLogMessage(
@@ -79,6 +84,91 @@ module.exports = {
             });
 
             await interaction.editReply({ embeds: [errorEmbed] });
+        }
+    },
+
+    /**
+     * Handle button interactions for pagination
+     */
+    async handleButtonInteraction(interaction, customId) {
+        const userId = interaction.user.id;
+        
+        if (!customId.startsWith('economy_page_')) return;
+        
+        const page = parseInt(customId.split('_')[2]);
+        const targetUser = interaction.user; // For now, always show self on page changes
+        const targetId = targetUser.id;
+        const guildId = (await getGuildId(interaction)) || null;
+        const username = targetUser.displayName;
+        
+        try {
+            await interaction.deferUpdate();
+            
+            // Re-fetch data for the new page
+            const [serverData, personalData, taxationData, gamblingData, economicSystemData] = await Promise.all([
+                this.getCompleteServerAnalysis(guildId),
+                this.getCompletePersonalAnalysis(targetId, username, guildId),  
+                this.getCompleteTaxationAnalysis(guildId),
+                this.getCompleteGamblingAnalysis(guildId),
+                this.getEconomicSystemData(targetId)
+            ]);
+            
+            const chartBuffer = await this.generateMegaEconomyChart(serverData, personalData, taxationData, gamblingData, targetUser);
+            const attachment = new AttachmentBuilder(chartBuffer, { name: 'mega-economy-analysis.png' });
+            
+            const [megaEmbed, components] = await this.buildMegaEconomyEmbed(serverData, personalData, taxationData, gamblingData, economicSystemData, targetUser, page);
+            
+            await interaction.editReply({ embeds: [megaEmbed], files: [attachment], components });
+            
+        } catch (error) {
+            logger.error(`Error in economy pagination: ${error.message}`);
+        }
+    },
+
+    /**
+     * GET ECONOMIC SYSTEM DATA
+     */
+    async getEconomicSystemData(userId) {
+        try {
+            const systemStatus = economicManager.getSystemStatus();
+            const economicReport = await economicManager.getEconomicReport();
+            const userRisk = antiAbuseSystem.getUserRiskAssessment(userId);
+            const multiplierReductions = {};
+            
+            // Get dynamic multiplier reductions for each game
+            const gameTypes = ['blackjack', 'slots', 'roulette', 'crash', 'plinko', 'yahtzee', 'treasurevault'];
+            for (const gameType of gameTypes) {
+                try {
+                    const reduction = await economicManager.getMultiplierReduction(gameType, userId);
+                    const houseEdge = economicManager.getHouseEdgeAdjustment(gameType);
+                    multiplierReductions[gameType] = {
+                        reduction: (reduction * 100).toFixed(1),
+                        houseEdgeBonus: (houseEdge * 100).toFixed(2),
+                        effectiveMultiplier: ((1 - reduction) * 100).toFixed(1)
+                    };
+                } catch (err) {
+                    multiplierReductions[gameType] = { reduction: '0.0', houseEdgeBonus: '0.00', effectiveMultiplier: '100.0' };
+                }
+            }
+            
+            return {
+                systemStatus,
+                economicReport,
+                userRisk,
+                multiplierReductions,
+                emergencyMode: systemStatus.emergencyMode,
+                healthScore: systemStatus.healthScore
+            };
+        } catch (error) {
+            logger.error(`Error getting economic system data: ${error.message}`);
+            return {
+                systemStatus: { initialized: false, emergencyMode: false, healthScore: 100 },
+                economicReport: { overview: { emergencyMode: false, healthScore: 100 } },
+                userRisk: { riskLevel: 'UNKNOWN' },
+                multiplierReductions: {},
+                emergencyMode: false,
+                healthScore: 100
+            };
         }
     },
 
@@ -689,10 +779,11 @@ module.exports = {
     },
 
     /**
-     * BUILD MEGA COMPREHENSIVE ECONOMY EMBED
+     * BUILD MEGA COMPREHENSIVE ECONOMY EMBED WITH PAGINATION
      */
-    async buildMegaEconomyEmbed(serverData, personalData, taxationData, gamblingData, targetUser) {
+    async buildMegaEconomyEmbed(serverData, personalData, taxationData, gamblingData, economicSystemData, targetUser, page = 1) {
         const isOffEconomy = personalData.isOffEconomy;
+        const totalPages = 4; // Overview, Personal, Economic Systems, Game Analysis
         
         // Calculate comprehensive metrics
         const serverMetrics = {
@@ -707,122 +798,287 @@ module.exports = {
             riskStatus: personalData.riskAssessment.overallRiskLevel
         };
 
-        // Build ultra-detailed fields
-        const topFields = [
-            {
-                name: '🌍 SERVER ECONOMY OVERVIEW',
-                value: `**Total Users:** ${serverData.totalUsers.toLocaleString()}\n` +
-                       `**Total Wealth:** ${fmt(serverData.totalWealth)}\n` +
-                       `**Wealth Inequality (Gini):** ${serverMetrics.wealthInequality}\n` +
-                       `**Economic Health:** ${serverMetrics.economicHealth}\n` +
-                       `**Activity Rate:** ${serverMetrics.activityRate}%`,
-                inline: false
-            },
-            {
-                name: '📊 WEALTH DISTRIBUTION ANALYSIS',
-                value: `**Top 1%:** ${serverData.wealthDistribution.top1Percent.users} users (${serverData.wealthDistribution.top1Percent.percentage.toFixed(1)}% wealth)\n` +
-                       `**Top 5%:** ${serverData.wealthDistribution.top5Percent.users} users (${serverData.wealthDistribution.top5Percent.percentage.toFixed(1)}% wealth)\n` +
-                       `**Top 10%:** ${serverData.wealthDistribution.top10Percent.users} users (${serverData.wealthDistribution.top10Percent.percentage.toFixed(1)}% wealth)\n` +
-                       `**Bottom 50%:** ${serverData.wealthDistribution.bottom50Percent.users} users (${serverData.wealthDistribution.bottom50Percent.percentage.toFixed(1)}% wealth)\n` +
-                       `**Median Wealth:** ${fmt(serverData.economicMetrics.medianWealth)}`,
-                inline: true
-            },
-            {
-                name: `👤 ${personalData.username.toUpperCase()}'S PERSONAL ANALYTICS`,
-                value: `**Net Worth:** ${fmt(personalData.wealthMetrics.totalWealth)}\n` +
-                       `**Wealth Rank:** ${personalMetrics.wealthRank}\n` +
-                       `**Economic Tier:** ${personalData.wealthMetrics.tierDisplay}\n` +
-                       `**Performance Grade:** ${personalMetrics.performanceGrade}\n` +
-                       `**Risk Level:** ${personalMetrics.riskStatus}`,
-                inline: true
-            },
-            {
-                name: '🎰 GAMBLING PERFORMANCE ANALYSIS',
-                value: `**Total Games:** ${personalData.gamblingAnalysis.totalGames.toLocaleString()}\n` +
-                       `**Win Rate:** ${personalData.gamblingAnalysis.winRate.toFixed(1)}%\n` +
-                       `**Net Profit:** ${personalData.gamblingAnalysis.netProfit >= 0 ? '+' : ''}${fmt(personalData.gamblingAnalysis.netProfit)}\n` +
-                       `**ROI:** ${personalData.gamblingAnalysis.roi.toFixed(2)}%\n` +
-                       `**Experience:** ${this.calculateExperienceLevel(personalData.gamblingAnalysis.totalGames)}`,
-                inline: true
-            },
-            {
-                name: '💸 WEALTH TAX ANALYSIS',
-                value: `**Wealthy Users:** ${taxationData.summary.wealthyUsers}\n` +
-                       `**Taxable Users:** ${taxationData.summary.taxableUsers}\n` +
-                       `**Tax Avoidance Rate:** ${taxationData.taxEfficiency.avoidanceRate.toFixed(1)}%\n` +
-                       `**Potential Revenue:** ${fmt(taxationData.summary.potentialTaxRevenue)}\n` +
-                       `**Collection Efficiency:** ${taxationData.taxEfficiency.collectionRate.toFixed(1)}%`,
-                inline: true
-            },
-            {
-                name: '🎮 SERVER GAMBLING STATISTICS',
-                value: `**Total Games:** ${gamblingData.overview.totalGames.toLocaleString()}\n` +
-                       `**Total Wagered:** ${fmt(gamblingData.overview.totalWagered)}\n` +
-                       `**House Edge:** ${gamblingData.overview.houseEdge.toFixed(2)}%\n` +
-                       `**Active Gamblers:** ${gamblingData.overview.totalPlayers}\n` +
-                       `**Biggest Win:** ${fmt(gamblingData.overview.biggestWin)}`,
-                inline: true
+        let topFields = [];
+        let bankFields = [];
+        let title = '';
+        let stageText = '';
+
+        // PAGE-SPECIFIC CONTENT
+        switch (page) {
+            case 1: // OVERVIEW PAGE
+                title = `📊 ECONOMY OVERVIEW ${isOffEconomy ? '(👑 DEVELOPER)' : ''}`;
+                stageText = 'SERVER OVERVIEW';
+                
+                topFields = [
+                    {
+                        name: '🌍 SERVER ECONOMY OVERVIEW',
+                        value: `**Total Users:** ${serverData.totalUsers.toLocaleString()}\n` +
+                               `**Total Wealth:** ${fmt(serverData.totalWealth)}\n` +
+                               `**Wealth Inequality (Gini):** ${serverMetrics.wealthInequality}\n` +
+                               `**Economic Health:** ${serverMetrics.economicHealth}\n` +
+                               `**Activity Rate:** ${serverMetrics.activityRate}%`,
+                        inline: false
+                    },
+                    {
+                        name: '📊 WEALTH DISTRIBUTION',
+                        value: `**Top 1%:** ${serverData.wealthDistribution.top1Percent.users} users (${serverData.wealthDistribution.top1Percent.percentage.toFixed(1)}% wealth)\n` +
+                               `**Top 5%:** ${serverData.wealthDistribution.top5Percent.users} users (${serverData.wealthDistribution.top5Percent.percentage.toFixed(1)}% wealth)\n` +
+                               `**Top 10%:** ${serverData.wealthDistribution.top10Percent.users} users (${serverData.wealthDistribution.top10Percent.percentage.toFixed(1)}% wealth)\n` +
+                               `**Bottom 50%:** ${serverData.wealthDistribution.bottom50Percent.users} users (${serverData.wealthDistribution.bottom50Percent.percentage.toFixed(1)}% wealth)`,
+                        inline: true
+                    },
+                    {
+                        name: '🎮 GAMBLING OVERVIEW',
+                        value: `**Total Games:** ${gamblingData.overview.totalGames.toLocaleString()}\n` +
+                               `**Total Wagered:** ${fmt(gamblingData.overview.totalWagered)}\n` +
+                               `**House Edge:** ${gamblingData.overview.houseEdge.toFixed(2)}%\n` +
+                               `**Active Gamblers:** ${gamblingData.overview.totalPlayers}\n` +
+                               `**Biggest Win:** ${fmt(gamblingData.overview.biggestWin)}`,
+                        inline: true
+                    },
+                    {
+                        name: '💸 TAXATION OVERVIEW',
+                        value: `**Wealthy Users:** ${taxationData.summary.wealthyUsers}\n` +
+                               `**Taxable Users:** ${taxationData.summary.taxableUsers}\n` +
+                               `**Tax Avoidance:** ${taxationData.taxEfficiency.avoidanceRate.toFixed(1)}%\n` +
+                               `**Potential Revenue:** ${fmt(taxationData.summary.potentialTaxRevenue)}\n` +
+                               `**Collection Rate:** ${taxationData.taxEfficiency.collectionRate.toFixed(1)}%`,
+                        inline: false
+                    }
+                ];
+                
+                bankFields = [
+                    { name: '💎 Total Wealth', value: fmt(serverData.totalWealth), inline: true },
+                    { name: '🏠 House Edge', value: `${gamblingData.overview.houseEdge.toFixed(2)}%`, inline: true },
+                    { name: '🎯 Activity Rate', value: `${serverMetrics.activityRate}%`, inline: true }
+                ];
+                break;
+
+            case 2: // PERSONAL ANALYTICS PAGE
+                title = `👤 ${personalData.username.toUpperCase()}'S ANALYTICS`;
+                stageText = 'PERSONAL ANALYSIS';
+                
+                topFields = [
+                    {
+                        name: `💰 ${personalData.username.toUpperCase()}'S WEALTH`,
+                        value: `**Net Worth:** ${fmt(personalData.wealthMetrics.totalWealth)}\n` +
+                               `**Wallet:** ${fmt(personalData.balance.wallet)} (${personalData.wealthMetrics.walletPercent.toFixed(1)}%)\n` +
+                               `**Bank:** ${fmt(personalData.balance.bank)} (${personalData.wealthMetrics.bankPercent.toFixed(1)}%)\n` +
+                               `**Daily Interest:** ${fmt(personalData.wealthMetrics.dailyInterest)}\n` +
+                               `**Wealth Rank:** ${personalMetrics.wealthRank}`,
+                        inline: false
+                    },
+                    {
+                        name: '🎰 GAMBLING PERFORMANCE',
+                        value: `**Total Games:** ${personalData.gamblingAnalysis.totalGames.toLocaleString()}\n` +
+                               `**Win Rate:** ${personalData.gamblingAnalysis.winRate.toFixed(1)}%\n` +
+                               `**Net Profit:** ${personalData.gamblingAnalysis.netProfit >= 0 ? '+' : ''}${fmt(personalData.gamblingAnalysis.netProfit)}\n` +
+                               `**ROI:** ${personalData.gamblingAnalysis.roi.toFixed(2)}%\n` +
+                               `**Experience:** ${this.calculateExperienceLevel(personalData.gamblingAnalysis.totalGames)}`,
+                        inline: true
+                    },
+                    {
+                        name: '🎯 RISK ASSESSMENT',
+                        value: `**Risk Level:** ${personalMetrics.riskStatus}\n` +
+                               `**Risk Score:** ${personalData.riskAssessment.riskScore}/100\n` +
+                               `**Bet Size Risk:** ${personalData.riskAssessment.factors.betSizeRisk}\n` +
+                               `**Frequency Risk:** ${personalData.riskAssessment.factors.frequencyRisk}\n` +
+                               `**Performance:** ${personalMetrics.performanceGrade}`,
+                        inline: true
+                    }
+                ];
+
+                // Add top games
+                if (personalData.gamblingAnalysis.favoriteGames.length > 0) {
+                    const topGames = personalData.gamblingAnalysis.favoriteGames.slice(0, 5).map(game => 
+                        `**${game.name}:** ${game.gamesPlayed} games (${game.winRate}% WR, ${game.roi.toFixed(1)}% ROI)`
+                    ).join('\n');
+                    
+                    topFields.push({
+                        name: '🏆 TOP GAMES BY VOLUME',
+                        value: topGames,
+                        inline: false
+                    });
+                }
+
+                // Add tax status
+                if (!isOffEconomy && personalData.taxStatus && Object.keys(personalData.taxStatus).length > 0) {
+                    const taxInfo = personalData.taxStatus.isSubjectToTax 
+                        ? `⚠️ **TAXABLE:** ${fmt(personalData.taxStatus.taxAmount)} potential tax`
+                        : `✅ **EXEMPT:** ${personalData.taxStatus.reason.replace(/_/g, ' ')}`;
+                    
+                    topFields.push({
+                        name: '💰 TAX STATUS',
+                        value: `**Bracket:** ${personalData.taxStatus.bracket || 'N/A'}\n` +
+                               `${taxInfo}\n` +
+                               `**High Stakes:** ${personalData.taxStatus.bettingAnalysis?.hasHighStakes ? 'Yes' : 'No'}`,
+                        inline: true
+                    });
+                }
+                
+                bankFields = [
+                    { name: '💰 Net Worth', value: fmt(personalData.wealthMetrics.totalWealth), inline: true },
+                    { name: '📈 Personal ROI', value: `${personalData.gamblingAnalysis.roi.toFixed(2)}%`, inline: true },
+                    { name: '🎯 Risk Score', value: `${personalData.riskAssessment.riskScore}/100`, inline: true }
+                ];
+                break;
+
+            case 3: // ECONOMIC SYSTEMS PAGE
+                title = '⚙️ ECONOMIC SYSTEMS STATUS';
+                stageText = 'ECONOMIC CONTROLS';
+                
+                const emergencyStatus = economicSystemData.emergencyMode ? '🚨 ACTIVE' : '✅ NORMAL';
+                const healthColor = economicSystemData.healthScore >= 80 ? '🟢' : 
+                                   economicSystemData.healthScore >= 60 ? '🟡' : '🔴';
+                
+                topFields = [
+                    {
+                        name: '🛡️ SYSTEM STATUS',
+                        value: `**Emergency Mode:** ${emergencyStatus}\n` +
+                               `**Health Score:** ${healthColor} ${economicSystemData.healthScore}/100\n` +
+                               `**Systems Online:** ${economicSystemData.systemStatus.initialized ? '✅' : '❌'}\n` +
+                               `**User Risk Level:** ${economicSystemData.userRisk.riskLevel}\n` +
+                               `**Anti-Abuse Active:** ✅ Monitoring`,
+                        inline: false
+                    },
+                    {
+                        name: '🎮 DYNAMIC MULTIPLIER REDUCTIONS',
+                        value: Object.entries(economicSystemData.multiplierReductions).slice(0, 4).map(([game, data]) => 
+                            `**${game.toUpperCase()}:** -${data.reduction}% (${data.effectiveMultiplier}% effective)`
+                        ).join('\n'),
+                        inline: true
+                    },
+                    {
+                        name: '🏠 HOUSE EDGE ADJUSTMENTS',
+                        value: Object.entries(economicSystemData.multiplierReductions).slice(0, 4).map(([game, data]) => 
+                            `**${game.toUpperCase()}:** +${data.houseEdgeBonus}% bonus edge`
+                        ).join('\n'),
+                        inline: true
+                    }
+                ];
+
+                // Add remaining games if more than 4
+                if (Object.keys(economicSystemData.multiplierReductions).length > 4) {
+                    const remainingGames = Object.entries(economicSystemData.multiplierReductions).slice(4);
+                    topFields.push({
+                        name: '🎯 MORE GAME ADJUSTMENTS',
+                        value: remainingGames.map(([game, data]) => 
+                            `**${game.toUpperCase()}:** -${data.reduction}% multiplier, +${data.houseEdgeBonus}% edge`
+                        ).join('\n'),
+                        inline: false
+                    });
+                }
+                
+                bankFields = [
+                    { name: '🛡️ Health Score', value: `${economicSystemData.healthScore}/100`, inline: true },
+                    { name: '🚨 Emergency Mode', value: economicSystemData.emergencyMode ? 'Active' : 'Normal', inline: true },
+                    { name: '👤 Your Risk', value: economicSystemData.userRisk.riskLevel, inline: true }
+                ];
+                break;
+
+            case 4: // DETAILED GAME ANALYSIS PAGE
+                title = '🎮 DETAILED GAME ANALYSIS';
+                stageText = 'GAME STATISTICS';
+                
+                // Server gambling leaders
+                topFields = [
+                    {
+                        name: '👑 SERVER GAMBLING LEADERS',
+                        value: `**Most Active:** ${gamblingData.playerAnalysis.mostActivePlayer?.username || 'None'} (${gamblingData.playerAnalysis.mostActivePlayer?.games.toLocaleString() || '0'} games)\n` +
+                               `**Biggest Winner:** ${gamblingData.playerAnalysis.biggestWinner?.username || 'None'} (${gamblingData.playerAnalysis.biggestWinner ? '+' + fmt(gamblingData.playerAnalysis.biggestWinner.profit) : 'N/A'})\n` +
+                               `**Biggest Loser:** ${gamblingData.playerAnalysis.biggestLoser?.username || 'None'} (-${fmt(gamblingData.playerAnalysis.biggestLoser?.loss || 0)})`,
+                        inline: false
+                    },
+                    {
+                        name: '📊 GAME POPULARITY RANKING',
+                        value: gamblingData.patterns.popularityRanking.slice(0, 5).map((game, i) => 
+                            `**${i + 1}. ${game.game.toUpperCase()}:** ${game.games.toLocaleString()} games (${game.popularity}%)`
+                        ).join('\n'),
+                        inline: true
+                    },
+                    {
+                        name: '🏠 HOUSE EDGE BY GAME',
+                        value: gamblingData.patterns.profitabilityRanking.slice(0, 5).map((game, i) => 
+                            `**${i + 1}. ${game.game.toUpperCase()}:** ${game.houseEdge}% edge (${game.rtp}% RTP)`
+                        ).join('\n'),
+                        inline: true
+                    }
+                ];
+
+                // Add detailed game breakdown
+                const topGames = Object.entries(gamblingData.gameBreakdown)
+                    .sort((a, b) => b[1].games - a[1].games)
+                    .slice(0, 3);
+                
+                topGames.forEach(([gameType, gameData]) => {
+                    topFields.push({
+                        name: `🎯 ${gameType.toUpperCase()} DETAILED STATS`,
+                        value: `**Games Played:** ${gameData.games.toLocaleString()}\n` +
+                               `**Total Wagered:** ${fmt(gameData.wagered)}\n` +
+                               `**Total Won:** ${fmt(gameData.won)}\n` +
+                               `**Players:** ${gameData.players}\n` +
+                               `**House Edge:** ${gameData.houseEdge.toFixed(2)}%\n` +
+                               `**Average Bet:** ${fmt(gameData.averageBet)}`,
+                        inline: true
+                    });
+                });
+                
+                bankFields = [
+                    { name: '🎮 Total Games', value: gamblingData.overview.totalGames.toLocaleString(), inline: true },
+                    { name: '💰 Total Wagered', value: fmt(gamblingData.overview.totalWagered), inline: true },
+                    { name: '🏠 Overall Edge', value: `${gamblingData.overview.houseEdge.toFixed(2)}%`, inline: true }
+                ];
+                break;
+        }
+
+        // Create pagination buttons
+        const components = [];
+        if (totalPages > 1) {
+            const row = new ActionRowBuilder();
+            
+            // Previous button
+            if (page > 1) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`economy_page_${page - 1}`)
+                        .setLabel('◀️ Previous')
+                        .setStyle(ButtonStyle.Secondary)
+                );
             }
-        ];
-
-        // Add personal tax status if applicable
-        if (!isOffEconomy && personalData.taxStatus && Object.keys(personalData.taxStatus).length > 0) {
-            const taxInfo = personalData.taxStatus.isSubjectToTax 
-                ? `⚠️ **TAXABLE:** ${fmt(personalData.taxStatus.taxAmount)} potential tax`
-                : `✅ **EXEMPT:** ${personalData.taxStatus.reason.replace(/_/g, ' ')}`;
             
-            topFields.push({
-                name: `💰 ${personalData.username.toUpperCase()}'S TAX STATUS`,
-                value: `**Tax Bracket:** ${personalData.taxStatus.bracket || 'N/A'}\n` +
-                       `${taxInfo}\n` +
-                       `**High Stakes Gambling:** ${personalData.taxStatus.bettingAnalysis?.hasHighStakes ? 'Yes' : 'No'}\n` +
-                       `**Days Since Last Game:** ${personalData.taxStatus.daysSinceLastGame || 'N/A'}`,
-                inline: false
-            });
-        }
-
-        // Add top games performance
-        if (personalData.gamblingAnalysis.favoriteGames.length > 0) {
-            const topGames = personalData.gamblingAnalysis.favoriteGames.slice(0, 3).map(game => 
-                `**${game.name}:** ${game.gamesPlayed} games (${game.winRate}% WR, ${game.roi.toFixed(1)}% ROI)`
-            ).join('\n');
+            // Page indicator
+            row.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`economy_page_info`)
+                    .setLabel(`Page ${page}/${totalPages}`)
+                    .setStyle(ButtonStyle.Primary)
+                    .setDisabled(true)
+            );
             
-            topFields.push({
-                name: '🏆 TOP GAMES BY VOLUME',
-                value: topGames,
-                inline: false
-            });
+            // Next button
+            if (page < totalPages) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`economy_page_${page + 1}`)
+                        .setLabel('Next ▶️')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+            }
+            
+            components.push(row);
         }
 
-        // Add server gambling leaders
-        if (gamblingData.playerAnalysis.mostActivePlayer) {
-            topFields.push({
-                name: '👑 SERVER GAMBLING LEADERS',
-                value: `**Most Active:** ${gamblingData.playerAnalysis.mostActivePlayer.username} (${gamblingData.playerAnalysis.mostActivePlayer.games.toLocaleString()} games)\n` +
-                       `**Biggest Winner:** ${gamblingData.playerAnalysis.biggestWinner?.username || 'None'} (${gamblingData.playerAnalysis.biggestWinner ? '+' + fmt(gamblingData.playerAnalysis.biggestWinner.profit) : 'N/A'})\n` +
-                       `**Most Popular Game:** ${gamblingData.patterns.popularityRanking[0]?.game || 'None'} (${gamblingData.patterns.popularityRanking[0]?.popularity || '0'}%)`,
-                inline: false
-            });
-        }
-
-        const bankFields = [
-            { name: '💎 Server Wealth', value: fmt(serverData.totalWealth), inline: true },
-            { name: `💰 ${personalData.username} Worth`, value: fmt(personalData.wealthMetrics.totalWealth), inline: true },
-            { name: '📈 Personal ROI', value: `${personalData.gamblingAnalysis.roi.toFixed(2)}%`, inline: true },
-            { name: '🏠 Server House Edge', value: `${gamblingData.overview.houseEdge.toFixed(2)}%`, inline: true },
-            { name: '💸 Tax Revenue', value: fmt(taxationData.summary.potentialTaxRevenue), inline: true },
-            { name: '🎯 Activity Rate', value: `${serverMetrics.activityRate}%`, inline: true }
-        ];
-
-        return buildSessionEmbed({
-            title: `📊 COMPLETE ECONOMY ANALYSIS ${isOffEconomy ? '(👑 DEVELOPER VIEW)' : ''}`,
+        const embed = buildSessionEmbed({
+            title,
             topFields,
             bankFields,
-            stageText: 'COMPREHENSIVE ANALYSIS COMPLETE',
+            stageText,
             color: isOffEconomy ? 0x9B59B6 : (personalData.wealthMetrics.totalWealth >= 1000000 ? 0xFFD700 : 0x00FF00),
-            footer: `🔍 Mega Economy Analytics • ${personalData.username} Focus • ATIVE Casino`,
+            footer: `🔍 Economy Analytics • Page ${page}/${totalPages} • ${personalData.username} Focus`,
             image: 'attachment://mega-economy-analysis.png'
         });
+
+        return [embed, components];
     },
 
     /**

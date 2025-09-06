@@ -412,22 +412,22 @@ class YahtzeeGame {
         let multiplier = 1; // Base return of bet
         
         if (this.totalScore >= 300) {
-            multiplier = 3; // Excellent score
+            multiplier = 2.2; // Excellent score (reduced from 3)
         } else if (this.totalScore >= 250) {
-            multiplier = 2.5; // Great score
+            multiplier = 1.8; // Great score (reduced from 2.5)
         } else if (this.totalScore >= 200) {
-            multiplier = 2; // Good score
+            multiplier = 1.5; // Good score (reduced from 2)
         } else if (this.totalScore >= 150) {
-            multiplier = 1.5; // Decent score
+            multiplier = 1.3; // Decent score (reduced from 1.5)
         }
 
         // Bonus for Yahtzee
         if (this.scorecard[SCORING_CATEGORIES.YAHTZEE] > 0) {
-            multiplier += 0.5;
+            multiplier += 0.3; // Reduced from 0.5
         }
 
         // Bonus for multiple Yahtzees
-        multiplier += this.bonusYahtzees.length * 0.25;
+        multiplier += this.bonusYahtzees.length * 0.15; // Reduced from 0.25
 
         return {
             outcome: this.totalScore >= 150 ? 'WIN' : 'LOSS',

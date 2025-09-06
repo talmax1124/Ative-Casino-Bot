@@ -194,20 +194,20 @@ class RouletteGame {
                 break;
             case 'number':
                 if (result === 0 || result === '00') {
-                    // 0/00 specific number bet: 12.5x payout
-                    payout = amount * 12.5;
+                    // 0/00 specific number bet: 8x payout (reduced from 12.5x)
+                    payout = amount * 8;
                 } else {
-                    // Regular number bet: 12.5x payout
-                    payout = amount * 12.5;
+                    // Regular number bet: 8x payout (reduced from 12.5x)
+                    payout = amount * 8;
                 }
                 break;
             case 'green':
-                // Green bet (0 or 00): 6.0x payout
-                payout = amount * 6.0;
+                // Green bet (0 or 00): 4x payout (reduced from 6.0x)
+                payout = amount * 4;
                 break;
             case 'basket':
-                // Basket bet: 5.2x payout
-                payout = amount * 5.2;
+                // Basket bet: 3.5x payout (reduced from 5.2x)
+                payout = amount * 3.5;
                 break;
             default:
                 payout = 0;

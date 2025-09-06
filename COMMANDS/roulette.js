@@ -16,6 +16,7 @@ const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const levelingSystem = require('../UTILS/levelingSystem');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const gifAnimator = require('../UTILS/gifAnimator');
+const economicManager = require('../UTILS/economicManager');
 
 // Game type constant
 const SMGameType = { ROULETTE: 'roulette' };
@@ -45,9 +46,26 @@ async function createRouletteWheelImage(game, showResult = false, frameIndex = 0
 }
 
 /**
- * Create payout information embed with current bet info
+ * Create payout information embed with current bet info and dynamic multipliers
  */
-function createPayoutEmbed(user, balance, currentBet = null) {
+async function createPayoutEmbed(user, balance, currentBet = null) {
+    // Get dynamic multipliers from economic system
+    let multiplierReduction = 0;
+    try {
+        multiplierReduction = await economicManager.getMultiplierReduction('roulette', user.id);
+    } catch (error) {
+        logger.warn(`Failed to get roulette multiplier reduction: ${error.message}`);
+    }
+    
+    const effectiveMultiplier = 1 - multiplierReduction;
+    const reductionPercent = (multiplierReduction * 100).toFixed(1);
+    
+    // Calculate dynamic payouts
+    const colorPayout = (2.0 * effectiveMultiplier).toFixed(2);
+    const dozenPayout = (2.2 * effectiveMultiplier).toFixed(2);  
+    const numberPayout = (8.0 * effectiveMultiplier).toFixed(2); // Already reduced from 12.5x
+    const greenPayout = (4.0 * effectiveMultiplier).toFixed(2);  // Already reduced from 6.0x
+    const basketPayout = (3.5 * effectiveMultiplier).toFixed(2); // Already reduced from 5.2x
     
     const embed = new EmbedBuilder()
         .setTitle('🎰 American Roulette')
@@ -65,25 +83,27 @@ function createPayoutEmbed(user, balance, currentBet = null) {
         });
     }
 
-    // Add formatted payout table with organized codeblocks
+    // Add formatted payout table with dynamic multipliers
+    const economicStatus = multiplierReduction > 0 ? ` (${reductionPercent}% reduction)` : '';
+    
     topFields.push(
         { 
-            name: '💰 AMERICAN ROULETTE PAYOUTS', 
+            name: `💰 AMERICAN ROULETTE PAYOUTS${economicStatus}`, 
             value: '```yaml\n' +
                    '🎨 COLOR BETS:\n' +
-                   '  Red             2.0x\n' +
-                   '  Black           2.0x\n' +
-                   '  Green (0, 00)   6.0x\n' +
+                   `  Red             ${colorPayout}x\n` +
+                   `  Black           ${colorPayout}x\n` +
+                   `  Green (0, 00)   ${greenPayout}x\n` +
                    '\n' +
                    '🔢 NUMBER BETS:\n' +
-                   '  Even/Odd        2.0x\n' +
-                   '  1-18 / 19-36    2.0x\n' +
-                   '  Single Number  12.5x\n' +
+                   `  Even/Odd        ${colorPayout}x\n` +
+                   `  1-18 / 19-36    ${colorPayout}x\n` +
+                   `  Single Number  ${numberPayout}x\n` +
                    '\n' +
                    '📊 GROUP BETS:\n' +
-                   '  Dozens (1-12)   2.2x\n' +
-                   '  Columns         2.2x\n' +
-                   '  Basket (0,00+)  5.2x\n' +
+                   `  Dozens (1-12)   ${dozenPayout}x\n` +
+                   `  Columns         ${dozenPayout}x\n` +
+                   `  Basket (0,00+)  ${basketPayout}x\n` +
                    '```', 
             inline: false 
         }
@@ -346,7 +366,7 @@ function createNumberSelector(userId, betAmount) {
 
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId(`roulette-${userId}-number-select`)
-        .setPlaceholder('Select a number to bet on (12.5x payout)')
+        .setPlaceholder('Select a number to bet on (Dynamic payout)')
         .addOptions(options);
 
     return [{ type: 1, components: [selectMenu] }];
@@ -376,7 +396,7 @@ function createDozenSelector(userId) {
 
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId(`roulette-${userId}-dozen-select`)
-        .setPlaceholder('Select a dozen to bet on (2.2x payout)')
+        .setPlaceholder('Select a dozen to bet on (Dynamic payout)')
         .addOptions(options);
 
     return [{ type: 1, components: [selectMenu] }];
@@ -476,7 +496,7 @@ module.exports = {
             }, 'game_start');
 
             // Create payout embed and betting buttons  
-            const payoutEmbed = createPayoutEmbed(interaction.user, userBalance);
+            const payoutEmbed = await createPayoutEmbed(interaction.user, userBalance);
             const actionRows = createBettingButtons(userId, game);
 
             // Send game message with text-based payout table
@@ -637,11 +657,11 @@ module.exports = {
                             'You can only place one bet per spin'
                         ],
                         commands: [
-                            '**Red/Black/Odd/Even/High/Low:** 2x payout',
-                            '**Dozens (1-12, 13-24, 25-36):** 2.2x payout',
-                            '**Single Numbers:** 12.5x payout',
-                            '**Green (0 or 00):** 6.0x payout',
-                            '**Basket (0, 00, 1, 2, 3):** 5.2x payout'
+                            '**Red/Black/Odd/Even/High/Low:** Dynamic payout (base 2x)',
+                            '**Dozens (1-12, 13-24, 25-36):** Dynamic payout (base 2.2x)',
+                            '**Single Numbers:** Dynamic payout (base 8x)',
+                            '**Green (0 or 00):** Dynamic payout (base 4x)',
+                            '**Basket (0, 00, 1, 2, 3):** Dynamic payout (base 3.5x)'
                         ],
                         tips: [
                             'American wheel has both 0 and 00',
@@ -676,7 +696,7 @@ module.exports = {
             game.placeBet(betType, game.betAmount);
             
             // Stay on payout table, just update with current bet info
-            const payoutEmbed = createPayoutEmbed(interaction.user, userBalance, game.currentBet);
+            const payoutEmbed = await createPayoutEmbed(interaction.user, userBalance, game.currentBet);
             const actionRows = createBettingButtons(userId, game);
             
             const updateData = {
@@ -960,7 +980,7 @@ module.exports = {
             
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             // Stay on payout table, just update with current bet info
-            const payoutEmbed = createPayoutEmbed(interaction.user, userBalance, game.currentBet);
+            const payoutEmbed = await createPayoutEmbed(interaction.user, userBalance, game.currentBet);
             const actionRows = createBettingButtons(userId, game);
             
             const updateData = {
@@ -1001,7 +1021,7 @@ module.exports = {
             
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             // Stay on payout table, just update with current bet info
-            const payoutEmbed = createPayoutEmbed(interaction.user, userBalance, game.currentBet);
+            const payoutEmbed = await createPayoutEmbed(interaction.user, userBalance, game.currentBet);
             const actionRows = createBettingButtons(userId, game);
             
             const updateData = {

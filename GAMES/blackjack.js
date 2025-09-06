@@ -4,6 +4,7 @@
  */
 
 const { secureRandomShuffle } = require('../UTILS/rng');
+const logger = require('../UTILS/logger');
 
 // Card definitions
 const SUITS = ['♠️', '♥️', '♦️', '♣️'];
@@ -233,14 +234,14 @@ class BlackjackGame {
         this.gameEnded = true;
     }
 
-    getResults() {
+    getResults(options = {}) {
         const results = [];
         
         if (this.splitHands.length > 0) {
             // Handle split hands
             for (let i = 0; i < this.splitHands.length; i++) {
                 const hand = this.splitHands[i];
-                const result = this.calculateHandResult(hand);
+                const result = this.calculateHandResult(hand, options);
                 results.push({
                     hand: i + 1,
                     ...result
@@ -248,42 +249,54 @@ class BlackjackGame {
             }
         } else {
             // Handle single hand
-            const result = this.calculateHandResult(this.playerHand);
+            const result = this.calculateHandResult(this.playerHand, options);
             results.push(result);
         }
 
         return results;
     }
 
-    calculateHandResult(playerHand) {
+    calculateHandResult(playerHand, options = {}) {
         const playerValue = playerHand.getValue();
         const dealerValue = this.dealerHand.getValue();
         
-        let multiplier = 0;
+        let baseMultiplier = 0;
         let outcome = '';
 
         if (playerHand.isBusted()) {
-            multiplier = 0;
+            baseMultiplier = 0;
             outcome = 'BUSTED';
         } else if (playerHand.isBlackjack() && this.dealerHand.isBlackjack()) {
             // Both have blackjack - it's a PUSH (return bet)
-            multiplier = 1;
+            baseMultiplier = 1;
             outcome = 'PUSH';
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
-            multiplier = 2.5;  // Blackjack pays 3:2 (return bet + 1.5x bet = 2.5x total)
+            baseMultiplier = 2.2;  // Blackjack pays reduced (return bet + 1.2x bet = 2.2x total) - MORE HOUSE FAVORED
             outcome = 'BLACKJACK';
         } else if (this.dealerHand.isBusted()) {
-            multiplier = 2;  // Regular win pays 1:1 (return bet + 1x bet = 2x total)
+            baseMultiplier = 1.9;  // Regular win pays reduced (return bet + 0.9x bet = 1.9x total) - MORE HOUSE FAVORED
             outcome = 'DEALER BUSTED';
         } else if (playerValue > dealerValue) {
-            multiplier = 2;  // Regular win pays 1:1 (return bet + 1x bet = 2x total)
+            baseMultiplier = 1.9;  // Regular win pays reduced (return bet + 0.9x bet = 1.9x total) - MORE HOUSE FAVORED
             outcome = 'WIN';
         } else if (playerValue === dealerValue) {
-            multiplier = 1;  // Push returns bet (1x multiplier)
+            baseMultiplier = 1;  // Push returns bet (1x multiplier)
             outcome = 'PUSH';
         } else {
-            multiplier = 0;
+            baseMultiplier = 0;
             outcome = 'LOSE';
+        }
+
+        // Apply dynamic economic adjustments if winning
+        let finalMultiplier = baseMultiplier;
+        if (baseMultiplier > 1 && options.economicMultiplier) {
+            // Only reduce winning payouts, never pushes or losses
+            const adjustedMultiplier = (baseMultiplier - 1) * options.economicMultiplier + 1;
+            finalMultiplier = Math.max(1, adjustedMultiplier); // Never go below returning the bet
+            
+            if (finalMultiplier !== baseMultiplier) {
+                logger.debug(`Blackjack multiplier adjusted: ${baseMultiplier.toFixed(2)}x → ${finalMultiplier.toFixed(2)}x (${((1 - options.economicMultiplier) * 100).toFixed(1)}% reduction)`);
+            }
         }
 
         // Calculate the effective bet amount for this hand (including double down)
@@ -291,11 +304,13 @@ class BlackjackGame {
         
         return {
             outcome,
-            multiplier,
-            payout: effectiveBet * multiplier,  // Total amount to return to player (including bet)
-            won: multiplier > 1,  // Only wins if multiplier > 1 (push is not a win, but bet is returned)
+            multiplier: finalMultiplier,
+            baseMultiplier: baseMultiplier,  // Store original for reference
+            payout: effectiveBet * finalMultiplier,  // Total amount to return to player (including bet)
+            won: finalMultiplier > 1,  // Only wins if multiplier > 1 (push is not a win, but bet is returned)
             betAmount: effectiveBet,  // The actual bet amount for this hand
-            doubled: playerHand.isDoubled()  // Whether this hand was doubled
+            doubled: playerHand.isDoubled(),  // Whether this hand was doubled
+            economicAdjusted: finalMultiplier !== baseMultiplier  // Flag if economic system adjusted payout
         };
     }
 

@@ -26,7 +26,7 @@ const CRASH_CONFIG = {
   min_bet: 10,
   max_bet: 175000,            // Max bet: $175K (high multiplier limit)
   update_interval: 1000,      // Update every 1 second (was 500ms)
-  max_multiplier: 15.0,
+  max_multiplier: 8.0,
   house_edge: 0.03,
   max_duration: 30,           // Max 30 seconds per game
   betting_duration: 60        // 60 seconds to place bets (was 15)
@@ -39,8 +39,8 @@ function generateCrashPoint() {
   // Simple probability curve - no complex math
   if (rand < 0.33) return 1.0 + (Math.random() * 1.5); // 1.0x - 2.5x (33%)
   if (rand < 0.66) return 2.5 + (Math.random() * 2.5); // 2.5x - 5.0x (33%)
-  if (rand < 0.90) return 5.0 + (Math.random() * 10);  // 5.0x - 15.0x (24%)
-  return Math.min(15.0, 15.0 + (Math.random() * 0));    // Max 15.0x (10%)
+  if (rand < 0.90) return 5.0 + (Math.random() * 3);   // 5.0x - 8.0x (24%)
+  return Math.min(8.0, 8.0 + (Math.random() * 0));     // Max 8.0x (10%)
 }
 
 // Simple multiplier calculation

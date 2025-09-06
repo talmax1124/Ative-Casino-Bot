@@ -16,6 +16,7 @@ const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 const levelingSystem = require('../UTILS/levelingSystem');
 const OffEconomyBadge = require('../UTILS/offEconomyBadge');
+const economicManager = require('../UTILS/economicManager');
 
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
@@ -237,13 +238,13 @@ module.exports = {
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
-            // Validate and deduct bet (no maximum limit)
+            // Validate and deduct bet (10M maximum limit)
             validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.BLACKJACK,
                 1,          // Min bet: $1
-                Infinity    // No max bet limit
+                10000000    // Max bet: $10M
             );
 
             if (!validation.isValid) {
@@ -322,13 +323,11 @@ module.exports = {
             // Check for immediate blackjack
             if (game.playerHand.isBlackjack()) {
                 game.dealerPlay();
-                const results = game.getResults();
-                const result = results[0];
-
-                // Mark game as ended to pass control to endGame function
+                
+                // Mark game as ended to pass control to endGame function  
                 game.gameEnded = true;
                 
-                // Use endGame function to handle payout and cleanup
+                // Use endGame function to handle payout and cleanup (includes economic multiplier)
                 await module.exports.endGame(interaction, game, userId, guildId);
                 
                 return;
@@ -618,7 +617,19 @@ module.exports = {
                 logger.warn(`endGame called but game no longer exists or differs for session ${game.sessionId}`);
                 return;
             }
-            const results = game.getResults();
+            
+            // Get dynamic multiplier adjustment from economic system
+            let economicMultiplier = 1.0;
+            try {
+                economicMultiplier = await economicManager.getMultiplierReduction('blackjack', userId);
+                economicMultiplier = 1 - economicMultiplier; // Convert reduction to multiplier
+                economicMultiplier = Math.max(0.5, economicMultiplier); // Never reduce below 50%
+            } catch (error) {
+                logger.warn(`Failed to get economic multiplier for blackjack: ${error.message}`);
+                economicMultiplier = 1.0;
+            }
+            
+            const results = game.getResults({ economicMultiplier });
             
             // Safety check - ensure we have results
             if (!results || results.length === 0) {
