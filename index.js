@@ -2489,12 +2489,23 @@ async function checkActiveGames() {
 const gracefulShutdown = require('./UTILS/gracefulShutdown');
 
 // Initialize graceful shutdown manager with client after ready
-client.once('clientReady', () => {
+client.once('clientReady', async () => {
     // Clear any stale game sessions from previous runs
     const { clearActiveGame } = require('./UTILS/common');
-    const clearedCount = clearActiveGame(null, true); // Clear all stale sessions
+    const sessionManager = require('./UTILS/sessionManager');
+    
+    // Clear legacy game registry
+    const clearedCount = clearActiveGame(null, true);
     if (clearedCount > 0) {
-        logger.info(`Cleared ${clearedCount} stale game sessions from previous run`);
+        logger.info(`Cleared ${clearedCount} stale legacy game sessions from previous run`);
+    }
+    
+    // Clean up any stale sessions from the session manager
+    try {
+        await sessionManager.performCleanup();
+        logger.info('Session manager cleanup completed on startup');
+    } catch (error) {
+        logger.error('Failed to perform session manager cleanup on startup:', error);
     }
     
     gracefulShutdown.initialize(client);

@@ -913,6 +913,99 @@ class UnifiedSessionManager extends EventEmitter {
     }
 
     /**
+     * Get all active sessions (needed by gracefulShutdown)
+     */
+    getAllActiveSessions() {
+        const activeSessions = [];
+        for (const [sessionId, session] of this.sessions) {
+            if (session.state === SessionState.ACTIVE) {
+                activeSessions.push({
+                    sessionId,
+                    userId: session.userId,
+                    gameType: session.gameType,
+                    guildId: session.guildId,
+                    channelId: session.channelId,
+                    createdAt: session.createdAt,
+                    betAmount: session.betAmount
+                });
+            }
+        }
+        return activeSessions;
+    }
+
+    /**
+     * Get session statistics (needed by gracefulShutdown)
+     */
+    getSessionStats() {
+        let active = 0;
+        let total = this.sessions.size;
+        let paused = 0;
+
+        for (const [, session] of this.sessions) {
+            if (session.state === SessionState.ACTIVE) active++;
+            if (session.state === SessionState.PAUSED) paused++;
+        }
+
+        return { active, total, paused };
+    }
+
+    /**
+     * Get active session count (needed by gracefulShutdown)
+     */
+    getActiveSessionCount() {
+        let count = 0;
+        for (const [, session] of this.sessions) {
+            if (session.state === SessionState.ACTIVE) count++;
+        }
+        return count;
+    }
+
+    /**
+     * End all sessions (needed by gracefulShutdown)
+     */
+    async endAllSessions() {
+        let ended = 0;
+        for (const [sessionId, session] of this.sessions) {
+            if (session.state === SessionState.ACTIVE) {
+                await this.cancelSession(sessionId, 'System cleanup', true);
+                ended++;
+            }
+        }
+        return { success: true, ended };
+    }
+
+    /**
+     * Get user sessions (needed by gracefulShutdown)
+     */
+    getUserSessions(userId) {
+        const sessionIds = this.userSessions.get(userId);
+        if (!sessionIds) return [];
+        
+        const sessions = [];
+        for (const sessionId of sessionIds) {
+            const session = this.sessions.get(sessionId);
+            if (session) {
+                sessions.push(session);
+            }
+        }
+        return sessions;
+    }
+
+    /**
+     * Get specific session (needed by gracefulShutdown)
+     */
+    getSession(sessionId) {
+        return this.sessions.get(sessionId) || null;
+    }
+
+    /**
+     * Cancel session (already exists, adding alias for compatibility)
+     */
+    async cancelSession(sessionId, reason, source) {
+        return await this.endSession(sessionId, { reason, refund: true });
+    }
+
+    /**
      * Graceful shutdown
      */
     async shutdown() {
