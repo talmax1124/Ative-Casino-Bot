@@ -35,6 +35,8 @@ module.exports = {
         const limit = interaction.options.getInteger('limit') || 10;
         const guildId = await getGuildId(interaction);
         
+        logger.info(`Leaderboard command called: type=${type}, limit=${limit}, guildId=${guildId}, user=${interaction.user.id}`);
+        
         try {
             await interaction.deferReply();
 
@@ -63,6 +65,7 @@ module.exports = {
     },
 
     async showRegularLeaderboard(interaction, guildId, limit) {
+        logger.info(`Starting regular leaderboard query: guildId=${guildId}, limit=${limit}`);
         // Get regular economy users (excluding developers, admins, and off-economy users) with win/loss stats
         let users;
         try {
@@ -109,13 +112,20 @@ module.exports = {
             `, [limit]);
         }
 
-        const totalUsers = await dbManager.databaseAdapter.executeQuery(`
-            SELECT COUNT(*) as count
-            FROM user_balances 
-            WHERE (off_economy = FALSE OR off_economy IS NULL) 
-                AND (wallet + bank) > 0
-                AND user_id != '466050111680544798'
-        `);
+        let totalUsers;
+        try {
+            totalUsers = await dbManager.databaseAdapter.executeQuery(`
+                SELECT COUNT(*) as count
+                FROM user_balances 
+                WHERE (off_economy = FALSE OR off_economy IS NULL) 
+                    AND (wallet + bank) > 0
+                    AND user_id != '466050111680544798'
+            `);
+        } catch (error) {
+            logger.error('Database error in regular leaderboard total count:', error.message);
+            logger.error('Full error object (total count):', error);
+            totalUsers = [{ count: 0 }]; // Fallback
+        }
 
         const totalCount = totalUsers[0]?.count || 0;
 
@@ -278,6 +288,7 @@ module.exports = {
     },
 
     async showOffEconomyLeaderboard(interaction, guildId, limit, isUpdate = false) {
+        logger.info(`Starting off economy leaderboard query: guildId=${guildId}, limit=${limit}, isUpdate=${isUpdate}`);
         // Get off economy users with win/loss stats
         let users;
         try {
@@ -320,11 +331,18 @@ module.exports = {
             `, [limit]);
         }
         
-        const totalOffEcoUsers = await dbManager.databaseAdapter.executeQuery(`
-            SELECT COUNT(*) as count
-            FROM user_balances 
-            WHERE off_economy = TRUE AND (wallet + bank) > 0
-        `);
+        let totalOffEcoUsers;
+        try {
+            totalOffEcoUsers = await dbManager.databaseAdapter.executeQuery(`
+                SELECT COUNT(*) as count
+                FROM user_balances 
+                WHERE off_economy = TRUE AND (wallet + bank) > 0
+            `);
+        } catch (error) {
+            logger.error('Database error in off economy leaderboard total count:', error.message);
+            logger.error('Full error object (off eco total count):', error);
+            totalOffEcoUsers = [{ count: 0 }]; // Fallback
+        }
 
         const totalCount = totalOffEcoUsers[0]?.count || 0;
 
