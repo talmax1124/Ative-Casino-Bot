@@ -20,6 +20,7 @@ const SafeInteractionHandler = require('./UTILS/interactionHandler');
 const { LotteryGame } = require('./GAMES/lottery');
 const ScratchTicketSystem = require('./GAMES/scratchTickets');
 const storageMonitor = require('./UTILS/storageMonitor');
+const economicManager = require('./UTILS/economicManager');
 // Leveling system moved to UAS bot
 // Removed: const serverProducts = require('./UTILS/serverProducts'); // Web-based purchases now
 
@@ -319,6 +320,10 @@ client.once('clientReady', async () => {
     // Set custom activity status
     client.user.setActivity("you lose 😂", { type: 'WATCHING' });
     logger.info('Bot activity status set');
+    
+    // Initialize economic notification system
+    economicManager.setNotificationClient(client);
+    logger.info('Economic notification system initialized');
 
     // Initialize database
     try {

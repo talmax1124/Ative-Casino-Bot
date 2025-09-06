@@ -8,6 +8,7 @@ const antiAbuseSystem = require('./antiAbuseSystem');
 const wealthTaxManager = require('./wealthTax');
 const dbManager = require('./database');
 const logger = require('./logger');
+const economicNotifications = require('./economicNotifications');
 
 class EconomicManager {
     constructor() {
@@ -360,8 +361,10 @@ class EconomicManager {
                 if (emergencyTriggered) {
                     logger.error('🚨 ECONOMIC EMERGENCY MODE ACTIVATED - All systems operating under restrictions');
                     await this.notifyEmergencyActivation();
+                    await this.sendEmergencyNotification();
                 } else {
                     logger.info('🟢 Economic emergency mode deactivated - Normal operations resumed');
+                    await this.sendRecoveryNotification();
                 }
             }
             
@@ -477,6 +480,63 @@ class EconomicManager {
             },
             timestamp: Date.now()
         };
+    }
+
+    /**
+     * SEND EMERGENCY NOTIFICATION TO MONITORING CHANNEL
+     */
+    async sendEmergencyNotification() {
+        try {
+            const stabilizerStatus = this.systems.stabilizer.getEconomicStatus();
+            const antiAbuseStatus = this.systems.antiAbuse.getSystemStatus();
+            
+            // Get circuit breakers that triggered
+            const circuitBreakers = [];
+            if (stabilizerStatus.circuitBreakers) {
+                circuitBreakers.push(...stabilizerStatus.circuitBreakers);
+            }
+            
+            const emergencyData = {
+                emergencyMode: this.globalControls.emergencyModeActive,
+                healthScore: this.globalControls.economicHealthScore,
+                initialized: this.initialized,
+                circuitBreakers: circuitBreakers,
+                emergencyMeasures: {
+                    multiplierReduction: 0.5, // 50% reduction
+                    houseEdgeIncrease: 0.02 // +2% house edge
+                },
+                antiAbuse: antiAbuseStatus
+            };
+            
+            await economicNotifications.sendEmergencyNotification(emergencyData);
+            
+        } catch (error) {
+            logger.error(`Failed to send emergency notification: ${error.message}`);
+        }
+    }
+
+    /**
+     * SEND RECOVERY NOTIFICATION TO MONITORING CHANNEL
+     */
+    async sendRecoveryNotification() {
+        try {
+            const statusData = {
+                healthScore: this.globalControls.economicHealthScore,
+                initialized: this.initialized
+            };
+            
+            await economicNotifications.sendRecoveryNotification(statusData);
+            
+        } catch (error) {
+            logger.error(`Failed to send recovery notification: ${error.message}`);
+        }
+    }
+
+    /**
+     * SET DISCORD CLIENT FOR NOTIFICATIONS
+     */
+    setNotificationClient(client) {
+        economicNotifications.setClient(client);
     }
     
     /**

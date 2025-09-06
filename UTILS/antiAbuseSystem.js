@@ -513,26 +513,30 @@ class AntiAbuseSystem {
      * SUSPEND USER
      */
     async suspendUser(userId, riskScore, context) {
-        this.blockedUsers.add(userId);
+        // NOTIFICATION-ONLY MODE: Don't block users, just notify
+        // this.blockedUsers.add(userId); // REMOVED: No longer blocking users
         
-        const suspension = {
+        const riskAlert = {
             userId,
             timestamp: Date.now(),
             riskScore,
             context,
-            status: 'SUSPENDED',
+            status: 'HIGH_RISK_DETECTED',
             requiresManualReview: true
         };
         
-        this.behaviorCache.set(`suspension_${userId}`, suspension);
+        this.behaviorCache.set(`risk_alert_${userId}`, riskAlert);
         
-        logger.error(`🔴 USER SUSPENDED: ${userId} - Risk score: ${riskScore}`);
+        logger.warn(`⚠️  HIGH RISK USER DETECTED: ${userId} - Risk score: ${riskScore}`);
         
-        // Store in database for persistence
+        // Send detailed notification to monitoring channel
+        await this.notifyRiskyPlayer(userId, riskScore, context);
+        
+        // Store in database for monitoring (not suspension)
         try {
-            await dbManager.recordUserSuspension(userId, suspension);
+            await dbManager.recordUserRiskAlert(userId, riskAlert);
         } catch (error) {
-            logger.error(`Failed to record user suspension ${userId}: ${error.message}`);
+            logger.error(`Failed to record user risk alert ${userId}: ${error.message}`);
         }
     }
     
@@ -540,39 +544,30 @@ class AntiAbuseSystem {
      * PUBLIC API - Check if user action is allowed
      */
     async isUserActionAllowed(userId, action, amount = 0) {
-        // Check if user is suspended
-        if (this.blockedUsers.has(userId)) {
-            return {
-                allowed: false,
-                reason: 'User is suspended',
-                restrictionType: 'SUSPENSION'
-            };
+        // NOTIFICATION-ONLY MODE: Always allow actions, just monitor
+        // We no longer block users, only notify about risky behavior
+        
+        // Check if user has any risk alerts (for monitoring purposes only)
+        const riskAlert = this.behaviorCache.get(`risk_alert_${userId}`);
+        if (riskAlert) {
+            logger.debug(`High-risk user ${userId} is performing action: ${action} (amount: ${amount})`);
         }
         
-        // Check temporary restrictions
+        // NOTIFICATION-ONLY MODE: Log restrictions but don't enforce them
         const restriction = this.behaviorCache.get(`restriction_${userId}`);
         if (restriction && Date.now() < restriction.endTime) {
-            return {
-                allowed: false,
-                reason: 'User has temporary restriction',
-                restrictionType: 'TEMPORARY',
-                expiresAt: restriction.endTime
-            };
+            logger.debug(`High-risk user ${userId} has temporary restriction but action is still allowed (notification-only mode)`);
         }
         
-        // Check betting limits
+        // Check betting limits (log but don't enforce)
         if (action === 'bet' && amount > 0) {
             const limit = this.behaviorCache.get(`limit_${userId}`);
             if (limit && amount > limit.maxBet) {
-                return {
-                    allowed: false,
-                    reason: 'Bet exceeds current limit',
-                    restrictionType: 'LIMIT',
-                    maxAllowed: limit.maxBet
-                };
+                logger.debug(`High-risk user ${userId} exceeds bet limit (${amount} > ${limit.maxBet}) but action is still allowed (notification-only mode)`);
             }
         }
         
+        // Always allow actions in notification-only mode
         return { allowed: true };
     }
     
@@ -604,23 +599,25 @@ class AntiAbuseSystem {
      * GET USER RESTRICTIONS
      */
     async getUserRestrictions(userId) {
-        const restrictions = [];
+        // NOTIFICATION-ONLY MODE: Return monitoring status instead of restrictions
+        const status = [];
         
-        if (this.blockedUsers.has(userId)) {
-            restrictions.push('SUSPENDED');
+        const riskAlert = this.behaviorCache.get(`risk_alert_${userId}`);
+        if (riskAlert) {
+            status.push(`HIGH_RISK_MONITORED_${riskAlert.riskScore.toFixed(1)}`);
         }
         
         const tempRestriction = this.behaviorCache.get(`restriction_${userId}`);
         if (tempRestriction && Date.now() < tempRestriction.endTime) {
-            restrictions.push('TEMPORARY_BAN');
+            status.push('FLAGGED_MONITORED');
         }
         
         const limit = this.behaviorCache.get(`limit_${userId}`);
         if (limit) {
-            restrictions.push(`REDUCED_LIMITS_${limit.maxBet}`);
+            status.push(`LIMIT_FLAGGED_${limit.maxBet}`);
         }
         
-        return restrictions;
+        return status;
     }
     
     /**
@@ -704,13 +701,211 @@ class AntiAbuseSystem {
     }
     
     /**
+     * NOTIFY RISKY PLAYER - Detailed notification with game history
+     */
+    async notifyRiskyPlayer(userId, riskScore, context) {
+        try {
+            // Get economic notifications system
+            const economicNotifications = require('./economicNotifications');
+            
+            // Get user's recent game history
+            const recentGames = await this.getUserRecentGames(userId, 5);
+            const userStats = await this.getUserStats(userId);
+            
+            // Prepare detailed risk report
+            const riskReport = {
+                userId,
+                riskScore,
+                timestamp: Date.now(),
+                context,
+                recentGames,
+                userStats,
+                riskFactors: this.analyzeRiskFactors(context),
+                threat_level: riskScore > 8 ? 'CRITICAL' : riskScore > 6 ? 'HIGH' : 'MODERATE'
+            };
+            
+            // Send notification to monitoring channel
+            await this.sendPlayerRiskNotification(riskReport);
+            
+            logger.info(`Risk notification sent for user ${userId} (score: ${riskScore})`);
+            
+        } catch (error) {
+            logger.error(`Failed to notify about risky player ${userId}: ${error.message}`);
+        }
+    }
+    
+    /**
+     * GET USER RECENT GAMES
+     */
+    async getUserRecentGames(userId, count = 5) {
+        try {
+            const dbManager = require('./database');
+            
+            // Query recent game results
+            const query = `
+                SELECT 
+                    game_type,
+                    bet_amount,
+                    payout_amount,
+                    multiplier,
+                    win_amount,
+                    timestamp,
+                    metadata
+                FROM game_results 
+                WHERE user_id = ? 
+                ORDER BY timestamp DESC 
+                LIMIT ?
+            `;
+            
+            const games = await dbManager.query(query, [userId, count]);
+            return games || [];
+            
+        } catch (error) {
+            logger.error(`Failed to get recent games for ${userId}: ${error.message}`);
+            return [];
+        }
+    }
+    
+    /**
+     * GET USER STATISTICS
+     */
+    async getUserStats(userId) {
+        try {
+            const dbManager = require('./database');
+            
+            // Get comprehensive user stats
+            const query = `
+                SELECT 
+                    total_bets,
+                    total_wins,
+                    total_losses,
+                    biggest_win,
+                    biggest_loss,
+                    favorite_game,
+                    win_rate,
+                    total_wagered,
+                    net_profit_loss
+                FROM user_stats 
+                WHERE user_id = ?
+            `;
+            
+            const result = await dbManager.query(query, [userId]);
+            return result?.[0] || {};
+            
+        } catch (error) {
+            logger.error(`Failed to get user stats for ${userId}: ${error.message}`);
+            return {};
+        }
+    }
+    
+    /**
+     * ANALYZE RISK FACTORS
+     */
+    analyzeRiskFactors(context) {
+        const factors = [];
+        
+        if (context.rapidBetting) factors.push('Rapid consecutive betting');
+        if (context.highRiskPatterns) factors.push('High-risk betting patterns');
+        if (context.unusualWinRate) factors.push('Unusual win rate detected');
+        if (context.bigBets) factors.push('Unusually large bet amounts');
+        if (context.frequentGameSwitching) factors.push('Frequent game switching');
+        if (context.timingAnomalies) factors.push('Suspicious betting timing');
+        
+        return factors;
+    }
+    
+    /**
+     * SEND PLAYER RISK NOTIFICATION
+     */
+    async sendPlayerRiskNotification(riskReport) {
+        try {
+            const economicNotifications = require('./economicNotifications');
+            
+            if (!economicNotifications.client) {
+                logger.warn('Discord client not available for player risk notification');
+                return;
+            }
+            
+            const channel = await economicNotifications.client.channels.fetch('1413722166024863866');
+            if (!channel) {
+                logger.error('Monitoring channel not found for player risk notification');
+                return;
+            }
+            
+            const { EmbedBuilder } = require('discord.js');
+            
+            const embed = new EmbedBuilder()
+                .setTitle('⚠️ HIGH RISK PLAYER DETECTED')
+                .setColor(0xFF8C00)
+                .setTimestamp()
+                .setDescription(
+                    `**Player is exhibiting risky behavior that could impact economy**\n\n` +
+                    `**User ID:** <@${riskReport.userId}>\n` +
+                    `**Risk Score:** ${riskReport.riskScore.toFixed(2)}/10\n` +
+                    `**Threat Level:** ${riskReport.threat_level}\n` +
+                    `**Detection Time:** <t:${Math.floor(riskReport.timestamp / 1000)}:F>`
+                );
+            
+            // Add risk factors
+            if (riskReport.riskFactors?.length > 0) {
+                embed.addFields([{
+                    name: '🚨 Risk Factors Detected',
+                    value: riskReport.riskFactors.map(factor => `• ${factor}`).join('\n'),
+                    inline: false
+                }]);
+            }
+            
+            // Add recent games
+            if (riskReport.recentGames?.length > 0) {
+                let gamesInfo = '';
+                riskReport.recentGames.forEach((game, index) => {
+                    const profit = game.win_amount || 0;
+                    const result = profit > game.bet_amount ? 'WIN' : 'LOSS';
+                    gamesInfo += `${index + 1}. **${game.game_type.toUpperCase()}** - $${game.bet_amount} → ${result} ($${profit})\n`;
+                });
+                
+                embed.addFields([{
+                    name: '🎮 Last 5 Games',
+                    value: gamesInfo.substring(0, 1024),
+                    inline: false
+                }]);
+            }
+            
+            // Add user statistics
+            if (riskReport.userStats) {
+                const stats = riskReport.userStats;
+                embed.addFields([{
+                    name: '📊 Player Statistics',
+                    value: 
+                        `• Total Bets: ${stats.total_bets || 0}\n` +
+                        `• Win Rate: ${(stats.win_rate || 0).toFixed(1)}%\n` +
+                        `• Total Wagered: $${(stats.total_wagered || 0).toLocaleString()}\n` +
+                        `• Net P/L: $${(stats.net_profit_loss || 0).toLocaleString()}\n` +
+                        `• Biggest Win: $${(stats.biggest_win || 0).toLocaleString()}\n` +
+                        `• Favorite Game: ${stats.favorite_game || 'N/A'}`,
+                    inline: true
+                }]);
+            }
+            
+            embed.setFooter({ 
+                text: 'Anti-Abuse System • Player Risk Monitor • No Action Taken (Notification Only)'
+            });
+            
+            await channel.send({ embeds: [embed] });
+            
+        } catch (error) {
+            logger.error(`Failed to send player risk notification: ${error.message}`);
+        }
+    }
+    
+    /**
      * GET SYSTEM STATUS
      */
     getSystemStatus() {
         return {
-            status: 'ACTIVE',
+            status: 'MONITORING_ONLY', // Updated to reflect notification-only mode
             trackedUsers: this.userRiskProfiles.size,
-            blockedUsers: this.blockedUsers.size,
+            blockedUsers: 0, // Always 0 in notification-only mode
             flaggedUsers: this.flaggedUsers.size,
             suspiciousActivities: this.suspiciousActivity.size,
             cacheSize: this.behaviorCache.getStats()

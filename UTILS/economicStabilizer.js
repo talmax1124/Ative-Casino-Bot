@@ -42,7 +42,7 @@ class EconomicStabilizer {
         // Circuit breaker thresholds
         this.circuitBreakers = {
             maxDailyLoss: new Decimal(50000000),      // $50M max house loss per day
-            maxWealthConcentration: 0.8,              // Top 1% can't own more than 80%
+            maxWealthConcentration: 0.97,             // Top 1% can't own more than 97% (adjusted for developer accounts)
             maxInflationRate: 0.1,                    // 10% max inflation per day
             minHouseEdge: 0.02,                       // Minimum 2% house edge
             maxBetSizeRatio: 0.05,                    // Max bet can't exceed 5% of user's wealth
@@ -291,12 +291,12 @@ class EconomicStabilizer {
         }
         
         // Check for wealth concentration anomalies
-        if (this.healthMetrics.wealthConcentration.toNumber() > 0.8) {
+        if (this.healthMetrics.wealthConcentration.toNumber() > 0.97) {
             anomalies.push({
                 type: 'extreme_wealth_concentration',
                 severity: 'CRITICAL',
                 value: this.healthMetrics.wealthConcentration.toNumber(),
-                threshold: 0.8
+                threshold: 0.97
             });
         }
         
