@@ -93,10 +93,84 @@ class EconomicNotifications {
                 }]);
             }
 
+            // Add detailed emergency analysis
+            if (emergencyData.detailedAnalysis) {
+                const analysis = emergencyData.detailedAnalysis;
+                
+                // Add wealth concentration analysis
+                if (analysis.userAnalysis?.wealthConcentration) {
+                    const wealth = analysis.userAnalysis.wealthConcentration;
+                    let wealthInfo = '';
+                    
+                    if (wealth.topWealthyUsers?.length > 0) {
+                        wealthInfo += `**Top Wealth Holders:**\n`;
+                        wealth.topWealthyUsers.slice(0, 3).forEach((user, index) => {
+                            wealthInfo += `${index + 1}. <@${user.userId}> - $${user.totalBalance.toLocaleString()} (${user.percentageOfTotal}%)\n`;
+                        });
+                    }
+                    
+                    wealthInfo += `\n**Metrics:**\n`;
+                    wealthInfo += `• Gini Coefficient: ${wealth.concentrationMetrics?.giniCoefficient || 'N/A'}\n`;
+                    wealthInfo += `• Top 10 Control: ${wealth.concentrationMetrics?.top10Percentage || 'N/A'}%\n`;
+                    wealthInfo += `• Total Server Wealth: $${(wealth.totalServerWealth || 0).toLocaleString()}`;
+                    
+                    embed.addFields([{
+                        name: '💰 Wealth Concentration Analysis',
+                        value: wealthInfo.substring(0, 1024),
+                        inline: false
+                    }]);
+                }
+                
+                // Add emergency trigger details
+                if (analysis.emergencyTriggers?.length > 0) {
+                    let triggerInfo = '';
+                    analysis.emergencyTriggers.forEach(trigger => {
+                        triggerInfo += `**${trigger.type.toUpperCase().replace(/_/g, ' ')}**\n`;
+                        triggerInfo += `• Current: ${(trigger.currentValue * 100).toFixed(4)}%\n`;
+                        triggerInfo += `• Threshold: ${(trigger.threshold * 100).toFixed(2)}%\n`;
+                        triggerInfo += `• Exceeds by: ${trigger.exceedsBy}%\n\n`;
+                    });
+                    
+                    embed.addFields([{
+                        name: '🚨 Emergency Trigger Analysis',
+                        value: triggerInfo.substring(0, 1024),
+                        inline: false
+                    }]);
+                }
+                
+                // Add server metrics
+                if (analysis.serverMetrics) {
+                    const metrics = analysis.serverMetrics;
+                    embed.addFields([{
+                        name: '📊 Server Metrics',
+                        value: 
+                            `• Total Users: ${metrics.totalUsers || 'N/A'}\n` +
+                            `• Server Wealth: $${(metrics.totalWealth || 0).toLocaleString()}\n` +
+                            `• Active Games: ${metrics.activeGames || 0}\n` +
+                            `• Affected Systems: ${analysis.affectedSystems?.join(', ') || 'None'}`,
+                        inline: true
+                    }]);
+                }
+                
+                // Add recommendations
+                if (analysis.recommendations?.length > 0) {
+                    let recommendations = '';
+                    analysis.recommendations.slice(0, 5).forEach((rec, index) => {
+                        recommendations += `${index + 1}. ${rec}\n`;
+                    });
+                    
+                    embed.addFields([{
+                        name: '💡 Recommended Actions',
+                        value: recommendations.substring(0, 1024),
+                        inline: false
+                    }]);
+                }
+            }
+            
             // Add anti-abuse status
             if (emergencyData.antiAbuse) {
                 embed.addFields([{
-                    name: '🚨 Anti-Abuse Status',
+                    name: '🛡️ Anti-Abuse Status',
                     value: 
                         `• Status: ${emergencyData.antiAbuse.status}\n` +
                         `• Tracked Users: ${emergencyData.antiAbuse.trackedUsers}\n` +

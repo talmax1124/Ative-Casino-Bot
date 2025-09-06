@@ -496,6 +496,9 @@ class EconomicManager {
                 circuitBreakers.push(...stabilizerStatus.circuitBreakers);
             }
             
+            // Get detailed emergency analysis
+            const detailedAnalysis = await this.getDetailedEmergencyAnalysis(circuitBreakers);
+            
             const emergencyData = {
                 emergencyMode: this.globalControls.emergencyModeActive,
                 healthScore: this.globalControls.economicHealthScore,
@@ -505,7 +508,8 @@ class EconomicManager {
                     multiplierReduction: 0.5, // 50% reduction
                     houseEdgeIncrease: 0.02 // +2% house edge
                 },
-                antiAbuse: antiAbuseStatus
+                antiAbuse: antiAbuseStatus,
+                detailedAnalysis // NEW: Add detailed analysis
             };
             
             await economicNotifications.sendEmergencyNotification(emergencyData);
@@ -515,6 +519,213 @@ class EconomicManager {
         }
     }
 
+    /**
+     * GET DETAILED EMERGENCY ANALYSIS
+     */
+    async getDetailedEmergencyAnalysis(circuitBreakers) {
+        try {
+            const analysis = {
+                timestamp: Date.now(),
+                emergencyTriggers: [],
+                affectedSystems: [],
+                userAnalysis: {},
+                serverMetrics: {},
+                recommendations: []
+            };
+            
+            // Analyze each circuit breaker
+            for (const breaker of circuitBreakers) {
+                analysis.emergencyTriggers.push({
+                    type: breaker.type,
+                    severity: breaker.severity,
+                    currentValue: breaker.value,
+                    threshold: breaker.threshold,
+                    exceedsBy: ((breaker.value - breaker.threshold) / breaker.threshold * 100).toFixed(2)
+                });
+                
+                // Get specific analysis based on breaker type
+                if (breaker.type === 'wealth_concentration') {
+                    analysis.userAnalysis.wealthConcentration = await this.analyzeWealthConcentration();
+                    analysis.affectedSystems.push('Wealth Distribution System');
+                }
+                
+                if (breaker.type === 'rapid_betting') {
+                    analysis.userAnalysis.rapidBetting = await this.analyzeRapidBetting();
+                    analysis.affectedSystems.push('Anti-Abuse System');
+                }
+                
+                if (breaker.type === 'casino_losses') {
+                    analysis.serverMetrics.casinoLosses = await this.analyzeCasinoLosses();
+                    analysis.affectedSystems.push('House Edge System');
+                }
+            }
+            
+            // Get server-wide metrics
+            analysis.serverMetrics.totalUsers = await this.getTotalUserCount();
+            analysis.serverMetrics.totalWealth = await this.getTotalServerWealth();
+            analysis.serverMetrics.activeGames = await this.getActiveGameCount();
+            
+            // Generate recommendations
+            analysis.recommendations = this.generateEmergencyRecommendations(circuitBreakers);
+            
+            return analysis;
+            
+        } catch (error) {
+            logger.error(`Failed to get detailed emergency analysis: ${error.message}`);
+            return {
+                error: error.message,
+                timestamp: Date.now(),
+                emergencyTriggers: [],
+                affectedSystems: ['Analysis System Error'],
+                userAnalysis: {},
+                serverMetrics: {},
+                recommendations: ['Manual investigation required']
+            };
+        }
+    }
+    
+    /**
+     * ANALYZE WEALTH CONCENTRATION
+     */
+    async analyzeWealthConcentration() {
+        try {
+            const dbManager = require('./database');
+            
+            // Get all users with significant wealth (>$1M)
+            const query = `
+                SELECT 
+                    user_id,
+                    username,
+                    wallet + bank as total_balance,
+                    wallet,
+                    bank,
+                    last_active
+                FROM user_balances 
+                WHERE (wallet + bank) > 1000000
+                ORDER BY (wallet + bank) DESC
+                LIMIT 10
+            `;
+            
+            const wealthyUsers = await dbManager.query(query);
+            
+            // Calculate total server wealth
+            const totalWealthQuery = `SELECT SUM(wallet + bank) as total FROM user_balances`;
+            const totalResult = await dbManager.query(totalWealthQuery);
+            const totalWealth = totalResult[0]?.total || 0;
+            
+            const analysis = {
+                topWealthyUsers: [],
+                totalServerWealth: totalWealth,
+                concentrationMetrics: {}
+            };
+            
+            // Analyze each wealthy user
+            let totalTopWealth = 0;
+            for (const user of wealthyUsers || []) {
+                const percentage = ((user.total_balance / totalWealth) * 100).toFixed(4);
+                totalTopWealth += user.total_balance;
+                
+                analysis.topWealthyUsers.push({
+                    userId: user.user_id,
+                    username: user.username || 'Unknown',
+                    totalBalance: user.total_balance,
+                    wallet: user.wallet,
+                    bank: user.bank,
+                    percentageOfTotal: percentage,
+                    lastActive: user.last_active
+                });
+            }
+            
+            // Calculate concentration metrics
+            analysis.concentrationMetrics = {
+                top10Percentage: ((totalTopWealth / totalWealth) * 100).toFixed(2),
+                giniCoefficient: await this.calculateGiniCoefficient(),
+                wealthyUserCount: wealthyUsers?.length || 0
+            };
+            
+            return analysis;
+            
+        } catch (error) {
+            logger.error(`Failed to analyze wealth concentration: ${error.message}`);
+            return { error: error.message };
+        }
+    }
+    
+    /**
+     * GENERATE EMERGENCY RECOMMENDATIONS
+     */
+    generateEmergencyRecommendations(circuitBreakers) {
+        const recommendations = [];
+        
+        for (const breaker of circuitBreakers) {
+            switch (breaker.type) {
+                case 'wealth_concentration':
+                    recommendations.push('Consider implementing progressive taxation');
+                    recommendations.push('Monitor developer account activity');
+                    recommendations.push('Review wealth distribution policies');
+                    break;
+                    
+                case 'rapid_betting':
+                    recommendations.push('Implement betting cooldowns');
+                    recommendations.push('Review user betting patterns');
+                    recommendations.push('Consider temporary betting limits');
+                    break;
+                    
+                case 'casino_losses':
+                    recommendations.push('Adjust house edge parameters');
+                    recommendations.push('Review game multipliers');
+                    recommendations.push('Implement emergency betting limits');
+                    break;
+            }
+        }
+        
+        // General recommendations
+        recommendations.push('Monitor system closely for 24 hours');
+        recommendations.push('Review economic policy effectiveness');
+        
+        return recommendations;
+    }
+    
+    /**
+     * HELPER METHODS FOR METRICS
+     */
+    async getTotalUserCount() {
+        try {
+            const query = `SELECT COUNT(DISTINCT user_id) as count FROM user_balances`;
+            const result = await dbManager.query(query);
+            return result[0]?.count || 0;
+        } catch (error) {
+            return 0;
+        }
+    }
+    
+    async getTotalServerWealth() {
+        try {
+            const query = `SELECT SUM(wallet + bank) as total FROM user_balances`;
+            const result = await dbManager.query(query);
+            return result[0]?.total || 0;
+        } catch (error) {
+            return 0;
+        }
+    }
+    
+    async getActiveGameCount() {
+        try {
+            // This would need to be implemented based on your session management
+            return 0; // Placeholder
+        } catch (error) {
+            return 0;
+        }
+    }
+    
+    async calculateGiniCoefficient() {
+        try {
+            return await this.systems.stabilizer.calculateGiniCoefficient();
+        } catch (error) {
+            return 0;
+        }
+    }
+    
     /**
      * SEND RECOVERY NOTIFICATION TO MONITORING CHANNEL
      */

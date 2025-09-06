@@ -2422,6 +2422,19 @@ class DatabaseAdapter {
             return false;
         }
     }
+    
+    /**
+     * Check if user is in off-economy status
+     */
+    async isOffEconomy(userId) {
+        try {
+            const DEVELOPER_ID = '466050111680544798'; // Developer ID hardcoded
+            return userId === DEVELOPER_ID;
+        } catch (error) {
+            logger.error(`Error checking off economy status: ${error.message}`);
+            return false;
+        }
+    }
 }
 
 // Export singleton instance

@@ -90,6 +90,17 @@ class EconomicStabilizer {
         try {
             const startTime = Date.now();
             
+            // Check if database is initialized first
+            if (!dbManager.usingAdapter) {
+                logger.debug('Database not yet initialized, skipping economic analysis');
+                return {
+                    healthScore: 75, // Default safe score
+                    emergencyMode: false,
+                    initialized: false,
+                    message: 'Database not yet initialized'
+                };
+            }
+            
             // Fetch current economic data
             const economicData = await this.gatherEconomicData();
             
@@ -136,6 +147,11 @@ class EconomicStabilizer {
         let data = this.cache.get(cacheKey);
         
         if (!data) {
+            // Check database readiness
+            if (!dbManager.usingAdapter) {
+                throw new Error('Database not initialized');
+            }
+            
             // Get all user data
             const users = await dbManager.getAllUsers();
             const last24h = moment().subtract(24, 'hours').toDate();
