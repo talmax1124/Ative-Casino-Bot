@@ -1000,6 +1000,146 @@ class DatabaseManager {
         }
         return [];
     }
+
+    // ========================= SHOP OPERATIONS =========================
+
+    /**
+     * Get all shop items by category
+     * @param {string} category - Category filter (optional)
+     * @returns {Array} Array of shop items
+     */
+    async getShopItems(category = null) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getShopItems(category);
+        }
+        return [];
+    }
+
+    /**
+     * Get shop item by ID
+     * @param {number} itemId - Item ID
+     * @returns {Object|null} Shop item
+     */
+    async getShopItem(itemId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getShopItem(itemId);
+        }
+        return null;
+    }
+
+    /**
+     * Purchase shop item for user
+     * @param {string} userId - User ID
+     * @param {number} itemId - Item ID
+     * @param {number} price - Price paid
+     * @returns {boolean} Success status
+     */
+    async purchaseShopItem(userId, itemId, price) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.purchaseShopItem(userId, itemId, price);
+        }
+        return false;
+    }
+
+    /**
+     * Get user's shop purchases
+     * @param {string} userId - User ID
+     * @param {boolean} activeOnly - Only return active purchases
+     * @returns {Array} Array of purchases with item details
+     */
+    async getUserShopPurchases(userId, activeOnly = true) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserShopPurchases(userId, activeOnly);
+        }
+        return [];
+    }
+
+    /**
+     * Get user's active boosts
+     * @param {string} userId - User ID
+     * @returns {Array} Array of active boosts
+     */
+    async getUserActiveBoosts(userId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserActiveBoosts(userId);
+        }
+        return [];
+    }
+
+    /**
+     * Check if user has specific boost active
+     * @param {string} userId - User ID
+     * @param {string} boostType - Type of boost to check
+     * @returns {Object|null} Boost details or null
+     */
+    async getUserBoost(userId, boostType) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserBoost(userId, boostType);
+        }
+        return null;
+    }
+
+    /**
+     * Clean up expired boosts and purchases
+     * @returns {number} Number of cleaned up items
+     */
+    async cleanupExpiredShopItems() {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.cleanupExpiredShopItems();
+        }
+        return 0;
+    }
+
+    /**
+     * Initialize shop with default items
+     */
+    async initializeShopItems() {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.initializeShopItems();
+        }
+        return false;
+    }
+
+    // ========================= USER SETTINGS =========================
+
+    /**
+     * Get user settings
+     * @param {string} userId - User ID
+     * @returns {Object|null} User settings object or null
+     */
+    async getUserSettings(userId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserSettings(userId);
+        }
+        return null;
+    }
+
+    /**
+     * Set user setting
+     * @param {string} userId - User ID
+     * @param {string} settingKey - Setting key
+     * @param {any} settingValue - Setting value
+     * @returns {boolean} Success status
+     */
+    async setUserSetting(userId, settingKey, settingValue) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.setUserSetting(userId, settingKey, settingValue);
+        }
+        return false;
+    }
+
+    /**
+     * Update user settings (multiple at once)
+     * @param {string} userId - User ID  
+     * @param {Object} settings - Settings object
+     * @returns {boolean} Success status
+     */
+    async updateUserSettings(userId, settings) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updateUserSettings(userId, settings);
+        }
+        return false;
+    }
 }
 
 // Export singleton instance

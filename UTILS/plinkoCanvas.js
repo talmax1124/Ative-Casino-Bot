@@ -11,35 +11,35 @@ const { createCanvas } = require('canvas');
 const BASE_PLINKO_MODES = {
     Easy: {
         rows: 8,
-        multipliers: [0.2, 0.4, 0.6, 0.8, 1.2, 0.8, 0.6, 0.4, 0.2],
-        description: "Safest option with lower win potential. Dynamic house edge.",
+        multipliers: [0.1, 0.3, 0.5, 0.7, 1.0, 0.7, 0.5, 0.3, 0.1],
+        description: "Safest option with lower win potential. Reduced multipliers.",
         color: '#00FF00',
         emoji: '🟢',
-        house_edge: 0.65
+        house_edge: 0.75
     },
     Medium: {
         rows: 12,
-        multipliers: [0.0, 0.1, 0.2, 0.4, 0.6, 1.0, 2.5, 1.0, 0.6, 0.4, 0.2, 0.1, 0.0],
-        description: "Moderate risk with decent win potential. Dynamic house edge.",
+        multipliers: [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.5, 0.8, 0.5, 0.3, 0.2, 0.1, 0.0],
+        description: "Moderate risk with decent win potential. Reduced multipliers.",
         color: '#FFA500',
         emoji: '🟠',
         house_edge: 0.85
     },
     Hard: {
         rows: 16,
-        multipliers: [0.0, 0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.5, 8.0, 1.5, 0.8, 0.5, 0.3, 0.2, 0.1, 0.0, 0.0], // REDUCED from 15x
-        description: "High risk gambling with big win potential. Dynamic house edge.",
+        multipliers: [0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 1.0, 3.0, 1.0, 0.6, 0.4, 0.3, 0.2, 0.1, 0.0, 0.0], // REDUCED from 8x to 3x
+        description: "High risk gambling with reduced win potential. Lower multipliers.",
         color: '#FF0000',
         emoji: '🔴',
-        house_edge: 0.92
+        house_edge: 0.90
     },
     Nightmare: {
         rows: 20,
-        multipliers: [0.0, 0.0, 0.0, 0.1, 6.0, 0.2, 0.3, 0.5, 0.1, 0.1, 0.1, 0.5, 0.3, 0.2, 6.0, 0.1, 0.0, 0.0, 0.0], // REDUCED from 25x to 6x
-        description: "💀 NIGHTMARE MODE 💀 - Economy-dependent rewards! Dynamic payouts based on server economy.",
+        multipliers: [0.0, 0.0, 0.0, 0.1, 2.5, 0.2, 0.3, 0.4, 0.1, 0.1, 0.1, 0.4, 0.3, 0.2, 2.5, 0.1, 0.0, 0.0, 0.0], // REDUCED from 6x to 2.5x
+        description: "💀 NIGHTMARE MODE 💀 - Heavily reduced multipliers for economy balance!",
         color: '#8B008B',
         emoji: '💀',
-        house_edge: 0.97
+        house_edge: 0.95
     }
 };
 

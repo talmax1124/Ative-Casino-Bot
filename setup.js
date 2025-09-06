@@ -38,7 +38,6 @@ MARIADB_DATABASE=ative_casino
 
 # Environment Configuration
 ENVIRONMENT=development
-ANNOUNCE_CHANNEL_ID=your_announcement_channel_id
 
 # Optional Configuration
 LOG_LEVEL=info

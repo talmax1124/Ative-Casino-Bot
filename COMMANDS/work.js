@@ -8,6 +8,7 @@ const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -66,10 +67,14 @@ module.exports = {
             const scenario = workScenarios[secureRandomInt(0, workScenarios.length)];
             const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
 
-            // Calculate server booster bonus (5%)
-            const boosterInfo = calculateBoosterBonus(baseEarning, interaction.member);
+            // Apply shop economy boosts
+            const boostResult = await shopManager.applyEconomyBoosts(userId, baseEarning, 'work');
+            const boostedEarning = boostResult.amount;
+
+            // Calculate server booster bonus (5% on boosted earnings)
+            const boosterInfo = calculateBoosterBonus(boostedEarning, interaction.member);
             const boosterBonus = boosterInfo.amount;
-            const totalEarning = baseEarning + boosterBonus;
+            const totalEarning = boostedEarning + boosterBonus;
 
             // Validate and sanitize balance values
             const currentWallet = parseFloat(balance.wallet) || 0;
@@ -81,34 +86,79 @@ module.exports = {
                 last_work_ts: now
             });
 
-            // Build earnings display with booster bonus if applicable
-            let earningsDisplay = `+ Earnings: ${fmt(baseEarning)}`;
-            if (boosterInfo.isBooster && boosterBonus > 0) {
-                earningsDisplay += `\n+ Booster Bonus (5%): ${fmt(boosterBonus)}`;
-                earningsDisplay += `\n= Total Earned: ${fmt(totalEarning)}`;
+            // Build earnings display with shop and server boosts
+            const hasShopBoosts = boostResult.boosted;
+            const hasServerBoost = boosterInfo.isBooster && boosterBonus > 0;
+            const boostDisplay = shopManager.formatBoostInfo(boostResult.boosts);
+
+            let earningsDisplay = `+ Base Earnings: ${fmt(baseEarning)}`;
+            
+            if (hasShopBoosts) {
+                earningsDisplay += `\n+ Shop Boost: ${fmt(boostedEarning - baseEarning)}${boostDisplay}`;
+            }
+            
+            if (hasServerBoost) {
+                earningsDisplay += `\n+ Server Boost (5%): ${fmt(boosterBonus)}`;
+            }
+            
+            earningsDisplay += `\n= Total Earned: ${fmt(totalEarning)}`;
+
+            // Determine title and stage text based on active boosts
+            let titleSuffix = '';
+            let stageText = 'WORK COMPLETE';
+            
+            if (hasShopBoosts && hasServerBoost) {
+                titleSuffix = ' (🚀 SUPER BOOSTED)';
+                stageText = 'WORK COMPLETE + BOOSTS';
+            } else if (hasShopBoosts || hasServerBoost) {
+                titleSuffix = ' (🚀 BOOSTED)';
+                stageText = 'WORK COMPLETE + BOOST';
             }
 
             // Work details in topFields
             const topFields = [{
-                name: boosterInfo.isBooster ? '💼 WORK COMPLETED (🚀 BOOSTED)' : '💼 WORK COMPLETED',
+                name: `💼 WORK COMPLETED${titleSuffix}`,
                 value: `**Job:** ${scenario.job}\n` +
                        `\`\`\`diff\n${earningsDisplay}\n  Previous: ${fmt(currentWallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
                 inline: false
             }];
 
-            // Balance information in bankFields
-            const bankFields = [
-                { name: 'Amount Earned', value: fmt(totalEarning), inline: true },
-                { name: 'Current Balance', value: fmt(newWallet), inline: true },
-                { name: boosterInfo.isBooster ? '🚀 Booster Status' : 'Next Work Available', value: boosterInfo.isBooster ? 'Active (+5%)' : 'In 1 hour', inline: true }
-            ];
-
-            // Stage text for current status
-            const stageText = 'WORK COMPLETE';
+            // Balance information in bankFields  
+            const bankFields = [];
+            
+            if (hasShopBoosts && hasServerBoost) {
+                // Both shop and server boosts
+                bankFields.push(
+                    { name: '💎 Total Earned', value: `${fmt(totalEarning)}${boostDisplay} + 🚀 +${fmt(boosterBonus)}`, inline: true },
+                    { name: '💵 New Balance', value: fmt(newWallet), inline: true },
+                    { name: '🎯 Boosts Active', value: `Shop${boostDisplay} + Server (+5%)`, inline: true }
+                );
+            } else if (hasShopBoosts) {
+                // Shop boosts only
+                bankFields.push(
+                    { name: '💎 Total Earned', value: `${fmt(totalEarning)}${boostDisplay}`, inline: true },
+                    { name: '💵 New Balance', value: fmt(newWallet), inline: true },
+                    { name: '🚀 Shop Boosts', value: boostDisplay.trim(), inline: true }
+                );
+            } else if (hasServerBoost) {
+                // Server boost only
+                bankFields.push(
+                    { name: '💎 Total Earned', value: `${fmt(totalEarning)} (🚀 +${fmt(boosterBonus)})`, inline: true },
+                    { name: '💵 New Balance', value: fmt(newWallet), inline: true },
+                    { name: '🚀 Boost Active', value: 'Server (+5%)', inline: true }
+                );
+            } else {
+                // No boosts
+                bankFields.push(
+                    { name: '💎 Total Earned', value: fmt(totalEarning), inline: true },
+                    { name: '💵 New Balance', value: fmt(newWallet), inline: true },
+                    { name: '📅 Next Work', value: 'In 1 hour', inline: true }
+                );
+            }
             
             // Build the embed using gameSessionKit
             const embed = buildSessionEmbed({
-                title: `💼 ${username}'s Work Complete!`,
+                title: `💼 ${username}'s Work Complete!${titleSuffix}`,
                 topFields,
                 bankFields,
                 stageText,
@@ -118,10 +168,18 @@ module.exports = {
 
             await interaction.editReply({ embeds: [embed] });
 
-            // Log the work
-            const logMessage = boosterInfo.isBooster 
-                ? `Work completed (BOOSTED): ${username} worked as ${scenario.job} and earned ${fmt(totalEarning)} (base: ${fmt(baseEarning)} + boost: ${fmt(boosterBonus)}) - Balance: ${fmt(newWallet)}`
-                : `Work completed: ${username} worked as ${scenario.job} and earned ${fmt(totalEarning)} - Balance: ${fmt(newWallet)}`;
+            // Log the work with boost information
+            let logMessage = `Work completed: ${username} worked as ${scenario.job} and earned ${fmt(totalEarning)}`;
+            
+            if (hasShopBoosts) {
+                logMessage += ` (Shop boost: ${fmt(baseEarning)} -> ${fmt(boostedEarning)})`;
+            }
+            
+            if (hasServerBoost) {
+                logMessage += ` (Server boost: +${fmt(boosterBonus)})`;
+            }
+            
+            logMessage += ` - Balance: ${fmt(newWallet)}`;
             
             await sendLogMessage(
                 interaction.client,

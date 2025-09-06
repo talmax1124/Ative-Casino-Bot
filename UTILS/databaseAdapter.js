@@ -76,6 +76,7 @@ class DatabaseAdapter {
         // Initialize database schema if needed
         await this.initializeSchema();
         await this.initializeVoteSchema();
+        await this.initializeShopItems();
     }
 
     /**
@@ -94,14 +95,10 @@ class DatabaseAdapter {
                 last_beg_ts BIGINT NOT NULL DEFAULT 0,
                 last_crime_ts BIGINT NOT NULL DEFAULT 0,
                 last_heist_ts BIGINT NOT NULL DEFAULT 0,
-                daily_sent DECIMAL(20,2) NOT NULL DEFAULT 0.00,
-                last_send_reset BIGINT NOT NULL DEFAULT 0,
-                off_economy BOOLEAN NOT NULL DEFAULT FALSE,
                 username VARCHAR(100) DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                INDEX idx_updated_at (updated_at),
-                INDEX idx_off_economy (off_economy)
+                INDEX idx_updated_at (updated_at)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
             `CREATE TABLE IF NOT EXISTS user_stats (
@@ -258,6 +255,59 @@ class DatabaseAdapter {
                 max_daily_drops INT NOT NULL DEFAULT 2,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS shop_items (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                description TEXT NOT NULL,
+                category ENUM('boosts', 'unlocks', 'decorations', 'roles', 'utilities') NOT NULL,
+                price DECIMAL(20,2) NOT NULL,
+                duration_hours INT NULL,
+                metadata JSON DEFAULT NULL,
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_category (category),
+                INDEX idx_active (active),
+                INDEX idx_sort_order (sort_order)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            // User Settings
+            `CREATE TABLE IF NOT EXISTS user_settings (
+                user_id VARCHAR(20) PRIMARY KEY,
+                role_color_enabled BOOLEAN DEFAULT TRUE,
+                decorations_enabled BOOLEAN DEFAULT TRUE,
+                active_decoration_id INT DEFAULT NULL,
+                settings JSON DEFAULT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS user_shop_purchases (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(20) NOT NULL,
+                item_id INT NOT NULL,
+                purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NULL,
+                active BOOLEAN NOT NULL DEFAULT TRUE,
+                metadata JSON DEFAULT NULL,
+                INDEX idx_user_id (user_id),
+                INDEX idx_item_id (item_id),
+                INDEX idx_expires_at (expires_at),
+                INDEX idx_active (active),
+                FOREIGN KEY (item_id) REFERENCES shop_items(id)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS user_active_boosts (
+                user_id VARCHAR(20) NOT NULL,
+                boost_type VARCHAR(50) NOT NULL,
+                multiplier DECIMAL(3,2) NOT NULL DEFAULT 1.00,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, boost_type),
+                INDEX idx_expires_at (expires_at)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -306,57 +356,6 @@ class DatabaseAdapter {
                 }
             }
             
-            // Ensure daily send tracking columns exist in user_balances table
-            try {
-                await connection.execute(`
-                    ALTER TABLE user_balances 
-                    ADD COLUMN daily_sent DECIMAL(20,2) NOT NULL DEFAULT 0.00 AFTER last_heist_ts
-                `);
-                logger.info('Added daily_sent column to user_balances table');
-            } catch (addColumnError) {
-                if (!addColumnError.message.includes('Duplicate column name')) {
-                    logger.debug(`Daily sent column migration: ${addColumnError.message}`);
-                }
-            }
-            
-            try {
-                await connection.execute(`
-                    ALTER TABLE user_balances 
-                    ADD COLUMN last_send_reset BIGINT NOT NULL DEFAULT 0 AFTER daily_sent
-                `);
-                logger.info('Added last_send_reset column to user_balances table');
-            } catch (addColumnError) {
-                if (!addColumnError.message.includes('Duplicate column name')) {
-                    logger.debug(`Last send reset column migration: ${addColumnError.message}`);
-                }
-            }
-            
-            // Ensure off_economy column exists in user_balances table
-            try {
-                await connection.execute(`
-                    ALTER TABLE user_balances 
-                    ADD COLUMN off_economy BOOLEAN NOT NULL DEFAULT FALSE AFTER last_send_reset
-                `);
-                logger.info('Added off_economy column to user_balances table');
-            } catch (addColumnError) {
-                if (!addColumnError.message.includes('Duplicate column name')) {
-                    logger.debug(`Off economy column migration: ${addColumnError.message}`);
-                }
-            }
-            
-            // Add index for off_economy if it doesn't exist
-            try {
-                await connection.execute(`
-                    ALTER TABLE user_balances 
-                    ADD INDEX idx_off_economy (off_economy)
-                `);
-                logger.info('Added index for off_economy column');
-            } catch (indexError) {
-                if (!indexError.message.includes('Duplicate key name')) {
-                    logger.debug(`Off economy index migration: ${indexError.message}`);
-                }
-            }
-            
             logger.info('MariaDB schema initialized successfully');
         } finally {
             connection.release();
@@ -383,9 +382,13 @@ class DatabaseAdapter {
      */
     async getUserBalance(userId, guildId = null) {
         try {
+            // Convert undefined to null for SQL compatibility
+            const safeUserId = userId ?? null;
+            const safeGuildId = guildId ?? null;
+
             const rows = await this.executeQuery(
                 'SELECT * FROM user_balances WHERE user_id = ?', 
-                [userId]
+                [safeUserId]
             );
             
             if (rows.length > 0) {
@@ -415,9 +418,6 @@ class DatabaseAdapter {
                     last_beg_ts: parseFloat(row.last_beg_ts),
                     last_crime_ts: parseFloat(row.last_crime_ts),
                     last_heist_ts: parseFloat(row.last_heist_ts),
-                    daily_sent: parseFloat(row.daily_sent || 0),
-                    last_send_reset: parseFloat(row.last_send_reset || 0),
-                    off_economy: Boolean(row.off_economy || false),
                     created_at: row.created_at,
                     updated_at: row.updated_at
                 };
@@ -434,9 +434,6 @@ class DatabaseAdapter {
                     last_beg_ts: 0.0,
                     last_crime_ts: 0.0,
                     last_heist_ts: 0.0,
-                    daily_sent: 0.0,
-                    last_send_reset: 0.0,
-                    off_economy: false,
                     created_at: new Date(),
                     updated_at: new Date()
                 };
@@ -444,9 +441,9 @@ class DatabaseAdapter {
                 await this.executeQuery(
                     `INSERT IGNORE INTO user_balances 
                      (user_id, wallet, bank, last_earn_ts, last_rob_ts, game_active, 
-                      last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts, daily_sent, last_send_reset, off_economy) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false]
+                      last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0]
                 );
 
                 // Re-fetch the user data in case it was already created by another process
@@ -667,17 +664,22 @@ class DatabaseAdapter {
 
     async getUserStats(userId, guildId = null, gameType = null) {
         try {
+            // Convert undefined to null for SQL compatibility
+            const safeUserId = userId ?? null;
+            const safeGuildId = guildId ?? null;
+            const safeGameType = gameType ?? null;
+
             let query;
             let params;
 
-            if (gameType) {
+            if (safeGameType) {
                 // Get stats for specific game type
                 query = 'SELECT * FROM user_stats WHERE user_id = ? AND game_type = ?';
-                params = [userId, gameType];
+                params = [safeUserId, safeGameType];
             } else {
                 // Get all stats for user, organized by game type
                 query = 'SELECT * FROM user_stats WHERE user_id = ?';
-                params = [userId];
+                params = [safeUserId];
             }
 
             const [rows] = await this.pool.execute(query, params);
@@ -793,14 +795,12 @@ class DatabaseAdapter {
                 [userId, guildId, ticketCount, totalCost, currentWeekStart, ticketCount, totalCost]
             );
             
-            // Update lottery info - add tickets and add ticket money to prize pool
+            // Update lottery info
             await connection.execute(
-                `INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start) 
-                 VALUES (?, ?, 400000.00 + ?, ?)
-                 ON DUPLICATE KEY UPDATE 
-                 total_tickets = total_tickets + ?, 
-                 total_prize = total_prize + ?`,
-                [guildId, ticketCount, totalCost, currentWeekStart, ticketCount, totalCost]
+                `INSERT INTO lottery_info (guild_id, total_tickets, current_week_start) 
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE total_tickets = total_tickets + ?`,
+                [guildId, ticketCount, currentWeekStart, ticketCount]
             );
             
             await connection.commit();
@@ -930,11 +930,20 @@ class DatabaseAdapter {
      */
     async recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
         try {
+            // Convert undefined to null for SQL compatibility
+            const safeUserId = userId ?? null;
+            const safeGuildId = guildId ?? null;
+            const safeGameType = gameType ?? null;
+            const safeBetAmount = betAmount ?? 0;
+            const safePayout = payout ?? 0;
+            const safeWon = won ?? false;
+            const safeMetadata = metadata ?? {};
+
             // Insert into game_results table for history tracking
             await this.pool.execute(
                 `INSERT INTO game_results (user_id, guild_id, game_type, bet_amount, payout, won, metadata)
                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [userId, guildId, gameType, betAmount, payout, won, JSON.stringify(metadata)]
+                [safeUserId, safeGuildId, safeGameType, safeBetAmount, safePayout, safeWon, JSON.stringify(safeMetadata)]
             );
             
             const statId = `${userId}_${gameType}`;
@@ -1299,23 +1308,15 @@ class DatabaseAdapter {
      */
     async addToLotteryPool(guildId, amount) {
         try {
-            const currentWeekStart = this.getCurrentWeekStart();
-            
-            // First ensure the lottery_info record exists
-            await this.pool.execute(
-                `INSERT IGNORE INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start) 
-                 VALUES (?, 0, 400000.00, ?)`,
-                [guildId, currentWeekStart]
-            );
-            
-            // Now update the total_prize by adding the amount
             const query = `
-                UPDATE lottery_info 
-                SET total_prize = total_prize + ?
-                WHERE guild_id = ?
+                INSERT INTO lottery (guild_id, total_prize, week_start) 
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                total_prize = total_prize + VALUES(total_prize)
             `;
             
-            await this.pool.execute(query, [amount, guildId]);
+            const weekStart = this.getCurrentWeekStart();
+            await this.connection.execute(query, [guildId, amount, weekStart]);
             
             logger.info(`Added ${amount} to lottery pool for guild ${guildId || 'global'}`);
             return true;
@@ -1448,6 +1449,10 @@ class DatabaseAdapter {
      */
     async getUserLastActivity(userId, guildId = null) {
         try {
+            // Convert undefined to null for SQL compatibility
+            const safeUserId = userId ?? null;
+            const safeGuildId = guildId ?? null;
+
             const result = await this.executeQuery(
                 `SELECT 
                     MAX(created_at) as lastGamePlayed,
@@ -1458,7 +1463,7 @@ class DatabaseAdapter {
                 GROUP BY user_id
                 ORDER BY lastGamePlayed DESC
                 LIMIT 1`,
-                [userId]
+                [safeUserId]
             );
 
             if (result.length === 0) {
@@ -1479,29 +1484,27 @@ class DatabaseAdapter {
     /**
      * Get user level data
      */
-    async getUserLevel(userId, guildId, createIfMissing = false) {
+    async getUserLevel(userId, guildId) {
         try {
+            // Convert undefined to null for SQL compatibility
+            const safeUserId = userId ?? null;
+            const safeGuildId = guildId ?? null;
+
             const result = await this.executeQuery(
                 `SELECT * FROM user_levels WHERE user_id = ? AND guild_id = ?`,
-                [userId, guildId]
+                [safeUserId, safeGuildId]
             );
 
             if (result.length > 0) {
                 return result[0];
             }
 
-            // Only create record if explicitly requested (for game operations, not just viewing)
-            if (createIfMissing) {
-                try {
-                    await this.executeQuery(
-                        `INSERT IGNORE INTO user_levels (user_id, guild_id, level, xp, total_xp) 
-                         VALUES (?, ?, 1, 0, 0)`,
-                        [userId, guildId]
-                    );
-                } catch (insertError) {
-                    logger.error(`Failed to create user level record: ${insertError.message}`);
-                }
-            }
+            // Create initial level record - use INSERT IGNORE to prevent duplicates
+            await this.executeQuery(
+                `INSERT IGNORE INTO user_levels (user_id, guild_id, level, xp, total_xp) 
+                 VALUES (?, ?, 1, 0, 0)`,
+                [userId, guildId]
+            );
 
             return {
                 user_id: userId,
@@ -1528,73 +1531,35 @@ class DatabaseAdapter {
      */
     async addXpToUser(userId, guildId, xpAmount, reason = 'unknown') {
         try {
-            // Ensure user level record exists first
-            const currentData = await this.getUserLevel(userId, guildId, true);
-            
+            // Ensure user level record exists
+            await this.getUserLevel(userId, guildId);
+
+            // Calculate new level
+            const currentData = await this.getUserLevel(userId, guildId);
             const newTotalXp = currentData.total_xp + xpAmount;
             const newLevel = this.calculateLevel(newTotalXp);
             const newCurrentXp = this.calculateCurrentXp(newTotalXp);
             const leveledUp = newLevel > currentData.level;
 
-            // Use a transaction to ensure atomic updates
-            await this.executeQuery('START TRANSACTION');
-            
-            try {
-                // Update XP and level
-                const updateResult = await this.executeQuery(
-                    `UPDATE user_levels 
-                     SET xp = ?, total_xp = ?, level = ?, last_xp_gain = NOW(),
-                         last_level_up = CASE WHEN ? THEN NOW() ELSE last_level_up END
-                     WHERE user_id = ? AND guild_id = ?`,
-                    [newCurrentXp, newTotalXp, newLevel, leveledUp, userId, guildId]
-                );
+            // Update XP and level
+            await this.executeQuery(
+                `UPDATE user_levels 
+                 SET xp = ?, total_xp = ?, level = ?, last_xp_gain = NOW(),
+                     last_level_up = CASE WHEN ? THEN NOW() ELSE last_level_up END
+                 WHERE user_id = ? AND guild_id = ?`,
+                [newCurrentXp, newTotalXp, newLevel, leveledUp, userId, guildId]
+            );
 
-                // Check if update actually affected a row
-                if (updateResult.affectedRows === 0) {
-                    // Record doesn't exist, rollback and recreate
-                    await this.executeQuery('ROLLBACK');
-                    logger.warn(`User level record missing for ${userId}, recreating...`);
-                    
-                    // Force create the record
-                    try {
-                        await this.executeQuery(
-                            `INSERT IGNORE INTO user_levels (user_id, guild_id, level, xp, total_xp) 
-                             VALUES (?, ?, 1, 0, 0)`,
-                            [userId, guildId]
-                        );
-                        
-                        // Return default values instead of infinite recursion
-                        logger.info(`Created new user level record for ${userId}`);
-                        return {
-                            leveledUp: false,
-                            oldLevel: 1,
-                            newLevel: 1,
-                            xpGained: 0,
-                            newTotalXp: 0,
-                            newCurrentXp: 0
-                        };
-                    } catch (createError) {
-                        logger.error(`Failed to create user level record: ${createError.message}`);
-                        throw new Error('Unable to create user level record');
-                    }
-                }
+            logger.info(`Added ${xpAmount} XP to ${userId} for ${reason} (Level: ${currentData.level} -> ${newLevel})`);
 
-                await this.executeQuery('COMMIT');
-                
-                logger.info(`Added ${xpAmount} XP to ${userId} for ${reason} (Level: ${currentData.level} -> ${newLevel})`);
-
-                return {
-                    leveledUp,
-                    oldLevel: currentData.level,
-                    newLevel,
-                    xpGained: xpAmount,
-                    newTotalXp,
-                    newCurrentXp
-                };
-            } catch (transactionError) {
-                await this.executeQuery('ROLLBACK');
-                throw transactionError;
-            }
+            return {
+                leveledUp,
+                oldLevel: currentData.level,
+                newLevel,
+                xpGained: xpAmount,
+                newTotalXp,
+                newCurrentXp
+            };
         } catch (error) {
             logger.error(`Error adding XP: ${error.message}`);
             throw error;
@@ -1606,21 +1571,13 @@ class DatabaseAdapter {
      */
     async updateGameStats(userId, guildId, won = false) {
         try {
-            // Ensure user level record exists first - pass true to create if missing
-            await this.getUserLevel(userId, guildId, true);
-            
-            const updateResult = await this.executeQuery(
+            await this.executeQuery(
                 `UPDATE user_levels 
                  SET games_played = games_played + 1,
                      games_won = games_won + CASE WHEN ? THEN 1 ELSE 0 END
                  WHERE user_id = ? AND guild_id = ?`,
                 [won, userId, guildId]
             );
-            
-            // Log if no rows were affected (shouldn't happen after getUserLevel call)
-            if (updateResult.affectedRows === 0) {
-                logger.warn(`Failed to update game stats for ${userId} - no record found`);
-            }
         } catch (error) {
             logger.error(`Error updating game stats: ${error.message}`);
         }
@@ -2009,333 +1966,459 @@ class DatabaseAdapter {
         }
     }
 
-    // ========================= ECONOMY ANALYSIS OPERATIONS =========================
+    // ========================= SHOP OPERATIONS =========================
 
     /**
-     * Get comprehensive economy statistics
+     * Get all shop items by category
+     * @param {string} category - Category filter (optional)
+     * @returns {Array} Array of shop items
      */
-    async getEconomyStats(guildId) {
+    async getShopItems(category = null) {
         try {
-            const stats = {
-                totalWealth: 0,
-                activeUsers: 0,
-                avgBalance: 0,
-                wealthDistribution: [],
-                topUsers: [],
-                totalTransactions: 0,
-                totalWagered: 0,
-                totalWon: 0,
-                winRate: 0,
-                lotteryPool: 0,
-                dailySendVolume: 0,
-                economicActivity: []
-            };
+            let query = 'SELECT * FROM shop_items WHERE active = true';
+            const params = [];
 
-            // Total wealth and user count
-            const wealthResult = await this.executeQuery(`
-                SELECT 
-                    COUNT(*) as user_count,
-                    SUM(wallet + bank) as total_wealth,
-                    AVG(wallet + bank) as avg_balance,
-                    SUM(daily_sent) as daily_send_volume
-                FROM user_balances 
-                WHERE wallet + bank > 0
-            `);
-
-            if (wealthResult.length > 0) {
-                const row = wealthResult[0];
-                stats.totalWealth = parseFloat(row.total_wealth || 0);
-                stats.activeUsers = parseInt(row.user_count || 0);
-                stats.avgBalance = parseFloat(row.avg_balance || 0);
-                stats.dailySendVolume = parseFloat(row.daily_send_volume || 0);
+            if (category) {
+                query += ' AND category = ?';
+                params.push(category);
             }
 
-            // Wealth distribution (tiers)
-            const distributionResult = await this.executeQuery(`
-                SELECT 
-                    CASE 
-                        WHEN wallet + bank >= 100000000 THEN 'Ultra Rich (100M+)'
-                        WHEN wallet + bank >= 50000000 THEN 'Very Rich (50M-100M)'
-                        WHEN wallet + bank >= 10000000 THEN 'Rich (10M-50M)'
-                        WHEN wallet + bank >= 1000000 THEN 'Wealthy (1M-10M)'
-                        WHEN wallet + bank >= 100000 THEN 'Upper Class (100K-1M)'
-                        WHEN wallet + bank >= 10000 THEN 'Middle Class (10K-100K)'
-                        WHEN wallet + bank >= 1000 THEN 'Working Class (1K-10K)'
-                        ELSE 'Poor (<1K)'
-                    END as tier,
-                    COUNT(*) as count,
-                    SUM(wallet + bank) as total_wealth
-                FROM user_balances 
-                WHERE wallet + bank > 0
-                GROUP BY tier
-                ORDER BY MIN(wallet + bank) DESC
-            `);
+            query += ' ORDER BY sort_order ASC, price ASC';
 
-            stats.wealthDistribution = distributionResult.map(row => ({
-                label: row.tier,
-                count: parseInt(row.count),
-                value: parseFloat(row.total_wealth)
-            }));
+            const result = await this.executeQuery(query, params);
+            return result;
+        } catch (error) {
+            logger.error(`Error getting shop items: ${error.message}`);
+            return [];
+        }
+    }
 
-            // Top users by wealth
-            const topUsersResult = await this.executeQuery(`
-                SELECT 
-                    user_id,
-                    username,
-                    wallet + bank as total_balance,
-                    wallet,
-                    bank
-                FROM user_balances 
-                WHERE wallet + bank > 0
-                ORDER BY total_balance DESC
-                LIMIT 10
-            `);
+    /**
+     * Get shop item by ID
+     * @param {number} itemId - Item ID
+     * @returns {Object|null} Shop item
+     */
+    async getShopItem(itemId) {
+        try {
+            const result = await this.executeQuery(
+                'SELECT * FROM shop_items WHERE id = ? AND active = true',
+                [itemId]
+            );
+            return result.length > 0 ? result[0] : null;
+        } catch (error) {
+            logger.error(`Error getting shop item: ${error.message}`);
+            return null;
+        }
+    }
 
-            stats.topUsers = topUsersResult.map(row => ({
-                userId: row.user_id,
-                username: row.username || `User ${row.user_id}`,
-                totalBalance: parseFloat(row.total_balance),
-                wallet: parseFloat(row.wallet),
-                bank: parseFloat(row.bank)
-            }));
+    /**
+     * Purchase shop item for user
+     * @param {string} userId - User ID
+     * @param {number} itemId - Item ID
+     * @param {number} price - Price paid
+     * @returns {boolean} Success status
+     */
+    async purchaseShopItem(userId, itemId, price) {
+        const connection = await this.pool.getConnection();
+        try {
+            await connection.beginTransaction();
 
-            // Game statistics
-            const gameStatsResult = await this.executeQuery(`
-                SELECT 
-                    COUNT(*) as total_games,
-                    SUM(total_wagered) as total_wagered,
-                    SUM(total_winnings) as total_won,
-                    SUM(total_wins) as total_wins,
-                    SUM(total_losses) as total_losses
-                FROM user_stats
-            `);
+            // Get item details
+            const [itemResult] = await connection.execute(
+                'SELECT * FROM shop_items WHERE id = ? AND active = true',
+                [itemId]
+            );
 
-            if (gameStatsResult.length > 0) {
-                const row = gameStatsResult[0];
-                stats.totalTransactions = parseInt(row.total_games || 0);
-                stats.totalWagered = parseFloat(row.total_wagered || 0);
-                stats.totalWon = parseFloat(row.total_won || 0);
-                const totalGames = parseInt(row.total_wins || 0) + parseInt(row.total_losses || 0);
-                stats.winRate = totalGames > 0 ? (parseInt(row.total_wins || 0) / totalGames * 100) : 0;
+            if (itemResult.length === 0) {
+                await connection.rollback();
+                return false;
             }
 
-            // Game type breakdown
-            const gameTypeResult = await this.executeQuery(`
-                SELECT 
-                    game_type,
-                    SUM(total_wagered) as wagered,
-                    SUM(total_winnings) as won,
-                    SUM(total_wins) as wins,
-                    SUM(total_losses) as losses
-                FROM user_stats
-                WHERE game_type IS NOT NULL
-                GROUP BY game_type
-                ORDER BY wagered DESC
-            `);
+            const item = itemResult[0];
 
-            stats.gameBreakdown = gameTypeResult.map(row => ({
-                game: row.game_type,
-                wagered: parseFloat(row.wagered || 0),
-                won: parseFloat(row.won || 0),
-                wins: parseInt(row.wins || 0),
-                losses: parseInt(row.losses || 0),
-                winRate: (parseInt(row.wins || 0) + parseInt(row.losses || 0)) > 0 
-                    ? (parseInt(row.wins || 0) / (parseInt(row.wins || 0) + parseInt(row.losses || 0)) * 100) 
-                    : 0
-            }));
+            // Check if user already has this permanent item
+            if (!item.duration_hours) {
+                const [existingResult] = await connection.execute(
+                    'SELECT id FROM user_shop_purchases WHERE user_id = ? AND item_id = ? AND active = true',
+                    [userId, itemId]
+                );
 
-            // Lottery pool (for main server)
-            try {
-                const lotteryResult = await this.executeQuery(`
-                    SELECT pool_amount FROM lottery_info WHERE guild_id = ? ORDER BY created_at DESC LIMIT 1
-                `, [guildId]);
-                
-                if (lotteryResult.length > 0) {
-                    stats.lotteryPool = parseFloat(lotteryResult[0].pool_amount || 0);
+                if (existingResult.length > 0) {
+                    await connection.rollback();
+                    logger.warn(`User ${userId} already owns permanent item ${itemId}`);
+                    return false;
                 }
-            } catch (lotteryError) {
-                // Lottery table might not exist
-                stats.lotteryPool = 0;
             }
 
-            // Activity metrics (last 7 days)
-            try {
-                const activityResult = await this.executeQuery(`
-                    SELECT 
-                        DATE(updated_at) as date,
-                        COUNT(*) as active_users,
-                        SUM(wallet + bank) as total_wealth
-                    FROM user_balances 
-                    WHERE updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-                    GROUP BY DATE(updated_at)
-                    ORDER BY date DESC
-                    LIMIT 7
-                `);
+            // Deduct money from wallet
+            const [updateResult] = await connection.execute(
+                'UPDATE user_balances SET wallet = wallet - ? WHERE user_id = ? AND wallet >= ?',
+                [price, userId, price]
+            );
 
-                stats.economicActivity = activityResult.map(row => ({
-                    date: row.date,
-                    activeUsers: parseInt(row.active_users),
-                    totalWealth: parseFloat(row.total_wealth)
-                }));
-            } catch (activityError) {
-                stats.economicActivity = [];
+            if (updateResult.affectedRows === 0) {
+                await connection.rollback();
+                return false; // Insufficient funds
             }
 
-            return stats;
+            // Calculate expiration time for time-limited items
+            let expiresAt = null;
+            if (item.duration_hours) {
+                expiresAt = new Date(Date.now() + (item.duration_hours * 60 * 60 * 1000));
+            }
 
+            // Record purchase
+            await connection.execute(
+                'INSERT INTO user_shop_purchases (user_id, item_id, expires_at) VALUES (?, ?, ?)',
+                [userId, itemId, expiresAt]
+            );
+
+            // If it's a boost item, add to active boosts
+            if (item.category === 'boosts') {
+                const metadata = item.metadata ? JSON.parse(item.metadata) : {};
+                const multiplier = metadata.multiplier || 1.5;
+                const boostType = metadata.boost_type || 'general';
+
+                await connection.execute(
+                    `INSERT INTO user_active_boosts (user_id, boost_type, multiplier, expires_at) 
+                     VALUES (?, ?, ?, ?) 
+                     ON DUPLICATE KEY UPDATE 
+                     multiplier = VALUES(multiplier), 
+                     expires_at = VALUES(expires_at)`,
+                    [userId, boostType, multiplier, expiresAt]
+                );
+            }
+
+            await connection.commit();
+            logger.info(`User ${userId} purchased item ${itemId} for ${price}`);
+            return true;
         } catch (error) {
-            logger.error(`Error getting economy stats: ${error.message}`);
-            return null;
+            await connection.rollback();
+            logger.error(`Error purchasing shop item: ${error.message}`);
+            return false;
+        } finally {
+            connection.release();
         }
     }
 
     /**
-     * Get user economic ranking
+     * Get user's shop purchases
+     * @param {string} userId - User ID
+     * @param {boolean} activeOnly - Only return active purchases
+     * @returns {Array} Array of purchases with item details
      */
-    async getUserEconomicRank(userId) {
+    async getUserShopPurchases(userId, activeOnly = true) {
         try {
-            const result = await this.executeQuery(`
-                SELECT 
-                    rank_num,
-                    total_balance,
-                    percentile
-                FROM (
-                    SELECT 
-                        user_id,
-                        wallet + bank as total_balance,
-                        ROW_NUMBER() OVER (ORDER BY wallet + bank DESC) as rank_num,
-                        PERCENT_RANK() OVER (ORDER BY wallet + bank DESC) * 100 as percentile
-                    FROM user_balances
-                    WHERE wallet + bank > 0
-                ) ranked
-                WHERE user_id = ?
-            `, [userId]);
+            let query = `
+                SELECT usp.*, si.name, si.description, si.category, si.duration_hours, si.metadata
+                FROM user_shop_purchases usp
+                LEFT JOIN shop_items si ON usp.item_id = si.id
+                WHERE usp.user_id = ?
+            `;
 
-            if (result.length > 0) {
-                return {
-                    rank: parseInt(result[0].rank_num),
-                    balance: parseFloat(result[0].total_balance),
-                    percentile: parseFloat(result[0].percentile)
-                };
+            const params = [userId];
+
+            if (activeOnly) {
+                query += ' AND usp.active = true AND (usp.expires_at IS NULL OR usp.expires_at > NOW())';
             }
 
-            return null;
+            query += ' ORDER BY usp.purchased_at DESC';
+
+            const result = await this.executeQuery(query, params);
+            return result;
         } catch (error) {
-            logger.error(`Error getting user economic rank: ${error.message}`);
-            return null;
-        }
-    }
-
-    /**
-     * Get economic trends over time
-     */
-    async getEconomicTrends(days = 30) {
-        try {
-            const result = await this.executeQuery(`
-                SELECT 
-                    DATE(updated_at) as date,
-                    COUNT(DISTINCT user_id) as active_users,
-                    AVG(wallet + bank) as avg_wealth,
-                    SUM(wallet + bank) as total_wealth
-                FROM user_balances 
-                WHERE updated_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
-                GROUP BY DATE(updated_at)
-                ORDER BY date ASC
-            `, [days]);
-
-            return result.map(row => ({
-                date: row.date,
-                activeUsers: parseInt(row.active_users),
-                avgWealth: parseFloat(row.avg_wealth || 0),
-                totalWealth: parseFloat(row.total_wealth || 0)
-            }));
-
-        } catch (error) {
-            logger.error(`Error getting economic trends: ${error.message}`);
+            logger.error(`Error getting user shop purchases: ${error.message}`);
             return [];
         }
     }
 
     /**
-     * Toggle user off economy status
+     * Get user's active boosts
+     * @param {string} userId - User ID
+     * @returns {Array} Array of active boosts
      */
-    async toggleOffEconomy(userId, offEconomy = null) {
+    async getUserActiveBoosts(userId) {
         try {
-            // Ensure user exists
-            await this.getUserBalance(userId);
+            const result = await this.executeQuery(
+                'SELECT * FROM user_active_boosts WHERE user_id = ? AND expires_at > NOW()',
+                [userId]
+            );
+            return result;
+        } catch (error) {
+            logger.error(`Error getting user active boosts: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Check if user has specific boost active
+     * @param {string} userId - User ID
+     * @param {string} boostType - Type of boost to check
+     * @returns {Object|null} Boost details or null
+     */
+    async getUserBoost(userId, boostType) {
+        try {
+            const result = await this.executeQuery(
+                'SELECT * FROM user_active_boosts WHERE user_id = ? AND boost_type = ? AND expires_at > NOW()',
+                [userId, boostType]
+            );
+            return result.length > 0 ? result[0] : null;
+        } catch (error) {
+            logger.error(`Error checking user boost: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Clean up expired boosts and purchases
+     * @returns {number} Number of cleaned up items
+     */
+    async cleanupExpiredShopItems() {
+        try {
+            let cleanedCount = 0;
+
+            // Cleanup expired boosts
+            const boostResult = await this.executeQuery(
+                'DELETE FROM user_active_boosts WHERE expires_at <= NOW()'
+            );
+            cleanedCount += boostResult.affectedRows;
+
+            // Mark expired purchases as inactive
+            const purchaseResult = await this.executeQuery(
+                'UPDATE user_shop_purchases SET active = false WHERE expires_at IS NOT NULL AND expires_at <= NOW() AND active = true'
+            );
+            cleanedCount += purchaseResult.affectedRows;
+
+            if (cleanedCount > 0) {
+                logger.info(`Cleaned up ${cleanedCount} expired shop items and boosts`);
+            }
+
+            return cleanedCount;
+        } catch (error) {
+            logger.error(`Error cleaning up expired shop items: ${error.message}`);
+            return 0;
+        }
+    }
+
+    /**
+     * Initialize shop with default items
+     */
+    async initializeShopItems() {
+        try {
+            const defaultItems = [
+                // Boosts
+                {
+                    name: '⚡ XP Boost',
+                    description: 'Double XP gain for 24 hours',
+                    category: 'boosts',
+                    price: 1000000,
+                    duration_hours: 24,
+                    metadata: JSON.stringify({ boost_type: 'xp', multiplier: 2.0 }),
+                    sort_order: 1
+                },
+                {
+                    name: '💰 Economy Boost',
+                    description: '1.5x earnings from all economy commands for 12 hours',
+                    category: 'boosts', 
+                    price: 2000000,
+                    duration_hours: 12,
+                    metadata: JSON.stringify({ boost_type: 'economy', multiplier: 1.5 }),
+                    sort_order: 2
+                },
+                {
+                    name: '🗳️ Vote Boost',
+                    description: 'Double vote rewards for the weekend',
+                    category: 'boosts',
+                    price: 1600000,
+                    duration_hours: 48,
+                    metadata: JSON.stringify({ boost_type: 'vote', multiplier: 2.0 }),
+                    sort_order: 3
+                },
+
+                // Unlocks
+                {
+                    name: '🔓 EarnMoney Unlock',
+                    description: 'Bypass the 10 vote requirement for /earnmoney for 1.5 weeks',
+                    category: 'unlocks',
+                    price: 10000000,
+                    duration_hours: 252,
+                    metadata: JSON.stringify({ unlock_type: 'earnmoney_bypass' }),
+                    sort_order: 1
+                },
+
+                // Decorations
+                {
+                    name: '🥇 Golden Frame',
+                    description: 'Golden border for your profile picture',
+                    category: 'decorations',
+                    price: 3000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ decoration_type: 'frame', color: 'gold' }),
+                    sort_order: 1
+                },
+                {
+                    name: '💎 Diamond Frame',
+                    description: 'Sparkling diamond border for your profile picture',
+                    category: 'decorations',
+                    price: 6000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ decoration_type: 'frame', color: 'diamond' }),
+                    sort_order: 2
+                },
+
+                // Role Colors
+                {
+                    name: '🔴 Red Name',
+                    description: 'Red colored username in chat',
+                    category: 'roles',
+                    price: 4000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#ff0000', role_name: 'Red VIP' }),
+                    sort_order: 1
+                },
+                {
+                    name: '🔵 Blue Name',
+                    description: 'Blue colored username in chat',
+                    category: 'roles',
+                    price: 4000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#0080ff', role_name: 'Blue VIP' }),
+                    sort_order: 2
+                },
+                {
+                    name: '🟣 Purple Name',
+                    description: 'Purple colored username in chat',
+                    category: 'roles',
+                    price: 8000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#8000ff', role_name: 'Purple VIP' }),
+                    sort_order: 3
+                },
+                {
+                    name: '🟡 Gold Name',
+                    description: 'Prestigious gold colored username',
+                    category: 'roles',
+                    price: 20000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#ffd700', role_name: 'Gold VIP' }),
+                    sort_order: 4
+                },
+
+                // Utilities
+                {
+                    name: '⏰ Cooldown Reducer',
+                    description: '50% faster cooldowns for work, beg, and crime commands',
+                    category: 'utilities',
+                    price: 12000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ utility_type: 'cooldown_reduction', reduction: 0.5 }),
+                    sort_order: 1
+                }
+            ];
+
+            // Insert items only if they don't exist (check by name)
+            for (const item of defaultItems) {
+                const existing = await this.executeQuery(
+                    'SELECT id FROM shop_items WHERE name = ?',
+                    [item.name]
+                );
+                
+                if (existing.length === 0) {
+                    await this.executeQuery(
+                        `INSERT INTO shop_items (name, description, category, price, duration_hours, metadata, sort_order)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [item.name, item.description, item.category, item.price, item.duration_hours, item.metadata, item.sort_order]
+                    );
+                }
+            }
+
+            logger.info('Shop items initialized successfully');
+            return true;
+        } catch (error) {
+            logger.error(`Error initializing shop items: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Get user settings
+     * @param {string} userId - User ID
+     * @returns {Object|null} User settings object or null
+     */
+    async getUserSettings(userId) {
+        try {
+            const result = await this.executeQuery(
+                'SELECT * FROM user_settings WHERE user_id = ?',
+                [userId]
+            );
+            return result.length > 0 ? result[0] : null;
+        } catch (error) {
+            logger.error(`Error getting user settings: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Set user setting
+     * @param {string} userId - User ID
+     * @param {string} settingKey - Setting key
+     * @param {any} settingValue - Setting value
+     * @returns {boolean} Success status
+     */
+    async setUserSetting(userId, settingKey, settingValue) {
+        try {
+            // Insert or update user setting
+            await this.executeQuery(
+                `INSERT INTO user_settings (user_id, ${settingKey}) 
+                 VALUES (?, ?) 
+                 ON DUPLICATE KEY UPDATE 
+                 ${settingKey} = VALUES(${settingKey}), 
+                 updated_at = CURRENT_TIMESTAMP`,
+                [userId, settingValue]
+            );
             
-            if (offEconomy === null) {
-                // Toggle current status
-                const result = await this.executeQuery(`
-                    UPDATE user_balances 
-                    SET off_economy = NOT off_economy 
-                    WHERE user_id = ?
-                `, [userId]);
-                
-                // Get new status
-                const statusResult = await this.executeQuery(`
-                    SELECT off_economy FROM user_balances WHERE user_id = ?
-                `, [userId]);
-                
-                return statusResult.length > 0 ? Boolean(statusResult[0].off_economy) : false;
-            } else {
-                // Set specific status
-                await this.executeQuery(`
-                    UPDATE user_balances 
-                    SET off_economy = ? 
-                    WHERE user_id = ?
-                `, [offEconomy, userId]);
-                
-                return offEconomy;
+            logger.info(`Updated user setting for ${userId}: ${settingKey} = ${settingValue}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error setting user setting: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Update user settings (multiple at once)
+     * @param {string} userId - User ID  
+     * @param {Object} settings - Settings object
+     * @returns {boolean} Success status
+     */
+    async updateUserSettings(userId, settings) {
+        try {
+            const settingKeys = Object.keys(settings);
+            const settingValues = Object.values(settings);
+            
+            if (settingKeys.length === 0) {
+                return true; // No settings to update
             }
+            
+            // Build the query dynamically
+            const insertFields = ['user_id', ...settingKeys];
+            const insertValues = [userId, ...settingValues];
+            const updateFields = settingKeys.map(key => `${key} = VALUES(${key})`);
+            
+            const query = `
+                INSERT INTO user_settings (${insertFields.join(', ')}) 
+                VALUES (${insertFields.map(() => '?').join(', ')}) 
+                ON DUPLICATE KEY UPDATE 
+                ${updateFields.join(', ')}, 
+                updated_at = CURRENT_TIMESTAMP
+            `;
+            
+            await this.executeQuery(query, insertValues);
+            
+            logger.info(`Updated user settings for ${userId}: ${JSON.stringify(settings)}`);
+            return true;
         } catch (error) {
-            logger.error(`Error toggling off economy status: ${error.message}`);
-            throw error;
-        }
-    }
-
-    /**
-     * Get off economy leaderboard
-     */
-    async getOffEconomyLeaderboard(guildId, limit = 10) {
-        try {
-            const result = await this.executeQuery(`
-                SELECT 
-                    user_id,
-                    username,
-                    wallet + bank as total_balance,
-                    wallet,
-                    bank,
-                    off_economy
-                FROM user_balances 
-                WHERE off_economy = TRUE AND wallet + bank > 0
-                ORDER BY total_balance DESC
-                LIMIT ?
-            `, [limit]);
-
-            return result.map(row => ({
-                userId: row.user_id,
-                username: row.username || `User ${row.user_id}`,
-                totalBalance: parseFloat(row.total_balance),
-                wallet: parseFloat(row.wallet),
-                bank: parseFloat(row.bank),
-                offEconomy: Boolean(row.off_economy)
-            }));
-        } catch (error) {
-            logger.error(`Error getting off economy leaderboard: ${error.message}`);
-            return [];
-        }
-    }
-
-    /**
-     * Check if user is off economy
-     */
-    async isOffEconomy(userId) {
-        try {
-            const balance = await this.getUserBalance(userId);
-            return Boolean(balance.off_economy);
-        } catch (error) {
-            logger.error(`Error checking off economy status: ${error.message}`);
+            logger.error(`Error updating user settings: ${error.message}`);
             return false;
         }
     }

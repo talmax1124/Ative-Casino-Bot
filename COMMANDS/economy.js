@@ -1,547 +1,1248 @@
 /**
- * Economy Command - Comprehensive economic analysis with graphs and statistics
- * Provides detailed insights into server economy with visual analytics
+ * UNIFIED COMPREHENSIVE ECONOMY COMMAND for ATIVE Casino Bot
+ * ALL economy functionality in ONE extremely detailed, analytical command with graphs
+ * Shows EVERYTHING: server overview, personal analytics, taxation, gambling stats, wealth distribution
  */
 
-const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discord.js');
-const { getGuildId } = require('../UTILS/common');
+const { SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
+const { createCanvas } = require('canvas');
 const dbManager = require('../UTILS/database');
-const { fmt } = require('../UTILS/moneyFormatter');
-const EconomyCharts = require('../UTILS/economyCharts');
+const wealthTaxManager = require('../UTILS/wealthTax');
+const shopManager = require('../UTILS/shopManager');
+const { fmt, fmtFull, getGuildId, sendLogMessage, getEconomicTier, getTierDisplay, calculateDailyInterest, safeSubtract } = require('../UTILS/common');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
+
+// Developer ID for special analytics
+const DEVELOPER_ID = '466050111680544798';
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('economy')
-        .setDescription('Analyze server economy with detailed statistics and graphs')
-        .addStringOption(option =>
-            option.setName('view')
-                .setDescription('What economic analysis to view')
-                .setRequired(false)
-                .addChoices(
-                    { name: '📊 Dashboard', value: 'dashboard' },
-                    { name: '💰 Wealth Distribution', value: 'wealth' },
-                    { name: '🎮 Game Analytics', value: 'games' },
-                    { name: '📈 Economic Trends', value: 'trends' },
-                    { name: '🏆 Top Users', value: 'leaderboard' },
-                    { name: '👤 My Economic Status', value: 'mystats' }
-                )
-        )
-        .addIntegerOption(option =>
-            option.setName('days')
-                .setDescription('Number of days for trend analysis (7-90)')
-                .setMinValue(7)
-                .setMaxValue(90)
+        .setDescription('📊 Complete economy analytics with server overview, personal stats, taxation & gambling data')
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('User to focus personal analytics on (optional - defaults to you)')
                 .setRequired(false)
         ),
 
     async execute(interaction) {
-        const guildId = await getGuildId(interaction);
-        const view = interaction.options.getString('view') || 'dashboard';
-        const days = interaction.options.getInteger('days') || 30;
-        
+        const userId = interaction.user.id;
+        const targetUser = interaction.options.getUser('user') || interaction.user;
+        const targetId = targetUser.id;
+        const guildId = (await getGuildId(interaction)) || null;
+        const username = targetUser.displayName;
+
         try {
             await interaction.deferReply();
-
-            const charts = new EconomyCharts();
-            const stats = await dbManager.databaseAdapter.getEconomyStats(guildId);
+            logger.info(`Complete economy analytics requested by ${interaction.user.displayName} for ${username}`);
             
-            if (!stats) {
-                throw new Error('Failed to fetch economy statistics');
-            }
+            // MEGA DATA COLLECTION - EVERYTHING AT ONCE
+            const [serverData, personalData, taxationData, gamblingData] = await Promise.all([
+                this.getCompleteServerAnalysis(guildId),
+                this.getCompletePersonalAnalysis(targetId, username, guildId),  
+                this.getCompleteTaxationAnalysis(guildId),
+                this.getCompleteGamblingAnalysis(guildId)
+            ]);
+            
+            // GENERATE COMPREHENSIVE MULTI-PANEL CHART
+            const chartBuffer = await this.generateMegaEconomyChart(serverData, personalData, taxationData, gamblingData, targetUser);
+            const attachment = new AttachmentBuilder(chartBuffer, { name: 'mega-economy-analysis.png' });
 
-            switch (view) {
-                case 'dashboard':
-                    await this.showDashboard(interaction, stats, charts);
-                    break;
-                case 'wealth':
-                    await this.showWealthDistribution(interaction, stats, charts);
-                    break;
-                case 'games':
-                    await this.showGameAnalytics(interaction, stats, charts);
-                    break;
-                case 'trends':
-                    await this.showEconomicTrends(interaction, days, charts);
-                    break;
-                case 'leaderboard':
-                    await this.showLeaderboard(interaction, stats);
-                    break;
-                case 'mystats':
-                    await this.showUserStats(interaction, guildId);
-                    break;
-            }
+            // BUILD ULTRA-DETAILED EMBED WITH EVERYTHING
+            const megaEmbed = await this.buildMegaEconomyEmbed(serverData, personalData, taxationData, gamblingData, targetUser);
+            
+            await interaction.editReply({ embeds: [megaEmbed], files: [attachment] });
+
+            // LOG THE COMPREHENSIVE ANALYSIS
+            await sendLogMessage(
+                interaction.client,
+                'economy',
+                `Complete economy analysis generated by ${interaction.user.displayName} (${userId}) for ${username} - Server: ${serverData.totalUsers} users, ${fmt(serverData.totalWealth)} total wealth`,
+                userId,
+                guildId
+            );
 
         } catch (error) {
-            logger.error(`Error in economy command: ${error.message}`);
+            logger.error(`Error in unified economy command: ${error.message}`);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Analysis Error')
-                .setDescription('Failed to generate economic analysis. Please try again.')
-                .setColor(0xFF0000);
+            const errorEmbed = buildSessionEmbed({
+                title: '❌ Economy Analytics System Error',
+                topFields: [
+                    { name: '🔧 Critical System Error', value: 'Failed to generate comprehensive economy analytics.' },
+                    { name: '📋 Error Details', value: error.message.substring(0, 150) + '...' },
+                    { name: '🔄 Retry', value: 'Please try again. If error persists, contact support.' }
+                ],
+                stageText: 'SYSTEM ERROR',
+                color: 0xFF0000,
+                footer: 'Unified Economy Analytics System • ATIVE Casino'
+            });
 
-            if (interaction.deferred) {
-                await interaction.editReply({ embeds: [errorEmbed] });
+            await interaction.editReply({ embeds: [errorEmbed] });
+        }
+    },
+
+    /**
+     * GET COMPLETE SERVER-WIDE ECONOMIC ANALYSIS
+     * Analyzes ALL users, wealth distribution, activity, economic tiers
+     */
+    async getCompleteServerAnalysis(guildId) {
+        const users = await dbManager.getAllUsers(guildId);
+        const analysis = {
+            totalUsers: users.length,
+            totalWealth: 0,
+            wealthData: [],
+            tierCounts: {},
+            activityAnalysis: {
+                activeGamblers: 0,
+                inactiveUsers: 0,
+                totalGamers: 0,
+                avgSessionsPerUser: 0
+            },
+            wealthDistribution: {
+                top1Percent: { users: 0, wealth: 0, percentage: 0 },
+                top5Percent: { users: 0, wealth: 0, percentage: 0 },
+                top10Percent: { users: 0, wealth: 0, percentage: 0 },
+                bottom50Percent: { users: 0, wealth: 0, percentage: 0 }
+            },
+            economicMetrics: {
+                giniCoefficient: 0,
+                medianWealth: 0,
+                averageWealth: 0,
+                wealthStandardDeviation: 0
+            }
+        };
+
+        // Analyze every user comprehensively
+        for (const user of users) {
+            const balance = await dbManager.getUserBalance(user.user_id, guildId);
+            const totalBalance = balance.wallet + balance.bank;
+            const tier = getEconomicTier(totalBalance);
+            
+            analysis.totalWealth += totalBalance;
+            analysis.wealthData.push({
+                userId: user.user_id,
+                username: user.username || 'Unknown',
+                balance: totalBalance,
+                wallet: balance.wallet,
+                bank: balance.bank,
+                tier: tier.name,
+                tierIndex: this.getTierIndex(tier.name)
+            });
+            
+            // Count tiers
+            analysis.tierCounts[tier.name] = (analysis.tierCounts[tier.name] || 0) + 1;
+            
+            // Activity analysis
+            const lastActivity = await dbManager.getUserLastActivity(user.user_id, guildId);
+            if (lastActivity && lastActivity.lastGamePlayed) {
+                const daysSince = (Date.now() - lastActivity.lastGamePlayed.getTime()) / (24 * 60 * 60 * 1000);
+                if (daysSince <= 7) {
+                    analysis.activityAnalysis.activeGamblers++;
+                } else {
+                    analysis.activityAnalysis.inactiveUsers++;
+                }
+                analysis.activityAnalysis.totalGamers++;
             } else {
-                await interaction.reply({ embeds: [errorEmbed] });
+                analysis.activityAnalysis.inactiveUsers++;
             }
         }
-    },
 
-    async showDashboard(interaction, stats, charts) {
-        // Generate dashboard chart
-        const dashboardCanvas = charts.createEconomyDashboard(stats);
-        const dashboardAttachment = new AttachmentBuilder(dashboardCanvas.toBuffer(), { 
-            name: 'economy-dashboard.png' 
-        });
-
-        // Create summary embed
-        const embed = new EmbedBuilder()
-            .setTitle('🏦 Economic Dashboard')
-            .setDescription('Comprehensive overview of server economy health and metrics')
-            .setColor(0x3498DB)
-            .setImage('attachment://economy-dashboard.png')
-            .addFields(
-                {
-                    name: '💰 Total Economy',
-                    value: `**Total Wealth:** ${fmt(stats.totalWealth)}\n` +
-                           `**Active Users:** ${stats.activeUsers.toLocaleString()}\n` +
-                           `**Average Balance:** ${fmt(stats.avgBalance)}`,
-                    inline: true
-                },
-                {
-                    name: '🎮 Gaming Activity', 
-                    value: `**Total Wagered:** ${fmt(stats.totalWagered)}\n` +
-                           `**Total Won:** ${fmt(stats.totalWon)}\n` +
-                           `**Win Rate:** ${stats.winRate.toFixed(1)}%`,
-                    inline: true
-                },
-                {
-                    name: '📈 Daily Activity',
-                    value: `**Send Volume:** ${fmt(stats.dailySendVolume)}\n` +
-                           `**Lottery Pool:** ${fmt(stats.lotteryPool)}\n` +
-                           `**Transactions:** ${stats.totalTransactions.toLocaleString()}`,
-                    inline: true
-                }
-            )
-            .addFields({
-                name: '📊 Quick Analysis',
-                value: this.getEconomicInsights(stats),
-                inline: false
-            })
-            .setFooter({ 
-                text: '📊 Use different view options to explore specific areas • Economy Analytics' 
-            })
-            .setTimestamp();
-
-        await interaction.editReply({ 
-            embeds: [embed], 
-            files: [dashboardAttachment] 
-        });
-    },
-
-    async showWealthDistribution(interaction, stats, charts) {
-        if (stats.wealthDistribution.length === 0) {
-            const embed = new EmbedBuilder()
-                .setTitle('💰 Wealth Distribution')
-                .setDescription('No wealth distribution data available yet.')
-                .setColor(0xF39C12);
-            
-            return await interaction.editReply({ embeds: [embed] });
-        }
-
-        // Generate wealth distribution pie chart
-        const chartCanvas = charts.createWealthDistributionChart(stats.wealthDistribution);
-        const chartAttachment = new AttachmentBuilder(chartCanvas.toBuffer(), { 
-            name: 'wealth-distribution.png' 
-        });
-
-        // Calculate inequality metrics
-        const giniCoeff = this.calculateGiniCoefficient(stats.wealthDistribution);
-        const wealthConcentration = this.calculateWealthConcentration(stats.wealthDistribution);
-
-        const embed = new EmbedBuilder()
-            .setTitle('💰 Wealth Distribution Analysis')
-            .setDescription('How wealth is distributed across different economic classes')
-            .setColor(0xF39C12)
-            .setImage('attachment://wealth-distribution.png')
-            .addFields(
-                {
-                    name: '📊 Distribution Breakdown',
-                    value: stats.wealthDistribution.map(tier => 
-                        `**${tier.label}:** ${tier.count} users (${fmt(tier.value)})`
-                    ).join('\n'),
-                    inline: false
-                },
-                {
-                    name: '📈 Economic Indicators',
-                    value: `**Gini Coefficient:** ${giniCoeff.toFixed(3)} ${this.interpretGini(giniCoeff)}\n` +
-                           `**Top 10% owns:** ${wealthConcentration.top10}% of wealth\n` +
-                           `**Bottom 50% owns:** ${wealthConcentration.bottom50}% of wealth`,
-                    inline: false
-                },
-                {
-                    name: '💡 Interpretation',
-                    value: this.interpretWealthDistribution(giniCoeff, wealthConcentration),
-                    inline: false
-                }
-            )
-            .setFooter({ text: '💰 Lower Gini = More Equal Distribution • Economic Analysis' })
-            .setTimestamp();
-
-        await interaction.editReply({ 
-            embeds: [embed], 
-            files: [chartAttachment] 
-        });
-    },
-
-    async showGameAnalytics(interaction, stats, charts) {
-        if (!stats.gameBreakdown || stats.gameBreakdown.length === 0) {
-            const embed = new EmbedBuilder()
-                .setTitle('🎮 Game Analytics')
-                .setDescription('No gaming data available yet.')
-                .setColor(0xE74C3C);
-            
-            return await interaction.editReply({ embeds: [embed] });
-        }
-
-        // Generate bar chart for game wagering
-        const gameData = stats.gameBreakdown.map(game => ({
-            label: game.game,
-            value: game.wagered
-        }));
-
-        const chartCanvas = charts.createBarChart(gameData, 'Total Wagered by Game', 'Amount Wagered');
-        const chartAttachment = new AttachmentBuilder(chartCanvas.toBuffer(), { 
-            name: 'game-analytics.png' 
-        });
-
-        // Calculate house edge and profitability
-        const totalWagered = stats.gameBreakdown.reduce((sum, game) => sum + game.wagered, 0);
-        const totalWon = stats.gameBreakdown.reduce((sum, game) => sum + game.won, 0);
-        const houseEdge = totalWagered > 0 ? ((totalWagered - totalWon) / totalWagered * 100) : 0;
-
-        const embed = new EmbedBuilder()
-            .setTitle('🎮 Game Analytics & Performance')
-            .setDescription('Detailed analysis of gaming activity and player behavior')
-            .setColor(0xE74C3C)
-            .setImage('attachment://game-analytics.png')
-            .addFields(
-                {
-                    name: '🎯 Game Performance',
-                    value: stats.gameBreakdown.slice(0, 5).map(game => 
-                        `**${game.game}:** ${fmt(game.wagered)} wagered, ${game.winRate.toFixed(1)}% win rate`
-                    ).join('\n'),
-                    inline: false
-                },
-                {
-                    name: '💹 Economic Impact',
-                    value: `**House Edge:** ${houseEdge.toFixed(2)}%\n` +
-                           `**Player Return:** ${(100 - houseEdge).toFixed(2)}%\n` +
-                           `**Net House Profit:** ${fmt(totalWagered - totalWon)}`,
-                    inline: true
-                },
-                {
-                    name: '🎲 Player Behavior',
-                    value: `**Most Popular:** ${stats.gameBreakdown[0]?.game || 'N/A'}\n` +
-                           `**Highest Volume:** ${fmt(stats.gameBreakdown[0]?.wagered || 0)}\n` +
-                           `**Average Win Rate:** ${stats.winRate.toFixed(1)}%`,
-                    inline: true
-                }
-            )
-            .setFooter({ text: '🎮 Games drive economic activity • Gaming Analytics' })
-            .setTimestamp();
-
-        await interaction.editReply({ 
-            embeds: [embed], 
-            files: [chartAttachment] 
-        });
-    },
-
-    async showEconomicTrends(interaction, days, charts) {
-        const trends = await dbManager.databaseAdapter.getEconomicTrends(days);
+        // Sort by wealth for distribution analysis
+        analysis.wealthData.sort((a, b) => b.balance - a.balance);
         
-        if (trends.length === 0) {
-            const embed = new EmbedBuilder()
-                .setTitle('📈 Economic Trends')
-                .setDescription(`No trend data available for the last ${days} days.`)
-                .setColor(0x9B59B6);
-            
-            return await interaction.editReply({ embeds: [embed] });
+        // Calculate wealth distribution percentiles
+        const totalUsers = analysis.totalUsers;
+        const top1Count = Math.max(1, Math.floor(totalUsers * 0.01));
+        const top5Count = Math.max(1, Math.floor(totalUsers * 0.05));
+        const top10Count = Math.max(1, Math.floor(totalUsers * 0.10));
+        const bottom50Count = Math.ceil(totalUsers * 0.50);
+        
+        analysis.wealthDistribution.top1Percent.users = top1Count;
+        analysis.wealthDistribution.top1Percent.wealth = analysis.wealthData.slice(0, top1Count).reduce((sum, u) => sum + u.balance, 0);
+        analysis.wealthDistribution.top1Percent.percentage = (analysis.wealthDistribution.top1Percent.wealth / analysis.totalWealth) * 100;
+        
+        analysis.wealthDistribution.top5Percent.users = top5Count;
+        analysis.wealthDistribution.top5Percent.wealth = analysis.wealthData.slice(0, top5Count).reduce((sum, u) => sum + u.balance, 0);
+        analysis.wealthDistribution.top5Percent.percentage = (analysis.wealthDistribution.top5Percent.wealth / analysis.totalWealth) * 100;
+        
+        analysis.wealthDistribution.top10Percent.users = top10Count;
+        analysis.wealthDistribution.top10Percent.wealth = analysis.wealthData.slice(0, top10Count).reduce((sum, u) => sum + u.balance, 0);
+        analysis.wealthDistribution.top10Percent.percentage = (analysis.wealthDistribution.top10Percent.wealth / analysis.totalWealth) * 100;
+        
+        analysis.wealthDistribution.bottom50Percent.users = bottom50Count;
+        analysis.wealthDistribution.bottom50Percent.wealth = analysis.wealthData.slice(-bottom50Count).reduce((sum, u) => sum + u.balance, 0);
+        analysis.wealthDistribution.bottom50Percent.percentage = (analysis.wealthDistribution.bottom50Percent.wealth / analysis.totalWealth) * 100;
+
+        // Calculate economic metrics
+        analysis.economicMetrics.averageWealth = analysis.totalWealth / totalUsers;
+        analysis.economicMetrics.medianWealth = analysis.wealthData[Math.floor(totalUsers / 2)]?.balance || 0;
+        
+        // Calculate wealth inequality (simplified Gini coefficient approximation)
+        const wealthArray = analysis.wealthData.map(u => u.balance).sort((a, b) => a - b);
+        let giniSum = 0;
+        for (let i = 0; i < wealthArray.length; i++) {
+            giniSum += (2 * i + 1 - wealthArray.length) * wealthArray[i];
         }
+        analysis.economicMetrics.giniCoefficient = giniSum / (wealthArray.length * wealthArray.reduce((sum, w) => sum + w, 0));
+        
+        // Standard deviation
+        const avgWealth = analysis.economicMetrics.averageWealth;
+        const variance = wealthArray.reduce((sum, w) => sum + Math.pow(w - avgWealth, 2), 0) / wealthArray.length;
+        analysis.economicMetrics.wealthStandardDeviation = Math.sqrt(variance);
 
-        // Generate trend chart
-        const trendData = trends.map(trend => ({
-            label: new Date(trend.date).toLocaleDateString(),
-            value: trend.totalWealth
-        }));
-
-        const chartCanvas = charts.createLineChart(
-            trendData, 
-            `Economic Trends - Last ${days} Days`, 
-            'Date', 
-            'Total Wealth'
-        );
-        const chartAttachment = new AttachmentBuilder(chartCanvas.toBuffer(), { 
-            name: 'economic-trends.png' 
-        });
-
-        // Calculate trend statistics
-        const firstWealth = trends[0]?.totalWealth || 0;
-        const lastWealth = trends[trends.length - 1]?.totalWealth || 0;
-        const growth = firstWealth > 0 ? ((lastWealth - firstWealth) / firstWealth * 100) : 0;
-        const avgDailyUsers = trends.reduce((sum, t) => sum + t.activeUsers, 0) / trends.length;
-
-        const embed = new EmbedBuilder()
-            .setTitle('📈 Economic Trends Analysis')
-            .setDescription(`Economic performance over the last ${days} days`)
-            .setColor(0x9B59B6)
-            .setImage('attachment://economic-trends.png')
-            .addFields(
-                {
-                    name: '📊 Growth Metrics',
-                    value: `**Period Growth:** ${growth >= 0 ? '+' : ''}${growth.toFixed(2)}%\n` +
-                           `**Starting Wealth:** ${fmt(firstWealth)}\n` +
-                           `**Current Wealth:** ${fmt(lastWealth)}`,
-                    inline: true
-                },
-                {
-                    name: '👥 User Activity',
-                    value: `**Avg Daily Users:** ${avgDailyUsers.toFixed(0)}\n` +
-                           `**Peak Activity:** ${Math.max(...trends.map(t => t.activeUsers))}\n` +
-                           `**Low Activity:** ${Math.min(...trends.map(t => t.activeUsers))}`,
-                    inline: true
-                },
-                {
-                    name: '💹 Trend Analysis',
-                    value: this.analyzeTrend(trends),
-                    inline: false
-                }
-            )
-            .setFooter({ text: `📈 ${days} day analysis • Economic Trends` })
-            .setTimestamp();
-
-        await interaction.editReply({ 
-            embeds: [embed], 
-            files: [chartAttachment] 
-        });
+        return analysis;
     },
 
-    async showLeaderboard(interaction, stats) {
-        if (stats.topUsers.length === 0) {
-            const embed = new EmbedBuilder()
-                .setTitle('🏆 Economic Leaderboard')
-                .setDescription('No users found with economic data yet.')
-                .setColor(0xFFD700);
-            
-            return await interaction.editReply({ embeds: [embed] });
-        }
-
-        let leaderboardText = '';
-        for (let i = 0; i < Math.min(10, stats.topUsers.length); i++) {
-            const user = stats.topUsers[i];
-            const rank = i + 1;
-            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
-            
-            leaderboardText += `${medal} **${user.username}**\n`;
-            leaderboardText += `   💰 ${fmt(user.totalBalance)} (💳 ${fmt(user.wallet)} | 🏛️ ${fmt(user.bank)})\n\n`;
-        }
-
-        const embed = new EmbedBuilder()
-            .setTitle('🏆 Economic Leaderboard')
-            .setDescription('Top 10 users by total wealth (wallet + bank)')
-            .setColor(0xFFD700)
-            .addFields({
-                name: '💰 Top Wealth Holders',
-                value: leaderboardText,
-                inline: false
-            })
-            .addFields(
-                {
-                    name: '📊 Statistics',
-                    value: `**Top 1% owns:** ${this.calculateTopPercentage(stats.topUsers, stats.totalWealth, 0.01)}% of wealth\n` +
-                           `**Top 10% owns:** ${this.calculateTopPercentage(stats.topUsers, stats.totalWealth, 0.1)}% of wealth\n` +
-                           `**Richest User:** ${fmt(stats.topUsers[0]?.totalBalance || 0)}`,
-                    inline: true
-                },
-                {
-                    name: '🏛️ Banking Habits',
-                    value: `**Avg Bank Ratio:** ${this.calculateBankRatio(stats.topUsers)}%\n` +
-                           `**Most Banked:** ${fmt(Math.max(...stats.topUsers.map(u => u.bank)))}\n` +
-                           `**Cash Heavy:** ${stats.topUsers.filter(u => u.wallet > u.bank).length} users`,
-                    inline: true
-                }
-            )
-            .setFooter({ text: '🏆 Wealth creates opportunities • Economic Leaderboard' })
-            .setTimestamp();
-
-        await interaction.editReply({ embeds: [embed] });
-    },
-
-    async showUserStats(interaction, guildId) {
-        const userId = interaction.user.id;
-        const userRank = await dbManager.databaseAdapter.getUserEconomicRank(userId);
-        const userBalance = await dbManager.getUserBalance(userId, guildId);
-
-        if (!userRank) {
-            const embed = new EmbedBuilder()
-                .setTitle('👤 Your Economic Status')
-                .setDescription('You need to have some money to appear in economic rankings!')
-                .setColor(0xE74C3C);
-            
-            return await interaction.editReply({ embeds: [embed] });
-        }
-
-        const totalBalance = userBalance.wallet + userBalance.bank;
-        const bankRatio = totalBalance > 0 ? (userBalance.bank / totalBalance * 100) : 0;
-
-        const embed = new EmbedBuilder()
-            .setTitle('👤 Your Economic Status')
-            .setDescription(`Economic analysis for ${interaction.user.displayName}`)
-            .setColor(0x2ECC71)
-            .setThumbnail(interaction.user.displayAvatarURL())
-            .addFields(
-                {
-                    name: '💰 Wealth Position',
-                    value: `**Rank:** #${userRank.rank}\n` +
-                           `**Percentile:** Top ${userRank.percentile.toFixed(1)}%\n` +
-                           `**Total Balance:** ${fmt(totalBalance)}`,
-                    inline: true
-                },
-                {
-                    name: '🏦 Portfolio Breakdown',
-                    value: `**Wallet:** ${fmt(userBalance.wallet)} (${(100 - bankRatio).toFixed(1)}%)\n` +
-                           `**Bank:** ${fmt(userBalance.bank)} (${bankRatio.toFixed(1)}%)\n` +
-                           `**Strategy:** ${this.classifyStrategy(bankRatio)}`,
-                    inline: true
-                },
-                {
-                    name: '📊 Economic Class',
-                    value: this.classifyWealth(totalBalance),
-                    inline: false
-                }
-            )
-            .setFooter({ text: '👤 Your position in the server economy • Personal Analytics' })
-            .setTimestamp();
-
-        await interaction.editReply({ embeds: [embed] });
-    },
-
-    // Helper functions for calculations and analysis
-    getEconomicInsights(stats) {
-        const insights = [];
+    /**
+     * GET COMPLETE PERSONAL ANALYSIS FOR TARGET USER
+     * Deep dive into individual user's economy, gambling patterns, risk assessment
+     */
+    async getCompletePersonalAnalysis(userId, username, guildId) {
+        await dbManager.ensureUser(userId, username);
         
-        if (stats.winRate < 40) insights.push('🔴 Low win rates may discourage gambling');
-        else if (stats.winRate > 60) insights.push('🟡 High win rates may hurt house profits');
-        else insights.push('🟢 Balanced win rates maintain engagement');
-        
-        if (stats.activeUsers < 50) insights.push('📉 Low user participation');
-        else if (stats.activeUsers > 200) insights.push('📈 High economic activity');
-        else insights.push('📊 Moderate participation levels');
-        
-        return insights.join('\n');
-    },
+        const analysis = {
+            userId,
+            username,
+            isOffEconomy: userId === DEVELOPER_ID,
+            balance: await dbManager.getUserBalance(userId, guildId),
+            tier: null,
+            wealthMetrics: {},
+            gamblingAnalysis: {},
+            riskAssessment: {},
+            taxStatus: {},
+            shopAnalysis: {},
+            economicHistory: {},
+            performanceMetrics: {}
+        };
 
-    calculateGiniCoefficient(distribution) {
-        const values = distribution.map(d => d.value).sort((a, b) => a - b);
-        const n = values.length;
-        const sum = values.reduce((a, b) => a + b, 0);
+        // Basic wealth analysis
+        const totalBalance = analysis.balance.wallet + analysis.balance.bank;
+        analysis.tier = getEconomicTier(totalBalance);
+        analysis.wealthMetrics = {
+            totalWealth: totalBalance,
+            walletPercent: totalBalance > 0 ? (analysis.balance.wallet / totalBalance) * 100 : 0,
+            bankPercent: totalBalance > 0 ? (analysis.balance.bank / totalBalance) * 100 : 0,
+            dailyInterest: calculateDailyInterest(analysis.balance.bank, totalBalance),
+            tierName: analysis.tier.name,
+            tierDisplay: getTierDisplay(totalBalance)
+        };
+
+        // Comprehensive gambling analysis
+        analysis.gamblingAnalysis = await this.getDetailedGamblingAnalysis(userId, guildId);
         
-        if (sum === 0) return 0;
+        // Risk assessment
+        analysis.riskAssessment = this.calculateComprehensiveRisk(analysis.gamblingAnalysis, totalBalance);
         
-        let numerator = 0;
-        for (let i = 0; i < n; i++) {
-            numerator += (2 * (i + 1) - n - 1) * values[i];
+        // Tax status analysis
+        if (!analysis.isOffEconomy) {
+            analysis.taxStatus = await wealthTaxManager.getUserWealthTaxStatus(userId, guildId);
         }
         
-        return numerator / (n * sum);
+        // Shop analysis
+        analysis.shopAnalysis = await this.getShopAnalytics(userId);
+        
+        // Performance metrics
+        analysis.performanceMetrics = this.calculatePerformanceMetrics(analysis.gamblingAnalysis, totalBalance);
+
+        return analysis;
     },
 
-    calculateWealthConcentration(distribution) {
-        const total = distribution.reduce((sum, d) => sum + d.value, 0);
-        const sortedByWealth = distribution.sort((a, b) => b.value - a.value);
+    /**
+     * GET COMPLETE TAXATION ANALYSIS FOR SERVER
+     * Comprehensive wealth tax analysis, projections, bracket distributions
+     */
+    async getCompleteTaxationAnalysis(guildId) {
+        const taxSummary = await wealthTaxManager.getWealthTaxSummary(guildId, 100);
         
-        let top10 = 0;
-        let bottom50 = 0;
-        let userCount = 0;
-        
-        for (const tier of sortedByWealth) {
-            userCount += tier.count;
-            if (userCount <= distribution.reduce((sum, d) => sum + d.count, 0) * 0.1) {
-                top10 += tier.value;
+        if (!taxSummary) {
+            return {
+                error: 'Unable to generate taxation analysis',
+                summary: { wealthyUsers: 0, taxableUsers: 0, potentialTaxRevenue: 0 },
+                userStatuses: []
+            };
+        }
+
+        const analysis = {
+            summary: taxSummary.summary,
+            userStatuses: taxSummary.userStatuses,
+            bracketAnalysis: {},
+            taxEfficiency: {},
+            projections: {},
+            behaviorAnalysis: {}
+        };
+
+        // Enhanced bracket analysis
+        for (const [bracket, data] of Object.entries(analysis.summary.bracketBreakdown)) {
+            analysis.bracketAnalysis[bracket] = {
+                ...data,
+                averageTaxPerUser: data.taxable > 0 ? data.taxRevenue / data.taxable : 0,
+                taxablePercentage: data.count > 0 ? (data.taxable / data.count) * 100 : 0,
+                avoidanceRate: data.count > 0 ? ((data.count - data.taxable) / data.count) * 100 : 0
+            };
+        }
+
+        // Tax efficiency metrics
+        const totalWealthyUsers = analysis.summary.wealthyUsers;
+        const totalTaxableUsers = analysis.summary.taxableUsers;
+        analysis.taxEfficiency = {
+            collectionRate: totalWealthyUsers > 0 ? (totalTaxableUsers / totalWealthyUsers) * 100 : 0,
+            avoidanceRate: totalWealthyUsers > 0 ? ((totalWealthyUsers - totalTaxableUsers) / totalWealthyUsers) * 100 : 0,
+            revenuePerWealthyUser: totalWealthyUsers > 0 ? analysis.summary.potentialTaxRevenue / totalWealthyUsers : 0,
+            revenuePerTaxableUser: totalTaxableUsers > 0 ? analysis.summary.potentialTaxRevenue / totalTaxableUsers : 0
+        };
+
+        // Behavior analysis
+        analysis.behaviorAnalysis = {
+            highStakesGamblersPercent: totalWealthyUsers > 0 ? (analysis.summary.highStakesGamblers / totalWealthyUsers) * 100 : 0,
+            inactiveRichPercent: totalWealthyUsers > 0 ? (analysis.summary.inactiveRich / totalWealthyUsers) * 100 : 0,
+            taxMotivatedGambling: analysis.summary.highStakesGamblers // Users potentially gambling to avoid taxes
+        };
+
+        return analysis;
+    },
+
+    /**
+     * GET COMPLETE GAMBLING ANALYSIS FOR SERVER  
+     * Comprehensive gambling statistics, patterns, game analysis
+     */
+    async getCompleteGamblingAnalysis(guildId) {
+        const users = await dbManager.getAllUsers(guildId);
+        const gameTypes = [
+            'blackjack', 'slots', 'multi-slots', 'crash', 'duck', 'fishing',
+            'plinko', 'rps', 'bingo', 'battleship', 'uno', 'roulette',
+            'treasurevault', 'yahtzee', 'heist', 'lottery'
+        ];
+
+        const analysis = {
+            overview: {
+                totalGames: 0,
+                totalWagered: 0,
+                totalWon: 0,
+                totalPlayers: 0,
+                houseEdge: 0,
+                biggestWin: 0,
+                biggestLoss: 0
+            },
+            gameBreakdown: {},
+            playerAnalysis: {
+                mostActivePlayer: null,
+                biggestWinner: null,
+                biggestLoser: null,
+                highestROI: null,
+                lowestROI: null
+            },
+            patterns: {
+                popularityRanking: [],
+                profitabilityRanking: [],
+                riskLevels: {}
+            },
+            economicImpact: {
+                moneyCirculation: 0,
+                wealthRedistribution: 0,
+                houseAdvantage: 0
             }
-            if (userCount >= distribution.reduce((sum, d) => sum + d.count, 0) * 0.5) {
-                bottom50 += tier.value;
+        };
+
+        const playerStats = {};
+
+        // Analyze all games and players
+        for (const user of users) {
+            let userTotalGames = 0;
+            let userTotalWagered = 0;
+            let userTotalWon = 0;
+            let userBiggestWin = 0;
+            let userBiggestLoss = 0;
+            
+            playerStats[user.user_id] = {
+                username: user.username || 'Unknown',
+                totalGames: 0,
+                totalWagered: 0,
+                totalWon: 0,
+                netProfit: 0,
+                roi: 0,
+                favoriteGame: null,
+                riskLevel: 'UNKNOWN'
+            };
+            
+            for (const gameType of gameTypes) {
+                const stats = await dbManager.getUserStats(user.user_id, guildId, gameType);
+                if (stats) {
+                    const games = (stats.wins || 0) + (stats.losses || 0);
+                    const wagered = stats.total_wagered || 0;
+                    const won = stats.total_won || 0;
+                    const biggestWin = stats.biggest_win || 0;
+                    const biggestLoss = Math.abs(stats.biggest_loss || 0);
+                    
+                    if (games > 0) {
+                        // User stats
+                        userTotalGames += games;
+                        userTotalWagered += wagered;
+                        userTotalWon += won;
+                        
+                        if (biggestWin > userBiggestWin) userBiggestWin = biggestWin;
+                        if (biggestLoss > userBiggestLoss) userBiggestLoss = biggestLoss;
+                        
+                        // Global stats
+                        analysis.overview.totalGames += games;
+                        analysis.overview.totalWagered += wagered;
+                        analysis.overview.totalWon += won;
+                        
+                        if (biggestWin > analysis.overview.biggestWin) {
+                            analysis.overview.biggestWin = biggestWin;
+                        }
+                        if (biggestLoss > analysis.overview.biggestLoss) {
+                            analysis.overview.biggestLoss = biggestLoss;
+                        }
+                        
+                        // Game breakdown
+                        if (!analysis.gameBreakdown[gameType]) {
+                            analysis.gameBreakdown[gameType] = {
+                                games: 0,
+                                wagered: 0,
+                                won: 0,
+                                players: 0,
+                                houseEdge: 0,
+                                averageBet: 0,
+                                winRate: 0,
+                                popularity: 0,
+                                rtp: 0
+                            };
+                        }
+                        
+                        analysis.gameBreakdown[gameType].games += games;
+                        analysis.gameBreakdown[gameType].wagered += wagered;
+                        analysis.gameBreakdown[gameType].won += won;
+                        analysis.gameBreakdown[gameType].players++;
+                    }
+                }
+            }
+            
+            if (userTotalGames > 0) {
+                analysis.overview.totalPlayers++;
+                
+                playerStats[user.user_id].totalGames = userTotalGames;
+                playerStats[user.user_id].totalWagered = userTotalWagered;
+                playerStats[user.user_id].totalWon = userTotalWon;
+                playerStats[user.user_id].netProfit = userTotalWon - userTotalWagered;
+                playerStats[user.user_id].roi = userTotalWagered > 0 ? ((userTotalWon - userTotalWagered) / userTotalWagered) * 100 : 0;
+                
+                // Track extremes
+                if (!analysis.playerAnalysis.mostActivePlayer || userTotalGames > analysis.playerAnalysis.mostActivePlayer.games) {
+                    analysis.playerAnalysis.mostActivePlayer = {
+                        username: user.username || 'Unknown',
+                        games: userTotalGames,
+                        wagered: userTotalWagered,
+                        won: userTotalWon
+                    };
+                }
+                
+                const netProfit = userTotalWon - userTotalWagered;
+                if (!analysis.playerAnalysis.biggestWinner || netProfit > analysis.playerAnalysis.biggestWinner.profit) {
+                    analysis.playerAnalysis.biggestWinner = {
+                        username: user.username || 'Unknown',
+                        profit: netProfit,
+                        wagered: userTotalWagered,
+                        roi: userTotalWagered > 0 ? (netProfit / userTotalWagered) * 100 : 0
+                    };
+                }
+                
+                if (!analysis.playerAnalysis.biggestLoser || netProfit < analysis.playerAnalysis.biggestLoser.loss) {
+                    analysis.playerAnalysis.biggestLoser = {
+                        username: user.username || 'Unknown',
+                        loss: Math.abs(netProfit),
+                        wagered: userTotalWagered,
+                        roi: userTotalWagered > 0 ? (netProfit / userTotalWagered) * 100 : 0
+                    };
+                }
             }
         }
+
+        // Calculate game metrics
+        for (const [gameType, gameData] of Object.entries(analysis.gameBreakdown)) {
+            gameData.houseEdge = gameData.wagered > 0 ? ((gameData.wagered - gameData.won) / gameData.wagered) * 100 : 0;
+            gameData.averageBet = gameData.games > 0 ? gameData.wagered / gameData.games : 0;
+            gameData.winRate = gameData.wagered > 0 ? (gameData.won / gameData.wagered) * 100 : 0;
+            gameData.rtp = 100 - gameData.houseEdge; // Return to Player
+            gameData.popularity = (gameData.games / analysis.overview.totalGames) * 100;
+        }
+
+        // Overall house edge
+        analysis.overview.houseEdge = analysis.overview.totalWagered > 0 ? 
+            ((analysis.overview.totalWagered - analysis.overview.totalWon) / analysis.overview.totalWagered) * 100 : 0;
+
+        // Create rankings
+        analysis.patterns.popularityRanking = Object.entries(analysis.gameBreakdown)
+            .sort((a, b) => b[1].games - a[1].games)
+            .map(([game, data]) => ({ game, games: data.games, popularity: data.popularity.toFixed(1) }));
+
+        analysis.patterns.profitabilityRanking = Object.entries(analysis.gameBreakdown)
+            .sort((a, b) => b[1].houseEdge - a[1].houseEdge)
+            .map(([game, data]) => ({ game, houseEdge: data.houseEdge.toFixed(2), rtp: data.rtp.toFixed(2) }));
+
+        return analysis;
+    },
+
+    /**
+     * GET DETAILED GAMBLING ANALYSIS FOR INDIVIDUAL USER
+     */
+    async getDetailedGamblingAnalysis(userId, guildId) {
+        const gameTypes = [
+            'blackjack', 'slots', 'multi-slots', 'crash', 'duck', 'fishing',
+            'plinko', 'rps', 'bingo', 'battleship', 'uno', 'roulette',
+            'treasurevault', 'yahtzee', 'heist', 'lottery'
+        ];
+
+        const analysis = {
+            totalWins: 0,
+            totalLosses: 0,
+            totalGames: 0,
+            totalWagered: 0,
+            totalWon: 0,
+            biggestWin: 0,
+            biggestLoss: 0,
+            winRate: 0,
+            avgBet: 0,
+            netProfit: 0,
+            roi: 0,
+            favoriteGames: [],
+            gamePerformance: {},
+            streakAnalysis: {},
+            bettingPatterns: {}
+        };
+
+        for (const gameType of gameTypes) {
+            const stats = await dbManager.getUserStats(userId, guildId, gameType);
+            if (stats) {
+                const wins = stats.wins || 0;
+                const losses = stats.losses || 0;
+                const games = wins + losses;
+                const wagered = stats.total_wagered || 0;
+                const won = stats.total_won || 0;
+                
+                if (games > 0) {
+                    analysis.totalWins += wins;
+                    analysis.totalLosses += losses;
+                    analysis.totalWagered += wagered;
+                    analysis.totalWon += won;
+                    
+                    if (stats.biggest_win > analysis.biggestWin) {
+                        analysis.biggestWin = stats.biggest_win;
+                    }
+                    if (Math.abs(stats.biggest_loss) > Math.abs(analysis.biggestLoss)) {
+                        analysis.biggestLoss = stats.biggest_loss;
+                    }
+                    
+                    analysis.favoriteGames.push({
+                        name: gameType,
+                        gamesPlayed: games,
+                        winRate: ((wins / games) * 100).toFixed(1),
+                        wagered: wagered,
+                        won: won,
+                        netProfit: won - wagered,
+                        roi: wagered > 0 ? ((won - wagered) / wagered) * 100 : 0,
+                        avgBet: wagered / games
+                    });
+                    
+                    analysis.gamePerformance[gameType] = {
+                        winRate: (wins / games) * 100,
+                        profitability: won - wagered,
+                        efficiency: wagered > 0 ? (won / wagered) : 0
+                    };
+                }
+            }
+        }
+
+        analysis.totalGames = analysis.totalWins + analysis.totalLosses;
+        analysis.winRate = analysis.totalGames > 0 ? (analysis.totalWins / analysis.totalGames) * 100 : 0;
+        analysis.avgBet = analysis.totalGames > 0 ? analysis.totalWagered / analysis.totalGames : 0;
+        analysis.netProfit = analysis.totalWon - analysis.totalWagered;
+        analysis.roi = analysis.totalWagered > 0 ? (analysis.netProfit / analysis.totalWagered) * 100 : 0;
+
+        // Sort favorite games by play count
+        analysis.favoriteGames.sort((a, b) => b.gamesPlayed - a.gamesPlayed);
+
+        return analysis;
+    },
+
+    /**
+     * CALCULATE COMPREHENSIVE RISK ASSESSMENT
+     */
+    calculateComprehensiveRisk(gamblingAnalysis, totalBalance) {
+        const analysis = {
+            overallRiskLevel: 'NO DATA',
+            riskScore: 0,
+            factors: {
+                betSizeRisk: 'LOW',
+                frequencyRisk: 'LOW', 
+                volatilityRisk: 'LOW',
+                concentrationRisk: 'LOW'
+            },
+            warnings: [],
+            recommendations: []
+        };
+
+        if (gamblingAnalysis.avgBet === 0 || totalBalance === 0) {
+            return analysis;
+        }
+
+        const betToWealthRatio = gamblingAnalysis.avgBet / totalBalance;
+        const lossToWealthRatio = Math.abs(gamblingAnalysis.biggestLoss) / totalBalance;
+        const volatility = gamblingAnalysis.totalGames > 0 ? 
+            (gamblingAnalysis.biggestWin + Math.abs(gamblingAnalysis.biggestLoss)) / gamblingAnalysis.avgBet : 0;
+
+        // Bet Size Risk
+        if (betToWealthRatio > 0.1) analysis.factors.betSizeRisk = 'EXTREME';
+        else if (betToWealthRatio > 0.05) analysis.factors.betSizeRisk = 'HIGH';
+        else if (betToWealthRatio > 0.02) analysis.factors.betSizeRisk = 'MODERATE';
+        else if (betToWealthRatio > 0.01) analysis.factors.betSizeRisk = 'LOW';
+        else analysis.factors.betSizeRisk = 'CONSERVATIVE';
+
+        // Frequency Risk
+        const gamesPerDay = gamblingAnalysis.totalGames / 30; // Assuming 30-day period
+        if (gamesPerDay > 50) analysis.factors.frequencyRisk = 'EXTREME';
+        else if (gamesPerDay > 20) analysis.factors.frequencyRisk = 'HIGH';
+        else if (gamesPerDay > 10) analysis.factors.frequencyRisk = 'MODERATE';
+        else analysis.factors.frequencyRisk = 'LOW';
+
+        // Volatility Risk
+        if (volatility > 100) analysis.factors.volatilityRisk = 'EXTREME';
+        else if (volatility > 50) analysis.factors.volatilityRisk = 'HIGH';
+        else if (volatility > 20) analysis.factors.volatilityRisk = 'MODERATE';
+        else analysis.factors.volatilityRisk = 'LOW';
+
+        // Calculate overall risk score (0-100)
+        const riskFactors = {
+            'CONSERVATIVE': 0, 'LOW': 20, 'MODERATE': 40, 'HIGH': 60, 'EXTREME': 80
+        };
         
+        analysis.riskScore = Math.round((
+            (riskFactors[analysis.factors.betSizeRisk] || 0) * 0.4 +
+            (riskFactors[analysis.factors.frequencyRisk] || 0) * 0.3 +
+            (riskFactors[analysis.factors.volatilityRisk] || 0) * 0.3
+        ));
+
+        if (analysis.riskScore >= 70) analysis.overallRiskLevel = '🔴 EXTREME';
+        else if (analysis.riskScore >= 50) analysis.overallRiskLevel = '🟠 HIGH';
+        else if (analysis.riskScore >= 30) analysis.overallRiskLevel = '🟡 MODERATE';
+        else if (analysis.riskScore >= 10) analysis.overallRiskLevel = '🟢 LOW';
+        else analysis.overallRiskLevel = '🔵 CONSERVATIVE';
+
+        // Generate warnings and recommendations
+        if (betToWealthRatio > 0.05) {
+            analysis.warnings.push('Betting more than 5% of wealth per game');
+            analysis.recommendations.push('Consider reducing bet sizes to preserve wealth');
+        }
+        
+        if (gamblingAnalysis.roi < -50) {
+            analysis.warnings.push('Significant gambling losses detected');
+            analysis.recommendations.push('Consider taking a break or setting loss limits');
+        }
+
+        return analysis;
+    },
+
+    /**
+     * CALCULATE PERFORMANCE METRICS
+     */
+    calculatePerformanceMetrics(gamblingAnalysis, totalBalance) {
         return {
-            top10: total > 0 ? (top10 / total * 100).toFixed(1) : 0,
-            bottom50: total > 0 ? (bottom50 / total * 100).toFixed(1) : 0
+            profitabilityScore: gamblingAnalysis.roi > 0 ? Math.min(gamblingAnalysis.roi, 100) : Math.max(gamblingAnalysis.roi, -100),
+            consistencyScore: gamblingAnalysis.totalGames > 0 ? 
+                100 - Math.min((Math.abs(gamblingAnalysis.biggestWin - gamblingAnalysis.avgBet) / gamblingAnalysis.avgBet * 100), 100) : 0,
+            experienceLevel: this.calculateExperienceLevel(gamblingAnalysis.totalGames),
+            gamingEfficiency: gamblingAnalysis.totalWagered > 0 ? (gamblingAnalysis.totalWon / gamblingAnalysis.totalWagered) * 100 : 0
         };
     },
 
-    interpretGini(gini) {
-        if (gini < 0.3) return '(Very Equal)';
-        if (gini < 0.5) return '(Moderate Inequality)';
-        if (gini < 0.7) return '(High Inequality)';
-        return '(Extreme Inequality)';
+    /**
+     * CALCULATE EXPERIENCE LEVEL
+     */
+    calculateExperienceLevel(totalGames) {
+        if (totalGames >= 10000) return 'LEGENDARY';
+        if (totalGames >= 5000) return 'EXPERT';
+        if (totalGames >= 1000) return 'EXPERIENCED';
+        if (totalGames >= 100) return 'INTERMEDIATE';
+        if (totalGames >= 10) return 'BEGINNER';
+        return 'NOVICE';
     },
 
-    interpretWealthDistribution(gini, concentration) {
-        if (gini < 0.3) {
-            return '🟢 Wealth is fairly distributed across users, promoting economic stability.';
-        } else if (gini < 0.5) {
-            return '🟡 Moderate wealth inequality exists but remains manageable.';
-        } else {
-            return '🔴 High wealth concentration may limit economic participation for newer users.';
+    /**
+     * GET SHOP ANALYTICS
+     */
+    async getShopAnalytics(userId) {
+        // Integration with shop system - placeholder for now
+        return {
+            totalPurchases: 0,
+            totalSpent: 0,
+            activeBoosts: 0,
+            favoriteCategory: 'None'
+        };
+    },
+
+    /**
+     * GET TIER INDEX FOR SORTING
+     */
+    getTierIndex(tierName) {
+        const tiers = ['Broke', 'Poor', 'Working Class', 'Middle Class', 'Upper Class', 'Rich', 'Very Rich', 'Ultra Rich', 'Mega Rich', 'Billionaire'];
+        return tiers.indexOf(tierName);
+    },
+
+    /**
+     * BUILD MEGA COMPREHENSIVE ECONOMY EMBED
+     */
+    async buildMegaEconomyEmbed(serverData, personalData, taxationData, gamblingData, targetUser) {
+        const isOffEconomy = personalData.isOffEconomy;
+        
+        // Calculate comprehensive metrics
+        const serverMetrics = {
+            wealthInequality: serverData.economicMetrics.giniCoefficient.toFixed(3),
+            economicHealth: this.calculateEconomicHealth(serverData),
+            activityRate: ((serverData.activityAnalysis.activeGamblers / serverData.totalUsers) * 100).toFixed(1)
+        };
+
+        const personalMetrics = {
+            wealthRank: this.calculateWealthRank(personalData, serverData),
+            performanceGrade: this.calculatePerformanceGrade(personalData.performanceMetrics),
+            riskStatus: personalData.riskAssessment.overallRiskLevel
+        };
+
+        // Build ultra-detailed fields
+        const topFields = [
+            {
+                name: '🌍 SERVER ECONOMY OVERVIEW',
+                value: `**Total Users:** ${serverData.totalUsers.toLocaleString()}\n` +
+                       `**Total Wealth:** ${fmt(serverData.totalWealth)}\n` +
+                       `**Wealth Inequality (Gini):** ${serverMetrics.wealthInequality}\n` +
+                       `**Economic Health:** ${serverMetrics.economicHealth}\n` +
+                       `**Activity Rate:** ${serverMetrics.activityRate}%`,
+                inline: false
+            },
+            {
+                name: '📊 WEALTH DISTRIBUTION ANALYSIS',
+                value: `**Top 1%:** ${serverData.wealthDistribution.top1Percent.users} users (${serverData.wealthDistribution.top1Percent.percentage.toFixed(1)}% wealth)\n` +
+                       `**Top 5%:** ${serverData.wealthDistribution.top5Percent.users} users (${serverData.wealthDistribution.top5Percent.percentage.toFixed(1)}% wealth)\n` +
+                       `**Top 10%:** ${serverData.wealthDistribution.top10Percent.users} users (${serverData.wealthDistribution.top10Percent.percentage.toFixed(1)}% wealth)\n` +
+                       `**Bottom 50%:** ${serverData.wealthDistribution.bottom50Percent.users} users (${serverData.wealthDistribution.bottom50Percent.percentage.toFixed(1)}% wealth)\n` +
+                       `**Median Wealth:** ${fmt(serverData.economicMetrics.medianWealth)}`,
+                inline: true
+            },
+            {
+                name: `👤 ${personalData.username.toUpperCase()}'S PERSONAL ANALYTICS`,
+                value: `**Net Worth:** ${fmt(personalData.wealthMetrics.totalWealth)}\n` +
+                       `**Wealth Rank:** ${personalMetrics.wealthRank}\n` +
+                       `**Economic Tier:** ${personalData.wealthMetrics.tierDisplay}\n` +
+                       `**Performance Grade:** ${personalMetrics.performanceGrade}\n` +
+                       `**Risk Level:** ${personalMetrics.riskStatus}`,
+                inline: true
+            },
+            {
+                name: '🎰 GAMBLING PERFORMANCE ANALYSIS',
+                value: `**Total Games:** ${personalData.gamblingAnalysis.totalGames.toLocaleString()}\n` +
+                       `**Win Rate:** ${personalData.gamblingAnalysis.winRate.toFixed(1)}%\n` +
+                       `**Net Profit:** ${personalData.gamblingAnalysis.netProfit >= 0 ? '+' : ''}${fmt(personalData.gamblingAnalysis.netProfit)}\n` +
+                       `**ROI:** ${personalData.gamblingAnalysis.roi.toFixed(2)}%\n` +
+                       `**Experience:** ${this.calculateExperienceLevel(personalData.gamblingAnalysis.totalGames)}`,
+                inline: true
+            },
+            {
+                name: '💸 WEALTH TAX ANALYSIS',
+                value: `**Wealthy Users:** ${taxationData.summary.wealthyUsers}\n` +
+                       `**Taxable Users:** ${taxationData.summary.taxableUsers}\n` +
+                       `**Tax Avoidance Rate:** ${taxationData.taxEfficiency.avoidanceRate.toFixed(1)}%\n` +
+                       `**Potential Revenue:** ${fmt(taxationData.summary.potentialTaxRevenue)}\n` +
+                       `**Collection Efficiency:** ${taxationData.taxEfficiency.collectionRate.toFixed(1)}%`,
+                inline: true
+            },
+            {
+                name: '🎮 SERVER GAMBLING STATISTICS',
+                value: `**Total Games:** ${gamblingData.overview.totalGames.toLocaleString()}\n` +
+                       `**Total Wagered:** ${fmt(gamblingData.overview.totalWagered)}\n` +
+                       `**House Edge:** ${gamblingData.overview.houseEdge.toFixed(2)}%\n` +
+                       `**Active Gamblers:** ${gamblingData.overview.totalPlayers}\n` +
+                       `**Biggest Win:** ${fmt(gamblingData.overview.biggestWin)}`,
+                inline: true
+            }
+        ];
+
+        // Add personal tax status if applicable
+        if (!isOffEconomy && personalData.taxStatus && Object.keys(personalData.taxStatus).length > 0) {
+            const taxInfo = personalData.taxStatus.isSubjectToTax 
+                ? `⚠️ **TAXABLE:** ${fmt(personalData.taxStatus.taxAmount)} potential tax`
+                : `✅ **EXEMPT:** ${personalData.taxStatus.reason.replace(/_/g, ' ')}`;
+            
+            topFields.push({
+                name: `💰 ${personalData.username.toUpperCase()}'S TAX STATUS`,
+                value: `**Tax Bracket:** ${personalData.taxStatus.bracket || 'N/A'}\n` +
+                       `${taxInfo}\n` +
+                       `**High Stakes Gambling:** ${personalData.taxStatus.bettingAnalysis?.hasHighStakes ? 'Yes' : 'No'}\n` +
+                       `**Days Since Last Game:** ${personalData.taxStatus.daysSinceLastGame || 'N/A'}`,
+                inline: false
+            });
         }
+
+        // Add top games performance
+        if (personalData.gamblingAnalysis.favoriteGames.length > 0) {
+            const topGames = personalData.gamblingAnalysis.favoriteGames.slice(0, 3).map(game => 
+                `**${game.name}:** ${game.gamesPlayed} games (${game.winRate}% WR, ${game.roi.toFixed(1)}% ROI)`
+            ).join('\n');
+            
+            topFields.push({
+                name: '🏆 TOP GAMES BY VOLUME',
+                value: topGames,
+                inline: false
+            });
+        }
+
+        // Add server gambling leaders
+        if (gamblingData.playerAnalysis.mostActivePlayer) {
+            topFields.push({
+                name: '👑 SERVER GAMBLING LEADERS',
+                value: `**Most Active:** ${gamblingData.playerAnalysis.mostActivePlayer.username} (${gamblingData.playerAnalysis.mostActivePlayer.games.toLocaleString()} games)\n` +
+                       `**Biggest Winner:** ${gamblingData.playerAnalysis.biggestWinner?.username || 'None'} (${gamblingData.playerAnalysis.biggestWinner ? '+' + fmt(gamblingData.playerAnalysis.biggestWinner.profit) : 'N/A'})\n` +
+                       `**Most Popular Game:** ${gamblingData.patterns.popularityRanking[0]?.game || 'None'} (${gamblingData.patterns.popularityRanking[0]?.popularity || '0'}%)`,
+                inline: false
+            });
+        }
+
+        const bankFields = [
+            { name: '💎 Server Wealth', value: fmt(serverData.totalWealth), inline: true },
+            { name: `💰 ${personalData.username} Worth`, value: fmt(personalData.wealthMetrics.totalWealth), inline: true },
+            { name: '📈 Personal ROI', value: `${personalData.gamblingAnalysis.roi.toFixed(2)}%`, inline: true },
+            { name: '🏠 Server House Edge', value: `${gamblingData.overview.houseEdge.toFixed(2)}%`, inline: true },
+            { name: '💸 Tax Revenue', value: fmt(taxationData.summary.potentialTaxRevenue), inline: true },
+            { name: '🎯 Activity Rate', value: `${serverMetrics.activityRate}%`, inline: true }
+        ];
+
+        return buildSessionEmbed({
+            title: `📊 COMPLETE ECONOMY ANALYSIS ${isOffEconomy ? '(👑 DEVELOPER VIEW)' : ''}`,
+            topFields,
+            bankFields,
+            stageText: 'COMPREHENSIVE ANALYSIS COMPLETE',
+            color: isOffEconomy ? 0x9B59B6 : (personalData.wealthMetrics.totalWealth >= 1000000 ? 0xFFD700 : 0x00FF00),
+            footer: `🔍 Mega Economy Analytics • ${personalData.username} Focus • ATIVE Casino`,
+            image: 'attachment://mega-economy-analysis.png'
+        });
     },
 
-    analyzeTrend(trends) {
-        if (trends.length < 3) return 'Insufficient data for trend analysis';
+    /**
+     * CALCULATE ECONOMIC HEALTH SCORE
+     */
+    calculateEconomicHealth(serverData) {
+        // Simple health calculation based on activity, wealth distribution, and participation
+        const activityScore = (serverData.activityAnalysis.activeGamblers / serverData.totalUsers) * 100;
+        const equalityScore = (1 - serverData.economicMetrics.giniCoefficient) * 100;
+        const participationScore = (serverData.activityAnalysis.totalGamers / serverData.totalUsers) * 100;
         
-        const recent = trends.slice(-3);
-        const older = trends.slice(0, 3);
+        const healthScore = (activityScore * 0.4 + equalityScore * 0.3 + participationScore * 0.3);
         
-        const recentAvg = recent.reduce((sum, t) => sum + t.totalWealth, 0) / recent.length;
-        const olderAvg = older.reduce((sum, t) => sum + t.totalWealth, 0) / older.length;
+        if (healthScore >= 80) return '🟢 EXCELLENT';
+        if (healthScore >= 60) return '🟡 GOOD';
+        if (healthScore >= 40) return '🟠 FAIR';
+        return '🔴 POOR';
+    },
+
+    /**
+     * CALCULATE WEALTH RANK
+     */
+    calculateWealthRank(personalData, serverData) {
+        const userBalance = personalData.wealthMetrics.totalWealth;
+        let rank = 1;
         
-        const change = ((recentAvg - olderAvg) / olderAvg) * 100;
+        for (const userData of serverData.wealthData) {
+            if (userData.balance > userBalance) {
+                rank++;
+            }
+        }
         
-        if (change > 5) return '📈 Strong upward economic trend';
-        if (change > 1) return '📊 Positive economic growth';
-        if (change > -1) return '📊 Stable economic conditions';
-        if (change > -5) return '📉 Economic decline detected';
-        return '🔴 Significant economic contraction';
+        const percentile = ((serverData.totalUsers - rank + 1) / serverData.totalUsers) * 100;
+        return `#${rank} (Top ${percentile.toFixed(1)}%)`;
     },
 
-    calculateTopPercentage(topUsers, totalWealth, percentage) {
-        const topCount = Math.ceil(topUsers.length * percentage);
-        const topWealth = topUsers.slice(0, topCount).reduce((sum, u) => sum + u.totalBalance, 0);
-        return totalWealth > 0 ? (topWealth / totalWealth * 100).toFixed(1) : 0;
+    /**
+     * CALCULATE PERFORMANCE GRADE
+     */
+    calculatePerformanceGrade(performanceMetrics) {
+        const score = (
+            Math.max(0, Math.min(100, performanceMetrics.profitabilityScore + 50)) * 0.4 +
+            performanceMetrics.consistencyScore * 0.3 +
+            performanceMetrics.gamingEfficiency * 0.3
+        );
+        
+        if (score >= 90) return 'A+ EXCEPTIONAL';
+        if (score >= 80) return 'A EXCELLENT';
+        if (score >= 70) return 'B+ GOOD';
+        if (score >= 60) return 'B AVERAGE';
+        if (score >= 50) return 'C+ BELOW AVERAGE';
+        if (score >= 40) return 'C POOR';
+        return 'F FAILING';
     },
 
-    calculateBankRatio(users) {
-        const ratios = users.map(u => u.totalBalance > 0 ? (u.bank / u.totalBalance * 100) : 0);
-        return ratios.length > 0 ? (ratios.reduce((sum, r) => sum + r, 0) / ratios.length).toFixed(1) : 0;
+    /**
+     * GENERATE MEGA COMPREHENSIVE ECONOMY CHART
+     */
+    async generateMegaEconomyChart(serverData, personalData, taxationData, gamblingData, targetUser) {
+        const canvas = createCanvas(1200, 800);
+        const ctx = canvas.getContext('2d');
+
+        // Background
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, 1200, 800);
+
+        // Title
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('COMPLETE ECONOMY ANALYSIS', 600, 30);
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText(`Focus: ${targetUser.displayName} | Server: ${serverData.totalUsers} users`, 600, 55);
+
+        // SECTION 1: Wealth Distribution (Top Left)
+        this.drawWealthDistributionChart(ctx, serverData, 50, 80, 280, 200);
+        
+        // SECTION 2: Personal Analytics (Top Right)  
+        this.drawPersonalAnalyticsChart(ctx, personalData, 370, 80, 280, 200);
+        
+        // SECTION 3: Tax Analysis (Middle Left)
+        this.drawTaxAnalysisChart(ctx, taxationData, 50, 320, 280, 180);
+        
+        // SECTION 4: Gambling Performance (Middle Right)
+        this.drawGamblingPerformanceChart(ctx, gamblingData, personalData, 370, 320, 280, 180);
+        
+        // SECTION 5: Risk Assessment (Bottom Left)
+        this.drawRiskAssessmentChart(ctx, personalData.riskAssessment, 50, 540, 280, 180);
+        
+        // SECTION 6: Server Statistics (Bottom Right)
+        this.drawServerStatsChart(ctx, serverData, gamblingData, 370, 540, 280, 180);
+
+        // SECTION 7: Unified Timeline/Trend (Bottom Full Width)
+        this.drawEconomicTrendChart(ctx, serverData, personalData, 680, 80, 480, 640);
+
+        return canvas.toBuffer('image/png');
     },
 
-    classifyWealth(balance) {
-        if (balance >= 100000000) return '👑 **Ultra Rich** - Economic elite with massive influence';
-        if (balance >= 50000000) return '💎 **Very Rich** - Major economic player';
-        if (balance >= 10000000) return '🏆 **Rich** - Significant wealth accumulation';
-        if (balance >= 1000000) return '💰 **Wealthy** - Comfortable financial position';
-        if (balance >= 100000) return '📈 **Upper Class** - Above average wealth';
-        if (balance >= 10000) return '🏠 **Middle Class** - Stable economic standing';
-        if (balance >= 1000) return '⚒️ **Working Class** - Building wealth steadily';
-        return '🌱 **Starting Out** - Beginning economic journey';
+    /**
+     * DRAW WEALTH DISTRIBUTION CHART
+     */
+    drawWealthDistributionChart(ctx, serverData, x, y, width, height) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('WEALTH DISTRIBUTION', x + width/2, y - 10);
+
+        const centerX = x + width/2;
+        const centerY = y + height/2;
+        const radius = 60;
+
+        // Draw wealth concentration pie chart
+        const categories = [
+            { name: 'Top 1%', value: serverData.wealthDistribution.top1Percent.percentage, color: '#FFD700' },
+            { name: 'Top 5%', value: serverData.wealthDistribution.top5Percent.percentage - serverData.wealthDistribution.top1Percent.percentage, color: '#FFA500' },
+            { name: 'Top 10%', value: serverData.wealthDistribution.top10Percent.percentage - serverData.wealthDistribution.top5Percent.percentage, color: '#FF6347' },
+            { name: 'Rest', value: 100 - serverData.wealthDistribution.top10Percent.percentage, color: '#4CAF50' }
+        ];
+
+        let startAngle = 0;
+        categories.forEach(category => {
+            const sliceAngle = (category.value / 100) * 2 * Math.PI;
+            
+            ctx.fillStyle = category.color;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+            ctx.lineTo(centerX, centerY);
+            ctx.fill();
+            
+            startAngle += sliceAngle;
+        });
+
+        // Legend
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'left';
+        categories.forEach((category, i) => {
+            const legendY = y + height + 10 + (i * 12);
+            ctx.fillStyle = category.color;
+            ctx.fillRect(x, legendY, 8, 8);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText(`${category.name}: ${category.value.toFixed(1)}%`, x + 12, legendY + 7);
+        });
     },
 
-    classifyStrategy(bankRatio) {
-        if (bankRatio >= 80) return 'Conservative Saver';
-        if (bankRatio >= 60) return 'Balanced Investor';
-        if (bankRatio >= 40) return 'Active Trader';
-        if (bankRatio >= 20) return 'Risk Taker';
-        return 'High Risk Player';
+    /**
+     * DRAW PERSONAL ANALYTICS CHART
+     */
+    drawPersonalAnalyticsChart(ctx, personalData, x, y, width, height) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${personalData.username.toUpperCase()} ANALYTICS`, x + width/2, y - 10);
+
+        // Wallet vs Bank pie chart
+        const centerX = x + width/2;
+        const centerY = y + height/3;
+        const radius = 40;
+
+        const walletPercent = personalData.wealthMetrics.walletPercent;
+        const bankPercent = personalData.wealthMetrics.bankPercent;
+
+        if (personalData.wealthMetrics.totalWealth > 0) {
+            // Wallet slice
+            const walletAngle = (walletPercent / 100) * 2 * Math.PI;
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, walletAngle);
+            ctx.lineTo(centerX, centerY);
+            ctx.fill();
+
+            // Bank slice
+            ctx.fillStyle = '#2196F3';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, walletAngle, 2 * Math.PI);
+            ctx.lineTo(centerX, centerY);
+            ctx.fill();
+        }
+
+        // Performance bars
+        ctx.font = '10px Arial';
+        ctx.fillStyle = '#FFFFFF';
+        
+        const metrics = [
+            { label: 'Win Rate', value: personalData.gamblingAnalysis.winRate, max: 100, color: '#4CAF50' },
+            { label: 'ROI', value: Math.max(-100, Math.min(100, personalData.gamblingAnalysis.roi + 50)), max: 100, color: '#FF9800' },
+            { label: 'Risk Score', value: personalData.riskAssessment.riskScore, max: 100, color: '#F44336' }
+        ];
+
+        metrics.forEach((metric, i) => {
+            const barY = y + height/2 + 10 + (i * 20);
+            const barWidth = (metric.value / metric.max) * (width - 40);
+            
+            ctx.fillStyle = '#333';
+            ctx.fillRect(x + 10, barY, width - 20, 12);
+            
+            ctx.fillStyle = metric.color;
+            ctx.fillRect(x + 10, barY, barWidth, 12);
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.textAlign = 'left';
+            ctx.fillText(metric.label, x + 10, barY - 2);
+            ctx.textAlign = 'right';
+            ctx.fillText(`${metric.value.toFixed(1)}`, x + width - 10, barY + 10);
+        });
+    },
+
+    /**
+     * DRAW TAX ANALYSIS CHART
+     */
+    drawTaxAnalysisChart(ctx, taxationData, x, y, width, height) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('WEALTH TAX ANALYSIS', x + width/2, y - 10);
+
+        const centerX = x + width/2;
+        const centerY = y + height/2;
+        const radius = 50;
+
+        const categories = [
+            { name: 'Taxable', value: taxationData.summary.taxableUsers, color: '#FF6B35' },
+            { name: 'High Stakes Exempt', value: taxationData.summary.highStakesGamblers, color: '#4CAF50' },
+            { name: 'Other Exempt', value: taxationData.summary.exemptUsers - taxationData.summary.highStakesGamblers, color: '#2196F3' }
+        ];
+
+        const total = categories.reduce((sum, cat) => sum + cat.value, 0);
+        
+        if (total > 0) {
+            let startAngle = 0;
+            categories.forEach(category => {
+                const sliceAngle = (category.value / total) * 2 * Math.PI;
+                
+                ctx.fillStyle = category.color;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+                ctx.lineTo(centerX, centerY);
+                ctx.fill();
+                
+                startAngle += sliceAngle;
+            });
+        }
+
+        // Tax efficiency bar
+        ctx.font = '12px Arial';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Revenue: ${fmt(taxationData.summary.potentialTaxRevenue)}`, centerX, y + height - 20);
+        ctx.fillText(`Efficiency: ${taxationData.taxEfficiency.collectionRate.toFixed(1)}%`, centerX, y + height - 5);
+    },
+
+    /**
+     * DRAW GAMBLING PERFORMANCE CHART
+     */
+    drawGamblingPerformanceChart(ctx, gamblingData, personalData, x, y, width, height) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('GAMBLING PERFORMANCE', x + width/2, y - 10);
+
+        // Top games bar chart
+        const topGames = personalData.gamblingAnalysis.favoriteGames.slice(0, 5);
+        const maxGames = Math.max(...topGames.map(g => g.gamesPlayed), 1);
+
+        topGames.forEach((game, i) => {
+            const barHeight = 15;
+            const barY = y + 20 + (i * 25);
+            const barWidth = (game.gamesPlayed / maxGames) * (width - 100);
+
+            // Background
+            ctx.fillStyle = '#333';
+            ctx.fillRect(x + 80, barY, width - 100, barHeight);
+
+            // Bar
+            const winRate = parseFloat(game.winRate);
+            ctx.fillStyle = winRate > 50 ? '#4CAF50' : '#F44336';
+            ctx.fillRect(x + 80, barY, barWidth, barHeight);
+
+            // Label
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(game.name.substring(0, 8), x + 5, barY + 12);
+            ctx.textAlign = 'right';
+            ctx.fillText(`${game.gamesPlayed}`, x + width - 5, barY + 12);
+        });
+
+        // Server comparison
+        ctx.font = '10px Arial';
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Server Avg: ${gamblingData.overview.houseEdge.toFixed(1)}% House Edge`, x + width/2, y + height - 10);
+    },
+
+    /**
+     * DRAW RISK ASSESSMENT CHART
+     */
+    drawRiskAssessmentChart(ctx, riskAssessment, x, y, width, height) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('RISK ASSESSMENT', x + width/2, y - 10);
+
+        // Risk gauge
+        const centerX = x + width/2;
+        const centerY = y + height/2;
+        const radius = 50;
+
+        // Background gauge
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 15;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI);
+        ctx.stroke();
+
+        // Risk level gauge
+        const riskAngle = (riskAssessment.riskScore / 100) * Math.PI;
+        const riskColor = riskAssessment.riskScore >= 70 ? '#FF0000' : 
+                         riskAssessment.riskScore >= 40 ? '#FFA500' : '#4CAF50';
+        
+        ctx.strokeStyle = riskColor;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, riskAngle);
+        ctx.stroke();
+
+        // Risk score text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${riskAssessment.riskScore}`, centerX, centerY + 20);
+        
+        ctx.font = '10px Arial';
+        ctx.fillText(riskAssessment.overallRiskLevel, centerX, centerY + 35);
+    },
+
+    /**
+     * DRAW SERVER STATS CHART
+     */
+    drawServerStatsChart(ctx, serverData, gamblingData, x, y, width, height) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('SERVER STATISTICS', x + width/2, y - 10);
+
+        const stats = [
+            { label: 'Users', value: serverData.totalUsers.toLocaleString(), color: '#4CAF50' },
+            { label: 'Total Wealth', value: fmt(serverData.totalWealth), color: '#FFD700' },
+            { label: 'Active Rate', value: `${((serverData.activityAnalysis.activeGamblers / serverData.totalUsers) * 100).toFixed(1)}%`, color: '#2196F3' },
+            { label: 'Games Played', value: gamblingData.overview.totalGames.toLocaleString(), color: '#FF9800' },
+            { label: 'House Edge', value: `${gamblingData.overview.houseEdge.toFixed(2)}%`, color: '#9C27B0' }
+        ];
+
+        stats.forEach((stat, i) => {
+            const statY = y + 25 + (i * 30);
+            
+            ctx.fillStyle = stat.color;
+            ctx.fillRect(x + 10, statY, 8, 8);
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(stat.label, x + 25, statY + 7);
+            ctx.textAlign = 'right';
+            ctx.fillText(stat.value, x + width - 10, statY + 7);
+        });
+    },
+
+    /**
+     * DRAW ECONOMIC TREND CHART
+     */
+    drawEconomicTrendChart(ctx, serverData, personalData, x, y, width, height) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('ECONOMIC HEALTH & TRENDS', x + width/2, y - 10);
+
+        // Economic health indicators
+        const indicators = [
+            { name: 'Wealth Inequality', value: serverData.economicMetrics.giniCoefficient * 100, max: 100, color: '#FF6B35' },
+            { name: 'Activity Rate', value: (serverData.activityAnalysis.activeGamblers / serverData.totalUsers) * 100, max: 100, color: '#4CAF50' },
+            { name: 'Participation', value: (serverData.activityAnalysis.totalGamers / serverData.totalUsers) * 100, max: 100, color: '#2196F3' },
+            { name: 'Personal ROI+50', value: Math.max(0, Math.min(100, personalData.gamblingAnalysis.roi + 50)), max: 100, color: '#FFD700' }
+        ];
+
+        const chartHeight = height - 100;
+        const barWidth = (width - 80) / indicators.length;
+
+        indicators.forEach((indicator, i) => {
+            const barX = x + 40 + (i * barWidth);
+            const barHeight = (indicator.value / indicator.max) * chartHeight;
+            const barY = y + 40 + (chartHeight - barHeight);
+
+            // Background bar
+            ctx.fillStyle = '#333';
+            ctx.fillRect(barX, y + 40, barWidth - 10, chartHeight);
+
+            // Value bar
+            ctx.fillStyle = indicator.color;
+            ctx.fillRect(barX, barY, barWidth - 10, barHeight);
+
+            // Label
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            
+            // Rotate text for labels
+            ctx.save();
+            ctx.translate(barX + (barWidth - 10)/2, y + height - 20);
+            ctx.rotate(-Math.PI / 4);
+            ctx.fillText(indicator.name, 0, 0);
+            ctx.restore();
+
+            // Value
+            ctx.fillText(`${indicator.value.toFixed(1)}`, barX + (barWidth - 10)/2, barY - 5);
+        });
+
+        // Summary text
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#FFFFFF';
+        const economicHealth = this.calculateEconomicHealth(serverData);
+        ctx.fillText(`Overall Economic Health: ${economicHealth}`, x + width/2, y + height - 5);
     }
 };
