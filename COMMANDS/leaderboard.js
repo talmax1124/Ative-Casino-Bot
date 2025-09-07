@@ -226,7 +226,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🏆 Regular Economy Leaderboard')
-            .setDescription(`Top ${limit} users in regular economy (${totalCount} total users)\n🏆 **W**ins • 💀 **L**osses • **WR** Win Rate`)
+            .setDescription(`Top ${limit} users in regular economy (${totalCount} total users)\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🏆 **W**ins • 💀 **L**osses • **WR** Win Rate`)
             .setColor(0xFFD700)
             // Discord enforces a 1024 char max per field; chunk long text
             // into multiple fields to avoid AggregateError: "Received one or more errors"
@@ -462,7 +462,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('🔴 Off Economy Leaderboard')
-            .setDescription(`Top ${limit} users in Off Economy (${totalCount} total users)\n🏆 **W**ins • 💀 **L**osses • **WR** Win Rate`)
+            .setDescription(`Top ${limit} users in Off Economy (${totalCount} total users)\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🏆 **W**ins • 💀 **L**osses • **WR** Win Rate`)
             .setColor(0xFF6B6B)
             .setFooter({ 
                 text: `🔴 Off Economy • Exclusive leaderboard • Top ${limit} of ${totalCount}` 

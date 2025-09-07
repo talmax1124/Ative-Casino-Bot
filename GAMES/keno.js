@@ -119,41 +119,68 @@ class KenoGame {
     }
 
     /**
-     * Create number selection buttons (1-80)
+     * Create number selection buttons - simplified interface
      */
     createNumberButtons() {
         const components = [];
         
-        // Create 4 rows of 20 numbers each (1-20, 21-40, 41-60, 61-80)
-        for (let row = 0; row < 4; row++) {
-            const buttons = [];
-            for (let col = 0; col < 20; col++) {
-                const number = row * 20 + col + 1;
-                const isSelected = this.selectedNumbers.includes(number);
-                
-                buttons.push(
-                    new ButtonBuilder()
-                        .setCustomId(`keno_num_${number}_${this.sessionId}`)
-                        .setLabel(number.toString())
-                        .setStyle(isSelected ? ButtonStyle.Success : ButtonStyle.Secondary)
-                        .setDisabled(false)
-                );
-            }
-            components.push(new ActionRowBuilder().addComponents(buttons));
-        }
-        
-        // Add control buttons
-        const controlButtons = [];
-        
-        // Quick Pick remaining
-        if (this.selectedNumbers.length < this.spots) {
-            controlButtons.push(
+        // Row 1: Numbers 1-10
+        const row1 = [];
+        for (let i = 1; i <= 5; i++) {
+            const isSelected = this.selectedNumbers.includes(i);
+            row1.push(
                 new ButtonBuilder()
-                    .setCustomId(`keno_quickpick_${this.sessionId}`)
-                    .setLabel(`🎲 Quick Pick (${this.spots - this.selectedNumbers.length})`)
-                    .setStyle(ButtonStyle.Primary)
+                    .setCustomId(`keno_num_${i}_${this.sessionId}`)
+                    .setLabel(i.toString())
+                    .setStyle(isSelected ? ButtonStyle.Success : ButtonStyle.Secondary)
             );
         }
+        components.push(new ActionRowBuilder().addComponents(row1));
+        
+        // Row 2: Numbers 6-10
+        const row2 = [];
+        for (let i = 6; i <= 10; i++) {
+            const isSelected = this.selectedNumbers.includes(i);
+            row2.push(
+                new ButtonBuilder()
+                    .setCustomId(`keno_num_${i}_${this.sessionId}`)
+                    .setLabel(i.toString())
+                    .setStyle(isSelected ? ButtonStyle.Success : ButtonStyle.Secondary)
+            );
+        }
+        components.push(new ActionRowBuilder().addComponents(row2));
+        
+        // Row 3: Number range selector buttons
+        const rangeButtons = [
+            new ButtonBuilder()
+                .setCustomId(`keno_range_11_20_${this.sessionId}`)
+                .setLabel('11-20')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(`keno_range_21_40_${this.sessionId}`)
+                .setLabel('21-40')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(`keno_range_41_60_${this.sessionId}`)
+                .setLabel('41-60')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(`keno_range_61_80_${this.sessionId}`)
+                .setLabel('61-80')
+                .setStyle(ButtonStyle.Primary)
+        ];
+        components.push(new ActionRowBuilder().addComponents(rangeButtons));
+        
+        // Row 4: Control buttons
+        const controlButtons = [];
+        
+        // Quick Pick ALL
+        controlButtons.push(
+            new ButtonBuilder()
+                .setCustomId(`keno_quickpick_${this.sessionId}`)
+                .setLabel(`🎲 Quick Pick All`)
+                .setStyle(ButtonStyle.Primary)
+        );
         
         // Play button (enabled when correct number selected)
         controlButtons.push(
@@ -203,13 +230,20 @@ class KenoGame {
             if (customId.startsWith(`keno_num_`)) {
                 const number = parseInt(customId.split('_')[2]);
                 await this.toggleNumber(number, buttonInteraction);
+            } else if (customId.startsWith(`keno_range_`)) {
+                const rangeParts = customId.split('_');
+                const startNum = parseInt(rangeParts[2]);
+                const endNum = parseInt(rangeParts[3]);
+                await this.showRangeNumbers(startNum, endNum, buttonInteraction);
             } else if (customId === `keno_quickpick_${this.sessionId}`) {
-                await this.quickPickRemaining(buttonInteraction);
+                await this.quickPickAll(buttonInteraction);
             } else if (customId === `keno_play_${this.sessionId}`) {
                 collector.stop();
                 await this.playGame(buttonInteraction);
             } else if (customId === `keno_clear_${this.sessionId}`) {
                 await this.clearSelection(buttonInteraction);
+            } else if (customId === `keno_back_${this.sessionId}`) {
+                await this.backToMainSelection(buttonInteraction);
             }
         });
 
@@ -245,27 +279,69 @@ class KenoGame {
     }
 
     /**
-     * Quick pick remaining numbers
+     * Quick pick all numbers
      */
-    async quickPickRemaining(interaction) {
-        const remaining = this.spots - this.selectedNumbers.length;
-        const availableNumbers = [];
-        
-        for (let i = 1; i <= CONFIG.TOTAL_NUMBERS; i++) {
-            if (!this.selectedNumbers.includes(i)) {
-                availableNumbers.push(i);
-            }
-        }
-        
-        // Randomly select remaining numbers
-        for (let i = 0; i < remaining; i++) {
-            const randomIndex = secureRandomInt(0, availableNumbers.length);
-            this.selectedNumbers.push(availableNumbers.splice(randomIndex, 1)[0]);
-        }
+    async quickPickAll(interaction) {
+        this.selectedNumbers = this.generateRandomNumbers(this.spots);
         
         // Update display
         const embed = this.createSelectionEmbed();
         const components = this.createNumberButtons();
+        
+        await interaction.editReply({
+            embeds: [embed],
+            components: components
+        });
+    }
+
+    /**
+     * Show numbers in a specific range for selection
+     */
+    async showRangeNumbers(startNum, endNum, interaction) {
+        // Create a temporary UI showing numbers in the range
+        const embed = new EmbedBuilder()
+            .setTitle(`🎲 KENO - Select from ${startNum}-${endNum}`)
+            .setDescription(`**Currently Selected:** ${this.selectedNumbers.length}/${this.spots}\n**Numbers:** ${this.selectedNumbers.sort((a,b) => a-b).join(', ') || 'None yet'}`)
+            .addFields({
+                name: `Available Numbers (${startNum}-${endNum})`,
+                value: `Click the numbers you want to select from this range`,
+                inline: false
+            })
+            .setColor(0x4169E1);
+
+        const components = [];
+        
+        // Create buttons for the range (max 5 per row)
+        let currentRow = [];
+        for (let num = startNum; num <= endNum; num++) {
+            const isSelected = this.selectedNumbers.includes(num);
+            
+            currentRow.push(
+                new ButtonBuilder()
+                    .setCustomId(`keno_num_${num}_${this.sessionId}`)
+                    .setLabel(num.toString())
+                    .setStyle(isSelected ? ButtonStyle.Success : ButtonStyle.Secondary)
+            );
+            
+            if (currentRow.length === 5) {
+                components.push(new ActionRowBuilder().addComponents(currentRow));
+                currentRow = [];
+            }
+        }
+        
+        // Add remaining buttons
+        if (currentRow.length > 0) {
+            components.push(new ActionRowBuilder().addComponents(currentRow));
+        }
+        
+        // Add back button
+        const backButton = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId(`keno_back_${this.sessionId}`)
+                .setLabel('⬅️ Back to Main')
+                .setStyle(ButtonStyle.Secondary)
+        );
+        components.push(backButton);
         
         await interaction.editReply({
             embeds: [embed],
@@ -289,6 +365,19 @@ class KenoGame {
     }
 
     /**
+     * Go back to main selection screen
+     */
+    async backToMainSelection(interaction) {
+        const embed = this.createSelectionEmbed();
+        const components = this.createNumberButtons();
+        
+        await interaction.editReply({
+            embeds: [embed],
+            components: components
+        });
+    }
+
+    /**
      * Generate random numbers for quick pick
      */
     generateRandomNumbers(count) {
@@ -296,7 +385,7 @@ class KenoGame {
         const available = Array.from({length: CONFIG.TOTAL_NUMBERS}, (_, i) => i + 1);
         
         for (let i = 0; i < count; i++) {
-            const randomIndex = secureRandomInt(0, available.length);
+            const randomIndex = Math.floor(Math.random() * available.length);
             numbers.push(available.splice(randomIndex, 1)[0]);
         }
         
@@ -311,7 +400,7 @@ class KenoGame {
         this.drawnNumbers = [];
         
         for (let i = 0; i < CONFIG.DRAW_COUNT; i++) {
-            const randomIndex = secureRandomInt(0, available.length);
+            const randomIndex = Math.floor(Math.random() * available.length);
             this.drawnNumbers.push(available.splice(randomIndex, 1)[0]);
         }
         

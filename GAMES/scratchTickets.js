@@ -263,7 +263,7 @@ class ScratchTicketSystem {
 
             const success = await dbManager.createScratchTicket(
                 ticketId,
-                'UNCLAIMED', // Will be updated when someone claims it
+                null, // No userId yet - will be set when someone claims it
                 guildId,
                 channelId,
                 ticketData,

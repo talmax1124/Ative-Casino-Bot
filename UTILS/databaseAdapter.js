@@ -221,7 +221,7 @@ class DatabaseAdapter {
 
             `CREATE TABLE IF NOT EXISTS scratch_tickets (
                 id VARCHAR(50) PRIMARY KEY,
-                user_id VARCHAR(20) NOT NULL,
+                user_id VARCHAR(20) DEFAULT NULL,
                 guild_id VARCHAR(20) NOT NULL,
                 channel_id VARCHAR(20) NOT NULL,
                 ticket_data JSON NOT NULL,
@@ -328,7 +328,9 @@ class DatabaseAdapter {
                 `ALTER TABLE user_stats MODIFY COLUMN total_winnings DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
                 `ALTER TABLE user_stats MODIFY COLUMN total_losses_amount DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
                 // Fix scratch tickets status ENUM to include 'dropped'
-                `ALTER TABLE scratch_tickets MODIFY COLUMN status ENUM('dropped', 'active', 'scratching', 'won', 'lost', 'expired') DEFAULT 'dropped'`
+                `ALTER TABLE scratch_tickets MODIFY COLUMN status ENUM('dropped', 'active', 'scratching', 'won', 'lost', 'expired') DEFAULT 'dropped'`,
+                // Allow NULL user_id for unclaimed tickets
+                `ALTER TABLE scratch_tickets MODIFY COLUMN user_id VARCHAR(20) DEFAULT NULL`
             ];
             
             for (const query of alterQueries) {

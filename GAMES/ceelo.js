@@ -107,10 +107,9 @@ class CeeloGame {
             (playerRollValue % 6) + 1
         ].sort((a, b) => a - b);
         
-        // Generate house dice with anti-streak protection (check recent player results)
-        const possibleValues = [1, 2, 3, 4, 5, 6];
+        // Generate house dice using secure random (simplified to avoid anti-streak issues)
         this.houseDice = [
-            generateAntiStreakRandom(this.playerDice, possibleValues, 2),
+            secureRandomInt(1, 7),
             secureRandomInt(1, 7),
             secureRandomInt(1, 7)
         ].sort((a, b) => a - b);

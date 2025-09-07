@@ -224,7 +224,7 @@ class PayoutManager {
         const modernGames = [
             'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
             'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
-            'war','keno','spades','31','thirtyone','poker','lottery'
+            'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette'
         ];
         if (!modernGames.includes(gameType.toLowerCase())) {
             setActiveGame(userId, gameType);
