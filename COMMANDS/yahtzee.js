@@ -373,7 +373,7 @@ module.exports = {
                     amountStr,
                     GameType.YAHTZEE,
                     1,
-                    10000000
+                    null    // No maximum bet limit
                 );
                 if (!validation.isValid) {
                     return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });

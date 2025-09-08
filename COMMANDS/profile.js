@@ -862,9 +862,18 @@ module.exports = {
                 if (member) {
                     const roleItems = purchases.filter(p => p.category === 'roles');
                     for (const roleItem of roleItems) {
-                        const role = interaction.guild.roles.cache.find(r => r.name === roleItem.name);
-                        if (role && member.roles.cache.has(role.id)) {
-                            await member.roles.remove(role).catch(() => {});
+                        try {
+                            const metadata = JSON.parse(roleItem.metadata || '{}');
+                            const roleName = metadata.role_name;
+                            if (roleName) {
+                                const role = interaction.guild.roles.cache.find(r => r.name === roleName);
+                                if (role && member.roles.cache.has(role.id)) {
+                                    await member.roles.remove(role, 'Role color disabled by user');
+                                    logger.info(`Removed role ${roleName} from user ${userId} - role colors disabled`);
+                                }
+                            }
+                        } catch (metadataError) {
+                            logger.error(`Error parsing role metadata for ${roleItem.name}: ${metadataError.message}`);
                         }
                     }
                 }

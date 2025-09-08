@@ -393,20 +393,36 @@ async function createMatrixImage(matrix, winningLines = [], won = false) {
                 const x = startX + (col * (cellSize + cellSpacing));
                 const y = startY + (row * (cellSize + cellSpacing));
 
-                // Draw rounded background with symbol color (bigger card)
+                // Draw non-overlapping background card with proper boundaries (match animation)
+                const cardX = x - 5;
+                const cardY = y - 5;
+                const cardWidth = cellSize + 10;
+                const cardHeight = cellSize + 10;
+                
                 ctx.fillStyle = SYMBOL_COLORS[symbol] || '#F5F5F5';
-                drawRoundedRect(ctx, x - 20, y - 20, cellSize + 40, cellSize + 40, 20);
+                drawRoundedRect(ctx, cardX, cardY, cardWidth, cardHeight, 12);
                 ctx.fill();
+                
+                // Add subtle border to prevent color bleeding (match animation)
+                ctx.strokeStyle = '#DDDDDD';
+                ctx.lineWidth = 1;
+                drawRoundedRect(ctx, cardX, cardY, cardWidth, cardHeight, 12);
+                ctx.stroke();
 
                 try {
                     const symbolImage = await loadSymbolImage(symbol);
-                    ctx.drawImage(symbolImage, x, y, cellSize, cellSize);
+                    // Draw the symbol image, properly centered and sized (match animation)
+                    const imageSize = cellSize - 10; // Slightly smaller than cell
+                    const imageX = x + (cellSize - imageSize) / 2;
+                    const imageY = y + (cellSize - imageSize) / 2;
+                    ctx.drawImage(symbolImage, imageX, imageY, imageSize, imageSize);
                 } catch (error) {
-                    // Fallback to emoji
+                    // Fallback to emoji (match animation style)
                     ctx.fillStyle = '#000000';
-                    ctx.font = '60px Arial';
+                    ctx.font = 'bold 70px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText(MATRIX_SYMBOLS[symbol].emoji, x + cellSize/2, y + cellSize/2 + 20);
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(MATRIX_SYMBOLS[symbol].emoji, x + cellSize/2, y + cellSize/2);
                 }
             }
         }
@@ -587,17 +603,19 @@ async function createSpinningMatrixGIF(finalMatrix) {
         for (let frame = 0; frame < totalFrames; frame++) {
             // Variable delay - start fast, slow down at the end
             const progress = frame / (totalFrames - 1);
-            const delay = Math.floor(40 + (progress * progress * 100)); // 40ms to 140ms - faster animation
+            const delay = Math.floor(60 + (progress * progress * 80)); // 60ms to 140ms - smoother animation
             encoder.setDelay(delay);
             
-            // Clear canvas
+            // Completely clear canvas and reset all drawing states
             ctx.clearRect(0, 0, 500, 500);
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1.0;
             
-            // White background
+            // Solid white background
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, 500, 500);
             
-            // Draw 3x3 matrix
+            // Draw 3x3 matrix with proper spacing
             for (let row = 0; row < 3; row++) {
                 for (let col = 0; col < 3; col++) {
                     const x = startX + (col * (cellSize + cellSpacing));
@@ -607,13 +625,14 @@ async function createSpinningMatrixGIF(finalMatrix) {
                     const strip = matrixStrips[row][col];
                     let symbolIndex;
                     
-                    // Each cell stops at different times for cascading effect
-                    const cellStopFrame = totalFrames - 20 + (row * 3 + col) * 2; // Cascade from top-left to bottom-right
+                    // Improved cascading effect - each cell stops at different times
+                    const cellDelay = (row * 3 + col) * 1.5; // Reduced delay between cells
+                    const cellStopFrame = Math.max(15, totalFrames - 12 + cellDelay);
                     
                     if (frame < cellStopFrame) {
-                        // Still spinning - show cycling symbols
-                        const cycleSpeed = Math.max(1, Math.floor((totalFrames - frame) / 4));
-                        symbolIndex = Math.floor(frame / cycleSpeed) % (strip.length - 1);
+                        // Still spinning - show cycling symbols with better timing
+                        const spinSpeed = Math.max(2, Math.floor((totalFrames - frame) / 3));
+                        symbolIndex = Math.floor((frame + col + row * 2) / spinSpeed) % (strip.length - 1);
                     } else {
                         // This cell has stopped - show final symbol
                         symbolIndex = strip.length - 1;
@@ -622,20 +641,35 @@ async function createSpinningMatrixGIF(finalMatrix) {
                     const symbolKey = strip[symbolIndex];
                     const symbolImage = symbolImages[symbolKey];
                     
-                    // Draw rounded background with symbol color (bigger card)
+                    // Draw non-overlapping background card with proper boundaries
+                    const cardX = x - 5;
+                    const cardY = y - 5;
+                    const cardWidth = cellSize + 10;
+                    const cardHeight = cellSize + 10;
+                    
                     ctx.fillStyle = SYMBOL_COLORS[symbolKey] || '#F5F5F5';
-                    drawRoundedRect(ctx, x - 20, y - 20, cellSize + 40, cellSize + 40, 20);
+                    drawRoundedRect(ctx, cardX, cardY, cardWidth, cardHeight, 12);
                     ctx.fill();
                     
+                    // Add subtle border to prevent color bleeding
+                    ctx.strokeStyle = '#DDDDDD';
+                    ctx.lineWidth = 1;
+                    drawRoundedRect(ctx, cardX, cardY, cardWidth, cardHeight, 12);
+                    ctx.stroke();
+                    
                     if (symbolImage) {
-                        // Draw the symbol image, properly sized
-                        ctx.drawImage(symbolImage, x, y, cellSize, cellSize);
+                        // Draw the symbol image, properly centered and sized
+                        const imageSize = cellSize - 10; // Slightly smaller than cell
+                        const imageX = x + (cellSize - imageSize) / 2;
+                        const imageY = y + (cellSize - imageSize) / 2;
+                        ctx.drawImage(symbolImage, imageX, imageY, imageSize, imageSize);
                     } else {
                         // Fallback to emoji if image loading failed
                         ctx.fillStyle = '#000000';
-                        ctx.font = 'bold 80px Arial';
+                        ctx.font = 'bold 70px Arial';
                         ctx.textAlign = 'center';
-                        ctx.fillText(MATRIX_SYMBOLS[symbolKey].emoji, x + cellSize/2, y + cellSize/2 + 25);
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(MATRIX_SYMBOLS[symbolKey].emoji, x + cellSize/2, y + cellSize/2);
                     }
                 }
             }

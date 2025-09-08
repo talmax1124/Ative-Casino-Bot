@@ -171,7 +171,7 @@ module.exports = {
                 const bankFields = [
                     { name: `${interaction.user.displayName}'s Balance`, value: fmt(transferResult.newSenderBalance), inline: true },
                     { name: `${targetUser.displayName}'s Balance`, value: fmt(recipientBalance.wallet), inline: true },
-                    { name: 'Lottery Pool', value: guildId === DESIGNATED_SERVER_ID ? '✅ Tax Added' : '❌ Main Server Only', inline: true }
+                    { name: 'Lottery Pool', value: guildId === DESIGNATED_SERVER_ID ? '✅ Tax Added' : '❌ Not Main Server', inline: true }
                 ];
 
                 // Stage text for current status

@@ -22,7 +22,6 @@ const logger = require('../UTILS/logger');
 
 // Game limits
 const MIN_BET = 100;
-const MAX_BET = 150000;
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -100,7 +99,7 @@ module.exports = {
                 betAmountStr,
                 GameType.UNO,
                 MIN_BET,
-                MAX_BET
+                null  // No maximum bet limit
             );
 
             if (!validation.isValid) {
@@ -366,7 +365,7 @@ module.exports = {
                 game.starterBet.toString(),
                 GameType.UNO,
                 100, // MIN_BET
-                150000 // MAX_BET
+                null   // No maximum bet limit
             );
             
             if (!joinValidation.isValid) {

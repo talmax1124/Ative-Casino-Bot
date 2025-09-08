@@ -83,14 +83,13 @@ module.exports = {
             // Validate and deduct bet amount using PayoutManager
             const amountStr = interaction.options.getString('amount');
             const MIN_BET = 50;
-            const MAX_BET = 10000;
             
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amountStr,
                 GameType.BINGO,
                 MIN_BET,
-                150000
+                null  // No maximum bet limit
             );
             
             if (!validation.isValid) {
@@ -331,7 +330,7 @@ module.exports = {
                 game.starterBet.toString(),
                 GameType.BINGO,
                 50, // MIN_BET
-                150000 // MAX_BET
+                null   // No maximum bet limit
             );
             
             if (!joinValidation.isValid) {

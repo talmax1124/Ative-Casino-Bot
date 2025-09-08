@@ -95,6 +95,41 @@ async function initializeDatabase() {
 // Initialize database on startup
 initializeDatabase();
 
+// Validate OAuth configuration
+function validateOAuthConfig() {
+  console.log('Validating OAuth configuration...');
+  
+  const requiredVars = {
+    'DISCORD_OAUTH_CLIENT_ID': process.env.DISCORD_OAUTH_CLIENT_ID || process.env.CLIENT_ID,
+    'DISCORD_OAUTH_CLIENT_SECRET': process.env.DISCORD_OAUTH_CLIENT_SECRET,
+    'SESSION_SECRET': process.env.SESSION_SECRET
+  };
+  
+  const missing = [];
+  for (const [name, value] of Object.entries(requiredVars)) {
+    if (!value) {
+      missing.push(name);
+    } else {
+      console.log(`✓ ${name}: ${value.substring(0, 10)}...`);
+    }
+  }
+  
+  if (missing.length > 0) {
+    console.error('❌ Missing required environment variables:', missing);
+    console.error('OAuth login will not work without these variables.');
+  } else {
+    console.log('✅ All OAuth environment variables are configured');
+  }
+  
+  // Log current callback URL
+  const callbackURL = process.env.DISCORD_OAUTH_REDIRECT_URI || (process.env.NODE_ENV === 'production' 
+    ? 'https://ative-casino-bot-production.up.railway.app/auth/discord/callback'
+    : 'http://localhost:3000/auth/discord/callback');
+  console.log('📞 OAuth Callback URL:', callbackURL);
+}
+
+validateOAuthConfig();
+
 // PayPal Configuration
 function environment() {
   const clientId = process.env.PAYPAL_CLIENT_ID;
@@ -186,28 +221,37 @@ app.use(passport.session());
 passport.use(new DiscordStrategy({
   clientID: process.env.DISCORD_OAUTH_CLIENT_ID || process.env.CLIENT_ID,
   clientSecret: process.env.DISCORD_OAUTH_CLIENT_SECRET,
-  callbackURL: process.env.NODE_ENV === 'production' 
+  callbackURL: process.env.DISCORD_OAUTH_REDIRECT_URI || (process.env.NODE_ENV === 'production' 
     ? 'https://ative-casino-bot-production.up.railway.app/auth/discord/callback'
-    : process.env.DISCORD_OAUTH_REDIRECT_URI || '/auth/discord/callback',
+    : 'http://localhost:3000/auth/discord/callback'),
   scope: ['identify', 'email']
 }, async (accessToken, refreshToken, profile, done) => {
   try {
+    console.log('Discord OAuth callback received for user:', profile.id);
+    console.log('Profile data:', {
+      id: profile.id,
+      username: profile.username,
+      discriminator: profile.discriminator,
+      email: profile.email
+    });
+    
     // Store user info in database
     await dbPool.execute(
       'INSERT INTO users (user_id, username, discriminator, avatar, email) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE username = ?, discriminator = ?, avatar = ?, email = ?',
       [
         profile.id,
         profile.username,
-        profile.discriminator,
+        profile.discriminator || '0000',
         profile.avatar,
         profile.email,
         profile.username,
-        profile.discriminator,
+        profile.discriminator || '0000',
         profile.avatar,
         profile.email
       ]
     );
     
+    console.log('User stored in database successfully');
     return done(null, profile);
   } catch (error) {
     console.error('Discord auth error:', error);
@@ -222,9 +266,11 @@ passport.serializeUser((user, done) => {
 
 passport.deserializeUser(async (id, done) => {
   try {
+    console.log('Deserializing user with ID:', id);
     const [rows] = await dbPool.execute('SELECT * FROM users WHERE user_id = ?', [id]);
     if (rows.length > 0) {
       const user = rows[0];
+      console.log('User found in database:', user.username);
       // Format the user object to match Discord profile structure
       done(null, {
         id: user.user_id,
@@ -234,9 +280,11 @@ passport.deserializeUser(async (id, done) => {
         email: user.email
       });
     } else {
+      console.log('User not found in database for ID:', id);
       done(null, null);
     }
   } catch (error) {
+    console.error('Error deserializing user:', error);
     done(error, null);
   }
 });
@@ -269,17 +317,34 @@ function ensureAuthenticated(req, res, next) {
 }
 
 // Discord OAuth2 Routes
-app.get('/auth/discord', passport.authenticate('discord'));
+app.get('/auth/discord', (req, res, next) => {
+  console.log('Discord OAuth initiation requested');
+  passport.authenticate('discord')(req, res, next);
+});
 
-app.get('/auth/discord/callback', 
-  passport.authenticate('discord', { failureRedirect: '/' }),
-  (req, res) => {
+app.get('/auth/discord/callback', (req, res, next) => {
+  console.log('Discord OAuth callback received');
+  console.log('Query params:', req.query);
+  console.log('Session data:', req.session);
+  
+  passport.authenticate('discord', { 
+    failureRedirect: '/',
+    failureFlash: false
+  })(req, res, (err) => {
+    if (err) {
+      console.error('OAuth authentication error:', err);
+      return res.redirect('/?error=auth_failed');
+    }
+    
+    console.log('OAuth authentication successful for user:', req.user?.id);
+    
     // Successful authentication
     const returnTo = req.session.returnTo || '/shop';
     delete req.session.returnTo;
+    console.log('Redirecting to:', returnTo);
     res.redirect(returnTo);
-  }
-);
+  });
+});
 
 app.get('/logout', (req, res) => {
   req.logout((err) => {
@@ -1235,6 +1300,27 @@ async function sendVoteNotification(userId, rewardAmount) {
 // Health check endpoint for Railway
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// Debug endpoint for OAuth configuration
+app.get('/debug/oauth', (req, res) => {
+  const config = {
+    hasClientId: !!process.env.DISCORD_OAUTH_CLIENT_ID,
+    hasClientSecret: !!process.env.DISCORD_OAUTH_CLIENT_SECRET,
+    hasSessionSecret: !!process.env.SESSION_SECRET,
+    nodeEnv: process.env.NODE_ENV,
+    callbackURL: process.env.DISCORD_OAUTH_REDIRECT_URI || (process.env.NODE_ENV === 'production' 
+      ? 'https://ative-casino-bot-production.up.railway.app/auth/discord/callback'
+      : 'http://localhost:3000/auth/discord/callback'),
+    isAuthenticated: req.isAuthenticated(),
+    user: req.user ? { id: req.user.id, username: req.user.username } : null,
+    session: {
+      id: req.sessionID,
+      cookie: req.session.cookie
+    }
+  };
+  
+  res.json(config);
 });
 
 // 404 handler

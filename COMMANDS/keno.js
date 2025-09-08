@@ -14,7 +14,7 @@ const logger = require('../UTILS/logger');
 // KENO Configuration
 const KENO_CONFIG = {
     MIN_BET: 10,           // Minimum $10 entry
-    MAX_BET: 25000000,     // Maximum $25M entry (safe with personalization)  
+    MAX_BET: null,         // No maximum bet limit  
     MIN_NUMBERS: 1,        // Minimum 1 number to pick
     MAX_NUMBERS: 10,       // Maximum 10 numbers to pick
     TOTAL_NUMBERS: 80,     // Numbers 1-80 available
@@ -27,7 +27,7 @@ module.exports = {
         .setDescription('🎲 Play KENO - Pick numbers and match the draw!')
         .addStringOption(option =>
             option.setName('bet')
-                .setDescription(`Bet amount ($${KENO_CONFIG.MIN_BET} - $${KENO_CONFIG.MAX_BET.toLocaleString()}) - supports K/M/B suffixes`)
+                .setDescription(`Bet amount (Min: $${KENO_CONFIG.MIN_BET}) - supports K/M/B suffixes`)
                 .setRequired(true)
         )
         .addIntegerOption(option =>

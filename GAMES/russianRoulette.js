@@ -74,6 +74,10 @@ class RussianRouletteGame {
         this.gameTimer = null;
         this.turnTimer = null;
         
+        // Session tracking
+        this.finalPayout = 0;
+        this.gameWinner = null;
+        
         // UI
         this.gameMessage = null;
         this.client = null;
@@ -833,6 +837,10 @@ class RussianRouletteGame {
         const totalPot = this.players.size * this.entryAmount;
         const winnings = totalPot; // Winner takes all - no house fee
         
+        // Store winnings for session ending
+        this.finalPayout = winnings;
+        this.gameWinner = winner;
+        
         // Pay winner
         if (winner) {
             try {
@@ -980,9 +988,13 @@ class RussianRouletteGame {
         clearTimeout(this.gameTimer);
         clearTimeout(this.turnTimer);
         
-        // End session
+        // End session with proper session data
         if (this.sessionId) {
-            sessionManager.endSession(this.sessionId, 'completed');
+            sessionManager.endSession(this.sessionId, {
+                payout: this.finalPayout || 0,
+                won: this.gameWinner ? true : false,
+                reason: 'completed'
+            });
         }
         
         logger.info(`Russian Roulette game cleaned up: ${this.sessionId}`);

@@ -194,7 +194,7 @@ module.exports = {
                     game.potAmount.toString(),
                     GameType.WORDCHAIN,
                     1, // Minimum pot amount
-                    150000 // Maximum pot amount: 150K
+                    null   // No maximum pot limit
                 );
                 
                 if (!potValidation.isValid) {

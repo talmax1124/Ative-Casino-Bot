@@ -449,7 +449,7 @@ module.exports = {
                 amount,
                 GameType.BLACKJACK, // Using existing GameType, can create ROULETTE later
                 10,         // Min bet: $10
-                50000000    // Max bet: $50M (safe with personalization)
+                null        // No maximum bet limit
             );
 
             if (!validation.isValid) {

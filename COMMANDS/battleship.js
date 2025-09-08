@@ -149,14 +149,13 @@ module.exports = {
             // Validate and deduct bet amount using PayoutManager
             const amountStr = interaction.options.getString('amount');
             const MIN_BET = 100;
-            const MAX_BET = 1000000;
             
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amountStr,
                 GameType.BATTLESHIP,
                 MIN_BET,
-                150000
+                null  // No maximum bet limit
             );
             
             if (!validation.isValid) {
@@ -367,7 +366,7 @@ module.exports = {
             game.betAmount.toString(),
             GameType.BATTLESHIP,
             100, // MIN_BET
-            150000 // MAX_BET
+            null   // No maximum bet limit
         );
         
         if (!joinValidation.isValid) {

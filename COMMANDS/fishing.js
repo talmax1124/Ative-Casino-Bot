@@ -82,7 +82,7 @@ module.exports = {
                 amountStr,
                 GameType.FISHING,
                 1, // No minimum bet for fishing
-                10000000 // Maximum bet: 10M
+                null     // No maximum bet limit
             );
             
             if (!validation.isValid) {

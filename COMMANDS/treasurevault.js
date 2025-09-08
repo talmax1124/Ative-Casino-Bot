@@ -93,7 +93,7 @@ module.exports = {
                 betAmountStr,
                 GameType.TREASUREVAULT || 'treasurevault',
                 100, // minimum bet
-                25000000, // maximum bet: $25M (safe with personalization)
+                null,     // No maximum bet limit
                 {} // no special requirements
             );
             

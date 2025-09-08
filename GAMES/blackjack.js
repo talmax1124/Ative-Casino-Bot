@@ -186,7 +186,7 @@ class BlackjackGame {
     canDouble() {
         const currentHand = this.getCurrentHand();
         if (this.gameEnded) return false;
-        if (currentHand.cards.length !== 2) return false;
+        if (!currentHand || !currentHand.cards || currentHand.cards.length !== 2) return false;
         // Slightly reduce player edge: allow double only on 9-11
         const val = currentHand.getValue();
         return val === 9 || val === 10 || val === 11;
@@ -212,13 +212,20 @@ class BlackjackGame {
 
     getCurrentHand() {
         if (this.splitHands.length > 0) {
-            return this.splitHands[this.currentHandIndex];
+            // Add bounds checking to prevent undefined access
+            if (this.currentHandIndex >= 0 && this.currentHandIndex < this.splitHands.length) {
+                return this.splitHands[this.currentHandIndex];
+            }
+            // Fallback to first split hand if index is invalid
+            return this.splitHands[0] || this.playerHand;
         }
         return this.playerHand;
     }
 
     hit() {
         const currentHand = this.getCurrentHand();
+        if (!currentHand || !currentHand.cards) return false;
+        
         currentHand.addCard(this.deck.dealCard());
         
         // Check if busted or reached 21
@@ -228,12 +235,17 @@ class BlackjackGame {
     }
 
     stand() {
+        // Mark current hand as stood before moving to next
+        const currentHand = this.getCurrentHand();
+        if (currentHand && currentHand.cards) {
+            currentHand.stand();
+        }
         this.nextHand();
     }
 
     doubleDown() {
         const currentHand = this.getCurrentHand();
-        if (currentHand.cards.length !== 2) return false; // Can only double on first two cards
+        if (!currentHand || !currentHand.cards || currentHand.cards.length !== 2) return false; // Can only double on first two cards
         
         // Mark the current hand as doubled (this tracks it per hand for splits)
         currentHand.double();
@@ -368,7 +380,8 @@ class BlackjackGame {
             return this.gameEnded || this.playerHand.isBusted();
         }
         
-        return this.splitHands.every(hand => hand.isBusted() || hand.isStood());
+        // Filter out any undefined hands and check completion
+        return this.splitHands.filter(hand => hand && hand.cards).every(hand => hand.isBusted() || hand.isStood());
     }
 }
 

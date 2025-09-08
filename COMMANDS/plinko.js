@@ -97,7 +97,7 @@ module.exports = {
                 betAmountStr,
                 GameType.PLINKO,
                 100, // Minimum bet: 100 chips
-                50000000 // Maximum bet: $50M (safe with personalization)
+                null     // No maximum bet limit
             );
 
             if (!validationResult.isValid) {
