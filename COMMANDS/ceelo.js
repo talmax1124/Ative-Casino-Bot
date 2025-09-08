@@ -14,7 +14,7 @@ const logger = require('../UTILS/logger');
 // CEELO Configuration
 const CEELO_CONFIG = {
     MIN_BET: 5,            // Minimum $5 entry
-    MAX_BET: 25000,        // Maximum $25K entry
+    MAX_BET: 50000000,     // Maximum $50M entry (safe with personalization)
     PAYOUT_MULTIPLIER: 1   // 1:1 even money
 };
 
@@ -37,6 +37,13 @@ module.exports = {
         try {
             // Defer reply immediately to prevent timeout
             await interaction.deferReply();
+
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'ceelo');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.editReply({ embeds: [maintenanceCheck.embed] });
+            }
 
             // Session guard check
             const sessionGuard = require('../UTILS/sessionGuard');

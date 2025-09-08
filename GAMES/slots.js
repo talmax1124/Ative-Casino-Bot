@@ -42,6 +42,37 @@ const MATRIX_SYMBOLS = {
 const TWO_MATCH_MULTIPLIER = 0.75;
 const MATRIX_MIN_BET = 35000;
 
+// Color schemes for each symbol (more prominent backgrounds)
+const SYMBOL_COLORS = {
+    'cherries': '#FFCCCC',   // Prominent red
+    'lemon': '#FFF700',      // Vibrant yellow
+    'orange': '#FFCC80',     // Rich orange
+    'grapes': '#D1C4E9',     // Purple
+    'watermelon': '#C8E6C8',  // Fresh green
+    'bar': '#BBDEFB',        // Prominent blue
+    'seven': '#FFE082',      // Rich gold
+    'diamond': '#B3E5FC',    // Bright cyan
+    'buffalo': '#D7CCC8',    // Warm brown
+    'jackpot': '#F8BBD9'     // Vibrant pink
+};
+
+
+/**
+ * Draw a rounded rectangle
+ */
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
 
 /**
  * Load slot symbol image with fallback
@@ -111,16 +142,15 @@ function spinSlots() {
  * Generate matrix slot result (3x3 grid) with improved distribution
  */
 function spinMatrixSlots() {
-    const baseEntropy = generateEntropy();
     const matrix = [];
     
-    // Generate each position with unique entropy to reduce patterns
+    // Generate each position with completely independent entropy
     for (let row = 0; row < 3; row++) {
         const matrixRow = [];
         for (let col = 0; col < 3; col++) {
-            // Each position gets unique entropy based on position and base seed
-            const positionEntropy = baseEntropy * (1 + (row * 0.3) + (col * 0.5)) + (row * col * 0.2);
-            matrixRow.push(getWeightedSymbol(true, positionEntropy));
+            // Each position gets completely fresh entropy - no patterns possible
+            const independentEntropy = generateEntropy() + secureRandomFloat() * 1000;
+            matrixRow.push(getWeightedSymbol(true, independentEntropy));
         }
         matrix.push(matrixRow);
     }
@@ -131,12 +161,19 @@ function spinMatrixSlots() {
 /**
  * Calculate payout for regular slots
  */
-function calculatePayout(symbols, betAmount) {
+function calculatePayout(symbols, betAmount, personalizedPayouts = null) {
     // Check for three of a kind
     if (symbols[0] === symbols[1] && symbols[1] === symbols[2]) {
         const symbol = symbols[0];
         const symbolData = SLOT_SYMBOLS[symbol];
-        const multiplier = symbolData.payout;
+        
+        // Use personalized payout if available, otherwise use default
+        let multiplier = symbolData.payout;
+        if (personalizedPayouts && personalizedPayouts[symbol]) {
+            multiplier = personalizedPayouts[symbol];
+        }
+        
+        const originalMultiplier = symbolData.payout;
         const payout = betAmount * multiplier;
         
         return {
@@ -287,58 +324,40 @@ function createMatrixDisplay(matrix) {
  */
 async function createSlotsImage(symbols, won = false) {
     try {
-        const canvas = Canvas.createCanvas(600, 300);
+        const canvas = Canvas.createCanvas(600, 200);
         const ctx = canvas.getContext('2d');
 
-        // Background
-        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, '#1a1a1a');
-        gradient.addColorStop(1, '#0a0a0a');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 600, 300);
+        // White background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, 600, 200);
 
-        // Slot frame
-        ctx.strokeStyle = won ? '#FFD700' : '#666666';
-        ctx.lineWidth = 5;
-        ctx.strokeRect(50, 50, 500, 200);
-
-        // Draw symbols
+        // Draw symbols only
         const symbolSize = 120;
-        const symbolSpacing = 150;
-        const startX = 100;
-        const startY = 90;
+        const symbolSpacing = 180; // Increased from 150 to 180
+        const startX = 50; // Increased from 40 to 50
+        const startY = 40;
 
         for (let i = 0; i < symbols.length; i++) {
             const symbol = symbols[i];
             const x = startX + (i * symbolSpacing);
             const y = startY;
 
-            // Symbol background
-            ctx.fillStyle = won ? '#2a4a2a' : '#2a2a2a';
-            ctx.fillRect(x, y, symbolSize, symbolSize);
-            
-            // Symbol border
-            ctx.strokeStyle = won ? '#4a8a4a' : '#4a4a4a';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x, y, symbolSize, symbolSize);
+            // Draw rounded background with symbol color (bigger card)
+            ctx.fillStyle = SYMBOL_COLORS[symbol] || '#F5F5F5';
+            drawRoundedRect(ctx, x - 20, y - 20, symbolSize + 40, symbolSize + 40, 20);
+            ctx.fill();
 
             try {
                 const symbolImage = await loadSymbolImage(symbol);
-                ctx.drawImage(symbolImage, x + 10, y + 10, symbolSize - 20, symbolSize - 20);
+                ctx.drawImage(symbolImage, x, y, symbolSize, symbolSize);
             } catch (error) {
                 // Fallback to emoji
-                ctx.fillStyle = '#FFFFFF';
+                ctx.fillStyle = '#000000';
                 ctx.font = '60px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText(SLOT_SYMBOLS[symbol].emoji, x + symbolSize/2, y + symbolSize/2 + 20);
             }
         }
-
-        // Title
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 24px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('🎰 SLOT MACHINE 🎰', 300, 30);
 
         return canvas.toBuffer('image/png');
     } catch (error) {
@@ -352,30 +371,21 @@ async function createSlotsImage(symbols, won = false) {
  */
 async function createMatrixImage(matrix, winningLines = [], won = false) {
     try {
-        // Canvas sized to keep full grid within bounds in Discord
-        const canvasWidth = 620;
-        const canvasHeight = 540;
+        // Canvas sized for just the symbols
+        const canvasWidth = 500;
+        const canvasHeight = 500;
         const canvas = Canvas.createCanvas(canvasWidth, canvasHeight);
         const ctx = canvas.getContext('2d');
 
-        // Background
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-        gradient.addColorStop(0, '#1a1a1a');
-        gradient.addColorStop(1, '#0a0a0a');
-        ctx.fillStyle = gradient;
+        // White background
+        ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
         // Layout constants
         const cellSize = 120;
-        const cellSpacing = 25;
-        const gridSpan = cellSize * 3 + cellSpacing * 2; // 410
-        const startX = 105; // centers grid
-        const startY = 110; // leaves room for title
-
-        // Matrix frame around grid
-        ctx.strokeStyle = won ? '#FFD700' : '#666666';
-        ctx.lineWidth = 5;
-        ctx.strokeRect(startX - 15, startY - 15, gridSpan + 30, gridSpan + 30);
+        const cellSpacing = 40; // Increased from 20 to 40
+        const startX = 30; // Increased from 20 to 30
+        const startY = 30; // Increased from 20 to 30
 
         for (let row = 0; row < 3; row++) {
             for (let col = 0; col < 3; col++) {
@@ -383,21 +393,17 @@ async function createMatrixImage(matrix, winningLines = [], won = false) {
                 const x = startX + (col * (cellSize + cellSpacing));
                 const y = startY + (row * (cellSize + cellSpacing));
 
-                // Cell background
-                ctx.fillStyle = won ? '#2a4a2a' : '#2a2a2a';
-                ctx.fillRect(x, y, cellSize, cellSize);
-                
-                // Cell border
-                ctx.strokeStyle = won ? '#4a8a4a' : '#4a4a4a';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x, y, cellSize, cellSize);
+                // Draw rounded background with symbol color (bigger card)
+                ctx.fillStyle = SYMBOL_COLORS[symbol] || '#F5F5F5';
+                drawRoundedRect(ctx, x - 20, y - 20, cellSize + 40, cellSize + 40, 20);
+                ctx.fill();
 
                 try {
                     const symbolImage = await loadSymbolImage(symbol);
-                    ctx.drawImage(symbolImage, x + 10, y + 10, cellSize - 20, cellSize - 20);
+                    ctx.drawImage(symbolImage, x, y, cellSize, cellSize);
                 } catch (error) {
                     // Fallback to emoji
-                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillStyle = '#000000';
                     ctx.font = '60px Arial';
                     ctx.textAlign = 'center';
                     ctx.fillText(MATRIX_SYMBOLS[symbol].emoji, x + cellSize/2, y + cellSize/2 + 20);
@@ -405,27 +411,23 @@ async function createMatrixImage(matrix, winningLines = [], won = false) {
             }
         }
 
-        // Draw winning lines
-        ctx.strokeStyle = '#FFD700';
-        ctx.lineWidth = 6;
-        winningLines.forEach(line => {
-            const stride = cellSize + cellSpacing;
-            const sX = startX + (line.col * stride) + cellSize / 2;
-            const sY = startY + (line.row * stride) + cellSize / 2;
-            const eX = startX + (line.endCol * stride) + cellSize / 2;
-            const eY = startY + (line.endRow * stride) + cellSize / 2;
-            
-            ctx.beginPath();
-            ctx.moveTo(sX, sY);
-            ctx.lineTo(eX, eY);
-            ctx.stroke();
-        });
-
-        // Title
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 24px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('🎰 SLOTS MATRIX 3x3 🎰', canvasWidth / 2, 60);
+        // Draw winning lines if any
+        if (won && winningLines.length > 0) {
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 8;
+            winningLines.forEach(line => {
+                const stride = cellSize + cellSpacing;
+                const sX = startX + (line.col * stride) + cellSize / 2;
+                const sY = startY + (line.row * stride) + cellSize / 2;
+                const eX = startX + (line.endCol * stride) + cellSize / 2;
+                const eY = startY + (line.endRow * stride) + cellSize / 2;
+                
+                ctx.beginPath();
+                ctx.moveTo(sX, sY);
+                ctx.lineTo(eX, eY);
+                ctx.stroke();
+            });
+        }
 
         return canvas.toBuffer('image/png');
     } catch (error) {
@@ -439,13 +441,14 @@ async function createMatrixImage(matrix, winningLines = [], won = false) {
  */
 async function createSpinningSlotGIF(finalSymbols) {
     try {
-        const canvas = Canvas.createCanvas(800, 400);
+        // Match static image dimensions exactly
+        const canvas = Canvas.createCanvas(600, 200);
         const ctx = canvas.getContext('2d');
-        const encoder = new GIFEncoder(800, 400);
+        const encoder = new GIFEncoder(600, 200);
         
         encoder.start();
         encoder.setRepeat(0);
-        encoder.setQuality(10);
+        encoder.setQuality(20); // Improved quality (was 10)
 
         // Pre-load all symbol images
         const symbolKeys = Object.keys(SLOT_SYMBOLS);
@@ -454,19 +457,19 @@ async function createSpinningSlotGIF(finalSymbols) {
             symbolImages[symbol] = await loadSymbolImage(symbol);
         }
 
-        // Animation parameters
-        const totalFrames = 50; // More frames for smooth animation
-        const slotWidth = 180;
-        const slotHeight = 160;
-        const startX = 120;
-        const startY = 120;
+        // Animation parameters - Fast, smooth casino-style animation
+        const totalFrames = 25; // Shorter, faster animation
+        const symbolSize = 120; // EXACTLY match static image
+        const symbolSpacing = 180; // EXACTLY match static image - increased spacing  
+        const startX = 50; // EXACTLY match static image - increased from 40 to 50
+        const startY = 40; // EXACTLY match static image
         
-        // Create reel strips for each slot (long list of symbols that will spin)
+        // Create reel strips for FAST vertical animation without overlapping
         const reelStrips = [];
         for (let i = 0; i < 3; i++) {
             const strip = [];
-            // Add random symbols before the final result
-            for (let j = 0; j < 15; j++) {
+            // Fewer symbols for faster, cleaner animation
+            for (let j = 0; j < 8; j++) {
                 strip.push(symbolKeys[secureRandomInt(0, symbolKeys.length)]);
             }
             // Add the final result at the end
@@ -474,112 +477,54 @@ async function createSpinningSlotGIF(finalSymbols) {
             reelStrips.push(strip);
         }
 
-        // Generate frames
+        // Generate frames - FAST casino-style animation
         for (let frame = 0; frame < totalFrames; frame++) {
-            // Variable delay - start fast, slow down at the end
-            const progress = frame / (totalFrames - 1);
-            const delay = Math.floor(50 + (progress * progress * 200)); // 50ms to 250ms
+            // Fast, consistent timing for smooth casino animation
+            const delay = 60; // Fixed 60ms delay for smooth, fast animation
             encoder.setDelay(delay);
             
-            // Clear canvas
-            ctx.clearRect(0, 0, 800, 400);
+            // Clear canvas completely
+            ctx.clearRect(0, 0, 600, 200);
             
-            // Background gradient
-            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-            gradient.addColorStop(0, '#1a2a3a');
-            gradient.addColorStop(1, '#0a1a2a');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 800, 400);
+            // Set white background (match static image)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, 600, 200);
             
-            // Header with glow effect
-            ctx.shadowColor = '#FFD700';
-            ctx.shadowBlur = 10;
-            ctx.fillStyle = '#FFD700';
-            ctx.font = 'bold 32px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('🎰 SLOT MACHINE 🎰', 400, 50);
-            ctx.shadowBlur = 0;
-            
-            // Slot machine frame with metallic look
-            const frameGradient = ctx.createLinearGradient(100, 100, 700, 300);
-            frameGradient.addColorStop(0, '#4a5a6a');
-            frameGradient.addColorStop(0.5, '#2a3a4a');
-            frameGradient.addColorStop(1, '#1a2a3a');
-            ctx.fillStyle = frameGradient;
-            ctx.fillRect(90, 90, 620, 220);
-            
-            // Frame border
-            ctx.strokeStyle = '#8a9aaa';
-            ctx.lineWidth = 6;
-            ctx.strokeRect(90, 90, 620, 220);
-            
-            // Draw each reel
+            // Draw each reel with FAST vertical sliding
             for (let i = 0; i < 3; i++) {
-                const x = startX + (i * (slotWidth + 20));
-                const y = startY;
-                
-                // Reel background
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(x, y, slotWidth, slotHeight);
-                
-                // Reel border
-                ctx.strokeStyle = '#666666';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(x, y, slotWidth, slotHeight);
-                
-                // Calculate which symbol to show based on animation progress
+                const x = startX + (i * symbolSpacing);
                 const strip = reelStrips[i];
-                let symbolIndex;
                 
-                if (frame < totalFrames - 10) {
-                    // Spinning phase - each reel stops at different times
-                    const reelStopFrame = totalFrames - 15 + (i * 3); // Reels stop sequentially
-                    if (frame < reelStopFrame) {
-                        // Still spinning - show cycling symbols
-                        const cycleSpeed = Math.max(1, Math.floor((totalFrames - frame) / 5));
-                        symbolIndex = Math.floor(frame / cycleSpeed) % (strip.length - 1);
-                    } else {
-                        // This reel has stopped - show final symbol
-                        symbolIndex = strip.length - 1;
-                    }
-                } else {
-                    // All reels stopped - show final result
-                    symbolIndex = strip.length - 1;
+                // Calculate reel stopping times (staggered for realistic effect)
+                const reelStopFrame = totalFrames - 8 + (i * 2); // Earlier stops, tighter stagger
+                let symbolIndex = strip.length - 1; // Final symbol by default
+                
+                if (frame < reelStopFrame) {
+                    // Still spinning - FAST vertical sliding without overlap
+                    const spinSpeed = 15; // High constant speed for casino effect
+                    const totalMovement = frame * spinSpeed;
+                    symbolIndex = Math.floor(totalMovement / symbolSize) % (strip.length - 1);
                 }
                 
+                // Draw SINGLE symbol cleanly - NO OVERLAPPING
                 const symbolKey = strip[symbolIndex];
                 const symbolImage = symbolImages[symbolKey];
+                const symbolY = startY; // Fixed position - no vertical offset for clean animation
+                
+                // Draw rounded background with symbol color (EXACTLY match static image)
+                ctx.fillStyle = SYMBOL_COLORS[symbolKey] || '#F5F5F5';
+                drawRoundedRect(ctx, x - 20, symbolY - 20, symbolSize + 40, symbolSize + 40, 20);
+                ctx.fill();
                 
                 if (symbolImage) {
-                    // Draw the symbol image, properly sized
-                    const imageSize = Math.min(slotWidth - 20, slotHeight - 20);
-                    const imageX = x + (slotWidth - imageSize) / 2;
-                    const imageY = y + (slotHeight - imageSize) / 2;
-                    ctx.drawImage(symbolImage, imageX, imageY, imageSize, imageSize);
+                    ctx.drawImage(symbolImage, x, symbolY, symbolSize, symbolSize);
                 } else {
-                    // Fallback to emoji if image loading failed
-                    ctx.fillStyle = '#333333';
+                    // Fallback to emoji
+                    ctx.fillStyle = '#000000';
                     ctx.font = 'bold 60px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText(SLOT_SYMBOLS[symbolKey].emoji, x + slotWidth/2, y + slotHeight/2 + 20);
+                    ctx.fillText(SLOT_SYMBOLS[symbolKey].emoji, x + symbolSize/2, symbolY + symbolSize/2 + 20);
                 }
-                
-                // Add reel glass effect
-                const glassGradient = ctx.createLinearGradient(x, y, x + slotWidth, y + slotHeight);
-                glassGradient.addColorStop(0, 'rgba(255,255,255,0.3)');
-                glassGradient.addColorStop(0.3, 'rgba(255,255,255,0.1)');
-                glassGradient.addColorStop(0.7, 'rgba(255,255,255,0.05)');
-                glassGradient.addColorStop(1, 'rgba(255,255,255,0.2)');
-                ctx.fillStyle = glassGradient;
-                ctx.fillRect(x, y, slotWidth, slotHeight);
-            }
-            
-            // Add spinning indicator during spin phases
-            if (frame < totalFrames - 10) {
-                ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
-                ctx.font = 'bold 24px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('SPINNING...', 400, 350);
             }
             
             encoder.addFrame(ctx);
@@ -599,9 +544,10 @@ async function createSpinningSlotGIF(finalSymbols) {
  */
 async function createSpinningMatrixGIF(finalMatrix) {
     try {
-        const canvas = Canvas.createCanvas(800, 800);
+        // Match static image dimensions exactly
+        const canvas = Canvas.createCanvas(500, 500);
         const ctx = canvas.getContext('2d');
-        const encoder = new GIFEncoder(800, 800);
+        const encoder = new GIFEncoder(500, 500);
         
         encoder.start();
         encoder.setRepeat(0);
@@ -614,12 +560,12 @@ async function createSpinningMatrixGIF(finalMatrix) {
             symbolImages[symbol] = await loadSymbolImage(symbol);
         }
 
-        // Animation parameters - OPTIMIZED for performance
-        const totalFrames = 20; // Reduced from 60 for faster generation
-        const cellSize = 200;
-        const cellSpacing = 15;
-        const startX = 100;
-        const startY = 150;
+        // Animation parameters - match static image layout
+        const totalFrames = 30;
+        const cellSize = 120; // Match static image
+        const cellSpacing = 40; // Match static image
+        const startX = 30; // Match static image
+        const startY = 30; // Match static image
         
         // Create reel strips for each matrix cell
         const matrixStrips = [];
@@ -645,57 +591,17 @@ async function createSpinningMatrixGIF(finalMatrix) {
             encoder.setDelay(delay);
             
             // Clear canvas
-            ctx.clearRect(0, 0, 800, 800);
+            ctx.clearRect(0, 0, 500, 500);
             
-            // Background gradient
-            const gradient = ctx.createLinearGradient(0, 0, 0, 800);
-            gradient.addColorStop(0, '#2a1a3a');
-            gradient.addColorStop(1, '#0a0a2a');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 800, 800);
-            
-            // Header with glow effect
-            ctx.shadowColor = '#FFD700';
-            ctx.shadowBlur = 15;
-            ctx.fillStyle = '#FFD700';
-            ctx.font = 'bold 36px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('🎰 MATRIX SLOTS 3x3 🎰', 400, 60);
-            ctx.shadowBlur = 0;
-            
-            // Matrix frame with premium look
-            const frameGradient = ctx.createLinearGradient(50, 100, 750, 750);
-            frameGradient.addColorStop(0, '#5a4a6a');
-            frameGradient.addColorStop(0.5, '#3a2a4a');
-            frameGradient.addColorStop(1, '#2a1a3a');
-            ctx.fillStyle = frameGradient;
-            ctx.fillRect(70, 120, 660, 660);
-            
-            // Frame border with glow
-            ctx.shadowColor = '#8a7aaa';
-            ctx.shadowBlur = 8;
-            ctx.strokeStyle = '#aa9acc';
-            ctx.lineWidth = 8;
-            ctx.strokeRect(70, 120, 660, 660);
-            ctx.shadowBlur = 0;
+            // White background
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, 500, 500);
             
             // Draw 3x3 matrix
             for (let row = 0; row < 3; row++) {
                 for (let col = 0; col < 3; col++) {
                     const x = startX + (col * (cellSize + cellSpacing));
                     const y = startY + (row * (cellSize + cellSpacing));
-                    
-                    // Cell background with depth
-                    const cellGradient = ctx.createLinearGradient(x, y, x + cellSize, y + cellSize);
-                    cellGradient.addColorStop(0, '#ffffff');
-                    cellGradient.addColorStop(1, '#f0f0f0');
-                    ctx.fillStyle = cellGradient;
-                    ctx.fillRect(x, y, cellSize, cellSize);
-                    
-                    // Cell border
-                    ctx.strokeStyle = '#888888';
-                    ctx.lineWidth = 4;
-                    ctx.strokeRect(x, y, cellSize, cellSize);
                     
                     // Calculate which symbol to show based on animation progress
                     const strip = matrixStrips[row][col];
@@ -716,40 +622,22 @@ async function createSpinningMatrixGIF(finalMatrix) {
                     const symbolKey = strip[symbolIndex];
                     const symbolImage = symbolImages[symbolKey];
                     
+                    // Draw rounded background with symbol color (bigger card)
+                    ctx.fillStyle = SYMBOL_COLORS[symbolKey] || '#F5F5F5';
+                    drawRoundedRect(ctx, x - 20, y - 20, cellSize + 40, cellSize + 40, 20);
+                    ctx.fill();
+                    
                     if (symbolImage) {
                         // Draw the symbol image, properly sized
-                        const imageSize = Math.min(cellSize - 30, cellSize - 30);
-                        const imageX = x + (cellSize - imageSize) / 2;
-                        const imageY = y + (cellSize - imageSize) / 2;
-                        ctx.drawImage(symbolImage, imageX, imageY, imageSize, imageSize);
+                        ctx.drawImage(symbolImage, x, y, cellSize, cellSize);
                     } else {
                         // Fallback to emoji if image loading failed
-                        ctx.fillStyle = '#333333';
+                        ctx.fillStyle = '#000000';
                         ctx.font = 'bold 80px Arial';
                         ctx.textAlign = 'center';
                         ctx.fillText(MATRIX_SYMBOLS[symbolKey].emoji, x + cellSize/2, y + cellSize/2 + 25);
                     }
-                    
-                    // Add cell glass effect
-                    const glassGradient = ctx.createLinearGradient(x, y, x + cellSize, y + cellSize);
-                    glassGradient.addColorStop(0, 'rgba(255,255,255,0.4)');
-                    glassGradient.addColorStop(0.3, 'rgba(255,255,255,0.1)');
-                    glassGradient.addColorStop(0.7, 'rgba(255,255,255,0.05)');
-                    glassGradient.addColorStop(1, 'rgba(255,255,255,0.3)');
-                    ctx.fillStyle = glassGradient;
-                    ctx.fillRect(x, y, cellSize, cellSize);
                 }
-            }
-            
-            // Add spinning indicator during spin phases
-            if (frame < totalFrames - 15) {
-                ctx.shadowColor = '#FFD700';
-                ctx.shadowBlur = 10;
-                ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
-                ctx.font = 'bold 28px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('MATRIX SPINNING...', 400, 750);
-                ctx.shadowBlur = 0;
             }
             
             encoder.addFrame(ctx);

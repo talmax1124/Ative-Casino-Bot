@@ -14,12 +14,13 @@ const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const OffEconomyBadge = require('../UTILS/offEconomyBadge');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const EconomyGuardianInterface = require('../UTILS/economyGuardianInterface');
 
 
 /**
  * Create slots result embed using gameSessionKit style
  */
-async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWallet) {
+async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWallet, aiResult = null) {
     // Get off economy badge for the user
     const offEcoBadge = await OffEconomyBadge.getGamePanelBadge(user.id);
     const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
@@ -68,13 +69,24 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
         color = 0xff0000; // Red
     }
 
+    // Get economic indicators if AI result is available
+    let economicFooter = result.won ? result.type : 'Better luck next time!';
+    if (aiResult) {
+        try {
+            const economicIndicators = EconomyGuardianInterface.getEconomicIndicators(user.client);
+            economicFooter += ` • Economy: ${economicIndicators.status} (${economicIndicators.gini})`;
+        } catch (error) {
+            // Ignore errors getting economic indicators
+        }
+    }
+
     return buildSessionEmbed({
         title: `🎰 ${user.displayName}'s Slots${offEcoBadge}`,
         topFields,
         bankFields,
         stageText,
         color,
-        footer: result.won ? result.type : 'Better luck next time!'
+        footer: economicFooter
     });
 }
 
@@ -96,6 +108,14 @@ module.exports = {
 
         try {
             logger.debug(`Slots execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}'`);
+            
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'slots');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+            }
+            
             // Validate session before proceeding (via sessionGuard)
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, SMGameType.SLOTS, interaction.client);
@@ -120,7 +140,7 @@ module.exports = {
                 amount,
                 GameType.SLOTS,
                 1,        // Min bet: $1
-                175000    // Max bet: $175K (high multiplier limit)
+                100000000 // Max bet: $100M (safe with personalization)
             );
 
             if (!validation.isValid) {
@@ -130,6 +150,14 @@ module.exports = {
             const betAmount = validation.parsedAmount;
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
             const oldWallet = validation.newWallet + betAmount; // Wallet before bet
+
+            // AI Economic Interception - Silent optimization and wealth tax assessment
+            const aiResult = await EconomyGuardianInterface.interceptEconomicCommand(
+                interaction, 'slots', betAmount, { 
+                    userBalance: userBalance.wallet + userBalance.bank, 
+                    gameType: 'casino_game' 
+                }
+            );
 
             // Create game session
             const sessionResult = await sessionManager.createSession({
@@ -157,9 +185,21 @@ module.exports = {
             // Defer reply for animation and image generation
             await interaction.deferReply();
 
+            // Get personalized payouts for this player
+            const PersonalizedGameHelper = require('../UTILS/personalizedGameHelper');
+            const personalizedConfig = await PersonalizedGameHelper.getPersonalizedSlots(userId, validation);
+            
             // Spin the slots for real result immediately
             const symbols = spinSlots();
-            const baseResult = calculatePayout(symbols, betAmount);
+            const baseResult = calculatePayout(symbols, betAmount, personalizedConfig.payouts);
+            
+            // Apply AI multiplier adjustment to base result
+            const aiMultiplier = aiResult.multiplierAdjustment?.finalMultiplier || 1.0;
+            const aiAdjustedPayout = baseResult.won ? Math.floor(baseResult.payout * aiMultiplier) : 0;
+            const aiAdjustedResult = {
+                ...baseResult,
+                payout: aiAdjustedPayout
+            };
             
             // Apply transparent payout system - show full multiplier in UI but adjust actual payout
             const transparentResult = await transparentPayoutManager.processTransparentPayout(
@@ -170,13 +210,18 @@ module.exports = {
                 { symbols, winType: baseResult.type }
             );
             
-            // Use UI multiplier for display, actual payout for winnings
+            // Combine AI multiplier with transparent payout - AI takes precedence for actual payout
+            const finalActualPayout = aiAdjustedResult.won ? Math.min(aiAdjustedPayout, transparentResult.actualPayout) : 0;
+            
+            // Use UI multiplier for display, AI-adjusted payout for winnings
             const result = {
                 ...baseResult,
                 multiplier: transparentResult.uiMultiplier,  // Show attractive multiplier
-                payout: transparentResult.actualPayout,     // Pay actual amount
+                payout: finalActualPayout,                    // AI and transparent system adjusted payout
                 displayMultiplier: transparentResult.uiMultiplier,
-                actualMultiplier: baseResult.multiplier
+                actualMultiplier: baseResult.multiplier,
+                aiMultiplier: aiMultiplier,                  // Track AI adjustment
+                transparentPayout: transparentResult.actualPayout
             };
 
             // Update session with spin results
@@ -265,7 +310,7 @@ module.exports = {
             await interaction.editReply(animationData);
 
             // PHASE 2: After GIF finishes, show static result
-            // Wait for animation to complete (GIF has 50 frames * ~50-250ms = ~7.5 seconds)
+            // Wait for animation to complete (GIF has 25 frames * 60ms = 1.5 seconds)
             setTimeout(async () => {
                 try {
                     // Check if interaction is still valid before proceeding
@@ -279,7 +324,8 @@ module.exports = {
                             result,
                             betAmount,
                             finalBalance,
-                            oldWallet
+                            oldWallet,
+                            aiResult
                         );
 
                         // Add booster bonus info if applicable
@@ -294,6 +340,26 @@ module.exports = {
                                     (finalEmbed.data.description || '') + 
                                     `\n\n✨ **Server Booster Bonus Applied!** You earned an extra 2% on your win!`
                                 );
+                            }
+                        }
+
+                        // Show wealth tax notification if applied
+                        if (aiResult?.wealthTaxResult?.taxApplied) {
+                            const taxNotificationEmbed = EconomyGuardianInterface.createWealthTaxNotificationEmbed(
+                                aiResult.wealthTaxResult, 
+                                finalBalance
+                            );
+                            
+                            if (taxNotificationEmbed) {
+                                // Send tax notification as a follow-up message
+                                try {
+                                    await interaction.followUp({ 
+                                        embeds: [taxNotificationEmbed], 
+                                        flags: MessageFlags.Ephemeral 
+                                    });
+                                } catch (followUpError) {
+                                    logger.warn(`Failed to send wealth tax notification: ${followUpError.message}`);
+                                }
                             }
                         }
 
@@ -336,7 +402,7 @@ module.exports = {
                     logger.error(`Error updating slots to static result: ${error.message}`);
                     // Don't throw here as it would crash the setTimeout callback
                 }
-            }, 8000); // 8 second delay to ensure GIF completes
+            }, 2000); // 2 second delay for fast animation (25 frames * 60ms = 1.5s + 0.5s buffer)
 
             // Log game result
             await sendLogMessage(
@@ -350,6 +416,13 @@ module.exports = {
             // Log significant wins
             if (result.won && result.multiplier >= 50) {
                 logger.info(`Big slots win: ${interaction.user.tag} (${userId}) won ${fmt(result.payout)} with ${result.multiplier}x multiplier`);
+            }
+
+            // Log AI transaction result for audit
+            try {
+                await EconomyGuardianInterface.logTransactionResult(interaction, 'slots', betAmount, result, aiResult);
+            } catch (logError) {
+                logger.warn(`Failed to log AI transaction result: ${logError.message}`);
             }
 
         } catch (error) {

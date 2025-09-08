@@ -41,7 +41,7 @@ class LotteryGame {
     }
 
     /**
-     * Schedule the next lottery drawing for Sunday 10 AM EST
+     * Schedule the next lottery drawing for Tuesday and Saturday at 10 AM EST
      */
     async scheduleNextDrawing() {
         try {
@@ -50,15 +50,34 @@ class LotteryGame {
                 clearTimeout(this.scheduledDrawing);
             }
 
-            const nextDrawingTime = this.getNextSundayTimestamp();
+            const nextDrawingTime = this.getNextDrawingTimestamp();
             const now = Math.floor(Date.now() / 1000);
             const timeUntilDrawing = (nextDrawingTime - now) * 1000; // Convert to milliseconds
 
-            logger.info(`Next lottery drawing scheduled for ${new Date(nextDrawingTime * 1000).toLocaleString()} (in ${Math.round(timeUntilDrawing / (1000 * 60 * 60))} hours)`);
+            const drawingDate = new Date(nextDrawingTime * 1000);
+            const dayName = drawingDate.toLocaleDateString('en-US', { weekday: 'long' });
+            logger.info(`Next lottery drawing scheduled for ${dayName}, ${drawingDate.toLocaleString()} (in ${Math.round(timeUntilDrawing / (1000 * 60 * 60))} hours)`);
+
+            // Schedule 5-minute reminder (if drawing is more than 5 minutes away)
+            const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+            if (timeUntilDrawing > fiveMinutes) {
+                const reminderTime = timeUntilDrawing - fiveMinutes;
+                setTimeout(async () => {
+                    await this.sendDrawingReminder();
+                }, reminderTime);
+                logger.info(`Lottery reminder scheduled in ${Math.round(reminderTime / (1000 * 60))} minutes`);
+            }
 
             // Schedule the drawing
             this.scheduledDrawing = setTimeout(async () => {
-                await this.conductWeeklyDrawing();
+                const success = await this.conductWeeklyDrawing();
+                if (!success) {
+                    // Fallback: retry in 5 minutes
+                    logger.warn('Lottery drawing failed, scheduling retry in 5 minutes...');
+                    setTimeout(async () => {
+                        await this.conductWeeklyDrawing();
+                    }, 5 * 60 * 1000);
+                }
                 // Schedule the next drawing after this one completes
                 await this.scheduleNextDrawing();
             }, timeUntilDrawing);
@@ -101,15 +120,36 @@ class LotteryGame {
     }
 
     /**
-     * Calculate next Sunday 10 AM EST timestamp
+     * Calculate next Tuesday or Saturday 10 AM EST timestamp
+     * Drawing days: Tuesday (2) and Saturday (6)
      */
-    getNextSundayTimestamp() {
+    getNextDrawingTimestamp() {
         const nowNY = moment.tz('America/New_York');
-        let next = nowNY.clone().day(0).hour(10).minute(0).second(0).millisecond(0);
-        if (nowNY.day() > 0 || (nowNY.day() === 0 && nowNY.hour() >= 10)) {
-            next = nowNY.clone().day(7).hour(10).minute(0).second(0).millisecond(0);
+        const currentDay = nowNY.day(); // 0=Sunday, 1=Monday, 2=Tuesday, ..., 6=Saturday
+        const currentHour = nowNY.hour();
+        
+        // Drawing days: Tuesday (2) and Saturday (6)
+        const drawingDays = [2, 6]; // Tuesday and Saturday
+        let nextDrawing = null;
+        
+        // Check if today is a drawing day and it's before 10 AM
+        if (drawingDays.includes(currentDay) && currentHour < 10) {
+            // Today's drawing at 10 AM
+            nextDrawing = nowNY.clone().hour(10).minute(0).second(0).millisecond(0);
+        } else {
+            // Find next drawing day
+            let daysAhead = 0;
+            for (let i = 1; i <= 7; i++) {
+                const futureDay = (currentDay + i) % 7;
+                if (drawingDays.includes(futureDay)) {
+                    daysAhead = i;
+                    break;
+                }
+            }
+            nextDrawing = nowNY.clone().add(daysAhead, 'days').hour(10).minute(0).second(0).millisecond(0);
         }
-        return next.tz('UTC').unix();
+        
+        return nextDrawing.tz('UTC').unix();
     }
 
     /**
@@ -124,12 +164,12 @@ class LotteryGame {
             }
 
             const info = await dbManager.getLotteryInfo(DESIGNATED_SERVER_ID);
-            const nextTs = this.getNextSundayTimestamp();
+            const nextTs = this.getNextDrawingTimestamp();
 
             const embed = new EmbedBuilder()
-                .setTitle('🎟️ Weekly Lottery System')
+                .setTitle('🎟️ Bi-Weekly Lottery System')
                 .setColor(0xFFD700)
-                .setDescription('Every Sunday at 10 AM Eastern (America/New_York), we draw 3 winners!')
+                .setDescription('Every Tuesday & Saturday at 10 AM Eastern (America/New_York), we draw 3 winners!')
                 .addFields(
                     { name: '💰 Current Prize Pool', value: `**${fmt(info.total_prize || 400000)}**`, inline: true },
                     { name: '🎫 Tickets Sold', value: `**${info.total_tickets || 0}**`, inline: true },
@@ -170,12 +210,46 @@ class LotteryGame {
     }
 
     /**
-     * Conduct the weekly lottery drawing
+     * Send 5-minute drawing reminder to lottery channel
+     */
+    async sendDrawingReminder() {
+        try {
+            const channel = this.bot.channels.cache.get(LOTTERY_CHANNEL_ID);
+            if (!channel) {
+                logger.error(`Could not find lottery channel ${LOTTERY_CHANNEL_ID} for reminder`);
+                return;
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('🚨 LOTTERY DRAWING IN 5 MINUTES! 🚨')
+                .setColor(0xFF4500)
+                .setDescription('**Final call to purchase your lottery tickets!**\n\nThe bi-weekly lottery drawing starts in just **5 minutes**!')
+                .addFields(
+                    { name: '🎫 How to Buy', value: 'Use `/purchaselottery [count]` right now!', inline: true },
+                    { name: '💰 Cost', value: '$12,000 per ticket', inline: true },
+                    { name: '⏰ Time Left', value: '**5 minutes!**', inline: true }
+                )
+                .setFooter({ text: 'Last chance to get in on this drawing!' })
+                .setTimestamp();
+
+            await channel.send({
+                content: '@everyone 🎟️ **FINAL CALL FOR LOTTERY TICKETS!** 🎟️',
+                embeds: [embed]
+            });
+
+            logger.info('Lottery drawing reminder sent to channel');
+        } catch (error) {
+            logger.error(`Error sending lottery drawing reminder: ${error.message}`);
+        }
+    }
+
+    /**
+     * Conduct the bi-weekly lottery drawing (Tuesday and Saturday)
      */
     async conductWeeklyDrawing() {
         if (this.isDrawingInProgress) {
             logger.warn('Lottery drawing already in progress, skipping');
-            return;
+            return false;
         }
 
         this.isDrawingInProgress = true;
@@ -193,14 +267,17 @@ class LotteryGame {
                 await this.announceWinners(results);
                 
                 logger.info('Weekly lottery drawing completed successfully');
+                return true;
             } else {
                 // Handle cases where drawing couldn't be conducted
                 await this.handleDrawingFailure(results);
+                return false;
             }
 
         } catch (error) {
             logger.error(`Error during weekly lottery drawing: ${error.message}`);
             await this.handleDrawingError(error);
+            return false;
         } finally {
             this.isDrawingInProgress = false;
         }
@@ -223,7 +300,7 @@ class LotteryGame {
             const embed = new EmbedBuilder()
                 .setTitle('🎊 LOTTERY DRAWING RESULTS! 🎊')
                 .setColor(0xFFD700)
-                .setDescription(`**Weekly lottery drawing has been completed!**\n\nTotal Prize Pool: **${fmt(results.total_prize)}**\nParticipants: **${results.totalParticipants}** players\nTickets Sold: **${results.total_tickets}**`)
+                .setDescription(`**Bi-weekly lottery drawing has been completed!**\n\nTotal Prize Pool: **${fmt(results.total_prize)}**\nParticipants: **${results.totalParticipants}** players\nTickets Sold: **${results.total_tickets}**`)
                 .addFields(
                     {
                         name: '🥇 1st Place Winner',
@@ -247,7 +324,7 @@ class LotteryGame {
                     false
                 )
                 .setImage('attachment://winners.png')
-                .setFooter({ text: '🎟️ New lottery week starts now! Buy tickets for next Sunday\'s drawing!' })
+                .setFooter({ text: '🎟️ New lottery period starts now! Buy tickets for next Tuesday or Saturday drawing!' })
                 .setTimestamp();
 
             // Create buttons for next week
@@ -485,7 +562,7 @@ class LotteryGame {
                 currentPrize: lotteryInfo.total_prize,
                 total_tickets: lotteryInfo.total_tickets,
                 participantCount: Object.keys(lotteryInfo.participants).length,
-                nextDrawing: this.getNextSundayTimestamp(),
+                nextDrawing: this.getNextDrawingTimestamp(),
                 recentDrawings: history
             };
         } catch (error) {
@@ -494,7 +571,7 @@ class LotteryGame {
                 currentPrize: 400000,
                 total_tickets: 0,
                 participantCount: 0,
-                nextDrawing: this.getNextSundayTimestamp(),
+                nextDrawing: this.getNextDrawingTimestamp(),
                 recentDrawings: []
             };
         }

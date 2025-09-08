@@ -70,6 +70,13 @@ module.exports = {
         const betAmountStr = interaction.options.getString('bet');
 
         try {
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'treasurevault');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+            }
+
             // Session guard (unified)
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, 'treasurevault', interaction.client);
@@ -86,7 +93,7 @@ module.exports = {
                 betAmountStr,
                 GameType.TREASUREVAULT || 'treasurevault',
                 100, // minimum bet
-                300000, // maximum bet: 300K (reduced due to high multipliers)
+                25000000, // maximum bet: $25M (safe with personalization)
                 {} // no special requirements
             );
             

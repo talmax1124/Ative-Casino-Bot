@@ -290,6 +290,7 @@ class BlackjackGame {
         const playerValue = playerHand.getValue();
         const dealerValue = this.dealerHand.getValue();
         
+        
         let baseMultiplier = 0;
         let outcome = '';
 
@@ -301,13 +302,13 @@ class BlackjackGame {
             baseMultiplier = 1;
             outcome = 'PUSH';
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
-            baseMultiplier = 1.9;  // Further reduced blackjack payout (was 2.1)
+            baseMultiplier = options.personalizedPayouts?.blackjack || 2.5;  // Personalized blackjack payout
             outcome = 'BLACKJACK';
         } else if (this.dealerHand.isBusted()) {
-            baseMultiplier = 1.7;  // Further reduced regular win payout (was 1.85)
+            baseMultiplier = options.personalizedPayouts?.win || 2.0;  // Personalized win payout
             outcome = 'DEALER BUSTED';
         } else if (playerValue > dealerValue) {
-            baseMultiplier = 1.7;  // Further reduced regular win payout (was 1.85)
+            baseMultiplier = options.personalizedPayouts?.win || 2.0;  // Personalized win payout
             outcome = 'WIN';
         } else if (playerValue === dealerValue) {
             baseMultiplier = 1;  // Push returns bet (1x multiplier)
@@ -325,19 +326,22 @@ class BlackjackGame {
             finalMultiplier = Math.max(1, adjustedMultiplier); // Never go below returning the bet
             
             if (finalMultiplier !== baseMultiplier) {
-                logger.debug(`Blackjack multiplier adjusted: ${baseMultiplier.toFixed(2)}x → ${finalMultiplier.toFixed(2)}x (${((1 - options.economicMultiplier) * 100).toFixed(1)}% reduction)`);
+                logger.info(`Blackjack multiplier adjusted: ${baseMultiplier.toFixed(2)}x → ${finalMultiplier.toFixed(2)}x (${((1 - options.economicMultiplier) * 100).toFixed(1)}% reduction)`);
             }
         }
 
         // Calculate the effective bet amount for this hand (including double down)
         const effectiveBet = this.betAmount * playerHand.getBetMultiplier();
         
+        // Determine if this is a "win" based on the base game outcome, not economic adjustments
+        const isGameWin = baseMultiplier > 1;  // True win/loss based on game rules, not economic multiplier
+        
         return {
             outcome,
             multiplier: finalMultiplier,
             baseMultiplier: baseMultiplier,  // Store original for reference
             payout: effectiveBet * finalMultiplier,  // Total amount to return to player (including bet)
-            won: finalMultiplier > 1,  // Only wins if multiplier > 1 (push is not a win, but bet is returned)
+            won: isGameWin,  // Based on game outcome, not economic adjustments
             betAmount: effectiveBet,  // The actual bet amount for this hand
             doubled: playerHand.isDoubled(),  // Whether this hand was doubled
             economicAdjusted: finalMultiplier !== baseMultiplier  // Flag if economic system adjusted payout

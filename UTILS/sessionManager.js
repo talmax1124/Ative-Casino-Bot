@@ -170,6 +170,18 @@ class UnifiedSessionManager extends EventEmitter {
                 for (const sessionId of userSessionIds) {
                     const session = this.sessions.get(sessionId);
                     if (session && session.state === SessionState.ACTIVE) {
+                        // Additional check: if session is very old (>15 minutes), force cleanup
+                        const sessionAge = Date.now() - session.createdAt;
+                        if (sessionAge > 900000) { // 15 minutes
+                            this.log('warn', `Force-ending stale session ${sessionId} for user ${userId} (age: ${Math.round(sessionAge/60000)}min)`);
+                            try {
+                                await this.endSession(sessionId, { reason: 'stale_cleanup', force: true });
+                                continue; // Check next session
+                            } catch (cleanupError) {
+                                this.log('error', `Failed to cleanup stale session ${sessionId}`, cleanupError);
+                            }
+                        }
+                        
                         return {
                             allowed: false,
                             reason: 'SESSION_EXISTS',

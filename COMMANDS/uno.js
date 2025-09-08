@@ -45,6 +45,14 @@ module.exports = {
 
         try {
             logger.debug(`UNO execute called by ${username} (${userId}) in guild ${guildId} amount='${betAmountStr}'`);
+            
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'uno');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.editReply({ embeds: [maintenanceCheck.embed] });
+            }
+
             // Parse bet amount
             const betAmount = parseInt(betAmountStr);
             if (isNaN(betAmount) || betAmount <= 0) {

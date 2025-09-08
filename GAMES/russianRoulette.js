@@ -230,7 +230,7 @@ class RussianRouletteGame {
         
         // Start join timer with custom time
         this.joinTimer = setTimeout(() => {
-            this.startGame();
+            this.checkGameStart();
         }, this.joinTime);
         
         // Store game start timestamp for Discord timestamp display
@@ -274,7 +274,7 @@ class RussianRouletteGame {
                     // Force start when minimum players reached and forceStart is enabled
                     if (this.forceStart && this.players.size >= CONFIG.MIN_PLAYERS) {
                         clearTimeout(this.joinTimer);
-                        setTimeout(() => this.startGame(), 5000); // 5 second delay to allow more joins
+                        setTimeout(() => this.checkGameStart(), 5000); // 5 second delay to allow more joins
                     }
                 } else {
                     await interaction.reply({
@@ -299,7 +299,7 @@ class RussianRouletteGame {
                     });
                     
                     clearTimeout(this.joinTimer);
-                    setTimeout(() => this.startGame(), 1000); // 1 second delay
+                    setTimeout(() => this.checkGameStart(), 1000); // 1 second delay
                 } else {
                     await interaction.reply({
                         content: `❌ Need at least ${CONFIG.MIN_PLAYERS} players to start!`,
@@ -446,14 +446,22 @@ class RussianRouletteGame {
     }
 
     /**
-     * Start the actual game
+     * Check if game can start or needs to be cancelled
      */
-    async startGame() {
+    async checkGameStart() {
         if (this.players.size < CONFIG.MIN_PLAYERS) {
-            await this.cancelGame('Not enough players');
+            await this.cancelGame('Not enough players joined');
             return;
         }
 
+        // Game has enough players, proceed to start
+        await this.startGame();
+    }
+
+    /**
+     * Start the actual game
+     */
+    async startGame() {
         this.state = GameState.STARTING;
         clearTimeout(this.joinTimer);
         

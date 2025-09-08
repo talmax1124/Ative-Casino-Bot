@@ -130,25 +130,24 @@ module.exports = {
      */
     async getEconomicSystemData(userId) {
         try {
-            const systemStatus = economicManager.getSystemStatus();
-            const economicReport = await economicManager.getEconomicReport();
-            const userRisk = antiAbuseSystem.getUserRiskAssessment(userId);
+            // DISABLED - Legacy economic system replaced with ChatGPT EconomyGuardian
+            // const systemStatus = economicManager.getSystemStatus();
+            // const economicReport = await economicManager.getEconomicReport();
+            // const userRisk = antiAbuseSystem.getUserRiskAssessment(userId);
+            const systemStatus = { status: 'Stable', emergencyMode: false };
+            const economicReport = { status: 'Managed by ChatGPT EconomyGuardian', healthScore: 100 };
+            const userRisk = { level: 'LOW', score: 0 };
             const multiplierReductions = {};
             
-            // Get dynamic multiplier reductions for each game
+            // DISABLED - Dynamic multipliers now handled by ChatGPT
             const gameTypes = ['blackjack', 'slots', 'roulette', 'crash', 'plinko', 'yahtzee', 'treasurevault'];
             for (const gameType of gameTypes) {
-                try {
-                    const reduction = await economicManager.getMultiplierReduction(gameType, userId);
-                    const houseEdge = economicManager.getHouseEdgeAdjustment(gameType);
-                    multiplierReductions[gameType] = {
-                        reduction: (reduction * 100).toFixed(1),
-                        houseEdgeBonus: (houseEdge * 100).toFixed(2),
-                        effectiveMultiplier: ((1 - reduction) * 100).toFixed(1)
-                    };
-                } catch (err) {
-                    multiplierReductions[gameType] = { reduction: '0.0', houseEdgeBonus: '0.00', effectiveMultiplier: '100.0' };
-                }
+                // Static values - ChatGPT handles dynamic adjustments
+                multiplierReductions[gameType] = { 
+                    reduction: '0.0', 
+                    houseEdgeBonus: '0.00', 
+                    effectiveMultiplier: '100.0' 
+                };
             }
             
             // Ensure all data fields are populated with accurate information

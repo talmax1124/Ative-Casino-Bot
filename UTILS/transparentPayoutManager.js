@@ -5,9 +5,9 @@
  */
 
 const logger = require('./logger');
-const economicStabilizer = require('./economicStabilizer');
-const industryStabilizer = require('./industryStabilizer');
-const volatilityManager = require('./volatilityManager');
+// const economicStabilizer = require('./economicStabilizer'); // DISABLED - Using ChatGPT EconomyGuardian instead
+// const industryStabilizer = require('./industryStabilizer'); // DISABLED - Using ChatGPT EconomyGuardian instead
+// const volatilityManager = require('./volatilityManager'); // DISABLED - Using ChatGPT EconomyGuardian instead
 const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('./rng');
 
 class TransparentPayoutManager {
@@ -320,17 +320,20 @@ class TransparentPayoutManager {
         
         try {
             // Get economic stabilizer adjustment
-            const economicMultiplier = await economicStabilizer.getMultiplierAdjustment(userId, gameType, baseMultiplier);
+            // const economicMultiplier = await economicStabilizer.getMultiplierAdjustment(userId, gameType, baseMultiplier);
+            const economicMultiplier = 1.0; // DISABLED - Using ChatGPT EconomyGuardian for multiplier adjustments
             adjustments.economicReduction = Math.max(0, (baseMultiplier - economicMultiplier) / baseMultiplier);
             
             // Get industry stabilizer adjustment
-            const industryAdjustment = await industryStabilizer.getGameMultiplierAdjustment(gameType, userId, baseMultiplier);
+            // const industryAdjustment = await industryStabilizer.getGameMultiplierAdjustment(gameType, userId, baseMultiplier);
+            const industryAdjustment = { adjustment: 1.0, reason: 'DISABLED - Using ChatGPT EconomyGuardian' };
             if (industryAdjustment) {
-                adjustments.riskReduction = Math.max(0, (baseMultiplier - industryAdjustment.multiplier) / baseMultiplier);
+                adjustments.riskReduction = Math.max(0, (baseMultiplier - industryAdjustment.adjustment) / baseMultiplier);
             }
             
             // Get volatility adjustment
-            const volatilityAdjustment = await volatilityManager.getVolatilityAdjustments(userId, gameType, baseMultiplier);
+            // const volatilityAdjustment = await volatilityManager.getVolatilityAdjustments(userId, gameType, baseMultiplier);
+            const volatilityAdjustment = { winProbability: 0, reason: 'DISABLED - Using ChatGPT EconomyGuardian' };
             if (volatilityAdjustment) {
                 adjustments.volatilityReduction = Math.abs(volatilityAdjustment.winProbability) || 0;
             }

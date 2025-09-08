@@ -349,6 +349,13 @@ module.exports = {
             const guildId = await getGuildId(interaction);
             const betAmount = interaction.options.getInteger('bet') || 0;
 
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'yahtzee');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], ephemeral: true });
+            }
+
             // Check for existing game
             if (activeGames.has(userId)) {
                 return await interaction.reply({

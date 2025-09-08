@@ -202,3 +202,5 @@ Co-Authored-By: Claude <noreply@anthropic.com>" && git push
 - Make sure all games, commands, have consistent UI!
 - When making a new feature, make it into a new git branch.
 - Try to not be verbose. Just show me what you are working on. Do not show me any code. Just a To do List, and (WORKING) and test each functionality completely after each completed to do list to ensure nothing breaks!
+- restart the bot everytime you finish all the commands.
+- Remove the bot restart memory. Just do it only when u got a claude code bashes is running. Otherwise just kill the  process

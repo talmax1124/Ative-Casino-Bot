@@ -55,6 +55,13 @@ module.exports = {
             // Defer reply immediately to prevent timeout
             await interaction.deferReply();
 
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'russianroulette');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.editReply({ embeds: [maintenanceCheck.embed] });
+            }
+
             // Session guard check
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, 'russianroulette', interaction.client);
@@ -66,8 +73,8 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // Use PayoutManager for bet validation and deduction (no max bet limit)
-            const validation = await PayoutManager.validateAndDeductBet(
+            // Use PayoutManager for bet validation only (don't deduct yet)
+            const validation = await PayoutManager.validateBet(
                 interaction,
                 betAmountStr,
                 GameType.RUSSIAN_ROULETTE,
@@ -89,7 +96,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: 'russianroulette',
                 betAmount,
-                betPreDeducted: true, // Bet already deducted by PayoutManager
+                betPreDeducted: false, // Bet will be deducted when players join
                 timeout: Math.max(300000, joinTime * 1000 + 60000), // joinTime + 1 minute buffer
                 metadata: {
                     gamePhase: 'joining',
@@ -134,25 +141,8 @@ module.exports = {
                 );
             } catch (_) {}
 
-            // Refund bet if it was deducted
-            if (validation?.isValid && validation.parsedAmount > 0) {
-                try {
-                    const refundSuccess = await PayoutManager.refundBet(
-                        userId,
-                        guildId,
-                        validation.parsedAmount,
-                        'Russian Roulette failed to start'
-                    );
-                    
-                    if (refundSuccess) {
-                        logger.info(`Refunded ${fmt(validation.parsedAmount)} to ${username} (${userId}) after Russian Roulette error`);
-                    } else {
-                        logger.error(`Failed to refund ${fmt(validation.parsedAmount)} to ${username} (${userId})`);
-                    }
-                } catch (refundError) {
-                    logger.error(`Refund error for ${username} (${userId}): ${refundError.message}`);
-                }
-            }
+            // No need to refund since money hasn't been deducted yet
+            logger.info(`Russian Roulette error occurred before any money was charged for ${username} (${userId})`);
 
             // Enhanced session cleanup
             try {
@@ -166,10 +156,8 @@ module.exports = {
             let errorTitle = '❌ Russian Roulette Error';
             let errorDescription = 'Failed to start Russian Roulette game. Please try again.';
             
-            // Add refund notice if bet was deducted
-            if (validation?.isValid && validation.parsedAmount > 0) {
-                errorDescription += `\n\n💰 Your bet of **${fmt(validation.parsedAmount)}** has been refunded.`;
-            }
+            // No money was charged, so no refund needed
+            errorDescription += `\n\n💰 No money was charged - you can try again anytime.`;
             
             if (error.message.includes('Insufficient funds')) {
                 errorTitle = '💰 Insufficient Funds';

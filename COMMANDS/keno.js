@@ -14,7 +14,7 @@ const logger = require('../UTILS/logger');
 // KENO Configuration
 const KENO_CONFIG = {
     MIN_BET: 10,           // Minimum $10 entry
-    MAX_BET: 50000,        // Maximum $50K entry  
+    MAX_BET: 25000000,     // Maximum $25M entry (safe with personalization)  
     MIN_NUMBERS: 1,        // Minimum 1 number to pick
     MAX_NUMBERS: 10,       // Maximum 10 numbers to pick
     TOTAL_NUMBERS: 80,     // Numbers 1-80 available
@@ -54,6 +54,13 @@ module.exports = {
         try {
             // Defer reply immediately to prevent timeout
             await interaction.deferReply();
+
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'keno');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.editReply({ embeds: [maintenanceCheck.embed] });
+            }
 
             // Session guard check
             const sessionGuard = require('../UTILS/sessionGuard');
@@ -115,6 +122,12 @@ module.exports = {
                 guildId: guildId,
                 spots: spots,
                 quickPick: quickPick
+            });
+
+            // End the session after game completion
+            await sessionManager.endSession(sessionId, {
+                outcome: 'COMPLETED',
+                reason: 'game_completed'
             });
 
         } catch (error) {

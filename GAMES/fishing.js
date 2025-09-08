@@ -499,20 +499,8 @@ async function endFishingGame(userId) {
     if (game) {
         activeFishingGames.delete(userId);
         
-        // Also ensure session is properly ended
-        if (game.sessionId) {
-            try {
-                const sessionManager = require('../UTILS/sessionManager');
-                await sessionManager.endSession(game.sessionId, {
-                    outcome: 'COMPLETED',
-                    reason: 'Game ended'
-                });
-            } catch (error) {
-                logger.warn(`Failed to end session for fishing game: ${error.message}`);
-            }
-        }
-        
-        logger.info(`Fishing game ended for user ${userId}`);
+        // Session cleanup is handled by the command handler to avoid race conditions
+        logger.info(`Fishing game ended for user ${userId} (session cleanup handled by command)`);
     }
     return game;
 }
@@ -533,28 +521,32 @@ async function handleFishingAction(interaction, action) {
     }
 
     try {
+        let result = null;
         switch (action) {
             case 'fish':
-                await handleFishAction(interaction, game);
+                result = await handleFishAction(interaction, game);
                 break;
             case 'stop':
-                await handleStopAction(interaction, game);
+                result = await handleStopAction(interaction, game);
                 break;
             case 'help':
-                await handleHelpAction(interaction);
+                result = await handleHelpAction(interaction);
                 break;
             default:
                 await interaction.reply({
                     content: '❌ Unknown fishing action.',
                     flags: MessageFlags.Ephemeral
                 });
+                return null;
         }
+        return result;
     } catch (error) {
         logger.error(`Error handling fishing action ${action}:`, error);
         await interaction.reply({
             content: '❌ An error occurred while processing your fishing action.',
             flags: MessageFlags.Ephemeral
         });
+        return null;
     }
 }
 
@@ -685,7 +677,7 @@ async function handleStopAction(interaction, game) {
             components: [buttons]
         });
 
-        return { gameEnded: true, voluntaryStop: true };
+        return { gameEnded: true, voluntaryStop: true, reachedLimit: false, lostToRedFish: false };
     } catch (error) {
         logger.error('Error in handleStopAction:', error);
         await interaction.reply({

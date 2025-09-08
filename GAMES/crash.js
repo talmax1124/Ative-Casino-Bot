@@ -26,7 +26,7 @@ const { secureRandomFloat, generateProvablyFairRandom, generateVolatilityAdjuste
 // Optimized configuration - much more conservative
 const CRASH_CONFIG = {
   min_bet: 10,
-  max_bet: 175000,            // Max bet: $175K (high multiplier limit)
+  max_bet: 50000000,          // Max bet: $50M (safe with personalization)
   update_interval: 1000,      // Update every 1 second (was 500ms)
   max_multiplier: 8.0,
   house_edge: 0.03,

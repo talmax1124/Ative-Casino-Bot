@@ -41,6 +41,14 @@ module.exports = {
 
         try {
             logger.debug(`RPS execute called by ${username} (${userId}) in guild ${guildId}`);
+            
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'rps');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+            }
+
             // Validate session before proceeding (via sessionGuard)
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, SMGameType.RPS, interaction.client);
@@ -95,7 +103,7 @@ module.exports = {
                 amountStr,
                 GameType.ROCKPAPERSCISSORS,
                 50,        // Min bet: $50
-                10000000     // Max bet: $10M
+                50000000     // Max bet: $50M (safe with personalization)
             );
 
             if (!validationResult.isValid) {

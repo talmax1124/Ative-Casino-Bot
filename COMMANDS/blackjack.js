@@ -16,7 +16,9 @@ const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 const levelingSystem = require('../UTILS/levelingSystem');
 const OffEconomyBadge = require('../UTILS/offEconomyBadge');
-const economicManager = require('../UTILS/economicManager');
+// LEGACY: economicManager replaced by EconomyGuardian AI
+// const economicManager = require('../UTILS/economicManager');
+const EconomyGuardianInterface = require('../UTILS/economyGuardianInterface');
 
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
@@ -31,7 +33,7 @@ const gamePanelUtil = new GamePanelUtil();
 /**
  * Create game embed with consistent styling using gameSessionKit
  */
-async function createGameEmbed(game, user, showDealer = false, balance = null) {
+async function createGameEmbed(game, user, showDealer = false, balance = null, economicIndicators = null) {
     // Get off economy badge for the user
     const offEcoBadge = await OffEconomyBadge.getGamePanelBadge(user.id);
     // Top fields for game information
@@ -123,13 +125,19 @@ async function createGameEmbed(game, user, showDealer = false, balance = null) {
         color = 0x00ff00; // Bright green for active game
     }
 
+    // 🤖 Add ATIVE AI economic analysis to embed if available
+    let footer = game.gameEnded ? 'Game completed' : 'Choose your action';
+    if (economicIndicators && !game.gameEnded) {
+        footer += ` • AI Economy: ${economicIndicators.status} ${economicIndicators.healthScore}/100 (${economicIndicators.inequality} inequality)`;
+    }
+    
     return buildSessionEmbed({
         title: `🃏 ${user.displayName}'s Blackjack${offEcoBadge}`,
         topFields,
         bankFields,
         stageText,
-        color,
-        footer: game.gameEnded ? 'Game completed' : 'Choose your action'
+        color: economicIndicators?.color || color,
+        footer
     });
 }
 
@@ -221,6 +229,13 @@ module.exports = {
         let validation; // Declare validation at function scope
         
         try {
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'blackjack');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+            }
+
             // Validate session before proceeding using modern session system (via sessionGuard)
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, SMGameType.BLACKJACK, interaction.client);
@@ -239,13 +254,36 @@ module.exports = {
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
+            // 🤖 AI ECONOMIC INTERCEPTION - Analyze transaction before processing
+            const parsedAmount = parseAmount(amount);
+            const aiResult = await EconomyGuardianInterface.interceptEconomicCommand(
+                interaction,
+                'blackjack',
+                parsedAmount,
+                { 
+                    userBalance: userBalance.wallet + userBalance.bank,
+                    gameType: 'casino_game'
+                }
+            );
+            
+            // 🚀 AI SILENT OPTIMIZATION: Never block transactions, only adjust payouts silently
+            // All transactions proceed normally for seamless high-volume gameplay
+            
+            // Log ATIVE AI analysis if significant
+            if (aiResult.riskScore && aiResult.riskScore > 0.3) {
+                logger.info(`🤖 ATIVE AI Blackjack Analysis: ${userId} - Amount: ${fmt(parsedAmount)} - Risk: ${aiResult.riskScore.toFixed(3)} - Multiplier: ${aiResult.multiplierAdjustment?.finalMultiplier?.toFixed(3)}x`);
+                if (aiResult.multiplierAdjustment?.aiReasoning) {
+                    logger.info(`🧠 AI Reasoning: ${aiResult.multiplierAdjustment.aiReasoning}`);
+                }
+            }
+            
             // Validate and deduct bet (500K maximum limit - reduced from 10M)
             validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.BLACKJACK,
                 1,          // Min bet: $1
-                500000      // Max bet: $500K (reduced for balance)
+                100000000   // Max bet: $100M (safe with personalization)
             );
 
             if (!validation.isValid) {
@@ -286,7 +324,15 @@ module.exports = {
             const game = new BlackjackGame(userId, betAmount);
             game.dealInitialCards();
             game.sessionId = sessionId; // Link game to session
-            activeGames.set(sessionId, game); // Store by sessionId instead of userId
+            
+            // Store game with AI result for later use
+            const sessionData = {
+                game: game,
+                aiResult: aiResult, // Store AI analysis results
+                userId: userId,
+                betAmount: betAmount
+            };
+            activeGames.set(sessionId, sessionData);
 
             // Update session with initial game data
             await sessionManager.updateSession(sessionId, {
@@ -300,8 +346,9 @@ module.exports = {
                 }
             }, 'initial_deal');
 
-            // Create embed and table image
-            const embed = await createGameEmbed(game, interaction.user, false, userBalance);
+            // Create embed and table image with economic indicators
+            const economicIndicators = EconomyGuardianInterface.getEconomicIndicators(interaction.client);
+            const embed = await createGameEmbed(game, interaction.user, false, userBalance, economicIndicators);
             const actionRows = createGameButtons(userId, game);
             const tableImage = await createGameTableImage(game, false);
 
@@ -421,7 +468,8 @@ module.exports = {
             
             if (activeSession && activeSession.gameType === SMGameType.BLACKJACK) {
                 sessionId = activeSession.sessionId;
-                game = activeGames.get(sessionId);
+                const sessionData = activeGames.get(sessionId);
+                game = sessionData?.game;
             }
             
             if (!game || !sessionId) {
@@ -614,23 +662,46 @@ module.exports = {
     endGame: async function(interaction, game, userId, guildId) {
         try {
             // Safety check - ensure game still exists
-            if (!activeGames.has(game.sessionId) || activeGames.get(game.sessionId) !== game) {
+            const sessionData = activeGames.get(game.sessionId);
+            if (!sessionData || sessionData.game !== game) {
                 logger.warn(`endGame called but game no longer exists or differs for session ${game.sessionId}`);
                 return;
             }
             
-            // Get dynamic multiplier adjustment from economic system
+            // 🤖 Get AI-calculated dynamic multiplier from EconomyGuardian
             let economicMultiplier = 1.0;
             try {
-                economicMultiplier = await economicManager.getMultiplierReduction('blackjack', userId);
-                economicMultiplier = 1 - economicMultiplier; // Convert reduction to multiplier
-                economicMultiplier = Math.max(0.5, economicMultiplier); // Never reduce below 50%
+                // Get the stored AI result from the game session
+                const sessionData = activeGames.get(game.sessionId);
+                if (sessionData?.aiResult?.multiplierAdjustment?.finalMultiplier) {
+                    economicMultiplier = sessionData.aiResult.multiplierAdjustment.finalMultiplier;
+                    logger.info(`🤖 Applying AI multiplier for blackjack: ${economicMultiplier.toFixed(3)}x`);
+                } else {
+                    // Fallback: get fresh AI multiplier
+                    economicMultiplier = await EconomyGuardianInterface.getDynamicMultiplier(
+                        { user: { id: userId }, client: game.client },
+                        'blackjack',
+                        game.betAmount
+                    );
+                }
+                economicMultiplier = Math.max(0.5, Math.min(1.5, economicMultiplier)); // Cap between 0.5x - 1.5x
             } catch (error) {
-                logger.warn(`Failed to get economic multiplier for blackjack: ${error.message}`);
+                logger.warn(`Failed to get AI economic multiplier for blackjack: ${error.message}`);
                 economicMultiplier = 1.0;
             }
             
-            const results = game.getResults({ economicMultiplier });
+            // Get personalized payouts for this player
+            const PersonalizedGameHelper = require('../UTILS/personalizedGameHelper');
+            const personalizedConfig = await PersonalizedGameHelper.getPersonalizedBlackjack(userId, null);
+            
+            const results = game.getResults({ 
+                economicMultiplier,
+                personalizedPayouts: {
+                    blackjack: personalizedConfig.blackjackPayout,
+                    win: personalizedConfig.winPayout,
+                    push: personalizedConfig.pushPayout
+                }
+            });
             
             // Safety check - ensure we have results
             if (!results || results.length === 0) {
@@ -742,7 +813,10 @@ module.exports = {
                 } else {
                     const result = results[0] || {};
                     const payout = result.payout || 0;
-                    if (result.won) {
+                    logger.info(`🔍 DEBUG: won=${result.won}, outcome=${result.outcome}, baseMultiplier=${result.baseMultiplier}, multiplier=${result.multiplier}, payout=${payout}`);
+                    
+                    // Force win display based on base game outcome, not economic multipliers
+                    if (result.baseMultiplier > 1 || result.outcome === 'DEALER BUSTED' || result.outcome === 'BLACKJACK' || result.outcome === 'WIN') {
                         resultMessage = `🎉 **YOU WIN!** ${fmt(payout)}`;
                     } else if (result.outcome === 'PUSH') {
                         resultMessage = `🤝 **PUSH** - Your bet is returned.`;
@@ -836,6 +910,19 @@ module.exports = {
                 });
             }
 
+            // 🤖 Log transaction result to EconomyGuardian for learning
+            try {
+                await EconomyGuardianInterface.logTransactionResult(
+                    interaction,
+                    'blackjack',
+                    totalBetAmount,
+                    { won: won, payout: totalPayout },
+                    sessionData.aiResult || {}
+                );
+            } catch (error) {
+                logger.error(`Failed to log transaction to EconomyGuardian: ${error.message}`);
+            }
+            
             // Clean up after interaction update (success or failure)
             activeGames.delete(game.sessionId);
 

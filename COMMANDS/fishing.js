@@ -38,12 +38,40 @@ module.exports = {
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, 'fishing', interaction.client);
             if (!check.allowed) {
-                const errorEmbed = new EmbedBuilder()
-                    .setTitle('❌ Session Error')
-                    .setDescription(check.message)
-                    .setColor(0xFF0000)
-                    .setTimestamp();
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                // Additional cleanup: if user has fishing game in memory but no session, clean it up
+                if (check.code === 'SESSION_EXISTS') {
+                    const fishingGame = getFishingGame(userId);
+                    if (fishingGame && !sessionManager.getUserActiveSession(userId)) {
+                        logger.warn(`Cleaning up orphaned fishing game for user ${userId}`);
+                        await endFishingGame(userId);
+                        // Retry session check after cleanup
+                        const retryCheck = await sessionGuard.check(userId, guildId, 'fishing', interaction.client);
+                        if (retryCheck.allowed) {
+                            logger.info(`Session check successful after fishing game cleanup for user ${userId}`);
+                        } else {
+                            const errorEmbed = new EmbedBuilder()
+                                .setTitle('❌ Session Error')
+                                .setDescription(retryCheck.message)
+                                .setColor(0xFF0000)
+                                .setTimestamp();
+                            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                        }
+                    } else {
+                        const errorEmbed = new EmbedBuilder()
+                            .setTitle('❌ Session Error')
+                            .setDescription(check.message)
+                            .setColor(0xFF0000)
+                            .setTimestamp();
+                        return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    }
+                } else {
+                    const errorEmbed = new EmbedBuilder()
+                        .setTitle('❌ Session Error')
+                        .setDescription(check.message)
+                        .setColor(0xFF0000)
+                        .setTimestamp();
+                    return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                }
             }
             
             // Validate and deduct bet amount using PayoutManager
@@ -144,11 +172,16 @@ module.exports = {
         const userId = interaction.user.id;
         const guildId = await getGuildId(interaction);
         
+        logger.info(`Fishing button clicked: ${action} by user ${userId}`);
+        
         try {
             const result = await handleFishingAction(interaction, action);
             
+            logger.info(`Fishing action result for ${userId}:`, result);
+            
             // If game ended, handle cleanup
             if (result && result.gameEnded) {
+                logger.info(`Fishing game ended for ${userId}, calling endFishingSession`);
                 await this.endFishingSession(interaction, userId, guildId, result);
             }
         } catch (error) {
@@ -168,11 +201,14 @@ module.exports = {
      */
     async endFishingSession(interaction, userId, guildId, result) {
         try {
+            logger.info(`Starting endFishingSession for user ${userId}`);
             const game = getFishingGame(userId);
             if (!game) {
                 logger.warn(`No fishing game found for user ${userId} during session end`);
                 return;
             }
+            
+            logger.info(`Found fishing game for ${userId}, sessionId: ${game.sessionId}`);
 
             // Calculate final amounts (wallet update handled by sessionManager payout)
             const netChange = game.currentWinnings - game.initialBet;
@@ -243,12 +279,16 @@ module.exports = {
             
             // Complete session if exists (this processes payout and clears active flag)
             if (game.sessionId) {
+                logger.info(`Ending session ${game.sessionId} for user ${userId}`);
                 await sessionManager.endSession(game.sessionId, {
                     outcome: won ? 'WON' : 'LOST',
                     payout: game.currentWinnings,
                     won: won,
                     netChange: netChange
                 });
+                logger.info(`Session ${game.sessionId} ended successfully for user ${userId}`);
+            } else {
+                logger.warn(`No sessionId found for user ${userId} fishing game`);
             }
 
             logger.info(`Fishing game completed: ${game.username} (${userId}) - ${won ? 'WIN' : 'LOSS'} ${fmt(netChange)}`);

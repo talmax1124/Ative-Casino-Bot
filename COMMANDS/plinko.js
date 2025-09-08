@@ -70,6 +70,13 @@ module.exports = {
                 return;
             }*/
 
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'plinko');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.editReply({ embeds: [maintenanceCheck.embed] });
+            }
+
             // Validate session using new system (correct order/flag)
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, SMGameType.PLINKO, interaction.client);
@@ -90,7 +97,7 @@ module.exports = {
                 betAmountStr,
                 GameType.PLINKO,
                 100, // Minimum bet: 100 chips
-                175000 // Maximum bet: 175K chips (high multiplier limit)
+                50000000 // Maximum bet: $50M (safe with personalization)
             );
 
             if (!validationResult.isValid) {
@@ -286,7 +293,7 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
         
         // Calculate winnings using actual multiplier (behind the scenes)
         const winnings = Math.floor(betAmount * finalActualMultiplier);
-        const won = winnings > 0; // Only a win if they get something back
+        const won = winnings > betAmount; // Win if they get more than their bet back
 
         // Create animation frames using display multipliers for UI
         const animationFrames = [];

@@ -308,6 +308,22 @@ class DatabaseAdapter {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (user_id, boost_type),
                 INDEX idx_expires_at (expires_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            // EconomyGuardian audit logging table
+            `CREATE TABLE IF NOT EXISTS economic_changes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                timestamp VARCHAR(50) NOT NULL,
+                change_type VARCHAR(100) NOT NULL,
+                target VARCHAR(100) NOT NULL,
+                changes_data JSON NOT NULL,
+                source VARCHAR(50) NOT NULL DEFAULT 'EconomyGuardian',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_timestamp (timestamp),
+                INDEX idx_change_type (change_type),
+                INDEX idx_target (target),
+                INDEX idx_source (source),
+                INDEX idx_created_at (created_at)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -1371,26 +1387,178 @@ class DatabaseAdapter {
     }
 
     /**
-     * Conduct lottery drawing (placeholder implementation)
+     * Conduct lottery drawing with MariaDB integration
      */
     async conductLotteryDrawing(guildId) {
+        const connection = await this.pool.getConnection();
+        
         try {
+            await connection.beginTransaction();
             logger.info(`Conducting lottery drawing for guild ${guildId || 'global'}`);
             
-            // Placeholder implementation - return basic structure
+            // Get lottery info
+            const [lotteryInfo] = await connection.execute(
+                'SELECT * FROM lottery_info WHERE guild_id = ?',
+                [guildId]
+            );
+            
+            if (!lotteryInfo.length) {
+                await connection.rollback();
+                return {
+                    success: false,
+                    reason: 'No lottery info found for this server'
+                };
+            }
+            
+            const lottery = lotteryInfo[0];
+            const currentWeekStart = lottery.current_week_start;
+            
+            // Get all participants for current week
+            const [participants] = await connection.execute(
+                `SELECT user_id, ticket_count 
+                 FROM lottery_tickets 
+                 WHERE guild_id = ? AND week_start = ? 
+                 ORDER BY user_id`,
+                [guildId, currentWeekStart]
+            );
+            
+            if (participants.length < 3) {
+                await connection.rollback();
+                return {
+                    success: false,
+                    reason: 'Not enough participants (minimum 3 required)',
+                    participants: participants.length,
+                    total_prize: lottery.total_prize
+                };
+            }
+            
+            // Calculate total tickets and create weighted pool
+            let totalTickets = 0;
+            const ticketPool = [];
+            
+            for (const participant of participants) {
+                totalTickets += participant.ticket_count;
+                // Add user to pool based on ticket count (weighted)
+                for (let i = 0; i < participant.ticket_count; i++) {
+                    ticketPool.push(participant.user_id);
+                }
+            }
+            
+            // Prize distribution: 1st: 60%, 2nd: 25%, 3rd: 15%
+            const totalPrize = lottery.total_prize;
+            const firstPrize = Math.floor(totalPrize * 0.60);
+            const secondPrize = Math.floor(totalPrize * 0.25);  
+            const thirdPrize = Math.floor(totalPrize * 0.15);
+            
+            // Draw winners (ensure no duplicates)
+            const winners = [];
+            const usedUserIds = new Set();
+            const { secureRandomInt } = require('./rng');
+            
+            // Draw 3 unique winners
+            while (winners.length < 3 && usedUserIds.size < participants.length) {
+                const randomIndex = secureRandomInt(0, ticketPool.length);
+                const winnerId = ticketPool[randomIndex];
+                
+                if (!usedUserIds.has(winnerId)) {
+                    usedUserIds.add(winnerId);
+                    const winnerData = participants.find(p => p.user_id === winnerId);
+                    
+                    let prize;
+                    let place;
+                    if (winners.length === 0) {
+                        prize = firstPrize;
+                        place = 1;
+                    } else if (winners.length === 1) {
+                        prize = secondPrize;
+                        place = 2;
+                    } else {
+                        prize = thirdPrize;
+                        place = 3;
+                    }
+                    
+                    winners.push({
+                        userId: winnerId,
+                        place: place,
+                        prize: prize,
+                        ticketsOwned: winnerData.ticket_count
+                    });
+                }
+            }
+            
+            // Save winners to database
+            for (const winner of winners) {
+                await connection.execute(
+                    `INSERT INTO lottery_winners (user_id, guild_id, week_start, tickets_owned, total_tickets, prize_amount)
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [winner.userId, guildId, currentWeekStart, winner.ticketsOwned, totalTickets, winner.prize]
+                );
+                
+                // Award prize to winner
+                await connection.execute(
+                    'UPDATE user_balances SET wallet = wallet + ? WHERE user_id = ?',
+                    [winner.prize, winner.userId]
+                );
+            }
+            
+            // Reset lottery for next week
+            const nextWeekStart = new Date();
+            nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+            nextWeekStart.setUTCHours(0, 0, 0, 0);
+            
+            await connection.execute(
+                `UPDATE lottery_info 
+                 SET total_tickets = 0, total_prize = 400000.00, current_week_start = ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE guild_id = ?`,
+                [nextWeekStart.toISOString().slice(0, 10), guildId]
+            );
+            
+            // Clear tickets for next week
+            await connection.execute(
+                'DELETE FROM lottery_tickets WHERE guild_id = ? AND week_start = ?',
+                [guildId, currentWeekStart]
+            );
+            
+            await connection.commit();
+            
             return {
                 success: true,
-                winner: null,
-                prize: 0,
-                participants: 0,
-                message: "No lottery system implemented yet"
+                winners: winners,
+                total_prize: totalPrize,
+                totalParticipants: participants.length,
+                total_tickets: totalTickets,
+                drawingDate: new Date(),
+                prizeBreakdown: {
+                    first: firstPrize,
+                    second: secondPrize,
+                    third: thirdPrize
+                }
             };
+            
         } catch (error) {
+            await connection.rollback();
             logger.error(`Error conducting lottery drawing: ${error.message}`);
             return {
                 success: false,
                 error: error.message
             };
+        } finally {
+            connection.release();
+        }
+    }
+
+    /**
+     * Save lottery history to database
+     */
+    async saveLotteryHistory(guildId, results) {
+        try {
+            // The lottery winners are already saved in conductLotteryDrawing
+            // This function can be used for additional historical tracking if needed
+            logger.info(`Lottery history saved for guild ${guildId}: ${results.winners?.length || 0} winners, total prize: ${results.total_prize}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error saving lottery history: ${error.message}`);
+            return false;
         }
     }
 

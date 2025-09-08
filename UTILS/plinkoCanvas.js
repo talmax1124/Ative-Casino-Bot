@@ -12,32 +12,32 @@ const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvably
 const BASE_PLINKO_MODES = {
     Easy: {
         rows: 8,
-        multipliers: [0.1, 0.3, 0.5, 0.7, 1.0, 0.7, 0.5, 0.3, 0.1],
-        description: "Safest option with lower win potential. Reduced multipliers.",
+        multipliers: [0.0, 0.2, 0.4, 0.6, 1.0, 0.6, 0.4, 0.2, 0.0], // Added 0x slots at edges
+        description: "Safest option with lower win potential. Now includes 0x slots!",
         color: '#00FF00',
         emoji: '🟢',
-        house_edge: 0.75
+        house_edge: 0.80
     },
     Medium: {
         rows: 12,
-        multipliers: [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.5, 0.8, 0.5, 0.3, 0.2, 0.1, 0.0],
-        description: "Moderate risk with decent win potential. Reduced multipliers.",
+        multipliers: [0.0, 0.0, 0.1, 0.2, 0.4, 0.8, 1.5, 0.8, 0.4, 0.2, 0.1, 0.0, 0.0], // More 0x slots
+        description: "Moderate risk with decent win potential. Multiple 0x slots!",
         color: '#FFA500',
         emoji: '🟠',
         house_edge: 0.85
     },
     Hard: {
         rows: 16,
-        multipliers: [0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.6, 1.0, 3.0, 1.0, 0.6, 0.4, 0.3, 0.2, 0.1, 0.0, 0.0], // REDUCED from 8x to 3x
-        description: "High risk gambling with reduced win potential. Lower multipliers.",
+        multipliers: [0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.5, 1.0, 3.0, 1.0, 0.5, 0.3, 0.2, 0.1, 0.0, 0.0, 0.0], // More 0x slots
+        description: "High risk gambling with many 0x slots. Dangerous!",
         color: '#FF0000',
         emoji: '🔴',
         house_edge: 0.90
     },
     Nightmare: {
         rows: 20,
-        multipliers: [0.0, 0.0, 0.0, 0.1, 2.5, 0.2, 0.3, 0.4, 0.1, 0.1, 0.1, 0.4, 0.3, 0.2, 2.5, 0.1, 0.0, 0.0, 0.0], // REDUCED from 6x to 2.5x
-        description: "💀 NIGHTMARE MODE 💀 - Heavily reduced multipliers for economy balance!",
+        multipliers: [0.0, 0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.1, 2.5, 0.1, 0.4, 0.3, 0.2, 0.1, 0.0, 0.0, 0.0, 0.0], // Many 0x slots
+        description: "💀 NIGHTMARE MODE 💀 - Surrounded by 0x slots. Pure chaos!",
         color: '#8B008B',
         emoji: '💀',
         house_edge: 0.95

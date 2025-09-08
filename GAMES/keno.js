@@ -11,7 +11,7 @@ const dbManager = require('../UTILS/database');
 const sessionManager = require('../UTILS/sessionManager');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
-const { secureRandomShuffle, generateProvablyFairRandom } = require('../UTILS/rng');
+const { secureRandomShuffle, generateProvablyFairRandom, secureRandomInt } = require('../UTILS/rng');
 
 // KENO Configuration
 const CONFIG = {
@@ -385,7 +385,7 @@ class KenoGame {
         const available = Array.from({length: CONFIG.TOTAL_NUMBERS}, (_, i) => i + 1);
         
         for (let i = 0; i < count; i++) {
-            const randomIndex = Math.floor(Math.random() * available.length);
+            const randomIndex = secureRandomInt(0, available.length);
             numbers.push(available.splice(randomIndex, 1)[0]);
         }
         
@@ -400,7 +400,7 @@ class KenoGame {
         this.drawnNumbers = [];
         
         for (let i = 0; i < CONFIG.DRAW_COUNT; i++) {
-            const randomIndex = Math.floor(Math.random() * available.length);
+            const randomIndex = secureRandomInt(0, available.length);
             this.drawnNumbers.push(available.splice(randomIndex, 1)[0]);
         }
         
@@ -433,18 +433,18 @@ class KenoGame {
             // Process payout if won
             let gameResult = GameResult.LOSS;
             if (this.payout > 0) {
-                const success = await PayoutManager.processGamePayout(
-                    this.userId,
-                    this.guildId,
-                    this.payout,
-                    GameType.KENO,
-                    `KENO win - ${this.matches}/${this.spots} matches`
-                );
-                gameResult = success ? GameResult.WIN : GameResult.ERROR;
+                const payoutResult = await PayoutManager.processGamePayout({
+                    userId: this.userId,
+                    guildId: this.guildId,
+                    gameType: GameType.KENO,
+                    betAmount: this.betAmount,
+                    payout: this.payout,
+                    won: true
+                });
+                gameResult = payoutResult.success ? GameResult.WIN : GameResult.ERROR;
             }
 
-            // Update session as completed
-            await sessionManager.updateSessionState(this.sessionId, sessionManager.SessionState.COMPLETED);
+            // Session completion will be handled by the command handler
 
             // Log game result
             await dbManager.recordGameResult(this.userId, this.guildId, GameType.KENO, {
@@ -491,7 +491,7 @@ class KenoGame {
         const drawnDisplay = this.drawnNumbers.join(' ');
         
         return buildSessionEmbed({
-            title: `🎲 KENO - ${won ? 'WINNER!' : 'NO WIN'}`,
+            title: `🎰 KENO - ${won ? `${this.matches} NUMBERS MATCHED! 🎉` : `${this.matches} NUMBERS MATCHED`}`,
             topFields: [
                 {
                     name: '🎯 YOUR NUMBERS',
@@ -509,7 +509,7 @@ class KenoGame {
                     inline: false
                 }
             ],
-            stageText: won ? `${this.matches} MATCHES!` : 'BETTER LUCK NEXT TIME',
+            stageText: won ? `🎊 WINNING NUMBERS! 🎊` : `${this.matches} out of ${this.spots} picked`,
             color: won ? 0x00FF00 : 0xFF4444,
             footer: `Bet: ${fmt(this.betAmount)} | ${this.matches} matches out of ${this.spots} picks`
         });

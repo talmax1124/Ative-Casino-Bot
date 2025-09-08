@@ -7,6 +7,7 @@ const Canvas = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
 const shopManager = require('./shopManager');
 const logger = require('./logger');
+const { secureRandomFloat } = require('./rng');
 
 class ProfileDecorator {
     constructor() {
@@ -235,7 +236,6 @@ class ProfileDecorator {
         try {
             // Check if user has decorations enabled
             const dbManager = require('./database');
-const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('./rng');
             const userSettings = await dbManager.getUserSettings(userId);
             // Handle boolean conversion: null/undefined = true (default), 0/false = false, 1/true = true
             const decorationsEnabled = userSettings?.decorations_enabled == null ? true : Boolean(userSettings.decorations_enabled);

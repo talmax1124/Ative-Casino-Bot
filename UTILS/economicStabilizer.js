@@ -40,17 +40,17 @@ class EconomicStabilizer {
             economicStability: 100
         };
         
-        // Circuit breaker thresholds (AGGRESSIVE SETTINGS)
+        // Circuit breaker thresholds (REASONABLE SETTINGS)
         this.circuitBreakers = {
-            maxDailyLoss: new Decimal(25000000),      // $25M max house loss per day (more aggressive)
-            maxWealthConcentration: 0.95,             // Top 1% can't own more than 95% (tighter control)
-            maxInflationRate: 0.05,                   // 5% max inflation per day (stricter)
-            minHouseEdge: 0.025,                      // Minimum 2.5% house edge (increased)
-            maxBetSizeRatio: 0.03,                    // Max bet can't exceed 3% of user's wealth (reduced)
-            suspiciousWinThreshold: 50,               // 50x multiplier triggers investigation (lowered)
-            maxConsecutiveWins: 7,                    // Max wins in a row before analysis (reduced)
-            maxGameWinRate: 0.52,                     // No game should have >52% player win rate
-            emergencyMultiplierCap: 0.3               // Emergency mode: cap all multipliers at 30%
+            maxDailyLoss: new Decimal(100000000),     // $100M max house loss per day (reasonable)
+            maxWealthConcentration: 0.98,             // Top 1% can't own more than 98% (reasonable)
+            maxInflationRate: 0.10,                   // 10% max inflation per day (reasonable)
+            minHouseEdge: 0.01,                       // Minimum 1% house edge (reasonable)
+            maxBetSizeRatio: 0.05,                    // Max bet can't exceed 5% of user's wealth (reasonable)
+            suspiciousWinThreshold: 100,              // 100x multiplier triggers investigation (reasonable)
+            maxConsecutiveWins: 10,                   // Max wins in a row before analysis (reasonable)
+            maxGameWinRate: 0.60,                     // No game should have >60% player win rate (reasonable)
+            emergencyMultiplierCap: 0.5               // Emergency mode: cap all multipliers at 50%
         };
         
         // Dynamic multiplier adjustments (MORE AGGRESSIVE)
@@ -79,25 +79,25 @@ class EconomicStabilizer {
         // Initialize the AI analyzer
         await economicAnalyzer.initialize();
         
-        // Start continuous economic monitoring (reasonable intervals)
-        this.analysisInterval = setInterval(() => {
-            this.performEconomicAnalysis();
-        }, 600000); // Every 10 minutes (reasonable monitoring)
+        // Disabled continuous economic monitoring to prevent false alarms
+        // this.analysisInterval = setInterval(() => {
+        //     this.performEconomicAnalysis();
+        // }, 600000); // Every 10 minutes (reasonable monitoring)
         
-        // Start AI analysis interval (every hour)
-        this.aiAnalysisInterval = setInterval(() => {
-            this.performAIAnalysis();
-        }, 600000);
+        // Disabled AI analysis interval to prevent false alarms
+        // this.aiAnalysisInterval = setInterval(() => {
+        //     this.performAIAnalysis();
+        // }, 600000);
         
-        // Wait a bit for database to be fully ready, then perform initial analysis
-        setTimeout(async () => {
-            if (dbManager.initialized && dbManager.databaseAdapter && dbManager.databaseAdapter.pool) {
-                await this.performEconomicAnalysis();
-                await this.performAIAnalysis();
-            } else {
-                logger.debug('Skipping initial economic analysis - database not ready yet');
-            }
-        }, 5000); // Wait 5 seconds after initialization
+        // Disabled initial analysis to prevent false alarms at startup
+        // setTimeout(async () => {
+        //     if (dbManager.initialized && dbManager.databaseAdapter && dbManager.databaseAdapter.pool) {
+        //         await this.performEconomicAnalysis();
+        //         await this.performAIAnalysis();
+        //     } else {
+        //         logger.debug('Skipping initial economic analysis - database not ready yet');
+        //     }
+        // }, 5000); // Wait 5 seconds after initialization
         
         logger.info('🏦 Economic Stabilizer initialized successfully with AI integration');
     }
@@ -138,11 +138,11 @@ class EconomicStabilizer {
             // Check circuit breakers
             const circuitTriggered = await this.checkCircuitBreakers(economicData);
             
-            // Only trigger emergency if health is poor (< 80) OR circuit breakers are extreme
-            if (circuitTriggered && (this.healthMetrics.economicStability < 80 || circuitTriggered.some(t => t.severity === 'CRITICAL'))) {
+            // Only trigger emergency if health is poor (< 50) AND circuit breakers are CRITICAL
+            if (circuitTriggered && (this.healthMetrics.economicStability < 50 && circuitTriggered.some(t => t.severity === 'CRITICAL'))) {
                 await this.triggerEmergencyMeasures(circuitTriggered);
-            } else if (circuitTriggered && this.healthMetrics.economicStability >= 80) {
-                logger.info(`⚠️ Circuit breakers triggered but health is good (${this.healthMetrics.economicStability}/100) - emergency prevented`);
+            } else if (circuitTriggered) {
+                logger.debug(`⚠️ Circuit breakers triggered but not severe enough - health: ${this.healthMetrics.economicStability}/100`);
             }
             
             // Cache results for quick access
@@ -422,19 +422,19 @@ class EconomicStabilizer {
         else if (concentration > 0.65) score -= 10; // Some concentration
         else if (concentration > 0.55) score -= 5;  // Low concentration
         
-        // Enhanced house edge analysis
-        if (houseEdge < 0.01) score -= 40;         // Critical - house losing money
-        else if (houseEdge < 0.02) score -= 30;   // Very low - unsustainable
-        else if (houseEdge < 0.025) score -= 20;  // Low - concerning
-        else if (houseEdge < 0.03) score -= 10;   // Slightly low
+        // Enhanced house edge analysis (less strict)
+        if (houseEdge < -0.05) score -= 40;        // Critical - house losing significant money
+        else if (houseEdge < -0.02) score -= 30;   // Very low - concerning losses
+        else if (houseEdge < 0.005) score -= 20;   // Low - minimal profit
+        else if (houseEdge < 0.01) score -= 10;    // Slightly low
         
         // Optimal house edge bonus (3-6% is ideal for casino sustainability)
         if (houseEdge >= 0.03 && houseEdge <= 0.06) score += 15;
         else if (houseEdge >= 0.06 && houseEdge <= 0.08) score += 10; // Still good
         else if (houseEdge > 0.10) score -= 15; // Too high - may discourage play
         
-        // Emergency triggers for immediate action (more restrictive to avoid false alarms)
-        if (gini > 0.98 || concentration > 0.99 || houseEdge < 0.005) {
+        // Emergency triggers for immediate action (very restrictive to avoid false alarms)
+        if (gini > 0.995 || concentration > 0.995 || houseEdge < -0.10) {
             score = Math.min(score, 25); // Force emergency mode only in extreme cases
         }
         

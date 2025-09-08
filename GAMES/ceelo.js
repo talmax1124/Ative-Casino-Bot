@@ -4,7 +4,7 @@
  * 1:1 even money payouts with natural house edge from game mechanics
  */
 
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const dbManager = require('../UTILS/database');
@@ -12,6 +12,8 @@ const sessionManager = require('../UTILS/sessionManager');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const { secureRandomInt, generateProvablyFairRandom, generateAntiStreakRandom } = require('../UTILS/rng');
+const Canvas = require('canvas');
+const path = require('path');
 
 // CEELO Configuration
 const CONFIG = {
@@ -28,7 +30,7 @@ const HAND_RANKINGS = {
     TRIPS_2: 5,           // 2-2-2
     TRIPS_1: 4,           // 1-1-1
     POINT: 3,             // Pair + different die (point = different die value)
-    TRASH: 1              // No valid combination
+    MIXED_NUMBERS: 1      // Mixed numbers (no special combination)
 };
 
 // Dice emojis for display
@@ -156,11 +158,11 @@ class CeeloGame {
             };
         }
         
-        // Trash (no valid combination)
+        // Mixed numbers (no valid combination)
         return {
-            type: 'TRASH',
-            ranking: HAND_RANKINGS.TRASH,
-            description: 'Trash',
+            type: 'MIXED_NUMBERS',
+            ranking: HAND_RANKINGS.MIXED_NUMBERS,
+            description: 'Mixed Numbers',
             value: a + b + c // Use total for tie-breaking
         };
     }
@@ -175,8 +177,8 @@ class CeeloGame {
             this.winner = 'house';
         } else {
             // Same ranking, compare values
-            if (this.playerHand.ranking === HAND_RANKINGS.TRASH) {
-                // For trash hands, lowest total wins
+            if (this.playerHand.ranking === HAND_RANKINGS.MIXED_NUMBERS) {
+                // For mixed number hands, lowest total wins
                 this.winner = this.playerHand.value < this.houseHand.value ? 'player' : 'house';
             } else {
                 // For other hands, highest value wins
@@ -192,6 +194,156 @@ class CeeloGame {
     }
 
     /**
+     * Create dice image showing both player and house rolls
+     */
+    async createDiceImage() {
+        try {
+            const canvas = Canvas.createCanvas(900, 700);
+            const ctx = canvas.getContext('2d');
+            
+            // Set background with elegant green gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1B4332');   // Deep forest green
+            gradient.addColorStop(0.5, '#2D5A3B'); // Mid green
+            gradient.addColorStop(1, '#1B4332');   // Deep forest green
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Add elegant border with rounded corners
+            ctx.strokeStyle = '#52B788';  // Bright accent green
+            ctx.lineWidth = 4;
+            ctx.setLineDash([]);
+            
+            // Rounded rectangle background
+            const cornerRadius = 20;
+            ctx.beginPath();
+            ctx.moveTo(cornerRadius, 0);
+            ctx.lineTo(canvas.width - cornerRadius, 0);
+            ctx.quadraticCurveTo(canvas.width, 0, canvas.width, cornerRadius);
+            ctx.lineTo(canvas.width, canvas.height - cornerRadius);
+            ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - cornerRadius, canvas.height);
+            ctx.lineTo(cornerRadius, canvas.height);
+            ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - cornerRadius);
+            ctx.lineTo(0, cornerRadius);
+            ctx.quadraticCurveTo(0, 0, cornerRadius, 0);
+            ctx.closePath();
+            ctx.stroke();
+            
+            const diceSize = 180;
+            const margin = 50;
+            
+            // Center calculations for both dice rows
+            const totalDiceWidth = (3 * diceSize) + (2 * margin);
+            const startX = (canvas.width - totalDiceWidth) / 2;
+            
+            // Player section with enhanced styling
+            ctx.fillStyle = '#95D5B2';  // Light mint green
+            ctx.font = 'bold 22px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 3;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+            
+            // Add player icon and text with more space
+            const playerIcon = '👤';
+            const playerText = `${playerIcon} YOUR ROLL`;
+            const playerTextWidth = ctx.measureText(playerText).width;
+            const playerTextX = (canvas.width - playerTextWidth) / 2;
+            ctx.fillText(playerText, playerTextX, 35);
+            
+            // Reset shadow for dice
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // Player dice with enhanced styling - centered with more spacing
+            for (let i = 0; i < this.playerDice.length; i++) {
+                const dice = this.playerDice[i];
+                const filename = dice === 1 ? '1_dot.png' : `${dice}_dots.png`;
+                const diceImage = await Canvas.loadImage(path.join(__dirname, '..', 'assets', 'dice_faces', filename));
+                const x = startX + (i * (diceSize + margin));
+                const y = 70;
+                
+                // Enhanced shadow with green tint
+                ctx.fillStyle = 'rgba(27, 67, 50, 0.4)';
+                ctx.fillRect(x + 6, y + 6, diceSize, diceSize);
+                
+                // White background for dice
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(x, y, diceSize, diceSize);
+                
+                // Draw dice with slight border
+                ctx.strokeStyle = '#D6F5D6';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x, y, diceSize, diceSize);
+                
+                ctx.drawImage(diceImage, x, y, diceSize, diceSize);
+            }
+            
+            // Add visual separator line with much more space
+            ctx.strokeStyle = '#52B788';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([10, 15]);
+            ctx.beginPath();
+            ctx.moveTo(70, 350);
+            ctx.lineTo(canvas.width - 70, 350);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // House section with enhanced styling
+            ctx.fillStyle = '#FB8500';  // Warm orange for house
+            ctx.font = 'bold 22px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 3;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+            
+            // Add house icon and text with much more space
+            const houseIcon = '🏠';
+            const houseText = `${houseIcon} HOUSE ROLL`;
+            const houseTextWidth = ctx.measureText(houseText).width;
+            const houseTextX = (canvas.width - houseTextWidth) / 2;
+            ctx.fillText(houseText, houseTextX, 410);
+            
+            // Reset shadow for dice
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // House dice with enhanced styling - centered with much more spacing
+            for (let i = 0; i < this.houseDice.length; i++) {
+                const dice = this.houseDice[i];
+                const filename = dice === 1 ? '1_dot.png' : `${dice}_dots.png`;
+                const diceImage = await Canvas.loadImage(path.join(__dirname, '..', 'assets', 'dice_faces', filename));
+                const x = startX + (i * (diceSize + margin));
+                const y = 440;
+                
+                // Enhanced shadow with orange tint
+                ctx.fillStyle = 'rgba(251, 133, 0, 0.3)';
+                ctx.fillRect(x + 6, y + 6, diceSize, diceSize);
+                
+                // White background for dice
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(x, y, diceSize, diceSize);
+                
+                // Draw dice with slight border
+                ctx.strokeStyle = '#FFE5CC';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x, y, diceSize, diceSize);
+                
+                ctx.drawImage(diceImage, x, y, diceSize, diceSize);
+            }
+            
+            return canvas.toBuffer();
+        } catch (error) {
+            logger.error(`Failed to create dice image: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
      * Show game results
      */
     async showResults(interaction) {
@@ -199,26 +351,38 @@ class CeeloGame {
             // Create result embed
             const embed = this.createResultEmbed();
             
+            // Create dice image
+            const diceImageBuffer = await this.createDiceImage();
+            
             // Process payout if player won
             let gameResult = GameResult.LOSS;
             if (this.winner === 'player') {
-                const success = await PayoutManager.processGamePayout(
-                    this.userId,
-                    this.guildId,
-                    this.payout,
-                    GameType.CEELO,
-                    `CEELO win - ${this.playerHand.description} beats ${this.houseHand.description}`
-                );
+                const payoutResult = new GameResult({
+                    userId: this.userId,
+                    guildId: this.guildId,
+                    gameType: GameType.CEELO,
+                    betAmount: this.betAmount,
+                    payout: this.payout,
+                    won: true,
+                    metadata: { 
+                        playerHand: this.playerHand.description, 
+                        houseHand: this.houseHand.description 
+                    }
+                });
+                const success = await PayoutManager.processGamePayout(payoutResult);
                 gameResult = success ? GameResult.WIN : GameResult.ERROR;
             } else if (this.winner === 'tie') {
                 // Refund on tie
-                await PayoutManager.processGamePayout(
-                    this.userId,
-                    this.guildId,
-                    this.betAmount,
-                    GameType.CEELO,
-                    'CEELO tie refund'
-                );
+                const refundResult = new GameResult({
+                    userId: this.userId,
+                    guildId: this.guildId,
+                    gameType: GameType.CEELO,
+                    betAmount: this.betAmount,
+                    payout: this.betAmount,
+                    won: false,
+                    metadata: { reason: 'tie' }
+                });
+                await PayoutManager.processGamePayout(refundResult);
                 gameResult = GameResult.TIE;
             }
 
@@ -226,22 +390,36 @@ class CeeloGame {
             await sessionManager.updateSession(this.sessionId, { state: 'completed' });
 
             // Log game result
-            await dbManager.recordGameResult(this.userId, this.guildId, GameType.CEELO, {
-                betAmount: this.betAmount,
-                payout: this.payout,
-                result: gameResult,
-                playerDice: this.playerDice,
-                houseDice: this.houseDice,
-                playerHand: this.playerHand.description,
-                houseHand: this.houseHand.description,
-                winner: this.winner
-            });
+            const won = this.winner === 'player';
+            await dbManager.recordGameResult(
+                this.userId, 
+                this.guildId, 
+                GameType.CEELO, 
+                won, 
+                this.betAmount, 
+                this.payout,
+                {
+                    playerDice: this.playerDice,
+                    houseDice: this.houseDice,
+                    playerHand: this.playerHand.description,
+                    houseHand: this.houseHand.description,
+                    winner: this.winner
+                }
+            );
 
-            // Send final result
-            await interaction.editReply({
+            // Send final result with dice image
+            const replyData = {
                 embeds: [embed],
                 components: []
-            });
+            };
+            
+            if (diceImageBuffer) {
+                const attachment = new AttachmentBuilder(diceImageBuffer, { name: 'ceelo-dice.png' });
+                replyData.files = [attachment];
+                embed.setImage('attachment://ceelo-dice.png');
+            }
+            
+            await interaction.editReply(replyData);
             
             // Cleanup after showing result
             setTimeout(() => {
@@ -262,44 +440,45 @@ class CeeloGame {
         const won = this.winner === 'player';
         const tie = this.winner === 'tie';
         
-        // Format dice displays
-        const playerDiceDisplay = this.playerDice.map(die => DICE_EMOJIS[die]).join(' ');
-        const houseDiceDisplay = this.houseDice.map(die => DICE_EMOJIS[die]).join(' ');
-        
         let resultText = '';
         let color = 0xFF4444; // Default to loss red
-        let stageText = 'HOUSE WINS';
+        let stageText = 'HOUSE DICE';
         
         if (won) {
-            resultText = `🎉 **YOU WIN!**\nYour ${this.playerHand.description} beats House ${this.houseHand.description}`;
+            resultText = `**YOUR DICE WON!**\nYour ${this.playerHand.description} beats House ${this.houseHand.description}`;
             color = 0x00FF00;
-            stageText = 'WINNER!';
+            stageText = 'DICE VICTORY!';
         } else if (tie) {
-            resultText = `🤝 **TIE GAME**\nBoth rolled ${this.playerHand.description} - Bet refunded`;
+            resultText = `**SAME DICE ROLL**\nBoth rolled ${this.playerHand.description} - Bet refunded`;
             color = 0xFFAA00;
-            stageText = 'TIE - REFUNDED';
+            stageText = 'MATCHING DICE';
         } else {
-            resultText = `😔 **HOUSE WINS**\nHouse ${this.houseHand.description} beats your ${this.playerHand.description}`;
+            resultText = `**HOUSE DICE WON**\nHouse ${this.houseHand.description} beats your ${this.playerHand.description}`;
         }
         
         return buildSessionEmbed({
-            title: `🎲 CEELO - ${tie ? 'TIE' : (won ? 'WINNER!' : 'HOUSE WINS')}`,
+            title: `CEELO - ${tie ? 'MATCHING DICE' : (won ? 'YOUR DICE WON!' : 'HOUSE DICE WON')}`,
             topFields: [
                 {
-                    name: '🎯 YOUR ROLL',
-                    value: `${playerDiceDisplay}\n**${this.playerHand.description}**`,
+                    name: 'YOUR DICE',
+                    value: `${this.playerDice.map(d => `⚀⚁⚂⚃⚄⚅`[d-1]).join(' ')} (${this.playerHand.description})`,
                     inline: true
                 },
                 {
-                    name: '🏠 HOUSE ROLL', 
-                    value: `${houseDiceDisplay}\n**${this.houseHand.description}**`,
+                    name: 'HOUSE DICE',
+                    value: `${this.houseDice.map(d => `⚀⚁⚂⚃⚄⚅`[d-1]).join(' ')} (${this.houseHand.description})`,
                     inline: true
                 },
                 {
-                    name: '📊 RESULT',
-                    value: `${resultText}\n\n**Bet:** ${fmt(this.betAmount)}\n**Payout:** ${fmt(this.payout)}`,
+                    name: 'OUTCOME',
+                    value: resultText,
                     inline: false
                 }
+            ],
+            bankFields: [
+                { name: 'Bet Amount', value: fmt(this.betAmount), inline: true },
+                { name: 'Payout', value: fmt(this.payout), inline: true },
+                { name: 'Net Result', value: fmt(this.payout - this.betAmount), inline: true }
             ],
             stageText: stageText,
             color: color,
@@ -311,7 +490,7 @@ class CeeloGame {
      * Get hand ranking explanation for footer
      */
     getHandExplanation() {
-        return '4-5-6 > Trips > Point > Trash (lowest total wins for trash)';
+        return '4-5-6 > Three of a Kind > Point > Mixed Numbers (lowest total wins for mixed)'
     }
 
     /**

@@ -40,6 +40,14 @@ module.exports = {
 
         try {
             logger.debug(`BINGO execute called by ${username} (${userId}) in guild ${guildId}`);
+            
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'bingo');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.editReply({ embeds: [maintenanceCheck.embed] });
+            }
+
             // Check if there's already a game in this channel
             const existingGame = getBingoGame(channelId);
             if (existingGame) {

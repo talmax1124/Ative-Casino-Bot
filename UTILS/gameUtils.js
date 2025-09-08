@@ -6,6 +6,9 @@
 
 const { EmbedBuilder } = require('discord.js');
 const dbManager = require('./database');
+const progressiveTax = require('./progressiveTax');
+const wealthCeiling = require('./wealthCeiling');
+const gameAITracker = require('./gameAITracker');
 const { 
     fmt, 
     getGuildId, 
@@ -66,7 +69,8 @@ class GameResult {
         sessionTotalBet = 0.0,
         sessionTotalWinnings = 0.0,
         bonusTriggered = false,
-        specialResult = null
+        specialResult = null,
+        metadata = {}
     }) {
         this.userId = userId;
         this.guildId = guildId;
@@ -79,6 +83,7 @@ class GameResult {
         this.sessionTotalWinnings = sessionTotalWinnings;
         this.bonusTriggered = bonusTriggered;
         this.specialResult = specialResult;
+        this.metadata = metadata;
     }
 }
 
@@ -87,12 +92,14 @@ class ValidationResult {
         isValid,
         errorEmbed = null,
         parsedAmount = null,
-        newWallet = null
+        newWallet = null,
+        aiTracking = null
     }) {
         this.isValid = isValid;
         this.errorEmbed = errorEmbed;
         this.parsedAmount = parsedAmount;
         this.newWallet = newWallet;
+        this.aiTracking = aiTracking;
     }
 }
 
@@ -109,6 +116,124 @@ class PayoutManager {
      * @param {Object} specialRequirements - Game-specific requirements
      * @returns {ValidationResult} Validation result with status and parsed data
      */
+    static async validateBet(
+        interaction,
+        amount,
+        gameType,
+        minBet = 1.0,
+        maxBet = null,
+        specialRequirements = null
+    ) {
+        const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
+        
+        // Ensure user exists in database
+        await dbManager.ensureUser(userId, interaction.user.displayName, guildId);
+        
+        // Defensive legacy lock auto-clear using Unified Session Manager
+        if (hasActiveGame(userId)) {
+            try {
+                const canCreate = await sessionManager.canCreateSession(userId, guildId, gameType);
+                if (canCreate && canCreate.allowed) {
+                    // Legacy registry says active, but SessionManager allows creation -> clear stale lock
+                    clearActiveGame(userId);
+                } else {
+                    return new ValidationResult({
+                        isValid: false,
+                        errorEmbed: buildGameActiveEmbed()
+                    });
+                }
+            } catch (_) {
+                return new ValidationResult({
+                    isValid: false,
+                    errorEmbed: buildGameActiveEmbed()
+                });
+            }
+        }
+        
+        // Get current balance
+        const balance = await dbManager.getUserBalance(userId, guildId);
+        
+        // If database legacy flag is set but no active sessions, clear it
+        try {
+            if (balance.game_active) {
+                const active = sessionManager.getUserActiveSession(userId);
+                if (!active) {
+                    await dbManager.updateUserBalance(userId, guildId, 0, 0, { game_active: false });
+                }
+            }
+        } catch (_) {}
+        const currentWallet = balance.wallet;
+        
+        // Parse and resolve amount
+        let parsedAmount = parseAmount(amount);
+        if (parsedAmount === null) {
+            return new ValidationResult({
+                isValid: false,
+                errorEmbed: buildInvalidBetEmbed('Invalid bet amount format. Use numbers, K/M/B suffixes, "all", or "half".')
+            });
+        }
+        
+        parsedAmount = resolveAmount(parsedAmount, currentWallet);
+        if (parsedAmount === null || parsedAmount <= 0) {
+            return new ValidationResult({
+                isValid: false,
+                errorEmbed: buildInvalidBetEmbed('Bet amount must be greater than 0.')
+            });
+        }
+        
+        // Check minimum bet
+        if (parsedAmount < minBet) {
+            return new ValidationResult({
+                isValid: false,
+                errorEmbed: buildInvalidBetEmbed(`Minimum bet is ${fmt(minBet)}.`)
+            });
+        }
+        
+        // Check maximum bet
+        if (maxBet && parsedAmount > maxBet) {
+            return new ValidationResult({
+                isValid: false,
+                errorEmbed: buildInvalidBetEmbed(`Maximum bet is ${fmt(maxBet)}.`)
+            });
+        }
+
+        // Check wealth-based bet limits (anti-billion measures)
+        const wealthValidation = await wealthCeiling.validateBetAmount(userId, parsedAmount);
+        if (!wealthValidation.allowed) {
+            return new ValidationResult({
+                isValid: false,
+                errorEmbed: buildInvalidBetEmbed(`Your wealth-based maximum bet is ${fmt(wealthValidation.maxAllowed)}.\n${wealthValidation.reason}`)
+            });
+        }
+        
+        // Check special requirements
+        if (specialRequirements) {
+            // Example: Matrix slots minimum bet
+            if (specialRequirements.matrixMinBet && parsedAmount < specialRequirements.matrixMinBet) {
+                return new ValidationResult({
+                    isValid: false,
+                    errorEmbed: buildInvalidBetEmbed(`This game mode requires a minimum bet of ${fmt(specialRequirements.matrixMinBet)}.`)
+                });
+            }
+        }
+        
+        // Check if user has sufficient funds
+        if (parsedAmount > currentWallet) {
+            return new ValidationResult({
+                isValid: false,
+                errorEmbed: buildInsufficientFundsEmbed(parsedAmount, currentWallet)
+            });
+        }
+        
+        // Return successful validation WITHOUT deducting money
+        return new ValidationResult({
+            isValid: true,
+            parsedAmount: parsedAmount,
+            userBalance: balance
+        });
+    }
+
     static async validateAndDeductBet(
         interaction,
         amount,
@@ -190,6 +315,15 @@ class PayoutManager {
                 errorEmbed: buildInvalidBetEmbed(`Maximum bet is ${fmt(maxBet)}.`)
             });
         }
+
+        // Check wealth-based bet limits (anti-billion measures)
+        const wealthValidation = await wealthCeiling.validateBetAmount(userId, parsedAmount);
+        if (!wealthValidation.allowed) {
+            return new ValidationResult({
+                isValid: false,
+                errorEmbed: buildInvalidBetEmbed(`Your wealth-based maximum bet is ${fmt(wealthValidation.maxAllowed)}.\n${wealthValidation.reason}`)
+            });
+        }
         
         // Check special requirements
         if (specialRequirements) {
@@ -232,10 +366,14 @@ class PayoutManager {
         
         logger.info(`User ${userId} placed bet of ${fmt(parsedAmount)} for ${gameType}`);
         
+        // Track game start with AI monitoring
+        const aiTracking = await gameAITracker.trackGameStart(userId, gameType, parsedAmount);
+        
         return new ValidationResult({
             isValid: true,
             parsedAmount: parsedAmount,
-            newWallet: currentWallet - parsedAmount // Wallet after bet deduction
+            newWallet: currentWallet - parsedAmount, // Wallet after bet deduction
+            aiTracking: aiTracking // Include AI tracking data for games to use
         });
     }
     
@@ -268,9 +406,37 @@ class PayoutManager {
             }
             
             // Since bet was already deducted, payout is the full amount to give back
-            // If player loses: payout = 0 (they get nothing back)
+            // If player loses: payout = 0 (they get nothing back)  
             // If player wins: payout = bet + winnings (they get their bet back plus profit)
-            let newWallet = safeAdd(balance.wallet, payoutValue);
+            
+            // Apply wealth ceiling first (most aggressive anti-billion measure)
+            let finalPayout = payoutValue;
+            if (won && payoutValue > 0) {
+                const ceilingResult = await wealthCeiling.applyCeiling(userId, payoutValue, gameType);
+                finalPayout = ceilingResult.finalPayout;
+                if (ceilingResult.reduction > 0) {
+                    gameResult.wealthCeilingApplied = true;
+                    gameResult.wealthCeilingReduction = ceilingResult.reduction;
+                    gameResult.wealthReason = ceilingResult.reason;
+                }
+            }
+
+            // Apply progressive tax on remaining winnings (only if they won and payout > bet amount)
+            let taxAmount = 0;
+            if (won && finalPayout > betAmount) {
+                const winnings = finalPayout - betAmount; // Only tax the profit, not the returned bet
+                if (winnings > 10000) { // Only apply tax on winnings over $10K
+                    const taxResult = await progressiveTax.applyTax(userId, winnings);
+                    const taxedWinnings = taxResult.netPayout;
+                    taxAmount = taxResult.taxAmount;
+                    finalPayout = betAmount + taxedWinnings; // Bet + taxed winnings
+                    gameResult.taxApplied = true;
+                    gameResult.taxAmount = taxAmount;
+                    gameResult.taxRate = taxResult.taxRate;
+                }
+            }
+            
+            let newWallet = safeAdd(balance.wallet, finalPayout);
             
             // Apply server booster bonus if applicable (only on wins, not pushes)
             const boosterInfo = await this._calculateBoosterBonus(userId, guildId, payout, interaction, won);
@@ -283,7 +449,7 @@ class PayoutManager {
             }
             
             // Update balance - use relative update to prevent race conditions
-            const totalPayoutWithBonus = payoutValue + boosterBonus;
+            const totalPayoutWithBonus = finalPayout + boosterBonus;
             const success = await dbManager.updateUserBalance(userId, guildId, totalPayoutWithBonus, 0);
             
             if (!success) {
@@ -320,6 +486,22 @@ class PayoutManager {
                 profileData
             );
             
+            // Record detailed game result for history tracking
+            await dbManager.recordGameResult(
+                userId,
+                guildId,
+                gameType,
+                won,
+                betAmount,
+                won ? payout : 0,
+                {
+                    finalPayout: finalPayout,
+                    boosterBonus: boosterBonus,
+                    taxAmount: taxAmount || 0,
+                    multiplier: payout > 0 ? (payout / betAmount) : 0
+                }
+            );
+            
             // Clear active game (only for legacy games, modern games use Unified Session Manager)
             const modernGames = [
                 'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
@@ -332,13 +514,20 @@ class PayoutManager {
             
             logger.info(`Processed payout for ${userId}: ${fmt(payout)} (${won ? 'win' : 'loss'})`);
             
+            // Track game end with AI analysis
+            if (gameResult.metadata && gameResult.metadata.sessionId) {
+                const aiAnalysis = await gameAITracker.trackGameEnd(gameResult.metadata.sessionId, won, finalPayout);
+                gameResult.aiAnalysis = aiAnalysis;
+            }
+            
             return {
                 success: true,
                 newWallet: newWallet,
                 boosterBonus: boosterBonus,
                 finalPayout: payout + boosterBonus,
                 isBooster: gameResult.isBooster || false,
-                boosterPercentage: gameResult.isBooster ? 2 : 0
+                boosterPercentage: gameResult.isBooster ? 2 : 0,
+                aiTracking: gameResult.aiAnalysis
             };
             
         } catch (error) {

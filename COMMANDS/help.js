@@ -25,7 +25,7 @@ const HELP_CATEGORIES = {
     lottery: {
         emoji: '🎟️',
         name: 'Lottery System',
-        description: 'Weekly drawings and prize information',
+        description: 'Bi-weekly drawings (Tuesdays & Saturdays)',
         color: 0x9B59B6
     },
     admin: {
@@ -143,7 +143,7 @@ async function showMainHelp(interaction) {
             },
             {
                 name: '🎟️ **Lottery & Prizes**',
-                value: '```\n🎫 Weekly Drawings     🏆 Massive Prizes\n📊 Prize Pool Growth   🎯 Ticket Strategy\n📅 Sunday 10AM EST    💰 Community Pool\n```',
+                value: '```\n🎫 Bi-Weekly Drawings  🏆 Massive Prizes\n📊 Prize Pool Growth   🎯 Ticket Strategy\n📅 Tue & Sat 10AM EST 💰 Community Pool\n```',
                 inline: true
             },
             {
@@ -165,7 +165,7 @@ async function showMainHelp(interaction) {
         .addFields(
             {
                 name: '🚀 **Quick Start Guide**',
-                value: '`1.` Check balance with `/balance` → `2.` Earn with `/work` or `/beg` → `3.` Play `/slots 100` → `4.` Bank money for safety → `5.` Buy lottery tickets → `6.` Climb tiers!',
+                value: '`1.` Check balance with `/balance` → `2.` Earn with `/work` or visit portal → `3.` Play `/slots 100` → `4.` Bank money for safety → `5.` Buy lottery tickets (Tue/Sat) → `6.` Ask `/askative` for help!',
                 inline: false
             }
         )
@@ -411,7 +411,7 @@ function createEconomyHelp(interaction, categoryInfo) {
         .addFields(
             {
                 name: '💼 **Income Generation** 💼',
-                value: '```yaml\nWork:         /work - Jobs paying $5K-30K (1hr cooldown)\nBeg:          /beg - Handouts $1K-10K (1hr cooldown)  \nCrime:        /crime - Quick $1K-5K (30min cooldown)\nHeist:        /heist - Big scores $10K-30K (2.5hr cooldown)\n```\n🎯 **Pro Strategy:** Rotate all income sources for maximum earnings',
+                value: '```yaml\nWork:         /work - Jobs paying $5K-30K (1hr cooldown)\nBeg:          /beg - Handouts $1K-10K (1hr cooldown)  \nCrime:        /crime - Quick $1K-5K (30min cooldown)\nHeist:        /heist - Big scores $10K-30K (2.5hr cooldown)\n```\n💰 **INSTANT MONEY:** Visit our portal for no-cooldown earnings!\n🔗 **Portal Link:** https://ative-casino-bot-production.up.railway.app/\n🎯 **Pro Strategy:** Rotate all income sources for maximum earnings',
                 inline: false
             },
             {
@@ -449,12 +449,12 @@ function createEconomyHelp(interaction, categoryInfo) {
  */
 function createLotteryHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Win Big Weekly!`)
-        .setDescription('**🎟️ Every Sunday at 10:00 AM EST - Life-Changing Prizes! 🎟️**\n\n*Community-funded lottery with guaranteed winners and massive prize pools.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Win Big Bi-Weekly!`)
+        .setDescription('**🎟️ Every Tuesday & Saturday at 10:00 AM EST - Life-Changing Prizes! 🎟️**\n\n*Community-funded lottery with guaranteed winners and massive prize pools - Now twice per week!*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
         .addFields(
             {
                 name: '🎫 **How to Play & Win** 🎫',
-                value: '```yaml\nCheck Status: /lottery - View current lottery info\nBuy Tickets:  /purchaselottery <1-7> - Max 7 per person\nTicket Cost:  $12,000 each (investment in your future)\nDrawing:      Every Sunday 10:00 AM EST sharp\n```\n🎯 **Strategy:** Buy max tickets early for best odds',
+                value: '```yaml\nCheck Status: /lottery - View current lottery info\nBuy Tickets:  /purchaselottery <1-7> - Max 7 per person\nTicket Cost:  $12,000 each (investment in your future)\nDrawing:      Every Tuesday & Saturday 10:00 AM EST\n```\n🎯 **Strategy:** Buy max tickets early for best odds - twice the chances!',
                 inline: false
             },
             {
@@ -481,7 +481,7 @@ function createLotteryHelp(interaction, categoryInfo) {
         .setColor(categoryInfo.color)
         .setThumbnail(interaction.client.user.displayAvatarURL())
         .setFooter({ 
-            text: `🎟️ ${categoryInfo.name} • Next Drawing: Sunday 10AM EST • ATIVE Casino Bot`, 
+            text: `🎟️ ${categoryInfo.name} • Next Drawing: Tue/Sat 10AM EST • ATIVE Casino Bot`, 
             iconURL: interaction.client.user.displayAvatarURL() 
         })
         .setTimestamp();
@@ -507,12 +507,17 @@ function createAdminHelp(interaction, categoryInfo) {
             },
             {
                 name: '🎮 **Game Control & Oversight** 🎮',
-                value: '```yaml\nStop Games:   /stopgame - Emergency game termination\nCrash Control: /stopcrash - Stop crash games instantly\nRefunds:      Automatic refunds for stopped games\nMonitoring:   Real-time game activity tracking\n```\n🛡️ **Anti-Abuse:** Prevent and resolve gaming issues',
+                value: '```yaml\nStop Games:   /stopgame - Emergency game termination\nCrash Control: /stopcrash - Stop crash games instantly\nLottery Draw: /drawlottery CONFIRM - Manual lottery drawing\nRefunds:      Automatic refunds for stopped games\nMonitoring:   Real-time game activity tracking\n```\n🛡️ **Anti-Abuse:** Prevent and resolve gaming issues',
                 inline: false
             },
             {
                 name: '📊 **Statistics & Monitoring** 📊',
                 value: '```yaml\nBot Status:   /status - Uptime, performance metrics\nLeaderboards: /leaderboard - User rankings and stats\nPolls:        /polls create - Server community polls\nLogs:         Comprehensive activity logging\n```\n📈 **Analytics:** Track server engagement and bot performance',
+                inline: false
+            },
+            {
+                name: '🤖 **AI Assistant Features** 🤖',
+                value: '```yaml\nAI Help:      /askative <question> - GPT-4 powered assistance\nSession Mgmt: "release @user" - Free stuck sessions  \nMoney Help:   "check @user balance" - View user finances\nStuck Users:  Natural language: "I\'m stuck" for help\nPortal Promo: Auto-suggests portal for money questions\nSupport Hub:  Auto-redirects non-main server users\n```\n🧠 **Smart Help:** AI understands natural language commands',
                 inline: false
             },
             {

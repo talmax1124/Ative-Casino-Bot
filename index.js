@@ -12,6 +12,7 @@ require('dotenv').config();
 
 const logger = require('./UTILS/logger');
 const dbManager = require('./UTILS/database');
+const axios = require('axios');
 // Economy analyzer moved to UAS bot
 // Removed Firebase-dependent modules: economyMonitor, sessionManager
 const { sendLogMessage } = require('./UTILS/common');
@@ -20,7 +21,8 @@ const SafeInteractionHandler = require('./UTILS/interactionHandler');
 const { LotteryGame } = require('./GAMES/lottery');
 const ScratchTicketSystem = require('./GAMES/scratchTickets');
 const storageMonitor = require('./UTILS/storageMonitor');
-const economicManager = require('./UTILS/economicManager');
+// LEGACY: Economic systems replaced by EconomyGuardian AI
+// const economicManager = require('./UTILS/economicManager');
 // Leveling system moved to UAS bot
 // Removed: const serverProducts = require('./UTILS/serverProducts'); // Web-based purchases now
 
@@ -319,6 +321,129 @@ async function handleLotteryButtons(interaction, customId) {
     }
 }
 
+/**
+ * Create startup economic summary using ChatGPT
+ */
+async function createStartupEconomicSummary(client) {
+    try {
+        // Get live economic data
+        const guildId = process.env.GUILD_ID || '1264644848721256449'; // Default guild ID
+        
+        // Get basic statistics
+        const userStatsQuery = `
+            SELECT 
+                COUNT(*) as total_users,
+                SUM(wallet + bank) as total_money,
+                AVG(wallet + bank) as avg_balance,
+                COUNT(CASE WHEN wallet + bank > 1000000 THEN 1 END) as millionaires,
+                COUNT(CASE WHEN wallet + bank > 500000000 THEN 1 END) as wealth_tax_eligible
+            FROM user_balances
+        `;
+        
+        const gameStatsQuery = `
+            SELECT 
+                COUNT(*) as total_games,
+                SUM(bet_amount) as total_wagered,
+                SUM(payout) as total_paid_out,
+                AVG(bet_amount) as avg_bet
+            FROM game_results
+        `;
+        
+        const [userStats] = await dbManager.databaseAdapter.executeQuery(userStatsQuery);
+        const [gameStats] = await dbManager.databaseAdapter.executeQuery(gameStatsQuery);
+        
+        // Get EconomyGuardian data if available
+        let economicHealth = null;
+        let giniData = null;
+        
+        if (client.economyGuardian?.economicInterceptor) {
+            try {
+                economicHealth = await client.economyGuardian.economicInterceptor.getFastEconomicHealth();
+                giniData = await client.economyGuardian.economicInterceptor.getFastGini();
+            } catch (error) {
+                logger.warn(`Could not get EconomyGuardian data: ${error.message}`);
+            }
+        }
+        
+        // Create ChatGPT summary
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            logger.warn('No OpenAI API key found - skipping startup economic summary');
+            return;
+        }
+        
+        const prompt = `You are ATIVE, the AI economic advisor for a Discord casino. Create a comprehensive economic summary with improvement recommendations.
+
+CURRENT ECONOMIC DATA:
+- Total Users: ${userStats?.total_users?.toLocaleString() || 'N/A'}
+- Total Money in Economy: $${userStats?.total_money?.toLocaleString() || 'N/A'}
+- Average Balance: $${Math.round(userStats?.avg_balance || 0).toLocaleString()}
+- Millionaires: ${userStats?.millionaires || 0}
+- Wealth Tax Eligible (>$500M): ${userStats?.wealth_tax_eligible || 0}
+- Games Played: ${gameStats?.total_games?.toLocaleString() || 'N/A'}
+- Money Wagered: $${gameStats?.total_wagered?.toLocaleString() || 'N/A'}
+- House Edge: ${gameStats?.total_wagered > 0 ? (((gameStats.total_wagered - gameStats.total_paid_out) / gameStats.total_wagered) * 100).toFixed(2) : '0.00'}%
+${economicHealth ? `- Economic Health Score: ${economicHealth.health_score || 'N/A'}/100` : ''}
+${giniData ? `- GINI Coefficient: ${giniData.gini_coefficient?.toFixed(3) || 'N/A'} (${giniData.inequality_level || 'unknown'} inequality)` : ''}
+
+Format your response as:
+**ECONOMIC OVERVIEW:** Brief status assessment (100 words)
+**IMPROVEMENT RECOMMENDATIONS:**
+• [Priority: HIGH/MED/LOW] Recommendation 1
+• [Priority: HIGH/MED/LOW] Recommendation 2  
+• [Priority: HIGH/MED/LOW] Recommendation 3
+**PRIORITY ACTIONS:** Most urgent items requiring immediate attention`;
+
+        const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+            model: 'gpt-4',
+            messages: [
+                {
+                    role: "system",
+                    content: "You are ATIVE, a professional casino economic AI advisor. Be concise, data-driven, and authoritative."
+                },
+                {
+                    role: "user",
+                    content: prompt
+                }
+            ],
+            max_tokens: 300,
+            temperature: 0.3
+        }, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const summary = response.data.choices[0]?.message?.content || 'Economic analysis unavailable';
+        
+        logger.info(`🤖 ChatGPT Economic Summary: ${summary}`);
+        
+        // Send to the specified economic summary channel
+        const logChannelId = '1413722166024863866';
+        if (logChannelId) {
+            try {
+                const channel = await client.channels.fetch(logChannelId);
+                if (channel) {
+                    const embed = new EmbedBuilder()
+                        .setTitle('🏦 ATIVE Economic Analysis & Recommendations')
+                        .setDescription(summary)
+                        .setColor(0x00D4FF)
+                        .setFooter({ text: 'Powered by ATIVE AI • Auto-Generated' })
+                        .setTimestamp();
+                    
+                    await channel.send({ embeds: [embed] });
+                }
+            } catch (error) {
+                logger.warn(`Could not send startup summary to channel: ${error.message}`);
+            }
+        }
+        
+    } catch (error) {
+        logger.error(`Failed to create startup economic summary: ${error.message}`);
+    }
+}
+
 // Event handlers
 client.once('clientReady', async () => {
     logger.info(`ATIVE Casino Bot logged in as ${client.user.tag} (ID: ${client.user.id})`);
@@ -327,14 +452,26 @@ client.once('clientReady', async () => {
     client.user.setActivity("you lose 😂", { type: 'WATCHING' });
     logger.info('Bot activity status set');
     
-    // Initialize economic notification system
-    economicManager.setNotificationClient(client);
-    logger.info('Economic notification system initialized');
+    // LEGACY: Economic notification system replaced by EconomyGuardian
+    // economicManager.setNotificationClient(client);
+    // logger.info('Economic notification system initialized');
+    
+    // EconomyGuardian disabled to prevent ChatGPT API errors
+    logger.info('✅ EconomyGuardian disabled - running without AI analysis');
 
     // Initialize database
     try {
         await dbManager.initialize();
         logger.info('Database initialized successfully');
+        
+        // Create startup economic summary with ChatGPT (now that database is ready)
+        if (process.env.ENVIRONMENT !== 'development') {
+            setTimeout(async () => {
+                await createStartupEconomicSummary(client);
+            }, 2000); // Wait 2 seconds for everything to be fully ready
+        } else {
+            logger.info('🚫 Startup economic summary disabled in development mode');
+        }
         
         // Economy analyzer moved to UAS bot
         logger.info('Economy system now managed by UAS bot');
@@ -2516,6 +2653,12 @@ process.on('SIGINT', async () => {
     logger.info('Received SIGINT, starting enhanced graceful shutdown...');
     
     try {
+        // Stop EconomyGuardian
+        if (client.economyGuardian) {
+            const { shutdownEconomyGuardian } = require('./ECONOMY_GUARDIAN/integration');
+            await shutdownEconomyGuardian(client);
+        }
+        
         // Stop storage monitoring
         storageMonitor.stopMonitoring();
         logger.info('Storage monitoring stopped');

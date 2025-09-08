@@ -274,8 +274,35 @@ module.exports = {
         const loadingEmbed = UITemplates.createLoadingEmbed('Lottery', 'Processing purchase');
         await interaction.update({ embeds: [loadingEmbed], components: [] });
 
-        // Process the purchase
-        const success = await dbManager.purchaseLotteryTickets(userId, guildId, ticketCount, totalCost);
+        // Process the purchase with fallback retry logic
+        let success = false;
+        let attempts = 0;
+        const maxAttempts = 3;
+        let lastError = null;
+
+        while (!success && attempts < maxAttempts) {
+            attempts++;
+            try {
+                success = await dbManager.purchaseLotteryTickets(userId, guildId, ticketCount, totalCost);
+                if (success) {
+                    break;
+                }
+                
+                // If not successful, wait before retry
+                if (attempts < maxAttempts) {
+                    logger.warn(`Lottery purchase attempt ${attempts} failed for user ${userId}, retrying...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // Increasing delay
+                }
+            } catch (error) {
+                lastError = error;
+                logger.error(`Lottery purchase attempt ${attempts} error: ${error.message}`);
+                
+                // Wait before retry on error
+                if (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 2000 * attempts));
+                }
+            }
+        }
 
         if (success) {
             const newTicketCount = currentTickets + ticketCount;
@@ -333,10 +360,26 @@ module.exports = {
             }
 
         } else {
+            // All attempts failed
+            logger.error(`Lottery purchase failed after ${maxAttempts} attempts for user ${userId}. Last error: ${lastError?.message || 'Unknown error'}`);
+            
+            const errorDescription = attempts >= maxAttempts 
+                ? `Failed to process your ticket purchase after ${maxAttempts} attempts. Your balance has not been charged.`
+                : 'Failed to process your ticket purchase. Your balance has not been charged.';
+            
             const errorEmbed = UITemplates.createErrorEmbed('Lottery Purchase', {
-                description: 'Failed to process your ticket purchase. Please try again.',
+                description: `${errorDescription}\n\n**What happened?**\nThere may be a temporary issue with the lottery system.\n\n**Next steps:**\n• Try again in a few moments\n• Contact support if this persists`,
                 isLoss: false
             });
+
+            // Log to admin channel for monitoring
+            await sendLogMessage(
+                interaction.client,
+                'error',
+                `Lottery purchase failed after ${maxAttempts} attempts: ${interaction.user.displayName} (${userId}) trying to buy ${ticketCount} tickets. Error: ${lastError?.message || 'Unknown'}`,
+                userId,
+                guildId
+            );
 
             await interaction.editReply({ embeds: [errorEmbed], components: [] });
         }

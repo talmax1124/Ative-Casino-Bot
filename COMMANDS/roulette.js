@@ -49,23 +49,20 @@ async function createRouletteWheelImage(game, showResult = false, frameIndex = 0
  * Create payout information embed with current bet info and dynamic multipliers
  */
 async function createPayoutEmbed(user, balance, currentBet = null) {
-    // Get dynamic multipliers from economic system
-    let multiplierReduction = 0;
-    try {
-        multiplierReduction = await economicManager.getMultiplierReduction('roulette', user.id);
-    } catch (error) {
-        logger.warn(`Failed to get roulette multiplier reduction: ${error.message}`);
-    }
+    // Get personalized payouts for this player
+    const PersonalizedGameHelper = require('../UTILS/personalizedGameHelper');
+    const personalizedConfig = await PersonalizedGameHelper.getPersonalizedRoulette(user.id);
     
-    const effectiveMultiplier = 1 - multiplierReduction;
-    const reductionPercent = (multiplierReduction * 100).toFixed(1);
+    // Use personalized payouts in the UI display with null checks
+    const colorPayout = (personalizedConfig.colorPayout || 2.0).toFixed(2);
+    const dozenPayout = (personalizedConfig.dozenPayout || 2.2).toFixed(2);  
+    const numberPayout = (personalizedConfig.singleNumberPayout || 8.0).toFixed(2);
+    const greenPayout = (personalizedConfig.greenPayout || 4.0).toFixed(2);
+    const basketPayout = (personalizedConfig.basketPayout || 3.5).toFixed(2);
     
-    // Calculate dynamic payouts
-    const colorPayout = (2.0 * effectiveMultiplier).toFixed(2);
-    const dozenPayout = (2.2 * effectiveMultiplier).toFixed(2);  
-    const numberPayout = (8.0 * effectiveMultiplier).toFixed(2); // Already reduced from 12.5x
-    const greenPayout = (4.0 * effectiveMultiplier).toFixed(2);  // Already reduced from 6.0x
-    const basketPayout = (3.5 * effectiveMultiplier).toFixed(2); // Already reduced from 5.2x
+    // Show personalization status
+    const personalizationStatus = (personalizedConfig.personalizationLevel || 0) > 0 
+        ? ` (${personalizedConfig.wealthTier || 'unknown'} tier)` : '';
     
     const embed = new EmbedBuilder()
         .setTitle('🎰 American Roulette')
@@ -83,12 +80,10 @@ async function createPayoutEmbed(user, balance, currentBet = null) {
         });
     }
 
-    // Add formatted payout table with dynamic multipliers
-    const economicStatus = multiplierReduction > 0 ? ` (${reductionPercent}% reduction)` : '';
-    
+    // Add formatted payout table with personalized multipliers
     topFields.push(
         { 
-            name: `💰 AMERICAN ROULETTE PAYOUTS${economicStatus}`, 
+            name: `💰 AMERICAN ROULETTE PAYOUTS${personalizationStatus}`, 
             value: '```yaml\n' +
                    '🎨 COLOR BETS:\n' +
                    `  Red             ${colorPayout}x\n` +
@@ -422,6 +417,13 @@ module.exports = {
         let validation;
         
         try {
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'roulette');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+            }
+            
             // Validate session using sessionGuard
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, SMGameType.ROULETTE, interaction.client);
@@ -447,7 +449,7 @@ module.exports = {
                 amount,
                 GameType.BLACKJACK, // Using existing GameType, can create ROULETTE later
                 10,         // Min bet: $10
-                10000000    // Max bet: $10M
+                50000000    // Max bet: $50M (safe with personalization)
             );
 
             if (!validation.isValid) {
@@ -752,39 +754,32 @@ module.exports = {
             
             await interaction.update(spinningData);
 
-            // Generate ultra-fast spinning GIF with minimal frames for instant response
-            logger.info('Creating fast spinning GIF...');
-            const startTime = Date.now();
+            // Use existing roulette-spin.gif asset
+            logger.info('Loading existing roulette-spin.gif...');
+            const fs = require('fs');
+            const path = require('path');
             
-            const spinningGIF = await gifAnimator.createSpinningRouletteGIF({
-                width: 800,  // Smaller size for faster generation
-                height: 600,
-                frames: 20,  // Much fewer frames for speed
-                delay: 200,  // Longer delay between frames
-                repeat: 1    // Single play
-            });
-            
-            const generationTime = Date.now() - startTime;
-            logger.info(`Fast GIF generated in ${generationTime}ms`);
-            
-            if (spinningGIF) {
+            try {
+                const gifPath = path.join(__dirname, '..', 'assets', 'roulette-spin.gif');
+                const spinningGIF = fs.readFileSync(gifPath);
+                
                 // Update with the spinning GIF
                 const spinningGIFData = {
                     embeds: [spinningEmbed],
                     components: disabledRows,
-                    files: [{ attachment: spinningGIF, name: 'spinning-roulette.gif' }]
+                    files: [{ attachment: spinningGIF, name: 'roulette-spin.gif' }]
                 };
                 
-                spinningEmbed.setImage('attachment://spinning-roulette.gif');
+                spinningEmbed.setImage('attachment://roulette-spin.gif');
                 spinningEmbed.setDescription('🎲 **Spinning the wheel...**\n🌪️ Watch the ball bounce around the wheel!');
                 
                 await interaction.editReply(spinningGIFData);
                 
-                // Wait for GIF to finish playing (20 frames × 200ms = 4 seconds)
-                await new Promise(resolve => setTimeout(resolve, 4000));
-            } else {
-                // Fallback to static wheel
-                logger.warn('Fast GIF generation failed, using static wheel');
+                // Wait for 3 seconds as requested
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+            } catch (error) {
+                logger.warn(`Failed to load roulette-spin.gif: ${error.message}, using fallback`);
                 await new Promise(resolve => setTimeout(resolve, 3000));
             }
 
@@ -915,12 +910,7 @@ module.exports = {
             const finalData = {
                 content: resultMessage,
                 embeds: [finalEmbed],
-                components: GamePanel.createGameButtons({ 
-                    actions: ['play_again_multi', 'quit'],
-                    lastBet: game.betAmount,
-                    balance: updatedBalance.wallet,
-                    gameType: 'roulette'
-                })
+                components: [] // Remove buttons when game ends as requested
             };
 
             if (resultWheelImage) {

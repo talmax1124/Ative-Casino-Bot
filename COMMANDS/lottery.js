@@ -94,7 +94,7 @@ module.exports = {
             },
             {
                 name: '⏰ Next Drawing',
-                value: `<t:${this.getNextSundayTimestamp()}:F>\n<t:${this.getNextSundayTimestamp()}:R>`,
+                value: `<t:${this.getNextDrawingTimestamp()}:F>\n<t:${this.getNextDrawingTimestamp()}:R>`,
                 inline: false
             }
         );
@@ -246,7 +246,7 @@ module.exports = {
                 },
                 {
                     name: 'Drawing Time',
-                    value: `<t:${this.getNextSundayTimestamp()}:R>`,
+                    value: `<t:${this.getNextDrawingTimestamp()}:R>`,
                     inline: true
                 }
             )
@@ -293,7 +293,7 @@ module.exports = {
                 },
                 {
                     name: '⏰ Next Drawing',
-                    value: `<t:${this.getNextSundayTimestamp()}:F>`,
+                    value: `<t:${this.getNextDrawingTimestamp()}:F>`,
                     inline: true
                 }
             )
@@ -308,7 +308,7 @@ module.exports = {
             const lotteryInfo = await dbManager.getLotteryInfo(guildId);
             const userTickets = await dbManager.getUserLotteryTickets(userId, guildId);
             const userBalance = await dbManager.getUserBalance(userId, guildId);
-            const nextDrawingTime = this.getNextSundayTimestamp();
+            const nextDrawingTime = this.getNextDrawingTimestamp();
             
             // Calculate win probability
             const totalTickets = lotteryInfo.total_tickets || 0;
@@ -399,14 +399,34 @@ module.exports = {
         }
     },
 
-    // Helper method to get next Sunday at 10 AM EST timestamp
-    getNextSundayTimestamp() {
+    // Helper method to get next Tuesday/Saturday drawing at 10 AM EST timestamp  
+    getNextDrawingTimestamp() {
         const moment = require('moment-timezone');
         const nowNY = moment.tz('America/New_York');
-        let next = nowNY.clone().day(0).hour(10).minute(0).second(0).millisecond(0);
-        if (nowNY.day() > 0 || (nowNY.day() === 0 && nowNY.hour() >= 10)) {
-            next = nowNY.clone().day(7).hour(10).minute(0).second(0).millisecond(0);
+        const currentDay = nowNY.day(); // 0=Sunday, 1=Monday, 2=Tuesday, ..., 6=Saturday
+        const currentHour = nowNY.hour();
+        
+        // Drawing days: Tuesday (2) and Saturday (6)
+        const drawingDays = [2, 6]; // Tuesday and Saturday
+        let nextDrawing = null;
+        
+        // Check if today is a drawing day and it's before 10 AM
+        if (drawingDays.includes(currentDay) && currentHour < 10) {
+            // Today's drawing at 10 AM
+            nextDrawing = nowNY.clone().hour(10).minute(0).second(0).millisecond(0);
+        } else {
+            // Find next drawing day
+            let daysAhead = 0;
+            for (let i = 1; i <= 7; i++) {
+                const futureDay = (currentDay + i) % 7;
+                if (drawingDays.includes(futureDay)) {
+                    daysAhead = i;
+                    break;
+                }
+            }
+            nextDrawing = nowNY.clone().add(daysAhead, 'days').hour(10).minute(0).second(0).millisecond(0);
         }
-        return next.tz('UTC').unix();
+        
+        return nextDrawing.tz('UTC').unix();
     }
 };

@@ -115,6 +115,14 @@ module.exports = {
 
         try {
             logger.debug(`Battleship execute called by ${username} (${userId}) in guild ${guildId}`);
+            
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'battleship');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+            }
+
             // Session guard check
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, 'battleship', interaction.client);

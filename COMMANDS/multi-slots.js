@@ -38,6 +38,13 @@ module.exports = {
         const guildId = await getGuildId(interaction);
 
         try {
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'multi-slots');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+            }
+
             // Guard session before any processing
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, 'multi-slots', interaction.client);
@@ -55,7 +62,7 @@ module.exports = {
                 amount,
                 GameType.MULTI_SLOTS,
                 1,                      // Min bet: $1
-                175000,                 // Max bet: $175K (high multiplier limit)
+                100000000,              // Max bet: $100M (safe with personalization)
                 { matrixMinBet: MATRIX_MIN_BET }  // Special requirement for matrix mode
             );
 
