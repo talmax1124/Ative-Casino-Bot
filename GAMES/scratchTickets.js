@@ -4,7 +4,7 @@
  */
 
 const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomInt, secureRandomFloat, secureRandomChoice } = require('../UTILS/rng');
 const { fmtFull, sendLogMessage } = require('../UTILS/common');
 const dbManager = require('../UTILS/database');
 const { PayoutManager, GameResult, GameType } = require('../UTILS/gameUtils');

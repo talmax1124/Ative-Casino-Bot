@@ -204,12 +204,15 @@ app.use(limiter);
 // Session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
-  resave: false,
-  saveUninitialized: false,
+  resave: true, // Force session save even if unmodified - helps with Railway
+  saveUninitialized: true, // Save uninitialized sessions - helps with auth flow
+  rolling: true, // Reset expiration on activity
+  name: 'ative.sid', // Custom session name
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS in production
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax' // Helps with OAuth redirects
   }
 }));
 
@@ -309,11 +312,28 @@ app.use((req, res, next) => {
 
 // Authentication middleware
 function ensureAuthenticated(req, res, next) {
+  console.log(`[AUTH] Checking authentication for ${req.originalUrl}`);
+  console.log(`[AUTH] Session ID: ${req.sessionID}`);
+  console.log(`[AUTH] Is Authenticated: ${req.isAuthenticated()}`);
+  console.log(`[AUTH] User: ${req.user ? req.user.id : 'null'}`);
+  
   if (req.isAuthenticated()) {
+    console.log(`[AUTH] ✅ User authenticated, proceeding to ${req.originalUrl}`);
     return next();
   }
+  
+  console.log(`[AUTH] ❌ User not authenticated, redirecting to Discord OAuth`);
   req.session.returnTo = req.originalUrl;
-  res.redirect('/auth/discord');
+  
+  // Force session save before redirect
+  req.session.save((err) => {
+    if (err) {
+      console.error('[AUTH] Session save error:', err);
+    } else {
+      console.log('[AUTH] Session saved before redirect');
+    }
+    res.redirect('/auth/discord');
+  });
 }
 
 // Discord OAuth2 Routes
@@ -327,6 +347,12 @@ app.get('/auth/discord/callback', (req, res, next) => {
   console.log('Query params:', req.query);
   console.log('Session data:', req.session);
   
+  // Handle OAuth errors (like access_denied)
+  if (req.query.error) {
+    console.log(`OAuth error: ${req.query.error} - ${req.query.error_description}`);
+    return res.redirect('/?error=' + encodeURIComponent(req.query.error));
+  }
+  
   passport.authenticate('discord', { 
     failureRedirect: '/',
     failureFlash: false
@@ -337,12 +363,26 @@ app.get('/auth/discord/callback', (req, res, next) => {
     }
     
     console.log('OAuth authentication successful for user:', req.user?.id);
+    console.log('Session after auth:', {
+      id: req.sessionID,
+      authenticated: req.isAuthenticated(),
+      user: req.user ? req.user.id : null
+    });
     
     // Successful authentication
     const returnTo = req.session.returnTo || '/shop';
     delete req.session.returnTo;
     console.log('Redirecting to:', returnTo);
-    res.redirect(returnTo);
+    
+    // Force session save before redirect
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        console.error('Session save error after auth:', saveErr);
+      } else {
+        console.log('✅ Session saved after authentication');
+      }
+      res.redirect(returnTo);
+    });
   });
 });
 
