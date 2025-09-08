@@ -201,20 +201,37 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-// Session configuration
+// Session configuration - Enhanced for Railway production
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
   resave: true, // Force session save even if unmodified - helps with Railway
   saveUninitialized: true, // Save uninitialized sessions - helps with auth flow
-  rolling: true, // Reset expiration on activity
+  rolling: false, // Don't reset expiration - can cause session ID changes
   name: 'ative.sid', // Custom session name
+  proxy: process.env.NODE_ENV === 'production', // Trust Railway's proxy
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS in production
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     sameSite: 'lax' // Helps with OAuth redirects
+  },
+  // Add genid function to help with session stability
+  genid: function(req) {
+    const id = require('crypto').randomUUID();
+    console.log(`[SESSION] Generated new session ID: ${id}`);
+    return id;
   }
 }));
+
+// Debug middleware to track session changes
+app.use((req, res, next) => {
+  const originalSave = req.session.save;
+  req.session.save = function(callback) {
+    console.log(`[SESSION] Manually saving session: ${req.sessionID}`);
+    return originalSave.call(this, callback);
+  };
+  next();
+});
 
 // Passport initialization
 app.use(passport.initialize());
