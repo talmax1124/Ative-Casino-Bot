@@ -15,7 +15,7 @@ class EconomyGuardianInterface {
     static async interceptEconomicCommand(interaction, commandType, amount, metadata = {}) {
         try {
             // Check if EconomyGuardian is available
-            const guardian = interaction.client.economyGuardian;
+            const guardian = interaction.client?.economyGuardian;
             
             if (!guardian || !guardian.economicInterceptor) {
                 // Fallback: Allow transaction but log
@@ -61,7 +61,7 @@ class EconomyGuardianInterface {
      */
     static async getDynamicMultiplier(interaction, gameType, baseAmount) {
         try {
-            const guardian = interaction.client.economyGuardian;
+            const guardian = interaction.client?.economyGuardian;
             if (!guardian?.economicInterceptor) {
                 return 1.0; // Default multiplier
             }
@@ -163,7 +163,7 @@ class EconomyGuardianInterface {
      */
     static async logTransactionResult(interaction, commandType, amount, result, aiDecision) {
         try {
-            const guardian = interaction.client.economyGuardian;
+            const guardian = interaction.client?.economyGuardian;
             if (!guardian?.auditLogger) return;
             
             await guardian.auditLogger.logEntry({
@@ -195,7 +195,7 @@ class EconomyGuardianInterface {
     static async getUserProfile(interaction, targetUserId = null) {
         try {
             const userId = targetUserId || interaction.user.id;
-            const guardian = interaction.client.economyGuardian;
+            const guardian = interaction.client?.economyGuardian;
             
             if (!guardian?.economicInterceptor) {
                 return null;

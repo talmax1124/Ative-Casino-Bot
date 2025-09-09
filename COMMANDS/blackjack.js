@@ -3,7 +3,7 @@
  * Classic blackjack with hit, stand, double down, and split functionality
  */
 
-const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 const { PayoutManager, GameType, GameResult, TimeoutManager } = require('../UTILS/gameUtils');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
 const { BlackjackGame } = require('../GAMES/blackjack');

@@ -481,18 +481,7 @@ module.exports = {
                 break;
         }
 
-        // Process payout via PayoutManager for stats/booster
-        const gameResult = new GameResult({
-            userId,
-            guildId,
-            gameType: 'treasurevault',
-            betAmount,
-            payout: currentPayout,
-            won: currentPayout > betAmount,
-            metadata: { reason, rounds_completed: gameSession.round }
-        });
-
-        await PayoutManager.processGamePayout(gameResult);
+        // Note: Payout is handled by sessionManager.endSession() to avoid double crediting
 
         // Record game result
         await dbManager.recordGameResult(
@@ -538,11 +527,11 @@ module.exports = {
             components: []
         });
 
-        // End session (no additional payout here to avoid double credit)
+        // End session and credit the actual payout
         if (gameSession.sessionId) {
             try {
                 await sessionManager.endSession(gameSession.sessionId, {
-                    payout: 0,
+                    payout: currentPayout,
                     won,
                     reason: 'completed'
                 });
