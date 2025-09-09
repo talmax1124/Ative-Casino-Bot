@@ -1458,8 +1458,8 @@ class DatabaseAdapter {
             const lottery = lotteryInfo[0];
             const currentWeekStart = lottery.current_week_start;
             
-            // Get all participants for current week
-            const [participants] = await connection.execute(
+            // Get all participants - if week_start mismatch, get most recent week's tickets
+            let [participants] = await connection.execute(
                 `SELECT user_id, ticket_count 
                  FROM lottery_tickets 
                  WHERE guild_id = ? AND week_start = ? 
@@ -1467,11 +1467,34 @@ class DatabaseAdapter {
                 [guildId, currentWeekStart]
             );
             
-            if (participants.length < 3) {
+            // Track which week we're actually using for tickets
+            let actualWeekStart = currentWeekStart;
+            
+            // If no participants found with current week, try to find most recent tickets
+            if (participants.length === 0) {
+                const [recentParticipants] = await connection.execute(
+                    `SELECT user_id, ticket_count, week_start 
+                     FROM lottery_tickets 
+                     WHERE guild_id = ? 
+                     ORDER BY week_start DESC, user_id 
+                     LIMIT 50`,
+                    [guildId]
+                );
+                
+                if (recentParticipants.length > 0) {
+                    // Use most recent week's tickets
+                    const mostRecentWeek = recentParticipants[0].week_start;
+                    participants = recentParticipants.filter(p => p.week_start === mostRecentWeek);
+                    actualWeekStart = mostRecentWeek;
+                    logger.info(`Using tickets from week ${mostRecentWeek} (${participants.length} participants)`);
+                }
+            }
+            
+            if (participants.length === 0) {
                 await connection.rollback();
                 return {
                     success: false,
-                    reason: 'Not enough participants (minimum 3 required)',
+                    reason: 'No participants in lottery',
                     participants: participants.length,
                     total_prize: lottery.total_prize
                 };
@@ -1536,7 +1559,7 @@ class DatabaseAdapter {
                 await connection.execute(
                     `INSERT INTO lottery_winners (user_id, guild_id, week_start, tickets_owned, total_tickets, prize_amount)
                      VALUES (?, ?, ?, ?, ?, ?)`,
-                    [winner.userId, guildId, currentWeekStart, winner.ticketsOwned, totalTickets, winner.prize]
+                    [winner.userId, guildId, actualWeekStart, winner.ticketsOwned, totalTickets, winner.prize]
                 );
                 
                 // Award prize to winner
@@ -1558,10 +1581,10 @@ class DatabaseAdapter {
                 [nextWeekStart.toISOString().slice(0, 10), guildId]
             );
             
-            // Clear tickets for next week
+            // Clear tickets for next week (use the actual week we drew from)
             await connection.execute(
                 'DELETE FROM lottery_tickets WHERE guild_id = ? AND week_start = ?',
-                [guildId, currentWeekStart]
+                [guildId, actualWeekStart]
             );
             
             await connection.commit();

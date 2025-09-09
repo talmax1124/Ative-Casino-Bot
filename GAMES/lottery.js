@@ -151,11 +151,11 @@ class LotteryGame {
             const lotteryInfo = await dbManager.getLotteryInfo(DESIGNATED_SERVER_ID);
             logger.info(`Current lottery status: ${lotteryInfo.total_tickets} tickets, prize pool: $${lotteryInfo.total_prize}`);
             
-            // Only conduct missed drawing if there are sufficient participants (3+)
+            // Only conduct missed drawing if there are participants
             if (lotteryInfo.total_tickets > 0) {
-                // Check if we actually have 3+ unique participants
+                // Check if we actually have participants
                 const allTickets = await dbManager.getAllLotteryTickets(DESIGNATED_SERVER_ID);
-                if (allTickets.length >= 3) {
+                if (allTickets.length > 0) {
                     logger.info(`Found ${allTickets.length} participants with ${lotteryInfo.total_tickets} total tickets - eligible for drawing`);
                     
                     // Additional safety: Only trigger if we're past a drawing day
@@ -179,7 +179,7 @@ class LotteryGame {
                         logger.info('Tickets found but timing suggests no missed drawing');
                     }
                 } else {
-                    logger.info(`Only ${allTickets.length} participants - insufficient for drawing (need 3+)`);
+                    logger.info(`No participants found - no drawing to conduct`);
                 }
             } else {
                 logger.info('No active lottery tickets found - no missed drawing to conduct');
@@ -446,8 +446,8 @@ class LotteryGame {
             }
 
             let description;
-            if (results.reason === 'insufficient_participants') {
-                description = `**Not enough participants for this week's drawing!**\n\nWe need at least 3 participants, but only had **${results.participants}**.\n\n💰 **Good news:** The current prize pool will roll over to next week, making it even bigger!`;
+            if (results.reason === 'No participants in lottery') {
+                description = `**No participants for this week's drawing!**\n\nNo one purchased tickets for this drawing period.\n\n💰 **Good news:** The current prize pool will roll over to next week, making it even bigger!`;
             } else {
                 description = `**This week's lottery drawing could not be completed.**\n\nReason: ${results.reason}\n\n💰 The prize pool will roll over to next week.`;
             }
