@@ -89,12 +89,7 @@ module.exports = {
             // Parse and resolve amount
             let resolvedAmount;
             try {
-                const parsed = parseAmount(amountStr);
-                if (parsed === null) {
-                    throw new Error('Invalid amount format');
-                }
-                
-                resolvedAmount = resolveAmount(parsed, currentWallet);
+                resolvedAmount = resolveAmount(amountStr, currentWallet);
                 if (resolvedAmount === null || resolvedAmount <= 0) {
                     throw new Error('Invalid amount format');
                 }

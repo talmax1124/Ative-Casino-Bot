@@ -682,13 +682,14 @@ module.exports = {
                 const botMember = guild.members.cache.get(interaction.client.user.id);
                 const botHighestRole = botMember.roles.highest;
                 
-                // Create the role with high position for color visibility
+                // Create the role with high position for color visibility but hidden from member list
                 role = await guild.roles.create({
                     name: roleName,
                     color: roleColor,
                     reason: `Shop purchase by ${member.user.username}`,
                     permissions: [],
-                    position: Math.max(0, botHighestRole.position - 1) // Position just below bot's highest role
+                    position: Math.max(0, botHighestRole.position - 1), // Position just below bot's highest role
+                    hoist: false // Don't show separately in member list
                 });
                 
                 logger.info(`Created new role: ${roleName} (${roleColor}) at position ${role.position} for user ${userId}`);

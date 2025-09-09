@@ -359,6 +359,18 @@ class DatabaseManager {
         return false;
     }
 
+    /**
+     * Check and recover orphaned lottery tickets from previous weeks
+     * @param {string} guildId - Guild ID
+     * @returns {Object} Recovery results
+     */
+    async checkAndRecoverOrphanedTickets(guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.checkAndRecoverOrphanedTickets(guildId);
+        }
+        return { success: false, recovered: 0, reason: 'no_database' };
+    }
+
     // ========================= BACKUP OPERATIONS =========================
 
     /**

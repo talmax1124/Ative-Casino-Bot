@@ -14,6 +14,7 @@ const Canvas = require('canvas');
 // Lottery configuration
 const LOTTERY_CHANNEL_ID = '1406136478714826824';
 const DESIGNATED_SERVER_ID = '1403244656845787167';
+const LOTTERY_ROLE_ID = '1414864446140059668';
 
 class LotteryGame {
     constructor(bot) {
@@ -28,6 +29,12 @@ class LotteryGame {
      */
     async initialize() {
         try {
+            // First, recover any orphaned tickets from the week rollover bug
+            await this.recoverOrphanedTickets();
+            
+            // Check if we missed any drawings during downtime (with safer logic)
+            await this.checkMissedDrawingsSafely();
+            
             // Schedule the next lottery drawing
             await this.scheduleNextDrawing();
             
@@ -72,11 +79,25 @@ class LotteryGame {
             this.scheduledDrawing = setTimeout(async () => {
                 const success = await this.conductWeeklyDrawing();
                 if (!success) {
-                    // Fallback: retry in 5 minutes
-                    logger.warn('Lottery drawing failed, scheduling retry in 5 minutes...');
+                    // Multi-tier fallback system
+                    logger.warn('Lottery drawing failed, implementing fallback strategy...');
+                    
+                    // Fallback 1: Retry in 5 minutes
                     setTimeout(async () => {
-                        await this.conductWeeklyDrawing();
-                    }, 5 * 60 * 1000);
+                        const retry1 = await this.conductWeeklyDrawing();
+                        if (!retry1) {
+                            // Fallback 2: Retry in 15 minutes
+                            logger.error('Lottery drawing retry 1 failed, scheduling retry 2 in 15 minutes...');
+                            setTimeout(async () => {
+                                const retry2 = await this.conductWeeklyDrawing();
+                                if (!retry2) {
+                                    // Fallback 3: Send critical alert to admin
+                                    logger.error('CRITICAL: All lottery drawing attempts failed! Manual intervention required.');
+                                    await this.sendCriticalAlert();
+                                }
+                            }, 15 * 60 * 1000); // 15 minutes
+                        }
+                    }, 5 * 60 * 1000); // 5 minutes
                 }
                 // Schedule the next drawing after this one completes
                 await this.scheduleNextDrawing();
@@ -116,6 +137,55 @@ class LotteryGame {
             logger.info('Hourly lottery panel updates scheduled');
         } catch (error) {
             logger.error(`Error scheduling hourly panel updates: ${error.message}`);
+        }
+    }
+
+    /**
+     * Safely check if we missed any drawings during bot downtime
+     * More conservative approach to prevent accidental resets
+     */
+    async checkMissedDrawingsSafely() {
+        try {
+            logger.info('Checking for missed lottery drawings during downtime...');
+            
+            const lotteryInfo = await dbManager.getLotteryInfo(DESIGNATED_SERVER_ID);
+            logger.info(`Current lottery status: ${lotteryInfo.total_tickets} tickets, prize pool: $${lotteryInfo.total_prize}`);
+            
+            // Only conduct missed drawing if there are sufficient participants (3+)
+            if (lotteryInfo.total_tickets > 0) {
+                // Check if we actually have 3+ unique participants
+                const allTickets = await dbManager.getAllLotteryTickets(DESIGNATED_SERVER_ID);
+                if (allTickets.length >= 3) {
+                    logger.info(`Found ${allTickets.length} participants with ${lotteryInfo.total_tickets} total tickets - eligible for drawing`);
+                    
+                    // Additional safety: Only trigger if we're past a drawing day
+                    const nowNY = moment.tz('America/New_York');
+                    const currentDay = nowNY.day();
+                    const currentHour = nowNY.hour();
+                    
+                    // If it's past 11 AM on Tuesday or Saturday, we might have missed a 10 AM drawing
+                    if (((currentDay === 2 || currentDay === 6) && currentHour > 11) || 
+                        (currentDay > 2 && currentDay < 6) || 
+                        currentDay === 0 || currentDay === 1) {
+                        
+                        logger.warn('Detected likely missed drawing - conducting lottery now');
+                        const success = await this.conductWeeklyDrawing();
+                        if (success) {
+                            logger.info('Successfully conducted missed lottery drawing on startup');
+                        } else {
+                            logger.error('Failed to conduct missed lottery drawing on startup - tickets preserved');
+                        }
+                    } else {
+                        logger.info('Tickets found but timing suggests no missed drawing');
+                    }
+                } else {
+                    logger.info(`Only ${allTickets.length} participants - insufficient for drawing (need 3+)`);
+                }
+            } else {
+                logger.info('No active lottery tickets found - no missed drawing to conduct');
+            }
+        } catch (error) {
+            logger.error(`Error checking for missed drawings: ${error.message}`);
         }
     }
 
@@ -233,7 +303,7 @@ class LotteryGame {
                 .setTimestamp();
 
             await channel.send({
-                content: '@everyone 🎟️ **FINAL CALL FOR LOTTERY TICKETS!** 🎟️',
+                content: `@everyone <@&${LOTTERY_ROLE_ID}> 🎟️ **FINAL CALL FOR LOTTERY TICKETS!** 🎟️`,
                 embeds: [embed]
             });
 
@@ -318,11 +388,11 @@ class LotteryGame {
                         inline: true
                     }
                 )
-                .addField(
-                    '💰 Prize Distribution',
-                    `All prizes have been automatically deposited into winners' **BANK** accounts!`,
-                    false
-                )
+                .addFields({
+                    name: '💰 Prize Distribution',
+                    value: `All prizes have been automatically deposited into winners' **BANK** accounts!`,
+                    inline: false
+                })
                 .setImage('attachment://winners.png')
                 .setFooter({ text: '🎟️ New lottery period starts now! Buy tickets for next Tuesday or Saturday drawing!' })
                 .setTimestamp();
@@ -344,7 +414,7 @@ class LotteryGame {
 
             // Send winner announcement
             await channel.send({
-                content: '🎊 **LOTTERY WINNERS ANNOUNCED!** 🎊\n@everyone',
+                content: `🎊 **LOTTERY WINNERS ANNOUNCED!** 🎊\n@everyone <@&${LOTTERY_ROLE_ID}>`,
                 embeds: [embed],
                 files: [{ attachment: winnerImage, name: 'winners.png' }],
                 components: [row]
@@ -386,11 +456,11 @@ class LotteryGame {
                 .setTitle('🎟️ Lottery Drawing Update')
                 .setColor(0xFFA500)
                 .setDescription(description)
-                .addField(
-                    '📅 Next Week',
-                    'The lottery continues next Sunday at 10 AM EST!\nBuy your tickets now for a chance to win the rolled-over prize pool!',
-                    false
-                )
+                .addFields({
+                    name: '📅 Next Week',
+                    value: 'The lottery continues next Sunday at 10 AM EST!\nBuy your tickets now for a chance to win the rolled-over prize pool!',
+                    inline: false
+                })
                 .setFooter({ text: '🎟️ Use /lottery buy to purchase tickets for next week!' })
                 .setTimestamp();
 
@@ -426,6 +496,42 @@ class LotteryGame {
 
         } catch (logError) {
             logger.error(`Error logging lottery drawing error: ${logError.message}`);
+        }
+    }
+
+    /**
+     * Send critical alert when all drawing attempts fail
+     */
+    async sendCriticalAlert() {
+        try {
+            // Send alert to both logs and lottery channel
+            await sendLogMessage(
+                this.bot,
+                'error',
+                `🚨 CRITICAL LOTTERY FAILURE: All automated drawing attempts failed! Use /drawlottery CONFIRM to manually trigger the drawing immediately.`,
+                null,
+                DESIGNATED_SERVER_ID
+            );
+
+            // Also send to lottery channel as emergency notice
+            const channel = this.bot.channels.cache.get(LOTTERY_CHANNEL_ID);
+            if (channel) {
+                const embed = new EmbedBuilder()
+                    .setTitle('🚨 LOTTERY DRAWING ALERT')
+                    .setColor(0xFF0000)
+                    .setDescription('**TECHNICAL ISSUE DETECTED**\n\nThe automated lottery drawing encountered an error. Our administrators have been notified and will manually conduct the drawing shortly.\n\n**Your tickets are safe and the drawing will still occur!**')
+                    .addFields({ 
+                        name: 'What happens now?', 
+                        value: '• Admins have been alerted\n• Manual drawing will be conducted\n• All tickets remain valid\n• Winners will be announced normally', 
+                        inline: false 
+                    })
+                    .setFooter({ text: 'We apologize for any inconvenience' })
+                    .setTimestamp();
+
+                await channel.send({ embeds: [embed] });
+            }
+        } catch (alertError) {
+            logger.error(`Failed to send critical lottery alert: ${alertError.message}`);
         }
     }
 
@@ -574,6 +680,38 @@ class LotteryGame {
                 nextDrawing: this.getNextDrawingTimestamp(),
                 recentDrawings: []
             };
+        }
+    }
+
+    /**
+     * Recover orphaned lottery tickets from previous weeks due to rollover bug
+     */
+    async recoverOrphanedTickets() {
+        try {
+            logger.info('Checking for orphaned lottery tickets to recover...');
+            
+            const recoveryResult = await dbManager.checkAndRecoverOrphanedTickets(DESIGNATED_SERVER_ID);
+            
+            if (recoveryResult.success) {
+                if (recoveryResult.recovered > 0) {
+                    logger.info(`🎫 TICKET RECOVERY: Successfully recovered ${recoveryResult.recovered} orphaned tickets`);
+                    logger.info(`Recovery details: ${recoveryResult.details}`);
+                    
+                    // Update the lottery panel to reflect the recovered tickets
+                    try {
+                        await this.updateLotteryPanel();
+                        logger.info('Updated lottery panel after ticket recovery');
+                    } catch (panelError) {
+                        logger.error(`Failed to update lottery panel after recovery: ${panelError.message}`);
+                    }
+                } else {
+                    logger.info('No orphaned tickets found - all tickets properly assigned');
+                }
+            } else {
+                logger.error(`Ticket recovery failed: ${recoveryResult.reason}`);
+            }
+        } catch (error) {
+            logger.error(`Error during ticket recovery process: ${error.message}`);
         }
     }
 }

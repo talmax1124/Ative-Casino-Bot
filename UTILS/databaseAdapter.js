@@ -851,9 +851,10 @@ class DatabaseAdapter {
 
     async getAllLotteryTickets(guildId) {
         try {
+            const currentWeekStart = this.getCurrentWeekStart();
             const [rows] = await this.pool.execute(
-                'SELECT user_id, SUM(ticket_count) as tickets FROM lottery_tickets WHERE guild_id = ? AND week_start = (SELECT current_week_start FROM lottery_info WHERE guild_id = ?) GROUP BY user_id',
-                [guildId, guildId]
+                'SELECT user_id, SUM(ticket_count) as tickets FROM lottery_tickets WHERE guild_id = ? AND week_start = ? GROUP BY user_id',
+                [guildId, currentWeekStart]
             );
             return rows;
         } catch (error) {
@@ -1338,25 +1339,62 @@ class DatabaseAdapter {
     // ========================= LOTTERY POOL OPERATIONS =========================
 
     /**
-     * Add amount to lottery pool
+     * Add amount to lottery pool with 10M cap
      */
     async addToLotteryPool(guildId, amount) {
+        const connection = await this.pool.getConnection();
         try {
-            const query = `
-                INSERT INTO lottery (guild_id, total_prize, week_start) 
-                VALUES (?, ?, ?)
-                ON DUPLICATE KEY UPDATE 
-                total_prize = total_prize + VALUES(total_prize)
-            `;
+            await connection.beginTransaction();
             
-            const weekStart = this.getCurrentWeekStart();
-            await this.connection.execute(query, [guildId, amount, weekStart]);
+            const currentWeekStart = this.getCurrentWeekStart();
+            const maxPrizePool = 10000000; // 10M cap
             
-            logger.info(`Added ${amount} to lottery pool for guild ${guildId || 'global'}`);
-            return true;
+            // Get current prize pool
+            const [currentInfo] = await connection.execute(
+                'SELECT total_prize FROM lottery_info WHERE guild_id = ?',
+                [guildId]
+            );
+            
+            let currentPrize = 400000; // Default base pool
+            if (currentInfo.length > 0) {
+                currentPrize = currentInfo[0].total_prize || 400000;
+            }
+            
+            // Calculate how much can actually be added (respecting the 10M cap)
+            const availableSpace = maxPrizePool - currentPrize;
+            const actualAmountToAdd = Math.min(amount, Math.max(0, availableSpace));
+            
+            if (actualAmountToAdd > 0) {
+                // Add to lottery pool
+                await connection.execute(`
+                    INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start) 
+                    VALUES (?, 0, ?, ?)
+                    ON DUPLICATE KEY UPDATE 
+                    total_prize = LEAST(total_prize + VALUES(total_prize), ?),
+                    updated_at = CURRENT_TIMESTAMP
+                `, [guildId, 400000 + actualAmountToAdd, currentWeekStart, maxPrizePool]);
+                
+                await connection.commit();
+                
+                if (actualAmountToAdd < amount) {
+                    logger.info(`Added ${actualAmountToAdd} to lottery pool for guild ${guildId} (capped at 10M, ${amount - actualAmountToAdd} overflow prevented)`);
+                } else {
+                    logger.info(`Added ${actualAmountToAdd} to lottery pool for guild ${guildId}`);
+                }
+                
+                return { success: true, amountAdded: actualAmountToAdd, overflow: amount - actualAmountToAdd };
+            } else {
+                await connection.rollback();
+                logger.info(`Lottery pool at maximum (10M) for guild ${guildId}, no money added`);
+                return { success: true, amountAdded: 0, overflow: amount };
+            }
+            
         } catch (error) {
+            await connection.rollback();
             logger.error(`Error adding to lottery pool: ${error.message}`);
-            return false;
+            return { success: false, error: error.message };
+        } finally {
+            connection.release();
         }
     }
 
@@ -1444,11 +1482,11 @@ class DatabaseAdapter {
                 }
             }
             
-            // Prize distribution: 1st: 60%, 2nd: 25%, 3rd: 15%
+            // Prize distribution: 1st: 45%, 2nd: 45%, 3rd: 10%
             const totalPrize = lottery.total_prize;
-            const firstPrize = Math.floor(totalPrize * 0.60);
-            const secondPrize = Math.floor(totalPrize * 0.25);  
-            const thirdPrize = Math.floor(totalPrize * 0.15);
+            const firstPrize = Math.floor(totalPrize * 0.45);
+            const secondPrize = Math.floor(totalPrize * 0.45);  
+            const thirdPrize = Math.floor(totalPrize * 0.10);
             
             // Draw winners (ensure no duplicates)
             const winners = [];
@@ -1559,6 +1597,266 @@ class DatabaseAdapter {
         } catch (error) {
             logger.error(`Error saving lottery history: ${error.message}`);
             return false;
+        }
+    }
+
+    /**
+     * Check for and recover orphaned lottery tickets from previous weeks
+     * This handles the case where week rollover occurred without a successful drawing
+     */
+    async checkAndRecoverOrphanedTickets(guildId) {
+        const connection = await this.pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            
+            const currentWeekStart = this.getCurrentWeekStart();
+            logger.info(`Checking for orphaned lottery tickets. Current week: ${currentWeekStart}`);
+            
+            // Get all tickets from previous week(s) that might be orphaned
+            const [orphanedTickets] = await connection.execute(
+                'SELECT * FROM lottery_tickets WHERE guild_id = ? AND week_start < ? ORDER BY week_start DESC',
+                [guildId, currentWeekStart]
+            );
+            
+            if (orphanedTickets.length > 0) {
+                const mostRecentWeek = orphanedTickets[0].week_start;
+                const ticketsFromRecentWeek = orphanedTickets.filter(ticket => ticket.week_start === mostRecentWeek);
+                
+                logger.info(`Found ${ticketsFromRecentWeek.length} orphaned tickets from week ${mostRecentWeek}`);
+                
+                // Check if there was a successful drawing for that week by looking at lottery_winners
+                const [winnerResults] = await connection.execute(
+                    'SELECT COUNT(*) as winner_count FROM lottery_winners WHERE guild_id = ? AND week_start = ?',
+                    [guildId, mostRecentWeek]
+                );
+                
+                const hadSuccessfulDrawing = winnerResults[0].winner_count > 0;
+                
+                if (!hadSuccessfulDrawing && ticketsFromRecentWeek.length > 0) {
+                    logger.warn(`Week ${mostRecentWeek} had ${ticketsFromRecentWeek.length} tickets but no winners recorded - recovering tickets`);
+                    
+                    // Calculate total tickets and cost from orphaned tickets
+                    let totalOrphanedTickets = 0;
+                    let totalOrphanedCost = 0;
+                    
+                    for (const ticket of ticketsFromRecentWeek) {
+                        totalOrphanedTickets += ticket.ticket_count;
+                        totalOrphanedCost += ticket.purchase_cost;
+                    }
+                    
+                    // Migrate orphaned tickets to current week
+                    for (const ticket of ticketsFromRecentWeek) {
+                        await connection.execute(
+                            `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, purchase_cost, week_start, purchased_at)
+                             VALUES (?, ?, ?, ?, ?, ?)
+                             ON DUPLICATE KEY UPDATE 
+                             ticket_count = ticket_count + VALUES(ticket_count),
+                             purchase_cost = purchase_cost + VALUES(purchase_cost)`,
+                            [ticket.user_id, guildId, ticket.ticket_count, ticket.purchase_cost, currentWeekStart, new Date()]
+                        );
+                    }
+                    
+                    // Update lottery_info with recovered tickets
+                    await connection.execute(
+                        `INSERT INTO lottery_info (guild_id, total_tickets, current_week_start)
+                         VALUES (?, ?, ?)
+                         ON DUPLICATE KEY UPDATE total_tickets = total_tickets + ?`,
+                        [guildId, totalOrphanedTickets, currentWeekStart, totalOrphanedTickets]
+                    );
+                    
+                    // Clean up old orphaned tickets
+                    await connection.execute(
+                        'DELETE FROM lottery_tickets WHERE guild_id = ? AND week_start = ?',
+                        [guildId, mostRecentWeek]
+                    );
+                    
+                    await connection.commit();
+                    
+                    logger.info(`Successfully recovered ${totalOrphanedTickets} tickets worth $${totalOrphanedCost} from week ${mostRecentWeek}`);
+                    return {
+                        success: true,
+                        recovered: totalOrphanedTickets,
+                        details: `Recovered ${totalOrphanedTickets} tickets worth $${totalOrphanedCost} from week ${mostRecentWeek}`
+                    };
+                } else if (hadSuccessfulDrawing) {
+                    logger.info(`Week ${mostRecentWeek} had successful drawing - no recovery needed`);
+                    await connection.rollback();
+                } else {
+                    logger.info(`No orphaned tickets found that need recovery`);
+                    await connection.rollback();
+                }
+            } else {
+                logger.info('No orphaned tickets found');
+                await connection.rollback();
+            }
+            
+            return { success: true, recovered: 0 };
+            
+        } catch (error) {
+            await connection.rollback();
+            logger.error(`Error checking for orphaned tickets: ${error.message}`);
+            return { success: false, recovered: 0, reason: error.message };
+        } finally {
+            connection.release();
+        }
+    }
+
+    /**
+     * Award lottery tickets to a user (developer command)
+     * @param {string} userId - User ID
+     * @param {string} guildId - Guild ID
+     * @param {number} ticketAmount - Number of tickets to award
+     * @param {number} equivalentCost - Equivalent cost for tracking
+     * @param {string} reason - Reason for award
+     * @param {string} awardedBy - Developer who awarded tickets
+     * @returns {boolean} Success status
+     */
+    async awardLotteryTickets(userId, guildId, ticketAmount, equivalentCost, reason, awardedBy) {
+        const connection = await this.pool.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const currentWeekStart = this.getCurrentWeekStart();
+
+            // Add tickets to user's lottery record
+            await connection.execute(
+                `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, purchase_cost, week_start, purchased_at, awarded_manually, award_reason, awarded_by)
+                 VALUES (?, ?, ?, ?, ?, ?, TRUE, ?, ?)
+                 ON DUPLICATE KEY UPDATE 
+                 ticket_count = ticket_count + VALUES(ticket_count),
+                 purchase_cost = purchase_cost + VALUES(purchase_cost)`,
+                [userId, guildId, ticketAmount, equivalentCost, currentWeekStart, new Date(), reason, awardedBy]
+            );
+
+            // Update lottery_info total tickets
+            await connection.execute(
+                `INSERT INTO lottery_info (guild_id, total_tickets, current_week_start)
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE total_tickets = total_tickets + ?`,
+                [guildId, ticketAmount, currentWeekStart, ticketAmount]
+            );
+
+            await connection.commit();
+            
+            logger.info(`Awarded ${ticketAmount} lottery tickets to user ${userId} by ${awardedBy}. Reason: ${reason}`);
+            return true;
+
+        } catch (error) {
+            await connection.rollback();
+            logger.error(`Error awarding lottery tickets: ${error.message}`);
+            return false;
+        } finally {
+            connection.release();
+        }
+    }
+
+    /**
+     * Synchronize lottery_info total_tickets with actual ticket count
+     * @param {string} guildId - Guild ID
+     * @returns {Object} Sync results
+     */
+    async syncLotteryTicketCount(guildId) {
+        const connection = await this.pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            
+            const currentWeekStart = this.getCurrentWeekStart();
+            
+            // Get actual ticket count
+            const [actualRows] = await connection.execute(
+                'SELECT SUM(ticket_count) as actual_total FROM lottery_tickets WHERE guild_id = ? AND week_start = ?',
+                [guildId, currentWeekStart]
+            );
+            
+            const actualTotal = parseInt(actualRows[0]?.actual_total || 0);
+            
+            // Get current database value
+            const [infoRows] = await connection.execute(
+                'SELECT total_tickets FROM lottery_info WHERE guild_id = ?',
+                [guildId]
+            );
+            
+            const databaseTotal = parseInt(infoRows[0]?.total_tickets || 0);
+            
+            if (actualTotal !== databaseTotal) {
+                // Update lottery_info to match actual count
+                await connection.execute(
+                    `INSERT INTO lottery_info (guild_id, total_tickets, current_week_start)
+                     VALUES (?, ?, ?)
+                     ON DUPLICATE KEY UPDATE total_tickets = VALUES(total_tickets)`,
+                    [guildId, actualTotal, currentWeekStart]
+                );
+                
+                await connection.commit();
+                
+                logger.info(`Synced lottery ticket count for guild ${guildId}: ${databaseTotal} -> ${actualTotal}`);
+                return {
+                    success: true,
+                    updated: true,
+                    previousCount: databaseTotal,
+                    actualCount: actualTotal,
+                    difference: actualTotal - databaseTotal
+                };
+            } else {
+                await connection.rollback();
+                return {
+                    success: true,
+                    updated: false,
+                    actualCount: actualTotal,
+                    message: 'Ticket count already synchronized'
+                };
+            }
+            
+        } catch (error) {
+            await connection.rollback();
+            logger.error(`Error syncing lottery ticket count: ${error.message}`);
+            return {
+                success: false,
+                error: error.message
+            };
+        } finally {
+            connection.release();
+        }
+    }
+
+    /**
+     * Get lottery drawing history
+     * @param {string} guildId - Guild ID
+     * @param {number} limit - Number of recent drawings to fetch
+     * @returns {Array} Array of drawing results
+     */
+    async getLotteryHistory(guildId, limit = 10) {
+        const connection = await this.pool.getConnection();
+        try {
+            const [rows] = await connection.execute(
+                `SELECT 
+                    week_start,
+                    winners,
+                    total_prize,
+                    total_participants,
+                    drawing_date,
+                    winner_count
+                FROM lottery_winners 
+                WHERE guild_id = ? 
+                ORDER BY drawing_date DESC 
+                LIMIT ?`,
+                [guildId, limit]
+            );
+
+            return rows.map(row => ({
+                week_start: row.week_start,
+                winners: JSON.parse(row.winners || '[]'),
+                total_prize: parseFloat(row.total_prize || 0),
+                total_participants: parseInt(row.total_participants || 0),
+                drawing_date: row.drawing_date,
+                winner_count: parseInt(row.winner_count || 0)
+            }));
+
+        } catch (error) {
+            logger.error(`Error getting lottery history: ${error.message}`);
+            return [];
+        } finally {
+            connection.release();
         }
     }
 
@@ -2488,6 +2786,69 @@ class DatabaseAdapter {
                     duration_hours: null,
                     metadata: JSON.stringify({ role_color: '#ffd700', role_name: 'Gold VIP' }),
                     sort_order: 4
+                },
+                {
+                    name: '🟢 Green Name',
+                    description: 'Fresh green colored username in chat',
+                    category: 'roles',
+                    price: 4500000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#00ff00', role_name: 'Green VIP' }),
+                    sort_order: 5
+                },
+                {
+                    name: '🟠 Orange Name',
+                    description: 'Vibrant orange colored username in chat',
+                    category: 'roles',
+                    price: 5000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#ff8000', role_name: 'Orange VIP' }),
+                    sort_order: 6
+                },
+                {
+                    name: '🌸 Pink Name',
+                    description: 'Cute pink colored username in chat',
+                    category: 'roles',
+                    price: 6000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#ff69b4', role_name: 'Pink VIP' }),
+                    sort_order: 7
+                },
+                {
+                    name: '🩵 Cyan Name',
+                    description: 'Cool cyan colored username in chat',
+                    category: 'roles',
+                    price: 6500000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#00ffff', role_name: 'Cyan VIP' }),
+                    sort_order: 8
+                },
+                {
+                    name: '🤍 Silver Name',
+                    description: 'Elegant silver colored username in chat',
+                    category: 'roles',
+                    price: 12000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#c0c0c0', role_name: 'Silver VIP' }),
+                    sort_order: 9
+                },
+                {
+                    name: '🖤 Dark Purple Name',
+                    description: 'Mysterious dark purple username in chat',
+                    category: 'roles',
+                    price: 15000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#4b0082', role_name: 'Dark Purple VIP' }),
+                    sort_order: 10
+                },
+                {
+                    name: '💎 Diamond Name',
+                    description: 'Ultra-premium diamond white username',
+                    category: 'roles',
+                    price: 50000000,
+                    duration_hours: null,
+                    metadata: JSON.stringify({ role_color: '#ffffff', role_name: 'Diamond VIP' }),
+                    sort_order: 11
                 },
 
                 // Utilities

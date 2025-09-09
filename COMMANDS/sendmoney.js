@@ -10,7 +10,7 @@ const OffEconomyBadge = require('../UTILS/offEconomyBadge');
 const transactionLocks = new Map();
 
 // Designated server ID for lottery pool
-const DESIGNATED_SERVER_ID = '1402968479002558464';
+const DESIGNATED_SERVER_ID = '1403244656845787167';
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -324,19 +324,30 @@ module.exports = {
             // Add tax to lottery pool (only for designated server)
             if (guildId === DESIGNATED_SERVER_ID && taxAmount > 0) {
                 try {
-                    await dbManager.addToLotteryPool(guildId, taxAmount);
-                    logger.info(`Added ${fmt(taxAmount)} from money transfer to lottery pool`);
-                    
-                    // Update the lottery panel to reflect the new pool amount
-                    const { updateLotteryPanel } = require('../UTILS/lottery');
-                    if (updateLotteryPanel) {
-                        try {
-                            await updateLotteryPanel(interaction.client, guildId);
-                            logger.info('Successfully updated lottery panel after money transfer');
-                        } catch (panelError) {
-                            logger.error(`Failed to update lottery panel: ${panelError.message}`);
-                            // Don't fail the transfer if panel update fails
+                    const lotteryResult = await dbManager.addToLotteryPool(guildId, taxAmount);
+                    if (lotteryResult.success) {
+                        if (lotteryResult.amountAdded > 0) {
+                            logger.info(`Added ${fmt(lotteryResult.amountAdded)} from money transfer to lottery pool`);
+                            if (lotteryResult.overflow > 0) {
+                                logger.info(`Lottery pool at 10M cap - ${fmt(lotteryResult.overflow)} tax overflow prevented`);
+                            }
+                        } else {
+                            logger.info(`Lottery pool at maximum (10M) - ${fmt(taxAmount)} tax not added`);
                         }
+                        
+                        // Update the lottery panel to reflect the new pool amount
+                        const { updateLotteryPanel } = require('../UTILS/lottery');
+                        if (updateLotteryPanel) {
+                            try {
+                                await updateLotteryPanel(interaction.client, guildId);
+                                logger.info('Successfully updated lottery panel after money transfer');
+                            } catch (panelError) {
+                                logger.error(`Failed to update lottery panel: ${panelError.message}`);
+                                // Don't fail the transfer if panel update fails
+                            }
+                        }
+                    } else {
+                        logger.error(`Failed to add tax to lottery pool: ${lotteryResult.error}`);
                     }
                 } catch (lotteryError) {
                     logger.error(`Error adding tax to lottery pool: ${lotteryError.message}`);
