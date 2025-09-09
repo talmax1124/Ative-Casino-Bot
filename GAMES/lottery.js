@@ -458,7 +458,7 @@ class LotteryGame {
                 .setDescription(description)
                 .addFields({
                     name: '📅 Next Week',
-                    value: 'The lottery continues next Sunday at 10 AM EST!\nBuy your tickets now for a chance to win the rolled-over prize pool!',
+                    value: 'The lottery continues next Tuesday & Saturday at 10 AM EST!\nBuy your tickets now for a chance to win the rolled-over prize pool!',
                     inline: false
                 })
                 .setFooter({ text: '🎟️ Use /lottery buy to purchase tickets for next week!' })
@@ -644,7 +644,7 @@ class LotteryGame {
                 // Conduct immediate drawing
                 await this.conductWeeklyDrawing();
                 
-                // Reschedule for next Sunday
+                // Reschedule for next drawing (Tuesday/Saturday)
                 await this.scheduleNextDrawing();
                 
                 return true;

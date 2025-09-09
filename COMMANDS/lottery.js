@@ -52,8 +52,8 @@ module.exports = {
         };
 
         const embed = UITemplates.createStandardGameEmbed(
-            'Weekly Lottery',
-            'Buy lottery tickets for your chance to win the weekly prize pool! Drawing every Sunday at 10 AM EST.',
+            'Bi-Weekly Lottery',
+            'Buy lottery tickets for your chance to win the bi-weekly prize pool! Drawings every Tuesday & Saturday at 10 AM EST.',
             userBalance.wallet,
             gameOptions
         );
@@ -180,7 +180,7 @@ module.exports = {
     async showLotteryRules(interaction) {
         const rules = [
             '🎟️ Purchase 1-7 lottery tickets per week for $12,000 each',
-            '🗓️ Weekly drawing every Sunday at 10 AM EST',
+            '🗓️ Bi-weekly drawings every Tuesday & Saturday at 10 AM EST',
             '🏆 Winner takes the entire prize pool',
             '📊 More tickets = better odds of winning',
             '💰 All ticket sales contribute to the prize pool',
@@ -283,7 +283,7 @@ module.exports = {
                 },
                 {
                     name: '🗓️ Drawing Schedule',
-                    value: 'Every Sunday at 10:00 AM EST',
+                    value: 'Every Tuesday & Saturday at 10:00 AM EST',
                     inline: true
                 },
                 {
@@ -354,7 +354,7 @@ module.exports = {
                     },
                     {
                         name: '⏰ Next Drawing',
-                        value: `<t:${nextDrawingTime}:F>\n<t:${nextDrawingTime}:R>\n*Every Sunday at 10 AM EST*`,
+                        value: `<t:${nextDrawingTime}:F>\n<t:${nextDrawingTime}:R>\n*Every Tuesday & Saturday at 10 AM EST*`,
                         inline: true
                     }
                 )

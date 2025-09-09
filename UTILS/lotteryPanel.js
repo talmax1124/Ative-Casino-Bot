@@ -39,8 +39,8 @@ async function createLotteryPanel(interaction, lotteryInfo = {}) {
         const ticketCount = lotteryInfo.total_tickets || 0;
 
         const embed = new EmbedBuilder()
-            .setTitle('🎟️ Weekly Lottery System')
-            .setDescription('**Try your luck in our weekly lottery drawings!**\n\nEvery Sunday at 10 AM EST, we draw 3 lucky winners! 1st and 2nd place get 45% each, 3rd place gets 10%!')
+            .setTitle('🎟️ Bi-Weekly Lottery System')
+            .setDescription('**Try your luck in our bi-weekly lottery drawings!**\n\nEvery Tuesday & Saturday at 10 AM EST, we draw 3 lucky winners! 1st and 2nd place get 45% each, 3rd place gets 10%!')
             .setColor(0xFFD700)
             .addFields(
                 {
@@ -55,7 +55,7 @@ async function createLotteryPanel(interaction, lotteryInfo = {}) {
                 },
                 {
                     name: '🗓️ Next Drawing',
-                    value: `<t:${getNextLotteryTimestamp()}:F>\n<t:${getNextLotteryTimestamp()}:R>\n*Every Sunday at 10 AM EST*`,
+                    value: `<t:${getNextLotteryTimestamp()}:F>\n<t:${getNextLotteryTimestamp()}:R>\n*Every Tuesday & Saturday at 10 AM EST*`,
                     inline: true
                 },
                 {

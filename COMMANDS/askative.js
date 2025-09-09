@@ -618,10 +618,10 @@ Our casino offers thrilling games, a robust economy system, and exciting feature
 - **/shop** - Buy boosts, unlocks, decorations, roles, and more!
 - **/storage** - View your purchased items and inventory
 
-🎟️ **LOTTERY SYSTEM** - Weekly Jackpots!
-- **/lottery** - View current pool and next drawing (Sundays 10AM EST)
+🎟️ **LOTTERY SYSTEM** - Bi-Weekly Jackpots!
+- **/lottery** - View current pool and next drawing (Tuesdays & Saturdays 10AM EST)
 - **/purchaselottery** - Buy 1-7 tickets at $12,000 each
-- **Auto-drawings** every Sunday with massive payouts!
+- **Auto-drawings** every Tuesday & Saturday with massive payouts!
 
 🏆 **TIER SYSTEM** - Unlock Benefits!
 **Bronze → Silver → Gold → Diamond → Mythic**

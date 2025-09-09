@@ -312,7 +312,7 @@ async function handleLotteryButtons(interaction, customId) {
                         },
                         {
                             name: '📅 Drawing Schedule',
-                            value: '• Every **Sunday at 10 AM EST**\n• Automatic drawings with instant payouts\n• Prizes go directly to your **BANK** account\n• New lottery week starts immediately after',
+                            value: '• Every **Tuesday & Saturday at 10 AM EST**\n• Automatic drawings with instant payouts\n• Prizes go directly to your **BANK** account\n• New lottery cycle starts immediately after',
                             inline: false
                         },
                         {
@@ -2232,7 +2232,7 @@ async function showAllCommandsList(interaction) {
             },
             {
                 name: '🎟️ **Lottery System** 🎟️',
-                value: '```yaml\nView Status:  /lottery\nBuy Tickets:  /purchaselottery <1-7>\nDrawings:     Every Sunday 10AM EST\n```\n🏆 **Weekly prizes with guaranteed winners**',
+                value: '```yaml\nView Status:  /lottery\nBuy Tickets:  /purchaselottery <1-7>\nDrawings:     Every Tuesday & Saturday 10AM EST\n```\n🏆 **Bi-weekly prizes with guaranteed winners**',
                 inline: false
             },
             {

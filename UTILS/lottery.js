@@ -13,7 +13,7 @@ const LOTTERY_CHANNEL_ID = '1406136478714826824';
 const DESIGNATED_SERVER_ID = '1403244656845787167';
 
 /**
- * Calculate the next Sunday at 10 AM EST and return as Unix timestamp
+ * Calculate the next Tuesday or Saturday at 10 AM EST and return as Unix timestamp
  */
 function getNextLotteryTimestamp() {
     const now = new Date();
@@ -23,28 +23,35 @@ function getNextLotteryTimestamp() {
     const estOffset = -5 * 60; // EST is UTC-5 in minutes
     const estTime = new Date(now.getTime() + (estOffset * 60 * 1000));
     
-    // Find days until next Sunday (0 = Sunday, 6 = Saturday)
-    const daysUntilSunday = (7 - estTime.getDay()) % 7;
+    const currentDay = estTime.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, ..., 6 = Saturday
+    const currentHour = estTime.getHours();
     
-    let nextSunday;
-    if (daysUntilSunday === 0) {
-        // Today is Sunday
-        nextSunday = new Date(estTime);
-        nextSunday.setHours(10, 0, 0, 0);
-        
-        // If it's already past 10 AM, go to next Sunday
-        if (estTime.getHours() >= 10) {
-            nextSunday.setDate(nextSunday.getDate() + 7);
-        }
+    // Drawing days: Tuesday (2) and Saturday (6)
+    const drawingDays = [2, 6];
+    let nextDrawing;
+    
+    // Check if today is a drawing day and it's before 10 AM
+    if (drawingDays.includes(currentDay) && currentHour < 10) {
+        // Today's drawing at 10 AM
+        nextDrawing = new Date(estTime);
+        nextDrawing.setHours(10, 0, 0, 0);
     } else {
-        // Not Sunday, calculate next Sunday
-        nextSunday = new Date(estTime);
-        nextSunday.setDate(nextSunday.getDate() + daysUntilSunday);
-        nextSunday.setHours(10, 0, 0, 0);
+        // Find next drawing day
+        let daysAhead = 0;
+        for (let i = 1; i <= 7; i++) {
+            const futureDay = (currentDay + i) % 7;
+            if (drawingDays.includes(futureDay)) {
+                daysAhead = i;
+                break;
+            }
+        }
+        nextDrawing = new Date(estTime);
+        nextDrawing.setDate(nextDrawing.getDate() + daysAhead);
+        nextDrawing.setHours(10, 0, 0, 0);
     }
     
     // Convert back to UTC for timestamp
-    const utcTimestamp = Math.floor((nextSunday.getTime() - (estOffset * 60 * 1000)) / 1000);
+    const utcTimestamp = Math.floor((nextDrawing.getTime() - (estOffset * 60 * 1000)) / 1000);
     return utcTimestamp;
 }
 
@@ -154,7 +161,7 @@ async function updateLotteryPanel(bot, guildId) {
         const { EmbedBuilder } = require('discord.js');
         const embed = new EmbedBuilder()
             .setTitle('🎟️ Weekly Lottery System')
-            .setDescription('**Try your luck in our weekly lottery drawings!**\n\nEvery Sunday at 10 AM EST, we draw 3 lucky winners! 1st and 2nd place get 45% each, 3rd place gets 10%!')
+            .setDescription('**Try your luck in our bi-weekly lottery drawings!**\n\nEvery Tuesday & Saturday at 10 AM EST, we draw 3 lucky winners! 1st and 2nd place get 45% each, 3rd place gets 10%!')
             .setColor(0xFFD700)
             .addFields(
                 {
@@ -169,7 +176,7 @@ async function updateLotteryPanel(bot, guildId) {
                 },
                 {
                     name: '🗓️ Next Drawing',
-                    value: `<t:${getNextLotteryTimestamp()}:F>\n<t:${getNextLotteryTimestamp()}:R>\n*Every Sunday at 10 AM EST*`,
+                    value: `<t:${getNextLotteryTimestamp()}:F>\n<t:${getNextLotteryTimestamp()}:R>\n*Every Tuesday & Saturday at 10 AM EST*`,
                     inline: true
                 },
                 {
