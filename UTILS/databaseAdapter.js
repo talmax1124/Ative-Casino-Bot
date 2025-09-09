@@ -173,6 +173,9 @@ class DatabaseAdapter {
                 purchase_cost DECIMAL(20,2) NOT NULL,
                 week_start DATE NOT NULL,
                 purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                awarded_manually BOOLEAN DEFAULT FALSE,
+                award_reason TEXT DEFAULT NULL,
+                awarded_by VARCHAR(20) DEFAULT NULL,
                 UNIQUE KEY unique_user_week (user_id, guild_id, week_start),
                 INDEX idx_week_start (week_start)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
@@ -346,7 +349,11 @@ class DatabaseAdapter {
                 // Fix scratch tickets status ENUM to include 'dropped'
                 `ALTER TABLE scratch_tickets MODIFY COLUMN status ENUM('dropped', 'active', 'scratching', 'won', 'lost', 'expired') DEFAULT 'dropped'`,
                 // Allow NULL user_id for unclaimed tickets
-                `ALTER TABLE scratch_tickets MODIFY COLUMN user_id VARCHAR(20) DEFAULT NULL`
+                `ALTER TABLE scratch_tickets MODIFY COLUMN user_id VARCHAR(20) DEFAULT NULL`,
+                // Add manual award columns to lottery_tickets table
+                `ALTER TABLE lottery_tickets ADD COLUMN awarded_manually BOOLEAN DEFAULT FALSE`,
+                `ALTER TABLE lottery_tickets ADD COLUMN award_reason TEXT DEFAULT NULL`,
+                `ALTER TABLE lottery_tickets ADD COLUMN awarded_by VARCHAR(20) DEFAULT NULL`
             ];
             
             for (const query of alterQueries) {
