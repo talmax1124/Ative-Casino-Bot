@@ -370,24 +370,22 @@ class LotteryGame {
             const embed = new EmbedBuilder()
                 .setTitle('🎊 LOTTERY DRAWING RESULTS! 🎊')
                 .setColor(0xFFD700)
-                .setDescription(`**Bi-weekly lottery drawing has been completed!**\n\nTotal Prize Pool: **${fmt(results.total_prize)}**\nParticipants: **${results.totalParticipants}** players\nTickets Sold: **${results.total_tickets}**`)
-                .addFields(
-                    {
-                        name: '🥇 1st Place Winner',
-                        value: `<@${results.winners[0].userId}>\n**Prize: ${fmt(results.winners[0].prize)}**`,
-                        inline: true
-                    },
-                    {
-                        name: '🥈 2nd Place Winner',
-                        value: `<@${results.winners[1].userId}>\n**Prize: ${fmt(results.winners[1].prize)}**`,
-                        inline: true
-                    },
-                    {
-                        name: '🥉 3rd Place Winner',
-                        value: `<@${results.winners[2].userId}>\n**Prize: ${fmt(results.winners[2].prize)}**`,
-                        inline: true
-                    }
-                )
+                .setDescription(`**Bi-weekly lottery drawing has been completed!**\n\nTotal Prize Pool: **${fmt(results.total_prize)}**\nParticipants: **${results.totalParticipants}** players\nTickets Sold: **${results.total_tickets}**`);
+
+            // Add winner fields dynamically based on number of winners
+            const winnerEmojis = ['🥇', '🥈', '🥉'];
+            const placeNames = ['1st Place Winner', '2nd Place Winner', '3rd Place Winner'];
+            
+            for (let i = 0; i < results.winners.length && i < 3; i++) {
+                const winner = results.winners[i];
+                embed.addFields({
+                    name: `${winnerEmojis[i]} ${placeNames[i]}`,
+                    value: `<@${winner.userId}>\n**Prize: ${fmt(winner.prize)}**`,
+                    inline: true
+                });
+            }
+            
+            embed
                 .addFields({
                     name: '💰 Prize Distribution',
                     value: `All prizes have been automatically deposited into winners' **BANK** accounts!`,
@@ -420,11 +418,16 @@ class LotteryGame {
                 components: [row]
             });
 
-            // Log to admin channel
+            // Log to admin channel - dynamically build winners message
+            const winnersText = results.winners.map((winner, index) => {
+                const places = ['1st', '2nd', '3rd'];
+                return `${places[index]}: <@${winner.userId}> (${fmt(winner.prize)})`;
+            }).join(', ');
+            
             await sendLogMessage(
                 this.bot,
                 'game',
-                `Lottery drawing completed! Winners: 1st: <@${results.winners[0].userId}> (${fmt(results.winners[0].prize)}), 2nd: <@${results.winners[1].userId}> (${fmt(results.winners[1].prize)}), 3rd: <@${results.winners[2].userId}> (${fmt(results.winners[2].prize)})`,
+                `Lottery drawing completed! Winners: ${winnersText}`,
                 null,
                 DESIGNATED_SERVER_ID
             );
@@ -575,7 +578,7 @@ class LotteryGame {
         ctx.font = 'bold 36px Arial';
         ctx.textAlign = 'left';
 
-        for (let i = 0; i < winners.length; i++) {
+        for (let i = 0; i < results.winners.length && i < winners.length; i++) {
             const winner = results.winners[i];
             const winnerInfo = winners[i];
             
