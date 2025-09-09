@@ -26,6 +26,29 @@ const storageMonitor = require('./UTILS/storageMonitor');
 // Leveling system moved to UAS bot
 // Removed: const serverProducts = require('./UTILS/serverProducts'); // Web-based purchases now
 
+// Global error handling for unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    // Specifically handle Discord API unknown interaction errors
+    if (reason && reason.message && reason.message.includes('Unknown interaction')) {
+        logger.debug('Unknown interaction error caught and handled:', reason.message);
+        return;
+    }
+    
+    // Handle other unhandled rejections
+    logger.error('Unhandled promise rejection:', reason);
+    logger.error('Promise:', promise);
+});
+
+process.on('uncaughtException', (error) => {
+    logger.error('Uncaught exception:', error);
+    // Don't exit the process for unknown interaction errors
+    if (error.message && error.message.includes('Unknown interaction')) {
+        logger.debug('Unknown interaction uncaught exception handled');
+        return;
+    }
+    process.exit(1);
+});
+
 // Bot configuration
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;

@@ -252,7 +252,7 @@ class SetupWizard {
                 }
             )
             .setColor(permissions.canContinue ? 0x2ECC71 : 0xE74C3C)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
             .setFooter({ text: `Step ${this.currentStep} of ${this.totalSteps}: Welcome & Permission Check` })
             .setTimestamp();
 
@@ -338,7 +338,7 @@ class SetupWizard {
                 }
             )
             .setColor(0x3498DB)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
             .setFooter({ text: `Step ${this.currentStep} of ${this.totalSteps}: Server Configuration` })
             .setTimestamp();
 
@@ -465,7 +465,7 @@ class SetupWizard {
                 }
             )
             .setColor(0x2ECC71)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
             .setFooter({ text: `Step ${this.currentStep} of ${this.totalSteps}: Economy Configuration` })
             .setTimestamp();
 
@@ -596,7 +596,7 @@ class SetupWizard {
                 }
             )
             .setColor(0x9B59B6)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
             .setFooter({ text: `Step ${this.currentStep} of ${this.totalSteps}: Role Configuration` })
             .setTimestamp();
 
@@ -763,7 +763,7 @@ class SetupWizard {
                 }
             )
             .setColor(0xE67E22)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
             .setFooter({ text: `Step ${this.currentStep} of ${this.totalSteps}: Game Configuration` })
             .setTimestamp();
 
@@ -869,7 +869,7 @@ class SetupWizard {
                 }
             )
             .setColor(0xE74C3C)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
             .setFooter({ text: `Step ${this.currentStep} of ${this.totalSteps}: Security & Moderation` })
             .setTimestamp();
 
@@ -956,7 +956,7 @@ class SetupWizard {
                 }
             )
             .setColor(0x2ECC71)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
             .setFooter({ text: `Step ${this.currentStep} of ${this.totalSteps}: Final Configuration` })
             .setTimestamp();
 

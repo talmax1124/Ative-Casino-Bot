@@ -33,10 +33,25 @@ class SetupInteractionHandler {
                 .setColor(0xE74C3C)
                 .setTimestamp();
             
-            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    return await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } else {
+                    return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                }
+            } catch (error) {
+                logger.error(`Error responding to expired setup interaction: ${error.message}`);
+                return;
+            }
         }
 
         try {
+            // Check if interaction is still valid
+            if (!interaction.isRepliable()) {
+                logger.warn(`Setup interaction ${customId} is no longer repliable`);
+                return;
+            }
+
             // Handle different button types
             if (customId === 'setup_start') {
                 await this.handleStartSetup(interaction, wizard);
@@ -92,6 +107,12 @@ class SetupInteractionHandler {
                 });
             }
         } catch (error) {
+            // Handle Discord API unknown interaction errors specifically
+            if (error.code === 10062 || (error.message && error.message.includes('Unknown interaction'))) {
+                logger.debug(`Setup interaction expired: ${customId} - ${error.message}`);
+                return;
+            }
+            
             logger.error(`Error handling setup interaction ${customId}: ${error.message}`);
             
             const errorEmbed = new EmbedBuilder()
@@ -105,10 +126,15 @@ class SetupInteractionHandler {
                 .setColor(0xE74C3C)
                 .setTimestamp();
             
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            } else {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                } else {
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                }
+            } catch (responseError) {
+                // If we can't respond to the interaction, just log it
+                logger.debug(`Could not respond to setup interaction: ${responseError.message}`);
             }
         }
     }
@@ -172,7 +198,7 @@ class SetupInteractionHandler {
             .setTitle('❌ Setup Cancelled')
             .setDescription('The setup wizard has been cancelled. No changes were made to your server configuration.\n\nYou can run `/setup` again anytime to configure the bot.')
             .setColor(0xE74C3C)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
             .setTimestamp();
 
         await interaction.update({
@@ -207,7 +233,7 @@ class SetupInteractionHandler {
                     }
                 )
                 .setColor(0x2ECC71)
-                .setThumbnail(interaction.client.user.displayAvatarURL())
+                .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
                 .setTimestamp();
 
             await interaction.editReply({

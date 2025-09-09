@@ -166,14 +166,19 @@ function createGameButtons(userId, game = null) {
     const actions = ['help'];
     
     if (game && !game.gameEnded) {
-        actions.unshift('hit', 'stand');
-        
-        if (game.canDouble()) {
-            actions.splice(2, 0, 'double');
-        }
-        
-        if (game.canSplit()) {
-            actions.splice(-1, 0, 'split');
+        // Check for insurance first (highest priority)
+        if (game.canOfferInsurance()) {
+            actions.unshift('insurance_yes', 'insurance_no');
+        } else {
+            actions.unshift('hit', 'stand');
+            
+            if (game.canDouble()) {
+                actions.splice(2, 0, 'double');
+            }
+            
+            if (game.canSplit()) {
+                actions.splice(-1, 0, 'split');
+            }
         }
     }
     
@@ -194,6 +199,12 @@ function createGameButtons(userId, game = null) {
                 break;
             case 'split':
                 button.setLabel('Split').setEmoji('↔️').setStyle(ButtonStyle.Success);
+                break;
+            case 'insurance_yes':
+                button.setLabel('Take Insurance').setEmoji('🛡️').setStyle(ButtonStyle.Primary);
+                break;
+            case 'insurance_no':
+                button.setLabel('No Insurance').setEmoji('❌').setStyle(ButtonStyle.Secondary);
                 break;
             case 'help':
                 button.setLabel('Help').setEmoji('❓').setStyle(ButtonStyle.Secondary);
@@ -613,6 +624,68 @@ module.exports = {
                 }
 
                 await interaction.update(updateData);
+                break;
+
+            case 'insurance_yes':
+                // Take insurance
+                if (!game.canOfferInsurance()) {
+                    return await interaction.reply({ content: 'Insurance is not available.', flags: MessageFlags.Ephemeral });
+                }
+                
+                // Check if user has enough funds for insurance
+                if (userBalance.wallet < game.insuranceAmount) {
+                    return await interaction.reply({ 
+                        content: `Insufficient funds for insurance! You need ${fmt(game.insuranceAmount)} more.`, 
+                        flags: MessageFlags.Ephemeral 
+                    });
+                }
+                
+                // Deduct insurance amount
+                await dbManager.updateBalance(userId, guildId, -game.insuranceAmount, 0);
+                game.takeInsurance();
+                
+                // Update game display
+                const insuranceEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
+                insuranceEmbed.addFields({
+                    name: '🛡️ Insurance Taken',
+                    value: `You paid ${fmt(game.insuranceAmount)} for insurance against dealer blackjack.`,
+                    inline: false
+                });
+                
+                const insuranceActionRows = createGameButtons(userId, game);
+                const tableImage = await createGameTableImage(game, false);
+                const updateData = {
+                    embeds: [insuranceEmbed], 
+                    components: insuranceActionRows
+                };
+                
+                if (tableImage) {
+                    updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                    insuranceEmbed.setImage('attachment://blackjack-table.png');
+                }
+                
+                await interaction.update(updateData);
+                break;
+                
+            case 'insurance_no':
+                // Decline insurance
+                game.declineInsurance();
+                
+                // Update game display with normal buttons
+                const noInsuranceEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
+                const noInsuranceActionRows = createGameButtons(userId, game);
+                const noInsuranceTableImage = await createGameTableImage(game, false);
+                const noInsuranceUpdateData = {
+                    embeds: [noInsuranceEmbed], 
+                    components: noInsuranceActionRows
+                };
+                
+                if (noInsuranceTableImage) {
+                    noInsuranceUpdateData.files = [{ attachment: noInsuranceTableImage, name: 'blackjack-table.png' }];
+                    noInsuranceEmbed.setImage('attachment://blackjack-table.png');
+                }
+                
+                await interaction.update(noInsuranceUpdateData);
                 break;
 
                 case 'help':

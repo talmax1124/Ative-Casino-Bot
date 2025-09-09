@@ -21,7 +21,7 @@ module.exports = {
                     .setTitle('⚠️ Setup Already Running')
                     .setDescription('A setup wizard is already active for this server.\n\nPlease complete or cancel the existing setup before starting a new one.')
                     .setColor(0xF39C12)
-                    .setFooter({ text: 'ATIVE Casino Bot Setup', iconURL: interaction.client.user.displayAvatarURL() });
+                    .setFooter({ text: 'ATIVE Casino Bot Setup', iconURL: interaction.client?.user?.displayAvatarURL() || null });
                 
                 return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
@@ -49,8 +49,8 @@ module.exports = {
                         }
                     )
                     .setColor(0x3498DB)
-                    .setThumbnail(interaction.client.user.displayAvatarURL())
-                    .setFooter({ text: 'ATIVE Casino Bot Setup', iconURL: interaction.client.user.displayAvatarURL() })
+                    .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
+                    .setFooter({ text: 'ATIVE Casino Bot Setup', iconURL: interaction.client?.user?.displayAvatarURL() || null })
                     .setTimestamp();
 
                 // Create action row with buttons
@@ -121,7 +121,7 @@ module.exports = {
                     inline: false 
                 })
                 .setColor(0xE74C3C)
-                .setThumbnail(interaction.client.user.displayAvatarURL())
+                .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
                 .setFooter({ text: '🛠️ Setup Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
                 .setTimestamp();
 

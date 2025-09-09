@@ -167,6 +167,9 @@ class BlackjackGame {
         this.splitHands = [];
         this.currentHandIndex = 0;
         this.doubled = false;
+        this.insuranceOffered = false;
+        this.insuranceTaken = false;
+        this.insuranceAmount = 0;
     }
 
     dealInitialCards() {
@@ -175,6 +178,33 @@ class BlackjackGame {
         this.dealerHand.addCard(this.deck.dealCard());
         this.playerHand.addCard(this.deck.dealCard());
         this.dealerHand.addCard(this.deck.dealCard());
+        
+        // Check if insurance should be offered
+        if (this.dealerHand.cards[0].rank === 'A') {
+            this.insuranceOffered = true;
+        }
+    }
+
+    canOfferInsurance() {
+        return this.insuranceOffered && !this.insuranceTaken && !this.gameEnded;
+    }
+
+    takeInsurance() {
+        if (!this.canOfferInsurance()) return false;
+        
+        // Insurance costs half the original bet
+        this.insuranceAmount = Math.floor(this.betAmount / 2);
+        this.insuranceTaken = true;
+        return true;
+    }
+
+    declineInsurance() {
+        this.insuranceOffered = false;
+        return true;
+    }
+
+    dealerHasBlackjack() {
+        return this.dealerHand.getValue() === 21 && this.dealerHand.cards.length === 2;
     }
 
     canSplit() {
@@ -348,6 +378,16 @@ class BlackjackGame {
         // Determine if this is a "win" based on the base game outcome, not economic adjustments
         const isGameWin = baseMultiplier > 1;  // True win/loss based on game rules, not economic multiplier
         
+        // Calculate insurance payout (only for the first hand in split scenarios)
+        let insurancePayout = 0;
+        let insuranceWon = false;
+        if (this.insuranceTaken && (this.splitHands.length === 0 || playerHand === this.splitHands[0])) {
+            if (this.dealerHasBlackjack()) {
+                insurancePayout = this.insuranceAmount * 3; // Insurance pays 2:1 (returns 3x bet)
+                insuranceWon = true;
+            }
+        }
+
         return {
             outcome,
             multiplier: finalMultiplier,
@@ -356,7 +396,10 @@ class BlackjackGame {
             won: isGameWin,  // Based on game outcome, not economic adjustments
             betAmount: effectiveBet,  // The actual bet amount for this hand
             doubled: playerHand.isDoubled(),  // Whether this hand was doubled
-            economicAdjusted: finalMultiplier !== baseMultiplier  // Flag if economic system adjusted payout
+            economicAdjusted: finalMultiplier !== baseMultiplier,  // Flag if economic system adjusted payout
+            insurancePayout: insurancePayout,  // Insurance payout amount
+            insuranceWon: insuranceWon,  // Whether insurance bet won
+            insuranceAmount: this.insuranceTaken ? this.insuranceAmount : 0  // Insurance bet amount
         };
     }
 

@@ -44,54 +44,60 @@ module.exports = {
             // Calculate remaining cooldowns
             const cooldownData = [];
 
-            // Work cooldown
-            const lastWork = userBalance.last_work_ts || 0;
-            const workRemaining = Math.max(0, COOLDOWNS.work - (now - lastWork));
+            // Work cooldown - ensure timestamp is in milliseconds
+            const lastWork = (userBalance.last_work_ts || 0);
+            const lastWorkMs = lastWork < 1000000000000 ? lastWork * 1000 : lastWork; // Convert if in seconds
+            const workRemaining = Math.max(0, COOLDOWNS.work - (now - lastWorkMs));
             cooldownData.push({
                 command: '💼 Work',
                 remaining: workRemaining,
                 description: 'Earn daily income'
             });
 
-            // Beg cooldown
-            const lastBeg = userBalance.last_beg_ts || 0;
-            const begRemaining = Math.max(0, COOLDOWNS.beg - (now - lastBeg));
+            // Beg cooldown - ensure timestamp is in milliseconds
+            const lastBeg = (userBalance.last_beg_ts || 0);
+            const lastBegMs = lastBeg < 1000000000000 ? lastBeg * 1000 : lastBeg;
+            const begRemaining = Math.max(0, COOLDOWNS.beg - (now - lastBegMs));
             cooldownData.push({
                 command: '🤲 Beg',
                 remaining: begRemaining,
                 description: 'Ask for spare change'
             });
 
-            // Crime cooldown
-            const lastCrime = userBalance.last_crime_ts || 0;
-            const crimeRemaining = Math.max(0, COOLDOWNS.crime - (now - lastCrime));
+            // Crime cooldown - ensure timestamp is in milliseconds
+            const lastCrime = (userBalance.last_crime_ts || 0);
+            const lastCrimeMs = lastCrime < 1000000000000 ? lastCrime * 1000 : lastCrime;
+            const crimeRemaining = Math.max(0, COOLDOWNS.crime - (now - lastCrimeMs));
             cooldownData.push({
                 command: '🔫 Crime',
                 remaining: crimeRemaining,
                 description: 'Commit crimes for money'
             });
 
-            // Heist cooldown
-            const lastHeist = userBalance.last_heist_ts || 0;
-            const heistRemaining = Math.max(0, COOLDOWNS.heist - (now - lastHeist));
+            // Heist cooldown - ensure timestamp is in milliseconds
+            const lastHeist = (userBalance.last_heist_ts || 0);
+            const lastHeistMs = lastHeist < 1000000000000 ? lastHeist * 1000 : lastHeist;
+            const heistRemaining = Math.max(0, COOLDOWNS.heist - (now - lastHeistMs));
             cooldownData.push({
                 command: '🏦 Heist',
                 remaining: heistRemaining,
                 description: 'Plan elaborate heists'
             });
 
-            // Rob cooldown (approximate, actual varies by user)
-            const lastRob = userBalance.last_rob_ts || 0;
-            const robRemaining = Math.max(0, COOLDOWNS.rob - (now - lastRob));
+            // Rob cooldown (approximate, actual varies by user) - ensure timestamp is in milliseconds
+            const lastRob = (userBalance.last_rob_ts || 0);
+            const lastRobMs = lastRob < 1000000000000 ? lastRob * 1000 : lastRob;
+            const robRemaining = Math.max(0, COOLDOWNS.rob - (now - lastRobMs));
             cooldownData.push({
                 command: '🔒 Rob',
                 remaining: robRemaining,
                 description: 'Rob other users'
             });
 
-            // Earn money cooldown
-            const lastEarn = userBalance.last_earn_ts || 0;
-            const earnRemaining = Math.max(0, COOLDOWNS.earn - (now - lastEarn));
+            // Earn money cooldown - ensure timestamp is in milliseconds
+            const lastEarn = (userBalance.last_earn_ts || 0);
+            const lastEarnMs = lastEarn < 1000000000000 ? lastEarn * 1000 : lastEarn;
+            const earnRemaining = Math.max(0, COOLDOWNS.earn - (now - lastEarnMs));
             cooldownData.push({
                 command: '💰 Earn Money',
                 remaining: earnRemaining,

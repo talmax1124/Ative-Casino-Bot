@@ -40,10 +40,13 @@ class ScratchTicketSystem {
         this.client = client;
         this.activeDropTimers = new Map(); // guildId -> timeoutId
         this.activeTickets = new Map(); // ticketId -> ticket data
+        this.activeScratchLocks = new Map(); // lockKey -> timestamp
+        this.activeClaimLocks = new Map(); // lockKey -> {userId, timestamp}
         
         // Start cleanup interval
         this.cleanupInterval = setInterval(() => {
             this.cleanupExpiredTickets();
+            this.cleanupExpiredLocks();
         }, 5 * 60 * 1000); // Every 5 minutes
     }
 
@@ -728,6 +731,39 @@ class ScratchTicketSystem {
     }
 
     /**
+     * Clean up expired locks to prevent memory leaks
+     */
+    cleanupExpiredLocks() {
+        try {
+            const now = Date.now();
+            const lockExpiry = 30 * 1000; // 30 seconds
+            let cleanedCount = 0;
+
+            // Clean up scratch locks
+            for (const [lockKey, timestamp] of this.activeScratchLocks.entries()) {
+                if (now - timestamp > lockExpiry) {
+                    this.activeScratchLocks.delete(lockKey);
+                    cleanedCount++;
+                }
+            }
+
+            // Clean up claim locks
+            for (const [lockKey, lockData] of this.activeClaimLocks.entries()) {
+                if (now - lockData.timestamp > lockExpiry) {
+                    this.activeClaimLocks.delete(lockKey);
+                    cleanedCount++;
+                }
+            }
+
+            if (cleanedCount > 0) {
+                logger.info(`Cleaned up ${cleanedCount} expired interaction locks`);
+            }
+        } catch (error) {
+            logger.error(`Error cleaning up expired locks: ${error.message}`);
+        }
+    }
+
+    /**
      * Admin manual drop
      */
     async adminDrop(guildId, channelId, adminUserId) {
@@ -827,52 +863,90 @@ class ScratchTicketSystem {
      */
     async handleClaimTicket(interaction, ticketId) {
         try {
+            // Defer the interaction immediately to prevent timeouts
+            if (!interaction.deferred && !interaction.replied) {
+                await interaction.deferReply({ ephemeral: true });
+            }
+            
             logger.info(`[SCRATCH DEBUG] User ${interaction.user.tag} (${interaction.user.id}) attempting to claim ticket ${ticketId}`);
             
-            const ticket = await dbManager.getScratchTicket(ticketId);
-            logger.info(`[SCRATCH DEBUG] Database result: ${ticket ? `Found ticket - Status: ${ticket.status}, User: ${ticket.user_id}` : 'No ticket found'}`);
+            // Create a unique lock key to prevent race conditions on claiming
+            const claimLockKey = `claim_${ticketId}`;
             
-            if (!ticket) {
-                logger.warn(`[SCRATCH DEBUG] Ticket ${ticketId} not found in database`);
-                await interaction.reply({
-                    content: '❌ This scratch ticket is no longer available.',
-                    ephemeral: true
+            // Check if this ticket is already being claimed
+            if (this.activeClaimLocks && this.activeClaimLocks.has(claimLockKey)) {
+                logger.warn(`Race condition detected: Multiple users attempted to claim ticket ${ticketId}`);
+                await interaction.editReply({
+                    content: '❌ This scratch ticket is already being claimed by someone else.'
+                });
+                return;
+            }
+            
+            // Set claim lock
+            if (!this.activeClaimLocks) {
+                this.activeClaimLocks = new Map();
+            }
+            this.activeClaimLocks.set(claimLockKey, { userId: interaction.user.id, timestamp: Date.now() });
+            
+            try {
+                const ticket = await dbManager.getScratchTicket(ticketId);
+                logger.info(`[SCRATCH DEBUG] Database result: ${ticket ? `Found ticket - Status: ${ticket.status}, User: ${ticket.user_id}` : 'No ticket found'}`);
+                
+                if (!ticket) {
+                    logger.warn(`[SCRATCH DEBUG] Ticket ${ticketId} not found in database`);
+                    await interaction.editReply({
+                        content: '❌ This scratch ticket is no longer available.'
+                    });
+                    return;
+                }
+
+                logger.info(`[SCRATCH DEBUG] Ticket status check: Expected 'dropped', actual '${ticket.status}'`);
+                if (ticket.status !== 'dropped') {
+                    logger.warn(`[SCRATCH DEBUG] Ticket ${ticketId} has wrong status: ${ticket.status} (expected 'dropped')`);
+                    await interaction.editReply({
+                        content: '❌ This scratch ticket has already been claimed or expired.'
                 });
                 return;
             }
 
-            logger.info(`[SCRATCH DEBUG] Ticket status check: Expected 'dropped', actual '${ticket.status}'`);
-            if (ticket.status !== 'dropped') {
-                logger.warn(`[SCRATCH DEBUG] Ticket ${ticketId} has wrong status: ${ticket.status} (expected 'dropped')`);
-                await interaction.reply({
-                    content: '❌ This scratch ticket has already been claimed or expired.',
-                    ephemeral: true
-                });
-                return;
-            }
+                // Check if user already has an active ticket
+                const activeTickets = await dbManager.getUserActiveScratchTickets(interaction.user.id, interaction.guildId);
+                if (activeTickets.length > 0) {
+                    await interaction.editReply({
+                        content: '❌ You already have an active scratch ticket! Finish scratching it first.'
+                    });
+                    return;
+                }
 
-            // Check if user already has an active ticket
-            const activeTickets = await dbManager.getUserActiveScratchTickets(interaction.user.id, interaction.guildId);
-            if (activeTickets.length > 0) {
-                await interaction.reply({
-                    content: '❌ You already have an active scratch ticket! Finish scratching it first.',
-                    ephemeral: true
+                // Claim the ticket
+                await dbManager.claimScratchTicket(ticketId, interaction.user.id);
+                
+                // Generate scratch interface
+                const scratchEmbed = await this.createScratchInterface(ticket, interaction.user);
+                
+                // Switch to update mode since we're replacing the original drop message
+                await interaction.editReply({ 
+                    content: null,
+                    embeds: scratchEmbed.embeds,
+                    components: scratchEmbed.components,
+                    ephemeral: false
                 });
-                return;
+                
+                logger.info(`User ${interaction.user.tag} (${interaction.user.id}) successfully claimed scratch ticket ${ticketId}`);
+                
+            } finally {
+                // Always remove claim lock
+                this.activeClaimLocks.delete(claimLockKey);
             }
-
-            // Claim the ticket
-            await dbManager.claimScratchTicket(ticketId, interaction.user.id);
-            
-            // Generate scratch interface
-            const scratchEmbed = await this.createScratchInterface(ticket, interaction.user);
-            
-            await interaction.update(scratchEmbed);
-            
-            logger.info(`User ${interaction.user.tag} (${interaction.user.id}) claimed scratch ticket ${ticketId}`);
             
         } catch (error) {
             logger.error(`Error handling claim ticket: ${error.message}`);
+            
+            // Clean up locks on error
+            if (this.activeClaimLocks && claimLockKey) {
+                this.activeClaimLocks.delete(claimLockKey);
+            }
+            
             throw error;
         }
     }
@@ -882,66 +956,96 @@ class ScratchTicketSystem {
      */
     async handleScratchPosition(interaction, ticketId, position) {
         try {
-            const ticket = await dbManager.getScratchTicket(ticketId);
-            
-            if (!ticket) {
-                await interaction.reply({
-                    content: '❌ This scratch ticket is no longer available.',
-                    ephemeral: true
-                });
-                return;
+            // Defer the interaction immediately to prevent timeouts
+            if (!interaction.deferred && !interaction.replied) {
+                await interaction.deferUpdate();
             }
 
-            if (ticket.user_id !== interaction.user.id) {
-                await interaction.reply({
-                    content: '❌ This is not your scratch ticket!',
-                    ephemeral: true
-                });
-                return;
+            // Create a unique lock key to prevent race conditions
+            const lockKey = `scratch_${ticketId}_${interaction.user.id}`;
+            
+            // Check if this user is already processing a scratch for this ticket
+            if (this.activeScratchLocks && this.activeScratchLocks.has(lockKey)) {
+                logger.warn(`Race condition detected: User ${interaction.user.tag} attempted multiple scratches on ticket ${ticketId}`);
+                return; // Silently ignore duplicate requests
             }
+            
+            // Set lock
+            if (!this.activeScratchLocks) {
+                this.activeScratchLocks = new Map();
+            }
+            this.activeScratchLocks.set(lockKey, Date.now());
+            
+            try {
+                const ticket = await dbManager.getScratchTicket(ticketId);
+                
+                if (!ticket) {
+                    await interaction.editReply({
+                        content: '❌ This scratch ticket is no longer available.',
+                        components: []
+                    });
+                    return;
+                }
 
-            if (ticket.status !== 'active' && ticket.status !== 'scratching') {
-                await interaction.reply({
-                    content: '❌ This scratch ticket is no longer active.',
-                    ephemeral: true
-                });
-                return;
-            }
+                // Enhanced user validation with logging
+                if (ticket.user_id !== interaction.user.id) {
+                    logger.warn(`User validation failed: ${interaction.user.tag} (${interaction.user.id}) tried to scratch ticket ${ticketId} owned by ${ticket.user_id}`);
+                    await interaction.editReply({
+                        content: '❌ This is not your scratch ticket!',
+                        components: []
+                    });
+                    return;
+                }
 
-            // Add position to scratched positions
-            // Ensure scratchedPositions is always an array
-            let scratchedPositions = ticket.scratched_positions;
-            if (!Array.isArray(scratchedPositions)) {
-                scratchedPositions = [];
-            }
-            
-            if (scratchedPositions.includes(position)) {
-                await interaction.reply({
-                    content: '❌ You already scratched this position!',
-                    ephemeral: true
-                });
-                return;
-            }
+                if (ticket.status !== 'active' && ticket.status !== 'scratching') {
+                    await interaction.editReply({
+                        content: '❌ This scratch ticket is no longer active.',
+                        components: []
+                    });
+                    return;
+                }
 
-            scratchedPositions.push(position);
-            
-            // Update ticket in database
-            await dbManager.updateScratchedPositions(ticketId, scratchedPositions);
-            
-            // Check for win condition
-            const winResult = this.checkWinCondition(ticket.symbols, scratchedPositions);
-            
-            if (winResult.won || scratchedPositions.length === 9) {
-                // Game complete
-                await this.completeGame(interaction, ticket, scratchedPositions, winResult);
-            } else {
-                // Continue scratching
-                const updatedTicket = { ...ticket, scratched_positions: scratchedPositions };
-                const scratchEmbed = await this.createScratchInterface(updatedTicket, interaction.user);
-                await interaction.update(scratchEmbed);
+                // Add position to scratched positions
+                // Ensure scratchedPositions is always an array
+                let scratchedPositions = ticket.scratched_positions;
+                if (!Array.isArray(scratchedPositions)) {
+                    scratchedPositions = [];
+                }
+                
+                // Enhanced duplicate position check with logging
+                if (scratchedPositions.includes(position)) {
+                    logger.warn(`Duplicate scratch attempt: User ${interaction.user.tag} tried to scratch position ${position} again on ticket ${ticketId}`);
+                    await interaction.editReply({
+                        content: '❌ You already scratched this position!',
+                        components: []
+                    });
+                    return;
+                }
+
+                scratchedPositions.push(position);
+                
+                // Update ticket in database with enhanced error handling
+                await dbManager.updateScratchedPositions(ticketId, scratchedPositions);
+                
+                // Check for win condition
+                const winResult = this.checkWinCondition(ticket.symbols, scratchedPositions);
+                
+                if (winResult.won || scratchedPositions.length === 9) {
+                    // Game complete
+                    await this.completeGame(interaction, ticket, scratchedPositions, winResult);
+                } else {
+                    // Continue scratching
+                    const updatedTicket = { ...ticket, scratched_positions: scratchedPositions };
+                    const scratchEmbed = await this.createScratchInterface(updatedTicket, interaction.user);
+                    await interaction.editReply(scratchEmbed);
+                }
+                
+                logger.info(`User ${interaction.user.tag} successfully scratched position ${position} on ticket ${ticketId}`);
+                
+            } finally {
+                // Always remove lock
+                this.activeScratchLocks.delete(lockKey);
             }
-            
-            logger.info(`User ${interaction.user.tag} scratched position ${position} on ticket ${ticketId}`);
             
         } catch (error) {
             logger.error(`Error handling scratch position: ${error.message}`);

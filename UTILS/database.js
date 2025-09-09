@@ -669,7 +669,9 @@ class DatabaseManager {
      */
     async saveServerConfig(serverId, configData) {
         if (this.usingAdapter) {
-            return await this.databaseAdapter.saveServerConfig(serverId, configData);
+            // Extract server name from configData if it exists
+            const serverName = configData.serverName || 'Unknown Server';
+            return await this.databaseAdapter.saveServerConfig(serverId, serverName, configData);
         }
         return false;
     }

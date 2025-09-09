@@ -447,16 +447,22 @@ class KenoGame {
             // Session completion will be handled by the command handler
 
             // Log game result
-            await dbManager.recordGameResult(this.userId, this.guildId, GameType.KENO, {
-                betAmount: this.betAmount,
-                payout: this.payout,
-                result: gameResult,
-                spots: this.spots,
-                selectedNumbers: this.selectedNumbers,
-                drawnNumbers: this.drawnNumbers,
-                matches: this.matches,
-                multiplier: this.multiplier
-            });
+            await dbManager.recordGameResult(
+                this.userId, 
+                this.guildId, 
+                GameType.KENO, 
+                this.payout > 0, // won
+                this.betAmount,  // betAmount
+                this.payout,     // payout
+                {
+                    result: gameResult,
+                    spots: this.spots,
+                    selectedNumbers: this.selectedNumbers,
+                    drawnNumbers: this.drawnNumbers,
+                    matches: this.matches,
+                    multiplier: this.multiplier
+                }
+            );
 
             // Send final result
             await interaction.editReply({
