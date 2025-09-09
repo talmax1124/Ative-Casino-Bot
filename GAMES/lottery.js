@@ -9,7 +9,7 @@ const dbManager = require('../UTILS/database');
 const { fmt, sendLogMessage } = require('../UTILS/common');
 const { secureRandomInt } = require('../UTILS/rng');
 const logger = require('../UTILS/logger');
-const Canvas = require('canvas');
+// Canvas removed - no image generation
 
 // Lottery configuration
 const LOTTERY_CHANNEL_ID = '1406136478714826824';
@@ -364,8 +364,7 @@ class LotteryGame {
                 return;
             }
 
-            // Create winner announcement image
-            const winnerImage = await this.createWinnerAnnouncementImage(results);
+            // No image generation needed
 
             const embed = new EmbedBuilder()
                 .setTitle('🎊 LOTTERY DRAWING RESULTS! 🎊')
@@ -391,32 +390,32 @@ class LotteryGame {
                     value: `All prizes have been automatically deposited into winners' **BANK** accounts!`,
                     inline: false
                 })
-                .setImage('attachment://winners.png')
                 .setFooter({ text: '🎟️ New lottery period starts now! Buy tickets for next Tuesday or Saturday drawing!' })
                 .setTimestamp();
 
-            // Create buttons for next week
-            const buyButton = new ButtonBuilder()
-                .setCustomId('lottery_buy_new_week')
-                .setLabel('Buy Tickets for Next Week')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('🎫');
+            // Delete old lottery panel before sending results
+            if (this.panelMessageId) {
+                try {
+                    const oldPanelMessage = await channel.messages.fetch(this.panelMessageId);
+                    await oldPanelMessage.delete();
+                    logger.info('Deleted old lottery panel before announcing winners');
+                } catch (error) {
+                    logger.warn(`Could not delete old lottery panel: ${error.message}`);
+                }
+                this.panelMessageId = null;
+            }
 
-            const statusButton = new ButtonBuilder()
-                .setCustomId('lottery_status_new_week')
-                .setLabel('Check New Week Status')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📊');
-
-            const row = new ActionRowBuilder().addComponents(buyButton, statusButton);
-
-            // Send winner announcement
+            // Send winner announcement (no buttons, no images)
             await channel.send({
                 content: `🎊 **LOTTERY WINNERS ANNOUNCED!** 🎊\n@everyone <@&${LOTTERY_ROLE_ID}>`,
-                embeds: [embed],
-                files: [{ attachment: winnerImage, name: 'winners.png' }],
-                components: [row]
+                embeds: [embed]
             });
+            
+            // Create new lottery panel for next drawing period
+            setTimeout(async () => {
+                await this.upsertLotteryPanel();
+                logger.info('Created new lottery panel after drawing completion');
+            }, 5000); // Wait 5 seconds before creating new panel
 
             // Log to admin channel - dynamically build winners message
             const winnersText = results.winners.map((winner, index) => {
@@ -538,78 +537,7 @@ class LotteryGame {
         }
     }
 
-    /**
-     * Create winner announcement image using Canvas
-     */
-    async createWinnerAnnouncementImage(results) {
-        const canvas = Canvas.createCanvas(1200, 800);
-        const ctx = canvas.getContext('2d');
-
-        // Background gradient
-        const gradient = ctx.createLinearGradient(0, 0, 0, 800);
-        gradient.addColorStop(0, '#FFD700');
-        gradient.addColorStop(1, '#FFA500');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 1200, 800);
-
-        // Border
-        ctx.strokeStyle = '#B8860B';
-        ctx.lineWidth = 8;
-        ctx.strokeRect(10, 10, 1180, 780);
-
-        // Title
-        ctx.font = 'bold 60px Arial';
-        ctx.fillStyle = '#000000';
-        ctx.textAlign = 'center';
-        ctx.fillText('🎊 LOTTERY WINNERS! 🎊', 600, 100);
-
-        // Prize pool
-        ctx.font = 'bold 32px Arial';
-        ctx.fillStyle = '#8B0000';
-        ctx.fillText(`Total Prize Pool: ${fmt(results.total_prize)}`, 600, 160);
-
-        // Winners
-        const winners = [
-            { place: '🥇 1st Place', y: 250 },
-            { place: '🥈 2nd Place', y: 350 },
-            { place: '🥉 3rd Place', y: 450 }
-        ];
-
-        ctx.font = 'bold 36px Arial';
-        ctx.textAlign = 'left';
-
-        for (let i = 0; i < results.winners.length && i < winners.length; i++) {
-            const winner = results.winners[i];
-            const winnerInfo = winners[i];
-            
-            // Place
-            ctx.fillStyle = '#000000';
-            ctx.fillText(winnerInfo.place, 50, winnerInfo.y);
-            
-            // User mention (we'll use user ID since we can't resolve names without guild context)
-            ctx.fillStyle = '#4169E1';
-            ctx.fillText(`User: ${winner.userId}`, 300, winnerInfo.y);
-            
-            // Prize
-            ctx.fillStyle = '#008000';
-            ctx.fillText(`Prize: ${fmt(winner.prize)}`, 700, winnerInfo.y);
-        }
-
-        // Footer
-        ctx.font = 'bold 24px Arial';
-        ctx.fillStyle = '#000000';
-        ctx.textAlign = 'center';
-        ctx.fillText('Prizes have been deposited to winners\' BANK accounts!', 600, 600);
-        ctx.fillText('🎟️ New lottery week starts now! 🎟️', 600, 650);
-        ctx.fillText('Use /lottery buy to purchase tickets for next week!', 600, 700);
-
-        // Date
-        ctx.font = '18px Arial';
-        ctx.fillStyle = '#666666';
-        ctx.fillText(`Drawing Date: ${results.drawingDate.toLocaleString()}`, 600, 750);
-
-        return canvas.toBuffer();
-    }
+    // Image generation removed - using simple text-based announcements
 
     /**
      * Process money transfer tax for lottery pool

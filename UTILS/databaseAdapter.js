@@ -1460,9 +1460,10 @@ class DatabaseAdapter {
             
             // Get all participants - if week_start mismatch, get most recent week's tickets
             let [participants] = await connection.execute(
-                `SELECT user_id, ticket_count 
+                `SELECT user_id, SUM(ticket_count) as ticket_count 
                  FROM lottery_tickets 
                  WHERE guild_id = ? AND week_start = ? 
+                 GROUP BY user_id
                  ORDER BY user_id`,
                 [guildId, currentWeekStart]
             );
@@ -1472,21 +1473,32 @@ class DatabaseAdapter {
             
             // If no participants found with current week, try to find most recent tickets
             if (participants.length === 0) {
-                const [recentParticipants] = await connection.execute(
-                    `SELECT user_id, ticket_count, week_start 
+                // First get the most recent week with tickets
+                const [recentWeeks] = await connection.execute(
+                    `SELECT DISTINCT week_start 
                      FROM lottery_tickets 
                      WHERE guild_id = ? 
-                     ORDER BY week_start DESC, user_id 
-                     LIMIT 50`,
+                     ORDER BY week_start DESC 
+                     LIMIT 1`,
                     [guildId]
                 );
                 
-                if (recentParticipants.length > 0) {
-                    // Use most recent week's tickets
-                    const mostRecentWeek = recentParticipants[0].week_start;
-                    participants = recentParticipants.filter(p => p.week_start === mostRecentWeek);
+                if (recentWeeks.length > 0) {
+                    const mostRecentWeek = recentWeeks[0].week_start;
+                    
+                    // Now get participants for that week, grouped by user
+                    const [recentParticipants] = await connection.execute(
+                        `SELECT user_id, SUM(ticket_count) as ticket_count 
+                         FROM lottery_tickets 
+                         WHERE guild_id = ? AND week_start = ? 
+                         GROUP BY user_id
+                         ORDER BY user_id`,
+                        [guildId, mostRecentWeek]
+                    );
+                    
+                    participants = recentParticipants;
                     actualWeekStart = mostRecentWeek;
-                    logger.info(`Using tickets from week ${mostRecentWeek} (${participants.length} participants)`);
+                    logger.info(`Using tickets from week ${mostRecentWeek} (${participants.length} unique participants)`);
                 }
             }
             
