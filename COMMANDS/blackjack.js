@@ -490,7 +490,7 @@ module.exports = {
             const userBalance = await dbManager.getUserBalance(userId, guildId);
 
             switch (actionId) {
-                case 'hit':
+                case 'hit': {
                     try {
                     // Hit
                     game.hit();
@@ -532,8 +532,9 @@ module.exports = {
                     });
                 }
                 break;
+            }
 
-            case 'stand':
+            case 'stand': {
                 // Stand
                 game.stand();
 
@@ -562,6 +563,7 @@ module.exports = {
                     await module.exports.endGame(interaction, game, userId, guildId);
                 }
                 break;
+            }
 
             case 'double':
                 // Check if can double
@@ -588,7 +590,7 @@ module.exports = {
                 await module.exports.endGame(interaction, game, userId, guildId);
                 break;
 
-            case 'split':
+            case 'split': {
                 // Check if can split
                 if (!game.canSplit()) {
                     return await interaction.reply({ content: 'Cannot split this hand.', flags: MessageFlags.Ephemeral });
@@ -625,8 +627,9 @@ module.exports = {
 
                 await interaction.update(updateData);
                 break;
+            }
 
-            case 'insurance_yes':
+            case 'insurance_yes': {
                 // Take insurance
                 if (!game.canOfferInsurance()) {
                     return await interaction.reply({ content: 'Insurance is not available.', flags: MessageFlags.Ephemeral });
@@ -666,8 +669,9 @@ module.exports = {
                 
                 await interaction.update(updateData);
                 break;
+            }
                 
-            case 'insurance_no':
+            case 'insurance_no': {
                 // Decline insurance
                 game.declineInsurance();
                 
@@ -687,8 +691,9 @@ module.exports = {
                 
                 await interaction.update(noInsuranceUpdateData);
                 break;
+            }
 
-                case 'help':
+                case 'help': {
                     const { embed: helpEmbed, components: helpComponents } = GamePanel.createHelpEmbed({
                         gameType: 'blackjack',
                     title: '🃏 Blackjack Help',
@@ -714,6 +719,7 @@ module.exports = {
 
                 await interaction.reply({ embeds: [helpEmbed], components: helpComponents, flags: MessageFlags.Ephemeral });
                 break;
+            }
             }
         } catch (actionError) {
             logger.error(`Blackjack action error (${actionId}): ${actionError.message}`);
