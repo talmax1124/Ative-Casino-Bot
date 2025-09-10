@@ -19,9 +19,9 @@ class PersonalizedGameHelper {
         );
 
         return {
-            // Reduced payouts for economic stability (was 2.5x/2.0x)
-            blackjackPayout: config?.basePayout?.blackjack || 1.9,
-            winPayout: config?.basePayout?.win || 1.7,
+            // ML Plan Phase 2: Adjusted for 8-15% house edge target (reduced from 1.9x/1.7x)
+            blackjackPayout: config?.basePayout?.blackjack || 1.6,
+            winPayout: config?.basePayout?.win || 1.4,
             pushPayout: config?.basePayout?.push || 1.0,
             
             // Personalized odds (affects game logic)

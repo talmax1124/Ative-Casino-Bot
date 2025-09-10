@@ -13,61 +13,70 @@ const { fmt } = require('../UTILS/common');
  */
 class CasinoEconomicIntegration {
     constructor() {
-        // Game configuration mappings to your existing limits
+        // Game configuration mappings - Updated to ML Plan Phase 2 targets (8-15% house edge)
         this.gameConfigs = {
             blackjack: {
                 currentMinBet: 1,
                 currentMaxBet: 500000,
-                currentPayoutMultiplier: 1.9, // From CLAUDE.md - reduced payouts
-                currentRegularMultiplier: 1.7,
-                houseEdge: 0.02 // Approximate
+                currentPayoutMultiplier: 1.6, // Reduced from 1.9 to achieve ~10% house edge
+                currentRegularMultiplier: 1.4, // Reduced from 1.7 to achieve ~10% house edge
+                houseEdge: 0.10, // Target: 10% (within 8-15% range)
+                targetRange: [0.08, 0.12] // Allow 8-12% flexibility
             },
             roulette: {
                 currentMinBet: 10,
                 currentMaxBet: 10000000,
-                houseEdge: 0.027 // 2.7% for single zero
+                houseEdge: 0.12, // Increased from 2.7% to 12% (within 8-15% range)
+                targetRange: [0.10, 0.15]
             },
             slots: {
                 currentMinBet: 1,
                 currentMaxBet: 175000,
                 maxMultiplier: 100, // High multiplier limit
-                houseEdge: 0.05 // 5% typical
+                houseEdge: 0.12, // Increased from 5% to 12% (within 8-15% range)
+                targetRange: [0.10, 0.15]
             },
             'multi-slots': {
                 currentMinBet: 1,
                 currentMaxBet: 175000,
                 maxMultiplier: 100,
-                houseEdge: 0.05
+                houseEdge: 0.12, // Increased from 5% to 12% (within 8-15% range)
+                targetRange: [0.10, 0.15]
             },
             plinko: {
                 currentMinBet: 100,
                 currentMaxBet: 175000,
                 maxMultiplier: 10,
-                houseEdge: 0.02
+                houseEdge: 0.10, // Increased from 2% to 10% (within 8-15% range)
+                targetRange: [0.08, 0.12]
             },
             crash: {
                 currentMinBet: 10,
                 currentMaxBet: 175000,
                 maxMultiplier: 15,
-                houseEdge: 0.01
+                houseEdge: 0.08, // Increased from 1% to 8% (minimum target range)
+                targetRange: [0.08, 0.12]
             },
             treasurevault: {
                 currentMinBet: 100,
                 currentMaxBet: 300000,
                 maxMultiplier: 3.5,
-                houseEdge: 0.03
+                houseEdge: 0.10, // Increased from 3% to 10% (within 8-15% range)
+                targetRange: [0.08, 0.12]
             },
             keno: {
                 currentMinBet: 10,
                 currentMaxBet: 50000,
                 maxMultiplier: 50,
-                houseEdge: 0.25 // 25% typical for KENO
+                houseEdge: 0.15, // Reduced from 25% to 15% (maximum target range)
+                targetRange: [0.12, 0.18]
             },
             ceelo: {
                 currentMinBet: 5,
                 currentMaxBet: 25000,
                 payoutMultiplier: 1, // 1:1 even money
-                houseEdge: 0.05
+                houseEdge: 0.10, // Increased from 5% to 10% (within 8-15% range)
+                targetRange: [0.08, 0.12]
             }
         };
     }

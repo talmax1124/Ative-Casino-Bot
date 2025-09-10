@@ -163,7 +163,7 @@ class GameDataCollector {
                 JSON.stringify(data.features)
             ];
 
-            await dbManager.executeQuery(query, values);
+            await dbManager.databaseAdapter.executeQuery(query, values);
 
         } catch (error) {
             // If table doesn't exist, create it
@@ -207,7 +207,7 @@ class GameDataCollector {
                 )
             `;
 
-            await dbManager.executeQuery(createQuery);
+            await dbManager.databaseAdapter.executeQuery(createQuery);
             logger.info('ML data table created successfully');
 
         } catch (error) {
@@ -321,7 +321,7 @@ class GameDataCollector {
 
             query += ' ORDER BY timestamp DESC LIMIT 10000';
 
-            const results = await dbManager.executeQuery(query, params);
+            const results = await dbManager.databaseAdapter.executeQuery(query, params);
             return results;
 
         } catch (error) {

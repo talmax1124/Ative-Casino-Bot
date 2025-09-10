@@ -355,7 +355,7 @@ class IntelligentRecommendationEngine {
                 priorities: recommendations.map(r => r.priority)
             };
 
-            await dbManager.executeQuery(query, [
+            await dbManager.databaseAdapter.executeQuery(query, [
                 gameType,
                 JSON.stringify(recommendationData),
                 JSON.stringify(recommendations.map(r => r.confidence)),
@@ -393,7 +393,7 @@ class IntelligentRecommendationEngine {
                 )
             `;
 
-            await dbManager.executeQuery(createQuery);
+            await dbManager.databaseAdapter.executeQuery(createQuery);
             logger.info('ML recommendations table created successfully');
 
         } catch (error) {
@@ -414,7 +414,7 @@ class IntelligentRecommendationEngine {
                 ORDER BY timestamp DESC
             `;
 
-            return await dbManager.executeQuery(query, [gameType, cutoff]) || [];
+            return await dbManager.databaseAdapter.executeQuery(query, [gameType, cutoff]) || [];
 
         } catch (error) {
             logger.debug(`Could not retrieve recent adjustments: ${error.message}`);
@@ -435,7 +435,7 @@ class IntelligentRecommendationEngine {
                 ORDER BY timestamp DESC
             `;
 
-            return await dbManager.executeQuery(query, [gameType, cutoff]) || [];
+            return await dbManager.databaseAdapter.executeQuery(query, [gameType, cutoff]) || [];
 
         } catch (error) {
             logger.debug(`Could not retrieve recent recommendations: ${error.message}`);
