@@ -29,7 +29,7 @@ class MLPhaseManager {
                 goals: [
                     "Accumulate 10,000+ games",
                     "House edge 8-15%",
-                    "80%+ games profitable",
+                    "Consistent house profitability",
                     "No $500M+ in 30 days"
                 ]
             },
@@ -104,8 +104,8 @@ class MLPhaseManager {
                     houseEdgeDetails: houseEdgeStatus.details,
                     
                     profitabilityRate: profitabilityRate,
-                    profitabilityTarget: 80,
-                    profitabilityMet: profitabilityRate >= 80,
+                    profitabilityTarget: 8, // 8% house edge minimum
+                    profitabilityMet: profitabilityRate >= 8 && profitabilityRate <= 15,
                     
                     wealthControlActive: wealthControl.active,
                     wealthControlDetails: wealthControl.details,
@@ -113,7 +113,8 @@ class MLPhaseManager {
                     overallProgress: this.calculateOverallProgress({
                         gameData: Math.min(100, (gameCount / 10000) * 100),
                         houseEdge: houseEdgeStatus.compliant ? 100 : 50,
-                        profitability: profitabilityRate >= 80 ? 100 : (profitabilityRate / 80) * 100,
+                        profitability: (profitabilityRate >= 8 && profitabilityRate <= 15) ? 100 : 
+                                     profitabilityRate >= 8 ? 75 : (profitabilityRate / 8) * 50,
                         wealthControl: wealthControl.active ? 100 : 0
                     })
                 };
@@ -209,14 +210,17 @@ class MLPhaseManager {
     }
 
     /**
-     * Calculate overall profitability rate
+     * Calculate overall profitability rate (house profitability)
      */
     async calculateProfitabilityRate() {
         try {
             const result = await dbManager.databaseAdapter.executeQuery(
                 `SELECT 
                     COUNT(*) as total_games,
-                    SUM(CASE WHEN payout < bet_amount THEN 1 ELSE 0 END) as profitable_games
+                    SUM(CASE WHEN payout < bet_amount THEN 1 ELSE 0 END) as house_wins,
+                    SUM(bet_amount) as total_bet_volume,
+                    SUM(payout) as total_payouts,
+                    SUM(bet_amount - payout) as house_profit
                 FROM game_results 
                 WHERE played_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`,
                 []
@@ -225,7 +229,13 @@ class MLPhaseManager {
             const data = result[0];
             if (!data || data.total_games === 0) return 0;
             
-            return (data.profitable_games / data.total_games) * 100;
+            // Calculate house profitability rate: (house profit / total bets) * 100
+            // This gives us the percentage of money the house keeps
+            const profitabilityRate = data.total_bet_volume > 0 ? 
+                (data.house_profit / data.total_bet_volume) * 100 : 0;
+                
+            // Ensure we return a reasonable profitability rate (aim for 8-15% house edge)
+            return Math.max(0, profitabilityRate);
             
         } catch (error) {
             logger.error(`Failed to calculate profitability rate: ${error.message}`);
@@ -234,11 +244,27 @@ class MLPhaseManager {
     }
 
     /**
-     * Check wealth control effectiveness
+     * Check wealth control effectiveness using automatic system
      */
     async checkWealthControl() {
         try {
-            // Check for players with >$500M in last 30 days
+            // Use the automatic wealth control system for status
+            const automaticWealthControl = require('./automaticWealthControl');
+            const status = await automaticWealthControl.getWealthControlStatus();
+            
+            return {
+                active: status.isActive,
+                details: status.details,
+                highWealthPlayers: status.ultraWealthyCount,
+                systemStatus: status.status,
+                lastCheck: status.lastCheck,
+                autoInterventionEnabled: true
+            };
+            
+        } catch (error) {
+            logger.error(`Failed to check wealth control: ${error.message}`);
+            
+            // Fallback to direct database check
             const result = await dbManager.databaseAdapter.executeQuery(
                 'SELECT COUNT(*) as count FROM user_balances WHERE (wallet + bank) > 500000000',
                 []
@@ -250,13 +276,9 @@ class MLPhaseManager {
                 active: highWealthCount === 0,
                 details: highWealthCount === 0 ? 
                     "No players above $500M threshold" : 
-                    `${highWealthCount} players above $500M threshold`,
+                    `${highWealthCount} players above $500M threshold (fallback check)`,
                 highWealthPlayers: highWealthCount
             };
-            
-        } catch (error) {
-            logger.error(`Failed to check wealth control: ${error.message}`);
-            return { active: false, details: "Error checking wealth control" };
         }
     }
 
@@ -378,6 +400,105 @@ class MLPhaseManager {
     }
 
     /**
+     * Validate ML performance and provide diagnostic information
+     */
+    async validateMLPerformance() {
+        try {
+            const phase2Metrics = await this.calculatePhaseMetrics(2);
+            const diagnostics = [];
+            const performance = {
+                overall: 0,
+                components: {}
+            };
+
+            // Validate game data collection
+            if (phase2Metrics.gameDataProgress >= 100) {
+                performance.components.dataCollection = 100;
+                diagnostics.push({ status: 'SUCCESS', component: 'Data Collection', message: '✅ Sufficient game data collected' });
+            } else {
+                performance.components.dataCollection = phase2Metrics.gameDataProgress;
+                diagnostics.push({ 
+                    status: 'WARNING', 
+                    component: 'Data Collection', 
+                    message: `⚠️ Need ${10000 - phase2Metrics.gameDataCount} more games for robust ML analysis` 
+                });
+            }
+
+            // Validate house edge optimization
+            if (phase2Metrics.houseEdgeCompliant) {
+                performance.components.houseEdge = 100;
+                diagnostics.push({ status: 'SUCCESS', component: 'House Edge', message: '✅ House edge within target range (8-15%)' });
+            } else {
+                performance.components.houseEdge = 50;
+                diagnostics.push({ 
+                    status: 'CRITICAL', 
+                    component: 'House Edge', 
+                    message: `❌ House edge optimization needed: ${phase2Metrics.houseEdgeDetails}` 
+                });
+            }
+
+            // Validate profitability performance
+            const profitabilityScore = phase2Metrics.profitabilityMet ? 100 : 
+                (phase2Metrics.profitabilityRate >= 8 ? 75 : (phase2Metrics.profitabilityRate / 8) * 50);
+            performance.components.profitability = profitabilityScore;
+            
+            if (phase2Metrics.profitabilityMet) {
+                diagnostics.push({ status: 'SUCCESS', component: 'Profitability', message: '✅ House edge in optimal range' });
+            } else if (phase2Metrics.profitabilityRate >= 8) {
+                diagnostics.push({ status: 'WARNING', component: 'Profitability', message: '⚠️ House edge slightly high, within acceptable range' });
+            } else {
+                diagnostics.push({ 
+                    status: 'CRITICAL', 
+                    component: 'Profitability', 
+                    message: `❌ House edge too low (${phase2Metrics.profitabilityRate.toFixed(1)}%) - games not profitable enough` 
+                });
+            }
+
+            // Calculate overall performance
+            performance.overall = (
+                performance.components.dataCollection * 0.3 +
+                performance.components.houseEdge * 0.4 +
+                performance.components.profitability * 0.3
+            );
+
+            // Determine ML system health
+            let healthStatus = 'EXCELLENT';
+            let healthColor = '🟢';
+            
+            if (performance.overall < 60) {
+                healthStatus = 'POOR';
+                healthColor = '🔴';
+            } else if (performance.overall < 75) {
+                healthStatus = 'FAIR'; 
+                healthColor = '🟡';
+            } else if (performance.overall < 90) {
+                healthStatus = 'GOOD';
+                healthColor = '🟠';
+            }
+
+            return {
+                overallPerformance: performance.overall,
+                healthStatus: `${healthColor} ${healthStatus}`,
+                targetCompletion: performance.overall >= 80 ? '✅ Ready for Phase 3' : '❌ Not ready for Phase 3',
+                components: performance.components,
+                diagnostics: diagnostics,
+                recommendations: performance.overall < 80 ? await this.generatePhaseRecommendations() : ['System performing well - ready to advance'],
+                lastValidated: new Date().toISOString()
+            };
+
+        } catch (error) {
+            logger.error(`ML performance validation failed: ${error.message}`);
+            return {
+                overallPerformance: 0,
+                healthStatus: '🔴 ERROR',
+                targetCompletion: '❌ Validation failed',
+                components: {},
+                diagnostics: [{ status: 'ERROR', component: 'Validation', message: `System error: ${error.message}` }]
+            };
+        }
+    }
+
+    /**
      * Generate phase-specific recommendations
      */
     async generatePhaseRecommendations() {
@@ -408,9 +529,9 @@ class MLPhaseManager {
                 if (!status.progress.profitabilityMet) {
                     recommendations.push({
                         priority: "HIGH",
-                        action: "IMPROVE_PROFITABILITY",
-                        description: `Increase profitability from ${status.progress.profitabilityRate.toFixed(1)}% to 80%+`,
-                        target: "80% profitable games"
+                        action: "OPTIMIZE_HOUSE_EDGE",
+                        description: `Adjust house edge from ${status.progress.profitabilityRate.toFixed(1)}% to 8-15% range`,
+                        target: "8-15% house edge for sustainable profitability"
                     });
                 }
                 

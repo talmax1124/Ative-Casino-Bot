@@ -122,13 +122,8 @@ const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvably
             // Get base multipliers and randomize their positions 
             const baseMultipliers = gameSession.modes[normalizedMode].multipliers;
             
-            // Get UI-friendly multipliers (what players see on board)
-            const uiMultipliers = await transparentPayoutManager.getDisplayMultipliers('plinko', baseMultipliers, userId);
-            const displayMultipliers = uiMultipliers.map(m => m.display);
-            const shuffledMultipliers = [...displayMultipliers].sort(() => secureRandomFloat() - 0.5); // Shuffle for display
-            
-            // Keep original multipliers for payout calculations
-            const actualMultipliers = [...baseMultipliers].sort(() => secureRandomFloat() - 0.5);
+            // Use the same multipliers for both display and calculations (fix the disconnect)
+            const shuffledMultipliers = [...baseMultipliers].sort(() => secureRandomFloat() - 0.5);
             const slots = shuffledMultipliers.length;
             
             // Drop slot is always random
@@ -147,8 +142,7 @@ const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvably
                     mode: selectedMode,
                     dropSlot,
                     slots,
-                    displayMultipliers: shuffledMultipliers,
-                    actualMultipliers: actualMultipliers,
+                    multipliers: shuffledMultipliers,
                     interaction: {
                         id: interaction.id,
                         user: interaction.user.tag
@@ -197,8 +191,7 @@ const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvably
             await sessionManager.updateSession(sessionId, {
                 gameData: {
                     gameStarted: true,
-                    displayMultipliers: shuffledMultipliers,
-                    actualMultipliers: actualMultipliers,
+                    multipliers: shuffledMultipliers,
                     startTime: Date.now()
                 },
                 action: 'game_start'
@@ -211,8 +204,7 @@ const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvably
                 betAmount,
                 mode: selectedMode,
                 modeData,
-                displayMultipliers: shuffledMultipliers,  // For UI display
-                actualMultipliers: actualMultipliers,     // For payout calculation
+                multipliers: shuffledMultipliers,  // Use same multipliers for both UI and calculations
                 slots,
                 dropSlot,
                 newWallet: updatedBalance.wallet,
@@ -264,7 +256,7 @@ const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvably
  * Play the full animated plinko game
  */
 async function playAnimatedPlinko(interaction, gameData, guildId) {
-    const { userId, username, betAmount, mode, modeData, displayMultipliers, actualMultipliers, slots, dropSlot } = gameData;
+    const { userId, username, betAmount, mode, modeData, multipliers, slots, dropSlot } = gameData;
     
     // Get mode colors
     const modeColors = {
@@ -287,22 +279,21 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
             startPos
         );
 
-        // Use display multipliers for UI, actual multipliers for payout
-        const finalDisplayMultiplier = displayMultipliers[finalSlot];
-        const finalActualMultiplier = actualMultipliers[finalSlot];
+        // Use unified multipliers for both UI and payout 
+        const finalMultiplier = multipliers[finalSlot];
         
-        // Calculate winnings using actual multiplier (behind the scenes)
-        const winnings = Math.floor(betAmount * finalActualMultiplier);
+        // Calculate winnings using the same multiplier shown in UI
+        const winnings = Math.floor(betAmount * finalMultiplier);
         const won = winnings > betAmount; // Win if they get more than their bet back
 
-        // Create animation frames using display multipliers for UI
+        // Create animation frames using the same multipliers shown to player
         const animationFrames = [];
         
         // Initial frame
         animationFrames.push(createPlinkoImage(
             rows,
             slots,
-            displayMultipliers,
+            multipliers,
             null,
             -1,
             mode
@@ -313,7 +304,7 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
             animationFrames.push(createPlinkoImage(
                 rows,
                 slots,
-                displayMultipliers,
+                multipliers,
                 ballPath,
                 i,
                 mode
@@ -324,7 +315,7 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
         animationFrames.push(createPlinkoImage(
             rows,
             slots,
-            displayMultipliers,
+            multipliers,
             ballPath,
             rows + 1,
             mode,
@@ -371,7 +362,7 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
         await new Promise(resolve => setTimeout(resolve, 800));
 
         // Show final results
-        await showFinalResults(interaction, gameData, animationFrames[animationFrames.length - 1], finalSlot, finalDisplayMultiplier, winnings, won, guildId);
+        await showFinalResults(interaction, gameData, animationFrames[animationFrames.length - 1], finalSlot, finalMultiplier, winnings, won, guildId);
 
     } catch (error) {
         logger.error(`Error in animated plinko game: ${error.message}`);
@@ -422,6 +413,35 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
     });
 
     await PayoutManager.processGamePayout(gameResult);
+
+    // Award XP for playing Plinko
+    try {
+        const levelingSystem = require('../UTILS/levelingSystem');
+        const specialResult = winnings >= betAmount * 5 ? 'big_win' : 
+                            winnings >= betAmount * 20 ? 'massive_win' : null;
+        
+        const levelResult = await levelingSystem.handleGameComplete(userId, guildId, 'plinko', won, specialResult);
+        
+        // Handle level up if occurred
+        if (levelResult && levelResult.levelUp) {
+            const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, levelResult.newLevel);
+            
+            // Award level-up rewards
+            await levelingSystem.processLevelUpRewards(userId, guildId, levelResult.newLevel);
+            
+            // Send level up message in level up channel
+            try {
+                const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                if (levelUpChannel) {
+                    await levelUpChannel.send({ embeds: [levelUpEmbed] });
+                }
+            } catch (levelError) {
+                logger.debug(`Could not send level up message: ${levelError.message}`);
+            }
+        }
+    } catch (xpError) {
+        logger.debug(`Could not award XP for plinko: ${xpError.message}`);
+    }
 
     // Determine result type
     let resultTitle, resultEmoji, resultColor;

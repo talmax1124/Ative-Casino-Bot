@@ -21,18 +21,18 @@ const CONFIG = {
     MAX_SPOTS: 10
 };
 
-// Balanced KENO payout table (conservative but fair)
+// Conservative KENO payout table (max 50x multiplier as per CLAUDE.md)
 const PAYOUT_TABLE = {
-    1: { 1: 3.0 },                                    // 1 spot: 1 match = 3x
-    2: { 2: 12.0 },                                   // 2 spots: 2 matches = 12x  
-    3: { 2: 2.0, 3: 42.0 },                           // 3 spots: 2 matches = 2x, 3 matches = 42x
-    4: { 2: 1.0, 3: 4.0, 4: 100.0 },                 // 4 spots: realistic progression
-    5: { 2: 0.5, 3: 2.0, 4: 20.0, 5: 200.0 },        // 5 spots: 2 matches pay 0.5x
-    6: { 3: 1.0, 4: 2.0, 5: 25.0, 6: 300.0 },        // 6 spots: balanced payouts
-    7: { 3: 0.5, 4: 1.0, 5: 5.0, 6: 50.0, 7: 400.0 }, // 7 spots: moderate scaling
-    8: { 4: 0.5, 5: 2.0, 6: 12.0, 7: 100.0, 8: 500.0 }, // 8 spots: controlled
-    9: { 4: 0.5, 5: 1.0, 6: 5.0, 7: 25.0, 8: 200.0, 9: 600.0 }, // 9 spots: balanced
-    10: { 4: 0.5, 5: 1.0, 6: 3.0, 7: 15.0, 8: 100.0, 9: 300.0, 10: 800.0 } // 10 spots: max 800x
+    1: { 1: 2.5 },                                   // 1 spot: 1 match = 2.5x
+    2: { 2: 8.0 },                                   // 2 spots: 2 matches = 8x  
+    3: { 2: 1.5, 3: 25.0 },                          // 3 spots: 2 matches = 1.5x, 3 matches = 25x
+    4: { 2: 0.8, 3: 3.0, 4: 50.0 },                 // 4 spots: up to 50x max
+    5: { 2: 0.4, 3: 1.5, 4: 12.0, 5: 50.0 },        // 5 spots: max 50x (CLAUDE.md compliance)
+    6: { 3: 0.8, 4: 1.8, 5: 15.0, 6: 50.0 },        // 6 spots: max 50x
+    7: { 3: 0.4, 4: 0.8, 5: 3.5, 6: 25.0, 7: 50.0 }, // 7 spots: max 50x
+    8: { 4: 0.4, 5: 1.2, 6: 8.0, 7: 35.0, 8: 50.0 }, // 8 spots: max 50x
+    9: { 4: 0.3, 5: 0.8, 6: 3.5, 7: 18.0, 8: 40.0, 9: 50.0 }, // 9 spots: max 50x
+    10: { 4: 0.3, 5: 0.6, 6: 2.0, 7: 10.0, 8: 25.0, 9: 40.0, 10: 50.0 } // 10 spots: max 50x
 };
 
 class KenoGame {
@@ -430,18 +430,25 @@ class KenoGame {
             // Create result embed
             const embed = this.createResultEmbed();
             
-            // Process payout if won
-            let gameResult = GameResult.LOSS;
+            // Process payout using correct GameResult object
+            const gameResult = new GameResult({
+                userId: this.userId,
+                guildId: this.guildId,
+                gameType: GameType.KENO,
+                betAmount: this.betAmount,
+                payout: this.payout,
+                won: this.payout > 0,
+                metadata: {
+                    spots: this.spots,
+                    selectedNumbers: this.selectedNumbers,
+                    drawnNumbers: this.drawnNumbers,
+                    matches: this.matches,
+                    multiplier: this.multiplier
+                }
+            });
+
             if (this.payout > 0) {
-                const payoutResult = await PayoutManager.processGamePayout({
-                    userId: this.userId,
-                    guildId: this.guildId,
-                    gameType: GameType.KENO,
-                    betAmount: this.betAmount,
-                    payout: this.payout,
-                    won: true
-                });
-                gameResult = payoutResult.success ? GameResult.WIN : GameResult.ERROR;
+                await PayoutManager.processGamePayout(gameResult);
             }
 
             // Session completion will be handled by the command handler
@@ -539,14 +546,13 @@ class KenoGame {
                 .setDescription('Number selection timed out. Your bet has been refunded.')
                 .setColor(0xFFAA00);
 
-            // Refund the bet
-            await PayoutManager.processGamePayout(
-                this.userId,
-                this.guildId,
-                this.betAmount,
-                GameType.KENO,
-                'KENO timeout refund'
-            );
+            // Refund the bet - add money back to wallet
+            try {
+                await dbManager.addMoney(this.userId, this.guildId, this.betAmount);
+                logger.info(`KENO timeout refund: ${fmt(this.betAmount)} refunded to user ${this.userId}`);
+            } catch (refundError) {
+                logger.error(`Failed to refund KENO timeout: ${refundError.message}`);
+            }
 
             if (this.gameMessage) {
                 await this.gameMessage.edit({

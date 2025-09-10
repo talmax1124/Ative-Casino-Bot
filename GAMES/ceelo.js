@@ -79,9 +79,9 @@ class CeeloGame {
             // Determine winner
             this.determineWinner();
             
-            // Calculate payout (1:1 means bet amount + winnings)
+            // Calculate payout (1:1 means bet amount returned + bet amount won)
             if (this.winner === 'player') {
-                this.payout = this.betAmount + (this.betAmount * CONFIG.PAYOUT_MULTIPLIER);
+                this.payout = this.betAmount * 2; // Return bet + equal amount as winnings (1:1)
             } else if (this.winner === 'tie') {
                 this.payout = this.betAmount; // Return bet on tie
             } else {
@@ -358,36 +358,26 @@ class CeeloGame {
             // Create dice image
             const diceImageBuffer = await this.createDiceImage();
             
-            // Process payout if player won
-            let gameResult = GameResult.LOSS;
-            if (this.winner === 'player') {
-                const payoutResult = new GameResult({
-                    userId: this.userId,
-                    guildId: this.guildId,
-                    gameType: GameType.CEELO,
-                    betAmount: this.betAmount,
-                    payout: this.payout,
-                    won: true,
-                    metadata: { 
-                        playerHand: this.playerHand.description, 
-                        houseHand: this.houseHand.description 
-                    }
-                });
-                const success = await PayoutManager.processGamePayout(payoutResult);
-                gameResult = success ? GameResult.WIN : GameResult.ERROR;
-            } else if (this.winner === 'tie') {
-                // Refund on tie
-                const refundResult = new GameResult({
-                    userId: this.userId,
-                    guildId: this.guildId,
-                    gameType: GameType.CEELO,
-                    betAmount: this.betAmount,
-                    payout: this.betAmount,
-                    won: false,
-                    metadata: { reason: 'tie' }
-                });
-                await PayoutManager.processGamePayout(refundResult);
-                gameResult = GameResult.TIE;
+            // Process payout using GameResult object
+            const gameResult = new GameResult({
+                userId: this.userId,
+                guildId: this.guildId,
+                gameType: GameType.CEELO,
+                betAmount: this.betAmount,
+                payout: this.payout,
+                won: this.winner === 'player',
+                metadata: {
+                    playerDice: this.playerDice,
+                    houseDice: this.houseDice,
+                    playerHand: this.playerHand.description,
+                    houseHand: this.houseHand.description,
+                    winner: this.winner
+                }
+            });
+
+            // Process payout for wins and ties (refunds)
+            if (this.payout > 0) {
+                await PayoutManager.processGamePayout(gameResult);
             }
 
             // Update session as completed

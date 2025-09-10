@@ -14,7 +14,7 @@ const logger = require('../UTILS/logger');
 // CEELO Configuration
 const CEELO_CONFIG = {
     MIN_BET: 5,            // Minimum $5 entry
-    MAX_BET: null,         // No maximum bet limit
+    MAX_BET: 25000,        // Maximum $25K bet (per CLAUDE.md)
     PAYOUT_MULTIPLIER: 1   // 1:1 even money
 };
 
@@ -24,7 +24,7 @@ module.exports = {
         .setDescription('🎲 Play CEELO - Traditional dice game, best hand wins!')
         .addStringOption(option =>
             option.setName('bet')
-                .setDescription(`Bet amount (Min: $${CEELO_CONFIG.MIN_BET}) - supports K/M/B suffixes`)
+                .setDescription(`Bet amount (Min: $${CEELO_CONFIG.MIN_BET}, Max: ${fmt(CEELO_CONFIG.MAX_BET)}) - supports K/M/B suffixes`)
                 .setRequired(true)
         ),
 

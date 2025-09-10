@@ -559,6 +559,14 @@ client.once('clientReady', async () => {
         logger.error('Failed to initialize Session Manager:', error);
     }
 
+    // Initialize automatic wealth control system
+    try {
+        const automaticWealthControl = require('./UTILS/automaticWealthControl');
+        logger.info('🛡️ Automatic Wealth Control System initialized successfully');
+    } catch (error) {
+        logger.error('Failed to initialize Automatic Wealth Control:', error);
+    }
+
     // Initialize Storage Monitor
     try {
         storageMonitor.startMonitoring(client);
@@ -1956,8 +1964,29 @@ client.on('messageCreate', async message => {
         const { messageRewardSystem } = require('./UTILS/messageRewardSystem');
         await messageRewardSystem.processMessage(message);
         
-        // XP system moved to UAS bot for other guilds
-        logger.debug(`Message processed - rewards handled locally for target guild, XP by UAS for others`);
+        // Process XP for chat activity (rate-limited)
+        const levelingSystem = require('./UTILS/levelingSystem');
+        const levelResult = await levelingSystem.handleChatMessage(message.author.id, message.guildId, message.channelId);
+        
+        // Handle level up if occurred
+        if (levelResult && levelResult.levelUp) {
+            const levelUpEmbed = levelingSystem.createLevelUpEmbed(message.author, levelResult.newLevel);
+            
+            // Award level-up rewards
+            const levelReward = await levelingSystem.processLevelUpRewards(message.author.id, message.guildId, levelResult.newLevel);
+            
+            // Send level up message in level up channel
+            try {
+                const levelUpChannel = message.client.channels.cache.get('1411018763008217208');
+                if (levelUpChannel) {
+                    await levelUpChannel.send({ embeds: [levelUpEmbed] });
+                }
+            } catch (levelError) {
+                logger.debug(`Could not send level up message: ${levelError.message}`);
+            }
+        }
+        
+        logger.debug(`Message processed - rewards and XP handled for target guild`);
     } catch (error) {
         logger.error(`Error processing message: ${error.message}`);
     }

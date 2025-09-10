@@ -126,8 +126,8 @@ class RateLimiter {
     async checkRateLimit(userId, interaction, limits = {}) {
         // Default rate limits
         const defaultLimits = {
-            requestsPerHour: 10,        // 10 requests per hour for regular users
-            requestsPerDay: 50,         // 50 requests per day for regular users
+            requestsPerHour: 20,        // 20 requests per hour for regular users
+            requestsPerDay: 100,        // 100 requests per day for regular users
             windowHours: 1              // 1 hour window
         };
 
@@ -201,7 +201,7 @@ class RateLimiter {
         if (!userData || now >= userData.resetTime) {
             return {
                 count: 0,
-                remaining: 10, // Default limit
+                remaining: 20, // Default limit
                 resetTime: null,
                 isActive: false
             };
@@ -209,7 +209,7 @@ class RateLimiter {
 
         return {
             count: userData.count,
-            remaining: Math.max(0, 10 - userData.count), // Assuming default limit of 10
+            remaining: Math.max(0, 20 - userData.count), // Assuming default limit of 20
             resetTime: userData.resetTime,
             isActive: true,
             timeUntilReset: Math.ceil((userData.resetTime - now) / 1000 / 60) // minutes

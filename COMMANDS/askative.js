@@ -183,6 +183,53 @@ function isMoneyRelatedQuestion(question) {
 }
 
 /**
+ * Check if question is asking for a joke
+ */
+function isJokeRequest(question) {
+    const jokePatterns = [
+        /\b(?:tell|give).*(?:me|us).*(?:a|some).*(?:joke|jokes)\b/i,
+        /\b(?:joke|jokes)\b.*\?/i,
+        /\b(?:funny|humor|humour)\b/i,
+        /\bmake me laugh\b/i,
+        /\b(?:something funny|be funny)\b/i,
+        /\bwant.*(?:joke|laugh)\b/i,
+        /\b(?:dad joke|dad jokes)\b/i
+    ];
+    
+    return jokePatterns.some(pattern => pattern.test(question));
+}
+
+/**
+ * Get a random dad joke
+ */
+function getDadJoke() {
+    const dadJokes = [
+        "Why don't scientists trust atoms? Because they make up everything!",
+        "I invented a new word: Plagiarism!",
+        "Why don't eggs tell jokes? They'd crack each other up!",
+        "What do you call a fake noodle? An impasta!",
+        "Why did the scarecrow win an award? Because he was outstanding in his field!",
+        "I'm reading a book about anti-gravity. It's impossible to put down!",
+        "What do you call a dinosaur that crashes his car? Tyrannosaurus Wrecks!",
+        "Why don't skeletons fight each other? They don't have the guts!",
+        "What's the best thing about Switzerland? I don't know, but the flag is a big plus!",
+        "Why do fathers take an extra pair of socks when they go golfing? In case they get a hole in one!",
+        "I used to hate facial hair, but then it grew on me!",
+        "What do you call a bear with no teeth? A gummy bear!",
+        "Why don't scientists trust stairs? Because they're always up to something!",
+        "What's orange and sounds like a parrot? A carrot!",
+        "How do you organize a space party? You planet!",
+        "Why did the coffee file a police report? It got mugged!",
+        "What do you call a sleeping bull? A bulldozer!",
+        "I told my wife she was drawing her eyebrows too high. She looked surprised!",
+        "Why don't oysters donate? Because they're shellfish!",
+        "What do you call a factory that makes okay products? A satisfactory!"
+    ];
+    
+    return dadJokes[Math.floor(Math.random() * dadJokes.length)];
+}
+
+/**
  * Parse amount string to number (supports K/M/B suffixes)
  */
 function parseAmount(amountStr) {
@@ -826,10 +873,35 @@ module.exports = {
         try {
             logger.info(`AskATIVE: ${username} (${userId}) asked: "${question}"`);
 
-            // Rate limiting check (exempts admins, developers, and system accounts)
+            // Check if it's a joke request (jokes bypass rate limiting)
+            const isJoke = isJokeRequest(question);
+            
+            if (isJoke) {
+                // Handle joke request without rate limiting
+                const joke = getDadJoke();
+                
+                const jokeEmbed = new EmbedBuilder()
+                    .setTitle('😂 Dad Joke Time!')
+                    .setDescription(joke)
+                    .addFields([
+                        {
+                            name: '🎭 Joke Request',
+                            value: question.length > 100 ? question.substring(0, 97) + '...' : question,
+                            inline: false
+                        }
+                    ])
+                    .setColor(0xFFA500)
+                    .setFooter({ text: 'Dad jokes don\'t count towards your hourly limit! 🎪' })
+                    .setTimestamp();
+
+                logger.info(`Joke request fulfilled for ${username} (${userId}) - bypassed rate limit`);
+                return await interaction.reply({ embeds: [jokeEmbed] });
+            }
+
+            // Rate limiting check for non-jokes (exempts admins, developers, and system accounts)
             const rateLimitCheck = await rateLimiter.checkRateLimit(userId, interaction, {
-                requestsPerHour: 10,    // 10 requests per hour for regular users
-                requestsPerDay: 50,     // 50 requests per day for regular users
+                requestsPerHour: 20,    // 20 requests per hour for regular users
+                requestsPerDay: 100,    // 100 requests per day for regular users
                 windowHours: 1          // 1 hour window
             });
 
@@ -840,12 +912,12 @@ module.exports = {
                     .addFields([
                         {
                             name: '📊 Usage Limit',
-                            value: `• **Limit:** 10 requests per hour\n• **Remaining:** ${rateLimitCheck.remaining}\n• **Resets:** <t:${Math.floor(rateLimitCheck.resetTime / 1000)}:R>`,
+                            value: `• **Limit:** 20 requests per hour\n• **Remaining:** ${rateLimitCheck.remaining}\n• **Resets:** <t:${Math.floor(rateLimitCheck.resetTime / 1000)}:R>`,
                             inline: false
                         },
                         {
                             name: '💡 While You Wait',
-                            value: `• Use **/help** for command information\n• Try **/balance** to check your stats\n• Explore games with **/slots** or **/blackjack**`,
+                            value: `• Use **/help** for command information\n• Try **/balance** to check your stats\n• Explore games with **/slots** or **/blackjack**\n• Ask for dad jokes (unlimited!)`,
                             inline: false
                         },
                         {
@@ -863,7 +935,7 @@ module.exports = {
 
             // Log rate limit status if user is not exempt
             if (!rateLimitCheck.exemptReason) {
-                logger.info(`Rate limit check: ${userId} - ${10 - rateLimitCheck.remaining}/10 requests used, ${rateLimitCheck.remaining} remaining`);
+                logger.info(`Rate limit check: ${userId} - ${20 - rateLimitCheck.remaining}/20 requests used, ${rateLimitCheck.remaining} remaining`);
             } else {
                 logger.debug(`Rate limit exempted: ${userId} (${rateLimitCheck.exemptReason})`);
             }
@@ -1067,7 +1139,7 @@ If you need immediate assistance, please ask a server administrator.`;
                 });
             } else {
                 responseEmbed.setFooter({ 
-                    text: `Powered by ATIVE AI • ${rateLimitCheck.remaining}/10 requests remaining this hour` 
+                    text: `Powered by ATIVE AI • ${rateLimitCheck.remaining}/20 requests remaining this hour` 
                 });
             }
 
