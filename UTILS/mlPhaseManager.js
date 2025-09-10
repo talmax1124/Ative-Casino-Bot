@@ -134,7 +134,7 @@ class MLPhaseManager {
         try {
             // Count games from database
             const result = await dbManager.databaseAdapter.executeQuery(
-                'SELECT COUNT(*) as count FROM game_results WHERE created_at > DATE_SUB(NOW(), INTERVAL 30 DAY)',
+                'SELECT COUNT(*) as count FROM game_results WHERE played_at > DATE_SUB(NOW(), INTERVAL 30 DAY)',
                 []
             );
             
@@ -218,7 +218,7 @@ class MLPhaseManager {
                     COUNT(*) as total_games,
                     SUM(CASE WHEN payout < bet_amount THEN 1 ELSE 0 END) as profitable_games
                 FROM game_results 
-                WHERE created_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`,
+                WHERE played_at > DATE_SUB(NOW(), INTERVAL 7 DAY)`,
                 []
             );
             

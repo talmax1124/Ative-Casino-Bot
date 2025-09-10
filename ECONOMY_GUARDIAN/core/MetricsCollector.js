@@ -155,7 +155,7 @@ class MetricsCollector extends EventEmitter {
                     COUNT(*) as total_games,
                     AVG(CASE WHEN result = 'WIN' THEN 1 ELSE 0 END) as win_rate
                 FROM game_results 
-                WHERE created_at >= ?
+                WHERE played_at >= ?
                 GROUP BY game_type
             `, [since]);
             
@@ -210,7 +210,7 @@ class MetricsCollector extends EventEmitter {
                     MAX(payout) as biggest_payout,
                     AVG(CASE WHEN result = 'WIN' THEN payout ELSE 0 END) as avg_payout
                 FROM game_results 
-                WHERE created_at >= ?
+                WHERE played_at >= ?
                 GROUP BY game_type
                 ORDER BY total_volume DESC
             `, [since]);

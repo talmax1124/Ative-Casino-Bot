@@ -97,6 +97,35 @@ class DatabaseManager {
         return false;
     }
 
+    /**
+     * Add money to user balance (alias for updateUserBalance)
+     * @param {string} userId - Discord user ID
+     * @param {string} guildId - Guild ID (kept for API compatibility)
+     * @param {number} amount - Amount to add
+     * @param {string} type - 'wallet' or 'bank' (defaults to 'wallet')
+     * @returns {boolean} Success status
+     */
+    async addMoney(userId, guildId = null, amount = 0, type = 'wallet') {
+        if (type === 'wallet') {
+            return await this.updateUserBalance(userId, guildId, amount, 0);
+        } else if (type === 'bank') {
+            return await this.updateUserBalance(userId, guildId, 0, amount);
+        }
+        return false;
+    }
+
+    /**
+     * Update balance (alias for updateUserBalance with different parameter order)
+     * @param {string} userId - Discord user ID
+     * @param {string} guildId - Guild ID (kept for API compatibility)
+     * @param {number} walletChange - Change in wallet amount
+     * @param {number} bankChange - Change in bank amount (optional)
+     * @returns {boolean} Success status
+     */
+    async updateBalance(userId, guildId = null, walletChange = 0, bankChange = 0) {
+        return await this.updateUserBalance(userId, guildId, walletChange, bankChange);
+    }
+
     // ========================= USER STATS OPERATIONS =========================
 
     /**

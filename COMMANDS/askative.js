@@ -507,7 +507,7 @@ async function getLiveEconomicData(client, guildId) {
                 AVG(bet_amount) as avg_bet,
                 MAX(payout) as biggest_win
             FROM game_results 
-            WHERE guild_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            WHERE guild_id = ? AND played_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
             GROUP BY game_type
             ORDER BY games_played DESC
         `;
