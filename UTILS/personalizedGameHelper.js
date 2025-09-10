@@ -19,9 +19,9 @@ class PersonalizedGameHelper {
         );
 
         return {
-            // Use base payouts only - personalization handled by economic multipliers
-            blackjackPayout: config?.basePayout?.blackjack || 2.5,
-            winPayout: config?.basePayout?.win || 2.0,
+            // Reduced payouts for economic stability (was 2.5x/2.0x)
+            blackjackPayout: config?.basePayout?.blackjack || 1.9,
+            winPayout: config?.basePayout?.win || 1.7,
             pushPayout: config?.basePayout?.push || 1.0,
             
             // Personalized odds (affects game logic)

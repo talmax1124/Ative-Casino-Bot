@@ -6,6 +6,7 @@
 const mysql = require('mysql2/promise');
 const logger = require('./logger');
 const { secureRandomInt } = require('./rng');
+const { gameDataCollector } = require('./gameDataCollector');
 
 class DatabaseAdapter {
     constructor() {
@@ -980,6 +981,12 @@ class DatabaseAdapter {
             const safePayout = payout ?? 0;
             const safeWon = won ?? false;
             const safeMetadata = metadata ?? {};
+            
+            // Collect ML data asynchronously (don't wait for it to complete to avoid slowing down games)
+            this.collectMLDataAsync(userId, guildId, gameType, won, betAmount, payout, metadata).catch(error => {
+                // Silently log ML data collection errors to avoid disrupting game flow
+                console.debug(`ML data collection failed: ${error.message}`);
+            });
 
             // Insert into game_results table for history tracking
             await this.pool.execute(
@@ -3043,6 +3050,84 @@ class DatabaseAdapter {
         } catch (error) {
             logger.error(`Error toggling off-economy status: ${error.message}`);
             return false;
+        }
+    }
+
+    /**
+     * Collect ML data asynchronously
+     */
+    async collectMLDataAsync(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
+        try {
+            // Get additional context for ML analysis
+            const userBalance = await this.getUserBalance(userId, guildId);
+            const userWealthBefore = (userBalance.wallet || 0) + (userBalance.bank || 0) + betAmount; // Add back bet amount for before-game wealth
+            const userWealthAfter = (userBalance.wallet || 0) + (userBalance.bank || 0);
+            
+            // Get user's recent game activity for behavioral patterns
+            const recentGames = await this.getGameHistory(userId, gameType, 10);
+            let winStreak = 0, lossStreak = 0;
+            for (const game of recentGames) {
+                if (game.won) {
+                    if (lossStreak > 0) break;
+                    winStreak++;
+                } else {
+                    if (winStreak > 0) break;
+                    lossStreak++;
+                }
+            }
+            
+            // Calculate today's activity
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const todayGames = recentGames.filter(g => new Date(g.created_at) >= todayStart);
+            const gamesPlayedToday = todayGames.length;
+            const totalWinsToday = todayGames.filter(g => g.won).length;
+            const totalLossesToday = gamesPlayedToday - totalWinsToday;
+            
+            // Categorize bet pattern
+            let betPattern = 'NORMAL';
+            if (betAmount < userWealthBefore * 0.01) betPattern = 'CONSERVATIVE';
+            else if (betAmount > userWealthBefore * 0.1) betPattern = 'AGGRESSIVE';
+            
+            // Determine risk level based on betting patterns
+            let riskLevel = 'MEDIUM';
+            if (betAmount > userWealthBefore * 0.2) riskLevel = 'HIGH';
+            else if (betAmount < userWealthBefore * 0.02) riskLevel = 'LOW';
+            
+            // Prepare comprehensive ML data
+            const mlData = {
+                gameType,
+                userId,
+                guildId,
+                betAmount,
+                payout,
+                won,
+                userWealthBefore,
+                userWealthAfter,
+                gameSpecificData: metadata,
+                winStreak,
+                lossStreak,
+                gamesPlayedToday,
+                totalWinsToday,
+                totalLossesToday,
+                betPattern,
+                riskLevel,
+                serverEconomicHealth: 100, // Default value, could be enhanced with real server metrics
+                activePlayersCount: 1, // Could be enhanced with real active player count
+                totalServerWealth: userWealthAfter, // Simplified - could be enhanced with actual server wealth
+                sessionDuration: 0, // Could be enhanced with actual session tracking
+                suspiciousActivity: false, // Could be enhanced with fraud detection
+                houseEdgeApplied: metadata.houseEdgeApplied || 0,
+                multiplierReduction: metadata.multiplierReduction || 0,
+                wealthTierMultiplier: metadata.wealthTierMultiplier || 1
+            };
+            
+            // Send to ML data collector
+            await gameDataCollector.collectGameData(mlData);
+            
+        } catch (error) {
+            // Silently fail to avoid disrupting game flow
+            logger.debug(`ML data collection failed for ${gameType} game by ${userId}: ${error.message}`);
         }
     }
 }

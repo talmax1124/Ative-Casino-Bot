@@ -1,12 +1,12 @@
 /**
  * KENO Game Command - Number Selection Lottery
  * Players select 1-10 numbers from 1-80, system draws 20 numbers
- * Low multiplier payouts: 1 match = 1.2x, 2 matches = 2x, 3 matches = 2.7x
+ * Balanced payouts: 5 spots: 2 matches = 0.5x, 3 matches = 2x, 4 matches = 20x, 5 matches = 200x
  */
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
-const { sendLogMessage, parseAmount, fmt } = require('../UTILS/common');
+const { sendLogMessage, parseAmount, fmt, getGuildId } = require('../UTILS/common');
 const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
 const logger = require('../UTILS/logger');
@@ -14,7 +14,7 @@ const logger = require('../UTILS/logger');
 // KENO Configuration
 const KENO_CONFIG = {
     MIN_BET: 10,           // Minimum $10 entry
-    MAX_BET: null,         // No maximum bet limit  
+    MAX_BET: 50000,        // Maximum $50K bet (due to higher multipliers)  
     MIN_NUMBERS: 1,        // Minimum 1 number to pick
     MAX_NUMBERS: 10,       // Maximum 10 numbers to pick
     TOTAL_NUMBERS: 80,     // Numbers 1-80 available
@@ -24,22 +24,17 @@ const KENO_CONFIG = {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('keno')
-        .setDescription('🎲 Play KENO - Pick numbers and match the draw!')
+        .setDescription('🎲 KENO - Easy lottery game! Numbers auto-picked for you!')
         .addStringOption(option =>
             option.setName('bet')
-                .setDescription(`Bet amount (Min: $${KENO_CONFIG.MIN_BET}) - supports K/M/B suffixes`)
+                .setDescription(`Bet amount (Min: $${KENO_CONFIG.MIN_BET}, Max: ${fmt(KENO_CONFIG.MAX_BET)}) - supports K/M/B suffixes`)
                 .setRequired(true)
         )
         .addIntegerOption(option =>
             option.setName('spots')
-                .setDescription('How many numbers to pick (1-10)')
+                .setDescription('How many numbers to pick (1-10) - More spots = bigger wins but lower chance')
                 .setMinValue(KENO_CONFIG.MIN_NUMBERS)
                 .setMaxValue(KENO_CONFIG.MAX_NUMBERS)
-                .setRequired(false)
-        )
-        .addBooleanOption(option =>
-            option.setName('quickpick')
-                .setDescription('Auto-select random numbers instead of manual selection')
                 .setRequired(false)
         ),
 
@@ -49,7 +44,7 @@ module.exports = {
         const guildId = interaction.guildId;
         const betAmountStr = interaction.options.getString('bet');
         const spots = interaction.options.getInteger('spots') || 5; // Default 5 spots
-        const quickPick = interaction.options.getBoolean('quickpick') || false;
+        const quickPick = true; // ALWAYS use quickpick for simplicity
 
         try {
             // Defer reply immediately to prevent timeout

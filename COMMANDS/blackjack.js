@@ -16,6 +16,7 @@ const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 const levelingSystem = require('../UTILS/levelingSystem');
 const OffEconomyBadge = require('../UTILS/offEconomyBadge');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 // LEGACY: economicManager replaced by EconomyGuardian AI
 // const economicManager = require('../UTILS/economicManager');
 const EconomyGuardianInterface = require('../UTILS/economyGuardianInterface');
@@ -711,7 +712,8 @@ module.exports = {
                         '**Split:** Split pairs into two hands (doubles bet)'
                     ],
                     tips: [
-                        'Blackjack (Ace + 10-value) pays 3:2',
+                        'Blackjack (Ace + 10-value) pays 1.9x your bet',
+                        'Regular wins pay 1.7x your bet',
                         'Dealer must hit on 16 and stand on 17',
                         'If dealer busts, all remaining players win'
                     ]

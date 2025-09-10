@@ -9,6 +9,7 @@ const logger = require('../UTILS/logger');
 const { getGuildId, fmt, sendLogMessage } = require('../UTILS/common');
 const dbManager = require('../UTILS/database');
 const axios = require('axios');
+const rateLimiter = require('../UTILS/rateLimiter');
 
 // Developer and Admin IDs
 const DEVELOPER_ID = '466050111680544798';
@@ -825,6 +826,48 @@ module.exports = {
         try {
             logger.info(`AskATIVE: ${username} (${userId}) asked: "${question}"`);
 
+            // Rate limiting check (exempts admins, developers, and system accounts)
+            const rateLimitCheck = await rateLimiter.checkRateLimit(userId, interaction, {
+                requestsPerHour: 10,    // 10 requests per hour for regular users
+                requestsPerDay: 50,     // 50 requests per day for regular users
+                windowHours: 1          // 1 hour window
+            });
+
+            if (!rateLimitCheck.allowed) {
+                const rateLimitEmbed = new EmbedBuilder()
+                    .setTitle('⏰ Rate Limit Reached')
+                    .setDescription(`You've reached the maximum number of ATIVE AI requests for this hour.`)
+                    .addFields([
+                        {
+                            name: '📊 Usage Limit',
+                            value: `• **Limit:** 10 requests per hour\n• **Remaining:** ${rateLimitCheck.remaining}\n• **Resets:** <t:${Math.floor(rateLimitCheck.resetTime / 1000)}:R>`,
+                            inline: false
+                        },
+                        {
+                            name: '💡 While You Wait',
+                            value: `• Use **/help** for command information\n• Try **/balance** to check your stats\n• Explore games with **/slots** or **/blackjack**`,
+                            inline: false
+                        },
+                        {
+                            name: '🔓 Unlimited Access',
+                            value: `Server administrators and developers have unlimited access to ATIVE AI.`,
+                            inline: false
+                        }
+                    ])
+                    .setColor(0xFFA500)
+                    .setFooter({ text: `Rate limiting helps control AI costs and ensures fair access for everyone` })
+                    .setTimestamp();
+
+                return await interaction.reply({ embeds: [rateLimitEmbed], flags: MessageFlags.Ephemeral });
+            }
+
+            // Log rate limit status if user is not exempt
+            if (!rateLimitCheck.exemptReason) {
+                logger.info(`Rate limit check: ${userId} - ${10 - rateLimitCheck.remaining}/10 requests used, ${rateLimitCheck.remaining} remaining`);
+            } else {
+                logger.debug(`Rate limit exempted: ${userId} (${rateLimitCheck.exemptReason})`);
+            }
+
             // Check for money commands (balance checks for admins, full commands for developer)
             const moneyCommand = parseMoneyCommand(question);
             const userIsDeveloper = isDeveloper(userId);
@@ -1015,10 +1058,18 @@ If you need immediate assistance, please ask a server administrator.`;
                     }
                 ])
                 .setColor(userIsAdmin ? 0xFFD700 : 0x00D4FF)
-                .setFooter({ 
-                    text: `Powered by ATIVE AI${userIsAdmin ? ' • Admin Mode' : ''}` 
-                })
                 .setTimestamp();
+
+            // Set footer with rate limit info for regular users
+            if (rateLimitCheck.exemptReason) {
+                responseEmbed.setFooter({ 
+                    text: `Powered by ATIVE AI • ${rateLimitCheck.exemptReason} Mode` 
+                });
+            } else {
+                responseEmbed.setFooter({ 
+                    text: `Powered by ATIVE AI • ${rateLimitCheck.remaining}/10 requests remaining this hour` 
+                });
+            }
 
             // Add admin badge if user is admin and question was admin-related
             if (isAdminQuestion && userIsAdmin) {

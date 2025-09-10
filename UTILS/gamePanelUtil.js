@@ -511,45 +511,46 @@ class GamePanelUtil {
             suit = card.slice(1);
         }
         
-        // Map suit symbols to folder names
+        // Map suit symbols to suit names for new Cards folder
         const suitMap = {
-            '♠️': 'Spades',
-            '♥️': 'Hearts', 
-            '♦️': 'Diamonds',
-            '♣️': 'Clubs',
-            '♠': 'Spades',
-            '♥': 'Hearts', 
-            '♦': 'Diamonds',
-            '♣': 'Clubs'
+            '♠️': 'spades',
+            '♥️': 'hearts', 
+            '♦️': 'diamonds',
+            '♣️': 'clubs',
+            '♠': 'spades',
+            '♥': 'hearts', 
+            '♦': 'diamonds',
+            '♣': 'clubs'
         };
         
-        // Map rank names to file names
+        // Map rank names to file names (using new naming convention)
         const rankMap = {
-            'A': 'Ace',
-            '2': 'Two',
-            '3': 'Three', 
-            '4': 'Four',
-            '5': 'Five',
-            '6': 'Six',
-            '7': 'Seven',
-            '8': 'Eight',
-            '9': 'Nine',
-            '10': 'Ten',
-            'J': 'Jack',
-            'Q': 'Queen',
-            'K': 'King'
+            'A': 'ace',
+            '2': '2',
+            '3': '3', 
+            '4': '4',
+            '5': '5',
+            '6': '6',
+            '7': '7',
+            '8': '8',
+            '9': '9',
+            '10': '10',
+            'J': 'jack',
+            'Q': 'queen',
+            'K': 'king'
         };
         
-        const suitFolder = suitMap[suit];
+        const suitName = suitMap[suit];
         const rankName = rankMap[rank];
         
-        if (!suitFolder || !rankName) {
+        if (!suitName || !rankName) {
             logger.error(`Invalid card: ${cardString}, rank: ${rank}, suit: ${suit}`);
             return null;
         }
         
-        const fileName = `${rankName}_${suitFolder}.jpg`;
-        return path.join(__dirname, '../assets/blackjack', suitFolder, fileName);
+        // New naming convention: ace_of_clubs.png, 10_of_hearts.png, etc.
+        const fileName = `${rankName}_of_${suitName}.png`;
+        return path.join(__dirname, '../assets/Cards', fileName);
     }
 
     /**

@@ -192,9 +192,12 @@ module.exports = {
         // Game stats section
         if (stats.totalGames > 0) {
             const winRate = stats.totalWins > 0 ? ((stats.totalWins / stats.totalGames) * 100).toFixed(1) : '0.0';
+            const roiFormatted = stats.roi >= 0 ? `+${stats.roi.toFixed(1)}%` : `${stats.roi.toFixed(1)}%`;
+            const roiColor = stats.roi >= 0 ? '🟢' : '🔴';
+            
             profileFields.push({
                 name: '🎮 Gaming Stats',
-                value: `**Games:** ${stats.totalGames}\n**Win Rate:** ${winRate}%\n**Biggest Win:** ${fmt(stats.biggestWin)}`,
+                value: `**Games:** ${stats.totalGames}\n**Win Rate:** ${winRate}%\n**Biggest Win:** ${fmt(stats.biggestWin)}\n**ROI:** ${roiColor} ${roiFormatted}`,
                 inline: true
             });
         }
@@ -302,14 +305,22 @@ module.exports = {
         try {
             const allStats = await dbManager.getUserStats(userId);
             
-            // Ensure allStats is an array
-            if (!Array.isArray(allStats)) {
-                logger.warn(`getUserStats returned non-array for user ${userId}:`, allStats);
+            // Handle both object (by game type) and array returns
+            let statsArray = [];
+            if (Array.isArray(allStats)) {
+                statsArray = allStats;
+            } else if (typeof allStats === 'object' && allStats !== null) {
+                // Convert object to array of values
+                statsArray = Object.values(allStats);
+            } else {
+                logger.warn(`getUserStats returned unexpected format for user ${userId}:`, allStats);
                 return {
                     totalGames: 0,
                     totalWins: 0,
                     biggestWin: 0,
-                    totalWinnings: 0
+                    totalWinnings: 0,
+                    totalWagered: 0,
+                    roi: 0
                 };
             }
             
@@ -317,23 +328,30 @@ module.exports = {
             let totalWins = 0;
             let biggestWin = 0;
             let totalWinnings = 0;
+            let totalWagered = 0;
 
-            for (const stat of allStats) {
+            for (const stat of statsArray) {
                 totalGames += stat.total_games_played || 0;
                 totalWins += stat.total_wins || 0;
                 biggestWin = Math.max(biggestWin, stat.biggest_win || 0);
                 totalWinnings += stat.total_winnings || 0;
+                totalWagered += stat.total_wagered || 0;
             }
+
+            // Calculate ROI (Return on Investment)
+            const roi = totalWagered > 0 ? ((totalWinnings - totalWagered) / totalWagered) * 100 : 0;
 
             return {
                 totalGames,
                 totalWins,
                 biggestWin,
-                totalWinnings
+                totalWinnings,
+                totalWagered,
+                roi
             };
         } catch (error) {
             logger.error(`Error getting user stats: ${error.message}`);
-            return { totalGames: 0, totalWins: 0, biggestWin: 0, totalWinnings: 0 };
+            return { totalGames: 0, totalWins: 0, biggestWin: 0, totalWinnings: 0, totalWagered: 0, roi: 0 };
         }
     },
 

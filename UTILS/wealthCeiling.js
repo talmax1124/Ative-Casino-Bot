@@ -20,16 +20,21 @@ class WealthCeilingSystem {
             { threshold: 990000000, multiplierReduction: 0.95, description: "Final Stretch ($990M+)" }   // 95% reduction at $990M
         ];
 
-        // Maximum bet limits based on wealth to prevent rapid accumulation
+        // Maximum bet limits based on wealth to prevent rapid accumulation (SIGNIFICANTLY INCREASED)
         this.betLimits = [
-            { threshold: 0, maxBet: 100000 },           // Under $100M: $100K max bet
-            { threshold: 100000000, maxBet: 250000 },   // $100M+: $250K max bet
-            { threshold: 250000000, maxBet: 500000 },   // $250M+: $500K max bet  
-            { threshold: 500000000, maxBet: 750000 },   // $500M+: $750K max bet
-            { threshold: 750000000, maxBet: 1000000 },  // $750M+: $1M max bet
-            { threshold: 900000000, maxBet: 500000 },   // $900M+: Back to $500K (final grind)
-            { threshold: 950000000, maxBet: 250000 },   // $950M+: Back to $250K (ultra grind)
-            { threshold: 990000000, maxBet: 100000 }    // $990M+: Back to $100K (final stretch)
+            { threshold: 0, maxBet: 500000 },           // Under $1M: $500K max bet
+            { threshold: 1000000, maxBet: 750000 },     // $1M+: $750K max bet  
+            { threshold: 5000000, maxBet: 1000000 },    // $5M+: $1M max bet
+            { threshold: 10000000, maxBet: 1500000 },   // $10M+: $1.5M max bet
+            { threshold: 25000000, maxBet: 2000000 },   // $25M+: $2M max bet
+            { threshold: 50000000, maxBet: 2500000 },   // $50M+: $2.5M max bet
+            { threshold: 100000000, maxBet: 3000000 },  // $100M+: $3M max bet
+            { threshold: 250000000, maxBet: 4000000 },  // $250M+: $4M max bet
+            { threshold: 500000000, maxBet: 5000000 },  // $500M+: $5M max bet
+            { threshold: 750000000, maxBet: 3000000 },  // $750M+: $3M max bet (reduction begins)
+            { threshold: 900000000, maxBet: 2000000 },  // $900M+: $2M max bet
+            { threshold: 950000000, maxBet: 1500000 },  // $950M+: $1.5M max bet
+            { threshold: 990000000, maxBet: 1000000 }   // $990M+: $1M max bet
         ];
     }
 

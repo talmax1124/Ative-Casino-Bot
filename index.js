@@ -242,6 +242,15 @@ async function sendStartupNotification() {
         );
 
         logger.info('Startup notification sent successfully');
+
+    // Initialize Max Bet Removal Monitor
+    try {
+        const { maxBetRemovalMonitor } = require('./UTILS/maxBetRemovalMonitor');
+        await maxBetRemovalMonitor.initialize(client);
+        logger.info('Max Bet Removal Monitor initialized successfully');
+    } catch (error) {
+        logger.error(`Failed to initialize Max Bet Removal Monitor: ${error.message}`);
+    }
     } catch (error) {
         logger.error(`Failed to send startup notification: ${error.message}`);
     }
@@ -1943,8 +1952,12 @@ client.on('messageCreate', async message => {
         // Check if this message is a follow-up to a panel action
         await panelManager.processFollowUpAction(message);
         
-        // XP system moved to UAS bot
-        logger.debug(`XP system now handled by UAS bot`);
+        // Guild-specific message reward system (3K-8K every 15-30 messages)
+        const { messageRewardSystem } = require('./UTILS/messageRewardSystem');
+        await messageRewardSystem.processMessage(message);
+        
+        // XP system moved to UAS bot for other guilds
+        logger.debug(`Message processed - rewards handled locally for target guild, XP by UAS for others`);
     } catch (error) {
         logger.error(`Error processing message: ${error.message}`);
     }

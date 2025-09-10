@@ -27,32 +27,41 @@ class EconomicManager {
             economicHealthScore: 100
         };
         
-        // Game-specific controls
+        // Game-specific controls (INCREASED MAX BET LIMITS)
         this.gameControls = {
             blackjack: {
-                maxBet: 10000000, // $10M max
+                maxBet: 15000000, // $15M max (was $10M)
                 houseEdgeAdjustment: 0,
                 multiplierReduction: 0.25  // Increased from 0.1 (10%) to 0.25 (25%)
             },
             slots: {
-                maxBet: 175000,
+                maxBet: 300000,   // $300K max (was $175K)
                 maxMultiplier: 50, // Reduced from higher values
                 houseEdgeAdjustment: 0.02
             },
             roulette: {
-                maxBet: 10000000,
+                maxBet: 15000000, // $15M max (was $10M)
                 maxPayoutReduction: 0.2, // 20% reduction in max payouts
                 houseEdgeAdjustment: 0
             },
             crash: {
-                maxBet: 175000,
+                maxBet: 300000,   // $300K max (was $175K)
                 maxMultiplier: 10, // Reduced from 15
                 houseEdgeAdjustment: 0.01
             },
             plinko: {
-                maxBet: 175000,
+                maxBet: 300000,   // $300K max (was $175K)
                 maxMultiplier: 5, // Heavily reduced
                 houseEdgeAdjustment: 0.02
+            },
+            ceelo: {
+                maxBet: 50000,    // $50K max (was $25K)
+                houseEdgeAdjustment: 0
+            },
+            keno: {
+                maxBet: 100000,   // $100K max (was $50K)
+                maxMultiplier: 50,
+                houseEdgeAdjustment: 0.01
             }
         };
         

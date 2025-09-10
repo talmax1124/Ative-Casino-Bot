@@ -79,9 +79,13 @@ class CeeloGame {
             // Determine winner
             this.determineWinner();
             
-            // Calculate payout
+            // Calculate payout (1:1 means bet amount + winnings)
             if (this.winner === 'player') {
-                this.payout = this.betAmount * CONFIG.PAYOUT_MULTIPLIER;
+                this.payout = this.betAmount + (this.betAmount * CONFIG.PAYOUT_MULTIPLIER);
+            } else if (this.winner === 'tie') {
+                this.payout = this.betAmount; // Return bet on tie
+            } else {
+                this.payout = 0; // No payout on loss
             }
             
             // Play the game and show results
@@ -478,7 +482,7 @@ class CeeloGame {
             bankFields: [
                 { name: 'Bet Amount', value: fmt(this.betAmount), inline: true },
                 { name: 'Payout', value: fmt(this.payout), inline: true },
-                { name: 'Net Result', value: fmt(this.payout - this.betAmount), inline: true }
+                { name: 'Net Result', value: won ? `+${fmt(this.payout - this.betAmount)}` : tie ? `${fmt(0)}` : `-${fmt(this.betAmount)}`, inline: true }
             ],
             stageText: stageText,
             color: color,

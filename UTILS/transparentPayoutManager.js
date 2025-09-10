@@ -115,21 +115,19 @@ class TransparentPayoutManager {
         // Keep UI multiplier within attractive ranges
         let uiMultiplier = baseMultiplier;
         
-        // For very small multipliers, show minimum attractive value
-        if (uiMultiplier < this.transparencyConfig.minDisplayMultiplier) {
-            uiMultiplier = this.transparencyConfig.minDisplayMultiplier;
-        }
+        // No longer enforcing minimum display multiplier to show accurate payouts
+        // All games now show true multipliers for transparency
         
         // For games with specific UI considerations
         switch (gameType) {
             case 'plinko':
-                // Plinko shows multipliers on board - keep them attractive
-                uiMultiplier = Math.max(baseMultiplier, 1.2);
+                // Plinko shows actual multipliers on board - no artificial inflation
+                uiMultiplier = baseMultiplier;
                 break;
                 
             case 'slots':
-                // Slots can show exciting multipliers
-                uiMultiplier = Math.max(baseMultiplier, 2.0);
+                // Show actual slot multipliers to match payouts
+                uiMultiplier = baseMultiplier;
                 break;
                 
             case 'crash':
@@ -138,7 +136,22 @@ class TransparentPayoutManager {
                 break;
                 
             case 'blackjack':
-                // Blackjack has fixed payouts - maintain expectations
+                // Blackjack shows actual reduced payouts (1.9x/1.7x)
+                uiMultiplier = baseMultiplier;
+                break;
+                
+            case 'roulette':
+                // Roulette shows standard payouts
+                uiMultiplier = baseMultiplier;
+                break;
+                
+            case 'keno':
+                // Keno shows actual multipliers
+                uiMultiplier = baseMultiplier;
+                break;
+                
+            case 'ceelo':
+                // Ceelo shows 1:1 payout accurately
                 uiMultiplier = baseMultiplier;
                 break;
         }
@@ -227,18 +240,18 @@ class TransparentPayoutManager {
      * GAME-SPECIFIC UI INTEGRATION METHODS
      */
     
-    // Plinko: Show attractive multipliers on board
+    // Plinko: Show actual multipliers on board - no inflation
     async getPlinkoUIMultipliers(baseMultipliers, userId) {
         const adjustments = await this.getEconomicAdjustments(userId, 'plinko', 0);
         
         return baseMultipliers.map(multiplier => {
-            const uiMultiplier = Math.max(multiplier, 1.2); // Minimum attractive
+            const uiMultiplier = multiplier; // Show actual multiplier
             const actualMultiplier = multiplier * (1 - adjustments.totalReduction);
             
             return {
                 display: uiMultiplier,
                 actual: isNaN(actualMultiplier) ? multiplier : actualMultiplier,
-                ui: `${uiMultiplier.toFixed(2)}x`
+                ui: `${uiMultiplier.toFixed(1)}x`
             };
         });
     }

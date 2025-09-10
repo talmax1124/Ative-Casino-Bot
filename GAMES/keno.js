@@ -1,7 +1,7 @@
 /**
  * KENO Game Logic - Number Selection Lottery
  * Players pick numbers, system draws 20, payouts based on matches
- * Conservative multipliers: 1 match = 1.2x, 2 matches = 2x, 3 matches = 2.7x
+ * Balanced multipliers: 5 spots: 2 matches = 0.5x, 3 matches = 2x, 4 matches = 20x, 5 matches = 200x
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -21,18 +21,18 @@ const CONFIG = {
     MAX_SPOTS: 10
 };
 
-// Conservative KENO payout table
+// Balanced KENO payout table (conservative but fair)
 const PAYOUT_TABLE = {
-    1: { 1: 1.2 },                           // 1 spot: 1 match = 1.2x
-    2: { 2: 2.0 },                           // 2 spots: 2 matches = 2x  
-    3: { 2: 1.0, 3: 2.7 },                   // 3 spots: 2 matches = 1x, 3 matches = 2.7x
-    4: { 2: 0.5, 3: 1.5, 4: 3.5 },          // 4 spots: progressive payouts
-    5: { 3: 0.8, 4: 2.0, 5: 5.0 },          // 5 spots: conservative multipliers
-    6: { 3: 0.5, 4: 1.2, 5: 3.0, 6: 8.0 },  // 6 spots: balanced payouts
-    7: { 4: 0.8, 5: 2.0, 6: 4.0, 7: 12.0 }, // 7 spots: moderate scaling
-    8: { 5: 1.0, 6: 2.5, 7: 6.0, 8: 20.0 }, // 8 spots: controlled high-end
-    9: { 5: 0.8, 6: 2.0, 7: 5.0, 8: 15.0, 9: 35.0 }, // 9 spots: rare big win
-    10: { 5: 0.5, 6: 1.5, 7: 4.0, 8: 12.0, 9: 25.0, 10: 50.0 } // 10 spots: max payout 50x
+    1: { 1: 3.0 },                                    // 1 spot: 1 match = 3x
+    2: { 2: 12.0 },                                   // 2 spots: 2 matches = 12x  
+    3: { 2: 2.0, 3: 42.0 },                           // 3 spots: 2 matches = 2x, 3 matches = 42x
+    4: { 2: 1.0, 3: 4.0, 4: 100.0 },                 // 4 spots: realistic progression
+    5: { 2: 0.5, 3: 2.0, 4: 20.0, 5: 200.0 },        // 5 spots: 2 matches pay 0.5x
+    6: { 3: 1.0, 4: 2.0, 5: 25.0, 6: 300.0 },        // 6 spots: balanced payouts
+    7: { 3: 0.5, 4: 1.0, 5: 5.0, 6: 50.0, 7: 400.0 }, // 7 spots: moderate scaling
+    8: { 4: 0.5, 5: 2.0, 6: 12.0, 7: 100.0, 8: 500.0 }, // 8 spots: controlled
+    9: { 4: 0.5, 5: 1.0, 6: 5.0, 7: 25.0, 8: 200.0, 9: 600.0 }, // 9 spots: balanced
+    10: { 4: 0.5, 5: 1.0, 6: 3.0, 7: 15.0, 8: 100.0, 9: 300.0, 10: 800.0 } // 10 spots: max 800x
 };
 
 class KenoGame {
@@ -497,27 +497,27 @@ class KenoGame {
         const drawnDisplay = this.drawnNumbers.join(' ');
         
         return buildSessionEmbed({
-            title: `🎰 KENO - ${won ? `${this.matches} NUMBERS MATCHED! 🎉` : `${this.matches} NUMBERS MATCHED`}`,
+            title: `🎲 KENO Results - ${won ? `${this.matches} MATCH${this.matches !== 1 ? 'ES' : ''}! 🎉` : `${this.matches} MATCH${this.matches !== 1 ? 'ES' : ''}`}`,
             topFields: [
                 {
-                    name: '🎯 YOUR NUMBERS',
-                    value: `${selectedDisplay}\n**Matched:** ${matchedNumbers.join(', ') || 'None'}`,
+                    name: '🎯 YOUR NUMBERS (Auto-Picked)',
+                    value: `${selectedDisplay}\n**Matched:** ${matchedNumbers.join(', ') || 'None'} ${matchedNumbers.length > 0 ? '✅' : '❌'}`,
                     inline: false
                 },
                 {
-                    name: '🔢 DRAWN NUMBERS', 
+                    name: '🔢 HOUSE DREW 20 NUMBERS', 
                     value: `${drawnDisplay}`,
                     inline: false
                 },
                 {
-                    name: '📊 RESULTS',
-                    value: `**Matches:** ${this.matches}/${this.spots}\n**Multiplier:** ${this.multiplier}x\n**Payout:** ${fmt(this.payout)}`,
+                    name: '📊 GAME RESULT',
+                    value: `**Matches:** ${this.matches} out of ${this.spots} picked\n**Multiplier:** ${this.multiplier.toFixed(1)}x ${this.multiplier >= 1 ? '🎊' : '📉'}\n**Your Bet:** ${fmt(this.betAmount)}\n**Payout:** ${fmt(this.payout)} ${won ? '💰' : ''}`,
                     inline: false
                 }
             ],
             stageText: won ? `🎊 WINNING NUMBERS! 🎊` : `${this.matches} out of ${this.spots} picked`,
             color: won ? 0x00FF00 : 0xFF4444,
-            footer: `Bet: ${fmt(this.betAmount)} | ${this.matches} matches out of ${this.spots} picks`
+            footer: `KENO: Pick more numbers for bigger wins but lower odds! | ${this.matches}/${this.spots} matches`
         });
     }
 

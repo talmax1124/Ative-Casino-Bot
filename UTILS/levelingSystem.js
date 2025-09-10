@@ -63,9 +63,15 @@ class LevelingSystem {
 
     /**
      * Handle game completion and award XP
+     * RESTRICTED TO GUILD 1403244656845787167 ONLY
      */
     async handleGameComplete(userId, guildId, gameType, won, specialResult = null) {
         try {
+            // GUILD RESTRICTION: Only process XP for the target guild
+            if (guildId !== '1403244656845787167') {
+                logger.debug(`Game XP system skipped - guild ${guildId} not in target guild, handled by UAS bot`);
+                return null;
+            }
             const config = XP_REWARDS.GAME_COMPLETION[gameType];
             if (!config) {
                 logger.warn(`No XP config for game type: ${gameType}`);
@@ -126,9 +132,16 @@ class LevelingSystem {
 
     /**
      * Handle chat message and award XP (rate-limited)
+     * RESTRICTED TO GUILD 1403244656845787167 ONLY
      */
     async handleChatMessage(userId, guildId, channelId) {
         try {
+            // GUILD RESTRICTION: Only process XP for the target guild
+            if (guildId !== '1403244656845787167') {
+                logger.debug(`XP system skipped - guild ${guildId} not in target guild, handled by UAS bot`);
+                return null;
+            }
+            
             const now = Date.now();
             const lastXp = this.lastChatXp.get(userId) || 0;
             
