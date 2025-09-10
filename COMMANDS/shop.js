@@ -215,8 +215,24 @@ module.exports = {
             const priceColor = canAfford ? '💚' : '❌';
             const duration = item.duration_hours ? ` (${item.duration_hours}h)` : ' (Permanent)';
             
-            itemList += `**${item.id}.** ${item.name}${duration}\n`;
-            itemList += `${priceColor} ${fmt(item.price)} - ${item.description}\n\n`;
+            // For role items, extract name and color from metadata
+            let displayName = item.name;
+            let displayDescription = item.description;
+            
+            if (item.category === 'roles' && item.metadata) {
+                try {
+                    const metadata = JSON.parse(item.metadata);
+                    if (metadata.role_name && metadata.role_color) {
+                        displayName = `${metadata.role_name}`;
+                        displayDescription = `Get a ${metadata.role_color} colored username in chat`;
+                    }
+                } catch (error) {
+                    // Keep original name/description if metadata parsing fails
+                }
+            }
+            
+            itemList += `**${item.id}.** ${displayName}${duration}\n`;
+            itemList += `${priceColor} ${fmt(item.price)} - ${displayDescription}\n\n`;
         }
 
         const categoryEmbed = buildSessionEmbed({
@@ -235,10 +251,24 @@ module.exports = {
         const affordableItems = items.filter(item => balance.wallet >= item.price).slice(0, 5);
 
         for (const item of affordableItems) {
+            // For role items, use the role name from metadata for button label
+            let buttonLabel = `Buy ${item.name}`;
+            
+            if (item.category === 'roles' && item.metadata) {
+                try {
+                    const metadata = JSON.parse(item.metadata);
+                    if (metadata.role_name) {
+                        buttonLabel = `Buy ${metadata.role_name}`;
+                    }
+                } catch (error) {
+                    // Keep original name if metadata parsing fails
+                }
+            }
+            
             purchaseButtons.push(
                 new ButtonBuilder()
                     .setCustomId(`shop_buy_${item.id}`)
-                    .setLabel(`Buy ${item.name}`)
+                    .setLabel(buttonLabel)
                     .setStyle(ButtonStyle.Primary)
             );
         }
@@ -337,11 +367,26 @@ module.exports = {
             }
         }
 
-        // Show confirmation
+        // Show confirmation with proper role name and color display
+        let displayName = item.name;
+        let displayDescription = item.description;
+        
+        if (item.category === 'roles' && item.metadata) {
+            try {
+                const metadata = JSON.parse(item.metadata);
+                if (metadata.role_name && metadata.role_color) {
+                    displayName = `${metadata.role_name}`;
+                    displayDescription = `Get a ${metadata.role_color} colored username in chat`;
+                }
+            } catch (error) {
+                // Keep original name/description if metadata parsing fails
+            }
+        }
+        
         const confirmEmbed = buildSessionEmbed({
             title: '🛒 Purchase Confirmation',
             topFields: [
-                { name: '📦 Item', value: `**${item.name}**\n${item.description}` },
+                { name: '📦 Item', value: `**${displayName}**\n${displayDescription}` },
                 { name: '💸 Price', value: fmt(item.price) },
                 { name: '⏰ Duration', value: item.duration_hours ? `${item.duration_hours} hours` : 'Permanent' },
                 { name: '💰 Remaining Balance', value: fmt(balance.wallet - item.price) }
@@ -414,10 +459,26 @@ module.exports = {
         if (success) {
             const balance = await dbManager.getUserBalance(userId, guildId);
             
+            // Use proper role name for success message
+            let displayName = item.name;
+            let displayDescription = item.description;
+            
+            if (item.category === 'roles' && item.metadata) {
+                try {
+                    const metadata = JSON.parse(item.metadata);
+                    if (metadata.role_name && metadata.role_color) {
+                        displayName = `${metadata.role_name}`;
+                        displayDescription = `Get a ${metadata.role_color} colored username in chat`;
+                    }
+                } catch (error) {
+                    // Keep original name/description if metadata parsing fails
+                }
+            }
+            
             const successEmbed = buildSessionEmbed({
                 title: '✅ Purchase Successful!',
                 topFields: [
-                    { name: '🎉 Item Purchased', value: `**${item.name}**\n${item.description}` },
+                    { name: '🎉 Item Purchased', value: `**${displayName}**\n${displayDescription}` },
                     { name: '💸 Amount Paid', value: fmt(item.price) },
                     { name: '💰 New Balance', value: fmt(balance.wallet) }
                 ],
