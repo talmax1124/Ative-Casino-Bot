@@ -23,17 +23,17 @@ class TransparentPayoutManager {
                 HYBRID_APPROACH: 'combine_both_methods'         // Mix of both
             },
             
-            // UI Multiplier Ranges (What players see)
+            // UI Multiplier Ranges (What players see) - Updated for economy stability
             attractiveRanges: {
-                slots: { min: 2.0, max: 500.0 },
-                plinko: { min: 1.5, max: 100.0 },
-                crash: { min: 1.1, max: 50.0 },
-                blackjack: { min: 2.0, max: 2.5 },
+                slots: { min: 1.2, max: 100.0 },
+                plinko: { min: 1.0, max: 10.0 },
+                crash: { min: 1.1, max: 15.0 },
+                blackjack: { min: 1.7, max: 1.9 },
                 roulette: { min: 2.0, max: 36.0 }
             },
             
             // Transparency Thresholds
-            minDisplayMultiplier: 1.5,      // Never show less than 1.5x
+            minDisplayMultiplier: 1.0,      // Show actual multipliers
             maxReductionPercentage: 0.85,   // Max 85% reduction (15% minimum payout)
             
             // Player Psychology

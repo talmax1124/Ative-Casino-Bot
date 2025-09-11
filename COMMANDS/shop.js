@@ -246,9 +246,9 @@ module.exports = {
             footer: 'Use /shop buy <item_id> to purchase an item'
         });
 
-        // Create purchase buttons for affordable items
+        // Create purchase buttons for affordable items (up to 25 buttons max due to Discord limits)
         const purchaseButtons = [];
-        const affordableItems = items.filter(item => balance.wallet >= item.price).slice(0, 5);
+        const affordableItems = items.filter(item => balance.wallet >= item.price).slice(0, 25);
 
         for (const item of affordableItems) {
             // For role items, use the role name from metadata for button label
@@ -488,6 +488,29 @@ module.exports = {
             });
 
             await interaction.update({ embeds: [successEmbed], components: [] });
+
+            // Record purchase for AI learning
+            try {
+                await dbManager.recordGameResult(
+                    userId,
+                    guildId,
+                    'shop_purchase',
+                    true, // Always successful if we reach this point
+                    item.price, // Amount spent
+                    0, // No payout for purchases
+                    {
+                        itemId: item.id,
+                        itemName: item.name,
+                        itemCategory: item.category,
+                        itemDescription: item.description,
+                        duration: item.duration_hours || 0,
+                        isPermanent: !item.duration_hours,
+                        gameType: 'shop_purchase'
+                    }
+                );
+            } catch (aiError) {
+                logger.error(`Failed to record shop purchase for AI: ${aiError.message}`);
+            }
 
             // Log the purchase
             await sendLogMessage(

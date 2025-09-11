@@ -9,33 +9,33 @@ const path = require('path');
 const logger = require('../UTILS/logger');
 const { secureWeightedChoice, secureRandomInt, secureRandomFloat } = require('../UTILS/rng');
 
-// REBALANCED slot symbols - Now with proper house edge
-// Higher rarities for valuable symbols, lower payouts for balance
+// REBALANCED slot symbols - Reduced multipliers for better house edge
+// Higher rarities for valuable symbols, conservative payouts for economy stability
 const SLOT_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 40, payout: 1.5 },     // Most common, lowest payout
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 25, payout: 2.0 },         // Common
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 15, payout: 2.5 },       // Uncommon
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, payout: 3.0 },       // Uncommon
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 5, payout: 4.0 }, // Rare
-    'bar': { name: 'Bar', emoji: '📊', rarity: 3, payout: 6.0 },              // Rare
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1.5, payout: 10.0 }, // Very rare
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.4, payout: 25.0 },   // Ultra rare
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.1, payout: 100.0 },  // Legendary
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.01, payout: 500.0 }  // Near impossible
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 40, payout: 1.2 },     // Most common, minimal payout
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 25, payout: 1.5 },         // Common
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 15, payout: 1.8 },       // Uncommon
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, payout: 2.2 },       // Uncommon
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 5, payout: 2.8 }, // Rare
+    'bar': { name: 'Bar', emoji: '📊', rarity: 3, payout: 4.0 },              // Rare
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1.5, payout: 6.0 },  // Very rare
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.4, payout: 15.0 },   // Ultra rare
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.1, payout: 50.0 },   // Legendary  
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.01, payout: 100.0 }  // Rare jackpot
 };
 
 // Matrix mode symbols (increased win probability by 3%)
 const MATRIX_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 33, payout: 2.0 },
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 28, payout: 2.5 },
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 25, payout: 3.0 },
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 21, payout: 4.0 },
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 18, payout: 5.0 },
-    'bar': { name: 'Bar', emoji: '📊', rarity: 15, payout: 6.0 },
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 11, payout: 10.0 },
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 9, payout: 20.0 },
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 7, payout: 50.0 },
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 3.5, payout: 200.0 }
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 33, payout: 1.4 },
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 28, payout: 1.8 },
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 25, payout: 2.2 },
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 21, payout: 2.6 },
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 18, payout: 3.2 },
+    'bar': { name: 'Bar', emoji: '📊', rarity: 15, payout: 4.8 },
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 11, payout: 7.5 },
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 9, payout: 18.0 },
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 7, payout: 60.0 },
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 3.5, payout: 150.0 }
 };
 
 // Special combinations

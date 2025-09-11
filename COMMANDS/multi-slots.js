@@ -123,6 +123,28 @@ module.exports = {
             // Process payout
             const payoutResult = await PayoutManager.processGamePayout(gameResult);
 
+            // Record game result for AI learning
+            try {
+                await dbManager.recordGameResult(
+                    userId,
+                    guildId,
+                    'multi-slots',
+                    result.won,
+                    betAmount,
+                    result.payout,
+                    {
+                        matrix: result.symbols,
+                        winType: result.type,
+                        multiplier: result.multiplier,
+                        houseEdge: 0.15,
+                        gameType: 'multi-slots',
+                        buffaloBonus: buffaloBonus || false
+                    }
+                );
+            } catch (aiError) {
+                logger.error(`Failed to record multi-slots game result for AI: ${aiError.message}`);
+            }
+
             if (!payoutResult.success) {
                 logger.error(`Failed to process matrix slots payout for user ${userId}`);
                 await PayoutManager.refundBet(userId, guildId, betAmount, 'Payout processing failed');

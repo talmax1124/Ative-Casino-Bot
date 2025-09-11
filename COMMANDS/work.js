@@ -168,6 +168,27 @@ module.exports = {
 
             await interaction.editReply({ embeds: [embed] });
 
+            // Record game result for ML analysis
+            try {
+                await dbManager.recordGameResult(
+                    userId,
+                    guildId,
+                    'work',
+                    0, // No bet amount for work
+                    totalEarning,
+                    true, // Always a "win" when successful
+                    {
+                        job: scenario.job,
+                        baseEarning: baseEarning,
+                        shopBoosts: hasShopBoosts,
+                        serverBoost: hasServerBoost,
+                        boosterBonus: boosterBonus
+                    }
+                );
+            } catch (error) {
+                logger.error(`Failed to record work result: ${error.message}`);
+            }
+
             // Log the work with boost information
             let logMessage = `Work completed: ${username} worked as ${scenario.job} and earned ${fmt(totalEarning)}`;
             

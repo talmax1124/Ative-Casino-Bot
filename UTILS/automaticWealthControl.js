@@ -11,8 +11,8 @@ const logger = require('./logger');
 
 class AutomaticWealthControl {
     constructor() {
-        this.CRITICAL_THRESHOLD = 500000000; // $500M threshold for ML Phase 2
-        this.ULTRA_THRESHOLD = 1000000000;   // $1B threshold for maximum intervention
+        this.CRITICAL_THRESHOLD = 2000000000; // $2B threshold (increased from $500M - more lenient)
+        this.ULTRA_THRESHOLD = 5000000000;    // $5B threshold for maximum intervention (increased from $1B)
         this.CHECK_INTERVAL = 2 * 60 * 60 * 1000; // Check every 2 hours
         this.isProcessing = false;
         this.lastCheck = null;
@@ -53,15 +53,15 @@ class AutomaticWealthControl {
         try {
             logger.info('🛡️ Starting automatic wealth control check...');
 
-            // Get all users above $500M threshold
+            // Get all users above $2B threshold (more lenient)
             const ultraWealthyUsers = await this.getUltraWealthyUsers();
             
             if (ultraWealthyUsers.length === 0) {
-                logger.info('✅ Wealth Control: No users above $500M threshold - system healthy');
+                logger.info('✅ Wealth Control: No users above $2B threshold - system healthy');
                 return { status: 'HEALTHY', ultraWealthyCount: 0 };
             }
 
-            logger.warn(`⚠️ Wealth Control: ${ultraWealthyUsers.length} users above $500M threshold - intervention needed`);
+            logger.warn(`⚠️ Wealth Control: ${ultraWealthyUsers.length} users above $2B threshold - intervention needed`);
 
             // Apply interventions based on wealth levels
             const interventionResults = [];
@@ -135,19 +135,26 @@ class AutomaticWealthControl {
         try {
             const { userId, username, totalBalance } = user;
             
+            // Skip developer
+            const DEVELOPER_ID = '466050111680544798';
+            if (userId === DEVELOPER_ID) {
+                logger.debug(`Skipping wealth intervention for developer: ${username}`);
+                return { success: false, userId, reason: 'Developer exemption', taxAmount: 0 };
+            }
+            
             // Track intervention history
             const userHistory = this.interventionHistory.get(userId) || { count: 0, lastIntervention: null, totalTaxed: 0 };
             
-            // Determine intervention level based on balance
+            // Determine intervention level based on balance (more lenient tiers)
             let interventionLevel = 'MODERATE';
-            let baseMultiplier = 1.0;
+            let baseMultiplier = 0.5; // Start more lenient
             
-            if (totalBalance >= this.ULTRA_THRESHOLD) {
+            if (totalBalance >= this.ULTRA_THRESHOLD) { // $5B+
                 interventionLevel = 'MAXIMUM';
-                baseMultiplier = 2.0; // 2x more aggressive for $1B+
-            } else if (totalBalance >= 750000000) {
+                baseMultiplier = 1.0; // Less aggressive than before (was 2.0)
+            } else if (totalBalance >= 3500000000) { // $3.5B+
                 interventionLevel = 'SEVERE';
-                baseMultiplier = 1.5; // 1.5x more aggressive for $750M+
+                baseMultiplier = 0.75; // Less aggressive than before (was 1.5)
             }
 
             // Progressive intervention - more aggressive with repeat offenders
@@ -162,10 +169,10 @@ class AutomaticWealthControl {
             if (taxRecord && taxRecord.taxAmount > 0) {
                 taxAmount = taxRecord.taxAmount;
                 
-                // Apply additional emergency tax for ultra-wealthy (above standard wealth tax)
+                // Apply additional emergency tax for ultra-wealthy (above standard wealth tax) - more lenient
                 if (totalBalance > this.CRITICAL_THRESHOLD) {
-                    const emergencyTaxRate = 0.1 + (finalMultiplier - 1.0) * 0.1; // 10% base + escalation
-                    const emergencyTax = Math.floor(totalBalance * emergencyTaxRate);
+                    const emergencyTaxRate = 0.02 + (finalMultiplier - 0.5) * 0.05; // 2% base + smaller escalation (was 10% + 10%)
+                    const emergencyTax = Math.floor(totalBalance * Math.max(0, emergencyTaxRate)); // Ensure non-negative
                     
                     if (emergencyTax > 0) {
                         await this.applyEmergencyTax(userId, guildId, emergencyTax);

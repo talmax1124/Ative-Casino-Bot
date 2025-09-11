@@ -133,7 +133,7 @@ class MLPhaseManager {
      */
     async getGameDataCount() {
         try {
-            // Count games from database
+            // Count games from database - use consistent time period for all ML analysis
             const result = await dbManager.databaseAdapter.executeQuery(
                 'SELECT COUNT(*) as count FROM game_results WHERE played_at > DATE_SUB(NOW(), INTERVAL 30 DAY)',
                 []
@@ -141,27 +141,11 @@ class MLPhaseManager {
             
             const dbCount = result[0]?.count || 0;
             
-            // Also count from ML data files
-            const fs = require('fs').promises;
-            const path = require('path');
-            const mlDataDir = path.join(__dirname, '..', 'ML_DATA');
+            // For consistency with mlstats, primarily use database count
+            // ML data files are secondary backup storage
+            logger.debug(`Game data count: ${dbCount} games from database`);
             
-            let fileCount = 0;
-            try {
-                const files = await fs.readdir(mlDataDir);
-                for (const file of files) {
-                    if (file.endsWith('.json')) {
-                        const filePath = path.join(mlDataDir, file);
-                        const content = await fs.readFile(filePath, 'utf8');
-                        const data = JSON.parse(content);
-                        fileCount += Array.isArray(data) ? data.length : 0;
-                    }
-                }
-            } catch (error) {
-                logger.warn(`Could not read ML data files: ${error.message}`);
-            }
-            
-            return Math.max(dbCount, fileCount);
+            return dbCount;
             
         } catch (error) {
             logger.error(`Failed to get game data count: ${error.message}`);
@@ -264,19 +248,19 @@ class MLPhaseManager {
         } catch (error) {
             logger.error(`Failed to check wealth control: ${error.message}`);
             
-            // Fallback to direct database check
+            // Fallback to direct database check (updated to use lenient $2B threshold)
             const result = await dbManager.databaseAdapter.executeQuery(
-                'SELECT COUNT(*) as count FROM user_balances WHERE (wallet + bank) > 500000000',
+                'SELECT COUNT(*) as count FROM user_balances WHERE (wallet + bank) > 2000000000',
                 []
             );
             
             const highWealthCount = result[0]?.count || 0;
             
             return {
-                active: highWealthCount === 0,
-                details: highWealthCount === 0 ? 
-                    "No players above $500M threshold" : 
-                    `${highWealthCount} players above $500M threshold (fallback check)`,
+                active: highWealthCount <= 2, // Allow up to 2 players above $2B (more lenient)
+                details: highWealthCount <= 2 ? 
+                    "Wealth control is lenient - allowing 1-2 billionaires" : 
+                    `${highWealthCount} players above $2B threshold`,
                 highWealthPlayers: highWealthCount
             };
         }
@@ -550,6 +534,43 @@ class MLPhaseManager {
         } catch (error) {
             logger.error(`Failed to generate phase recommendations: ${error.message}`);
             return [];
+        }
+    }
+
+    /**
+     * Autonomous AI control methods
+     */
+    async adjustHouseEdge(adjustment) {
+        try {
+            // This would integrate with actual game configurations
+            logger.info(`🎯 Auto-adjusting house edge by ${(adjustment * 100).toFixed(1)}%`);
+            // In a real implementation, this would update game configurations
+            return true;
+        } catch (error) {
+            logger.error(`Failed to adjust house edge: ${error.message}`);
+            return false;
+        }
+    }
+
+    async activateWealthControl() {
+        try {
+            logger.info('💰 Auto-activating enhanced wealth control');
+            // This would trigger wealth control mechanisms
+            return true;
+        } catch (error) {
+            logger.error(`Failed to activate wealth control: ${error.message}`);
+            return false;
+        }
+    }
+
+    async adjustGameLimits(multiplier) {
+        try {
+            logger.info(`🎰 Auto-adjusting game limits by ${(multiplier * 100).toFixed(1)}%`);
+            // This would update game limit configurations
+            return true;
+        } catch (error) {
+            logger.error(`Failed to adjust game limits: ${error.message}`);
+            return false;
         }
     }
 }

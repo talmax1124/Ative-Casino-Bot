@@ -484,12 +484,37 @@ client.once('clientReady', async () => {
     client.user.setActivity("you lose 😂", { type: 'WATCHING' });
     logger.info('Bot activity status set');
     
-    // LEGACY: Economic notification system replaced by EconomyGuardian
+    // LEGACY: Economic notification system replaced by Real AI Engine
     // economicManager.setNotificationClient(client);
     // logger.info('Economic notification system initialized');
     
-    // EconomyGuardian disabled to prevent ChatGPT API errors
-    logger.info('✅ EconomyGuardian disabled - running without AI analysis');
+    // Initialize Real AI Engine and Autonomous AI
+    try {
+        const realAI = require('./UTILS/realAIEngine');
+        const AutonomousAI = require('./UTILS/autonomousAI');
+        const hasApiKey = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here';
+        
+        if (hasApiKey) {
+            logger.info('🤖 Real AI Engine initialized successfully - OpenAI GPT-4o active');
+            
+            // Start autonomous AI after database is ready
+            setTimeout(async () => {
+                try {
+                    client.autonomousAI = new AutonomousAI(client);
+                    await client.autonomousAI.start();
+                    logger.info('🚀 Autonomous AI started - fully automated casino management active');
+                } catch (error) {
+                    logger.error(`Autonomous AI startup failed: ${error.message}`);
+                }
+            }, 5000); // Wait 5 seconds for database initialization
+            
+        } else {
+            logger.warn('⚠️ Real AI Engine loaded in fallback mode - OpenAI API key not configured');
+            logger.warn('⚠️ Autonomous AI disabled - requires OpenAI API key');
+        }
+    } catch (error) {
+        logger.error(`Real AI Engine initialization failed: ${error.message}`);
+    }
 
     // Initialize database
     try {
@@ -1676,6 +1701,58 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                     }
+                }
+            }
+            // Handle AI command buttons
+            else if (customId.startsWith('ai_')) {
+                try {
+                    const aiCommand = client.commands.get('ai');
+                    if (aiCommand) {
+                        // Determine which action based on button ID
+                        let action = '';
+                        switch (customId) {
+                            case 'ai_force_analysis':
+                                action = 'analyze';
+                                break;
+                            case 'ai_dashboard':
+                                action = 'dashboard';
+                                break;
+                            case 'ai_recommendations':
+                                action = 'recommendations';
+                                break;
+                            default:
+                                throw new Error(`Unknown AI button: ${customId}`);
+                        }
+
+                        // Create a mock interaction with the appropriate action
+                        const mockOptions = {
+                            getString: (name) => {
+                                if (name === 'action') return action;
+                                return null;
+                            }
+                        };
+
+                        // Update the interaction options
+                        const originalOptions = interaction.options;
+                        interaction.options = mockOptions;
+
+                        // Call the AI command execute function
+                        await aiCommand.execute(interaction);
+
+                        // Restore original options
+                        interaction.options = originalOptions;
+                    } else {
+                        await interaction.reply({
+                            content: '❌ AI command not available.',
+                            ephemeral: true
+                        });
+                    }
+                } catch (aiError) {
+                    logger.error(`Error handling AI button ${customId}:`, aiError);
+                    await interaction.reply({
+                        content: '❌ AI command error occurred.',
+                        ephemeral: true
+                    });
                 }
             }
             // Handle shop admin buttons

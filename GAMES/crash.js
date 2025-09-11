@@ -367,6 +367,28 @@ class OptimizedCrashGame {
         
         await PayoutManager.processGamePayout(gameResult);
         
+        // Record game result for AI learning
+        try {
+          await dbManager.recordGameResult(
+            userId,
+            this.guildId,
+            'crash',
+            won,
+            player.bet,
+            payout,
+            {
+              crashPoint: this.crashPoint,
+              cashOutMultiplier: player.cashOutMultiplier || 0,
+              cashedOut: player.cashedOut,
+              houseEdge: CRASH_CONFIG.house_edge,
+              gameType: 'crash',
+              multiplier: player.cashedOut ? player.cashOutMultiplier : 0
+            }
+          );
+        } catch (aiError) {
+          logger.error(`Failed to record crash game result for AI: ${aiError.message}`);
+        }
+        
       } catch (error) {
         logger.error(`Failed to process crash payout for ${userId}: ${error.message}`);
       }

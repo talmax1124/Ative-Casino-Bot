@@ -189,6 +189,30 @@ module.exports = {
 
                 await interaction.editReply({ embeds: [embed] });
 
+                // Record transaction for AI learning
+                try {
+                    await dbManager.recordGameResult(
+                        senderId,
+                        guildId,
+                        'money_transfer',
+                        true, // Always considered successful if we reach this point
+                        amount, // Full amount transferred (including tax)
+                        netAmount, // Net amount recipient received
+                        {
+                            recipientId: targetUser.id,
+                            recipientName: targetUser.displayName,
+                            taxAmount: taxAmount,
+                            taxRate: 0.05,
+                            netTransferAmount: netAmount,
+                            dailySentAfter: dailySent + amount,
+                            economyType: senderOffEco ? 'off_economy' : 'regular_economy',
+                            gameType: 'money_transfer'
+                        }
+                    );
+                } catch (aiError) {
+                    logger.error(`Failed to record money transfer for AI: ${aiError.message}`);
+                }
+
                 // Log the transfer
                 await sendLogMessage(
                     interaction.client,

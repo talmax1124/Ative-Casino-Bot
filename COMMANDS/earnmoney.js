@@ -177,6 +177,27 @@ module.exports = {
 
             await interaction.editReply({ embeds: [successEmbed] });
 
+            // Record game result for ML analysis
+            try {
+                await dbManager.recordGameResult(
+                    userId,
+                    guildId,
+                    'earnmoney',
+                    0, // No bet amount for earnmoney
+                    totalEarned,
+                    true, // Always a "win" when successful
+                    {
+                        commandsClaimed: earnedFields.length,
+                        shopUnlock: hasShopUnlock,
+                        shopBoosts: hasShopBoosts,
+                        serverBoost: hasServerBoost,
+                        boosterBonus: boosterBonus
+                    }
+                );
+            } catch (error) {
+                logger.error(`Failed to record earnmoney result: ${error.message}`);
+            }
+
             // Log the earnmoney usage
             let logMessage = `EarnMoney claimed: ${username} earned ${fmt(totalEarned)} from ${earnedFields.length} commands`;
             

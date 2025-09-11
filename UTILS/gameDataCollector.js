@@ -306,20 +306,29 @@ class GameDataCollector {
      */
     async getAnalysisData(gameType = null, daysBack = 7) {
         try {
-            const cutoffTime = Date.now() - (daysBack * 24 * 60 * 60 * 1000);
-            
+            // Use game_results table instead of ml_game_data for consistency with mlphase
             let query = `
-                SELECT * FROM ml_game_data 
-                WHERE timestamp >= ?
+                SELECT 
+                    id,
+                    user_id,
+                    guild_id,
+                    game_type,
+                    bet_amount,
+                    payout,
+                    won,
+                    played_at as timestamp,
+                    metadata
+                FROM game_results 
+                WHERE played_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
             `;
-            const params = [cutoffTime];
+            const params = [daysBack];
 
             if (gameType) {
                 query += ' AND game_type = ?';
                 params.push(gameType);
             }
 
-            query += ' ORDER BY timestamp DESC LIMIT 10000';
+            query += ' ORDER BY played_at DESC LIMIT 10000';
 
             const results = await dbManager.databaseAdapter.executeQuery(query, params);
             return results;
@@ -379,35 +388,152 @@ class GameDataCollector {
     }
 
     /**
-     * Generate AI recommendations using intelligent engine
+     * Calculate historical trends for AI analysis
+     */
+    calculateHistoricalTrends(historicalData) {
+        if (!historicalData || historicalData.length < 3) {
+            return {
+                volumeTrend: 'insufficient_data',
+                winRateTrend: 'insufficient_data', 
+                houseEdgeTrend: 'insufficient_data',
+                playerActivity: 'unknown'
+            };
+        }
+
+        const recent = historicalData.slice(-7); // Last 7 games
+        const older = historicalData.slice(-14, -7); // Previous 7 games
+
+        return {
+            volumeTrend: this.calculateTrend(recent, older, 'bet_amount'),
+            winRateTrend: this.calculateTrend(recent, older, 'won'),
+            houseEdgeTrend: this.calculateTrend(recent, older, 'payout'),
+            playerActivity: recent.length > older.length ? 'increasing' : 'stable'
+        };
+    }
+
+    /**
+     * Calculate trend between two periods
+     */
+    calculateTrend(recentPeriod, olderPeriod, metric) {
+        if (!recentPeriod.length || !olderPeriod.length) return 'stable';
+
+        const recentAvg = recentPeriod.reduce((sum, item) => {
+            const value = metric === 'won' ? (item[metric] ? 1 : 0) : parseFloat(item[metric] || 0);
+            return sum + value;
+        }, 0) / recentPeriod.length;
+
+        const olderAvg = olderPeriod.reduce((sum, item) => {
+            const value = metric === 'won' ? (item[metric] ? 1 : 0) : parseFloat(item[metric] || 0);
+            return sum + value;
+        }, 0) / olderPeriod.length;
+
+        const change = (recentAvg - olderAvg) / (olderAvg || 1);
+
+        if (change > 0.1) return 'increasing';
+        if (change < -0.1) return 'decreasing';
+        return 'stable';
+    }
+
+    /**
+     * Assess current economic state for AI
+     */
+    assessEconomicState(gameData, historicalTrends) {
+        return {
+            riskLevel: this.assessRiskLevel(gameData),
+            volatility: this.calculateVolatility(historicalTrends),
+            playerSatisfaction: this.estimatePlayerSatisfaction(gameData),
+            wealthDistribution: 'balanced', // Placeholder - could be enhanced
+            stabilityScore: this.calculateStability(gameData, historicalTrends)
+        };
+    }
+
+    /**
+     * Assess risk level based on metrics
+     */
+    assessRiskLevel(gameData) {
+        if (gameData.houseEdge < 0.05) return 'HIGH';
+        if (gameData.houseEdge > 0.20) return 'HIGH';
+        if (gameData.winRate > 0.6) return 'HIGH';
+        if (gameData.winRate < 0.2) return 'MEDIUM';
+        return 'LOW';
+    }
+
+    /**
+     * Calculate volatility indicator
+     */
+    calculateVolatility(trends) {
+        const changeCount = Object.values(trends).filter(trend => trend !== 'stable').length;
+        return changeCount / Object.keys(trends).length;
+    }
+
+    /**
+     * Estimate player satisfaction
+     */
+    estimatePlayerSatisfaction(gameData) {
+        // Higher win rate = higher satisfaction, but too high hurts house
+        const winRateScore = Math.min(1, gameData.winRate / 0.4); // Optimal around 40%
+        const houseEdgeScore = 1 - Math.min(1, gameData.houseEdge / 0.15); // Lower house edge = higher satisfaction
+        
+        return (winRateScore + houseEdgeScore) / 2;
+    }
+
+    /**
+     * Calculate overall stability
+     */
+    calculateStability(gameData, trends) {
+        const stableCount = Object.values(trends).filter(trend => trend === 'stable').length;
+        const trendStability = stableCount / Object.keys(trends).length;
+        
+        const metricStability = (gameData.houseEdge >= 0.08 && gameData.houseEdge <= 0.15) ? 1 : 0.5;
+        
+        return (trendStability + metricStability) / 2;
+    }
+
+    /**
+     * Generate REAL AI recommendations using OpenAI GPT-4
      */
     async generateRecommendation(winRate, houseEdge, avgBet, gameType = null, historicalData = null) {
         try {
-            // Use intelligent recommendation engine for advanced analysis
-            const { intelligentRecommendationEngine } = require('./intelligentRecommendationEngine');
+            logger.info('🤖 Consulting REAL AI (OpenAI GPT-4) for casino optimization...');
             
-            const currentStats = {
-                winRate,
-                houseEdge,
-                avgBetSize: avgBet,
-                houseProfit: (houseEdge * avgBet * 100) || 0 // Estimated
+            // Use REAL AI engine for genuine machine learning analysis
+            const realAI = require('./realAIEngine');
+            
+            // Prepare comprehensive data for AI
+            const gameData = {
+                totalGames: historicalData?.length || 0,
+                winRate: winRate || 0,
+                houseEdge: houseEdge || 0,
+                avgBetSize: avgBet || 0,
+                totalVolume: (avgBet * (historicalData?.length || 0)) || 0,
+                houseProfit: (houseEdge * avgBet * (historicalData?.length || 0)) || 0
             };
 
-            const intelligentRecommendations = await intelligentRecommendationEngine.generateIntelligentRecommendations(
-                gameType,
-                currentStats,
-                historicalData
+            // Get historical trends for AI context
+            const historicalTrends = this.calculateHistoricalTrends(historicalData);
+            const economicState = this.assessEconomicState(gameData, historicalTrends);
+
+            // Query REAL AI for intelligent recommendations
+            const aiRecommendations = await realAI.generateIntelligentRecommendations(
+                gameData,
+                historicalTrends,
+                economicState
             );
 
-            // Extract just the recommendation strings for compatibility
-            const recommendationStrings = intelligentRecommendations.map(rec => 
-                typeof rec === 'object' ? rec.recommendation : rec
-            );
+            // Extract recommendation strings for compatibility
+            const recommendationStrings = aiRecommendations.map(rec => {
+                if (typeof rec === 'object') {
+                    return `${rec.action}: ${rec.reasoning} (AI Confidence: ${rec.confidence}%)`;
+                }
+                return rec;
+            });
 
+            logger.info(`✅ REAL AI Analysis Complete: ${recommendationStrings.length} intelligent recommendations`);
             return recommendationStrings.length > 0 ? recommendationStrings : ['MAINTAIN_CURRENT_SETTINGS'];
 
         } catch (error) {
-            // Fallback to simple recommendations if intelligent engine fails
+            logger.warn(`Real AI temporarily unavailable: ${error.message}`);
+            // Fallback to basic recommendations if AI fails
             logger.debug(`Intelligent recommendations failed, using fallback: ${error.message}`);
             return this.generateSimpleRecommendation(winRate, houseEdge, avgBet);
         }

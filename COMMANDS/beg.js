@@ -112,6 +112,26 @@ module.exports = {
 
             await interaction.editReply({ embeds: [embed] });
 
+            // Record game result for ML analysis
+            try {
+                await dbManager.recordGameResult(
+                    userId,
+                    guildId,
+                    'beg',
+                    0, // No bet amount for begging
+                    totalEarning,
+                    true, // Always a "win" when successful
+                    {
+                        scenario: scenario.person,
+                        baseEarning: baseEarning,
+                        boosterBonus: boosterBonus,
+                        isBooster: boosterInfo.isBooster
+                    }
+                );
+            } catch (error) {
+                logger.error(`Failed to record beg result: ${error.message}`);
+            }
+
             // Log the begging
             const logMessage = boosterInfo.isBooster 
                 ? `Beg success (BOOSTED): ${username} received ${fmt(totalEarning)} (base: ${fmt(baseEarning)} + boost: ${fmt(boosterBonus)}) from ${scenario.person} - Balance: ${fmt(newWallet)}`

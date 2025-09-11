@@ -115,6 +115,26 @@ module.exports = {
 
             await interaction.editReply({ embeds: [embed] });
 
+            // Record game result for ML analysis
+            try {
+                await dbManager.recordGameResult(
+                    userId,
+                    guildId,
+                    'crime',
+                    0, // No bet amount for crime
+                    totalEarning,
+                    true, // Always a "win" when successful
+                    {
+                        crime: scenario.crime,
+                        baseEarning: baseEarning,
+                        boosterBonus: boosterBonus,
+                        isBooster: boosterInfo.isBooster
+                    }
+                );
+            } catch (error) {
+                logger.error(`Failed to record crime result: ${error.message}`);
+            }
+
             // Log the crime
             const logMessage = boosterInfo.isBooster 
                 ? `Crime completed (BOOSTED): ${username} ${scenario.crime.toLowerCase()} and earned ${fmt(totalEarning)} (base: ${fmt(baseEarning)} + boost: ${fmt(boosterBonus)}) - Balance: ${fmt(newWallet)}`

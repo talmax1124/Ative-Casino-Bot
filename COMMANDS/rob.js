@@ -253,6 +253,27 @@ module.exports = {
 
             await interaction.editReply({ embeds: [resultEmbed] });
 
+            // Record game result for ML analysis
+            try {
+                await dbManager.recordGameResult(
+                    userId,
+                    guildId,
+                    'rob',
+                    0, // No bet amount for robbery
+                    success ? robAmount : -penaltyAmount, // Positive if successful, negative if failed
+                    success, // True if successful robbery
+                    {
+                        targetUser: targetUser.displayName,
+                        targetTotal: targetTotal,
+                        robAmount: robAmount,
+                        penaltyAmount: penaltyAmount,
+                        successChance: SUCCESS_CHANCE
+                    }
+                );
+            } catch (error) {
+                logger.error(`Failed to record rob result: ${error.message}`);
+            }
+
         } catch (error) {
             logger.error(`Error processing rob command: ${error.message}`);
             

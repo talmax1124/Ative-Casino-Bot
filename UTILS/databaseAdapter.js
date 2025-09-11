@@ -969,6 +969,34 @@ class DatabaseAdapter {
     }
 
     /**
+     * Check if user is admin or developer (should be excluded from ML data)
+     */
+    isAdminOrDeveloper(userId, guildId) {
+        const DEVELOPER_ID = '466050111680544798';
+        
+        // Always exclude developer
+        if (userId === DEVELOPER_ID) {
+            return true;
+        }
+        
+        // Check for admin roles - this is a simple check
+        // You can expand this to check actual Discord roles if needed
+        try {
+            // For now, we'll exclude users with admin permissions or specific admin role IDs
+            // This can be enhanced to check actual Discord permissions when available
+            const ADMIN_USER_IDS = [
+                // Add specific admin user IDs here if known
+                // '123456789012345678', // Example admin ID
+            ];
+            
+            return ADMIN_USER_IDS.includes(userId);
+        } catch (error) {
+            // If there's an error checking, don't exclude (safer to include)
+            return false;
+        }
+    }
+
+    /**
      * Record game result for statistics
      */
     async recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
@@ -982,11 +1010,17 @@ class DatabaseAdapter {
             const safeWon = won ?? false;
             const safeMetadata = metadata ?? {};
             
+            // Exclude developers and admins from ML data collection
+            const DEVELOPER_ID = '466050111680544798';
+            const shouldCollectMLData = !this.isAdminOrDeveloper(userId, guildId);
+            
             // Collect ML data asynchronously (don't wait for it to complete to avoid slowing down games)
-            this.collectMLDataAsync(userId, guildId, gameType, won, betAmount, payout, metadata).catch(error => {
-                // Silently log ML data collection errors to avoid disrupting game flow
-                console.debug(`ML data collection failed: ${error.message}`);
-            });
+            if (shouldCollectMLData) {
+                this.collectMLDataAsync(userId, guildId, gameType, won, betAmount, payout, metadata).catch(error => {
+                    // Silently log ML data collection errors to avoid disrupting game flow
+                    console.debug(`ML data collection failed: ${error.message}`);
+                });
+            }
 
             // Insert into game_results table for history tracking
             await this.pool.execute(

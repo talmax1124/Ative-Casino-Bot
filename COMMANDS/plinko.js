@@ -414,6 +414,27 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
 
     await PayoutManager.processGamePayout(gameResult);
 
+    // Record game result for AI learning
+    try {
+        await dbManager.recordGameResult(
+            userId,
+            guildId,
+            'plinko',
+            won,
+            betAmount,
+            winnings,
+            {
+                mode: selectedMode,
+                slot: finalPosition,
+                multiplier: finalMultiplier,
+                houseEdge: 0.15,
+                gameType: 'plinko'
+            }
+        );
+    } catch (aiError) {
+        logger.error(`Failed to record plinko game result for AI: ${aiError.message}`);
+    }
+
     // Award XP for playing Plinko
     try {
         const levelingSystem = require('../UTILS/levelingSystem');
