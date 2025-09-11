@@ -1,6 +1,6 @@
 🔑 Step 0: Role Selection
 	•	🕵️ Hacker → re-themed as Infiltrator (handles gates, locks, secret passages).
-	•	💪 Muscle → fends off guards, climbs walls, carries the crown chest.
+	•	💪 Muscle (Female) → fends off guards, climbs walls, carries the crown chest.
 	•	🎭 Con Artist → poses as nobles, entertains guards, distracts royals.
 	•	🚗 Driver → themed as Carriage Master/Pilot (final escape via carriage, horses, or helicopter).
 

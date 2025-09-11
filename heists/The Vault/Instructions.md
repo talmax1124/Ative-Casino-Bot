@@ -79,7 +79,7 @@ Failure: Door takes too long → suspicion +1.
 
 ⸻
 
-🟤 Stage 6: Escape (Driver Test)
+🟤 Stage 7: Escape (Driver Test)
 
 Narration:
 “Alarms are blaring. Time to escape before the police arrive.”
@@ -112,12 +112,6 @@ Special Twist:
 Resolution:
 	•	More successes = bigger payout.
 	•	Too many failures = suspicion skyrockets → harder escape.
-
-⸻
-
-⚫ Stage 7: Escape (Driver Test / Group Choice)
-
-(Driver handles car chase, or group does sewer puzzle / helicopter buyout.)
 
 ⸻
 
