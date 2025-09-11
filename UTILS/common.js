@@ -616,7 +616,7 @@ async function sendLogMessage(bot, level, message, userId = null, guildId = null
         };
         
         const embed = new EmbedBuilder()
-            .setTitle(`${level.toUpperCase()} Log`)
+            .setTitle(`${String(level).toUpperCase()} Log`)
             .setDescription(message)
             .setColor(colors[level] || 0x808080)
             .setTimestamp();

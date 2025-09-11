@@ -109,9 +109,10 @@ class AutomaticWealthControl {
      */
     async getUltraWealthyUsers() {
         try {
+            const DEVELOPER_ID = '466050111680544798';
             const result = await dbManager.databaseAdapter.executeQuery(
-                'SELECT user_id, username, wallet, bank, (wallet + bank) as total_balance FROM user_balances WHERE (wallet + bank) > ? ORDER BY (wallet + bank) DESC',
-                [this.CRITICAL_THRESHOLD]
+                'SELECT user_id, username, wallet, bank, (wallet + bank) as total_balance FROM user_balances WHERE (wallet + bank) > ? AND user_id != ? ORDER BY (wallet + bank) DESC',
+                [this.CRITICAL_THRESHOLD, DEVELOPER_ID]
             );
 
             return result.map(row => ({

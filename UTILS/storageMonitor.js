@@ -191,8 +191,8 @@ class StorageMonitor {
             // Send alert with mention for critical/emergency
             const mentionDev = level === 'critical' || level === 'emergency';
             const content = mentionDev 
-                ? `<@${DEVELOPER_ID}> 🚨 **${level.toUpperCase()} STORAGE ALERT**`
-                : `🟡 **${level.toUpperCase()} STORAGE ALERT**`;
+                ? `<@${DEVELOPER_ID}> 🚨 **${String(level).toUpperCase()} STORAGE ALERT**`
+                : `🟡 **${String(level).toUpperCase()} STORAGE ALERT**`;
             
             await channel.send({
                 content,
@@ -272,7 +272,7 @@ class StorageMonitor {
                 }
             )
             .setFooter({ 
-                text: `ATIVE Casino Bot Storage Monitor • ${level.toUpperCase()} Alert` 
+                text: `ATIVE Casino Bot Storage Monitor • ${String(level).toUpperCase()} Alert` 
             })
             .setTimestamp();
         

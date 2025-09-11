@@ -340,7 +340,7 @@ class BackupScheduler {
         // Log the notification
         const logMethod = level === 'critical' || level === 'failure' ? 'error' : 
                          level === 'warning' ? 'warn' : 'info';
-        logger[logMethod](`📢 Backup notification [${level.toUpperCase()}]: ${JSON.stringify(data)}`);
+        logger[logMethod](`📢 Backup notification [${String(level).toUpperCase()}]: ${JSON.stringify(data)}`);
         
         // Send to webhook if configured
         if (process.env.BACKUP_WEBHOOK_URL) {
