@@ -494,7 +494,7 @@ class GameDataCollector {
      */
     async generateRecommendation(winRate, houseEdge, avgBet, gameType = null, historicalData = null) {
         try {
-            logger.info('[DEV MODE] Skipping AI consultation to avoid API calls');
+            logger.debug('[DEV MODE] Skipping AI consultation to avoid API calls');
             return {
                 recommendations: [
                     { action: 'maintain', reason: 'Development mode - AI disabled' },

@@ -555,7 +555,7 @@ client.once('clientReady', async () => {
         logger.info('Database initialized successfully');
         
         // Create startup economic summary with ChatGPT (now that database is ready)
-        if (process.env.ENVIRONMENT !== 'development') {
+        if (process.env.ENVIRONMENT === 'production') {
             setTimeout(async () => {
                 await createStartupEconomicSummary(client);
             }, 2000); // Wait 2 seconds for everything to be fully ready

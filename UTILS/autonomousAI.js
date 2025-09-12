@@ -16,11 +16,11 @@ class AutonomousAI {
         this.analysisInterval = null;
         this.monitoringInterval = null;
         
-        // Configuration - Production mode gets more aggressive settings
+        // Configuration - Reduced frequency to prevent rate limiting
         const isProduction = process.env.ENVIRONMENT === 'production';
         this.config = {
-            analysisFrequency: isProduction ? 15 * 60 * 1000 : 30 * 60 * 1000, // 15/30 minutes
-            monitoringFrequency: isProduction ? 2 * 60 * 1000 : 5 * 60 * 1000, // 2/5 minutes  
+            analysisFrequency: isProduction ? 60 * 60 * 1000 : 2 * 60 * 60 * 1000, // 1 hour / 2 hours
+            monitoringFrequency: isProduction ? 30 * 60 * 1000 : 60 * 60 * 1000, // 30 min / 1 hour  
             autoApplyRecommendations: true,
             confidenceThreshold: isProduction ? 70 : 80, // Lower threshold in production for more action
             logChannel: '1405096821512212521', // Error logs channel
@@ -331,9 +331,18 @@ URGENT: Provide immediate emergency recommendations to prevent further losses. F
                 logger.info('AI recommends enhancing player rewards - manual review required');
                 return true; // Mark as applied but don't auto-execute
                 
+            case 'REDUCE_PLAYER_WIN_RATE':
+                logger.info('AI recommends reducing player win rate - manual review required');
+                return true; // Mark as applied but don't auto-execute for safety
+                
+            case 'INCREASE_HOUSE_EDGE':
+                logger.info('AI recommends increasing house edge - manual review required');
+                return true; // Mark as applied but don't auto-execute for safety
+                
             case 'MAINTAIN_CURRENT_SETTINGS':
             case 'MONITOR_TRENDS':
             case 'CONTINUE_CURRENT_STRATEGY':
+            case 'MAINTAIN':
                 logger.debug(`AI recommendation: ${recommendation.action}`);
                 return true; // These are advisory, not actionable
                 

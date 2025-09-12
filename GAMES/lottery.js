@@ -146,6 +146,12 @@ class LotteryGame {
      */
     async checkMissedDrawingsSafely() {
         try {
+            // Skip missed drawing checks in development mode to prevent auto-draws on restarts
+            if (process.env.ENVIRONMENT !== 'production') {
+                logger.info('Skipping missed drawing check - development mode');
+                return;
+            }
+            
             logger.info('Checking for missed lottery drawings during downtime...');
             
             const lotteryInfo = await dbManager.getLotteryInfo(DESIGNATED_SERVER_ID);
@@ -158,15 +164,15 @@ class LotteryGame {
                 if (allTickets.length > 0) {
                     logger.info(`Found ${allTickets.length} participants with ${lotteryInfo.total_tickets} total tickets - eligible for drawing`);
                     
-                    // Additional safety: Only trigger if we're past a drawing day
+                    // Additional safety: Only trigger if we're well past a drawing time
                     const nowNY = moment.tz('America/New_York');
                     const currentDay = nowNY.day();
                     const currentHour = nowNY.hour();
                     
-                    // If it's past 11 AM on Tuesday or Saturday, we might have missed a 10 AM drawing
-                    if (((currentDay === 2 || currentDay === 6) && currentHour > 11) || 
-                        (currentDay > 2 && currentDay < 6) || 
-                        currentDay === 0 || currentDay === 1) {
+                    // Much more restrictive: Only if it's been several hours past drawing time
+                    if (((currentDay === 2 || currentDay === 6) && currentHour > 15) || // 3+ hours past drawing
+                        (currentDay > 2 && currentDay < 6 && currentDay !== 3) || // Wed-Fri (not Wed to avoid Tue drawing confusion)
+                        (currentDay === 0 || currentDay === 1)) { // Sunday or Monday
                         
                         logger.warn('Detected likely missed drawing - conducting lottery now');
                         const success = await this.conductWeeklyDrawing();
@@ -176,7 +182,7 @@ class LotteryGame {
                             logger.error('Failed to conduct missed lottery drawing on startup - tickets preserved');
                         }
                     } else {
-                        logger.info('Tickets found but timing suggests no missed drawing');
+                        logger.info('Tickets found but timing suggests no missed drawing needed');
                     }
                 } else {
                     logger.info(`No participants found - no drawing to conduct`);
