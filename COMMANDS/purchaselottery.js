@@ -55,7 +55,7 @@ module.exports = {
         // Calculate win probability and buyable tickets
         const totalTickets = lotteryInfo.total_tickets || 0;
         const winProbability = totalTickets > 0 ? ((currentTickets / totalTickets) * 100).toFixed(2) : "0.00";
-        const maxBuyableNow = Math.min(remainingTickets, Math.floor(balance.wallet / ticketPrice), 7);
+        const maxBuyableNow = Math.min(remainingTickets, Math.floor(balance.wallet / ticketPrice));
 
         const embed = new EmbedBuilder()
             .setColor(UITemplates.getColors().PRIMARY_GAME)
@@ -112,7 +112,7 @@ module.exports = {
         
         if (remainingTickets > 0) {
             // Calculate what user can actually afford and is allowed to buy
-            const maxBuyable = Math.min(remainingTickets, Math.floor(balance / ticketPrice), 7);
+            const maxBuyable = Math.min(remainingTickets, Math.floor(balance / ticketPrice));
             
             if (maxBuyable > 0) {
                 // First row: 1-5 tickets (or max buyable if less than 5)
@@ -127,39 +127,43 @@ module.exports = {
                             .setLabel(`${i} Ticket${i > 1 ? 's' : ''} ($${cost.toLocaleString()})`)
                             .setStyle(ButtonStyle.Primary)
                             .setEmoji('🎫')
-                            .setDisabled(balance < cost)
+                            .setDisabled(balance < cost || (currentTickets + i) > 7)
                     );
                 }
                 components.push(ticketRow1);
                 
-                // Second row: 6-7 tickets if user can afford them
+                // Second row: 6-7 tickets if user can afford them and within limits
                 if (maxBuyable > 5) {
                     const ticketRow2 = new ActionRowBuilder();
                     
-                    for (let i = 6; i <= maxBuyable; i++) {
-                        const cost = i * ticketPrice;
-                        ticketRow2.addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`lottery_buy_${i}`)
-                                .setLabel(`${i} Ticket${i > 1 ? 's' : ''} ($${cost.toLocaleString()})`)
-                                .setStyle(ButtonStyle.Primary)
-                                .setEmoji('🎫')
-                                .setDisabled(balance < cost)
-                        );
+                    for (let i = 6; i <= Math.min(maxBuyable, 7); i++) {
+                        if (currentTickets + i <= 7) { // Only show if within total limit
+                            const cost = i * ticketPrice;
+                            ticketRow2.addComponents(
+                                new ButtonBuilder()
+                                    .setCustomId(`lottery_buy_${i}`)
+                                    .setLabel(`${i} Ticket${i > 1 ? 's' : ''} ($${cost.toLocaleString()})`)
+                                    .setStyle(ButtonStyle.Primary)
+                                    .setEmoji('🎫')
+                                    .setDisabled(balance < cost || (currentTickets + i) > 7)
+                            );
+                        }
                     }
                     
-                    // Fill remaining slots with empty disabled buttons for better layout
-                    while (ticketRow2.components.length < 2) {
-                        ticketRow2.addComponents(
-                            new ButtonBuilder()
-                                .setCustomId(`lottery_empty_${ticketRow2.components.length}`)
-                                .setLabel('─')
-                                .setStyle(ButtonStyle.Secondary)
-                                .setDisabled(true)
-                        );
+                    // Only add second row if it has buttons
+                    if (ticketRow2.components.length > 0) {
+                        // Fill remaining slots with empty disabled buttons for better layout
+                        while (ticketRow2.components.length < 2) {
+                            ticketRow2.addComponents(
+                                new ButtonBuilder()
+                                    .setCustomId(`lottery_empty_${ticketRow2.components.length}`)
+                                    .setLabel('─')
+                                    .setStyle(ButtonStyle.Secondary)
+                                    .setDisabled(true)
+                            );
+                        }
+                        components.push(ticketRow2);
                     }
-                    
-                    components.push(ticketRow2);
                 }
             }
 

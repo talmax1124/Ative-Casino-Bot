@@ -28,3 +28,6 @@ Also, in the very beginning, you must ask the user to pick a role. And each heis
 If the heist was a failed, they can try agian in 48 hours. And show the Mission Failed.png image from the root of the /heists folder. If they succeed, show the Mission Passed.png image from the root of the /heists folder.
 
 Each heist once started, must be done in a thread so that others can't interfere with the heist. Ensure to use proper permissions and tracking and error tracking. 
+
+Each Team has a total of 3 Alerts. If they reach 3 alerts, the heist is failed. Each stage has a different way to gain alerts, and each stage has a different way to avoid them. Also they have the option to take a risk for more payout, but with a higher chance of getting alerts.
+
