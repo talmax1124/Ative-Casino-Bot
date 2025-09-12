@@ -66,14 +66,17 @@ async function showUserRank(interaction, targetUser, guildId) {
     const levelData = await levelingSystem.getUserLevel(targetUser.id, guildId);
     
     // Calculate progress to next level
-    const xpForNextLevel = dbManager.calculateXpForNextLevel(levelData.total_xp);
-    const currentLevelXp = levelData.xp;
-    const xpNeeded = Math.max(0, xpForNextLevel);
+    const nextLevel = levelData.level + 1;
+    const xpForNextLevel = Math.pow(nextLevel - 1, 2) * 100; // XP needed for next level
+    const xpForCurrentLevel = Math.pow(levelData.level - 1, 2) * 100; // XP needed for current level
+    const currentLevelXp = levelData.total_xp - xpForCurrentLevel; // Progress within current level
+    const xpNeeded = xpForNextLevel - xpForCurrentLevel; // Total XP needed to get to next level
+    const xpRemaining = xpForNextLevel - levelData.total_xp; // XP still needed
     
     // Create progress bar
     const progressTotal = 20;
-    const progressFilled = Math.floor((currentLevelXp / (currentLevelXp + xpNeeded)) * progressTotal);
-    const progressBar = '█'.repeat(progressFilled) + '░'.repeat(progressTotal - progressFilled);
+    const progressFilled = Math.floor((currentLevelXp / xpNeeded) * progressTotal);
+    const progressBar = '█'.repeat(Math.max(0, progressFilled)) + '░'.repeat(progressTotal - Math.max(0, progressFilled));
 
     // Calculate win rate
     const winRate = levelData.games_played > 0 ? 
@@ -86,7 +89,7 @@ async function showUserRank(interaction, targetUser, guildId) {
         .addFields(
             { 
                 name: '📊 Level Progress', 
-                value: `**Level:** ${levelData.level} (${levelingSystem.getLevelStatus(levelData.level)})\n**XP:** ${levelData.xp.toLocaleString()} / ${(currentLevelXp + xpNeeded).toLocaleString()}\n**Total XP:** ${levelData.total_xp.toLocaleString()}\n\`${progressBar}\` ${((currentLevelXp / (currentLevelXp + xpNeeded)) * 100).toFixed(1)}%`, 
+                value: `**Level:** ${levelData.level} (${levelingSystem.getLevelStatus(levelData.level)})\n**XP:** ${currentLevelXp.toLocaleString()} / ${xpNeeded.toLocaleString()}\n**Total XP:** ${levelData.total_xp.toLocaleString()}\n\`${progressBar}\` ${((currentLevelXp / xpNeeded) * 100).toFixed(1)}%`, 
                 inline: false 
             },
             { 
@@ -100,7 +103,7 @@ async function showUserRank(interaction, targetUser, guildId) {
                 inline: true 
             }
         )
-        .setFooter({ text: `🎯 Next level in ${xpNeeded.toLocaleString()} XP` })
+        .setFooter({ text: `🎯 Next level in ${xpRemaining.toLocaleString()} XP` })
         .setTimestamp();
 
     // Add next reward info if available

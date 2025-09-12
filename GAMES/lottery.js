@@ -169,17 +169,28 @@ class LotteryGame {
                     const currentDay = nowNY.day();
                     const currentHour = nowNY.hour();
                     
-                    // Much more restrictive: Only if it's been several hours past drawing time
-                    if (((currentDay === 2 || currentDay === 6) && currentHour > 15) || // 3+ hours past drawing
-                        (currentDay > 2 && currentDay < 6 && currentDay !== 3) || // Wed-Fri (not Wed to avoid Tue drawing confusion)
-                        (currentDay === 0 || currentDay === 1)) { // Sunday or Monday
+                    // Much more restrictive: Only trigger on specific days with clear missed drawing evidence
+                    const shouldTriggerMissedDrawing = 
+                        ((currentDay === 2 || currentDay === 6) && currentHour > 15) || // Same day, 5+ hours past drawing time
+                        ((currentDay === 3) && currentHour > 6) || // Wednesday morning after Tuesday drawing
+                        ((currentDay === 0) && currentHour > 6);   // Sunday morning after Saturday drawing
+                    
+                    if (shouldTriggerMissedDrawing) {
+                        // Additional safety check: verify next drawing timestamp is actually in the future
+                        const nextDrawingTime = this.getNextDrawingTimestamp();
+                        const nowTimestamp = Math.floor(Date.now() / 1000);
                         
-                        logger.warn('Detected likely missed drawing - conducting lottery now');
-                        const success = await this.conductWeeklyDrawing();
-                        if (success) {
-                            logger.info('Successfully conducted missed lottery drawing on startup');
+                        // Only conduct if the next scheduled drawing is properly in the future (at least 1 hour from now)
+                        if (nextDrawingTime > (nowTimestamp + 3600)) {
+                            logger.warn('Detected likely missed drawing - conducting lottery now');
+                            const success = await this.conductWeeklyDrawing();
+                            if (success) {
+                                logger.info('Successfully conducted missed lottery drawing on startup');
+                            } else {
+                                logger.error('Failed to conduct missed lottery drawing on startup - tickets preserved');
+                            }
                         } else {
-                            logger.error('Failed to conduct missed lottery drawing on startup - tickets preserved');
+                            logger.info('Next drawing timestamp check failed - skipping missed drawing to prevent duplicate draws');
                         }
                     } else {
                         logger.info('Tickets found but timing suggests no missed drawing needed');

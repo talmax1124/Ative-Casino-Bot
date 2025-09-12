@@ -25,31 +25,31 @@ const TREASURE_CONFIG = {
     DOORS: 3,
     DECISION_TIME: 10000, // 10 seconds
     
-    // Possible outcomes per round (gets harder as rounds progress)
+    // Balanced outcomes per round - house edge ~15-20%
     ROUND_OUTCOMES: {
-        1: { // Round 1 - Easy start
-            multipliers: [1.1, 1.2, 1.3],
-            traps: ['lose_25', 'lose_50']
+        1: { // Round 1 - 2 good, 1 trap
+            multipliers: [1.05, 1.1],
+            traps: ['lose_25']
         },
-        2: { // Round 2 - Still generous
-            multipliers: [1.2, 1.3, 1.5],
-            traps: ['lose_25', 'lose_50', 'lose_all']
+        2: { // Round 2 - 2 good, 1 trap
+            multipliers: [1.1, 1.15],
+            traps: ['lose_30']
         },
-        3: { // Round 3 - Getting riskier
-            multipliers: [1.3, 1.5, 1.8],
-            traps: ['lose_50', 'lose_75', 'lose_all']
+        3: { // Round 3 - 1 good, 2 traps
+            multipliers: [1.2],
+            traps: ['lose_40', 'lose_50']
         },
-        4: { // Round 4 - High risk, high reward
-            multipliers: [1.5, 1.8, 2.2],
-            traps: ['lose_50', 'lose_all', 'lose_all']
+        4: { // Round 4 - 1 good, 2 traps
+            multipliers: [1.3],
+            traps: ['lose_60', 'lose_all']
         },
-        5: { // Round 5 - Very dangerous
-            multipliers: [1.8, 2.0, 2.5],
-            traps: ['lose_75', 'lose_all', 'lose_all']
+        5: { // Round 5 - 1 good, 2 traps
+            multipliers: [1.5],
+            traps: ['lose_75', 'lose_all']
         },
-        6: { // Round 6 - Final round, maximum danger
-            multipliers: [2.0, 2.5, 3.5],
-            traps: ['lose_all', 'lose_all', 'lose_all']
+        6: { // Round 6 - Final round, very risky
+            multipliers: [2.0],
+            traps: ['lose_all', 'lose_all']
         }
     }
 };
@@ -493,6 +493,36 @@ module.exports = {
             currentPayout,
             { reason, rounds_completed: gameSession.round }
         );
+
+        // Add XP for game completion
+        try {
+            const levelingSystem = require('../UTILS/levelingSystem');
+            const multiplier = currentPayout / betAmount;
+            const specialResult = multiplier >= 2 ? 'big_win' : 
+                               multiplier >= 3 ? 'massive_win' : null;
+            
+            const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'treasurevault', won, specialResult);
+            
+            // Handle level up if occurred
+            if (xpResult && xpResult.levelUp) {
+                const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
+                
+                // Award level-up rewards
+                await levelingSystem.processLevelUpRewards(userId, guildId, xpResult.newLevel);
+                
+                // Send level up message in level up channel
+                try {
+                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                    if (levelUpChannel) {
+                        await levelUpChannel.send({ embeds: [levelUpEmbed] });
+                    }
+                } catch (levelError) {
+                    logger.debug(`Could not send level up message: ${levelError.message}`);
+                }
+            }
+        } catch (xpError) {
+            logger.debug(`Could not award XP for treasurevault: ${xpError.message}`);
+        }
 
         // Create final embed
         const topFields = [

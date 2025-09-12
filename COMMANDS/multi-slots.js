@@ -145,6 +145,35 @@ module.exports = {
                 logger.error(`Failed to record multi-slots game result for AI: ${aiError.message}`);
             }
 
+            // Add XP for game completion
+            try {
+                const levelingSystem = require('../UTILS/levelingSystem');
+                const specialResult = result.multiplier >= 5 ? 'big_win' : 
+                                   result.multiplier >= 20 ? 'massive_win' : null;
+                
+                const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'multi-slots', result.won, specialResult);
+                
+                // Handle level up if occurred
+                if (xpResult && xpResult.levelUp) {
+                    const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
+                    
+                    // Award level-up rewards
+                    await levelingSystem.processLevelUpRewards(userId, guildId, xpResult.newLevel);
+                    
+                    // Send level up message in level up channel
+                    try {
+                        const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                        if (levelUpChannel) {
+                            await levelUpChannel.send({ embeds: [levelUpEmbed] });
+                        }
+                    } catch (levelError) {
+                        logger.debug(`Could not send level up message: ${levelError.message}`);
+                    }
+                }
+            } catch (xpError) {
+                logger.debug(`Could not award XP for multi-slots: ${xpError.message}`);
+            }
+
             if (!payoutResult.success) {
                 logger.error(`Failed to process matrix slots payout for user ${userId}`);
                 await PayoutManager.refundBet(userId, guildId, betAmount, 'Payout processing failed');

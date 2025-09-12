@@ -388,6 +388,38 @@ class OptimizedCrashGame {
         } catch (aiError) {
           logger.error(`Failed to record crash game result for AI: ${aiError.message}`);
         }
+
+        // Add XP for game completion
+        try {
+          const levelingSystem = require('../UTILS/levelingSystem');
+          const specialResult = (player.cashedOut && player.cashOutMultiplier >= 5) ? 'big_win' : 
+                               (player.cashedOut && player.cashOutMultiplier >= 20) ? 'massive_win' : null;
+          
+          const xpResult = await levelingSystem.handleGameComplete(userId, this.guildId, 'crash', won, specialResult);
+          
+          // Handle level up if occurred
+          if (xpResult && xpResult.levelUp && this.client) {
+            const levelUpEmbed = levelingSystem.createLevelUpEmbed(
+              await this.client.users.fetch(userId), 
+              xpResult.newLevel
+            );
+            
+            // Award level-up rewards
+            await levelingSystem.processLevelUpRewards(userId, this.guildId, xpResult.newLevel);
+            
+            // Send level up message in level up channel
+            try {
+              const levelUpChannel = this.client.channels.cache.get('1411018763008217208');
+              if (levelUpChannel) {
+                await levelUpChannel.send({ embeds: [levelUpEmbed] });
+              }
+            } catch (levelError) {
+              logger.debug(`Could not send level up message: ${levelError.message}`);
+            }
+          }
+        } catch (xpError) {
+          logger.debug(`Could not award XP for crash: ${xpError.message}`);
+        }
         
       } catch (error) {
         logger.error(`Failed to process crash payout for ${userId}: ${error.message}`);

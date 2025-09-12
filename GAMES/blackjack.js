@@ -344,13 +344,13 @@ class BlackjackGame {
             baseMultiplier = 1;
             outcome = 'PUSH';
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
-            baseMultiplier = options.personalizedPayouts?.blackjack || 2.5;  // Personalized blackjack payout
+            baseMultiplier = options.personalizedPayouts?.blackjack || 1.9;  // Reduced from 2.5x for house edge
             outcome = 'BLACKJACK';
         } else if (this.dealerHand.isBusted()) {
-            baseMultiplier = options.personalizedPayouts?.win || 2.0;  // Personalized win payout
+            baseMultiplier = options.personalizedPayouts?.win || 1.7;  // Reduced from 2.0x for house edge
             outcome = 'DEALER BUSTED';
         } else if (playerValue > dealerValue) {
-            baseMultiplier = options.personalizedPayouts?.win || 2.0;  // Personalized win payout
+            baseMultiplier = options.personalizedPayouts?.win || 1.7;  // Reduced from 2.0x for house edge
             outcome = 'WIN';
         } else if (playerValue === dealerValue) {
             baseMultiplier = 1;  // Push returns bet (1x multiplier)

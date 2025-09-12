@@ -281,6 +281,35 @@ module.exports = {
                 logger.warn(`Failed to record slots game result: ${recordError.message}`);
             }
 
+            // Add XP for game completion
+            try {
+                const levelingSystem = require('../UTILS/levelingSystem');
+                const specialResult = result.multiplier >= 5 ? 'big_win' : 
+                                   result.multiplier >= 20 ? 'massive_win' : null;
+                
+                const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'slots', result.won, specialResult);
+                
+                // Handle level up if occurred
+                if (xpResult && xpResult.levelUp) {
+                    const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
+                    
+                    // Award level-up rewards
+                    await levelingSystem.processLevelUpRewards(userId, guildId, xpResult.newLevel);
+                    
+                    // Send level up message in level up channel
+                    try {
+                        const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                        if (levelUpChannel) {
+                            await levelUpChannel.send({ embeds: [levelUpEmbed] });
+                        }
+                    } catch (levelError) {
+                        logger.debug(`Could not send level up message: ${levelError.message}`);
+                    }
+                }
+            } catch (xpError) {
+                logger.debug(`Could not award XP for slots: ${xpError.message}`);
+            }
+
             // Get updated balance
             const finalBalance = await dbManager.getUserBalance(userId, guildId);
 
