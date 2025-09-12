@@ -8,18 +8,22 @@ const dbManager = require('./database');
 
 class RealAIEngine {
     constructor() {
-        // DISABLED FOR DEVELOPMENT - PREVENT API CALLS
-        this.devMode = true;
-        this.apiKey = null; // Disabled
-        this.model = null; // Disabled
-        this.baseURL = null; // Disabled
+        // Check if we're in development mode based on environment
+        this.devMode = process.env.ENVIRONMENT !== 'production';
+        this.apiKey = this.devMode ? null : process.env.OPENAI_API_KEY;
+        this.model = this.devMode ? null : 'gpt-4o';
+        this.baseURL = this.devMode ? null : 'https://api.openai.com/v1/chat/completions';
         
         // AI Learning Memory - stores insights between sessions
         this.learningMemory = new Map();
         this.analysisHistory = [];
         this.predictionAccuracy = new Map();
         
-        logger.info('🤖 Real AI Engine initialized - DEVELOPMENT MODE (API calls disabled)');
+        if (this.devMode) {
+            logger.info(`🤖 Real AI Engine initialized - DEVELOPMENT MODE (${process.env.ENVIRONMENT || 'development'}) - API calls disabled`);
+        } else {
+            logger.info('🤖 Real AI Engine initialized - PRODUCTION MODE - AI consultation active');
+        }
     }
 
     /**
@@ -28,15 +32,17 @@ class RealAIEngine {
     async generateIntelligentRecommendations(gameData, historicalTrends, economicState) {
         try {
             if (this.devMode) {
-                logger.info('[DEV MODE] Skipping OpenAI GPT-4 consultation - API calls disabled');
-                return {
-                    recommendations: [
-                        { type: 'maintain', confidence: 0.8, reason: 'Development mode - no AI analysis' }
-                    ],
-                    confidence: 0.5,
-                    timestamp: Date.now(),
-                    devMode: true
-                };
+                logger.info(`[DEV MODE - ${process.env.ENVIRONMENT}] Skipping OpenAI GPT-4 consultation - API calls disabled`);
+                return [
+                    { 
+                        action: 'maintain', 
+                        confidence: 0.8, 
+                        reasoning: 'Development mode - no AI analysis',
+                        source: 'dev_mode_fallback',
+                        priority: 'LOW',
+                        timestamp: Date.now()
+                    }
+                ];
             }
 
             logger.info('🧠 Consulting OpenAI GPT-4 for casino optimization...');

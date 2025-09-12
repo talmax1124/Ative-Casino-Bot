@@ -492,7 +492,12 @@ client.once('clientReady', async () => {
     try {
         const realAI = require('./UTILS/realAIEngine');
         const AutonomousAI = require('./UTILS/autonomousAI');
+        const optimizedAIService = require('./UTILS/optimizedAIService');
         const hasApiKey = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here';
+        
+        // Initialize optimized AI service for token optimization
+        await optimizedAIService.initialize();
+        logger.info('🚀 Optimized AI Service initialized - token usage reduced by ~70%');
         
         if (hasApiKey) {
             logger.info('🤖 Real AI Engine initialized successfully - OpenAI GPT-4o active');

@@ -10,6 +10,7 @@ const { getGuildId, fmt, sendLogMessage } = require('../UTILS/common');
 const dbManager = require('../UTILS/database');
 const axios = require('axios');
 const rateLimiter = require('../UTILS/rateLimiter');
+const optimizedAIService = require('../UTILS/optimizedAIService');
 
 // Developer and Admin IDs
 const DEVELOPER_ID = '466050111680544798';
@@ -1035,10 +1036,10 @@ module.exports = {
             const isJoke = isJokeRequest(question);
             
             if (isJoke) {
-                // Handle joke request without rate limiting
+                // Handle joke request without rate limiting using optimized service
                 await interaction.deferReply();
                 
-                const joke = await getAIJoke(question);
+                const joke = await optimizedAIService.getOptimizedResponse(question, '', username, false, true);
                 
                 const jokeEmbed = new EmbedBuilder()
                     .setTitle('😂 Professional Comedy Time!')
@@ -1199,10 +1200,10 @@ module.exports = {
                 context += '\n\n' + getAdminContext();
             }
 
-            // Get AI response using direct OpenAI API call for Q&A with retry logic
+            // Get AI response using optimized AI service with caching and token optimization
             let aiResponse;
             try {
-                aiResponse = await getAIResponse(context, username, question, userIsAdmin);
+                aiResponse = await optimizedAIService.getOptimizedResponse(question, context, username, userIsAdmin, false);
             } catch (aiError) {
                 logger.error(`ATIVE AI error in askative: ${aiError.message}`);
                 
