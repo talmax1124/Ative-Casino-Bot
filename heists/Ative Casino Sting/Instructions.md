@@ -27,7 +27,7 @@ Action:
 	•	🎭 Con Artist rolls persuasion (d100 ≥ 70).
 	•	If no Con Artist → all roll stealth (≥ 60).
 
-	Game Instruction: try to convince the guard you belong. If you fail, you can try to sneak in instead. 
+	 
 
 Failure: Alert +1.
 

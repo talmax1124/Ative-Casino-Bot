@@ -6,7 +6,8 @@
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
-const { sendLogMessage, parseAmount, fmt } = require('../UTILS/common');
+const { sendLogMessage, parseAmount, fmt, buildInvalidBetEmbed } = require('../UTILS/common');
+const dbManager = require('../UTILS/database');
 const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
 const logger = require('../UTILS/logger');
@@ -27,7 +28,7 @@ module.exports = {
         .setDescription('🔫 Start a deadly game of Russian Roulette - last survivor wins all!')
         .addStringOption(option =>
             option.setName('bet')
-                .setDescription(`Entry amount (minimum $${ROULETTE_CONFIG.MIN_BET}, no maximum!) - supports K/M/B suffixes`)
+                .setDescription(`Entry amount (minimum $${ROULETTE_CONFIG.MIN_BET}, NO MAX LIMIT - bet everything!) - supports K/M/B suffixes`)
                 .setRequired(true)
         )
         .addIntegerOption(option =>
@@ -48,7 +49,7 @@ module.exports = {
         const username = interaction.user.displayName;
         const guildId = interaction.guildId;
         const betAmountStr = interaction.options.getString('bet');
-        const joinTime = interaction.options.getInteger('time') || 60; // Default 60 seconds
+        const joinTime = interaction.options.getInteger('time') || 30; // Default 30 seconds (faster)
         const forceStart = interaction.options.getBoolean('forcestart') || false;
 
         try {
@@ -73,20 +74,26 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // Use PayoutManager for bet validation only (don't deduct yet)
-            const validation = await PayoutManager.validateBet(
-                interaction,
-                betAmountStr,
-                GameType.RUSSIAN_ROULETTE,
-                ROULETTE_CONFIG.MIN_BET,
-                null  // No maximum bet limit
-            );
-            
-            if (!validation.isValid) {
-                return await interaction.editReply({ embeds: [validation.errorEmbed] });
+            // Custom validation for Russian Roulette - bypasses wealth ceiling
+            const parsedAmount = parseAmount(betAmountStr);
+            if (isNaN(parsedAmount) || parsedAmount <= 0) {
+                const embed = buildInvalidBetEmbed('Invalid bet amount.');
+                return await interaction.editReply({ embeds: [embed] });
             }
             
-            const betAmount = validation.parsedAmount;
+            if (parsedAmount < ROULETTE_CONFIG.MIN_BET) {
+                const embed = buildInvalidBetEmbed(`Minimum bet is ${fmt(ROULETTE_CONFIG.MIN_BET)}.`);
+                return await interaction.editReply({ embeds: [embed] });
+            }
+            
+            // Check if user has enough funds - NO WEALTH CEILING FOR RUSSIAN ROULETTE
+            const userBalance = await dbManager.getUserBalance(userId, guildId);
+            if (userBalance.wallet < parsedAmount) {
+                const embed = buildInvalidBetEmbed(`Insufficient funds. You have ${fmt(userBalance.wallet)} in your wallet.`);
+                return await interaction.editReply({ embeds: [embed] });
+            }
+            
+            const betAmount = parsedAmount;
             logger.info(`Russian Roulette started by ${username} (${userId}) with bet ${fmt(betAmount)}`);
 
             // Create session for Russian Roulette

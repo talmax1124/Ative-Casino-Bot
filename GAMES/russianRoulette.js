@@ -20,15 +20,15 @@ const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PayoutManager, GameResult } = require('../UTILS/gameUtils');
 const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('../UTILS/rng');
 
-// Game Configuration
+// Game Configuration - FAST MODE
 const CONFIG = {
     MIN_PLAYERS: 2,
     MAX_PLAYERS: null, // Unlimited players
-    JOIN_TIME: 60000,      // 60 seconds to join
-    COUNTDOWN_TIME: 10000,  // 10 second pre-game countdown
-    TURN_INTERVAL: 4000,   // 4 seconds per turn
-    TENSION_BUILD: 2000,   // 2 seconds tension before trigger
-    RELOAD_TIME: 6000,     // 6 seconds for reload sequence
+    JOIN_TIME: 30000,      // 30 seconds to join (faster)
+    COUNTDOWN_TIME: 5000,  // 5 second pre-game countdown (faster)
+    TURN_INTERVAL: 2000,   // 2 seconds per turn (faster)
+    TENSION_BUILD: 1000,   // 1 second tension before trigger (faster)
+    RELOAD_TIME: 3000,     // 3 seconds for reload sequence (faster)
     CHAMBER_SIZE: 6,       // 6-shot revolver
     JAM_CHANCE: 0.15,      // 15% chance gun jams
     HOUSE_EDGE: 0.02       // 2% house fee
@@ -515,12 +515,12 @@ class RussianRouletteGame {
             }
             
             if (i < countdownMessages.length - 1) {
-                await this.sleep(1500);
+                await this.sleep(800); // Faster countdown
             }
         }
         
         // Start actual gameplay
-        await this.sleep(2000);
+        await this.sleep(1000); // Faster transition
         this.startGameplay();
     }
 
@@ -600,7 +600,7 @@ class RussianRouletteGame {
         
         // Show turn start
         await this.updateGameDisplay('turn_start', currentPlayer);
-        await this.sleep(CONFIG.TENSION_BUILD);
+        await this.sleep(CONFIG.TENSION_BUILD); // Now uses faster 1000ms
         
         // Pull trigger
         const result = this.pullTrigger();
@@ -616,14 +616,14 @@ class RussianRouletteGame {
             await this.updateGameDisplay('empty', currentPlayer, result);
         }
         
-        await this.sleep(2000);
+        await this.sleep(1000); // Faster result display
         
         // Move to next player
         this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.playerOrder.length;
         this.currentTurn++;
         
         // Continue game
-        this.turnTimer = setTimeout(() => this.processTurn(), 1000);
+        this.turnTimer = setTimeout(() => this.processTurn(), 500); // Faster turn progression
     }
 
     /**
@@ -668,7 +668,7 @@ class RussianRouletteGame {
         
         for (let i = 0; i < reloadMessages.length; i++) {
             await this.updateGameDisplay('reloading', null, { message: reloadMessages[i], step: i + 1 });
-            await this.sleep(1200);
+            await this.sleep(600); // Faster reload sequence
         }
         
         // Generate new chamber
@@ -677,7 +677,7 @@ class RussianRouletteGame {
         this.state = GameState.PLAYING;
         
         // Continue game
-        await this.sleep(1000);
+        await this.sleep(500); // Faster reload completion
         this.processTurn();
     }
 
