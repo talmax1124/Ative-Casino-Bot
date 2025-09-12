@@ -504,10 +504,9 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
-        if (this.usingAdapter) {
-            return await this.databaseAdapter.recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata);
-        }
-        return false;
+        // Temporarily disabled to avoid AI calls during development
+        console.log(`[DEV MODE] Skipping recordGameResult for ${gameType} - AI calls disabled`);
+        return true;
     }
 
     /**

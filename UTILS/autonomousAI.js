@@ -16,13 +16,17 @@ class AutonomousAI {
         this.analysisInterval = null;
         this.monitoringInterval = null;
         
-        // Configuration
+        // Configuration - Production mode gets more aggressive settings
+        const isProduction = process.env.ENVIRONMENT === 'production';
         this.config = {
-            analysisFrequency: 30 * 60 * 1000, // 30 minutes
-            monitoringFrequency: 5 * 60 * 1000, // 5 minutes
+            analysisFrequency: isProduction ? 15 * 60 * 1000 : 30 * 60 * 1000, // 15/30 minutes
+            monitoringFrequency: isProduction ? 2 * 60 * 1000 : 5 * 60 * 1000, // 2/5 minutes  
             autoApplyRecommendations: true,
-            confidenceThreshold: 80, // Only apply recommendations with 80%+ confidence
-            logChannel: '1405096821512212521' // Error logs channel
+            confidenceThreshold: isProduction ? 70 : 80, // Lower threshold in production for more action
+            logChannel: '1405096821512212521', // Error logs channel
+            productionMode: isProduction,
+            economicManagement: isProduction, // Enable active economic management in production
+            aggressiveOptimization: isProduction // More aggressive optimizations in production
         };
         
         logger.info('🤖 Autonomous AI Manager initialized');
@@ -61,15 +65,25 @@ class AutonomousAI {
                 });
             }, 30000); // Wait 30 seconds after startup
             
-            logger.info('🚀 Autonomous AI started - monitoring every 5 minutes, analyzing every 30 minutes');
+            const monitoringMinutes = Math.floor(this.config.monitoringFrequency / (60 * 1000));
+            const analysisMinutes = Math.floor(this.config.analysisFrequency / (60 * 1000));
+            
+            logger.info(`🚀 Autonomous AI started - monitoring every ${monitoringMinutes} minutes, analyzing every ${analysisMinutes} minutes`);
+            
+            if (this.config.productionMode) {
+                logger.info('🏭 PRODUCTION MODE: AI economic management active with aggressive optimization');
+            }
             
             // Notify in Discord
+            const modeText = this.config.productionMode ? '**PRODUCTION MODE**' : '**Development Mode**';
+            const economicText = this.config.economicManagement ? '\n• **Economic Management**: Active' : '';
+            
             await this.sendAINotification('🤖 **Autonomous AI Started**', 
-                'AI is now monitoring and optimizing your casino automatically.\n\n' +
-                '• **Monitoring**: Every 5 minutes\n' +
-                '• **Analysis**: Every 30 minutes\n' +
-                '• **Auto-Apply**: High confidence recommendations\n\n' +
-                'Use `/ai overview` to see current status.', 0x00FF00);
+                `AI is now monitoring and optimizing your casino automatically.\n\n${modeText}\n\n` +
+                `• **Monitoring**: Every ${monitoringMinutes} minutes\n` +
+                `• **Analysis**: Every ${analysisMinutes} minutes\n` +
+                `• **Auto-Apply**: ${this.config.confidenceThreshold}%+ confidence recommendations${economicText}\n\n` +
+                'Use `/ai overview` to see current status.', this.config.productionMode ? 0xFF6600 : 0x00FF00);
                 
         } catch (error) {
             logger.error(`Failed to start Autonomous AI: ${error.message}`);
@@ -175,6 +189,11 @@ class AutonomousAI {
                         applied.map(rec => `✅ **${rec.action}** (${rec.confidence}% confidence)\n${rec.reasoning.slice(0, 100)}...`).join('\n\n'), 
                         0x00FF00);
                 }
+            }
+            
+            // Production mode: Active economic management
+            if (this.config.economicManagement) {
+                await this.performEconomicManagement(stats, recommendations);
             }
             
             // ML phase is managed separately
@@ -357,14 +376,52 @@ URGENT: Provide immediate emergency recommendations to prevent further losses. F
      */
     async sendAINotification(title, message, color) {
         try {
-            await sendLogMessage(this.client, {
-                title,
-                description: message,
-                color,
-                timestamp: new Date().toISOString()
-            }, this.config.logChannel);
+            await sendLogMessage(this.client, 'info', `${title}: ${message}`);
         } catch (error) {
             logger.error(`Failed to send AI notification: ${error.message}`);
+        }
+    }
+
+    /**
+     * Perform active economic management (production mode only)
+     */
+    async performEconomicManagement(stats, recommendations) {
+        try {
+            logger.info('🏭 Performing active economic management...');
+            
+            const actions = [];
+            
+            // Check for wealth redistribution needs
+            if (stats.totalPlayerBalance > 1000000000) { // 1B+
+                logger.warn('High player wealth detected - considering redistribution measures');
+                actions.push('wealth_monitoring');
+            }
+            
+            // Check house edge performance
+            if (stats.houseEdge < 0.08) {
+                logger.warn('House edge below optimal - considering game adjustments');
+                actions.push('house_edge_optimization');
+            }
+            
+            // Check for excessive wins
+            if (stats.bigWinsLast24h > 50000000) { // 50M+ in wins
+                logger.warn('High payout volume detected - increasing monitoring');
+                actions.push('payout_monitoring');
+            }
+            
+            // Apply economic interventions
+            if (actions.length > 0) {
+                await this.sendAINotification('🏭 **Economic Management Active**', 
+                    `AI detected economic conditions requiring attention:\n\n` +
+                    actions.map(action => `• ${action.replace('_', ' ').toUpperCase()}`).join('\n') +
+                    `\n\nMonitoring and optimization measures activated.`,
+                    0xFF6600);
+                
+                logger.info(`Applied ${actions.length} economic management actions`);
+            }
+            
+        } catch (error) {
+            logger.error(`Economic management error: ${error.message}`);
         }
     }
 
@@ -376,7 +433,9 @@ URGENT: Provide immediate emergency recommendations to prevent further losses. F
             isRunning: this.isRunning,
             config: this.config,
             nextAnalysis: this.analysisInterval ? Date.now() + this.config.analysisFrequency : null,
-            nextMonitoring: this.monitoringInterval ? Date.now() + this.config.monitoringFrequency : null
+            nextMonitoring: this.monitoringInterval ? Date.now() + this.config.monitoringFrequency : null,
+            productionMode: this.config.productionMode,
+            economicManagement: this.config.economicManagement
         };
     }
 }

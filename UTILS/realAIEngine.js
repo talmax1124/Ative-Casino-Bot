@@ -8,16 +8,18 @@ const dbManager = require('./database');
 
 class RealAIEngine {
     constructor() {
-        this.apiKey = process.env.OPENAI_API_KEY;
-        this.model = process.env.AI_MODEL || 'gpt-4o'; // Use GPT-4o for best analysis (latest model)
-        this.baseURL = 'https://api.openai.com/v1/chat/completions';
+        // DISABLED FOR DEVELOPMENT - PREVENT API CALLS
+        this.devMode = true;
+        this.apiKey = null; // Disabled
+        this.model = null; // Disabled
+        this.baseURL = null; // Disabled
         
         // AI Learning Memory - stores insights between sessions
         this.learningMemory = new Map();
         this.analysisHistory = [];
         this.predictionAccuracy = new Map();
         
-        logger.info('🤖 Real AI Engine initialized - OpenAI GPT-4 integration active');
+        logger.info('🤖 Real AI Engine initialized - DEVELOPMENT MODE (API calls disabled)');
     }
 
     /**
@@ -25,6 +27,18 @@ class RealAIEngine {
      */
     async generateIntelligentRecommendations(gameData, historicalTrends, economicState) {
         try {
+            if (this.devMode) {
+                logger.info('[DEV MODE] Skipping OpenAI GPT-4 consultation - API calls disabled');
+                return {
+                    recommendations: [
+                        { type: 'maintain', confidence: 0.8, reason: 'Development mode - no AI analysis' }
+                    ],
+                    confidence: 0.5,
+                    timestamp: Date.now(),
+                    devMode: true
+                };
+            }
+
             logger.info('🧠 Consulting OpenAI GPT-4 for casino optimization...');
 
             // Prepare comprehensive data for AI analysis

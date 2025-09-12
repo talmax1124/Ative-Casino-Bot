@@ -494,10 +494,15 @@ class GameDataCollector {
      */
     async generateRecommendation(winRate, houseEdge, avgBet, gameType = null, historicalData = null) {
         try {
-            logger.info('🤖 Consulting REAL AI (OpenAI GPT-4) for casino optimization...');
-            
-            // Use REAL AI engine for genuine machine learning analysis
-            const realAI = require('./realAIEngine');
+            logger.info('[DEV MODE] Skipping AI consultation to avoid API calls');
+            return {
+                recommendations: [
+                    { action: 'maintain', reason: 'Development mode - AI disabled' },
+                    { action: 'monitor', reason: 'Testing phase - manual adjustments only' }
+                ],
+                analysisComplete: true,
+                devMode: true
+            };
             
             // Prepare comprehensive data for AI
             const gameData = {

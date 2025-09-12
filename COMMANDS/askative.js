@@ -188,21 +188,92 @@ function isMoneyRelatedQuestion(question) {
 function isJokeRequest(question) {
     const jokePatterns = [
         /\b(?:tell|give).*(?:me|us).*(?:a|some).*(?:joke|jokes)\b/i,
-        /\b(?:joke|jokes)\b.*\?/i,
-        /\b(?:funny|humor|humour)\b/i,
+        /\b(?:joke|jokes)\b/i,
+        /\b(?:funny|humor|humour|comedy|comedic)\b/i,
         /\bmake me laugh\b/i,
         /\b(?:something funny|be funny)\b/i,
-        /\bwant.*(?:joke|laugh)\b/i,
-        /\b(?:dad joke|dad jokes)\b/i
+        /\bwant.*(?:joke|laugh|funny)\b/i,
+        /\b(?:dad joke|dad jokes|puns?|riddles?)\b/i,
+        /\b(?:roast|insult|burn|savage)\b/i,
+        /\b(?:dirty|adult|inappropriate|nsfw|sexual|rude)\b.*joke/i,
+        /\b(?:dark|twisted|morbid|sick)\b.*(?:humor|joke)/i,
+        /\b(?:pickup line|pick.*up.*line)\b/i,
+        /\bentertain.*me\b/i
     ];
     
     return jokePatterns.some(pattern => pattern.test(question));
 }
 
 /**
- * Get a random dad joke
+ * Get a professional-level AI-generated joke with retry logic
  */
-function getDadJoke() {
+async function getAIJoke(question) {
+    const MAX_RETRIES = 3;
+    const INITIAL_DELAY = 1000;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const openaiApiKey = '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';
+            
+            const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+                model: 'gpt-4o-mini',
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a professional stand-up comedian with impeccable timing and wit. Create original, genuinely hilarious jokes that match the user's request. You can create clean comedy, adult humor, roasts, dark comedy, or any style requested - adjust your content appropriately to the request. Your jokes should be clever, well-crafted, and showcase professional-level comedic timing. Make it memorable and actually funny - not just basic wordplay."
+                    },
+                    {
+                        role: "user",
+                        content: `Create a professional-quality original joke based on this request: "${question.substring(0, 200)}". Match the style and tone they're asking for. Make it genuinely funny and clever. Return ONLY the joke content, no additional text or explanations.`
+                    }
+                ],
+                max_tokens: 150,
+                temperature: 0.9,
+                presence_penalty: 0.6,
+                frequency_penalty: 0.6
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${openaiApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 10000
+            });
+            
+            const joke = response.data.choices[0]?.message?.content?.trim();
+            
+            if (joke && joke.length > 0) {
+                logger.info(`AI joke generated successfully on attempt ${attempt}`);
+                return joke;
+            } else {
+                throw new Error('Empty joke response');
+            }
+            
+        } catch (error) {
+            logger.warn(`AI joke attempt ${attempt}/${MAX_RETRIES} failed: ${error.message}`);
+            
+            if (error.response?.status === 429) {
+                const delay = INITIAL_DELAY * Math.pow(2, attempt - 1);
+                logger.info(`Rate limited, waiting ${delay}ms before retry ${attempt}`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+            
+            if (attempt === MAX_RETRIES) {
+                logger.error(`All AI joke attempts failed, falling back to dad joke`);
+                return getFallbackJoke();
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
+    
+    return getFallbackJoke();
+}
+
+/**
+ * Get a fallback dad joke when AI fails
+ */
+function getFallbackJoke() {
     const dadJokes = [
         "Why don't scientists trust atoms? Because they make up everything!",
         "I invented a new word: Plagiarism!",
@@ -227,6 +298,93 @@ function getDadJoke() {
     ];
     
     return dadJokes[Math.floor(Math.random() * dadJokes.length)];
+}
+
+/**
+ * Get AI response with retry logic and rate limiting handling
+ */
+async function getAIResponse(context, username, question, userIsAdmin) {
+    const MAX_RETRIES = 3;
+    const INITIAL_DELAY = 1000;
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const openaiApiKey = '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';
+            
+            if (!openaiApiKey) {
+                throw new Error('AI system unavailable - no API key configured');
+            }
+            
+            const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+                model: 'gpt-4o-mini',
+                messages: [
+                    {
+                        role: "system",
+                        content: context
+                    },
+                    {
+                        role: "user", 
+                        content: `USER: ${username} (${userIsAdmin ? 'Admin' : 'Player'})
+                        QUESTION: "${question}"
+                        
+                        Respond as ATIVE, the enthusiastic casino AI! Make your response:
+                        - Personal and engaging (use their context if relevant)
+                        - Informative with specific details
+                        - Include relevant emojis for visual appeal
+                        - Encourage them to try specific games or commands
+                        - Keep under 900 characters for Discord embeds
+                        - Match their energy level
+                        
+                        If they ask about games, suggest specific ones based on their question.
+                        If they ask about earning money, give practical steps.
+                        If they seem new, guide them through getting started.
+                        If they're an admin asking technical questions, provide detailed info.
+                        
+                        Be helpful, friendly, and make them excited about using the casino!`
+                    }
+                ],
+                max_tokens: 1000,
+                temperature: 0.7
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${openaiApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 15000
+            });
+            
+            const aiResponse = response.data.choices[0]?.message?.content;
+            
+            if (aiResponse && aiResponse.trim().length > 0) {
+                logger.info(`AI response generated successfully on attempt ${attempt}`);
+                return aiResponse.trim();
+            } else {
+                throw new Error('Empty AI response');
+            }
+            
+        } catch (error) {
+            logger.warn(`AI response attempt ${attempt}/${MAX_RETRIES} failed: ${error.message}`);
+            
+            if (error.response?.status === 429) {
+                const delay = INITIAL_DELAY * Math.pow(2, attempt - 1);
+                logger.info(`Rate limited, waiting ${delay}ms before retry ${attempt}`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+            
+            if (error.response?.status === 503 || error.response?.status === 502) {
+                logger.info(`Server error, waiting ${1000 * attempt}ms before retry ${attempt}`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                continue;
+            }
+            
+            if (attempt === MAX_RETRIES) {
+                throw error;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
 }
 
 /**
@@ -878,10 +1036,12 @@ module.exports = {
             
             if (isJoke) {
                 // Handle joke request without rate limiting
-                const joke = getDadJoke();
+                await interaction.deferReply();
+                
+                const joke = await getAIJoke(question);
                 
                 const jokeEmbed = new EmbedBuilder()
-                    .setTitle('😂 Dad Joke Time!')
+                    .setTitle('😂 Professional Comedy Time!')
                     .setDescription(joke)
                     .addFields([
                         {
@@ -891,11 +1051,11 @@ module.exports = {
                         }
                     ])
                     .setColor(0xFFA500)
-                    .setFooter({ text: 'Dad jokes don\'t count towards your hourly limit! 🎪' })
+                    .setFooter({ text: 'AI-generated jokes don\'t count towards your hourly limit! 🎪' })
                     .setTimestamp();
 
-                logger.info(`Joke request fulfilled for ${username} (${userId}) - bypassed rate limit`);
-                return await interaction.reply({ embeds: [jokeEmbed] });
+                logger.info(`AI joke request fulfilled for ${username} (${userId}) - bypassed rate limit`);
+                return await interaction.editReply({ embeds: [jokeEmbed] });
             }
 
             // Rate limiting check for non-jokes (exempts admins, developers, and system accounts)
@@ -1039,56 +1199,10 @@ module.exports = {
                 context += '\n\n' + getAdminContext();
             }
 
-            // Get AI response using direct OpenAI API call for Q&A
+            // Get AI response using direct OpenAI API call for Q&A with retry logic
             let aiResponse;
             try {
-                const openaiApiKey = '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';
-                if (openaiApiKey) {
-                    // Make direct OpenAI API call for Q&A (not JSON format)
-                    
-                    const response = await axios.post('https://api.openai.com/v1/chat/completions', {
-                        model: 'gpt-4o-mini',
-                        messages: [
-                            {
-                                role: "system",
-                                content: context
-                            },
-                            {
-                                role: "user", 
-                                content: `USER: ${username} (${userIsAdmin ? 'Admin' : 'Player'})
-                                QUESTION: "${question}"
-                                
-                                Respond as ATIVE, the enthusiastic casino AI! Make your response:
-                                - Personal and engaging (use their context if relevant)
-                                - Informative with specific details
-                                - Include relevant emojis for visual appeal
-                                - Encourage them to try specific games or commands
-                                - Keep under 900 characters for Discord embeds
-                                - Match their energy level
-                                
-                                If they ask about games, suggest specific ones based on their question.
-                                If they ask about earning money, give practical steps.
-                                If they seem new, guide them through getting started.
-                                If they're an admin asking technical questions, provide detailed info.
-                                
-                                Be helpful, friendly, and make them excited about using the casino!`
-                            }
-                        ],
-                        max_tokens: 1000,
-                        temperature: 0.7
-                    }, {
-                        headers: {
-                            'Authorization': `Bearer ${openaiApiKey}`,
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                    
-                    aiResponse = response.data.choices[0]?.message?.content || 'No response generated';
-                    
-                } else {
-                    // Fallback if API key not configured
-                    throw new Error('AI system unavailable - no API key configured');
-                }
+                aiResponse = await getAIResponse(context, username, question, userIsAdmin);
             } catch (aiError) {
                 logger.error(`ATIVE AI error in askative: ${aiError.message}`);
                 

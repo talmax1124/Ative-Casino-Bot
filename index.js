@@ -35,12 +35,12 @@ process.on('unhandledRejection', (reason, promise) => {
     }
     
     // Handle other unhandled rejections
-    logger.error('Unhandled promise rejection:', reason);
-    logger.error('Promise:', promise);
+    logger.error('Unhandled promise rejection:', reason instanceof Error ? reason.message : JSON.stringify(reason, null, 2));
+    logger.error('Promise:', promise ? JSON.stringify(promise, null, 2) : 'undefined');
 });
 
 process.on('uncaughtException', (error) => {
-    logger.error('Uncaught exception:', error);
+    logger.error('Uncaught exception:', error instanceof Error ? error.message : JSON.stringify(error, null, 2));
     // Don't exit the process for unknown interaction errors
     if (error.message && error.message.includes('Unknown interaction')) {
         logger.debug('Unknown interaction uncaught exception handled');
@@ -500,11 +500,39 @@ client.once('clientReady', async () => {
             // Start autonomous AI after database is ready
             setTimeout(async () => {
                 try {
+                    logger.info('Initializing Autonomous AI system...');
                     client.autonomousAI = new AutonomousAI(client);
                     await client.autonomousAI.start();
                     logger.info('🚀 Autonomous AI started - fully automated casino management active');
+                    
+                    // Ensure AI is properly running in production
+                    if (process.env.ENVIRONMENT === 'production') {
+                        logger.info('Production mode: Autonomous AI economic management enabled');
+                        // Force a status check after 1 minute
+                        setTimeout(() => {
+                            if (client.autonomousAI && client.autonomousAI.isRunning) {
+                                logger.info('✅ Autonomous AI confirmed running in production');
+                            } else {
+                                logger.error('❌ Autonomous AI not running in production - manual restart required');
+                            }
+                        }, 60000);
+                    }
                 } catch (error) {
                     logger.error(`Autonomous AI startup failed: ${error.message}`);
+                    
+                    // Try to restart AI in production after failure
+                    if (process.env.ENVIRONMENT === 'production') {
+                        logger.warn('Production mode: Attempting AI restart in 2 minutes...');
+                        setTimeout(async () => {
+                            try {
+                                client.autonomousAI = new AutonomousAI(client);
+                                await client.autonomousAI.start();
+                                logger.info('🚀 Autonomous AI restarted successfully');
+                            } catch (restartError) {
+                                logger.error(`AI restart failed: ${restartError.message}`);
+                            }
+                        }, 120000); // 2 minutes
+                    }
                 }
             }, 5000); // Wait 5 seconds for database initialization
             
@@ -550,13 +578,47 @@ client.once('clientReady', async () => {
         logger.error('Failed to load commands:', error);
     }
 
-    // Initialize lottery system
-    try {
-        client.lotteryGame = new LotteryGame(client);
-        await client.lotteryGame.initialize();
-        logger.info('Lottery system initialized successfully');
-    } catch (error) {
-        logger.error('Failed to initialize lottery system:', error);
+    // Initialize lottery system (disabled in development)
+    if (process.env.ENVIRONMENT !== 'development') {
+        try {
+            client.lotteryGame = new LotteryGame(client);
+            await client.lotteryGame.initialize();
+            logger.info('Lottery system initialized successfully');
+            
+            // Set up lottery restart handler in case of critical failures
+            client.restartLotterySystem = async () => {
+                try {
+                    logger.warn('Attempting to restart lottery system...');
+                    if (client.lotteryGame && client.lotteryGame.scheduledDrawing) {
+                        clearTimeout(client.lotteryGame.scheduledDrawing);
+                    }
+                    client.lotteryGame = new LotteryGame(client);
+                    await client.lotteryGame.initialize();
+                    logger.info('Lottery system restarted successfully');
+                    return true;
+                } catch (restartError) {
+                    logger.error(`Failed to restart lottery system: ${restartError.message}`);
+                    return false;
+                }
+            };
+            
+        } catch (error) {
+            logger.error('Failed to initialize lottery system:', error);
+            
+            // Fallback: Try to initialize lottery system again after 5 minutes
+            setTimeout(async () => {
+                try {
+                    logger.info('Attempting lottery system fallback initialization...');
+                    client.lotteryGame = new LotteryGame(client);
+                    await client.lotteryGame.initialize();
+                    logger.info('Lottery system fallback initialization successful');
+                } catch (fallbackError) {
+                    logger.error('Lottery system fallback initialization failed:', fallbackError.message);
+                }
+            }, 5 * 60 * 1000); // 5 minutes
+        }
+    } else {
+        logger.info('Lottery system disabled in development mode');
     }
 
     // Initialize scratch ticket system
@@ -2026,6 +2088,7 @@ client.on('interactionCreate', async interaction => {
             logger.error(`Error handling autocomplete for ${interaction.commandName}:`, error);
         }
     }
+
 });
 
 // Handle messages for follow-up actions from panels
@@ -2037,7 +2100,8 @@ client.on('messageCreate', async message => {
         // Check if this message is a follow-up to a panel action
         await panelManager.processFollowUpAction(message);
         
-        // Guild-specific message reward system (3K-8K every 15-30 messages)
+        
+        // Guild-specific message reward system (3K-15K every 15-30 messages)
         const { messageRewardSystem } = require('./UTILS/messageRewardSystem');
         await messageRewardSystem.processMessage(message);
         
@@ -2346,7 +2410,7 @@ async function showAllCommandsList(interaction) {
             },
             {
                 name: '💰 **Economy & Finance** 💰',
-                value: '```yaml\nIncome:       /work, /beg, /crime, /heist\nManagement:   /balance, /sendmoney\nRisk:         /rob\nProgress:     /leaderboard\n```\n💡 **Pro Tip:** Use `/balance` panel for banking operations',
+                value: '```yaml\nIncome:       /work, /beg, /crime\nManagement:   /balance, /sendmoney\nRisk:         /rob\nProgress:     /leaderboard\n```\n💡 **Pro Tip:** Use `/balance` panel for banking operations',
                 inline: false
             },
             {
@@ -2769,6 +2833,7 @@ const gracefulShutdown = require('./UTILS/gracefulShutdown');
 
 // Initialize graceful shutdown manager with client after ready
 client.once('clientReady', async () => {
+    
     // Clear any stale game sessions from previous runs
     const { clearActiveGame } = require('./UTILS/common');
     const sessionManager = require('./UTILS/sessionManager');
@@ -2938,7 +3003,8 @@ async function showAdvancedHelpContent(interaction, customId) {
 }
 
 // Start the bot
-client.login(TOKEN).catch(error => {
+client.login(TOKEN).then(() => {
+}).catch(error => {
     logger.error('Failed to login:', error);
     process.exit(1);
 });

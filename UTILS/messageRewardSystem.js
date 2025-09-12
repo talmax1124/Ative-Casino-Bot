@@ -1,6 +1,6 @@
 /**
  * Message Reward System for ATIVE Casino Bot
- * Guild-specific system with random rewards every 15-30 messages (3K-8K)
+ * Guild-specific system with random rewards every 15-30 messages (3K-15K)
  * Only active in guild 1403244656845787167
  */
 
@@ -16,7 +16,7 @@ const CONFIG = {
     MIN_MESSAGES_FOR_REWARD: 15,
     MAX_MESSAGES_FOR_REWARD: 30,
     MIN_REWARD_AMOUNT: 3000, // $3K
-    MAX_REWARD_AMOUNT: 8000, // $8K
+    MAX_REWARD_AMOUNT: 15000, // $15K
     COOLDOWN_MINUTES: 5, // Prevent spam rewards
     LOG_CHANNEL_ID: '1411018763008217208' // Level up notifications channel
 };

@@ -51,22 +51,9 @@ module.exports = {
             return;
         }
 
-        // Check economy type restrictions - Off Economy can only send to Off Economy
+        // Get economy types for logging purposes
         const senderOffEco = await OffEconomyBadge.isOffEconomy(senderId);
         const targetOffEco = await OffEconomyBadge.isOffEconomy(targetUser.id);
-
-        if (senderOffEco !== targetOffEco) {
-            const economyType = senderOffEco ? 'Off Economy' : 'Regular Economy';
-            const targetEconomyType = targetOffEco ? 'Off Economy' : 'Regular Economy';
-            
-            await interaction.reply({
-                content: `🔴 **Economy Type Mismatch**\n\n` +
-                        `You (${economyType}) cannot send money to users from ${targetEconomyType}!\n\n` +
-                        `You can only send money to users in the same economy type.`,
-                flags: 64
-            });
-            return;
-        }
 
         // MUST defer immediately to prevent "Unknown interaction" error
         await interaction.deferReply();

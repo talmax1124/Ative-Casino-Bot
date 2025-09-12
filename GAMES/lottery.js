@@ -532,8 +532,28 @@ class LotteryGame {
 
                 await channel.send({ embeds: [embed] });
             }
+
+            // Try to use lottery restart handler if available
+            if (this.bot.restartLotterySystem) {
+                logger.info('Attempting automatic lottery system restart after critical failure...');
+                const restartSuccess = await this.bot.restartLotterySystem();
+                if (restartSuccess) {
+                    logger.info('Lottery system automatically restarted after critical failure');
+                } else {
+                    logger.error('Automatic lottery restart failed - manual intervention required');
+                }
+            }
+
         } catch (alertError) {
             logger.error(`Failed to send critical lottery alert: ${alertError.message}`);
+            
+            // Final fallback: At least log the critical error
+            try {
+                console.error('CRITICAL LOTTERY SYSTEM FAILURE - ALL FALLBACKS EXHAUSTED');
+                console.error('Manual intervention required immediately');
+            } catch (consoleError) {
+                // Absolute last resort - if even console.error fails, the system is in a very bad state
+            }
         }
     }
 
