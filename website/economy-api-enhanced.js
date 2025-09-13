@@ -6,8 +6,15 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
-const logger = require('../UTILS/logger');
 const rateLimit = require('express-rate-limit');
+
+// Simple logger for website
+const logger = {
+    info: (msg) => console.log(`[INFO] ${msg}`),
+    error: (msg) => console.error(`[ERROR] ${msg}`),
+    warn: (msg) => console.warn(`[WARN] ${msg}`),
+    debug: (msg) => console.log(`[DEBUG] ${msg}`)
+};
 
 // Rate limiting for API routes
 const apiLimiter = rateLimit({

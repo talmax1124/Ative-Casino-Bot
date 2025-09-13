@@ -5,15 +5,29 @@
 
 const express = require('express');
 const router = express.Router();
-const EconomyOptimizer = require('../ECONOMY_GUARDIAN/economyOptimizer');
-const EconomyAnalyzerRunner = require('../ECONOMY_GUARDIAN/analyzerRunner');
-const tuningManager = require('../UTILS/tuningManager');
-const logger = require('../UTILS/logger');
+// Note: Bot dependencies not available in website deployment
+// const EconomyOptimizer = require('../ECONOMY_GUARDIAN/economyOptimizer');
+// const EconomyAnalyzerRunner = require('../ECONOMY_GUARDIAN/analyzerRunner');
+// const tuningManager = require('../UTILS/tuningManager');
 
-// Initialize economy systems
-let optimizer = null;
-let analyzerRunner = null;
-let databaseAdapter = null;
+// Simple logger for website
+const logger = {
+    info: (msg) => console.log(`[INFO] ${msg}`),
+    error: (msg) => console.error(`[ERROR] ${msg}`),
+    warn: (msg) => console.warn(`[WARN] ${msg}`),
+    debug: (msg) => console.log(`[DEBUG] ${msg}`)
+};
+
+// Economy systems not available in website deployment
+const DISABLED_MESSAGE = { 
+    error: 'Economy management features are disabled in website deployment',
+    code: 'FEATURE_DISABLED'
+};
+
+// Helper function for disabled routes
+const disabledRoute = (req, res) => {
+    res.status(503).json(DISABLED_MESSAGE);
+};
 
 async function initializeEconomySystems() {
     try {
@@ -55,7 +69,10 @@ async function initializeEconomySystems() {
  * GET /api/economy/status
  * Get current economy system status and KPIs
  */
-router.get('/status', async (req, res) => {
+router.get('/status', disabledRoute);
+
+// Disabled route handler (original):
+// router.get('/status', async (req, res) => {
     try {
         // Initialize systems with timeout
         const initPromise = initializeEconomySystems();
@@ -118,7 +135,10 @@ router.get('/status', async (req, res) => {
  * POST /api/economy/analyze
  * Run immediate economy analysis
  */
-router.post('/analyze', async (req, res) => {
+router.post('/analyze', disabledRoute);
+
+// Disabled route handler (original):
+// router.post('/analyze', async (req, res) => {
     try {
         // Initialize systems with timeout
         await Promise.race([
@@ -158,7 +178,10 @@ router.post('/analyze', async (req, res) => {
  * POST /api/economy/tune-game
  * Apply game-specific tuning adjustments
  */
-router.post('/tune-game', async (req, res) => {
+router.post('/tune-game', disabledRoute);
+
+// Disabled route handler (original):
+// router.post('/tune-game', async (req, res) => {
     try {
         await initializeEconomySystems();
         await tuningManager.initialize();
@@ -246,7 +269,10 @@ router.post('/tune-game', async (req, res) => {
  * POST /api/economy/tune-global
  * Apply global economy tuning adjustments
  */
-router.post('/tune-global', async (req, res) => {
+router.post('/tune-global', disabledRoute);
+
+// Disabled route handler (original):
+// router.post('/tune-global', async (req, res) => {
     try {
         await initializeEconomySystems();
         await tuningManager.initialize();
@@ -342,7 +368,10 @@ router.post('/tune-global', async (req, res) => {
  * POST /api/economy/emergency-stop
  * Emergency stop all automated economic adjustments
  */
-router.post('/emergency-stop', async (req, res) => {
+router.post('/emergency-stop', disabledRoute);
+
+// Disabled route handler (original):
+// router.post('/emergency-stop', async (req, res) => {
     try {
         await initializeEconomySystems();
         
@@ -376,7 +405,10 @@ router.post('/emergency-stop', async (req, res) => {
  * GET /api/economy/history
  * Get recent economy actions and analysis history
  */
-router.get('/history', async (req, res) => {
+router.get('/history', disabledRoute);
+
+// Disabled route handler (original):
+// router.get('/history', async (req, res) => {
     try {
         await initializeEconomySystems();
         
@@ -414,7 +446,10 @@ router.get('/history', async (req, res) => {
  * GET /api/economy/tuning
  * Get current tuning values
  */
-router.get('/tuning', async (req, res) => {
+router.get('/tuning', disabledRoute);
+
+// Disabled route handler (original):
+// router.get('/tuning', async (req, res) => {
     try {
         await initializeEconomySystems();
         await tuningManager.initialize();
@@ -439,7 +474,10 @@ router.get('/tuning', async (req, res) => {
  * POST /api/economy/reset-tuning
  * Reset specific tuning values
  */
-router.post('/reset-tuning', async (req, res) => {
+router.post('/reset-tuning', disabledRoute);
+
+// Disabled route handler (original):
+// router.post('/reset-tuning', async (req, res) => {
     try {
         await initializeEconomySystems();
         await tuningManager.initialize();

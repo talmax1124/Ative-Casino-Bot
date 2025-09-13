@@ -6,7 +6,14 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
-const logger = require('../UTILS/logger');
+
+// Simple logger for website
+const logger = {
+    info: (msg) => console.log(`[INFO] ${msg}`),
+    error: (msg) => console.error(`[ERROR] ${msg}`),
+    warn: (msg) => console.warn(`[WARN] ${msg}`),
+    debug: (msg) => console.log(`[DEBUG] ${msg}`)
+};
 
 // Database connection (reuse website's database config)
 let dbPool = null;

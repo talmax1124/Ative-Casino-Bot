@@ -490,57 +490,15 @@ class GameDataCollector {
     }
 
     /**
-     * Generate REAL AI recommendations using OpenAI GPT-4
+     * Generate simple recommendations (AI consultation removed)
      */
     async generateRecommendation(winRate, houseEdge, avgBet, gameType = null, historicalData = null) {
         try {
-            logger.debug('[DEV MODE] Skipping AI consultation to avoid API calls');
-            return {
-                recommendations: [
-                    { action: 'maintain', reason: 'Development mode - AI disabled' },
-                    { action: 'monitor', reason: 'Testing phase - manual adjustments only' }
-                ],
-                analysisComplete: true,
-                devMode: true
-            };
-            
-            // Prepare comprehensive data for AI
-            const gameData = {
-                totalGames: historicalData?.length || 0,
-                winRate: winRate || 0,
-                houseEdge: houseEdge || 0,
-                avgBetSize: avgBet || 0,
-                totalVolume: (avgBet * (historicalData?.length || 0)) || 0,
-                houseProfit: (houseEdge * avgBet * (historicalData?.length || 0)) || 0
-            };
-
-            // Get historical trends for AI context
-            const historicalTrends = this.calculateHistoricalTrends(historicalData);
-            const economicState = this.assessEconomicState(gameData, historicalTrends);
-
-            // Query REAL AI for intelligent recommendations
-            const aiRecommendations = await realAI.generateIntelligentRecommendations(
-                gameData,
-                historicalTrends,
-                economicState
-            );
-
-            // Extract recommendation strings for compatibility
-            const recommendationStrings = aiRecommendations.map(rec => {
-                if (typeof rec === 'object') {
-                    return `${rec.action}: ${rec.reasoning} (AI Confidence: ${rec.confidence}%)`;
-                }
-                return rec;
-            });
-
-            logger.info(`✅ REAL AI Analysis Complete: ${recommendationStrings.length} intelligent recommendations`);
-            return recommendationStrings.length > 0 ? recommendationStrings : ['MAINTAIN_CURRENT_SETTINGS'];
-
-        } catch (error) {
-            logger.warn(`Real AI temporarily unavailable: ${error.message}`);
-            // Fallback to basic recommendations if AI fails
-            logger.debug(`Intelligent recommendations failed, using fallback: ${error.message}`);
+            logger.debug('Generating simple recommendations without AI consultation');
             return this.generateSimpleRecommendation(winRate, houseEdge, avgBet);
+        } catch (error) {
+            logger.warn(`Recommendation generation failed: ${error.message}`);
+            return ['MAINTAIN_CURRENT_SETTINGS'];
         }
     }
 

@@ -21,7 +21,7 @@ const CEELO_CONFIG = {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ceelo')
-        .setDescription('🎲 Play CEELO - Traditional dice game, best hand wins!')
+        .setDescription('🎲 CEELO - Simple dice game! You vs House, 3 dice each, best hand wins 1:1!')
         .addStringOption(option =>
             option.setName('bet')
                 .setDescription(`Bet amount (Min: $${CEELO_CONFIG.MIN_BET}, Max: ${fmt(CEELO_CONFIG.MAX_BET)}) - supports K/M/B suffixes`)

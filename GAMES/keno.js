@@ -13,26 +13,21 @@ const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const { secureRandomShuffle, generateProvablyFairRandom, secureRandomInt } = require('../UTILS/rng');
 
-// KENO Configuration
+// KENO Configuration - Simplified for 1-5 numbers only
 const CONFIG = {
     TOTAL_NUMBERS: 80,     // Numbers 1-80 available
     DRAW_COUNT: 20,        // 20 numbers drawn
     MIN_SPOTS: 1,
-    MAX_SPOTS: 10
+    MAX_SPOTS: 5           // Simplified to max 5 numbers
 };
 
-// Conservative KENO payout table (max 50x multiplier as per CLAUDE.md)
+// Simplified KENO payout table (1-5 numbers only for easier understanding)
 const PAYOUT_TABLE = {
-    1: { 1: 2.5 },                                   // 1 spot: 1 match = 2.5x
-    2: { 2: 8.0 },                                   // 2 spots: 2 matches = 8x  
-    3: { 2: 1.5, 3: 25.0 },                          // 3 spots: 2 matches = 1.5x, 3 matches = 25x
-    4: { 2: 0.8, 3: 3.0, 4: 50.0 },                 // 4 spots: up to 50x max
-    5: { 2: 0.4, 3: 1.5, 4: 12.0, 5: 50.0 },        // 5 spots: max 50x (CLAUDE.md compliance)
-    6: { 3: 0.8, 4: 1.8, 5: 15.0, 6: 50.0 },        // 6 spots: max 50x
-    7: { 3: 0.4, 4: 0.8, 5: 3.5, 6: 25.0, 7: 50.0 }, // 7 spots: max 50x
-    8: { 4: 0.4, 5: 1.2, 6: 8.0, 7: 35.0, 8: 50.0 }, // 8 spots: max 50x
-    9: { 4: 0.3, 5: 0.8, 6: 3.5, 7: 18.0, 8: 40.0, 9: 50.0 }, // 9 spots: max 50x
-    10: { 4: 0.3, 5: 0.6, 6: 2.0, 7: 10.0, 8: 25.0, 9: 40.0, 10: 50.0 } // 10 spots: max 50x
+    1: { 1: 3.0 },                           // 1 spot: 1 match = 3x (simple)
+    2: { 2: 8.0 },                           // 2 spots: need both to win = 8x  
+    3: { 2: 2.0, 3: 20.0 },                  // 3 spots: 2 matches = 2x, all 3 = 20x
+    4: { 2: 1.0, 3: 4.0, 4: 25.0 },         // 4 spots: 2+ matches to win, all 4 = 25x
+    5: { 2: 0.5, 3: 2.0, 4: 10.0, 5: 50.0 } // 5 spots: 2+ matches to win, all 5 = 50x
 };
 
 class KenoGame {
@@ -490,41 +485,52 @@ class KenoGame {
     }
 
     /**
-     * Create result embed
+     * Create result embed with clear explanations
      */
     createResultEmbed() {
         const matchedNumbers = this.selectedNumbers.filter(num => this.drawnNumbers.includes(num));
         const won = this.payout > 0;
         
-        // Create number display
+        // Create number display with clear highlighting
         const selectedDisplay = this.selectedNumbers.map(num => 
-            this.drawnNumbers.includes(num) ? `**${num}**` : `${num}`
+            this.drawnNumbers.includes(num) ? `**${num}** ✅` : `${num}`
         ).join(' ');
         
-        const drawnDisplay = this.drawnNumbers.join(' ');
+        // Simplified explanation of what happened
+        let winExplanation = '';
+        if (won) {
+            winExplanation = `🎉 **YOU WON!** You matched ${this.matches} out of your ${this.spots} numbers.\n` +
+                           `With ${this.spots} numbers picked, you needed ${Math.min(...Object.keys(PAYOUT_TABLE[this.spots]).map(Number))} matches to win.\n` +
+                           `Your ${this.matches} matches earned ${this.multiplier}x your bet = ${fmt(this.payout)}!`;
+        } else {
+            const minToWin = Math.min(...Object.keys(PAYOUT_TABLE[this.spots]).map(Number));
+            winExplanation = `❌ **No payout this time.** You matched ${this.matches} out of your ${this.spots} numbers.\n` +
+                           `With ${this.spots} numbers picked, you needed at least ${minToWin} matches to win.\n` +
+                           `Better luck next time!`;
+        }
         
         return buildSessionEmbed({
-            title: `🎲 KENO Results - ${won ? `${this.matches} MATCH${this.matches !== 1 ? 'ES' : ''}! 🎉` : `${this.matches} MATCH${this.matches !== 1 ? 'ES' : ''}`}`,
+            title: `🎲 KENO Results - ${this.matches} Match${this.matches !== 1 ? 'es' : ''}`,
             topFields: [
                 {
-                    name: '🎯 YOUR NUMBERS (Auto-Picked)',
-                    value: `${selectedDisplay}\n**Matched:** ${matchedNumbers.join(', ') || 'None'} ${matchedNumbers.length > 0 ? '✅' : '❌'}`,
+                    name: '🎯 YOUR NUMBERS (Auto-Selected)',
+                    value: selectedDisplay,
                     inline: false
                 },
                 {
-                    name: '🔢 HOUSE DREW 20 NUMBERS', 
-                    value: `${drawnDisplay}`,
+                    name: '🎲 HOUSE DREW 20 NUMBERS', 
+                    value: this.drawnNumbers.join(' '),
                     inline: false
                 },
                 {
-                    name: '📊 GAME RESULT',
-                    value: `**Matches:** ${this.matches} out of ${this.spots} picked\n**Multiplier:** ${this.multiplier.toFixed(1)}x ${this.multiplier >= 1 ? '🎊' : '📉'}\n**Your Bet:** ${fmt(this.betAmount)}\n**Payout:** ${fmt(this.payout)} ${won ? '💰' : ''}`,
+                    name: '📊 WHAT HAPPENED?',
+                    value: winExplanation,
                     inline: false
                 }
             ],
-            stageText: won ? `🎊 WINNING NUMBERS! 🎊` : `${this.matches} out of ${this.spots} picked`,
+            stageText: won ? `🎊 WINNER! 🎊` : `${this.matches}/${this.spots} matches`,
             color: won ? 0x00FF00 : 0xFF4444,
-            footer: `KENO: Pick more numbers for bigger wins but lower odds! | ${this.matches}/${this.spots} matches`
+            footer: `KENO TIP: More numbers = bigger multipliers but harder to match! Current: ${this.spots} numbers picked`
         });
     }
 

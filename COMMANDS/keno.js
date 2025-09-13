@@ -24,7 +24,7 @@ const KENO_CONFIG = {
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('keno')
-        .setDescription('🎲 KENO - Easy lottery game! Numbers auto-picked for you!')
+        .setDescription('🎲 KENO - Simple lottery! We pick numbers for you, house draws 20, matches = wins!')
         .addStringOption(option =>
             option.setName('bet')
                 .setDescription(`Bet amount (Min: $${KENO_CONFIG.MIN_BET}, Max: ${fmt(KENO_CONFIG.MAX_BET)}) - supports K/M/B suffixes`)
@@ -32,9 +32,9 @@ module.exports = {
         )
         .addIntegerOption(option =>
             option.setName('spots')
-                .setDescription('How many numbers to pick (1-10) - More spots = bigger wins but lower chance')
-                .setMinValue(KENO_CONFIG.MIN_NUMBERS)
-                .setMaxValue(KENO_CONFIG.MAX_NUMBERS)
+                .setDescription('How many numbers to auto-pick (1-5, default 5) - More = bigger wins but harder to match!')
+                .setMinValue(1)
+                .setMaxValue(5)
                 .setRequired(false)
         ),
 
@@ -43,7 +43,7 @@ module.exports = {
         const username = interaction.user.displayName;
         const guildId = interaction.guildId;
         const betAmountStr = interaction.options.getString('bet');
-        const spots = interaction.options.getInteger('spots') || 5; // Default 5 spots
+        const spots = Math.min(interaction.options.getInteger('spots') || 5, 5); // Default 5 spots, max 5
         const quickPick = true; // ALWAYS use quickpick for simplicity
 
         try {
