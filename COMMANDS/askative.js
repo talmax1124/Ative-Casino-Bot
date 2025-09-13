@@ -214,7 +214,7 @@ async function getAIJoke(question) {
     
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            const openaiApiKey = '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';
+            const openaiApiKey = process.env.OPENAI_API_KEY;
             
             const response = await axios.post('https://api.openai.com/v1/chat/completions', {
                 model: 'gpt-4o-mini',
@@ -310,7 +310,7 @@ async function getAIResponse(context, username, question, userIsAdmin) {
     
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            const openaiApiKey = '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';
+            const openaiApiKey = process.env.OPENAI_API_KEY;
             
             if (!openaiApiKey) {
                 throw new Error('AI system unavailable - no API key configured');

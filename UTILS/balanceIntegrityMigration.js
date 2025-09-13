@@ -63,48 +63,131 @@ class BalanceIntegrityMigration {
      * Add CHECK constraints to prevent negative balances
      */
     async addBalanceConstraints(connection) {
+        // First, check which constraints already exist
+        const existingConstraints = await this.getExistingConstraints(connection);
+        
         const constraints = [
-            // Prevent negative wallet balance
-            `ALTER TABLE user_balances 
-             ADD CONSTRAINT chk_wallet_non_negative 
-             CHECK (wallet >= 0.00)`,
-             
-            // Prevent negative bank balance  
-            `ALTER TABLE user_balances 
-             ADD CONSTRAINT chk_bank_non_negative 
-             CHECK (bank >= 0.00)`,
-             
-            // Prevent unreasonably high balances (max 1 billion)
-            `ALTER TABLE user_balances 
-             ADD CONSTRAINT chk_wallet_max_limit 
-             CHECK (wallet <= 1000000000.00)`,
-             
-            `ALTER TABLE user_balances 
-             ADD CONSTRAINT chk_bank_max_limit 
-             CHECK (bank <= 1000000000.00)`,
-             
-            // Ensure decimal precision
-            `ALTER TABLE user_balances 
-             ADD CONSTRAINT chk_wallet_precision 
-             CHECK (wallet = ROUND(wallet, 2))`,
-             
-            `ALTER TABLE user_balances 
-             ADD CONSTRAINT chk_bank_precision 
-             CHECK (bank = ROUND(bank, 2))`
+            {
+                name: 'chk_wallet_non_negative',
+                sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_wallet_non_negative CHECK (wallet >= 0.00)`
+            },
+            {
+                name: 'chk_bank_non_negative',
+                sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_bank_non_negative CHECK (bank >= 0.00)`
+            },
+            {
+                name: 'chk_wallet_max_limit',
+                sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_wallet_max_limit CHECK (wallet <= 1000000000.00)`
+            },
+            {
+                name: 'chk_bank_max_limit',
+                sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_bank_max_limit CHECK (bank <= 1000000000.00)`
+            },
+            {
+                name: 'chk_wallet_precision',
+                sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_wallet_precision CHECK (wallet = ROUND(wallet, 2))`
+            },
+            {
+                name: 'chk_bank_precision',
+                sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_bank_precision CHECK (bank = ROUND(bank, 2))`
+            }
         ];
 
         for (const constraint of constraints) {
+            // Skip if constraint already exists
+            if (existingConstraints.includes(constraint.name)) {
+                logger.debug(`Constraint ${constraint.name} already exists, skipping`);
+                continue;
+            }
+
             try {
-                await connection.execute(constraint);
-                logger.info(`✅ Applied constraint: ${constraint.split('ADD CONSTRAINT')[1]?.split('CHECK')[0]?.trim()}`);
+                // For max limit constraints, check if data violates before adding
+                if (constraint.name.includes('max_limit')) {
+                    const violatingData = await this.checkDataViolatesMaxLimit(connection, constraint.name);
+                    if (violatingData > 0) {
+                        logger.warn(`Cannot add ${constraint.name}: ${violatingData} records exceed limit`);
+                        await this.handleMaxLimitViolations(connection, constraint.name);
+                        continue;
+                    }
+                }
+
+                await connection.execute(constraint.sql);
+                logger.info(`✅ Applied constraint: ${constraint.name}`);
             } catch (error) {
-                // Constraint might already exist, log but continue
-                if (error.code === 'ER_DUP_KEYNAME' || error.message.includes('Duplicate key name')) {
-                    logger.debug(`Constraint already exists: ${error.message}`);
+                if (error.code === 'ER_DUP_KEYNAME' || 
+                    error.message.includes('Duplicate CHECK constraint name') ||
+                    error.message.includes('Duplicate key name')) {
+                    logger.debug(`Constraint ${constraint.name} already exists`);
                 } else {
-                    logger.warn(`Failed to add constraint: ${error.message}`);
+                    logger.warn(`Failed to add constraint ${constraint.name}: ${error.message}`);
                 }
             }
+        }
+    }
+
+    /**
+     * Get existing constraints on user_balances table
+     */
+    async getExistingConstraints(connection) {
+        try {
+            const [rows] = await connection.execute(`
+                SELECT CONSTRAINT_NAME 
+                FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'user_balances' 
+                AND CONSTRAINT_TYPE = 'CHECK'
+            `);
+            return rows.map(row => row.CONSTRAINT_NAME);
+        } catch (error) {
+            logger.debug(`Could not fetch existing constraints: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Check if data violates max limit constraints
+     */
+    async checkDataViolatesMaxLimit(connection, constraintName) {
+        try {
+            let query;
+            if (constraintName === 'chk_wallet_max_limit') {
+                query = 'SELECT COUNT(*) as count FROM user_balances WHERE wallet > 1000000000.00';
+            } else if (constraintName === 'chk_bank_max_limit') {
+                query = 'SELECT COUNT(*) as count FROM user_balances WHERE bank > 1000000000.00';
+            } else {
+                return 0;
+            }
+
+            const [rows] = await connection.execute(query);
+            return rows[0].count;
+        } catch (error) {
+            logger.error(`Error checking data violations for ${constraintName}: ${error.message}`);
+            return 0;
+        }
+    }
+
+    /**
+     * Handle records that violate max limit constraints
+     */
+    async handleMaxLimitViolations(connection, constraintName) {
+        try {
+            let updateQuery;
+            const maxLimit = 1000000000.00;
+            
+            if (constraintName === 'chk_wallet_max_limit') {
+                updateQuery = `UPDATE user_balances SET wallet = ${maxLimit} WHERE wallet > ${maxLimit}`;
+            } else if (constraintName === 'chk_bank_max_limit') {
+                updateQuery = `UPDATE user_balances SET bank = ${maxLimit} WHERE bank > ${maxLimit}`;
+            } else {
+                return;
+            }
+
+            const [result] = await connection.execute(updateQuery);
+            if (result.affectedRows > 0) {
+                logger.info(`✅ Capped ${result.affectedRows} records to max limit for ${constraintName}`);
+            }
+        } catch (error) {
+            logger.error(`Error handling max limit violations for ${constraintName}: ${error.message}`);
         }
     }
 

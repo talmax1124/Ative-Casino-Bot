@@ -58,6 +58,11 @@ class EconomyOptimizer {
         this.openai = null;
         this.initialized = false;
         
+        // Rate limiting for OpenAI API calls
+        this.lastAPICall = 0;
+        this.minTimeBetweenCalls = 2000; // 2 seconds between calls
+        this.apiCallQueue = [];
+        
         if (this.config.openaiApiKey) {
             this.openai = new OpenAI({
                 apiKey: this.config.openaiApiKey
@@ -622,6 +627,9 @@ class EconomyOptimizer {
                 }
             ];
             
+            // Apply rate limiting
+            await this.enforceRateLimit();
+            
             const response = await this.openai.chat.completions.create({
                 model: this.config.chatgptModel,
                 messages,
@@ -792,6 +800,21 @@ class EconomyOptimizer {
         }
         
         return `${risks.length} issues detected. ${risks.map(r => r.message).join('. ')} Gradual optimization recommended.`;
+    }
+
+    /**
+     * Enforce rate limiting for OpenAI API calls
+     */
+    async enforceRateLimit() {
+        const now = Date.now();
+        const timeSinceLastCall = now - this.lastAPICall;
+        
+        if (timeSinceLastCall < this.minTimeBetweenCalls) {
+            const waitTime = this.minTimeBetweenCalls - timeSinceLastCall;
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        
+        this.lastAPICall = Date.now();
     }
 }
 

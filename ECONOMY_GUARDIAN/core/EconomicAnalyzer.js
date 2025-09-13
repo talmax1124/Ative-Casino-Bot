@@ -20,6 +20,10 @@ class EconomicAnalyzer extends EventEmitter {
         this.maxTokens = config.maxTokens || 2000;
         this.temperature = config.temperature || 0.3; // Lower for more consistent analysis
         
+        // Rate limiting for OpenAI API calls
+        this.lastAPICall = 0;
+        this.minTimeBetweenCalls = 2000; // 2 seconds between calls
+        
         // Analysis history for context
         this.analysisHistory = [];
         this.maxHistorySize = 10;
@@ -151,6 +155,9 @@ Focus on small, incremental changes. Avoid dramatic adjustments that could desta
      * Query OpenAI API with economic analysis prompt
      */
     async queryOpenAI(prompt) {
+        // Apply rate limiting
+        await this.enforceRateLimit();
+        
         const response = await axios.post('https://api.openai.com/v1/chat/completions', {
             model: this.model,
             messages: [
@@ -465,6 +472,21 @@ ADJUSTMENT PRINCIPLES:
             logger.error(`AI connection test failed: ${error.message}`);
             return false;
         }
+    }
+
+    /**
+     * Enforce rate limiting for OpenAI API calls
+     */
+    async enforceRateLimit() {
+        const now = Date.now();
+        const timeSinceLastCall = now - this.lastAPICall;
+        
+        if (timeSinceLastCall < this.minTimeBetweenCalls) {
+            const waitTime = this.minTimeBetweenCalls - timeSinceLastCall;
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        
+        this.lastAPICall = Date.now();
     }
 }
 
