@@ -27,6 +27,8 @@ Action:
 	•	🎭 Con Artist rolls persuasion (d100 ≥ 70).
 	•	If no Con Artist → all roll stealth (≥ 60).
 
+	
+
 	 
 
 Failure: Alert +1.
