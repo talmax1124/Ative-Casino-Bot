@@ -125,7 +125,13 @@ module.exports = {
             await reply.react(scenario.emoji);
 
             // Wait for user reaction (30 seconds timeout)
-            const filter = (reaction, user) => reaction.emoji.name === scenario.emoji && user.id === userId;
+            const filter = (reaction, user) => {
+                // Handle both unicode emojis and custom emojis
+                const emojiMatch = reaction.emoji.name === scenario.emoji || 
+                                 reaction.emoji.toString() === scenario.emoji ||
+                                 reaction.emoji.id === scenario.emoji;
+                return emojiMatch && user.id === userId && !user.bot;
+            };
             
             try {
                 const collected = await reply.awaitReactions({ filter, max: 1, time: 30000, errors: ['time'] });

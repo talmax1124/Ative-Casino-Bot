@@ -52,67 +52,127 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // Quiz questions database
+            // Fun and generic quiz questions database
             const quizQuestions = [
                 {
-                    question: "What is the capital of Australia?",
-                    options: ["Sydney", "Melbourne", "Canberra", "Perth"],
-                    correct: 2,
-                    category: "Geography"
+                    question: "What do you call a sleeping bull at the casino?",
+                    options: ["A bulldozer", "A bull-dozer", "A napping nightmare", "A snoring slot machine"],
+                    correct: 0,
+                    category: "Funny"
                 },
                 {
-                    question: "Which planet is known as the Red Planet?",
-                    options: ["Venus", "Mars", "Jupiter", "Saturn"],
-                    correct: 1,
-                    category: "Astronomy"
-                },
-                {
-                    question: "What year did World War II end?",
-                    options: ["1944", "1945", "1946", "1947"],
-                    correct: 1,
-                    category: "History"
-                },
-                {
-                    question: "What is the largest ocean on Earth?",
-                    options: ["Atlantic", "Indian", "Arctic", "Pacific"],
+                    question: "Which animal can hold its breath the longest underwater?",
+                    options: ["Whale", "Dolphin", "Sea turtle", "Cuvier's beaked whale"],
                     correct: 3,
-                    category: "Geography"
+                    category: "Animals"
                 },
                 {
-                    question: "Who painted the Mona Lisa?",
-                    options: ["Vincent van Gogh", "Leonardo da Vinci", "Pablo Picasso", "Michelangelo"],
+                    question: "What's the most popular pizza topping in the world?",
+                    options: ["Mushrooms", "Pepperoni", "Sausage", "Pineapple (fight me!)"],
                     correct: 1,
-                    category: "Art"
+                    category: "Food"
                 },
                 {
-                    question: "What is the chemical symbol for gold?",
-                    options: ["Go", "Gd", "Au", "Ag"],
+                    question: "Which planet has the most moons?",
+                    options: ["Jupiter", "Saturn", "Mars", "Earth (obviously!)"],
+                    correct: 1,
+                    category: "Space"
+                },
+                {
+                    question: "What percentage of your body is water?",
+                    options: ["50%", "60%", "70%", "80% (I'm basically a walking fish)"],
+                    correct: 1,
+                    category: "Science"
+                },
+                {
+                    question: "How many hearts does an octopus have?",
+                    options: ["1", "2", "3", "8 (one for each arm!)"],
+                    correct: 2,
+                    category: "Animals"
+                },
+                {
+                    question: "What's the fastest land animal?",
+                    options: ["Lion", "Cheetah", "Horse", "Me running to the fridge"],
+                    correct: 1,
+                    category: "Animals"
+                },
+                {
+                    question: "Which country invented ice cream?",
+                    options: ["Italy", "China", "France", "My freezer"],
+                    correct: 1,
+                    category: "Food"
+                },
+                {
+                    question: "What's the most common phobia?",
+                    options: ["Heights", "Spiders", "Public speaking", "Running out of coffee"],
+                    correct: 2,
+                    category: "Psychology"
+                },
+                {
+                    question: "How many bones are in a shark's body?",
+                    options: ["206", "150", "0 (they're made of cartilage!)", "Too many to count"],
+                    correct: 2,
+                    category: "Animals"
+                },
+                {
+                    question: "What do you call a fake noodle?",
+                    options: ["A phony-roni", "An impasta", "A pretend-ghetti", "Still delicious"],
+                    correct: 1,
+                    category: "Funny"
+                },
+                {
+                    question: "Which fruit is technically a berry?",
+                    options: ["Strawberry", "Raspberry", "Banana", "All of the above (science is weird)"],
                     correct: 2,
                     category: "Science"
                 },
                 {
-                    question: "Which programming language is known as the 'language of the web'?",
-                    options: ["Python", "Java", "JavaScript", "C++"],
+                    question: "What's the hardest natural substance?",
+                    options: ["Steel", "Diamond", "My grandma's cookies", "Titanium"],
+                    correct: 1,
+                    category: "Science"
+                },
+                {
+                    question: "How many smell receptors do dogs have compared to humans?",
+                    options: ["10x more", "100x more", "1000x more", "Infinity times better"],
                     correct: 2,
-                    category: "Technology"
+                    category: "Animals"
                 },
                 {
-                    question: "What is the smallest country in the world?",
-                    options: ["Monaco", "Vatican City", "San Marino", "Liechtenstein"],
+                    question: "What's the most stolen food in the world?",
+                    options: ["Chocolate", "Cheese", "Wine", "My lunch from the office fridge"],
                     correct: 1,
-                    category: "Geography"
+                    category: "Food"
                 },
                 {
-                    question: "In what year was the first iPhone released?",
-                    options: ["2006", "2007", "2008", "2009"],
+                    question: "Which came first according to science?",
+                    options: ["The chicken", "The egg", "The question", "My confusion"],
                     correct: 1,
-                    category: "Technology"
+                    category: "Science"
                 },
                 {
-                    question: "What is the speed of light in vacuum?",
-                    options: ["299,792,458 m/s", "300,000,000 m/s", "299,000,000 m/s", "301,000,000 m/s"],
+                    question: "What's the only mammal that can't jump?",
+                    options: ["Elephant", "Hippo", "Rhino", "Me on Monday mornings"],
                     correct: 0,
-                    category: "Physics"
+                    category: "Animals"
+                },
+                {
+                    question: "How much of an iceberg is underwater?",
+                    options: ["50%", "75%", "90%", "More than my understanding of math"],
+                    correct: 2,
+                    category: "Science"
+                },
+                {
+                    question: "What's the most used letter in the English language?",
+                    options: ["A", "E", "S", "The letter I never write"],
+                    correct: 1,
+                    category: "Language"
+                },
+                {
+                    question: "How many taste buds does your tongue have?",
+                    options: ["1,000", "5,000", "10,000", "Not enough for pineapple pizza"],
+                    correct: 2,
+                    category: "Science"
                 }
             ];
 
