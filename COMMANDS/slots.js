@@ -15,6 +15,7 @@ const logger = require('../UTILS/logger');
 const OffEconomyBadge = require('../UTILS/offEconomyBadge');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 const EconomyGuardianInterface = require('../UTILS/economyGuardianInterface');
+const tuningManager = require('../UTILS/tuningManager');
 
 
 /**
@@ -129,19 +130,31 @@ module.exports = {
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
+            // 🎛️ INITIALIZE AI TUNING SYSTEM
+            await tuningManager.initialize();
+            
             // Ensure user exists and get balance
             await dbManager.ensureUser(userId, username);
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
-            // Validate and deduct bet
+            // 🎛️ GET AI-REGULATED MAX BET LIMIT (allows higher bets with safety)
+            const maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'slots', 100000000);
+            const dynamicMaxBet = maxBetConfig.maxBet;
+            
+            // Validate and deduct bet with AI-regulated limits
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.SLOTS,
-                1,        // Min bet: $1
-                100000000 // Max bet: $100M (safe with personalization)
+                1,               // Min bet: $1
+                dynamicMaxBet    // Max bet: AI-regulated (can be much higher now!)
             );
+            
+            // Log max bet changes for monitoring
+            if (maxBetConfig.adjustmentApplied || maxBetConfig.userCapped) {
+                logger.info(`🎛️ SLOTS MAX BET: ${userId} -> ${fmt(dynamicMaxBet)} (${maxBetConfig.userCapped ? 'user-capped' : 'AI-adjusted'})`);
+            }
 
             if (!validation.isValid) {
                 return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
@@ -193,13 +206,22 @@ module.exports = {
             const symbols = spinSlots();
             const baseResult = calculatePayout(symbols, betAmount, personalizedConfig.payouts);
             
-            // Apply AI multiplier adjustment to base result
+            // 🎰 APPLY AI TUNING SYSTEM - REAL ECONOMIC REGULATION
+            const tuningAdjustment = await tuningManager.getAdjustedPayout('slots', baseResult.payout, betAmount);
+            const regulatedPayout = baseResult.won ? tuningAdjustment.adjustedPayout : 0;
+            
+            // Apply AI multiplier adjustment to tuning-regulated payout
             const aiMultiplier = aiResult.multiplierAdjustment?.finalMultiplier || 1.0;
-            const aiAdjustedPayout = baseResult.won ? Math.floor(baseResult.payout * aiMultiplier) : 0;
+            const aiAdjustedPayout = regulatedPayout > 0 ? Math.floor(regulatedPayout * aiMultiplier) : 0;
             const aiAdjustedResult = {
                 ...baseResult,
                 payout: aiAdjustedPayout
             };
+            
+            // Log tuning application for monitoring
+            if (tuningAdjustment.payoutDelta !== 0 || tuningAdjustment.feeApplied) {
+                logger.info(`🎛️ SLOTS TUNING: ${baseResult.payout} -> ${regulatedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
+            }
             
             // Apply transparent payout system - show full multiplier in UI but adjust actual payout
             const transparentResult = await transparentPayoutManager.processTransparentPayout(
@@ -261,7 +283,7 @@ module.exports = {
                 return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
-            // Record game result for statistics
+            // Record game result for statistics AND economy analyzer
             try {
                 await dbManager.recordGameResult(
                     userId, 
@@ -277,6 +299,10 @@ module.exports = {
                         lines: result.winningLines?.length || 0
                     }
                 );
+                
+                // 📊 RECORD FOR AI ECONOMY ANALYZER
+                await tuningManager.recordGameResult(userId, 'slots', betAmount, result.payout, result.won);
+                
             } catch (recordError) {
                 logger.warn(`Failed to record slots game result: ${recordError.message}`);
             }

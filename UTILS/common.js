@@ -378,7 +378,7 @@ function resolveAmount(amount, walletAmount) {
         return amount;
     }
     
-    if (amount === 'all') {
+    if (amount === 'all' || amount === 'a') {
         return walletAmount;
     }
     

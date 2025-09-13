@@ -513,8 +513,8 @@ class AntiAbuseSystem {
      * SUSPEND USER
      */
     async suspendUser(userId, riskScore, context) {
-        // NOTIFICATION-ONLY MODE: Don't block users, just notify
-        // this.blockedUsers.add(userId); // REMOVED: No longer blocking users
+        // ACTIVE PROTECTION MODE: Block high-risk users to prevent abuse
+        this.blockedUsers.add(userId); // ENABLED: Blocking high-risk users for security
         
         const riskAlert = {
             userId,
@@ -567,7 +567,15 @@ class AntiAbuseSystem {
             }
         }
         
-        // Always allow actions in notification-only mode
+        // Check if user is blocked due to high risk
+        if (this.blockedUsers.has(userId)) {
+            return { 
+                allowed: false, 
+                reason: 'User temporarily suspended due to suspicious activity. Please contact support.' 
+            };
+        }
+        
+        // Allow actions for non-blocked users
         return { allowed: true };
     }
     

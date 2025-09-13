@@ -232,6 +232,9 @@ class RussianRouletteGame {
         // Set up button interaction handler
         this.setupButtonHandler();
         
+        // Set up session cancellation listener
+        this.setupSessionListener();
+        
         // Start join timer with custom time
         this.joinTimer = setTimeout(() => {
             this.checkGameStart();
@@ -321,6 +324,25 @@ class RussianRouletteGame {
         
         collector.on('end', () => {
             logger.info('Join phase collector ended');
+        });
+    }
+
+    /**
+     * Set up session cancellation listener
+     */
+    setupSessionListener() {
+        // Listen for session cancellation events from the session manager
+        sessionManager.on('sessionEnded', (session) => {
+            // Check if this is our session and if it was cancelled (not completed normally)
+            if (session.sessionId === this.sessionId && 
+                (session.metadata?.reason === 'cancelled' || session.metadata?.reason === 'timeout' || session.metadata?.reason === 'stale_cleanup') &&
+                this.state !== GameState.FINISHED) {
+                
+                logger.info(`Russian Roulette session ${this.sessionId} was cancelled externally, triggering refunds`);
+                
+                // Cancel the game with refunds
+                this.cancelGame('Session was cancelled externally');
+            }
         });
     }
 

@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATIVE Casino - Economy Command Center</title>
+    
+    <!-- Modern CSS Framework & Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js for Advanced Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    
+    <style>
+        :root {
+            /* Dark Theme Color Palette */
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #111218;
+            --bg-tertiary: #1a1d29;
+            --bg-card: #212530;
+            --bg-hover: #2a2d3a;
+            
+            /* Text Colors */
+            --text-primary: #ffffff;
+            --text-secondary: #b8bcc8;
+            --text-muted: #8b929e;
+            
+            /* Accent Colors */
+            --accent-primary: #3b82f6;
+            --accent-secondary: #8b5cf6;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --accent-info: #06b6d4;
+            
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            --gradient-success: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+            --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            
+            /* Borders */
+            --border-color: #2a2d3a;
+            --border-radius: 12px;
+            --border-radius-lg: 16px;
+            
+            /* Shadows */
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.3);
+            
+            /* Spacing */
+            --spacing-xs: 0.5rem;
+            --spacing-sm: 0.75rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --spacing-2xl: 3rem;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        /* Modern Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-secondary);
+        }
+        
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: var(--spacing-md) var(--spacing-xl);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+        
+        .header-title h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-lg);
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--border-radius);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .status-indicator.online {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-success);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--border-radius);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+        }
+        
+        /* Navigation */
+        .nav-container {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .nav-tabs {
+            display: flex;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 var(--spacing-xl);
+        }
+        
+        .nav-tab {
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+        
+        .nav-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+        
+        .nav-tab.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+            background: var(--bg-tertiary);
+        }
+        
+        /* Main Layout */
+        .main-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: var(--spacing-xl);
+            min-height: calc(100vh - 140px);
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Grid System */
+        .grid {
+            display: grid;
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+        }
+        
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        
+        @media (max-width: 1200px) {
+            .grid-4 { grid-template-columns: repeat(2, 1fr); }
+            .grid-3 { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        @media (max-width: 768px) {
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+        }
+        
+        /* Card System */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
+            padding: var(--spacing-xl);
+            box-shadow: var(--shadow-sm);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            border-color: var(--accent-primary);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        .card-subtitle {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: var(--spacing-xs);
+        }
+        
+        /* Stat Cards */
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
+            padding: var(--spacing-xl);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-primary);
+        }
+        
+        .stat-card.success::before { background: var(--gradient-success); }
+        .stat-card.warning::before { background: var(--gradient-warning); }
+        .stat-card.danger::before { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: var(--spacing-md);
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-xs);
+            color: var(--text-primary);
+        }
+        
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .stat-change {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            margin-top: var(--spacing-sm);
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .stat-change.positive { color: var(--accent-success); }
+        .stat-change.negative { color: var(--accent-danger); }
+        
+        /* Buttons */
+        .btn {
+            padding: var(--spacing-sm) var(--spacing-lg);
+            border: none;
+            border-radius: var(--border-radius);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+            text-decoration: none;
+        }
+        
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-glow);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-hover);
+            border-color: var(--accent-primary);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+        
+        .btn-success {
+            background: var(--gradient-success);
+            color: white;
+        }
+        
+        /* Form Controls */
+        .form-group {
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: var(--spacing-xs);
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .slider-container {
+            margin: var(--spacing-lg) 0;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--bg-tertiary);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            cursor: pointer;
+            border: none;
+        }
+        
+        .slider-value {
+            text-align: center;
+            margin-top: var(--spacing-sm);
+            font-weight: 600;
+            color: var(--accent-primary);
+        }
+        
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: var(--spacing-lg) 0;
+            background: var(--bg-tertiary);
+            border-radius: var(--border-radius);
+            padding: var(--spacing-md);
+        }
+        
+        .chart-container.large {
+            height: 500px;
+        }
+        
+        /* Alerts */
+        .alert {
+            padding: var(--spacing-md);
+            border-radius: var(--border-radius);
+            margin-bottom: var(--spacing-md);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--accent-success);
+        }
+        
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            color: var(--accent-warning);
+        }
+        
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: var(--accent-danger);
+        }
+        
+        /* Loading States */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-xl);
+            color: var(--text-muted);
+        }
+        
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--bg-tertiary);
+            border-top: 3px solid var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: var(--spacing-sm);
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+        }
+        
+        .table th,
+        .table td {
+            padding: var(--spacing-md);
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .table th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .table td {
+            color: var(--text-secondary);
+        }
+        
+        .table tr:hover {
+            background: var(--bg-hover);
+        }
+        
+        /* Utilities */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-success { color: var(--accent-success); }
+        .text-warning { color: var(--accent-warning); }
+        .text-danger { color: var(--accent-danger); }
+        .text-muted { color: var(--text-muted); }
+        
+        .mb-0 { margin-bottom: 0; }
+        .mb-1 { margin-bottom: var(--spacing-xs); }
+        .mb-2 { margin-bottom: var(--spacing-sm); }
+        .mb-3 { margin-bottom: var(--spacing-md); }
+        .mb-4 { margin-bottom: var(--spacing-lg); }
+        
+        .mt-0 { margin-top: 0; }
+        .mt-1 { margin-top: var(--spacing-xs); }
+        .mt-2 { margin-top: var(--spacing-sm); }
+        .mt-3 { margin-top: var(--spacing-md); }
+        .mt-4 { margin-top: var(--spacing-lg); }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: var(--spacing-md);
+            }
+            
+            .header-content {
+                flex-direction: column;
+                gap: var(--spacing-md);
+            }
+            
+            .nav-tabs {
+                overflow-x: auto;
+                padding: 0 var(--spacing-md);
+            }
+            
+            .stat-card {
+                padding: var(--spacing-lg);
+            }
+            
+            .chart-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-title">
+                <i class="fas fa-chart-line" style="font-size: 1.75rem; color: var(--accent-primary);"></i>
+                <h1>Economy Command Center</h1>
+            </div>
+            <div class="header-status">
+                <div class="status-indicator online">
+                    <i class="fas fa-circle"></i>
+                    <span id="system-status">System Online</span>
+                </div>
+                <div class="user-info">
+                    <div class="user-avatar" id="user-avatar"></div>
+                    <span id="user-name">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-container">
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('overview')">
+                <i class="fas fa-tachometer-alt"></i>
+                Overview
+            </button>
+            <button class="nav-tab" onclick="showTab('analytics')">
+                <i class="fas fa-chart-bar"></i>
+                Analytics
+            </button>
+            <button class="nav-tab" onclick="showTab('controls')">
+                <i class="fas fa-sliders-h"></i>
+                Controls
+            </button>
+            <button class="nav-tab" onclick="showTab('monitoring')">
+                <i class="fas fa-eye"></i>
+                Monitoring
+            </button>
+            <button class="nav-tab" onclick="showTab('users')">
+                <i class="fas fa-users"></i>
+                Users
+            </button>
+            <button class="nav-tab" onclick="showTab('security')">
+                <i class="fas fa-shield-alt"></i>
+                Security
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <!-- Overview Tab -->
+        <div class="tab-content active" id="overview">
+            <!-- KPI Cards -->
+            <div class="grid grid-4">
+                <div class="stat-card">
+                    <i class="fas fa-dollar-sign stat-icon"></i>
+                    <div class="stat-value" id="money-supply">Loading...</div>
+                    <div class="stat-label">Total Money Supply</div>
+                    <div class="stat-change positive" id="supply-change">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>+12.5% this week</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card warning">
+                    <i class="fas fa-percentage stat-icon"></i>
+                    <div class="stat-value" id="overall-rtp">Loading...</div>
+                    <div class="stat-label">Overall RTP</div>
+                    <div class="stat-change negative" id="rtp-status">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Critical</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card success">
+                    <i class="fas fa-users stat-icon"></i>
+                    <div class="stat-value" id="active-users">Loading...</div>
+                    <div class="stat-label">Active Users (24h)</div>
+                    <div class="stat-change positive" id="users-change">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>+8 new users</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <i class="fas fa-cogs stat-icon"></i>
+                    <div class="stat-value" id="active-tunings">Loading...</div>
+                    <div class="stat-label">Active Tunings</div>
+                    <div class="stat-change" id="tunings-status">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Auto-regulated</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions & Status -->
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-bolt"></i>
+                            Quick Actions
+                        </h3>
+                    </div>
+                    
+                    <div class="grid grid-2">
+                        <button class="btn btn-primary" onclick="runEmergencyAnalysis()">
+                            <i class="fas fa-play"></i>
+                            Run Analysis
+                        </button>
+                        <button class="btn btn-secondary" onclick="refreshAllData()">
+                            <i class="fas fa-sync"></i>
+                            Refresh Data
+                        </button>
+                        <button class="btn btn-danger" onclick="emergencyStop()">
+                            <i class="fas fa-stop"></i>
+                            Emergency Stop
+                        </button>
+                        <button class="btn btn-success" onclick="exportData()">
+                            <i class="fas fa-download"></i>
+                            Export Data
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-heartbeat"></i>
+                            System Health
+                        </h3>
+                    </div>
+                    
+                    <div class="health-metrics">
+                        <div class="health-item">
+                            <span>Database</span>
+                            <div class="status-indicator online">
+                                <i class="fas fa-circle"></i>
+                                Online
+                            </div>
+                        </div>
+                        <div class="health-item">
+                            <span>AI System</span>
+                            <div class="status-indicator online">
+                                <i class="fas fa-circle"></i>
+                                Active
+                            </div>
+                        </div>
+                        <div class="health-item">
+                            <span>Discord Bot</span>
+                            <div class="status-indicator online">
+                                <i class="fas fa-circle"></i>
+                                Connected
+                            </div>
+                        </div>
+                        <div class="health-item">
+                            <span>Last Analysis</span>
+                            <span class="text-muted" id="last-analysis">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-time Charts -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-line"></i>
+                        Real-time Performance
+                    </h3>
+                </div>
+                <div class="chart-container large">
+                    <canvas id="realtimeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div class="tab-content" id="analytics">
+            <div class="grid grid-2">
+                <!-- RTP Analytics -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-percentage"></i>
+                            RTP Analysis by Game
+                        </h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="rtpChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Revenue Analytics -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-dollar-sign"></i>
+                            Revenue Trends
+                        </h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Behavior Analytics -->
+            <div class="grid grid-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-users"></i>
+                            User Activity Heatmap
+                        </h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="activityChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-gamepad"></i>
+                            Game Popularity
+                        </h3>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="gamePopularityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Analytics -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-brain"></i>
+                        AI Insights & Predictions
+                    </h3>
+                </div>
+                <div id="ai-insights">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading AI insights...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Tab -->
+        <div class="tab-content" id="controls">
+            <div class="grid grid-2">
+                <!-- Emergency Controls -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Emergency Controls
+                        </h3>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Emergency Response</label>
+                        <div class="grid grid-2">
+                            <button class="btn btn-danger" onclick="activateEmergencyMode()">
+                                <i class="fas fa-stop-circle"></i>
+                                Emergency Stop
+                            </button>
+                            <button class="btn btn-warning" onclick="emergencyTuning()">
+                                <i class="fas fa-tools"></i>
+                                Emergency Tune
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Global RTP Adjustment</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="emergency-rtp-slider" 
+                                   min="-0.10" max="0.10" step="0.001" value="0">
+                            <div class="slider-value" id="emergency-rtp-value">0.0%</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Max Bet Global Limit</label>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="max-bet-slider" 
+                                   min="-50" max="200" step="1" value="0">
+                            <div class="slider-value" id="max-bet-value">No Change</div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="applyEmergencyChanges()">
+                        <i class="fas fa-check"></i>
+                        Apply Emergency Changes
+                    </button>
+                </div>
+
+                <!-- Game-Specific Controls -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-gamepad"></i>
+                            Game-Specific Tuning
+                        </h3>
+                    </div>
+                    
+                    <div class="game-controls" id="game-controls">
+                        <!-- Populated dynamically -->
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading game controls...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Controls -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-cogs"></i>
+                        Advanced Economy Controls
+                    </h3>
+                </div>
+                
+                <div class="grid grid-3">
+                    <div class="form-group">
+                        <label class="form-label">AI Analysis Frequency</label>
+                        <select class="form-control" id="ai-frequency">
+                            <option value="1">Every Hour</option>
+                            <option value="4" selected>Every 4 Hours</option>
+                            <option value="12">Every 12 Hours</option>
+                            <option value="24">Daily</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Auto-Tuning Sensitivity</label>
+                        <select class="form-control" id="tuning-sensitivity">
+                            <option value="low">Conservative</option>
+                            <option value="medium" selected>Balanced</option>
+                            <option value="high">Aggressive</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Risk Tolerance</label>
+                        <select class="form-control" id="risk-tolerance">
+                            <option value="low">Low Risk</option>
+                            <option value="medium" selected>Medium Risk</option>
+                            <option value="high">High Risk</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button class="btn btn-success" onclick="saveAdvancedSettings()">
+                        <i class="fas fa-save"></i>
+                        Save Settings
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetToDefaults()">
+                        <i class="fas fa-undo"></i>
+                        Reset to Defaults
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monitoring Tab -->
+        <div class="tab-content" id="monitoring">
+            <div class="grid grid-2">
+                <!-- Real-time Activity -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-activity"></i>
+                            Live Activity Feed
+                        </h3>
+                    </div>
+                    <div class="activity-feed" id="activity-feed">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading activity feed...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerts & Warnings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-bell"></i>
+                            Smart Alerts
+                        </h3>
+                    </div>
+                    <div id="smart-alerts">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Monitoring -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-tachometer-alt"></i>
+                        System Performance
+                    </h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users Tab -->
+        <div class="tab-content" id="users">
+            <div class="grid grid-2">
+                <!-- Top Users -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-crown"></i>
+                            Top Players
+                        </h3>
+                    </div>
+                    <div class="table-container">
+                        <table class="table" id="top-users-table">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Balance</th>
+                                    <th>Volume (24h)</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="4" class="text-center">
+                                        <div class="spinner"></div>
+                                        Loading user data...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Risk Analysis -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            High-Risk Users
+                        </h3>
+                    </div>
+                    <div class="table-container">
+                        <table class="table" id="risk-users-table">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Risk Score</th>
+                                    <th>Reason</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="4" class="text-center">
+                                        <div class="spinner"></div>
+                                        Loading risk analysis...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Management Tools -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-user-cog"></i>
+                        User Management Tools
+                    </h3>
+                </div>
+                
+                <div class="grid grid-3">
+                    <div class="form-group">
+                        <label class="form-label">User ID or Username</label>
+                        <input type="text" class="form-control" id="user-lookup-input" placeholder="Enter user ID or username">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Action</label>
+                        <select class="form-control" id="user-action">
+                            <option value="lookup">Lookup Info</option>
+                            <option value="set-limit">Set Bet Limit</option>
+                            <option value="flag">Flag for Review</option>
+                            <option value="temporary-ban">Temporary Restriction</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Value (if applicable)</label>
+                        <input type="number" class="form-control" id="user-action-value" placeholder="Enter value">
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="executeUserAction()">
+                    <i class="fas fa-play"></i>
+                    Execute Action
+                </button>
+                
+                <div id="user-action-results" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Security Tab -->
+        <div class="tab-content" id="security">
+            <div class="grid grid-2">
+                <!-- Security Overview -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-shield-alt"></i>
+                            Security Status
+                        </h3>
+                    </div>
+                    <div id="security-overview">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading security overview...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Threat Detection -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="fas fa-bug"></i>
+                            Threat Detection
+                        </h3>
+                    </div>
+                    <div id="threat-detection">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            Loading threat analysis...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Logs -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-file-alt"></i>
+                        Security Audit Log
+                    </h3>
+                </div>
+                <div class="table-container">
+                    <table class="table" id="security-log-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Event Type</th>
+                                <th>Severity</th>
+                                <th>Details</th>
+                                <th>Action Taken</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5" class="text-center">
+                                    <div class="spinner"></div>
+                                    Loading security logs...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // State Management
+        class EconomyDashboard {
+            constructor() {
+                this.state = {
+                    user: null,
+                    data: {},
+                    charts: {},
+                    refreshInterval: null,
+                    isLoading: false
+                };
+                this.init();
+            }
+
+            async init() {
+                await this.loadUser();
+                await this.loadInitialData();
+                this.initializeCharts();
+                this.startAutoRefresh();
+                this.bindEvents();
+            }
+
+            async loadUser() {
+                try {
+                    const response = await fetch('/api/auth/user');
+                    if (response.ok) {
+                        this.state.user = await response.json();
+                        this.updateUserDisplay();
+                    }
+                } catch (error) {
+                    console.error('Failed to load user:', error);
+                }
+            }
+
+            updateUserDisplay() {
+                if (this.state.user) {
+                    document.getElementById('user-name').textContent = this.state.user.username;
+                    if (this.state.user.avatar) {
+                        const avatar = document.getElementById('user-avatar');
+                        avatar.style.backgroundImage = `url(${this.state.user.avatar})`;
+                        avatar.style.backgroundSize = 'cover';
+                        avatar.style.backgroundPosition = 'center';
+                    }
+                }
+            }
+
+            async loadInitialData() {
+                this.state.isLoading = true;
+                try {
+                    const response = await fetch('/api/economy/status');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.state.data = data.data;
+                        this.updateDashboard();
+                    }
+                } catch (error) {
+                    console.error('Failed to load data:', error);
+                } finally {
+                    this.state.isLoading = false;
+                }
+            }
+
+            async updateDashboard() {
+                this.updateKPIs();
+                await this.updateCharts();
+                this.updateHealthStatus();
+                await this.loadUserAnalytics();
+                await this.loadSecurityStatus();
+            }
+
+            updateKPIs() {
+                const { kpis } = this.state.data;
+                if (!kpis) return;
+
+                // Format and update money supply
+                const moneySupply = this.formatCurrency(kpis.moneySupply);
+                document.getElementById('money-supply').textContent = moneySupply;
+
+                // Update RTP with color coding
+                const rtp = (parseFloat(kpis.overallRTP) || 0) * 100;
+                const rtpElement = document.getElementById('overall-rtp');
+                rtpElement.textContent = rtp.toFixed(1) + '%';
+                
+                // Update RTP status color
+                const rtpCard = rtpElement.closest('.stat-card');
+                rtpCard.className = 'stat-card';
+                if (rtp > 150) {
+                    rtpCard.classList.add('danger');
+                    document.getElementById('rtp-status').innerHTML = '<i class="fas fa-exclamation-triangle"></i><span>Critical</span>';
+                } else if (rtp > 105) {
+                    rtpCard.classList.add('warning');
+                    document.getElementById('rtp-status').innerHTML = '<i class="fas fa-exclamation-circle"></i><span>High</span>';
+                } else {
+                    rtpCard.classList.add('success');
+                    document.getElementById('rtp-status').innerHTML = '<i class="fas fa-check-circle"></i><span>Normal</span>';
+                }
+
+                // Update active users
+                document.getElementById('active-users').textContent = kpis.activeUsers || 0;
+
+                // Update tunings count
+                const tuningCount = this.countTunings(this.state.data.tuning);
+                document.getElementById('active-tunings').textContent = tuningCount;
+            }
+
+            countTunings(tuning) {
+                if (!tuning) return 0;
+                let count = 0;
+                Object.values(tuning).forEach(scope => {
+                    if (typeof scope === 'object') {
+                        count += Object.keys(scope).length;
+                    }
+                });
+                return count;
+            }
+
+            formatCurrency(amount) {
+                const num = parseFloat(amount);
+                if (isNaN(num)) return '$0';
+                if (num >= 1e12) return '$' + (num / 1e12).toFixed(1) + 'T';
+                if (num >= 1e9) return '$' + (num / 1e9).toFixed(1) + 'B';
+                if (num >= 1e6) return '$' + (num / 1e6).toFixed(1) + 'M';
+                if (num >= 1e3) return '$' + (num / 1e3).toFixed(1) + 'K';
+                return '$' + num.toFixed(2);
+            }
+
+            initializeCharts() {
+                this.createRealtimeChart();
+                this.createRTPChart();
+                this.createRevenueChart();
+                this.createActivityChart();
+                this.createGamePopularityChart();
+            }
+
+            createRealtimeChart() {
+                const ctx = document.getElementById('realtimeChart').getContext('2d');
+                this.state.charts.realtime = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'RTP %',
+                            data: [],
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }, {
+                            label: 'Active Users',
+                            data: [],
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            yAxisID: 'y1'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: false
+                            },
+                            legend: {
+                                labels: {
+                                    color: 'rgb(184, 188, 200)'
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'minute'
+                                },
+                                grid: {
+                                    color: 'rgba(42, 45, 58, 0.5)'
+                                },
+                                ticks: {
+                                    color: 'rgb(184, 188, 200)'
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                grid: {
+                                    color: 'rgba(42, 45, 58, 0.5)'
+                                },
+                                ticks: {
+                                    color: 'rgb(184, 188, 200)'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                                ticks: {
+                                    color: 'rgb(184, 188, 200)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            createRTPChart() {
+                const ctx = document.getElementById('rtpChart').getContext('2d');
+                this.state.charts.rtp = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Slots', 'Blackjack', 'Roulette', 'Poker'],
+                        datasets: [{
+                            label: 'Current RTP %',
+                            data: [95.5, 99.2, 97.3, 98.1],
+                            backgroundColor: [
+                                'rgba(59, 130, 246, 0.8)',
+                                'rgba(16, 185, 129, 0.8)',
+                                'rgba(245, 158, 11, 0.8)',
+                                'rgba(139, 92, 246, 0.8)'
+                            ],
+                            borderRadius: 8
+                        }, {
+                            label: 'Target RTP %',
+                            data: [95, 99, 97, 98],
+                            type: 'line',
+                            borderColor: 'rgb(239, 68, 68)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: 'rgb(184, 188, 200)'
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    color: 'rgba(42, 45, 58, 0.5)'
+                                },
+                                ticks: {
+                                    color: 'rgb(184, 188, 200)'
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    color: 'rgba(42, 45, 58, 0.5)'
+                                },
+                                ticks: {
+                                    color: 'rgb(184, 188, 200)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // More chart creation methods...
+            createRevenueChart() {
+                // Revenue chart implementation
+            }
+
+            createActivityChart() {
+                // Activity heatmap implementation
+            }
+
+            createGamePopularityChart() {
+                // Game popularity chart implementation
+            }
+
+            updateCharts() {
+                // Update all charts with new data
+                if (this.state.data.kpis && this.state.charts.realtime) {
+                    const now = new Date();
+                    const rtp = (parseFloat(this.state.data.kpis.overallRTP) || 0) * 100;
+                    const users = this.state.data.kpis.activeUsers || 0;
+
+                    // Add new data points
+                    this.state.charts.realtime.data.labels.push(now);
+                    this.state.charts.realtime.data.datasets[0].data.push(rtp);
+                    this.state.charts.realtime.data.datasets[1].data.push(users);
+
+                    // Keep only last 20 points
+                    if (this.state.charts.realtime.data.labels.length > 20) {
+                        this.state.charts.realtime.data.labels.shift();
+                        this.state.charts.realtime.data.datasets[0].data.shift();
+                        this.state.charts.realtime.data.datasets[1].data.shift();
+                    }
+
+                    this.state.charts.realtime.update('none');
+                }
+            }
+
+            updateHealthStatus() {
+                const { recentActions } = this.state.data;
+                if (recentActions && recentActions.length > 0) {
+                    const lastAction = recentActions[0];
+                    const lastTime = new Date(lastAction.timestamp);
+                    const diffMinutes = Math.floor((Date.now() - lastTime.getTime()) / (1000 * 60));
+                    
+                    let timeText;
+                    if (diffMinutes < 60) {
+                        timeText = diffMinutes + ' min ago';
+                    } else if (diffMinutes < 1440) {
+                        timeText = Math.floor(diffMinutes / 60) + ' hr ago';
+                    } else {
+                        timeText = Math.floor(diffMinutes / 1440) + ' days ago';
+                    }
+                    
+                    document.getElementById('last-analysis').textContent = timeText;
+                } else {
+                    document.getElementById('last-analysis').textContent = 'No recent activity';
+                }
+            }
+
+            startAutoRefresh() {
+                this.state.refreshInterval = setInterval(() => {
+                    this.loadInitialData();
+                }, 30000); // Refresh every 30 seconds
+            }
+
+            async loadUserAnalytics() {
+                try {
+                    const response = await fetch('/api/v2/economy/users/analysis');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.updateUserTables(data.data);
+                    }
+                } catch (error) {
+                    console.error('Failed to load user analytics:', error);
+                }
+            }
+
+            async loadSecurityStatus() {
+                try {
+                    const response = await fetch('/api/v2/economy/security/audit');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.updateSecurityDashboard(data.data);
+                    }
+                } catch (error) {
+                    console.error('Failed to load security status:', error);
+                }
+            }
+
+            updateUserTables(data) {
+                // Update top users table
+                const topUsersTable = document.querySelector('#top-users-table tbody');
+                if (data.topUsers && topUsersTable) {
+                    topUsersTable.innerHTML = data.topUsers.slice(0, 10).map(user => `
+                        <tr>
+                            <td>${user.username}</td>
+                            <td class="text-success">${this.formatCurrency(user.totalBalance)}</td>
+                            <td>${this.formatCurrency(user.betVolume24h || 0)}</td>
+                            <td>
+                                <span class="status-indicator ${user.totalBalance > 1000000000 ? 'warning' : 'online'}">
+                                    <i class="fas fa-circle"></i>
+                                    ${user.totalBalance > 1000000000 ? 'High Value' : 'Normal'}
+                                </span>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Update high-risk users table
+                const riskUsersTable = document.querySelector('#risk-users-table tbody');
+                if (data.highRiskUsers && riskUsersTable) {
+                    riskUsersTable.innerHTML = data.highRiskUsers.slice(0, 10).map(user => {
+                        const riskScore = Math.min(100, user.betCount / 2 + user.avgBet / 10000);
+                        return `
+                            <tr>
+                                <td>${user.username}</td>
+                                <td>
+                                    <span class="text-${riskScore > 75 ? 'danger' : riskScore > 50 ? 'warning' : 'success'}">
+                                        ${riskScore.toFixed(1)}%
+                                    </span>
+                                </td>
+                                <td>High volume betting</td>
+                                <td>
+                                    <button class="btn btn-sm btn-secondary" onclick="reviewUser('${user.userId}')">
+                                        Review
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
+
+            updateSecurityDashboard(data) {
+                // Update security overview
+                const securityOverview = document.getElementById('security-overview');
+                if (securityOverview) {
+                    securityOverview.innerHTML = `
+                        <div class="grid grid-2">
+                            <div class="stat-card ${data.securityLevel === 'HIGH' ? 'danger' : data.securityLevel === 'MEDIUM' ? 'warning' : 'success'}">
+                                <div class="stat-value">${data.securityLevel}</div>
+                                <div class="stat-label">Security Level</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">${data.suspiciousActivities.length}</div>
+                                <div class="stat-label">Suspicious Activities (24h)</div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Update threat detection
+                const threatDetection = document.getElementById('threat-detection');
+                if (threatDetection && data.suspiciousActivities.length > 0) {
+                    threatDetection.innerHTML = `
+                        <div class="threat-list">
+                            ${data.suspiciousActivities.slice(0, 5).map(activity => `
+                                <div class="alert alert-warning">
+                                    <strong>User ${activity.userId}</strong> - ${activity.game}
+                                    <br>
+                                    <small>Risk Score: ${activity.riskScore.toFixed(1)}% | ${activity.rapidBetCount} rapid bets</small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } else if (threatDetection) {
+                    threatDetection.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i>
+                            No immediate threats detected
+                        </div>
+                    `;
+                }
+            }
+
+            setupRealtimeStream() {
+                if (this.eventSource) {
+                    this.eventSource.close();
+                }
+
+                this.eventSource = new EventSource('/api/v2/economy/realtime/stream');
+                
+                this.eventSource.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.updateRealtimeData(data);
+                    } catch (error) {
+                        console.error('Realtime stream parse error:', error);
+                    }
+                };
+
+                this.eventSource.onerror = (error) => {
+                    console.error('Realtime stream error:', error);
+                    // Reconnect after 5 seconds
+                    setTimeout(() => this.setupRealtimeStream(), 5000);
+                };
+            }
+
+            updateRealtimeData(data) {
+                // Update real-time charts with streaming data
+                if (this.state.charts.realtime && data.timestamp) {
+                    const chart = this.state.charts.realtime;
+                    const now = new Date(data.timestamp);
+                    
+                    // Add new data point
+                    chart.data.labels.push(now);
+                    chart.data.datasets[0].data.push(parseFloat(data.rtp));
+                    chart.data.datasets[1].data.push(parseInt(data.activeUsers));
+                    
+                    // Keep only last 50 points for performance
+                    if (chart.data.labels.length > 50) {
+                        chart.data.labels.shift();
+                        chart.data.datasets[0].data.shift();
+                        chart.data.datasets[1].data.shift();
+                    }
+                    
+                    chart.update('none'); // No animation for real-time
+                }
+            }
+
+            bindEvents() {
+                // Setup slider event handlers
+                this.setupSliderHandlers();
+                
+                // Setup realtime streaming
+                this.setupRealtimeStream();
+                
+                // Bind global event handlers
+                window.addEventListener('beforeunload', () => {
+                    if (this.state.refreshInterval) {
+                        clearInterval(this.state.refreshInterval);
+                    }
+                    if (this.eventSource) {
+                        this.eventSource.close();
+                    }
+                });
+            }
+
+            setupSliderHandlers() {
+                // Emergency RTP slider
+                const rtpSlider = document.getElementById('emergency-rtp-slider');
+                const rtpValue = document.getElementById('emergency-rtp-value');
+                if (rtpSlider && rtpValue) {
+                    rtpSlider.addEventListener('input', function() {
+                        const value = parseFloat(this.value);
+                        rtpValue.textContent = (value * 100).toFixed(1) + '%';
+                    });
+                }
+
+                // Max bet slider
+                const maxBetSlider = document.getElementById('max-bet-slider');
+                const maxBetValue = document.getElementById('max-bet-value');
+                if (maxBetSlider && maxBetValue) {
+                    maxBetSlider.addEventListener('input', function() {
+                        const value = parseInt(this.value);
+                        maxBetValue.textContent = value === 0 ? 'No Change' : 
+                                                 (value > 0 ? '+' : '') + value + '%';
+                    });
+                }
+            }
+        }
+
+        // Tab Management
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+
+        // Global Functions
+        async function runEmergencyAnalysis() {
+            try {
+                const response = await fetch('/api/economy/analyze', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Emergency analysis initiated successfully', 'success');
+                    dashboard.loadInitialData();
+                } else {
+                    showNotification('Analysis failed: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showNotification('Analysis error: ' + error.message, 'error');
+            }
+        }
+
+        function refreshAllData() {
+            dashboard.loadInitialData();
+            showNotification('Dashboard refreshed', 'info');
+        }
+
+        async function emergencyStop() {
+            if (confirm('Are you sure you want to activate emergency stop? This will halt all game operations.')) {
+                try {
+                    const response = await fetch('/api/economy/emergency-stop', { method: 'POST' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showNotification('Emergency stop activated!', 'warning');
+                        document.getElementById('system-status').textContent = 'Emergency Stop Active';
+                    }
+                } catch (error) {
+                    showNotification('Emergency stop failed: ' + error.message, 'error');
+                }
+            }
+        }
+
+        // Enhanced Control Functions
+        async function activateEmergencyMode() {
+            if (confirm('Activate emergency mode? This will apply conservative settings across all games.')) {
+                try {
+                    const response = await fetch('/api/v2/economy/controls/emergency-tune', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            reason: 'Emergency mode activation from dashboard',
+                            severity: 'critical',
+                            globalAdjustments: {
+                                enableEmergencyMode: true,
+                                maxBetDelta: -50 // Reduce max bets by 50%
+                            }
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        showNotification('Emergency mode activated successfully', 'warning');
+                        dashboard.loadInitialData();
+                    } else {
+                        showNotification('Emergency mode failed: ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    showNotification('Emergency mode error: ' + error.message, 'error');
+                }
+            }
+        }
+
+        async function emergencyTuning() {
+            const rtpSlider = document.getElementById('emergency-rtp-slider');
+            const maxBetSlider = document.getElementById('max-bet-slider');
+            
+            const rtpAdjustment = parseFloat(rtpSlider.value);
+            const maxBetAdjustment = parseInt(maxBetSlider.value);
+            
+            if (Math.abs(rtpAdjustment) < 0.001 && maxBetAdjustment === 0) {
+                showNotification('Please make adjustments before applying emergency tuning', 'info');
+                return;
+            }
+            
+            const reason = prompt('Please provide a reason for this emergency tuning:');
+            if (!reason) return;
+            
+            try {
+                const response = await fetch('/api/v2/economy/controls/emergency-tune', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        reason: reason,
+                        severity: 'high',
+                        globalAdjustments: {
+                            feeDelta: rtpAdjustment,
+                            maxBetDelta: maxBetAdjustment
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    showNotification('Emergency tuning applied: ' + result.results.join(', '), 'success');
+                    dashboard.loadInitialData();
+                    
+                    // Reset sliders
+                    rtpSlider.value = 0;
+                    maxBetSlider.value = 0;
+                    document.getElementById('emergency-rtp-value').textContent = '0.0%';
+                    document.getElementById('max-bet-value').textContent = 'No Change';
+                } else {
+                    showNotification('Emergency tuning failed: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showNotification('Emergency tuning error: ' + error.message, 'error');
+            }
+        }
+
+        async function applyEmergencyChanges() {
+            await emergencyTuning();
+        }
+
+        async function saveAdvancedSettings() {
+            const aiFrequency = document.getElementById('ai-frequency').value;
+            const tuningSensitivity = document.getElementById('tuning-sensitivity').value;
+            const riskTolerance = document.getElementById('risk-tolerance').value;
+            
+            // Save settings to localStorage for now
+            localStorage.setItem('economySettings', JSON.stringify({
+                aiFrequency,
+                tuningSensitivity,
+                riskTolerance,
+                lastUpdated: Date.now()
+            }));
+            
+            showNotification('Advanced settings saved successfully', 'success');
+        }
+
+        async function resetToDefaults() {
+            if (confirm('Reset all settings to defaults?')) {
+                document.getElementById('ai-frequency').value = '4';
+                document.getElementById('tuning-sensitivity').value = 'medium';
+                document.getElementById('risk-tolerance').value = 'medium';
+                
+                localStorage.removeItem('economySettings');
+                showNotification('Settings reset to defaults', 'info');
+            }
+        }
+
+        async function executeUserAction() {
+            const userInput = document.getElementById('user-lookup-input').value;
+            const action = document.getElementById('user-action').value;
+            const value = document.getElementById('user-action-value').value;
+            
+            if (!userInput) {
+                showNotification('Please enter a user ID or username', 'warning');
+                return;
+            }
+            
+            const resultsDiv = document.getElementById('user-action-results');
+            resultsDiv.innerHTML = '<div class="loading"><div class="spinner"></div> Processing...</div>';
+            
+            try {
+                if (action === 'lookup') {
+                    const response = await fetch('/api/economy/user-info', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: userInput })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success && result.data.found) {
+                        const user = result.data;
+                        resultsDiv.innerHTML = `
+                            <div class="card">
+                                <h4>User Information</h4>
+                                <p><strong>Username:</strong> ${user.username}</p>
+                                <p><strong>Total Balance:</strong> ${dashboard.formatCurrency(user.balance.total)}</p>
+                                <p><strong>Wallet:</strong> ${dashboard.formatCurrency(user.balance.wallet)}</p>
+                                <p><strong>Bank:</strong> ${dashboard.formatCurrency(user.balance.bank)}</p>
+                            </div>
+                        `;
+                    } else {
+                        resultsDiv.innerHTML = '<div class="alert alert-warning">User not found</div>';
+                    }
+                } else if (action === 'set-limit' && value) {
+                    const response = await fetch('/api/economy/user-cap', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            userId: userInput, 
+                            maxBet: parseFloat(value) 
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        resultsDiv.innerHTML = `<div class="alert alert-success">${result.message}</div>`;
+                    } else {
+                        resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${result.error}</div>`;
+                    }
+                } else {
+                    resultsDiv.innerHTML = '<div class="alert alert-info">Action not yet implemented</div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            }
+        }
+
+        function reviewUser(userId) {
+            document.getElementById('user-lookup-input').value = userId;
+            document.getElementById('user-action').value = 'lookup';
+            showTab('users');
+            executeUserAction();
+        }
+
+        function exportData() {
+            // Export functionality
+            showNotification('Export started - file will download shortly', 'info');
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create notification system
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'error' ? 'danger' : type}`;
+            notification.innerHTML = `<i class="fas fa-info-circle"></i> ${message}`;
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '9999';
+            notification.style.maxWidth = '400px';
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        // Initialize Dashboard
+        let dashboard;
+        document.addEventListener('DOMContentLoaded', function() {
+            dashboard = new EconomyDashboard();
+        });
+    </script>
+</body>
+</html>

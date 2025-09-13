@@ -20,6 +20,7 @@ const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 // LEGACY: economicManager replaced by EconomyGuardian AI
 // const economicManager = require('../UTILS/economicManager');
 const EconomyGuardianInterface = require('../UTILS/economyGuardianInterface');
+const tuningManager = require('../UTILS/tuningManager');
 
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
@@ -289,14 +290,26 @@ module.exports = {
                 }
             }
             
-            // Validate and deduct bet (500K maximum limit - reduced from 10M)
+            // 🎛️ INITIALIZE AI TUNING SYSTEM
+            await tuningManager.initialize();
+            
+            // 🎛️ GET AI-REGULATED MAX BET LIMIT
+            const maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'blackjack', 100000000);
+            const dynamicMaxBet = maxBetConfig.maxBet;
+            
+            // Validate and deduct bet with AI-regulated limits
             validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.BLACKJACK,
-                1,          // Min bet: $1
-                100000000   // Max bet: $100M (safe with personalization)
+                1,              // Min bet: $1
+                dynamicMaxBet   // Max bet: AI-regulated
             );
+            
+            // Log max bet changes for monitoring
+            if (maxBetConfig.adjustmentApplied || maxBetConfig.userCapped) {
+                logger.info(`🎛️ BLACKJACK MAX BET: ${userId} -> ${fmt(dynamicMaxBet)} (${maxBetConfig.userCapped ? 'user-capped' : 'AI-adjusted'})`);
+            }
 
             if (!validation.isValid) {
                 return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
@@ -806,7 +819,19 @@ module.exports = {
             for (const result of results) {
                 totalBetAmount += result.betAmount || game.betAmount;
             }
-            const won = totalPayout > 0;
+            
+            const originalWon = totalPayout > 0;
+            
+            // 🎰 APPLY AI TUNING SYSTEM - ECONOMIC REGULATION
+            const tuningAdjustment = await tuningManager.getAdjustedPayout('blackjack', totalPayout, totalBetAmount);
+            const regulatedPayout = originalWon ? tuningAdjustment.adjustedPayout : 0;
+            
+            // Log tuning application for monitoring
+            if (tuningAdjustment.payoutDelta !== 0 || tuningAdjustment.feeApplied) {
+                logger.info(`🎛️ BLACKJACK TUNING: ${totalPayout} -> ${regulatedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
+            }
+            
+            const won = regulatedPayout > 0;
             
             // Use PayoutManager for consistent payout handling
             const gameResult = new GameResult({
@@ -814,7 +839,7 @@ module.exports = {
                 guildId,
                 gameType: 'blackjack',
                 betAmount: totalBetAmount,
-                payout: totalPayout,
+                payout: regulatedPayout,
                 won: won,
                 metadata: { hands: results.length }
             });
@@ -828,7 +853,7 @@ module.exports = {
                     'blackjack', 
                     won, 
                     totalBetAmount, 
-                    totalPayout,
+                    regulatedPayout,  // Use regulated payout for recording
                     {
                         hands: game.splitHands.length || 1,
                         dealerValue: game.dealerHand.getValue(),
@@ -837,6 +862,10 @@ module.exports = {
                         split: game.splitHands.length > 0
                     }
                 );
+                
+                // 📊 RECORD FOR AI ECONOMY ANALYZER
+                await tuningManager.recordGameResult(userId, 'blackjack', totalBetAmount, regulatedPayout, won);
+                
             } catch (recordError) {
                 logger.warn(`Failed to record blackjack game result: ${recordError.message}`);
             }

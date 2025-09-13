@@ -78,6 +78,9 @@ class DatabaseAdapter {
         await this.initializeSchema();
         await this.initializeVoteSchema();
         await this.initializeShopItems();
+        
+        // Apply balance integrity constraints (production safety)
+        await this.applyBalanceIntegrityConstraints();
     }
 
     /**
@@ -96,6 +99,8 @@ class DatabaseAdapter {
                 last_beg_ts BIGINT NOT NULL DEFAULT 0,
                 last_crime_ts BIGINT NOT NULL DEFAULT 0,
                 last_heist_ts BIGINT NOT NULL DEFAULT 0,
+                daily_sent DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                last_send_reset BIGINT NOT NULL DEFAULT 0,
                 username VARCHAR(100) DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -354,7 +359,10 @@ class DatabaseAdapter {
                 // Add manual award columns to lottery_tickets table
                 `ALTER TABLE lottery_tickets ADD COLUMN awarded_manually BOOLEAN DEFAULT FALSE`,
                 `ALTER TABLE lottery_tickets ADD COLUMN award_reason TEXT DEFAULT NULL`,
-                `ALTER TABLE lottery_tickets ADD COLUMN awarded_by VARCHAR(20) DEFAULT NULL`
+                `ALTER TABLE lottery_tickets ADD COLUMN awarded_by VARCHAR(20) DEFAULT NULL`,
+                // Add daily send limit tracking columns to user_balances table
+                `ALTER TABLE user_balances ADD COLUMN daily_sent DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
+                `ALTER TABLE user_balances ADD COLUMN last_send_reset BIGINT NOT NULL DEFAULT 0`
             ];
             
             for (const query of alterQueries) {
@@ -3162,6 +3170,33 @@ class DatabaseAdapter {
         } catch (error) {
             // Silently fail to avoid disrupting game flow
             logger.debug(`ML data collection failed for ${gameType} game by ${userId}: ${error.message}`);
+        }
+    }
+
+    /**
+     * Apply balance integrity constraints to prevent negative balances and fraud
+     */
+    async applyBalanceIntegrityConstraints() {
+        try {
+            const BalanceIntegrityMigration = require('./balanceIntegrityMigration');
+            const migration = new BalanceIntegrityMigration(this);
+            
+            const result = await migration.applyBalanceIntegrityConstraints();
+            
+            if (result.success) {
+                logger.info('✅ Balance integrity constraints applied successfully');
+                
+                // Test the constraints
+                await migration.testConstraints();
+            } else {
+                logger.warn(`⚠️ Balance integrity constraints failed: ${result.error}`);
+            }
+            
+            return result;
+            
+        } catch (error) {
+            logger.error(`Failed to apply balance integrity constraints: ${error.message}`);
+            return { success: false, error: error.message };
         }
     }
 }

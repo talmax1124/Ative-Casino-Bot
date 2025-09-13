@@ -14,7 +14,7 @@ const DEVELOPER_ID = '466050111680544798';
 class WealthTaxManager {
     constructor() {
         this.WEALTH_THRESHOLD = 100000; // $100K minimum to be subject to wealth tax
-        this.HIGH_STAKES_THRESHOLD = 0.01; // Must bet at least 1% of wealth for "high stakes"
+        this.HIGH_STAKES_THRESHOLD = 0.05; // Must bet at least 5% of wealth for "high stakes" (was 1%)
         this.INACTIVITY_PERIOD = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
         this.LOW_BETTING_PERIOD = 14 * 24 * 60 * 60 * 1000; // 14 days for low betting check
         this.isProcessing = false;
@@ -122,8 +122,18 @@ class WealthTaxManager {
             // Check recent gambling activity
             const bettingAnalysis = await this.hasHighStakesBetting(userId, guildId, totalBalance);
             
-            // If they're gambling with high stakes, exempt from wealth tax
-            if (bettingAnalysis.hasHighStakes) {
+            // Ultra-wealthy (1B+) are ALWAYS taxed regardless of gambling activity
+            if (totalBalance >= 1000000000) {
+                return {
+                    taxable: true,
+                    reason: 'ultra_wealthy_mandatory_tax',
+                    totalBalance,
+                    bettingAnalysis
+                };
+            }
+            
+            // For lesser wealthy players, high stakes gambling can exempt them
+            if (bettingAnalysis.hasHighStakes && totalBalance < 1000000000) {
                 return { 
                     taxable: false, 
                     reason: 'active_high_stakes_gambler', 

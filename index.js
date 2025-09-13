@@ -52,7 +52,7 @@ process.on('uncaughtException', (error) => {
 // Bot configuration
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-const ENVIRONMENT = process.env.ENVIRONMENT || 'development';
+const ENVIRONMENT = process.env.ENVIRONMENT || process.env.NODE_ENV || 'development';
 const LOG_CHANNEL_ID = '1405096821512212521'; // General bot activity log channel
 
 // Validation
@@ -85,7 +85,13 @@ client.commands = new Collection();
 // Load commands from COMMANDS folder
 async function loadCommands() {
     const commandsPath = path.join(__dirname, 'COMMANDS');
-    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+    
+    // Economy commands to exclude from loading
+    const excludedEconomyCommands = ['beg.js', 'crime.js', 'work.js', 'earnmoney.js', 'rob.js'];
+    
+    const commandFiles = fs.readdirSync(commandsPath)
+        .filter(file => file.endsWith('.js'))
+        .filter(file => !excludedEconomyCommands.includes(file));
 
     const commands = [];
 
@@ -563,8 +569,19 @@ client.once('clientReady', async () => {
             logger.info('🚫 Startup economic summary disabled in development mode');
         }
         
-        // Economy analyzer moved to UAS bot
-        logger.info('Economy system now managed by UAS bot');
+        // Initialize Economy Analyzer & Optimizer
+        try {
+            const { initializeAnalyzer } = require('./COMMANDS/economyanalyzer');
+            await initializeAnalyzer(client, {
+                cronSchedule: '0 */4 * * *', // Every 4 hours
+                reportChannelId: process.env.ECONOMY_REPORT_CHANNEL,
+                logChannelId: process.env.ECONOMY_LOG_CHANNEL,
+                autoStart: process.env.ENVIRONMENT === 'production'
+            });
+            logger.info('✅ Economy Analyzer & Optimizer initialized successfully');
+        } catch (error) {
+            logger.error(`❌ Economy Analyzer initialization failed: ${error.message}`);
+        }
         
         // Initialize server products database table
         // Removed: serverProducts initialization - using web-based purchases now

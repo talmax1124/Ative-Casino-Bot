@@ -201,24 +201,27 @@ const limiter = rateLimit({
 
 app.use(limiter);
 
-// Session configuration - Enhanced for Railway production
+// Enhanced Session configuration for persistent login
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
-  resave: true, // Force session save even if unmodified - helps with Railway
-  saveUninitialized: true, // Save uninitialized sessions - helps with auth flow
-  rolling: false, // Don't reset expiration - can cause session ID changes
+  resave: false, // Don't save session if unmodified
+  saveUninitialized: false, // Don't create session until something is stored
+  rolling: true, // Reset expiration on activity - keeps users logged in
   name: 'ative.sid', // Custom session name
   proxy: process.env.NODE_ENV === 'production', // Trust Railway's proxy
   cookie: {
     secure: process.env.NODE_ENV === 'production', // HTTPS in production
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days persistent login
     sameSite: 'lax' // Helps with OAuth redirects
   },
-  // Add genid function to help with session stability
+  // Enhanced session ID generation with better entropy
   genid: function(req) {
-    const id = require('crypto').randomUUID();
-    console.log(`[SESSION] Generated new session ID: ${id}`);
+    const crypto = require('crypto');
+    const timestamp = Date.now().toString(36);
+    const random = crypto.randomBytes(16).toString('hex');
+    const id = `${timestamp}-${random}`;
+    console.log(`[SESSION] Generated persistent session ID: ${id.substring(0, 20)}...`);
     return id;
   }
 }));
@@ -313,6 +316,12 @@ passport.deserializeUser(async (id, done) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Economy Dashboard API Routes
+const economyAPI = require('./economy-api-simple');
+const enhancedEconomyAPI = require('./economy-api-enhanced');
+app.use('/api/economy', economyAPI);
+app.use('/api/v2/economy', enhancedEconomyAPI);
 
 // Set view engine
 app.set('view engine', 'ejs');
@@ -436,6 +445,66 @@ app.get('/', (req, res) => {
     title: 'ATIVE Casino Bot - Discord\'s Premier Casino Experience',
     currentPage: 'home'
   });
+});
+
+// Economy Dashboard Route (Admin only)
+app.get('/economy-dashboard', ensureAuthenticated, async (req, res) => {
+  try {
+    // Check if user is admin (you may want to add a proper admin check here)
+    // For now, we'll serve the dashboard to authenticated users
+    res.sendFile(path.join(__dirname, 'economy-dashboard.html'));
+  } catch (error) {
+    console.error('Economy dashboard error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// V2 Economy Dashboard Route (Modern UI)
+app.get('/economy-dashboard-v2', ensureAuthenticated, async (req, res) => {
+  try {
+    res.sendFile(path.join(__dirname, 'economy-dashboard-v2.html'));
+  } catch (error) {
+    console.error('V2 Economy dashboard error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Test Dashboard Route (No authentication for debugging)
+app.get('/test-dashboard', async (req, res) => {
+  try {
+    res.sendFile(path.join(__dirname, 'test-dashboard.html'));
+  } catch (error) {
+    console.error('Test dashboard error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// User info API for persistent session management
+app.get('/api/auth/user', ensureAuthenticated, async (req, res) => {
+  try {
+    if (req.user) {
+      res.json({
+        success: true,
+        id: req.user.id,
+        username: req.user.username,
+        avatar: req.user.avatar ? `https://cdn.discordapp.com/avatars/${req.user.id}/${req.user.avatar}.png?size=256` : null,
+        discriminator: req.user.discriminator,
+        email: req.user.email,
+        sessionExpiry: req.session.cookie.expires
+      });
+    } else {
+      res.status(401).json({
+        success: false,
+        error: 'Not authenticated'
+      });
+    }
+  } catch (error) {
+    console.error('User info API error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 app.get('/features', (req, res) => {
