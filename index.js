@@ -86,12 +86,9 @@ client.commands = new Collection();
 async function loadCommands() {
     const commandsPath = path.join(__dirname, 'COMMANDS');
     
-    // Economy commands to exclude from loading
-    const excludedEconomyCommands = ['beg.js', 'crime.js', 'work.js', 'earnmoney.js', 'rob.js'];
-    
+    // Load all command files
     const commandFiles = fs.readdirSync(commandsPath)
-        .filter(file => file.endsWith('.js'))
-        .filter(file => !excludedEconomyCommands.includes(file));
+        .filter(file => file.endsWith('.js'));
 
     const commands = [];
 
