@@ -9,6 +9,7 @@ const { secureWeightedChoice, secureRandomFloat } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
 // Fish data with probabilities and multipliers
 const FISH_TYPES = {
@@ -132,6 +133,16 @@ class FishingGame {
             this.gameEnded = true;
             this.fishCaught.push(`${fishData.emoji} ${fishData.name} (🔥 DOOM!)`);
             
+            // Comprehensive logging for red fish catch
+            comprehensiveLogger.logGame(this.userId, this.username, 'fishing', 'RED_FISH_CAUGHT', {
+                totalCatches: this.totalCatches,
+                oldWinnings: oldWinnings,
+                lostAmount: oldWinnings,
+                fishType: fishType,
+                multiplier: multiplier,
+                timing: 'red_fish_doom'
+            }).catch(err => logger.error('Logging error:', err));
+            
             logger.info(`${this.username} caught red fish and lost everything on catch ${this.totalCatches}`);
             
             return {
@@ -150,10 +161,33 @@ class FishingGame {
         this.currentWinnings *= multiplier;
         this.fishCaught.push(`${fishData.emoji} ${fishData.name} (${multiplier.toFixed(2)}x)`);
 
+        // Comprehensive logging for successful fish catch
+        comprehensiveLogger.logGame(this.userId, this.username, 'fishing', 'FISH_CAUGHT', {
+            totalCatches: this.totalCatches,
+            fishType: fishType,
+            multiplier: multiplier,
+            oldWinnings: oldWinnings,
+            newWinnings: this.currentWinnings,
+            fishName: fishData.name,
+            catchNumber: this.totalCatches,
+            timing: 'normal_catch'
+        }).catch(err => logger.error('Logging error:', err));
+
         // Check if reached catch limit
         const reachedLimit = this.totalCatches >= this.maxCatches;
         if (reachedLimit) {
             this.gameEnded = true;
+            
+            // Comprehensive logging for reaching fishing limit
+            comprehensiveLogger.logGame(this.userId, this.username, 'fishing', 'CATCH_LIMIT_REACHED', {
+                totalCatches: this.totalCatches,
+                maxCatches: this.maxCatches,
+                finalWinnings: this.currentWinnings,
+                initialBet: this.initialBet,
+                netProfit: this.currentWinnings - this.initialBet,
+                timing: 'limit_reached'
+            }).catch(err => logger.error('Logging error:', err));
+            
             logger.info(`${this.username} reached fishing limit with winnings ${this.currentWinnings}`);
         }
 

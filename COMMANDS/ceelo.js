@@ -10,6 +10,8 @@ const { sendLogMessage, parseAmount, fmt } = require('../UTILS/common');
 const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
 const logger = require('../UTILS/logger');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
+const tuningManager = require('../UTILS/tuningManager');
 
 // CEELO Configuration
 const CEELO_CONFIG = {
@@ -56,13 +58,39 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // Use PayoutManager for bet validation and deduction
+            // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
+            let dynamicMaxBet = CEELO_CONFIG.MAX_BET; // Default fallback limit
+            let maxBetConfig = { userCapped: false, adjustmentApplied: false };
+            
+            try {
+                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'ceelo', CEELO_CONFIG.MAX_BET);
+                dynamicMaxBet = maxBetConfig.maxBetLimit;
+                
+                // Comprehensive logging for bet attempt
+                await comprehensiveLogger.logGame(userId, username, 'ceelo', 'BET_ATTEMPT', {
+                    betAmount: parseAmount(betAmountStr),
+                    maxBetAllowed: dynamicMaxBet,
+                    userCapped: maxBetConfig.userCapped,
+                    aiAdjusted: maxBetConfig.adjustmentApplied
+                }).catch(err => logger.error('Logging error:', err));
+                
+            } catch (tuningError) {
+                // Fallback logging for tuning system failure
+                await comprehensiveLogger.logError('CEELO_TUNING_SYSTEM', tuningError, { 
+                    critical: false, 
+                    fallback: 'default_limits',
+                    userId: userId 
+                }).catch(err => logger.error('Logging error:', err));
+                logger.warn(`Tuning manager failed for ${username}, using default limits: ${tuningError.message}`);
+            }
+
+            // Use PayoutManager for bet validation and deduction with AI-regulated limits
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 betAmountStr,
                 GameType.CEELO,
                 CEELO_CONFIG.MIN_BET,
-                CEELO_CONFIG.MAX_BET
+                dynamicMaxBet // AI-regulated max bet limit for economic compliance
             );
             
             if (!validation.isValid) {

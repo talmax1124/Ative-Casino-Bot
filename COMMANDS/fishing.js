@@ -17,6 +17,8 @@ const {
 const logger = require('../UTILS/logger');
 const sessionManager = require('../UTILS/sessionManager');
 const levelingSystem = require('../UTILS/levelingSystem');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
+const tuningManager = require('../UTILS/tuningManager');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -77,12 +79,39 @@ module.exports = {
             // Validate and deduct bet amount using PayoutManager
             const amountStr = interaction.options.getString('amount');
             
+            // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
+            let dynamicMaxBet = 1000000; // Default fallback limit
+            let maxBetConfig = { userCapped: false, adjustmentApplied: false };
+            
+            try {
+                const { parseAmount } = require('../UTILS/common');
+                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'fishing', 1000000);
+                dynamicMaxBet = maxBetConfig.maxBetLimit;
+                
+                // Comprehensive logging for bet attempt
+                await comprehensiveLogger.logGame(userId, username, 'fishing', 'BET_ATTEMPT', {
+                    betAmount: parseAmount(amountStr),
+                    maxBetAllowed: dynamicMaxBet,
+                    userCapped: maxBetConfig.userCapped,
+                    aiAdjusted: maxBetConfig.adjustmentApplied
+                }).catch(err => logger.error('Logging error:', err));
+                
+            } catch (tuningError) {
+                // Fallback logging for tuning system failure
+                await comprehensiveLogger.logError('FISHING_TUNING_SYSTEM', tuningError, { 
+                    critical: false, 
+                    fallback: 'default_limits',
+                    userId: userId 
+                }).catch(err => logger.error('Logging error:', err));
+                logger.warn(`Tuning manager failed for ${username}, using default limits: ${tuningError.message}`);
+            }
+            
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amountStr,
                 GameType.FISHING,
                 1, // No minimum bet for fishing
-                null     // No maximum bet limit
+                dynamicMaxBet     // AI-regulated max bet limit for economic compliance
             );
             
             if (!validation.isValid) {

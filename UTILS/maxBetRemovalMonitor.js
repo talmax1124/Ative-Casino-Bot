@@ -75,7 +75,13 @@ class MaxBetRemovalMonitor {
                 this.readinessHistory = this.readinessHistory.slice(-30);
             }
 
-            logger.info(`Max bet readiness check: ${readinessReport.overallReadiness}% ready`);
+            // Only log if readiness is above 85% to reduce spam
+            if (readinessReport.overallReadiness >= 85) {
+                logger.info(`🎯 Max bet removal readiness: ${readinessReport.overallReadiness.toFixed(1)}% (High readiness detected)`);
+            } else if (readinessReport.overallReadiness >= 75) {
+                logger.info(`📈 Max bet removal readiness: ${readinessReport.overallReadiness.toFixed(1)}% (Approaching target)`);
+            }
+            // Below 75% - don't log to reduce noise
 
         } catch (error) {
             logger.error(`Max bet readiness check failed: ${error.message}`);

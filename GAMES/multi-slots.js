@@ -27,7 +27,7 @@ class BuffaloBonusSession {
     constructor(userId, betAmount, userBalance, guildId, spinsLeft = 5) {
         this.userId = userId;
         this.originalBetAmount = betAmount;
-        this.bonusBetAmount = betAmount * 3; // 3x multiplier for bonus spins
+        this.bonusBetAmount = betAmount * 2.2; // 2.2x multiplier for bonus spins - balanced fun
         this.userBalance = userBalance;
         this.guildId = guildId;
         this.spinsLeft = spinsLeft;
@@ -73,7 +73,7 @@ class BuffaloBonusSession {
         // Banking fields
         const bankFields = [
             { name: '🔄 Bonus Spins Left', value: this.spinsLeft.toString(), inline: true },
-            { name: '💰 Bonus Bet (3x)', value: fmt(this.bonusBetAmount), inline: true },
+            { name: '💰 Bonus Bet (2.2x)', value: fmt(this.bonusBetAmount), inline: true },
             { name: '💎 Total Bonus Win', value: fmt(this.totalBonusWinnings), inline: true }
         ];
 
@@ -130,7 +130,7 @@ function createMatrixEmbed(user, matrix, result, betAmount, userBalance, buffalo
     if (buffaloBonus) {
         topFields.push({
             name: '🦬 BUFFALO BONUS TRIGGERED!',
-            value: '**5 FREE SPINS with 3x multiplier!**',
+            value: '**5 FREE SPINS with 2.2x multiplier!**',
             inline: false
         });
     }

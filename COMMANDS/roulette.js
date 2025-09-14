@@ -17,6 +17,8 @@ const levelingSystem = require('../UTILS/levelingSystem');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const gifAnimator = require('../UTILS/gifAnimator');
 const economicManager = require('../UTILS/economicManager');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
+const tuningManager = require('../UTILS/tuningManager');
 
 // Game type constant
 const SMGameType = { ROULETTE: 'roulette' };
@@ -172,24 +174,24 @@ function createGameEmbed(game, user, balance = null) {
         }
     }
 
-    // Determine game stage and color
+    // Determine game stage and embed color
     let stageText = '';
-    let color = 0x00ff00; // Bright green
+    let embedColor = 0x00ff00; // Bright green
 
     if (game.isSpinning) {
         stageText = 'SPINNING';
-        color = 0xFFD700; // Gold for spinning
+        embedColor = 0xFFD700; // Gold for spinning
     } else if (game.gameEnded) {
         if (game.lastPayout > 0) {
             stageText = 'WIN';
-            color = 0x00ff00; // Green for win
+            embedColor = 0x00ff00; // Green for win
         } else {
             stageText = 'LOSS';
-            color = 0xff0000; // Red for loss
+            embedColor = 0xff0000; // Red for loss
         }
     } else {
         stageText = 'BETTING';
-        color = 0x00ff00; // Bright green for betting
+        embedColor = 0x00ff00; // Bright green for betting
     }
 
     return buildSessionEmbed({
@@ -197,7 +199,7 @@ function createGameEmbed(game, user, balance = null) {
         topFields,
         bankFields,
         stageText,
-        color,
+        embedColor,
         footer: game.gameEnded ? 'Game completed' : game.isSpinning ? 'Ball is spinning...' : 'Place your bets!'
     });
 }
@@ -443,13 +445,41 @@ module.exports = {
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
-            // Validate and deduct bet
+            // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
+            let dynamicMaxBet = 1000000; // Default fallback limit
+            let maxBetConfig = { userCapped: false, adjustmentApplied: false };
+            
+            try {
+                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'roulette', 1000000);
+                dynamicMaxBet = maxBetConfig.maxBetLimit;
+                
+                // Comprehensive logging for bet attempt
+                await comprehensiveLogger.logGame(userId, username, 'roulette', 'BET_ATTEMPT', {
+                    betAmount: parseAmount(amount),
+                    maxBetAllowed: dynamicMaxBet,
+                    userCapped: maxBetConfig.userCapped,
+                    aiAdjusted: maxBetConfig.adjustmentApplied,
+                    walletBalance: userBalance.wallet,
+                    bankBalance: userBalance.bank
+                }).catch(err => logger.error('Logging error:', err));
+                
+            } catch (tuningError) {
+                // Fallback logging for tuning system failure
+                await comprehensiveLogger.logError('ROULETTE_TUNING_SYSTEM', tuningError, { 
+                    critical: false, 
+                    fallback: 'default_limits',
+                    userId: userId 
+                }).catch(err => logger.error('Logging error:', err));
+                logger.warn(`Tuning manager failed for ${username}, using default limits: ${tuningError.message}`);
+            }
+
+            // Validate and deduct bet with AI-regulated limits
             validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.BLACKJACK, // Using existing GameType, can create ROULETTE later
                 10,         // Min bet: $10
-                null        // No maximum bet limit
+                dynamicMaxBet // AI-regulated max bet limit for economic compliance
             );
 
             if (!validation.isValid) {
@@ -696,11 +726,11 @@ module.exports = {
                             'You can only place one bet per spin'
                         ],
                         commands: [
-                            '**Red/Black/Odd/Even/High/Low:** Dynamic payout (base 2x)',
-                            '**Dozens (1-12, 13-24, 25-36):** Dynamic payout (base 2.2x)',
-                            '**Single Numbers:** Dynamic payout (base 8x)',
-                            '**Green (0 or 00):** Dynamic payout (base 4x)',
-                            '**Basket (0, 00, 1, 2, 3):** Dynamic payout (base 3.5x)'
+                            '**Red/Black/Odd/Even/High/Low:** 2x payout',
+                            '**Dozens (1-12, 13-24, 25-36):** 2.5x payout',
+                            '**Single Numbers:** 3x payout - Max allowed!',
+                            '**Green (0 or 00):** 3x payout - Max allowed!',
+                            '**Basket (0, 00, 1, 2, 3):** 3x payout - Max allowed!'
                         ],
                         tips: [
                             'American wheel has both 0 and 00',
@@ -852,6 +882,47 @@ module.exports = {
     async endGame(interaction, game, userId, guildId, result, payout) {
         try {
             const won = payout > 0;
+            const netChange = won ? (payout - game.betAmount) : -game.betAmount;
+            const color = game.getNumberColor(result);
+            const winColorEmoji = color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢';
+            
+            // Comprehensive logging for game result
+            await comprehensiveLogger.logGame(userId, interaction.user.displayName, 'roulette', won ? 'WIN' : 'LOSS', {
+                betAmount: game.betAmount,
+                payout: payout,
+                netChange: netChange,
+                result: result,
+                resultColor: color,
+                betType: game.currentBet.type,
+                betNumbers: game.currentBet.numbers || null,
+                timing: 'game_complete'
+            }).catch(err => logger.error('Logging error:', err));
+            
+            // Log economic impact
+            if (won) {
+                await comprehensiveLogger.logEconomic('ROULETTE_WIN_PAYOUT', 'NORMAL', `Player won ${fmt(payout)} from roulette on ${winColorEmoji} ${result}`, {
+                    userId: userId,
+                    username: interaction.user.displayName,
+                    betAmount: game.betAmount,
+                    winnings: payout,
+                    netProfit: netChange,
+                    result: result,
+                    resultColor: color,
+                    betType: game.currentBet.type,
+                    gameType: 'roulette'
+                }).catch(err => logger.error('Logging error:', err));
+            } else {
+                await comprehensiveLogger.logEconomic('ROULETTE_LOSS', 'NORMAL', `Player lost ${fmt(game.betAmount)} to roulette on ${winColorEmoji} ${result}`, {
+                    userId: userId,
+                    username: interaction.user.displayName,
+                    betAmount: game.betAmount,
+                    lossAmount: game.betAmount,
+                    result: result,
+                    resultColor: color,
+                    betType: game.currentBet.type,
+                    gameType: 'roulette'
+                }).catch(err => logger.error('Logging error:', err));
+            }
             
             // Use PayoutManager for consistent payout handling
             const gameResult = new GameResult({
@@ -864,7 +935,7 @@ module.exports = {
                 metadata: { 
                     result: result,
                     betType: game.currentBet.type,
-                    color: game.getNumberColor(result)
+                    color: color
                 }
             });
 
@@ -926,10 +997,10 @@ module.exports = {
             const resultWheelImage = await createRouletteWheelImage(game, true);
 
             // Create result message
-            const color = game.getNumberColor(result);
-            const colorEmoji = color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢';
+            const resultColor = game.getNumberColor(result);
+            const finalColorEmoji = resultColor === 'red' ? '🔴' : resultColor === 'black' ? '⚫' : '🟢';
             
-            let resultMessage = `🎰 **Ball landed on ${colorEmoji} ${result}**\n\n`;
+            let resultMessage = `🎰 **Ball landed on ${finalColorEmoji} ${result}**\n\n`;
             
             if (won) {
                 resultMessage += `🎉 **YOU WIN!** ${fmt(payout)}`;

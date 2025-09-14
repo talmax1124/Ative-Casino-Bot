@@ -5,6 +5,7 @@
 
 const logger = require('./logger');
 const dbManager = require('./database');
+const AIRateLimitFix = require('./aiRateLimitFix');
 
 class RealAIEngine {
     constructor() {
@@ -18,6 +19,10 @@ class RealAIEngine {
         this.learningMemory = new Map();
         this.analysisHistory = [];
         this.predictionAccuracy = new Map();
+        
+        // Initialize rate limiting system
+        this.rateLimitFix = new AIRateLimitFix();
+        this.rateLimitFix.makeOpenAIRequest = this.queryOpenAIRaw.bind(this);
         
         if (this.devMode) {
             logger.info(`🤖 Real AI Engine initialized - DEVELOPMENT MODE (${process.env.ENVIRONMENT || 'development'}) - API calls disabled`);
@@ -146,39 +151,61 @@ Think like a world-class casino optimization AI. Be specific, data-driven, and f
     }
 
     /**
-     * Query OpenAI API for intelligent analysis
+     * Query OpenAI API with rate limiting and intelligent fallback
      */
-    async queryOpenAI(prompt) {
+    async queryOpenAI(prompt, category = 'economy_analysis') {
         try {
-            const response = await fetch(this.baseURL, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: this.model,
-                    messages: [{
-                        role: 'user',
-                        content: prompt
-                    }],
-                    temperature: 0.1, // Low temperature for consistent, logical responses
-                    max_tokens: 2000,
-                    response_format: { type: "json_object" }
-                })
+            // Use rate limit fix for intelligent handling
+            const result = await this.rateLimitFix.makeAICall(prompt, category, {
+                timeout: 15000 // 15 second timeout
             });
-
-            if (!response.ok) {
-                throw new Error(`OpenAI API Error: ${response.status} ${response.statusText}`);
+            
+            if (result.success) {
+                logger.info('✅ OpenAI API call successful');
+                return result.content;
+            } else {
+                logger.warn(`⚠️ Using AI fallback: ${result.reason}`);
+                return this.formatFallbackAsJSON(result.content);
             }
-
-            const data = await response.json();
-            return data.choices[0].message.content;
-
+            
         } catch (error) {
-            logger.error(`OpenAI API Error: ${error.message}`);
+            logger.error(`❌ AI query failed: ${error.message}`);
+            // Return structured fallback response
+            return this.createEmergencyFallback();
+        }
+    }
+    
+    /**
+     * Raw OpenAI API call (used by rate limiter)
+     */
+    async queryOpenAIRaw(prompt) {
+        const response = await fetch(this.baseURL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: this.model,
+                messages: [{
+                    role: 'user',
+                    content: prompt
+                }],
+                temperature: 0.1,
+                max_tokens: 2000,
+                response_format: { type: "json_object" }
+            })
+        });
+
+        if (!response.ok) {
+            const error = new Error(`OpenAI API Error: ${response.status} ${response.statusText}`);
+            error.status = response.status;
+            error.headers = response.headers;
             throw error;
         }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
     }
 
     /**
@@ -435,15 +462,104 @@ Think like a world-class casino optimization AI. Be specific, data-driven, and f
     }
 
     /**
-     * Get AI system status
+     * Format fallback response as JSON for compatibility
+     */
+    formatFallbackAsJSON(fallbackContent) {
+        try {
+            if (typeof fallbackContent === 'string') {
+                return fallbackContent;
+            }
+            
+            // Convert fallback object to expected AI response format
+            return JSON.stringify({
+                analysis: {
+                    keyInsights: fallbackContent.recommendations?.slice(0, 3).map(r => r.reasoning) || ['System using cached analysis'],
+                    predictedOutcome: fallbackContent.message || 'Stable operation expected based on cached data',
+                    riskFactors: ['Limited AI analysis available'],
+                    opportunityScore: 75
+                },
+                recommendations: fallbackContent.recommendations || [
+                    {
+                        action: 'MONITOR_SYSTEM',
+                        priority: 'MEDIUM',
+                        confidence: 80,
+                        reasoning: 'Continue monitoring while AI is unavailable',
+                        impact: 'MEDIUM'
+                    }
+                ],
+                confidence: 75,
+                source: 'fallback_system',
+                timestamp: Date.now()
+            });
+            
+        } catch (error) {
+            logger.error(`Failed to format fallback as JSON: ${error.message}`);
+            return this.createEmergencyFallback();
+        }
+    }
+
+    /**
+     * Create emergency fallback when all else fails
+     */
+    createEmergencyFallback() {
+        return JSON.stringify({
+            analysis: {
+                keyInsights: ['AI system temporarily unavailable', 'Using conservative approach', 'Manual monitoring recommended'],
+                predictedOutcome: 'System should remain stable with current settings',
+                riskFactors: ['Limited automated analysis', 'Reduced prediction accuracy'],
+                opportunityScore: 60
+            },
+            recommendations: [
+                {
+                    action: 'MAINTAIN_STATUS_QUO',
+                    priority: 'HIGH',
+                    confidence: 90,
+                    reasoning: 'Conservative approach until AI is restored',
+                    impact: 'LOW',
+                    implementation: 'Continue current operations without changes'
+                },
+                {
+                    action: 'MANUAL_MONITORING',
+                    priority: 'MEDIUM', 
+                    confidence: 95,
+                    reasoning: 'Increased manual oversight recommended',
+                    impact: 'MEDIUM',
+                    implementation: 'Check system metrics every 30 minutes'
+                }
+            ],
+            confidence: 60,
+            source: 'emergency_fallback',
+            timestamp: Date.now(),
+            note: 'AI temporarily unavailable - using conservative recommendations'
+        });
+    }
+
+    /**
+     * Get AI system status including rate limiting info
      */
     getAIStatus() {
+        const rateLimitStatus = this.rateLimitFix?.getRateLimitStatus() || {
+            isRateLimited: false,
+            timeUntilReset: 0,
+            consecutiveErrors: 0,
+            canRetry: true
+        };
+        
         return {
             aiEnabled: !!this.apiKey,
             model: this.model,
             learningMemorySize: this.learningMemory.size,
             averageAccuracy: Array.from(this.predictionAccuracy.values()).reduce((a, b) => a + b, 0) / this.predictionAccuracy.size || 0,
-            lastAnalysis: this.analysisHistory.length > 0 ? this.analysisHistory[this.analysisHistory.length - 1] : null
+            lastAnalysis: this.analysisHistory.length > 0 ? this.analysisHistory[this.analysisHistory.length - 1] : null,
+            rateLimiting: {
+                isRateLimited: rateLimitStatus.isRateLimited,
+                timeUntilReset: rateLimitStatus.timeUntilReset,
+                consecutiveErrors: rateLimitStatus.consecutiveErrors,
+                canRetry: rateLimitStatus.canRetry,
+                lastSuccessfulCall: rateLimitStatus.lastSuccessfulCall
+            },
+            devMode: this.devMode,
+            status: rateLimitStatus.isRateLimited ? 'RATE_LIMITED' : (this.apiKey ? 'OPERATIONAL' : 'DEV_MODE')
         };
     }
 }

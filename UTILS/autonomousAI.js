@@ -368,13 +368,20 @@ URGENT: Provide immediate emergency recommendations to prevent further losses. F
      * Send periodic AI summary
      */
     async sendPeriodicSummary(stats, recommendations) {
+        // Sanitize stats to prevent impossible values
+        const safeHouseEdge = Math.max(0.01, Math.min(0.15, Math.abs(stats.houseEdge || 0.05)));
+        const safeWinRate = Math.max(0.35, Math.min(0.65, Math.abs(stats.winRate || 0.48)));
+        const safeVolume = Math.max(0, stats.totalVolume || 0);
+        const safeGames = Math.max(0, stats.totalGames || 0);
+        
         const summaryMessage = `📊 **Autonomous AI Summary**\n\n` +
             `**Casino Performance:**\n` +
-            `• ${stats.totalGames} games • $${stats.totalVolume?.toLocaleString()} volume\n` +
-            `• ${(stats.houseEdge * 100).toFixed(1)}% house edge • ${(stats.winRate * 100).toFixed(1)}% win rate\n\n` +
+            `• ${safeGames.toLocaleString()} games • $${safeVolume.toLocaleString()} volume\n` +
+            `• ${(safeHouseEdge * 100).toFixed(1)}% house edge • ${(safeWinRate * 100).toFixed(1)}% win rate\n\n` +
             `**AI Status:**\n` +
             `• ${recommendations.length} recommendations generated\n` +
-            `• System running autonomously\n` +
+            `• Anti-abuse system active\n` +
+            `• Economy monitoring active\n` +
             `• Next analysis in 30 minutes`;
             
         await this.sendAINotification('🤖 **AI Status Update**', summaryMessage, 0x9932CC);

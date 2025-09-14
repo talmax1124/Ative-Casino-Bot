@@ -7,7 +7,7 @@
 const { EmbedBuilder } = require('discord.js');
 const dbManager = require('./database');
 const progressiveTax = require('./progressiveTax');
-const wealthCeiling = require('./wealthCeiling');
+// const wealthCeiling = require('./wealthCeiling'); // DISABLED - replaced by allInManager
 const gameAITracker = require('./gameAITracker');
 const { 
     fmt, 
@@ -198,14 +198,9 @@ class PayoutManager {
             });
         }
 
-        // Check wealth-based bet limits (anti-billion measures)
-        const wealthValidation = await wealthCeiling.validateBetAmount(userId, parsedAmount);
-        if (!wealthValidation.allowed) {
-            return new ValidationResult({
-                isValid: false,
-                errorEmbed: buildInvalidBetEmbed(`Your wealth-based maximum bet is ${fmt(wealthValidation.maxAllowed)}.\n${wealthValidation.reason}`)
-            });
-        }
+        // WEALTH-BASED BET LIMITS DISABLED - ALL-IN SYSTEM ACTIVE
+        // The new all-in system allows betting entire balance with dynamic house edge
+        // Old wealth ceiling system has been replaced with allInManager
         
         // Check special requirements
         if (specialRequirements) {
@@ -316,14 +311,9 @@ class PayoutManager {
             });
         }
 
-        // Check wealth-based bet limits (anti-billion measures)
-        const wealthValidation = await wealthCeiling.validateBetAmount(userId, parsedAmount);
-        if (!wealthValidation.allowed) {
-            return new ValidationResult({
-                isValid: false,
-                errorEmbed: buildInvalidBetEmbed(`Your wealth-based maximum bet is ${fmt(wealthValidation.maxAllowed)}.\n${wealthValidation.reason}`)
-            });
-        }
+        // WEALTH-BASED BET LIMITS DISABLED - ALL-IN SYSTEM ACTIVE
+        // The new all-in system allows betting entire balance with dynamic house edge
+        // Old wealth ceiling system has been replaced with allInManager
         
         // Check special requirements
         if (specialRequirements) {
@@ -409,17 +399,9 @@ class PayoutManager {
             // If player loses: payout = 0 (they get nothing back)  
             // If player wins: payout = bet + winnings (they get their bet back plus profit)
             
-            // Apply wealth ceiling first (most aggressive anti-billion measure)
+            // WEALTH CEILING DISABLED - ALL-IN SYSTEM HANDLES ECONOMIC PROTECTION
+            // The allInManager in individual game commands now handles payout adjustments
             let finalPayout = payoutValue;
-            if (won && payoutValue > 0) {
-                const ceilingResult = await wealthCeiling.applyCeiling(userId, payoutValue, gameType);
-                finalPayout = ceilingResult.finalPayout;
-                if (ceilingResult.reduction > 0) {
-                    gameResult.wealthCeilingApplied = true;
-                    gameResult.wealthCeilingReduction = ceilingResult.reduction;
-                    gameResult.wealthReason = ceilingResult.reason;
-                }
-            }
 
             // Apply progressive tax on remaining winnings (only if they won and payout > bet amount)
             let taxAmount = 0;

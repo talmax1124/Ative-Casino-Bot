@@ -183,31 +183,26 @@ class RouletteGame {
             case 'dozen1':
             case 'dozen2':
             case 'dozen3':
-                // Dozen bets: 2.2x payout
-                payout = amount * 2.2;
+                // Dozen bets: 2.5x payout - balanced risk/reward
+                payout = amount * 2.5;
                 break;
             case 'column1':
             case 'column2':
             case 'column3':
-                // Column bets: 2.2x payout
-                payout = amount * 2.2;
+                // Column bets: 2.5x payout - balanced risk/reward
+                payout = amount * 2.5;
                 break;
             case 'number':
-                if (result === 0 || result === '00') {
-                    // 0/00 specific number bet: 8x payout (reduced from 12.5x)
-                    payout = amount * 8;
-                } else {
-                    // Regular number bet: 8x payout (reduced from 12.5x)
-                    payout = amount * 8;
-                }
+                // All number bets: 3x payout - MAXIMUM ALLOWED
+                payout = amount * 3.0;
                 break;
             case 'green':
-                // Green bet (0 or 00): 4x payout (reduced from 6.0x)
-                payout = amount * 4;
+                // Green bet (0 or 00): 3x payout - MAXIMUM ALLOWED
+                payout = amount * 3.0;
                 break;
             case 'basket':
-                // Basket bet: 3.5x payout (reduced from 5.2x)
-                payout = amount * 3.5;
+                // Basket bet: 3x payout - MAXIMUM ALLOWED
+                payout = amount * 3.0;
                 break;
             default:
                 payout = 0;

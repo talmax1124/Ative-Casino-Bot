@@ -12,6 +12,116 @@ const dbManager = require('./database');
 const logger = require('./logger');
 const { sendLogMessage } = require('./common');
 const { EventEmitter } = require('events');
+const nodeCache = require('./nodeCache');
+
+// Session Manager Fallback System
+class SessionManagerFallbackSystem {
+    constructor() {
+        this.fallbackMode = false;
+        this.persistentStorage = new Map(); // Critical for session continuity
+        this.emergencyRefunds = new Map(); // Track refunds in emergency mode
+        this.fallbackSessionId = 0; // Generate IDs when database unavailable
+        this.criticalErrors = [];
+        this.maxCriticalErrors = 10;
+    }
+
+    enableFallbackMode(reason) {
+        if (!this.fallbackMode) {
+            this.fallbackMode = true;
+            logger.error(`🚨 SESSION MANAGER FALLBACK MODE ENABLED: ${reason}`);
+            
+            // Log to comprehensive logger if available
+            try {
+                const comprehensiveLogger = require('./comprehensiveLogger');
+                comprehensiveLogger.logError('SESSION_FALLBACK_ENABLED', new Error(reason), {
+                    critical: true,
+                    fallbackActive: true,
+                    affectedSessions: this.persistentStorage.size
+                }).catch(() => {});
+            } catch (e) {
+                // Comprehensive logger not available
+            }
+        }
+        
+        this.criticalErrors.push({ reason, timestamp: Date.now() });
+        if (this.criticalErrors.length > this.maxCriticalErrors) {
+            this.criticalErrors.shift();
+        }
+    }
+
+    disableFallbackMode() {
+        if (this.fallbackMode) {
+            this.fallbackMode = false;
+            logger.info('✅ Session Manager fallback mode DISABLED - Normal operation restored');
+            
+            try {
+                const comprehensiveLogger = require('./comprehensiveLogger');
+                comprehensiveLogger.logSystem('SESSION_MANAGER_RESTORED', 'Normal operation restored', {
+                    persistedSessions: this.persistentStorage.size,
+                    emergencyRefunds: this.emergencyRefunds.size
+                }).catch(() => {});
+            } catch (e) {
+                // Silent fail
+            }
+        }
+    }
+
+    // Generate emergency session ID when database is unavailable
+    generateFallbackSessionId() {
+        this.fallbackSessionId++;
+        return `FALLBACK_${Date.now()}_${this.fallbackSessionId}`;
+    }
+
+    // Store critical session data for emergency recovery
+    persistSession(sessionId, sessionData) {
+        this.persistentStorage.set(sessionId, {
+            ...sessionData,
+            fallbackMode: true,
+            persistedAt: Date.now()
+        });
+    }
+
+    // Retrieve persisted session data
+    getPersistedSession(sessionId) {
+        return this.persistentStorage.get(sessionId);
+    }
+
+    // Track emergency refunds (when game fails but money was charged)
+    addEmergencyRefund(userId, amount, reason, sessionId) {
+        const refundKey = `${userId}_${Date.now()}`;
+        this.emergencyRefunds.set(refundKey, {
+            userId,
+            amount,
+            reason,
+            sessionId,
+            timestamp: Date.now(),
+            processed: false
+        });
+        
+        logger.error(`🚨 EMERGENCY REFUND TRACKED: ${userId} - ${amount} coins (${reason})`);
+        return refundKey;
+    }
+
+    // Get all pending emergency refunds (for manual processing)
+    getPendingRefunds() {
+        return Array.from(this.emergencyRefunds.entries())
+            .filter(([_, refund]) => !refund.processed)
+            .map(([key, refund]) => ({ key, ...refund }));
+    }
+
+    // Get fallback system status
+    getStatus() {
+        return {
+            fallbackMode: this.fallbackMode,
+            persistedSessions: this.persistentStorage.size,
+            pendingRefunds: this.getPendingRefunds().length,
+            criticalErrors: this.criticalErrors.length,
+            lastError: this.criticalErrors[this.criticalErrors.length - 1]
+        };
+    }
+}
+
+const sessionFallback = new SessionManagerFallbackSystem();
 
 // Session states enum
 const SessionState = Object.freeze({
@@ -323,6 +433,17 @@ class UnifiedSessionManager extends EventEmitter {
                 } catch (betError) {
                     this.locks.delete(userId);
                     this.log('error', `Bet processing failed for user ${userId}`, betError);
+                    
+                    // Enable fallback mode for database issues
+                    if (betError.message.includes('database') || betError.message.includes('connection')) {
+                        sessionFallback.enableFallbackMode(`Bet processing DB error: ${betError.message}`);
+                        
+                        // Track emergency refund if money might have been charged
+                        if (betAmount > 0 && !betPreDeducted) {
+                            sessionFallback.addEmergencyRefund(userId, betAmount, 'bet_processing_failed', 'PENDING_SESSION');
+                        }
+                    }
+                    
                     if (client) {
                         await sendLogMessage(client, 'error', `Bet error during session create (${gameType}): ${betError.message}`, userId, guildId);
                     }
@@ -339,12 +460,25 @@ class UnifiedSessionManager extends EventEmitter {
                     await dbManager.updateUserBalance(userId, guildId, 0, 0, { game_active: true });
                 } catch (dbError) {
                     this.log('warn', `Failed to set game_active flag for user ${userId}`, dbError);
+                    
+                    // Enable fallback mode for database issues but continue (non-critical)
+                    if (dbError.message.includes('database') || dbError.message.includes('connection')) {
+                        sessionFallback.enableFallbackMode(`game_active flag DB error: ${dbError.message}`);
+                    }
                     // Continue - non-critical error
                 }
             }
 
-            // Generate unique session ID
-            const sessionId = this.generateSessionId(gameType, userId);
+            // Generate unique session ID (with fallback support)
+            let sessionId;
+            try {
+                sessionId = this.generateSessionId(gameType, userId);
+            } catch (idError) {
+                // Fallback session ID generation
+                this.log('warn', `Session ID generation failed, using fallback: ${idError.message}`);
+                sessionId = sessionFallback.generateFallbackSessionId();
+                sessionFallback.enableFallbackMode(`Session ID generation failed: ${idError.message}`);
+            }
 
             // Create session object
             const session = {
@@ -371,6 +505,32 @@ class UnifiedSessionManager extends EventEmitter {
             // Store session in all indexes
             this.sessions.set(sessionId, session);
             this.log('debug', `Session object stored and indexed: ${sessionId}`);
+            
+            // 🚀 NODECACHE: Cache session for high-speed access
+            try {
+                await nodeCache.cacheGameSession(sessionId, session);
+                this.log('debug', `Session cached in NodeCache: ${sessionId}`);
+            } catch (cacheError) {
+                this.log('warn', `NodeCache session caching failed: ${cacheError.message}`);
+                // Continue - caching failure shouldn't block session creation
+            }
+            
+            // 🛡️ FALLBACK SYSTEM: Persist critical session data for emergency recovery
+            try {
+                sessionFallback.persistSession(sessionId, {
+                    userId,
+                    guildId,
+                    gameType,
+                    betAmount,
+                    betPreDeducted,
+                    state: SessionState.ACTIVE,
+                    createdAt: session.createdAt,
+                    emergency_recovery_data: true
+                });
+            } catch (persistError) {
+                this.log('warn', `Failed to persist session to fallback system: ${persistError.message}`);
+                // Continue - non-critical for immediate operation
+            }
             
             // User index
             if (!this.userSessions.has(userId)) {
@@ -583,9 +743,70 @@ class UnifiedSessionManager extends EventEmitter {
     /**
      * Get session by ID with validation
      */
-    getSession(sessionId) {
+    async getSession(sessionId) {
         if (!sessionId) return null;
-        return this.sessions.get(sessionId) || null;
+        
+        // 🚀 STEP 1: Check in-memory first (fastest)
+        let session = this.sessions.get(sessionId);
+        if (session) {
+            return session;
+        }
+        
+        // 🚀 STEP 2: Check NodeCache cache
+        try {
+            const cachedSession = await nodeCache.getGameSession(sessionId);
+            if (cachedSession) {
+                this.log('debug', `Session ${sessionId} retrieved from NodeCache`);
+                
+                // Restore to in-memory for faster subsequent access
+                this.sessions.set(sessionId, cachedSession);
+                
+                // Update user index
+                if (cachedSession.userId && !this.userSessions.has(cachedSession.userId)) {
+                    this.userSessions.set(cachedSession.userId, new Set());
+                }
+                if (cachedSession.userId) {
+                    this.userSessions.get(cachedSession.userId).add(sessionId);
+                }
+                
+                return cachedSession;
+            }
+        } catch (cacheError) {
+            this.log('debug', `NodeCache session retrieval failed: ${cacheError.message}`);
+            // Continue to fallback system
+        }
+        
+        // 🛡️ STEP 3: Check fallback system
+        try {
+            const fallbackSession = sessionFallback.getPersistedSession(sessionId);
+            if (fallbackSession && fallbackSession.emergency_recovery_data) {
+                this.log('warn', `Session ${sessionId} retrieved from fallback storage`);
+                
+                // Restore basic session data
+                const restoredSession = {
+                    sessionId,
+                    userId: fallbackSession.userId,
+                    guildId: fallbackSession.guildId,
+                    gameType: fallbackSession.gameType,
+                    betAmount: fallbackSession.betAmount,
+                    state: SessionState.ACTIVE,
+                    createdAt: fallbackSession.createdAt,
+                    lastActivity: Date.now(),
+                    metadata: { recovered: true },
+                    stats: { actions: 0, errors: 0 }
+                };
+                
+                // Restore to memory and cache
+                this.sessions.set(sessionId, restoredSession);
+                nodeCache.cacheGameSession(sessionId, restoredSession).catch(() => {});
+                
+                return restoredSession;
+            }
+        } catch (fallbackError) {
+            this.log('debug', `Fallback session retrieval failed: ${fallbackError.message}`);
+        }
+        
+        return null;
     }
 
     /**
@@ -640,6 +861,11 @@ class UnifiedSessionManager extends EventEmitter {
 
             // Persist back (Map holds reference, so not strictly required)
             this.sessions.set(sessionId, session);
+
+            // 🚀 Update NodeCache asynchronously
+            nodeCache.cacheGameSession(sessionId, session).catch(err => 
+                this.log('debug', `NodeCache session update failed: ${err.message}`)
+            );
 
             this.log('debug', `Session ${sessionId} updated${action ? ` (${action})` : ''}`);
             return { success: true, session };
@@ -1016,6 +1242,93 @@ class UnifiedSessionManager extends EventEmitter {
      */
     async cancelSession(sessionId, reason, source) {
         return await this.endSession(sessionId, { reason, refund: true });
+    }
+
+    /**
+     * Get comprehensive fallback system status
+     */
+    getFallbackStatus() {
+        const sessionStatus = sessionFallback.getStatus();
+        const dbStatus = dbManager.getFallbackStatus ? dbManager.getFallbackStatus() : { status: 'unknown' };
+        
+        return {
+            sessionManager: sessionStatus,
+            database: dbStatus,
+            activeSessions: this.sessions.size,
+            userSessions: this.userSessions.size,
+            emergencyMode: sessionStatus.fallbackMode || dbStatus.fallbackMode,
+            healthStatus: sessionStatus.fallbackMode ? '🚨 DEGRADED' : '✅ OPERATIONAL'
+        };
+    }
+
+    /**
+     * Force enable emergency mode (for testing/manual intervention)
+     */
+    enableEmergencyMode(reason = 'Manual activation') {
+        sessionFallback.enableFallbackMode(reason);
+        this.log('warn', `Emergency mode manually enabled: ${reason}`);
+    }
+
+    /**
+     * Get all pending emergency refunds (for manual processing)
+     */
+    getPendingEmergencyRefunds() {
+        return sessionFallback.getPendingRefunds();
+    }
+
+    /**
+     * Process emergency refund (mark as handled)
+     */
+    async processEmergencyRefund(refundKey, processed = true, notes = '') {
+        const refunds = sessionFallback.emergencyRefunds;
+        if (refunds.has(refundKey)) {
+            const refund = refunds.get(refundKey);
+            refund.processed = processed;
+            refund.processedAt = Date.now();
+            refund.notes = notes;
+            
+            this.log('info', `Emergency refund ${processed ? 'processed' : 'marked pending'}: ${refundKey} - ${refund.amount} coins for user ${refund.userId}`);
+            return refund;
+        }
+        return null;
+    }
+
+    /**
+     * Attempt to recover session from fallback storage
+     */
+    recoverSessionFromFallback(sessionId) {
+        const fallbackData = sessionFallback.getPersistedSession(sessionId);
+        if (fallbackData && fallbackData.emergency_recovery_data) {
+            this.log('info', `Attempting to recover session ${sessionId} from fallback storage`);
+            
+            // Create minimal session for recovery
+            const recoveredSession = {
+                sessionId,
+                userId: fallbackData.userId,
+                guildId: fallbackData.guildId,
+                gameType: fallbackData.gameType,
+                betAmount: fallbackData.betAmount,
+                state: SessionState.ACTIVE,
+                createdAt: fallbackData.createdAt,
+                lastActivity: Date.now(),
+                metadata: { recovered: true, originalCreatedAt: fallbackData.createdAt },
+                stats: { actions: 0, errors: 0 }
+            };
+            
+            // Restore to active sessions
+            this.sessions.set(sessionId, recoveredSession);
+            
+            // Re-index
+            if (!this.userSessions.has(fallbackData.userId)) {
+                this.userSessions.set(fallbackData.userId, new Set());
+            }
+            this.userSessions.get(fallbackData.userId).add(sessionId);
+            
+            this.log('info', `Session ${sessionId} successfully recovered from fallback`);
+            return recoveredSession;
+        }
+        
+        return null;
     }
 
     /**

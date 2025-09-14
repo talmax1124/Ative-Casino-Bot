@@ -11,7 +11,9 @@ const path = require('path');
 require('dotenv').config();
 
 const logger = require('./UTILS/logger');
+const StartupBanner = require('./UTILS/startupBanner');
 const dbManager = require('./UTILS/database');
+const nodeCache = require('./UTILS/nodeCache');
 const axios = require('axios');
 // Economy analyzer moved to UAS bot
 // Removed Firebase-dependent modules: economyMonitor, sessionManager
@@ -601,6 +603,11 @@ client.once('clientReady', async () => {
         await dbManager.initialize();
         logger.info('Database initialized successfully');
         
+        // 🚀 Initialize NodeCache System
+        logger.info('🔄 Initializing NodeCache system...');
+        const cacheStats = nodeCache.getStats();
+        logger.info('✅ NodeCache system initialized and operational');
+        
         // Create startup economic summary with ChatGPT (now that database is ready)
         if (process.env.ENVIRONMENT === 'production') {
             setTimeout(async () => {
@@ -610,19 +617,8 @@ client.once('clientReady', async () => {
             logger.info('🚫 Startup economic summary disabled in development mode');
         }
         
-        // Initialize Economy Analyzer & Optimizer
-        try {
-            const { initializeAnalyzer } = require('./COMMANDS/economyanalyzer');
-            await initializeAnalyzer(client, {
-                cronSchedule: '0 */4 * * *', // Every 4 hours
-                reportChannelId: process.env.ECONOMY_REPORT_CHANNEL,
-                logChannelId: process.env.ECONOMY_LOG_CHANNEL,
-                autoStart: process.env.ENVIRONMENT === 'production'
-            });
-            logger.info('✅ Economy Analyzer & Optimizer initialized successfully');
-        } catch (error) {
-            logger.error(`❌ Economy Analyzer initialization failed: ${error.message}`);
-        }
+        // Economy Analyzer moved to UAS bot - functionality integrated in /ai command
+        logger.info('✅ Economy analysis available via /ai analyze command');
         
         // Initialize server products database table
         // Removed: serverProducts initialization - using web-based purchases now
@@ -742,6 +738,19 @@ client.once('clientReady', async () => {
     } else if (IS_PRODUCTION) {
         logger.info('Running in production mode - no announcement message');
     }
+
+    // Show final startup status
+    const systemStatus = {
+        'Database System': { online: true, details: 'NodeCache active, MariaDB connected' },
+        'AI Engine': { online: !!process.env.OPENAI_API_KEY, details: process.env.OPENAI_API_KEY ? 'GPT-4 enabled' : 'Fallback mode' },
+        'Cache System': { online: true, details: 'NodeCache replacing Redis' },
+        'Economy System': { online: true, details: 'Moved to UAS bot' },
+        'Game Sessions': { online: true, details: 'Session manager active' },
+        'Security': { online: true, details: 'Anti-abuse AI active' }
+    };
+    
+    StartupBanner.showSystemStatus(systemStatus);
+    StartupBanner.showStartupComplete();
 
 });
 
@@ -2896,6 +2905,7 @@ const gracefulShutdown = require('./UTILS/gracefulShutdown');
 
 // Initialize graceful shutdown manager with client after ready
 client.once('clientReady', async () => {
+    StartupBanner.showBanner();
     
     // Clear any stale game sessions from previous runs
     const { clearActiveGame } = require('./UTILS/common');

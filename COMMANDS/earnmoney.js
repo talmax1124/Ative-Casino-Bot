@@ -58,7 +58,9 @@ module.exports = {
                 work: await this.processWork(balance, now),
                 beg: await this.processBeg(balance, now),
                 crime: await this.processCrime(balance, now),
-                heist: await this.processHeist(balance, now)
+                heist: await this.processHeist(balance, now),
+                dailytask: await this.processDailyTask(balance, now),
+                quiz: await this.processQuiz(balance, now)
             };
 
             // Calculate total earnings
@@ -105,6 +107,8 @@ module.exports = {
             if (results.beg.earned > 0) updateFields.last_beg_ts = now;
             if (results.crime.earned > 0) updateFields.last_crime_ts = now;
             if (results.heist.earned > 0) updateFields.last_heist_ts = now;
+            if (results.dailytask.earned > 0) updateFields.last_dailytask_ts = now;
+            if (results.quiz.earned > 0) updateFields.last_quiz_ts = now;
 
             await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank, updateFields);
 
@@ -398,6 +402,66 @@ module.exports = {
     },
 
     /**
+     * Process daily task command logic
+     */
+    async processDailyTask(balance, now) {
+        const lastTask = balance.last_dailytask_ts || 0;
+        const cooldown = 86400; // 24 hours
+        
+        if (now - lastTask < cooldown) {
+            return { earned: 0, cooldownRemaining: cooldown - (now - lastTask), description: '' };
+        }
+        
+        const taskScenarios = [
+            { task: 'Cleaned casino floors', min: 5000, max: 8000 },
+            { task: 'Organized chip inventory', min: 6000, max: 10000 },
+            { task: 'Assisted VIP guests', min: 8000, max: 12000 },
+            { task: 'Maintained slot machines', min: 5500, max: 9500 },
+            { task: 'Counted card deck inventory', min: 7000, max: 11000 },
+            { task: 'Updated security protocols', min: 9000, max: 15000 }
+        ];
+
+        const scenario = taskScenarios[secureRandomInt(0, taskScenarios.length)];
+        const earning = secureRandomInt(scenario.min, scenario.max + 1);
+        
+        return { 
+            earned: earning, 
+            cooldownRemaining: 0, 
+            description: scenario.task 
+        };
+    },
+
+    /**
+     * Process quiz command logic  
+     */
+    async processQuiz(balance, now) {
+        const lastQuiz = balance.last_quiz_ts || 0;
+        const cooldown = 7200; // 2 hours
+        
+        if (now - lastQuiz < cooldown) {
+            return { earned: 0, cooldownRemaining: cooldown - (now - lastQuiz), description: '' };
+        }
+        
+        const quizTopics = [
+            { topic: 'Casino History trivia', min: 3000, max: 5000 },
+            { topic: 'Poker knowledge quiz', min: 4000, max: 6000 },
+            { topic: 'Mathematics challenge', min: 3500, max: 5500 },
+            { topic: 'General knowledge test', min: 3000, max: 4500 },
+            { topic: 'Gaming strategy questions', min: 4500, max: 7000 },
+            { topic: 'Lucky number predictions', min: 5000, max: 8000 }
+        ];
+
+        const topic = quizTopics[secureRandomInt(0, quizTopics.length)];
+        const earning = secureRandomInt(topic.min, topic.max + 1);
+        
+        return { 
+            earned: earning, 
+            cooldownRemaining: 0, 
+            description: `Completed ${topic.topic}` 
+        };
+    },
+
+    /**
      * Get emoji for command
      */
     getCommandEmoji(command) {
@@ -406,7 +470,9 @@ module.exports = {
             work: '💼',
             beg: '🤲',
             crime: '🦹',
-            heist: '🎭'
+            heist: '🎭',
+            dailytask: '📋',
+            quiz: '🧠'
         };
         return emojis[command] || '💸';
     }

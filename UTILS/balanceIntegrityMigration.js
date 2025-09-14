@@ -75,14 +75,16 @@ class BalanceIntegrityMigration {
                 name: 'chk_bank_non_negative',
                 sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_bank_non_negative CHECK (bank >= 0.00)`
             },
-            {
-                name: 'chk_wallet_max_limit',
-                sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_wallet_max_limit CHECK (wallet <= 1000000000.00)`
-            },
-            {
-                name: 'chk_bank_max_limit',
-                sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_bank_max_limit CHECK (bank <= 1000000000.00)`
-            },
+            // WALLET MAX LIMIT DISABLED FOR ALL-IN SYSTEM
+            // {
+            //     name: 'chk_wallet_max_limit',
+            //     sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_wallet_max_limit CHECK (wallet <= 1000000000.00)`
+            // },
+            // BANK MAX LIMIT DISABLED FOR ALL-IN SYSTEM  
+            // {
+            //     name: 'chk_bank_max_limit',
+            //     sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_bank_max_limit CHECK (bank <= 1000000000.00)`
+            // },
             {
                 name: 'chk_wallet_precision',
                 sql: `ALTER TABLE user_balances ADD CONSTRAINT chk_wallet_precision CHECK (wallet = ROUND(wallet, 2))`
@@ -93,7 +95,10 @@ class BalanceIntegrityMigration {
             }
         ];
 
-        for (const constraint of constraints) {
+        // Filter out disabled constraints (commented out for all-in system)
+        const activeConstraints = constraints.filter(constraint => constraint && constraint.name && constraint.sql);
+        
+        for (const constraint of activeConstraints) {
             // Skip if constraint already exists
             if (existingConstraints.includes(constraint.name)) {
                 logger.debug(`Constraint ${constraint.name} already exists, skipping`);
@@ -149,17 +154,12 @@ class BalanceIntegrityMigration {
      */
     async checkDataViolatesMaxLimit(connection, constraintName) {
         try {
-            let query;
-            if (constraintName === 'chk_wallet_max_limit') {
-                query = 'SELECT COUNT(*) as count FROM user_balances WHERE wallet > 1000000000.00';
-            } else if (constraintName === 'chk_bank_max_limit') {
-                query = 'SELECT COUNT(*) as count FROM user_balances WHERE bank > 1000000000.00';
-            } else {
-                return 0;
+            // ALL-IN SYSTEM: Max limit constraints are disabled
+            if (constraintName === 'chk_wallet_max_limit' || constraintName === 'chk_bank_max_limit') {
+                return 0; // Always return 0 violations since constraints are disabled
             }
-
-            const [rows] = await connection.execute(query);
-            return rows[0].count;
+            
+            return 0;
         } catch (error) {
             logger.error(`Error checking data violations for ${constraintName}: ${error.message}`);
             return 0;

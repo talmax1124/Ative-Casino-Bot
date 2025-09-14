@@ -19,6 +19,8 @@ const { createBingoCardImage, createGameStatusImage, getBingoColumn } = require(
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
+const tuningManager = require('../UTILS/tuningManager');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -84,12 +86,39 @@ module.exports = {
             const amountStr = interaction.options.getString('amount');
             const MIN_BET = 50;
             
+            // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
+            let dynamicMaxBet = 1000000; // Default fallback limit
+            let maxBetConfig = { userCapped: false, adjustmentApplied: false };
+            
+            try {
+                const { parseAmount } = require('../UTILS/common');
+                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'bingo', 1000000);
+                dynamicMaxBet = maxBetConfig.maxBetLimit;
+                
+                // Comprehensive logging for bet attempt
+                await comprehensiveLogger.logGame(userId, username, 'bingo', 'BET_ATTEMPT', {
+                    betAmount: parseAmount(amountStr),
+                    maxBetAllowed: dynamicMaxBet,
+                    userCapped: maxBetConfig.userCapped,
+                    aiAdjusted: maxBetConfig.adjustmentApplied
+                }).catch(err => logger.error('Logging error:', err));
+                
+            } catch (tuningError) {
+                // Fallback logging for tuning system failure
+                await comprehensiveLogger.logError('BINGO_TUNING_SYSTEM', tuningError, { 
+                    critical: false, 
+                    fallback: 'default_limits',
+                    userId: userId 
+                }).catch(err => logger.error('Logging error:', err));
+                logger.warn(`Tuning manager failed for ${username}, using default limits: ${tuningError.message}`);
+            }
+            
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amountStr,
                 GameType.BINGO,
                 MIN_BET,
-                null  // No maximum bet limit
+                dynamicMaxBet  // AI-regulated max bet limit for economic compliance
             );
             
             if (!validation.isValid) {

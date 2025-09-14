@@ -27,26 +27,26 @@ class PlinkoGameSession {
             easy: {
                 name: '🟢 Easy',
                 description: 'Lower risk, moderate rewards (~10% house edge)',
-                multipliers: [0.5, 0.8, 1.0, 1.2, 2.0, 1.2, 1.0, 0.8, 0.5], // Balanced payouts
-                maxMultiplier: 2.0
+                multipliers: [0.5, 0.0, 1.0, 1.2, 1.7, 1.2, 1.0, 0.0, 0.5], // Balanced payouts
+                maxMultiplier: 1.7
             },
             medium: {
                 name: '🟡 Medium', 
                 description: 'Balanced risk and reward (~12% house edge)',
-                multipliers: [0.2, 0.5, 0.8, 1.5, 3.2, 1.5, 0.8, 0.5, 0.2], // Fair distribution
-                maxMultiplier: 3.2
+                multipliers: [0.0, 0.5, 0.8, 1.5, 2.2, 1.5, 0.8, 0.5, 0.0], // Fair distribution
+                maxMultiplier: 2.2
             },
             hard: {
                 name: '🔴 Hard',
                 description: 'High risk, high reward (~15% house edge)',
-                multipliers: [0.1, 0.2, 0.5, 1.0, 8.0, 1.0, 0.5, 0.2, 0.1], // Higher risk/reward
-                maxMultiplier: 8.0
+                multipliers: [0.0, 0.2, 0.5, 1.0, 3.0, 1.0, 0.5, 0.2, 0.0], // Higher risk/reward
+                maxMultiplier: 3.0
             },
             nightmare: {
                 name: '💀 Nightmare',
                 description: 'Maximum risk for maximum reward (~15% house edge)',
-                multipliers: [0.0, 0.1, 0.2, 0.5, 18.0, 0.5, 0.2, 0.1, 0.0], // Extreme but fair
-                maxMultiplier: 18.0
+                multipliers: [0.0, 0.0, 0.2, 0.5, 3.5, 0.5, 0.2, 0.0, 0.0], // Extreme but fair
+                maxMultiplier: 3.5
             }
         };
         

@@ -1,17 +1,23 @@
 /**
- * AI Cache Manager with Redis
+ * AI Cache Manager with NodeCache
  * Reduces token usage by caching AI responses intelligently
  */
 
-const Redis = require('redis');
+const NodeCache = require('node-cache');
 const crypto = require('crypto');
 const logger = require('./logger');
 
 class AICacheManager {
     constructor() {
-        this.client = null;
-        this.isConnected = false;
-        this.fallbackCache = new Map(); // In-memory fallback
+        this.client = new NodeCache({
+            stdTTL: 3600, // Default 1 hour TTL
+            checkperiod: 120, // Check for expired keys every 2 minutes
+            useClones: false, // Better performance
+            maxKeys: 5000, // Prevent memory issues
+            deleteOnExpire: true
+        });
+        this.isConnected = true; // Always connected for in-memory cache
+        this.fallbackCache = new Map(); // Backup fallback (though not really needed with NodeCache)
         this.maxFallbackSize = 1000;
         
         // Cache TTL settings (in seconds)
@@ -23,51 +29,20 @@ class AICacheManager {
             session: 60,        // 1 minute for session checks
             admin: 1800         // 30 minutes for admin responses
         };
+
+        // Initialize immediately since NodeCache is in-memory
+        this.initialize();
     }
 
     /**
-     * Initialize Redis connection
+     * Initialize NodeCache (always succeeds)
      */
     async initialize() {
         try {
-            // Only attempt Redis if URL is explicitly provided
-            const redisUrl = process.env.REDIS_URL;
-            if (!redisUrl) {
-                logger.info('No Redis URL provided, using fallback cache only');
-                this.isConnected = false;
-                return;
-            }
-
-            // Try to connect to Redis (works with both local and hosted Redis)
-            this.client = Redis.createClient({
-                url: redisUrl,
-                retry_strategy: (options) => {
-                    if (options.error && options.error.code === 'ECONNREFUSED') {
-                        logger.warn('Redis connection refused, using fallback cache');
-                        return undefined; // Don't retry
-                    }
-                    if (options.times_connected > 3) {
-                        logger.warn('Redis connection failed after 3 attempts, using fallback cache');
-                        return undefined;
-                    }
-                    return Math.min(options.attempt * 100, 3000);
-                }
-            });
-
-            this.client.on('error', (err) => {
-                logger.warn(`Redis error: ${err.message} - using fallback cache`);
-                this.isConnected = false;
-            });
-
-            this.client.on('connect', () => {
-                logger.info('✅ Redis connected for AI caching');
-                this.isConnected = true;
-            });
-
-            await this.client.connect();
-            
+            logger.info('✅ NodeCache connected for AI caching');
+            this.isConnected = true;
         } catch (error) {
-            logger.warn(`Redis initialization failed: ${error.message} - using fallback cache`);
+            logger.warn(`NodeCache initialization failed: ${error.message} - using fallback cache`);
             this.isConnected = false;
         }
     }
@@ -96,10 +71,10 @@ class AICacheManager {
     async get(cacheKey) {
         try {
             if (this.isConnected && this.client) {
-                const cached = await this.client.get(cacheKey);
+                const cached = this.client.get(cacheKey);
                 if (cached) {
                     logger.info(`🎯 AI cache hit: ${cacheKey}`);
-                    return JSON.parse(cached);
+                    return cached;
                 }
             } else {
                 // Use fallback cache
@@ -133,8 +108,8 @@ class AICacheManager {
             };
 
             if (this.isConnected && this.client) {
-                await this.client.setEx(cacheKey, ttl, JSON.stringify(cacheData));
-                logger.debug(`💾 AI response cached in Redis: ${cacheKey} (TTL: ${ttl}s)`);
+                this.client.set(cacheKey, cacheData, ttl);
+                logger.debug(`💾 AI response cached in NodeCache: ${cacheKey} (TTL: ${ttl}s)`);
             } else {
                 // Use fallback cache with size limit
                 if (this.fallbackCache.size >= this.maxFallbackSize) {
@@ -228,10 +203,13 @@ class AICacheManager {
     async clearCache(pattern = '*') {
         try {
             if (this.isConnected && this.client) {
-                const keys = await this.client.keys(`ai_cache:${pattern}`);
-                if (keys.length > 0) {
-                    await this.client.del(keys);
-                    logger.info(`🧹 Cleared ${keys.length} AI cache entries`);
+                const keys = this.client.keys();
+                const matchingKeys = keys.filter(key => key.startsWith('ai_cache:') && 
+                    (pattern === '*' || key.includes(pattern)));
+                
+                if (matchingKeys.length > 0) {
+                    matchingKeys.forEach(key => this.client.del(key));
+                    logger.info(`🧹 Cleared ${matchingKeys.length} AI cache entries`);
                 }
             } else {
                 // Clear fallback cache
@@ -255,24 +233,15 @@ class AICacheManager {
             let stats = {
                 connected: this.isConnected,
                 fallbackCacheSize: this.fallbackCache.size,
-                redisKeys: 0,
-                totalMemoryUsage: 0
+                nodeCacheKeys: 0,
+                totalMemoryUsage: 'N/A (in-memory)'
             };
 
             if (this.isConnected && this.client) {
-                const keys = await this.client.keys('ai_cache:*');
-                stats.redisKeys = keys.length;
-                
-                // Get memory usage if available
-                try {
-                    const info = await this.client.info('memory');
-                    const memoryMatch = info.match(/used_memory:(\d+)/);
-                    if (memoryMatch) {
-                        stats.totalMemoryUsage = parseInt(memoryMatch[1]);
-                    }
-                } catch (memError) {
-                    // Memory info not available
-                }
+                const keys = this.client.keys();
+                const aiCacheKeys = keys.filter(key => key.startsWith('ai_cache:'));
+                stats.nodeCacheKeys = aiCacheKeys.length;
+                stats.totalKeys = keys.length;
             }
 
             return stats;
@@ -295,16 +264,17 @@ class AICacheManager {
     }
 
     /**
-     * Disconnect Redis
+     * Disconnect NodeCache (graceful shutdown)
      */
     async disconnect() {
         try {
             if (this.client && this.isConnected) {
-                await this.client.quit();
-                logger.info('Redis AI cache disconnected');
+                this.client.flushAll();
+                this.client.close();
+                logger.info('NodeCache AI cache disconnected');
             }
         } catch (error) {
-            logger.error(`Redis disconnect error: ${error.message}`);
+            logger.error(`NodeCache disconnect error: ${error.message}`);
         }
     }
 }

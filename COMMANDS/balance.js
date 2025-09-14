@@ -76,12 +76,17 @@ module.exports = {
                 const netProfit = safeSubtract(gameStats.totalWon || 0, gameStats.totalWagered || 0);
                 const netText = netProfit >= 0 ? `+${fmt(netProfit)}` : fmt(netProfit);
                 const netEmoji = netProfit >= 0 ? '✅' : '❌';
-                const roi = gameStats.totalWagered > 0 ? (((gameStats.totalWon - gameStats.totalWagered) / gameStats.totalWagered) * 100).toFixed(2) : '0.00';
+                
+                // Fixed ROI calculation with proper safeguards
+                let roi = '0.00';
+                if (gameStats.totalWagered > 0 && gameStats.totalWon > 0) {
+                    roi = (((gameStats.totalWon - gameStats.totalWagered) / gameStats.totalWagered) * 100).toFixed(2);
+                }
                 const roiEmoji = parseFloat(roi) >= 0 ? '📈' : '📉';
                 
                 topFields.push({
                     name: '🎮 GAMING STATISTICS',
-                    value: `**Games Played:** ${gameStats.totalGames.toLocaleString()}\n**Win Rate:** ${winRate}% (${gameStats.totalWins}W/${gameStats.totalLosses}L)\n**Total Wagered:** ${fmt(gameStats.totalWagered)}\n**Total Won:** ${fmt(gameStats.totalWon)}\n**Net Profit:** ${netEmoji} ${netText}\n**ROI:** ${roiEmoji} ${roi}%`,
+                    value: `**Games Played:** ${gameStats.totalGames.toLocaleString()}\n**Win Rate:** ${winRate}% (${gameStats.totalWins}W/${gameStats.totalLosses}L)\n**Total Wagered:** ${fmt(gameStats.totalWagered || 0)}\n**Total Won:** ${fmt(gameStats.totalWon || 0)}\n**Net Profit:** ${netEmoji} ${netText}\n**ROI:** ${roiEmoji} ${roi}%`,
                     inline: false
                 });
             }
@@ -95,10 +100,16 @@ module.exports = {
 
             // Add additional statistics if user has played games
             if (gameStats.totalGames > 0) {
+                // Fixed Average Bet Size calculation with proper safeguards
+                let avgBetSize = '$0';
+                if (gameStats.totalGames > 0 && gameStats.totalWagered > 0) {
+                    avgBetSize = fmt(Math.round(gameStats.totalWagered / gameStats.totalGames));
+                }
+                
                 bankFields.push(
                     { name: '🎲 Games Played', value: gameStats.totalGames.toLocaleString(), inline: true },
                     { name: '🏆 Win Percentage', value: `${((gameStats.totalWins / gameStats.totalGames) * 100).toFixed(1)}%`, inline: true },
-                    { name: '💰 Avg. Bet Size', value: gameStats.totalGames > 0 ? fmt(Math.round(gameStats.totalWagered / gameStats.totalGames)) : '$0', inline: true }
+                    { name: '💰 Avg. Bet Size', value: avgBetSize, inline: true }
                 );
             }
 
@@ -171,12 +182,13 @@ module.exports = {
      */
     async getAggregatedGameStats(userId, guildId) {
         try {
-            // List of all possible game types
+            // List of all possible game types - updated with latest games
             const gameTypes = [
                 'blackjack', 'slots', 'multi-slots', 'crash', 'duck', 'fishing', 
                 'plinko', 'rps', 'bingo', 'battleship', 'uno', 'roulette', 
                 'baccarat', 'coinflip', 'dice', 'heist', 'lottery', 'matrix_slots',
-                'treasurevault', 'yahtzee', 'wordchain'
+                'treasurevault', 'yahtzee', 'wordchain', 'ceelo', 'russianroulette',
+                'scratch', 'keno', 'riddle'
             ];
             
             let totalWins = 0;

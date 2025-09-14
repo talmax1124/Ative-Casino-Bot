@@ -10,6 +10,7 @@ const { sendLogMessage } = require('../UTILS/common');
 const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
 const logger = require('../UTILS/logger');
+const allInManager = require('../UTILS/allInManager');
 
 module.exports = {
   data: new SlashCommandBuilder()

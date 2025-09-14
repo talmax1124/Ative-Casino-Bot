@@ -22,16 +22,18 @@ const logger = require('../UTILS/logger');
 const { sendLogMessage } = require('../UTILS/common');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { secureRandomFloat, generateProvablyFairRandom, generateVolatilityAdjustedRandom } = require('../UTILS/rng');
+const tuningManager = require('../UTILS/tuningManager');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
-// Optimized configuration - much more conservative
+// ECONOMIC SYSTEM COMPLIANT - Max 3x multipliers, AI-regulated betting
 const CRASH_CONFIG = {
   min_bet: 10,
-  max_bet: 50000000,          // Max bet: $50M (safe with personalization)
-  update_interval: 1000,      // Update every 1 second (was 500ms)
-  max_multiplier: 8.0,
-  house_edge: 0.03,
+  max_bet: 100000000,         // Will be regulated by tuning manager
+  update_interval: 1000,      // Update every 1 second
+  max_multiplier: 3.0,        // ECONOMIC COMPLIANCE: Max 3x multiplier
+  house_edge: 0.052,          // Match system house edge
   max_duration: 30,           // Max 30 seconds per game
-  betting_duration: 60        // 60 seconds to place bets (was 15)
+  betting_duration: 60        // 60 seconds to place bets
 };
 
 // Advanced crash point generation with CSPRNG
@@ -50,29 +52,43 @@ function generateCrashPoint(userId = null, gameId = null) {
   
   let crashPoint;
   
-  // Enhanced probability curve with better distribution
-  if (combinedRand < 0.30) {
-    crashPoint = 1.0 + (secureRandomFloat() * 1.2); // 1.0x - 2.2x (30%)
-  } else if (combinedRand < 0.55) {
-    crashPoint = 2.2 + (secureRandomFloat() * 2.3); // 2.2x - 4.5x (25%)
-  } else if (combinedRand < 0.80) {
-    crashPoint = 4.5 + (secureRandomFloat() * 2.5); // 4.5x - 7.0x (25%)
-  } else if (combinedRand < 0.95) {
-    crashPoint = 7.0 + (secureRandomFloat() * 1.0); // 7.0x - 8.0x (15%)
+  // ECONOMIC COMPLIANCE: Enhanced probability curve with 3x max
+  if (combinedRand < 0.40) {
+    crashPoint = 1.0 + (secureRandomFloat() * 0.8); // 1.0x - 1.8x (40%)
+  } else if (combinedRand < 0.70) {
+    crashPoint = 1.8 + (secureRandomFloat() * 0.7); // 1.8x - 2.5x (30%)
+  } else if (combinedRand < 0.90) {
+    crashPoint = 2.5 + (secureRandomFloat() * 0.4); // 2.5x - 2.9x (20%)
   } else {
-    crashPoint = 8.0; // Exactly max multiplier (5%)
+    crashPoint = 2.9 + (secureRandomFloat() * 0.1); // 2.9x - 3.0x (10%)
   }
   
   // Ensure we don't exceed maximum
   return Math.min(CRASH_CONFIG.max_multiplier, Number(crashPoint.toFixed(2)));
 }
 
-// Simple multiplier calculation
+// Improved multiplier calculation - starts at 1.00x with smaller increments
 function calculateMultiplier(startTime, crashPoint) {
   const elapsed = (Date.now() - startTime) / 1000;
-  const progress = elapsed / 10; // 10 seconds to reach reasonable multipliers
-  const multiplier = 1.0 + (progress * 2) + (Math.pow(progress, 1.8) * 3);
-  return Math.min(multiplier, crashPoint);
+  
+  // Start at exactly 1.00x and use smaller, more predictable increments
+  if (elapsed <= 0) return 1.00;
+  
+  // Smaller increments: ~0.01x per 100ms for first few seconds, then accelerating
+  let multiplier;
+  if (elapsed < 5) {
+    // Slow growth for first 5 seconds: 1.00x to ~1.50x
+    multiplier = 1.00 + (elapsed * 0.10);
+  } else if (elapsed < 10) {
+    // Medium growth for next 5 seconds: 1.50x to ~2.00x  
+    multiplier = 1.50 + ((elapsed - 5) * 0.10);
+  } else {
+    // Faster growth after 10 seconds: 2.00x toward max
+    const fastPhase = elapsed - 10;
+    multiplier = 2.00 + (fastPhase * 0.05) + (Math.pow(fastPhase, 1.2) * 0.02);
+  }
+  
+  return Math.min(Number(multiplier.toFixed(2)), crashPoint);
 }
 
 // Lightweight game state management
@@ -139,6 +155,15 @@ class OptimizedCrashGame {
     player.cashedOut = true;
     player.cashOutMultiplier = this.currentMultiplier;
     player.winnings = Math.floor(player.bet * this.currentMultiplier);
+    
+    // Comprehensive logging for cashout
+    comprehensiveLogger.logGame(userId, player.username, 'crash', 'CASH_OUT', {
+      betAmount: player.bet,
+      multiplier: this.currentMultiplier,
+      winnings: player.winnings,
+      gameId: this.gameKey,
+      timing: 'manual_cashout'
+    }).catch(err => logger.error('Logging error:', err));
     
     return player.winnings;
   }
@@ -328,6 +353,18 @@ class OptimizedCrashGame {
     this.state = 'crashed';
     this.currentMultiplier = this.crashPoint;
     
+    // Comprehensive logging for game completion
+    await comprehensiveLogger.logGame('SYSTEM', 'CRASH_SYSTEM', 'crash', 'GAME_CRASH', {
+      gameId: this.gameKey,
+      crashPoint: this.crashPoint,
+      reason: reason,
+      totalPlayers: this.players.size,
+      playersActive: Array.from(this.players.values()).filter(p => !p.cashedOut).length,
+      playersCashedOut: Array.from(this.players.values()).filter(p => p.cashedOut).length,
+      totalBetsAmount: Array.from(this.players.values()).reduce((sum, p) => sum + p.bet, 0),
+      potentialWinnings: Array.from(this.players.values()).reduce((sum, p) => sum + (p.cashedOut ? p.winnings : 0), 0)
+    }).catch(err => logger.error('Logging error:', err));
+    
     // Clear update interval
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
@@ -339,14 +376,49 @@ class OptimizedCrashGame {
       try {
         const won = player.cashedOut;
         const payout = won ? player.winnings : 0;
+        const netChange = won ? (player.winnings - player.bet) : -player.bet;
+        
+        // Comprehensive logging for each player outcome
+        await comprehensiveLogger.logGame(userId, player.username, 'crash', won ? 'WIN' : 'LOSS', {
+          betAmount: player.bet,
+          payout: payout,
+          netChange: netChange,
+          multiplier: won ? player.cashOutMultiplier : 0,
+          crashPoint: this.crashPoint,
+          cashedOut: player.cashedOut,
+          gameId: this.gameKey,
+          timing: won ? 'cashed_out_before_crash' : 'lost_to_crash'
+        }).catch(err => logger.error('Logging error:', err));
         
         if (player.cashedOut) {
           // Player cashed out: give them their winnings
           await dbManager.updateUserBalance(userId, this.guildId, player.winnings, 0);
           logger.info(`Crash payout: ${player.username} won ${fmt(player.winnings)} (cashed out at ${player.cashOutMultiplier.toFixed(2)}x)`);
+          
+          // Log economic impact for winners
+          await comprehensiveLogger.logEconomic('CRASH_WIN_PAYOUT', 'NORMAL', `Player won ${fmt(player.winnings)} from crash game`, {
+            userId: userId,
+            username: player.username,
+            betAmount: player.bet,
+            winnings: player.winnings,
+            netProfit: netChange,
+            multiplier: player.cashOutMultiplier,
+            crashPoint: this.crashPoint,
+            gameType: 'crash'
+          }).catch(err => logger.error('Logging error:', err));
         } else {
           // Player didn't cash out: they lose their bet (already deducted, no action needed)
           logger.info(`Crash loss: ${player.username} lost ${fmt(player.bet)} (didn't cash out)`);
+          
+          // Log economic impact for losers
+          await comprehensiveLogger.logEconomic('CRASH_LOSS', 'NORMAL', `Player lost ${fmt(player.bet)} to crash game`, {
+            userId: userId,
+            username: player.username,
+            betAmount: player.bet,
+            lossAmount: player.bet,
+            crashPoint: this.crashPoint,
+            gameType: 'crash'
+          }).catch(err => logger.error('Logging error:', err));
         }
         
         // Record game result for economic analysis
@@ -775,11 +847,50 @@ async function handleModalSubmit(interaction, client, game) {
   }
   
   const betAmount = parseAmount(betAmountStr);
-  if (!betAmount || betAmount < CRASH_CONFIG.min_bet || betAmount > CRASH_CONFIG.max_bet) {
-    return await interaction.reply({
-      content: `❌ Invalid bet amount! Must be between ${fmt(CRASH_CONFIG.min_bet)} and ${fmt(CRASH_CONFIG.max_bet)}`,
-      flags: MessageFlags.Ephemeral
+  
+  // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
+  try {
+    await tuningManager.initialize();
+    const maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'crash', CRASH_CONFIG.max_bet);
+    const dynamicMaxBet = maxBetConfig.maxBet;
+    
+    // Log comprehensive betting attempt
+    await comprehensiveLogger.logGame(userId, username, 'crash', 'BET_ATTEMPT', {
+      betAmount: betAmount,
+      maxBetAllowed: dynamicMaxBet,
+      userCapped: maxBetConfig.userCapped,
+      aiAdjusted: maxBetConfig.adjustmentApplied,
+      guildId: interaction.guildId
     });
+    
+    if (!betAmount || betAmount < CRASH_CONFIG.min_bet || betAmount > dynamicMaxBet) {
+      await comprehensiveLogger.logSecurity('INVALID_BET_ATTEMPT', 'LOW', `User ${username} attempted invalid bet: ${betAmount}`, {
+        userId: userId,
+        attemptedBet: betAmount,
+        minBet: CRASH_CONFIG.min_bet,
+        maxBet: dynamicMaxBet,
+        game: 'crash'
+      });
+      
+      return await interaction.reply({
+        content: `❌ Invalid bet amount! Must be between ${fmt(CRASH_CONFIG.min_bet)} and ${fmt(dynamicMaxBet)}${maxBetConfig.userCapped ? ' (user limit)' : ''}`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  } catch (tuningError) {
+    // Fallback to original limits if tuning system fails
+    await comprehensiveLogger.logError('CRASH_TUNING_SYSTEM', tuningError, { 
+      critical: false, 
+      fallback: 'original_limits',
+      userId: userId 
+    });
+    
+    if (!betAmount || betAmount < CRASH_CONFIG.min_bet || betAmount > CRASH_CONFIG.max_bet) {
+      return await interaction.reply({
+        content: `❌ Invalid bet amount! Must be between ${fmt(CRASH_CONFIG.min_bet)} and ${fmt(CRASH_CONFIG.max_bet)}`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
   }
   
   // Add to game (addPlayer now deducts bet upfront)

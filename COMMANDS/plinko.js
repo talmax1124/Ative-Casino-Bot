@@ -97,7 +97,7 @@ module.exports = {
                 betAmountStr,
                 GameType.PLINKO,
                 100, // Minimum bet: 100 chips
-                null     // No maximum bet limit
+                null     // No max bet - advanced risk engine handles limits
             );
 
             if (!validationResult.isValid) {

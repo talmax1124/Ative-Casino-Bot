@@ -30,12 +30,57 @@ const logFormat = winston.format.combine(
     })
 );
 
-// Create console format with colors
+// Create enhanced console format with categories and better visuals
 const consoleFormat = winston.format.combine(
     winston.format.colorize(),
     winston.format.timestamp({ format: 'HH:mm:ss' }),
     winston.format.printf(({ timestamp, level, message }) => {
-        return `${timestamp} ${level}: ${message}`;
+        // Categorize messages for better organization
+        let prefix = '';
+        let icon = '';
+        
+        // System initialization messages
+        if (message.includes('initialized') || message.includes('starting') || message.includes('ready')) {
+            icon = '🚀';
+            prefix = '[SYSTEM]';
+        }
+        // Error messages
+        else if (message.includes('failed') || message.includes('error') || level.includes('error')) {
+            icon = '❌';
+            prefix = '[ERROR]';
+        }
+        // Warning messages  
+        else if (message.includes('warning') || level.includes('warn') || message.includes('disabled')) {
+            icon = '⚠️';
+            prefix = '[WARN]';
+        }
+        // AI/ML system messages
+        else if (message.includes('AI') || message.includes('ML') || message.includes('autonomous') || message.includes('recommendations')) {
+            icon = '🤖';
+            prefix = '[AI/ML]';
+        }
+        // Economy/Wealth system messages
+        else if (message.includes('economy') || message.includes('wealth') || message.includes('readiness') || message.includes('threshold')) {
+            icon = '💰';
+            prefix = '[ECONOMY]';
+        }
+        // Cache/Performance messages
+        else if (message.includes('cache') || message.includes('NodeCache') || message.includes('performance')) {
+            icon = '🚀';
+            prefix = '[CACHE]';
+        }
+        // Success messages
+        else if (message.includes('✅') || message.includes('successfully') || message.includes('connected')) {
+            icon = '✅';
+            prefix = '[SUCCESS]';
+        }
+        // Generic info
+        else {
+            icon = 'ℹ️';
+            prefix = '[INFO]';
+        }
+        
+        return `${timestamp} ${icon} ${prefix} ${level}: ${message}`;
     })
 );
 

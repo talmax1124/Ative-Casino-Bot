@@ -19,6 +19,7 @@ const logger = require('../UTILS/logger');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PayoutManager, GameResult } = require('../UTILS/gameUtils');
 const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('../UTILS/rng');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
 // Game Configuration - FAST MODE
 const CONFIG = {
@@ -862,6 +863,61 @@ class RussianRouletteGame {
         // Store winnings for session ending
         this.finalPayout = winnings;
         this.gameWinner = winner;
+        
+        // Comprehensive logging for game completion
+        await comprehensiveLogger.logGame('SYSTEM', 'RUSSIANROULETTE_SYSTEM', 'russianroulette', 'GAME_COMPLETE', {
+            gameId: this.sessionId,
+            totalPlayers: this.players.size,
+            totalPot: totalPot,
+            winnerId: winner?.id,
+            winnerName: winner?.username,
+            winnings: winnings,
+            shotsThisChamber: this.shotsThisChamber,
+            currentTurn: this.currentTurn,
+            entryAmount: this.entryAmount
+        }).catch(err => logger.error('Logging error:', err));
+
+        // Log for all players
+        for (const player of this.players.values()) {
+            const isWinner = player.id === winner?.id;
+            const netChange = isWinner ? (winnings - this.entryAmount) : -this.entryAmount;
+            
+            // Comprehensive logging for each player's result
+            await comprehensiveLogger.logGame(player.id, player.username, 'russianroulette', 
+                isWinner ? 'WIN' : 'LOSS', {
+                betAmount: this.entryAmount,
+                payout: isWinner ? winnings : 0,
+                netChange: netChange,
+                totalPlayers: this.players.size,
+                survivorPosition: isWinner ? 1 : 'eliminated',
+                gameId: this.sessionId,
+                timing: 'game_complete'
+            }).catch(err => logger.error('Logging error:', err));
+            
+            // Log economic impact
+            if (isWinner) {
+                await comprehensiveLogger.logEconomic('RUSSIANROULETTE_WIN_PAYOUT', 'HIGH', `Player won ${fmt(winnings)} from Russian Roulette`, {
+                    userId: player.id,
+                    username: player.username,
+                    betAmount: this.entryAmount,
+                    winnings: winnings,
+                    netProfit: netChange,
+                    totalPlayers: this.players.size,
+                    survivalOdds: `1/${this.players.size}`,
+                    gameType: 'russianroulette'
+                }).catch(err => logger.error('Logging error:', err));
+            } else {
+                await comprehensiveLogger.logEconomic('RUSSIANROULETTE_LOSS', 'NORMAL', `Player lost ${fmt(this.entryAmount)} to Russian Roulette`, {
+                    userId: player.id,
+                    username: player.username,
+                    betAmount: this.entryAmount,
+                    lossAmount: this.entryAmount,
+                    totalPlayers: this.players.size,
+                    eliminatedTurn: this.currentTurn,
+                    gameType: 'russianroulette'
+                }).catch(err => logger.error('Logging error:', err));
+            }
+        }
         
         // Pay winner
         if (winner) {

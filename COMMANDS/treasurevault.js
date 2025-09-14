@@ -25,30 +25,30 @@ const TREASURE_CONFIG = {
     DOORS: 3,
     DECISION_TIME: 10000, // 10 seconds
     
-    // Balanced outcomes per round - house edge ~15-20%
+    // BALANCED outcomes per round - challenging but fair, max 3x multipliers
     ROUND_OUTCOMES: {
-        1: { // Round 1 - 2 good, 1 trap
-            multipliers: [1.05, 1.1],
-            traps: ['lose_25']
+        1: { // Round 1 - 2 good, 1 trap - reasonable start
+            multipliers: [1.1, 1.2],
+            traps: ['lose_20']
         },
-        2: { // Round 2 - 2 good, 1 trap
-            multipliers: [1.1, 1.15],
+        2: { // Round 2 - 2 good, 1 trap - building up
+            multipliers: [1.3, 1.5],
             traps: ['lose_30']
         },
-        3: { // Round 3 - 1 good, 2 traps
-            multipliers: [1.2],
+        3: { // Round 3 - 1 good, 2 traps - getting riskier
+            multipliers: [1.8],
             traps: ['lose_40', 'lose_50']
         },
-        4: { // Round 4 - 1 good, 2 traps
-            multipliers: [1.3],
+        4: { // Round 4 - 1 good, 2 traps - high risk
+            multipliers: [2.2],
             traps: ['lose_60', 'lose_all']
         },
-        5: { // Round 5 - 1 good, 2 traps
-            multipliers: [1.5],
+        5: { // Round 5 - 1 good, 2 traps - very high risk
+            multipliers: [2.8],
             traps: ['lose_75', 'lose_all']
         },
-        6: { // Round 6 - Final round, very risky
-            multipliers: [2.0],
+        6: { // Round 6 - 1 good, 2 traps - max reward but very risky
+            multipliers: [3.0],
             traps: ['lose_all', 'lose_all']
         }
     }
@@ -93,7 +93,7 @@ module.exports = {
                 betAmountStr,
                 GameType.TREASUREVAULT || 'treasurevault',
                 100, // minimum bet
-                null,     // No maximum bet limit
+                null,     // No max bet - sophisticated analytics control risk
                 {} // no special requirements
             );
             

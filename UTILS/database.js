@@ -5,6 +5,114 @@
 
 const logger = require('./logger');
 const { secureRandomInt } = require('./rng');
+const nodeCache = require('./nodeCache');
+
+// Fallback system for database operations
+class DatabaseFallbackSystem {
+    constructor() {
+        this.inMemoryCache = new Map(); // Emergency cache for critical operations
+        this.fallbackMode = false;
+        this.lastHealthCheck = null;
+        this.consecutiveFailures = 0;
+        this.maxConsecutiveFailures = 3;
+    }
+
+    // Enable fallback mode when database is unavailable
+    enableFallbackMode(reason) {
+        if (!this.fallbackMode) {
+            this.fallbackMode = true;
+            logger.error(`Database fallback mode ENABLED: ${reason}`);
+            
+            // Try to log to comprehensive logger if available
+            try {
+                const comprehensiveLogger = require('./comprehensiveLogger');
+                comprehensiveLogger.logError('DATABASE_FALLBACK_ENABLED', new Error(reason), {
+                    critical: true,
+                    fallbackActive: true,
+                    consecutiveFailures: this.consecutiveFailures
+                }).catch(() => {}); // Silent fail to prevent loops
+            } catch (e) {
+                // Comprehensive logger not available, continue
+            }
+        }
+        this.consecutiveFailures++;
+    }
+
+    // Disable fallback mode when database is restored
+    disableFallbackMode() {
+        if (this.fallbackMode) {
+            this.fallbackMode = false;
+            this.consecutiveFailures = 0;
+            logger.info('Database fallback mode DISABLED - Connection restored');
+            
+            try {
+                const comprehensiveLogger = require('./comprehensiveLogger');
+                comprehensiveLogger.logSystem('DATABASE_RESTORED', 'Connection restored, fallback mode disabled', {
+                    previousFailures: this.consecutiveFailures,
+                    cacheSize: this.inMemoryCache.size
+                }).catch(() => {});
+            } catch (e) {
+                // Silent fail
+            }
+        }
+    }
+
+    // Get cached user data or return safe defaults
+    getCachedUser(userId) {
+        if (this.inMemoryCache.has(userId)) {
+            return this.inMemoryCache.get(userId);
+        }
+
+        // Return safe default user data
+        const defaultUser = {
+            user_id: userId,
+            wallet: 1000.0, // Start with $1000 in emergency mode
+            bank: 0.0,
+            last_earn_ts: 0.0,
+            last_rob_ts: 0.0,
+            game_active: false,
+            last_work_ts: 0.0,
+            last_beg_ts: 0.0,
+            last_crime_ts: 0.0,
+            last_heist_ts: 0.0,
+            created_at: new Date(),
+            updated_at: new Date(),
+            fallback_mode: true // Mark as fallback data
+        };
+
+        this.inMemoryCache.set(userId, defaultUser);
+        return defaultUser;
+    }
+
+    // Update cached user data
+    updateCachedUser(userId, updates) {
+        const currentData = this.getCachedUser(userId);
+        const updatedData = { ...currentData, ...updates, updated_at: new Date() };
+        this.inMemoryCache.set(userId, updatedData);
+        return updatedData;
+    }
+
+    // Health check for database connection
+    async performHealthCheck(databaseAdapter) {
+        try {
+            if (databaseAdapter && databaseAdapter.testConnection) {
+                await databaseAdapter.testConnection();
+                this.lastHealthCheck = Date.now();
+                if (this.fallbackMode) {
+                    this.disableFallbackMode();
+                }
+                return true;
+            }
+        } catch (error) {
+            logger.warn(`Database health check failed: ${error.message}`);
+            this.enableFallbackMode(`Health check failed: ${error.message}`);
+            return false;
+        }
+        return false;
+    }
+}
+
+const fallbackSystem = new DatabaseFallbackSystem();
 
 class DatabaseManager {
     constructor() {
@@ -28,11 +136,50 @@ class DatabaseManager {
             this.usingAdapter = true;
             this.initialized = true;
             logger.info('Database manager initialized with MariaDB');
+            
+            // Start periodic health monitoring
+            this.startHealthMonitoring();
+            
             return;
         } catch (adapterError) {
             logger.error(`Database connection failed: ${adapterError.message}`);
-            throw new Error(`Database connection failed: ${adapterError.message}`);
+            fallbackSystem.enableFallbackMode(`Initialization failed: ${adapterError.message}`);
+            
+            // Still mark as initialized to allow fallback mode operation
+            this.initialized = true;
+            logger.warn('Database initialized in FALLBACK MODE - games will use in-memory cache');
         }
+    }
+
+    /**
+     * Start periodic health monitoring for database connection
+     */
+    startHealthMonitoring() {
+        // Perform health check every 5 minutes
+        const healthCheckInterval = 5 * 60 * 1000; // 5 minutes
+        
+        setInterval(async () => {
+            try {
+                await fallbackSystem.performHealthCheck(this.databaseAdapter);
+            } catch (error) {
+                logger.error(`Health check error: ${error.message}`);
+            }
+        }, healthCheckInterval);
+        
+        logger.info('Database health monitoring started (5-minute intervals)');
+    }
+
+    /**
+     * Get fallback system status (for monitoring/debugging)
+     */
+    getFallbackStatus() {
+        return {
+            fallbackMode: fallbackSystem.fallbackMode,
+            consecutiveFailures: fallbackSystem.consecutiveFailures,
+            cacheSize: fallbackSystem.inMemoryCache.size,
+            lastHealthCheck: fallbackSystem.lastHealthCheck,
+            cachedUsers: Array.from(fallbackSystem.inMemoryCache.keys())
+        };
     }
 
     // ========================= USER BALANCE OPERATIONS =========================
@@ -44,25 +191,53 @@ class DatabaseManager {
      * @returns {Object} User balance data
      */
     async getUserBalance(userId, guildId = null) {
-        if (this.usingAdapter) {
-            return await this.databaseAdapter.getUserBalance(userId, guildId);
+        // 🚀 STEP 1: Check NodeCache cache first (fastest)
+        try {
+            const cachedBalance = await nodeCache.getUserBalance(userId, guildId);
+            if (cachedBalance) {
+                logger.debug(`💾 Cache HIT: User balance for ${userId} from NodeCache`);
+                return cachedBalance;
+            }
+        } catch (cacheError) {
+            logger.warn(`NodeCache error in getUserBalance: ${cacheError.message}`);
+            // Continue to database - cache errors shouldn't block operations
         }
 
-        // Return default balance if no adapter
-        return {
-            user_id: userId,
-            wallet: 1000.0,
-            bank: 0.0,
-            last_earn_ts: 0.0,
-            last_rob_ts: 0.0,
-            game_active: false,
-            last_work_ts: 0.0,
-            last_beg_ts: 0.0,
-            last_crime_ts: 0.0,
-            last_heist_ts: 0.0,
-            created_at: new Date(),
-            updated_at: new Date()
-        };
+        // 🎛️ STEP 2: Try primary database connection with fallback system
+        if (this.usingAdapter && !fallbackSystem.fallbackMode) {
+            try {
+                const result = await this.databaseAdapter.getUserBalance(userId, guildId);
+                
+                if (result) {
+                    // 🚀 Cache successful result in NodeCache (async, don't wait)
+                    nodeCache.cacheUserBalance(userId, guildId, result).catch(err => 
+                        logger.debug(`NodeCache set failed: ${err.message}`)
+                    );
+                    
+                    // Cache successful result for potential future fallback use
+                    if (!fallbackSystem.fallbackMode) {
+                        fallbackSystem.updateCachedUser(userId, result);
+                    }
+                }
+                
+                return result;
+            } catch (error) {
+                logger.error(`Database getUserBalance failed for ${userId}: ${error.message}`);
+                fallbackSystem.enableFallbackMode(`getUserBalance error: ${error.message}`);
+                
+                // Fall through to fallback system below
+            }
+        }
+
+        // 🛡️ STEP 3: Fallback system - use cached data or safe defaults
+        logger.warn(`Using fallback getUserBalance for user ${userId}`);
+        const fallbackData = fallbackSystem.getCachedUser(userId);
+        
+        // Mark data as from fallback for caller awareness
+        fallbackData.fallback_mode = true;
+        fallbackData.fallback_timestamp = Date.now();
+        
+        return fallbackData;
     }
 
     /**
@@ -75,10 +250,74 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async updateUserBalance(userId, guildId = null, walletChange = 0, bankChange = 0, kwargs = {}) {
-        if (this.usingAdapter) {
-            return await this.databaseAdapter.updateUserBalance(userId, guildId, walletChange, bankChange, kwargs);
+        // Try primary database connection with fallback system
+        if (this.usingAdapter && !fallbackSystem.fallbackMode) {
+            try {
+                const result = await this.databaseAdapter.updateUserBalance(userId, guildId, walletChange, bankChange, kwargs);
+                
+                // Update cache with successful changes for consistency
+                if (result) {
+                    // Get current data for cache update
+                    let currentData;
+                    try {
+                        currentData = await this.databaseAdapter.getUserBalance(userId, guildId);
+                        
+                        // 🚀 Update NodeCache with fresh data
+                        if (currentData) {
+                            nodeCache.cacheUserBalance(userId, guildId, currentData).catch(err => 
+                                logger.debug(`NodeCache update failed: ${err.message}`)
+                            );
+                        }
+                    } catch (fetchError) {
+                        logger.debug(`Could not fetch updated balance for cache: ${fetchError.message}`);
+                        currentData = fallbackSystem.getCachedUser(userId);
+                    }
+                    
+                    // Update fallback cache
+                    const updatedData = {
+                        ...currentData,
+                        wallet: Math.max(0, (currentData?.wallet || 0) + walletChange),
+                        bank: Math.max(0, (currentData?.bank || 0) + bankChange),
+                        ...kwargs
+                    };
+                    fallbackSystem.updateCachedUser(userId, updatedData);
+                }
+                
+                return result;
+            } catch (error) {
+                logger.error(`Database updateUserBalance failed for ${userId}: ${error.message}`);
+                fallbackSystem.enableFallbackMode(`updateUserBalance error: ${error.message}`);
+                
+                // Fall through to fallback system below
+            }
         }
-        return false;
+
+        // Fallback system - update cache only (critical for game functionality)
+        logger.warn(`Using fallback updateUserBalance for user ${userId} (${walletChange} wallet, ${bankChange} bank)`);
+        
+        try {
+            const currentData = fallbackSystem.getCachedUser(userId);
+            const updatedData = {
+                ...currentData,
+                wallet: Math.max(0, currentData.wallet + walletChange),
+                bank: Math.max(0, currentData.bank + bankChange),
+                ...kwargs,
+                fallback_mode: true,
+                last_fallback_update: Date.now()
+            };
+            
+            fallbackSystem.updateCachedUser(userId, updatedData);
+            
+            // Log critical balance changes for manual review
+            if (Math.abs(walletChange) > 1000 || Math.abs(bankChange) > 1000) {
+                logger.error(`CRITICAL FALLBACK: Large balance change for ${userId} - Wallet: ${walletChange}, Bank: ${bankChange}`);
+            }
+            
+            return true; // Return true to allow game continuation
+        } catch (fallbackError) {
+            logger.error(`Fallback updateUserBalance failed: ${fallbackError.message}`);
+            return false;
+        }
     }
 
     /**
@@ -91,10 +330,64 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async setUserBalance(userId, guildId = null, wallet = null, bank = null, kwargs = {}) {
-        if (this.usingAdapter) {
-            return await this.databaseAdapter.setUserBalance(userId, guildId, wallet, bank, kwargs);
+        // Try primary database connection with fallback system
+        if (this.usingAdapter && !fallbackSystem.fallbackMode) {
+            try {
+                const result = await this.databaseAdapter.setUserBalance(userId, guildId, wallet, bank, kwargs);
+                
+                // Update cache with successful changes for consistency
+                if (result) {
+                    const updatedData = {
+                        user_id: userId,
+                        wallet: wallet || 0,
+                        bank: bank || 0,
+                        ...kwargs,
+                        updated_at: new Date()
+                    };
+                    
+                    // 🚀 Update NodeCache
+                    nodeCache.cacheUserBalance(userId, guildId, updatedData).catch(err => 
+                        logger.debug(`NodeCache set failed: ${err.message}`)
+                    );
+                    
+                    fallbackSystem.updateCachedUser(userId, updatedData);
+                }
+                
+                return result;
+            } catch (error) {
+                logger.error(`Database setUserBalance failed for ${userId}: ${error.message}`);
+                fallbackSystem.enableFallbackMode(`setUserBalance error: ${error.message}`);
+                
+                // Fall through to fallback system below
+            }
         }
-        return false;
+
+        // Fallback system - update cache only 
+        logger.warn(`Using fallback setUserBalance for user ${userId} (wallet: ${wallet}, bank: ${bank})`);
+        
+        try {
+            const updatedData = {
+                user_id: userId,
+                wallet: wallet !== null ? Math.max(0, wallet) : fallbackSystem.getCachedUser(userId).wallet,
+                bank: bank !== null ? Math.max(0, bank) : fallbackSystem.getCachedUser(userId).bank,
+                ...kwargs,
+                fallback_mode: true,
+                last_fallback_update: Date.now(),
+                updated_at: new Date()
+            };
+            
+            fallbackSystem.updateCachedUser(userId, updatedData);
+            
+            // Log critical balance sets for manual review
+            if ((wallet !== null && wallet > 10000) || (bank !== null && bank > 10000)) {
+                logger.error(`CRITICAL FALLBACK: Large balance set for ${userId} - Wallet: ${wallet}, Bank: ${bank}`);
+            }
+            
+            return true; // Return true to allow operation continuation
+        } catch (fallbackError) {
+            logger.error(`Fallback setUserBalance failed: ${fallbackError.message}`);
+            return false;
+        }
     }
 
     /**

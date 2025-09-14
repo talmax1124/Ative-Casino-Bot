@@ -9,6 +9,7 @@ const { secureRandomInt } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const sessionManager = require('../UTILS/sessionManager');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
 // BINGO number ranges for each column
 const BINGO_RANGES = {
@@ -398,8 +399,58 @@ class BingoGameSession {
             const totalPot = this.players.size * this.starterBet;
             const winners = this.winners || [];
             const prizePerWinner = winners.length > 0 ? (totalPot / winners.length) : 0;
+            
+            // Comprehensive logging for game completion
+            await comprehensiveLogger.logGame('SYSTEM', 'BINGO_SYSTEM', 'bingo', 'GAME_COMPLETE', {
+                gameId: this.gameId,
+                totalPlayers: this.players.size,
+                totalPot: totalPot,
+                winnersCount: winners.length,
+                prizePerWinner: prizePerWinner,
+                numbersCalledCount: this.calledNumbers.length,
+                gameChannelId: this.gameChannel?.id
+            }).catch(err => console.error('Logging error:', err));
+            
             for (const player of this.players.values()) {
                 const isWinner = winners.some(w => w.userId === player.userId);
+                const netChange = isWinner ? (prizePerWinner - this.starterBet) : -this.starterBet;
+                
+                // Comprehensive logging for each player's result
+                await comprehensiveLogger.logGame(player.userId, player.username, 'bingo', 
+                    isWinner ? 'WIN' : 'LOSS', {
+                    betAmount: this.starterBet,
+                    payout: isWinner ? prizePerWinner : 0,
+                    netChange: netChange,
+                    totalPlayers: this.players.size,
+                    winnersCount: winners.length,
+                    gameId: this.gameId,
+                    timing: 'game_complete'
+                }).catch(err => console.error('Logging error:', err));
+                
+                // Log economic impact
+                if (isWinner) {
+                    await comprehensiveLogger.logEconomic('BINGO_WIN_PAYOUT', 'NORMAL', `Player won ${fmt(prizePerWinner)} from bingo game`, {
+                        userId: player.userId,
+                        username: player.username,
+                        betAmount: this.starterBet,
+                        winnings: prizePerWinner,
+                        netProfit: netChange,
+                        totalPlayers: this.players.size,
+                        winnersCount: winners.length,
+                        gameType: 'bingo'
+                    }).catch(err => console.error('Logging error:', err));
+                } else {
+                    await comprehensiveLogger.logEconomic('BINGO_LOSS', 'NORMAL', `Player lost ${fmt(this.starterBet)} to bingo game`, {
+                        userId: player.userId,
+                        username: player.username,
+                        betAmount: this.starterBet,
+                        lossAmount: this.starterBet,
+                        totalPlayers: this.players.size,
+                        winnersCount: winners.length,
+                        gameType: 'bingo'
+                    }).catch(err => console.error('Logging error:', err));
+                }
+                
                 const sessionId = player.sessionId || (isWinner ? this.sessionId : null);
                 if (!sessionId) continue;
                 await sessionManager.endSession(sessionId, {

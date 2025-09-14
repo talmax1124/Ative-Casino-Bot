@@ -21,13 +21,13 @@ const CONFIG = {
     MAX_SPOTS: 5           // Simplified to max 5 numbers
 };
 
-// Simplified KENO payout table (1-5 numbers only for easier understanding)
+// BALANCED KENO payout table - Max 3x multiplier, fun but safe
 const PAYOUT_TABLE = {
-    1: { 1: 3.0 },                           // 1 spot: 1 match = 3x (simple)
-    2: { 2: 8.0 },                           // 2 spots: need both to win = 8x  
-    3: { 2: 2.0, 3: 20.0 },                  // 3 spots: 2 matches = 2x, all 3 = 20x
-    4: { 2: 1.0, 3: 4.0, 4: 25.0 },         // 4 spots: 2+ matches to win, all 4 = 25x
-    5: { 2: 0.5, 3: 2.0, 4: 10.0, 5: 50.0 } // 5 spots: 2+ matches to win, all 5 = 50x
+    1: { 1: 2.8 },                           // 1 spot: 1 match = 2.8x (good payout)
+    2: { 2: 3.0 },                           // 2 spots: need both to win = 3x (max payout)
+    3: { 2: 1.8, 3: 3.0 },                   // 3 spots: 2 matches = 1.8x, all 3 = 3x (max payout)
+    4: { 2: 1.2, 3: 2.5, 4: 3.0 },          // 4 spots: increasing payouts up to 3x
+    5: { 2: 0.8, 3: 1.5, 4: 2.5, 5: 3.0 }   // 5 spots: challenging but max 3x payout
 };
 
 class KenoGame {

@@ -11,6 +11,8 @@ const dbManager = require('../UTILS/database');
 const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
 const logger = require('../UTILS/logger');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
+const tuningManager = require('../UTILS/tuningManager');
 
 // Russian Roulette Configuration
 const ROULETTE_CONFIG = {
@@ -74,7 +76,33 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // Custom validation for Russian Roulette - bypasses wealth ceiling
+            // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
+            let dynamicMaxBet = 100000000; // Default very high limit for Russian Roulette
+            let maxBetConfig = { userCapped: false, adjustmentApplied: false };
+            
+            try {
+                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'russianroulette', 100000000);
+                dynamicMaxBet = maxBetConfig.maxBetLimit;
+                
+                // Comprehensive logging for bet attempt
+                await comprehensiveLogger.logGame(userId, username, 'russianroulette', 'BET_ATTEMPT', {
+                    betAmount: parseAmount(betAmountStr),
+                    maxBetAllowed: dynamicMaxBet,
+                    userCapped: maxBetConfig.userCapped,
+                    aiAdjusted: maxBetConfig.adjustmentApplied
+                }).catch(err => logger.error('Logging error:', err));
+                
+            } catch (tuningError) {
+                // Fallback logging for tuning system failure
+                await comprehensiveLogger.logError('RUSSIANROULETTE_TUNING_SYSTEM', tuningError, { 
+                    critical: false, 
+                    fallback: 'default_limits',
+                    userId: userId 
+                }).catch(err => logger.error('Logging error:', err));
+                logger.warn(`Tuning manager failed for ${username}, using default limits: ${tuningError.message}`);
+            }
+
+            // Custom validation for Russian Roulette with AI regulation
             const parsedAmount = parseAmount(betAmountStr);
             if (isNaN(parsedAmount) || parsedAmount <= 0) {
                 const embed = buildInvalidBetEmbed('Invalid bet amount.');
@@ -86,7 +114,12 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
             
-            // Check if user has enough funds - NO WEALTH CEILING FOR RUSSIAN ROULETTE
+            if (parsedAmount > dynamicMaxBet) {
+                const embed = buildInvalidBetEmbed(`Maximum bet is ${fmt(dynamicMaxBet)}${maxBetConfig.userCapped ? ' (user limit)' : ''}.`);
+                return await interaction.editReply({ embeds: [embed] });
+            }
+            
+            // Check if user has enough funds
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             if (userBalance.wallet < parsedAmount) {
                 const embed = buildInvalidBetEmbed(`Insufficient funds. You have ${fmt(userBalance.wallet)} in your wallet.`);

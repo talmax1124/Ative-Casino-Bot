@@ -21,6 +21,7 @@ const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 // const economicManager = require('../UTILS/economicManager');
 const EconomyGuardianInterface = require('../UTILS/economyGuardianInterface');
 const tuningManager = require('../UTILS/tuningManager');
+const allInManager = require('../UTILS/allInManager');
 
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
@@ -290,25 +291,28 @@ module.exports = {
                 }
             }
             
-            // 🎛️ INITIALIZE AI TUNING SYSTEM
+            // 🎛️ INITIALIZE AI SYSTEMS
             await tuningManager.initialize();
+            await allInManager.initialize();
             
-            // 🎛️ GET AI-REGULATED MAX BET LIMIT
-            const maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'blackjack', 100000000);
-            const dynamicMaxBet = maxBetConfig.maxBet;
+            // 🎯 ALL-IN SYSTEM: Allow betting entire balance, use dynamic house edge for protection
+            const balance = await dbManager.getUserBalance(userId);
+            const totalWealth = balance.wallet + balance.bank;
+            const dynamicMaxBet = totalWealth; // Allow all-in betting
             
-            // Validate and deduct bet with AI-regulated limits
+            // Validate and deduct bet with all-in system
             validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.BLACKJACK,
                 1,              // Min bet: $1
-                dynamicMaxBet   // Max bet: AI-regulated
+                dynamicMaxBet   // Max bet: Total wealth (all-in enabled)
             );
             
-            // Log max bet changes for monitoring
-            if (maxBetConfig.adjustmentApplied || maxBetConfig.userCapped) {
-                logger.info(`🎛️ BLACKJACK MAX BET: ${userId} -> ${fmt(dynamicMaxBet)} (${maxBetConfig.userCapped ? 'user-capped' : 'AI-adjusted'})`);
+            // Log all-in bets for monitoring
+            const isAllIn = await allInManager.isAllInBet(userId, amount);
+            if (isAllIn) {
+                logger.info(`🎯 BLACKJACK ALL-IN: ${userId} -> ${fmt(amount)} (${((amount / totalWealth) * 100).toFixed(1)}% of wealth)`);
             }
 
             if (!validation.isValid) {
@@ -824,11 +828,22 @@ module.exports = {
             
             // 🎰 APPLY AI TUNING SYSTEM - ECONOMIC REGULATION
             const tuningAdjustment = await tuningManager.getAdjustedPayout('blackjack', totalPayout, totalBetAmount);
-            const regulatedPayout = originalWon ? tuningAdjustment.adjustedPayout : 0;
+            let regulatedPayout = originalWon ? tuningAdjustment.adjustedPayout : 0;
+            
+            // 🎯 APPLY ALL-IN SYSTEM - DYNAMIC HOUSE EDGE
+            if (originalWon && regulatedPayout > 0) {
+                const allInAdjustment = await allInManager.adjustGameResult(userId, totalBetAmount, regulatedPayout, true, 'blackjack');
+                regulatedPayout = allInAdjustment.adjustedPayout;
+                
+                // Log significant all-in adjustments
+                if (allInAdjustment.houseEdgeApplied > 0.05) {
+                    logger.info(`🎯 BLACKJACK ALL-IN EDGE: ${fmt(tuningAdjustment.adjustedPayout)} -> ${fmt(regulatedPayout)} (+${(allInAdjustment.houseEdgeApplied * 100).toFixed(1)}% house edge, ${(allInAdjustment.betRatio * 100).toFixed(1)}% of wealth)`);
+                }
+            }
             
             // Log tuning application for monitoring
             if (tuningAdjustment.payoutDelta !== 0 || tuningAdjustment.feeApplied) {
-                logger.info(`🎛️ BLACKJACK TUNING: ${totalPayout} -> ${regulatedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
+                logger.info(`🎛️ BLACKJACK TUNING: ${totalPayout} -> ${tuningAdjustment.adjustedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
             }
             
             const won = regulatedPayout > 0;

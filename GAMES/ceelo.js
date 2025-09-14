@@ -14,6 +14,7 @@ const logger = require('../UTILS/logger');
 const { secureRandomInt, generateProvablyFairRandom, generateAntiStreakRandom } = require('../UTILS/rng');
 const Canvas = require('canvas');
 const path = require('path');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
 // CEELO Configuration
 const CONFIG = {
@@ -352,6 +353,58 @@ class CeeloGame {
      */
     async showResults(interaction) {
         try {
+            const won = this.winner === 'player';
+            const tie = this.winner === 'tie';
+            const netChange = won ? (this.payout - this.betAmount) : tie ? 0 : -this.betAmount;
+            
+            // Comprehensive logging for game result
+            await comprehensiveLogger.logGame(this.userId, this.username, 'ceelo', 
+                won ? 'WIN' : tie ? 'TIE' : 'LOSS', {
+                betAmount: this.betAmount,
+                payout: this.payout,
+                netChange: netChange,
+                playerDice: this.playerDice,
+                houseDice: this.houseDice,
+                playerHand: this.playerHand.description,
+                houseHand: this.houseHand.description,
+                winner: this.winner,
+                timing: 'game_complete'
+            }).catch(err => logger.error('Logging error:', err));
+            
+            // Log economic impact
+            if (won) {
+                await comprehensiveLogger.logEconomic('CEELO_WIN_PAYOUT', 'NORMAL', `Player won ${fmt(this.payout)} from ceelo game`, {
+                    userId: this.userId,
+                    username: this.username,
+                    betAmount: this.betAmount,
+                    winnings: this.payout,
+                    netProfit: netChange,
+                    playerHand: this.playerHand.description,
+                    houseHand: this.houseHand.description,
+                    gameType: 'ceelo'
+                }).catch(err => logger.error('Logging error:', err));
+            } else if (!tie) {
+                await comprehensiveLogger.logEconomic('CEELO_LOSS', 'NORMAL', `Player lost ${fmt(this.betAmount)} to ceelo game`, {
+                    userId: this.userId,
+                    username: this.username,
+                    betAmount: this.betAmount,
+                    lossAmount: this.betAmount,
+                    playerHand: this.playerHand.description,
+                    houseHand: this.houseHand.description,
+                    gameType: 'ceelo'
+                }).catch(err => logger.error('Logging error:', err));
+            } else {
+                await comprehensiveLogger.logEconomic('CEELO_TIE_REFUND', 'NORMAL', `Player tied ceelo game, bet refunded`, {
+                    userId: this.userId,
+                    username: this.username,
+                    betAmount: this.betAmount,
+                    refundAmount: this.betAmount,
+                    playerHand: this.playerHand.description,
+                    houseHand: this.houseHand.description,
+                    gameType: 'ceelo'
+                }).catch(err => logger.error('Logging error:', err));
+            }
+            
             // Create result embed
             const embed = this.createResultEmbed();
             
@@ -365,7 +418,7 @@ class CeeloGame {
                 gameType: GameType.CEELO,
                 betAmount: this.betAmount,
                 payout: this.payout,
-                won: this.winner === 'player',
+                won: won,
                 metadata: {
                     playerDice: this.playerDice,
                     houseDice: this.houseDice,

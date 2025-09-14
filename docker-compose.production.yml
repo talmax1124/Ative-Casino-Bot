@@ -1,0 +1,46 @@
+# ATIVE Casino Bot - Production Docker Compose
+# Provides complete containerized setup with NodeCache
+
+version: '3.8'
+
+services:
+  # Casino Bot Service  
+  casino-bot:
+    build: 
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: ative-casino-bot
+    restart: unless-stopped
+    depends_on: []
+    environment:
+      - NODE_ENV=production
+      - ENVIRONMENT=production
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    networks:
+      - casino_network
+    healthcheck:
+      test: ["CMD", "node", "health-check.js"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 120s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+networks:
+  casino_network:
+    driver: bridge
+
+volumes: {}

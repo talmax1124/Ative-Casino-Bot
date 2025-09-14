@@ -9,33 +9,32 @@ const path = require('path');
 const logger = require('../UTILS/logger');
 const { secureWeightedChoice, secureRandomInt, secureRandomFloat } = require('../UTILS/rng');
 
-// REBALANCED slot symbols - Reduced multipliers for better house edge
-// Higher rarities for valuable symbols, conservative payouts for economy stability
+// BALANCED slot symbols - Max 3x multipliers, fun but safe
 const SLOT_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 40, payout: 1.2 },     // Most common, minimal payout
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 25, payout: 1.5 },         // Common
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 15, payout: 1.8 },       // Uncommon
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, payout: 2.2 },       // Uncommon
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 5, payout: 2.8 }, // Rare
-    'bar': { name: 'Bar', emoji: '📊', rarity: 3, payout: 4.0 },              // Rare
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1.5, payout: 6.0 },  // Very rare
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.4, payout: 15.0 },   // Ultra rare
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.1, payout: 50.0 },   // Legendary  
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.01, payout: 100.0 }  // Rare jackpot
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 35, payout: 1.1 },     // Common small win
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 30, payout: 1.2 },           // Common small win
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 20, payout: 1.4 },         // Decent payout
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, payout: 1.8 },         // Good payout
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 3, payout: 2.2 },   // Great payout
+    'bar': { name: 'Bar', emoji: '📊', rarity: 1.5, payout: 2.8 },              // Excellent payout
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 0.4, payout: 3.0 },    // Max payout - exciting!
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.08, payout: 3.0 },      // Max payout - rare
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.02, payout: 3.0 },      // Max payout - very rare
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.001, payout: 3.0 }      // Max payout - ultra rare
 };
 
-// Matrix mode symbols (increased win probability by 3%)
+// Matrix mode symbols - Max 3x multipliers, more frequent wins
 const MATRIX_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 33, payout: 1.4 },
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 28, payout: 1.8 },
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 25, payout: 2.2 },
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 21, payout: 2.6 },
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 18, payout: 3.2 },
-    'bar': { name: 'Bar', emoji: '📊', rarity: 15, payout: 4.8 },
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 11, payout: 7.5 },
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 9, payout: 18.0 },
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 7, payout: 60.0 },
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 3.5, payout: 150.0 }
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 30, payout: 1.2 },
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 25, payout: 1.4 },
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 20, payout: 1.6 },
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 15, payout: 1.9 },
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 6, payout: 2.3 },
+    'bar': { name: 'Bar', emoji: '📊', rarity: 2.5, payout: 2.7 },
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1, payout: 3.0 },       // Max payout
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.4, payout: 3.0 },       // Max payout
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.08, payout: 3.0 },      // Max payout + triggers bonus
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.02, payout: 3.0 }       // Max payout - rare
 };
 
 // Special combinations
@@ -213,7 +212,7 @@ function calculateMatrixPayout(matrix, betAmount) {
             const symbolData = MATRIX_SYMBOLS[symbol];
             
             if (symbol === 'buffalo') {
-                const bonusPayout = betAmount * 3; // 3x for buffalo bonus in matrix
+                const bonusPayout = betAmount * 2.2; // 2.2x for buffalo bonus in matrix - balanced
                 totalPayout += bonusPayout;
                 resultMessages.push(`🦬 BUFFALO BONUS! Line: +${bonusPayout.toLocaleString()}`);
                 winningLines.push({ type: 'horizontal', row, col: 0, endRow: row, endCol: 2 });

@@ -12,35 +12,35 @@ const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvably
 const BASE_PLINKO_MODES = {
     Easy: {
         rows: 8,
-        multipliers: [0.0, 0.2, 0.4, 0.6, 1.2, 0.6, 0.4, 0.2, 0.0], // Conservative multipliers
-        description: "Safest option with lower win potential. Includes 0x slots!",
+        multipliers: [0.2, 0.4, 0.6, 0.8, 1.5, 0.8, 0.6, 0.4, 0.2], // Safe multipliers, no 0x slots
+        description: "Safest option with decent win potential. Great for beginners!",
         color: '#00FF00',
         emoji: '🟢',
-        house_edge: 0.80
+        house_edge: 0.15
     },
     Medium: {
         rows: 12,
-        multipliers: [0.0, 0.0, 0.1, 0.2, 0.4, 0.8, 1.8, 0.8, 0.4, 0.2, 0.1, 0.0, 0.0], // Balanced risk
-        description: "Moderate risk with decent win potential. Multiple 0x slots!",
+        multipliers: [0.1, 0.2, 0.3, 0.5, 0.8, 1.2, 2.0, 1.2, 0.8, 0.5, 0.3, 0.2, 0.1], // Balanced risk
+        description: "Moderate risk with good win potential. Balanced gameplay!",
         color: '#FFA500',
         emoji: '🟠',
-        house_edge: 0.85
+        house_edge: 0.20
     },
     Hard: {
         rows: 16,
-        multipliers: [0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.5, 1.0, 4.2, 1.0, 0.5, 0.3, 0.2, 0.1, 0.0, 0.0, 0.0], // Higher risk, higher reward
-        description: "High risk gambling with many 0x slots. Dangerous!",
+        multipliers: [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.0, 1.5, 2.5, 1.5, 1.0, 0.8, 0.5, 0.3, 0.2, 0.1, 0.0], // Max 2.5x
+        description: "High risk with some 0x slots. For thrill seekers!",
         color: '#FF0000',
         emoji: '🔴',
-        house_edge: 0.90
+        house_edge: 0.25
     },
     Nightmare: {
         rows: 20,
-        multipliers: [0.0, 0.0, 0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.1, 10.0, 0.1, 0.4, 0.3, 0.2, 0.1, 0.0, 0.0, 0.0, 0.0], // Max 10x multiplier
-        description: "💀 NIGHTMARE MODE 💀 - Surrounded by 0x slots. Pure chaos!",
+        multipliers: [0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.8, 1.0, 3.0, 1.0, 0.8, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0, 0.0], // Max 3.0x
+        description: "💀 NIGHTMARE MODE 💀 - Many 0x slots but max 3x payout!",
         color: '#8B008B',
         emoji: '💀',
-        house_edge: 0.95
+        house_edge: 0.30
     }
 };
 
