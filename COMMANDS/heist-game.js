@@ -23,6 +23,16 @@ const HEIST_GAMES = {
         name: 'Unscramble',
         description: 'Word puzzle game - unscramble words within 30 seconds each',
         file: '../heists/Games/Unscramble.js'
+    },
+    'liedetector': {
+        name: 'Lie Detector',
+        description: 'Two Takes game - Con Artist bluffs, team guesses which statement is fake',
+        file: '../heists/Games/LieDetector.js'
+    },
+    'keypadcode': {
+        name: 'Keypad Code',
+        description: '4-digit code breaking game - crack the security system with clues',
+        file: '../heists/Games/KeypadCode.js'
     }
 };
 
@@ -37,7 +47,9 @@ module.exports = {
                 .addChoices(
                     { name: 'Memory - Pattern memorization', value: 'memory' },
                     { name: 'Reaction - Fast emoji reactions', value: 'reaction' },
-                    { name: 'Unscramble - Word puzzle solving', value: 'unscramble' }
+                    { name: 'Unscramble - Word puzzle solving', value: 'unscramble' },
+                    { name: 'Lie Detector - Truth vs Bluff voting', value: 'liedetector' },
+                    { name: 'Keypad Code - 4-digit security bypass', value: 'keypadcode' }
                 )
         ),
 
@@ -45,18 +57,8 @@ module.exports = {
         const userId = interaction.user.id;
         const username = interaction.user.displayName;
         const gameType = interaction.options.getString('game');
-        const allowedChannelId = '1414440064162861056';
 
         try {
-            // Check if command is used in the correct channel
-            if (interaction.channelId !== allowedChannelId) {
-                const embed = new EmbedBuilder()
-                    .setTitle('❌ Wrong Channel')
-                    .setDescription(`This command can only be used in <#${allowedChannelId}>.`)
-                    .setColor(0xFF0000);
-                return await interaction.reply({ embeds: [embed], ephemeral: true });
-            }
-
             // Defer reply immediately
             await interaction.deferReply();
 
