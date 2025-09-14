@@ -7,6 +7,8 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 
+const DEVELOPER_ID = '466050111680544798';
+
 // Available heist games
 const HEIST_GAMES = {
     'memory': {
@@ -59,6 +61,15 @@ module.exports = {
         const gameType = interaction.options.getString('game');
 
         try {
+            // Check if user is developer
+            if (userId !== DEVELOPER_ID) {
+                const embed = new EmbedBuilder()
+                    .setTitle('🔒 Developer Only')
+                    .setDescription('This command is restricted to developers only.')
+                    .setColor(0xFF0000);
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
+            }
+
             // Defer reply immediately
             await interaction.deferReply();
 
