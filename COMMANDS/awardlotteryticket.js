@@ -35,6 +35,15 @@ module.exports = {
         ),
 
     async execute(interaction) {
+        // Disable lottery in development environment
+        if (process.env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development') {
+            const embed = new EmbedBuilder()
+                .setTitle('🚫 Lottery Disabled')
+                .setDescription('Lottery system is disabled in development mode.')
+                .setColor(0xFF4444);
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+
         const userId = interaction.user.id;
         const targetUser = interaction.options.getUser('user');
         const ticketAmount = interaction.options.getInteger('amount');

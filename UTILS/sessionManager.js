@@ -47,6 +47,7 @@ const GameType = Object.freeze({
     YAHTZEE: 'yahtzee',
     LOTTERY: 'lottery',
     TREASUREVAULT: 'treasurevault',
+    ROULETTE: 'roulette',
     RUSSIAN_ROULETTE: 'russianroulette'
 });
 

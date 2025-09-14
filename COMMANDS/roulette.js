@@ -477,25 +477,62 @@ module.exports = {
             });
             
             if (!sessionResult.success) {
-                throw new Error(`Session creation failed: ${sessionResult.error}`);
+                logger.error(`Roulette session creation failed for ${userId}: ${sessionResult.error} (Code: ${sessionResult.code})`);
+                
+                // More specific error messages
+                let errorMessage = 'Failed to start roulette session.';
+                if (sessionResult.code === 'SESSION_EXISTS') {
+                    errorMessage = sessionResult.error; // Use the specific message from sessionManager
+                } else if (sessionResult.code === 'RATE_LIMITED') {
+                    errorMessage = 'Please wait a moment before starting a new game.';
+                } else if (sessionResult.code === 'INSUFFICIENT_FUNDS') {
+                    errorMessage = 'Insufficient funds for this bet.';
+                } else {
+                    errorMessage = sessionResult.error || 'Session creation failed. Please try again.';
+                }
+                
+                throw new Error(errorMessage);
             }
 
             const sessionId = sessionResult.sessionId;
-            logger.debug(`Roulette session created: ${sessionId} for ${userId}`);
+            if (!sessionId) {
+                logger.error(`Roulette session creation returned success but no sessionId for ${userId}`);
+                throw new Error('Session creation failed: No session ID returned.');
+            }
+            
+            logger.info(`Roulette session created successfully: ${sessionId} for ${userId} with bet ${fmt(betAmount)}`);
 
             // Create new game and link to session
-            const game = new RouletteGame(userId, betAmount);
-            game.sessionId = sessionId;
-            activeGames.set(sessionId, game);
+            let game;
+            try {
+                game = new RouletteGame(userId, betAmount);
+                game.sessionId = sessionId;
+                activeGames.set(sessionId, game);
+                logger.debug(`Roulette game object created and stored for session ${sessionId}`);
+            } catch (gameError) {
+                logger.error(`Failed to create roulette game object for session ${sessionId}: ${gameError.message}`);
+                // Clean up session
+                await sessionManager.endSession(sessionId, { reason: 'game_creation_failed', error: gameError.message });
+                throw new Error('Failed to create game. Please try again.');
+            }
 
             // Update session with initial game data
-            await sessionManager.updateSession(sessionId, {
-                gameData: {
-                    gamePhase: 'betting',
-                    currentBet: null,
-                    lastResult: null
-                }
-            }, 'game_start');
+            try {
+                await sessionManager.updateSession(sessionId, {
+                    gameData: {
+                        gamePhase: 'betting',
+                        currentBet: null,
+                        lastResult: null
+                    }
+                }, 'game_start');
+                logger.debug(`Session ${sessionId} updated with initial game data`);
+            } catch (updateError) {
+                logger.error(`Failed to update session ${sessionId} with game data: ${updateError.message}`);
+                // Clean up
+                activeGames.delete(sessionId);
+                await sessionManager.endSession(sessionId, { reason: 'session_update_failed', error: updateError.message });
+                throw new Error('Failed to initialize game session. Please try again.');
+            }
 
             // Create payout embed and betting buttons  
             const payoutEmbed = await createPayoutEmbed(interaction.user, userBalance);

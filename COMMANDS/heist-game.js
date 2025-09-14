@@ -13,6 +13,16 @@ const HEIST_GAMES = {
         name: 'Memory',
         description: 'Pattern memorization game - remember and repeat the sequence',
         file: '../heists/Games/Memory.js'
+    },
+    'reaction': {
+        name: 'Reaction',
+        description: 'Fast reaction game - react quickly to emojis within 2 seconds',
+        file: '../heists/Games/Reaction.js'
+    },
+    'unscramble': {
+        name: 'Unscramble',
+        description: 'Word puzzle game - unscramble words within 30 seconds each',
+        file: '../heists/Games/Unscramble.js'
     }
 };
 
@@ -25,7 +35,9 @@ module.exports = {
                 .setDescription('Which heist game to play')
                 .setRequired(true)
                 .addChoices(
-                    { name: 'Memory - Pattern memorization', value: 'memory' }
+                    { name: 'Memory - Pattern memorization', value: 'memory' },
+                    { name: 'Reaction - Fast emoji reactions', value: 'reaction' },
+                    { name: 'Unscramble - Word puzzle solving', value: 'unscramble' }
                 )
         ),
 
@@ -33,8 +45,18 @@ module.exports = {
         const userId = interaction.user.id;
         const username = interaction.user.displayName;
         const gameType = interaction.options.getString('game');
+        const allowedChannelId = '1414440064162861056';
 
         try {
+            // Check if command is used in the correct channel
+            if (interaction.channelId !== allowedChannelId) {
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Wrong Channel')
+                    .setDescription(`This command can only be used in <#${allowedChannelId}>.`)
+                    .setColor(0xFF0000);
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
+            }
+
             // Defer reply immediately
             await interaction.deferReply();
 
