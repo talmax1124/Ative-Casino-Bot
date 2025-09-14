@@ -289,14 +289,15 @@ Think like a world-class casino optimization AI. Be specific, data-driven, and f
                 timestamp = VALUES(timestamp)
             `;
 
+            // Ensure no undefined values are passed to database
             await dbManager.databaseAdapter.executeQuery(query, [
-                key,
-                memoryEntry.recommendation,
-                memoryEntry.reasoning,
-                JSON.stringify(memoryEntry.dataContext),
-                memoryEntry.timestamp,
-                memoryEntry.applied,
-                memoryEntry.effectiveness
+                key || null,
+                memoryEntry.recommendation || null,
+                memoryEntry.reasoning || null,
+                JSON.stringify(memoryEntry.dataContext || {}),
+                memoryEntry.timestamp || new Date().toISOString(),
+                memoryEntry.applied !== undefined ? memoryEntry.applied : null,
+                memoryEntry.effectiveness !== undefined ? memoryEntry.effectiveness : null
             ]);
 
         } catch (error) {
