@@ -95,7 +95,18 @@ module.exports = {
             
             let dailySent = senderBalance.daily_sent || 0;
             if (today > lastResetDay) {
-                dailySent = 0; // Reset daily limit
+                // Reset daily limit in database immediately
+                dailySent = 0;
+                await dbManager.updateUserBalance(
+                    senderId,
+                    guildId,
+                    0, // No wallet change
+                    0, // No bank change
+                    {
+                        daily_sent: 0,
+                        last_send_reset: now
+                    }
+                );
             }
             
             // Validate and parse amount

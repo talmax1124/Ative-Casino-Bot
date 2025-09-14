@@ -3,7 +3,7 @@
  * Professional Discord casino bot built with JavaScript
  */
 
-const { Client, GatewayIntentBits, Collection, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle, ActivityType } = require('discord.js');
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v10');
 const fs = require('fs');
@@ -219,6 +219,50 @@ async function registerCommands(commands) {
         logger.info(`Successfully reloaded ${commands.length} application (/) commands`);
     } catch (error) {
         logger.error('Failed to register commands:', error);
+    }
+}
+
+// Dynamic Bot Activity System
+function setupBotActivity() {
+    const activities = [
+        { name: "the house always wins 🎰", type: ActivityType.Watching },
+        { name: "you lose money 💸", type: ActivityType.Watching },
+        { name: "players gamble away life savings", type: ActivityType.Watching },
+        { name: "slots spinning 🎰", type: ActivityType.Listening },
+        { name: "blackjack deals 🃏", type: ActivityType.Playing },
+        { name: "poker hands fold 🂠", type: ActivityType.Playing },
+        { name: "roulette wheels spin 🎡", type: ActivityType.Playing },
+        { name: "dice roll snake eyes 🎲", type: ActivityType.Playing },
+        { name: "jackpots being missed 💰", type: ActivityType.Watching },
+        { name: "wallets getting lighter 💸", type: ActivityType.Watching },
+        { name: "lucky streaks end 📉", type: ActivityType.Watching },
+        { name: "for big winners 🏆", type: ActivityType.Watching },
+        { name: "the economy crash 📊", type: ActivityType.Watching },
+        { name: "bank accounts drain 🏦", type: ActivityType.Watching },
+        { name: "with /help for commands 🎲", type: ActivityType.Playing },
+        { name: "ATIVE Casino 🎰", type: ActivityType.Playing }
+    ];
+
+    // Set initial activity
+    const initialActivity = activities[Math.floor(Math.random() * activities.length)];
+    client.user.setActivity(initialActivity.name, { type: initialActivity.type });
+    
+    // Change activity every 3 minutes for more dynamic feel
+    setInterval(() => {
+        const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+        client.user.setActivity(randomActivity.name, { type: randomActivity.type });
+        logger.debug(`Bot activity changed to: ${getActivityTypeName(randomActivity.type)} ${randomActivity.name}`);
+    }, 3 * 60 * 1000); // 3 minutes
+}
+
+// Helper function to get activity type name for logging
+function getActivityTypeName(type) {
+    switch(type) {
+        case ActivityType.Playing: return 'Playing';
+        case ActivityType.Listening: return 'Listening to';
+        case ActivityType.Watching: return 'Watching';
+        case ActivityType.Competing: return 'Competing in';
+        default: return 'Unknown';
     }
 }
 
@@ -483,9 +527,9 @@ Format your response as:
 client.once('clientReady', async () => {
     logger.info(`ATIVE Casino Bot logged in as ${client.user.tag} (ID: ${client.user.id})`);
     
-    // Set custom activity status
-    client.user.setActivity("you lose 😂", { type: 'WATCHING' });
-    logger.info('Bot activity status set');
+    // Set dynamic bot activity status
+    setupBotActivity();
+    logger.info('Bot activity system initialized');
     
     // LEGACY: Economic notification system replaced by Real AI Engine
     // economicManager.setNotificationClient(client);
@@ -597,8 +641,8 @@ client.once('clientReady', async () => {
         logger.error('Failed to load commands:', error);
     }
 
-    // Initialize lottery system (disabled in development)
-    if (process.env.ENVIRONMENT !== 'development') {
+    // Initialize lottery system (ONLY in production)
+    if (process.env.ENVIRONMENT === 'production') {
         try {
             client.lotteryGame = new LotteryGame(client);
             await client.lotteryGame.initialize();
@@ -637,7 +681,7 @@ client.once('clientReady', async () => {
             }, 5 * 60 * 1000); // 5 minutes
         }
     } else {
-        logger.info('Lottery system disabled in development mode');
+        logger.info('🚫 Lottery system DISABLED - not running in production environment');
     }
 
     // Initialize scratch ticket system

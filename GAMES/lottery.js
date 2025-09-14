@@ -29,6 +29,12 @@ class LotteryGame {
      */
     async initialize() {
         try {
+            // Skip all lottery operations in development environment
+            if (process.env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development') {
+                logger.info('Lottery game initialization skipped - development environment');
+                return;
+            }
+            
             // First, recover any orphaned tickets from the week rollover bug
             await this.recoverOrphanedTickets();
             
@@ -52,6 +58,12 @@ class LotteryGame {
      */
     async scheduleNextDrawing() {
         try {
+            // Skip scheduling in development environment
+            if (process.env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development') {
+                logger.info('Lottery drawing scheduling skipped - development environment');
+                return;
+            }
+            
             // Clear existing timeout if any
             if (this.scheduledDrawing) {
                 clearTimeout(this.scheduledDrawing);
@@ -113,6 +125,12 @@ class LotteryGame {
      */
     async scheduleHourlyPanelUpdates() {
         try {
+            // Skip panel updates in development environment
+            if (process.env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development') {
+                logger.info('Lottery panel update scheduling skipped - development environment');
+                return;
+            }
+            
             // Update panel every hour
             const hourlyInterval = 60 * 60 * 1000; // 1 hour in milliseconds
             setInterval(async () => {
@@ -334,6 +352,12 @@ class LotteryGame {
      * Conduct the bi-weekly lottery drawing (Tuesday and Saturday)
      */
     async conductWeeklyDrawing() {
+        // Skip drawings in development environment
+        if (process.env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development') {
+            logger.info('Lottery drawing skipped - development environment');
+            return true; // Return success to prevent retries
+        }
+        
         if (this.isDrawingInProgress) {
             logger.warn('Lottery drawing already in progress, skipping');
             return false;
@@ -375,6 +399,12 @@ class LotteryGame {
      */
     async announceWinners(results) {
         try {
+            // Skip winner announcements in development environment
+            if (process.env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development') {
+                logger.info('Lottery winner announcement skipped - development environment');
+                return;
+            }
+            
             const channel = this.bot.channels.cache.get(LOTTERY_CHANNEL_ID);
             if (!channel) {
                 logger.error(`Could not find lottery channel ${LOTTERY_CHANNEL_ID}`);
@@ -656,6 +686,12 @@ class LotteryGame {
      */
     async recoverOrphanedTickets() {
         try {
+            // Skip ticket recovery in development environment
+            if (process.env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development') {
+                logger.info('Lottery ticket recovery skipped - development environment');
+                return;
+            }
+            
             logger.info('Checking for orphaned lottery tickets to recover...');
             
             const recoveryResult = await dbManager.checkAndRecoverOrphanedTickets(DESIGNATED_SERVER_ID);
