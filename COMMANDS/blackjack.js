@@ -298,7 +298,7 @@ module.exports = {
             // 🎯 ALL-IN SYSTEM: Allow betting entire balance, use dynamic house edge for protection
             const balance = await dbManager.getUserBalance(userId);
             const totalWealth = balance.wallet + balance.bank;
-            const dynamicMaxBet = totalWealth; // Allow all-in betting
+            const dynamicMaxBet = Math.min(totalWealth, 400000); // Max bet: $400K
             
             // Validate and deduct bet with all-in system
             validation = await PayoutManager.validateAndDeductBet(
@@ -306,7 +306,7 @@ module.exports = {
                 amount,
                 GameType.BLACKJACK,
                 1,              // Min bet: $1
-                dynamicMaxBet   // Max bet: Total wealth (all-in enabled)
+                dynamicMaxBet   // Max bet: $400K (capped)
             );
             
             // Log all-in bets for monitoring

@@ -629,7 +629,7 @@ class LotteryGame {
     async checkPrizePoolLimit(guildId) {
         try {
             const lotteryInfo = await dbManager.getLotteryInfo(guildId);
-            const maxPrizePool = 400000000; // 400M
+            const maxPrizePool = 400000; // 400K
             
             if (lotteryInfo.total_prize >= maxPrizePool) {
                 logger.info(`Prize pool (${lotteryInfo.total_prize}) exceeds maximum (${maxPrizePool}), triggering early drawing`);

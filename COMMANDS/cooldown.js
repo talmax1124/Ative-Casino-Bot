@@ -46,7 +46,7 @@ module.exports = {
 
             // Work cooldown - ensure timestamp is in milliseconds
             const lastWork = (userBalance.last_work_ts || 0);
-            const lastWorkMs = lastWork < 1000000000000 ? lastWork * 1000 : lastWork; // Convert if in seconds
+            const lastWorkMs = lastWork < 4000000000 ? lastWork * 1000 : lastWork; // Convert if in seconds
             const workRemaining = Math.max(0, COOLDOWNS.work - (now - lastWorkMs));
             cooldownData.push({
                 command: '💼 Work',
@@ -56,7 +56,7 @@ module.exports = {
 
             // Beg cooldown - ensure timestamp is in milliseconds
             const lastBeg = (userBalance.last_beg_ts || 0);
-            const lastBegMs = lastBeg < 1000000000000 ? lastBeg * 1000 : lastBeg;
+            const lastBegMs = lastBeg < 4000000000 ? lastBeg * 1000 : lastBeg;
             const begRemaining = Math.max(0, COOLDOWNS.beg - (now - lastBegMs));
             cooldownData.push({
                 command: '🤲 Beg',
@@ -66,7 +66,7 @@ module.exports = {
 
             // Crime cooldown - ensure timestamp is in milliseconds
             const lastCrime = (userBalance.last_crime_ts || 0);
-            const lastCrimeMs = lastCrime < 1000000000000 ? lastCrime * 1000 : lastCrime;
+            const lastCrimeMs = lastCrime < 4000000000 ? lastCrime * 1000 : lastCrime;
             const crimeRemaining = Math.max(0, COOLDOWNS.crime - (now - lastCrimeMs));
             cooldownData.push({
                 command: '🔫 Crime',
@@ -76,7 +76,7 @@ module.exports = {
 
             // Heist cooldown - ensure timestamp is in milliseconds
             const lastHeist = (userBalance.last_heist_ts || 0);
-            const lastHeistMs = lastHeist < 1000000000000 ? lastHeist * 1000 : lastHeist;
+            const lastHeistMs = lastHeist < 4000000000 ? lastHeist * 1000 : lastHeist;
             const heistRemaining = Math.max(0, COOLDOWNS.heist - (now - lastHeistMs));
             cooldownData.push({
                 command: '🏦 Heist',
@@ -86,7 +86,7 @@ module.exports = {
 
             // Rob cooldown (approximate, actual varies by user) - ensure timestamp is in milliseconds
             const lastRob = (userBalance.last_rob_ts || 0);
-            const lastRobMs = lastRob < 1000000000000 ? lastRob * 1000 : lastRob;
+            const lastRobMs = lastRob < 4000000000 ? lastRob * 1000 : lastRob;
             const robRemaining = Math.max(0, COOLDOWNS.rob - (now - lastRobMs));
             cooldownData.push({
                 command: '🔒 Rob',
@@ -96,7 +96,7 @@ module.exports = {
 
             // Earn money cooldown - ensure timestamp is in milliseconds
             const lastEarn = (userBalance.last_earn_ts || 0);
-            const lastEarnMs = lastEarn < 1000000000000 ? lastEarn * 1000 : lastEarn;
+            const lastEarnMs = lastEarn < 4000000000 ? lastEarn * 1000 : lastEarn;
             const earnRemaining = Math.max(0, COOLDOWNS.earn - (now - lastEarnMs));
             cooldownData.push({
                 command: '💰 Earn Money',

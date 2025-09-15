@@ -28,7 +28,7 @@ const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 // ECONOMIC SYSTEM COMPLIANT - Max 3x multipliers, AI-regulated betting
 const CRASH_CONFIG = {
   min_bet: 10,
-  max_bet: 100000000,         // Will be regulated by tuning manager
+  max_bet: 400000,            // Maximum $400K bet
   update_interval: 1000,      // Update every 1 second
   max_multiplier: 3.0,        // ECONOMIC COMPLIANCE: Max 3x multiplier
   house_edge: 0.052,          // Match system house edge

@@ -115,8 +115,8 @@ module.exports = {
 
             // Stage text based on total balance
             let stageText = 'BALANCE CHECKED';
-            if (totalBalance >= 1000000000) stageText = 'BILLIONAIRE STATUS';
-            else if (totalBalance >= 100000000) stageText = 'MILLIONAIRE STATUS';
+            if (totalBalance >= 4000000) stageText = 'BILLIONAIRE STATUS';
+            else if (totalBalance >= 400000) stageText = 'MILLIONAIRE STATUS';
             else if (totalBalance >= 10000000) stageText = 'HIGH ROLLER';
             else if (totalBalance >= 1000000) stageText = 'ESTABLISHED PLAYER';
             else if (totalBalance >= 100000) stageText = 'GROWING WEALTH';

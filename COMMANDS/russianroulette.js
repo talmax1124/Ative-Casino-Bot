@@ -17,11 +17,11 @@ const tuningManager = require('../UTILS/tuningManager');
 // Russian Roulette Configuration
 const ROULETTE_CONFIG = {
     MIN_BET: 50,           // Minimum $50 entry
-    MAX_BET: null,         // No maximum bet limit - bet everything you have!
+    MAX_BET: 400000,       // Maximum $400K bet
     MIN_PLAYERS: 2,        // Minimum 2 players to start
     MAX_PLAYERS: null,     // No player limit - unlimited players allowed
     JOIN_TIME: 60000,      // 60 seconds to join
-    HOUSE_EDGE: 0.02       // 2% house fee
+    HOUSE_EDGE: 0.08       // 2% house fee
 };
 
 module.exports = {
@@ -77,11 +77,11 @@ module.exports = {
             }
 
             // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
-            let dynamicMaxBet = 100000000; // Default very high limit for Russian Roulette
+            let dynamicMaxBet = 400000; // Default very high limit for Russian Roulette
             let maxBetConfig = { userCapped: false, adjustmentApplied: false };
             
             try {
-                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'russianroulette', 100000000);
+                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'russianroulette', 400000);
                 dynamicMaxBet = maxBetConfig.maxBetLimit;
                 
                 // Comprehensive logging for bet attempt

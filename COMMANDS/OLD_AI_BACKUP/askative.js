@@ -402,7 +402,7 @@ function parseAmount(amountStr) {
     
     if (cleanAmount.includes('k')) return Math.floor(number * 1000);
     if (cleanAmount.includes('m')) return Math.floor(number * 1000000);
-    if (cleanAmount.includes('b')) return Math.floor(number * 1000000000);
+    if (cleanAmount.includes('b')) return Math.floor(number * 4000000);
     
     return Math.floor(number);
 }
@@ -549,7 +549,7 @@ async function executeMoneyCommand(interaction, command) {
         return 'Invalid amount specified. Please use a positive number.';
     }
     
-    if (parsedAmount > 1000000000000) { // 1 trillion limit
+    if (parsedAmount > 400000) { // 400K limit
         logger.warn(`❌ Amount too large: ${parsedAmount}`);
         return 'Amount too large. Maximum is $1T for safety.';
     }
@@ -694,7 +694,7 @@ async function getLiveEconomicData(client, guildId) {
                 SUM(wallet + bank) as total_money,
                 AVG(wallet + bank) as avg_balance,
                 COUNT(CASE WHEN wallet + bank > 1000000 THEN 1 END) as millionaires,
-                COUNT(CASE WHEN wallet + bank > 100000000 THEN 1 END) as high_wealth_users,
+                COUNT(CASE WHEN wallet + bank > 400000 THEN 1 END) as high_wealth_users,
                 COUNT(CASE WHEN wallet + bank > 500000000 THEN 1 END) as wealth_tax_eligible
             FROM user_balances
         `;

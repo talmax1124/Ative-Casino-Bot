@@ -87,12 +87,12 @@ module.exports = {
             const MIN_BET = 50;
             
             // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
-            let dynamicMaxBet = 1000000; // Default fallback limit
+            let dynamicMaxBet = 400000; // Default fallback limit
             let maxBetConfig = { userCapped: false, adjustmentApplied: false };
             
             try {
                 const { parseAmount } = require('../UTILS/common');
-                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'bingo', 1000000);
+                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'bingo', 400000);
                 dynamicMaxBet = maxBetConfig.maxBetLimit;
                 
                 // Comprehensive logging for bet attempt

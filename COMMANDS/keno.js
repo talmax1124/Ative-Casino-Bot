@@ -14,7 +14,7 @@ const logger = require('../UTILS/logger');
 // KENO Configuration
 const KENO_CONFIG = {
     MIN_BET: 10,           // Minimum $10 entry
-    MAX_BET: null,         // No max bet - intelligent systems handle risk  
+    MAX_BET: 400000,       // Maximum $400K bet
     MIN_NUMBERS: 1,        // Minimum 1 number to pick
     MAX_NUMBERS: 10,       // Maximum 10 numbers to pick
     TOTAL_NUMBERS: 80,     // Numbers 1-80 available

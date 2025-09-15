@@ -16,8 +16,8 @@ const tuningManager = require('../UTILS/tuningManager');
 // CEELO Configuration
 const CEELO_CONFIG = {
     MIN_BET: 5,            // Minimum $5 entry
-    MAX_BET: 25000,        // Maximum $25K bet (per CLAUDE.md)
-    PAYOUT_MULTIPLIER: 1   // 1:1 even money
+    MAX_BET: 400000,       // Maximum $400K bet
+    PAYOUT_MULTIPLIER: 0.8 // 0.8:1 reduced payout (increased house edge)
 };
 
 module.exports = {

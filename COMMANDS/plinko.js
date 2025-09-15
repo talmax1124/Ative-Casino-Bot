@@ -408,7 +408,7 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
             mode,
             dropSlot: finalSlot,
             finalMultiplier,
-            housedEdge: 0.15 // 15% house edge
+            housedEdge: 0.25 // 15% house edge
         }
     });
 

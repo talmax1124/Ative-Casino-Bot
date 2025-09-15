@@ -139,7 +139,7 @@ module.exports = {
             logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
             // 🎛️ GET AI-REGULATED MAX BET LIMIT (allows higher bets with safety)
-            const maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'slots', 100000000);
+            const maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'slots', 400000);
             const dynamicMaxBet = maxBetConfig.maxBet;
             
             // Validate and deduct bet with AI-regulated limits

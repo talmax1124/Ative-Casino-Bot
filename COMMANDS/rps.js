@@ -103,7 +103,7 @@ module.exports = {
                 amountStr,
                 GameType.ROCKPAPERSCISSORS,
                 50,        // Min bet: $50
-                50000000     // Max bet: $50M (safe with personalization)
+                400000       // Max bet: $400K
             );
 
             if (!validationResult.isValid) {

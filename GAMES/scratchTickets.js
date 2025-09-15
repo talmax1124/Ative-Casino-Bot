@@ -16,11 +16,11 @@ const TICKET_CONFIG = {
     TICKET_LIFETIME: 10 * 60 * 1000, // 10 minutes
     CLAIM_TIMEOUT: 5 * 60 * 1000, // 5 minutes to claim
     
-    // Prize tiers (15% total win rate)
+    // Prize tiers (8% total win rate - reduced from 15%)
     PRIZES: {
-        150000: { chance: 0.09, displayName: '$150K' },    // 9% chance
-        250000: { chance: 0.045, displayName: '$250K' },   // 4.5% chance  
-        400000: { chance: 0.015, displayName: '$400K' }    // 1.5% chance
+        150000: { chance: 0.05, displayName: '$150K' },    // 5% chance
+        250000: { chance: 0.025, displayName: '$250K' },   // 2.5% chance  
+        400000: { chance: 0.005, displayName: '$400K' }    // 0.5% chance
     },
     
     // Symbols for the scratch-off

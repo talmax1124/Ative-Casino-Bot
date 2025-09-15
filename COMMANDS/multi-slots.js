@@ -62,7 +62,7 @@ module.exports = {
                 amount,
                 GameType.MULTI_SLOTS,
                 1,                      // Min bet: $1
-                100000000,              // Max bet: $100M (safe with personalization)
+                400000,              // Max bet: $100M (safe with personalization)
                 { matrixMinBet: MATRIX_MIN_BET }  // Special requirement for matrix mode
             );
 
@@ -136,7 +136,7 @@ module.exports = {
                         matrix: result.symbols,
                         winType: result.type,
                         multiplier: result.multiplier,
-                        houseEdge: 0.15,
+                        houseEdge: 0.25,
                         gameType: 'multi-slots',
                         buffaloBonus: buffaloBonus || false
                     }
