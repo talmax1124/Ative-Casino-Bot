@@ -1,350 +1,381 @@
-# heist_bot.py
-# Python 3.10+ | discord.py 2.4+
-# pip install -U discord.py
+// muscle_heist.js
+// Node 18+, discord.js v14
+// npm i discord.js
 
-import os
-import random
-import asyncio
-from datetime import datetime, timedelta
+const {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  SlashCommandBuilder,
+  REST,
+  Routes,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  Collection,
+} = require('discord.js');
 
-import discord
-from discord import app_commands
-from discord.ext import commands
+const { randomInt } = require('crypto');
 
-# --------------- CONFIG ---------------
-GUILD_IDS = None  # Optional: [123456789012345678] um Commands schneller zu syncen
-JOIN_WINDOW = 20          # Sekunden Join-Phase
-SUPPORT_BONUS_PER = 5     # +5 pro Supporter
-SUPPORT_BONUS_CAP = 25    # max +25
-BUTTON_MASH_SECONDS = 5
-PUSH_TIME_BASE = 12       # Grundzeit in Sekunden
-PUSH_TIME_PER_PLAYER = 2  # Zusatz pro Spieler
-PUSH_TARGET_BASE = 60     # benötigte "Push"-Punkte (wird dynamisch skaliert)
-DRAW_DELAY_MIN = 2
-DRAW_DELAY_MAX = 5
+// ---------- CONFIG ----------
+const TOKEN = process.env.DISCORD_TOKEN;            // setze als Env-Var
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID;    // Bot Application ID
+const GUILD_ID = process.env.DISCORD_GUILD_ID;      // optional für Guild-Register
 
-INTENTS = discord.Intents.default()
-INTENTS.message_content = True
-INTENTS.messages = True
-INTENTS.guilds = True
-INTENTS.reactions = True
-INTENTS.members = True
+const JOIN_WINDOW = 20;           // Sekunden fürs Joinen
+const SUPPORT_BONUS_PER = 5;      // +5 pro Supporter
+const SUPPORT_BONUS_CAP = 25;     // max +25
+const BUTTON_MASH_SECONDS = 5;    // Stage 2
+const PUSH_TIME_BASE = 12;        // Stage 3 Grundzeit
+const PUSH_TIME_PER_PLAYER = 2;   // extra Sekunden pro Spieler
+const PUSH_TARGET_BASE = 60;      // Basiszielpunkte
+const DRAW_DELAY_MIN = 2;         // Stage 4 min Delay
+const DRAW_DELAY_MAX = 5;         // Stage 4 max Delay
 
-bot = commands.Bot(command_prefix="!", intents=INTENTS)
-tree = bot.tree
+// ---------- CLIENT ----------
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent, // wichtig für Stage 2 & 4
+  ],
+  partials: [Partials.Channel],
+});
 
-# -------- Heist Session State --------
-class HeistSession:
-    def __init__(self, guild_id: int, channel_id: int, leader_id: int, target: int):
-        self.guild_id = guild_id
-        self.channel_id = channel_id
-        self.leader_id = leader_id
-        self.target = target
-        self.players: list[int] = [leader_id]
-        self.supporters: set[int] = set()  # Stage 1 supporters
-        self.active = True
-        self.msg_refs = {}  # to keep message refs by key
-        self.lock = asyncio.Lock()
-        self.started = False
+// Slash-Command definieren
+const heistCmd = new SlashCommandBuilder()
+  .setName('heistmuscle')
+  .setDescription('Start a 4-stage Muscle Heist (Brute Force, Action, Reflexes).')
+  .addIntegerOption(opt =>
+    opt.setName('target')
+      .setDescription('Target number for the d100 Strength Roll (0-100).')
+      .setRequired(true)
+      .setMinValue(0)
+      .setMaxValue(100)
+  );
 
-    def bonus(self) -> int:
-        # Support bonus: +5 per supporter, capped
-        return min(SUPPORT_BONUS_CAP, SUPPORT_BONUS_PER * len(self.supporters))
+// Einfache Session-Verwaltung: 1 Session pro Channel
+const sessions = new Map(); // channelId -> session
 
-_sessions: dict[int, HeistSession] = {}  # key = channel_id (1 session per channel)
+// Utils
+const mention = (id) => `<@${id}>`;
+const progressBar = (current, total, width = 24) => {
+  const safeTotal = Math.max(1, total);
+  const ratio = Math.max(0, Math.min(1, current / safeTotal));
+  const filled = Math.round(ratio * width);
+  return `[${'█'.repeat(filled)}${' '.repeat(width - filled)}] ${Math.floor(ratio * 100)}%`;
+};
 
-# ---------- Utilities ----------
-def user_mention(uid: int) -> str:
-    return f"<@{uid}>"
+async function safeEdit(message, payload) {
+  try {
+    await message.edit(payload);
+  } catch { /* noop */ }
+}
 
-def progress_bar(current: int, total: int, width: int = 20) -> str:
-    if total <= 0:
-        total = 1
-    ratio = max(0.0, min(1.0, current / total))
-    filled = int(round(ratio * width))
-    return "[" + "█" * filled + " " * (width - filled) + f"] {int(ratio*100)}%"
+// ---------- REGISTER COMMAND ----------
+async function registerCommands() {
+  const rest = new REST({ version: '10' }).setToken(TOKEN);
+  if (GUILD_ID) {
+    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: [heistCmd.toJSON()] });
+    console.log('Registered guild command /heistmuscle');
+  } else {
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: [heistCmd.toJSON()] });
+    console.log('Registered global command /heistmuscle (kann bis zu 1h dauern)');
+  }
+}
 
-async def safe_edit(message: discord.Message, **kwargs):
-    try:
-        await message.edit(**kwargs)
-    except discord.HTTPException:
-        pass
+// ---------- GAME FLOW ----------
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== 'heistmuscle') return;
 
-def now_ts():
-    return discord.utils.format_dt(discord.utils.utcnow(), style="T")
+  const target = interaction.options.getInteger('target', true);
+  const channelId = interaction.channelId;
 
-# ---------- Views (Buttons) ----------
-class JoinView(discord.ui.View):
-    def __init__(self, session: HeistSession, timeout: float):
-        super().__init__(timeout=timeout)
-        self.session = session
+  if (sessions.get(channelId)?.active) {
+    return interaction.reply({ content: 'In diesem Kanal läuft bereits ein Heist.', ephemeral: true });
+  }
 
-    @discord.ui.button(label="Join Heist", style=discord.ButtonStyle.success, emoji="🧑‍🤝‍🧑")
-    async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
-        async with self.session.lock:
-            if not self.session.active or self.session.started:
-                return await interaction.response.send_message("Die Lobby ist bereits geschlossen.", ephemeral=True)
-            if interaction.user.id in self.session.players:
-                return await interaction.response.send_message("Du bist schon drin!", ephemeral=True)
-            self.session.players.append(interaction.user.id)
-            await interaction.response.send_message(f"{interaction.user.mention} ist beigetreten! ({len(self.session.players)} Spieler)", ephemeral=True)
+  await interaction.deferReply();
 
-class SupportView(discord.ui.View):
-    def __init__(self, session: HeistSession, timeout: float):
-        super().__init__(timeout=timeout)
-        self.session = session
+  // Session-Objekt
+  const session = {
+    active: true,
+    started: false,
+    channelId,
+    guildId: interaction.guildId,
+    leaderId: interaction.user.id,
+    target,
+    players: [interaction.user.id],
+    supporters: new Set(),
+    messages: {},
+    lock: false, // einfacher Lock
+  };
+  sessions.set(channelId, session);
 
-    @discord.ui.button(label="Support the Leader (+5)", style=discord.ButtonStyle.primary, emoji="💪")
-    async def support(self, interaction: discord.Interaction, button: discord.ui.Button):
-        async with self.session.lock:
-            if interaction.user.id == self.session.leader_id:
-                return await interaction.response.send_message("Leader kann sich nicht selbst supporten.", ephemeral=True)
-            if interaction.user.id not in self.session.players:
-                return await interaction.response.send_message("Nur Mitspieler können supporten.", ephemeral=True)
-            if interaction.user.id in self.session.supporters:
-                return await interaction.response.send_message("Du supportest bereits!", ephemeral=True)
-            self.session.supporters.add(interaction.user.id)
-            await interaction.response.send_message(f"Support gezählt! Aktueller Bonus: +{self.session.bonus()}", ephemeral=True)
+  // ---------- Lobby ----------
+  const joinView = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('join_heist').setStyle(ButtonStyle.Success).setLabel('Join Heist').setEmoji('🧑‍🤝‍🧑')
+  );
 
-class PushView(discord.ui.View):
-    def __init__(self, on_push_cb, timeout: float):
-        super().__init__(timeout=timeout)
-        self.on_push_cb = on_push_cb
-
-    @discord.ui.button(label="PUSH!", style=discord.ButtonStyle.danger, emoji="🏋️")
-    async def push(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.on_push_cb(interaction)
-
-# ---------- Command ----------
-@tree.command(name="heist", description="Starte einen Heist mit allen 4 Muscle Stages.")
-@app_commands.describe(target="Ziel-Schwierigkeit für den Strength Roll (0-100)")
-async def heist(interaction: discord.Interaction, target: app_commands.Range[int, 0, 100]):
-    channel_id = interaction.channel_id
-    if channel_id in _sessions and _sessions[channel_id].active:
-        return await interaction.response.send_message("In diesem Kanal läuft bereits ein Heist.", ephemeral=True)
-
-    session = HeistSession(interaction.guild_id, channel_id, interaction.user.id, target)
-    _sessions[channel_id] = session
-
-    # Lobby
-    join_view = JoinView(session, timeout=JOIN_WINDOW)
-    embed = discord.Embed(title="💣 HEIST LOBBY", color=discord.Color.orange())
-    embed.add_field(name="Leader", value=interaction.user.mention, inline=True)
-    embed.add_field(name="Target (Stage 1)", value=f"{target} (d100, Support-Bonus möglich)", inline=True)
-    embed.set_footer(text=f"Join offen für {JOIN_WINDOW}s …")
-    await interaction.response.send_message(embed=embed, view=join_view)
-    lobby_msg = await interaction.original_response()
-    session.msg_refs["lobby"] = lobby_msg
-
-    # Warten auf Join-Fenster
-    await asyncio.sleep(JOIN_WINDOW)
-    join_view.stop()
-
-    # Close lobby
-    async with session.lock:
-        session.started = True
-
-    players_mentions = ", ".join(user_mention(uid) for uid in session.players)
-    await lobby_msg.reply(f"🔒 Lobby geschlossen. Spieler ({len(session.players)}): {players_mentions}")
-
-    # ---------------- Stage 1: Strength Roll ----------------
-    support_view = SupportView(session, timeout=10)
-    stage1_embed = discord.Embed(title="🟡 Stage 1 – Strength Roll (d100)", color=discord.Color.gold())
-    stage1_embed.description = (
-        f"Leader: {user_mention(session.leader_id)}\n"
-        f"Zielzahl: **{session.target}**\n"
-        f"Klicke **Support** für +{SUPPORT_BONUS_PER} (max +{SUPPORT_BONUS_CAP}). 10s Zeit!"
+  const lobbyEmbed = new EmbedBuilder()
+    .setTitle('💣 HEIST LOBBY')
+    .setColor(0xFFA500)
+    .addFields(
+      { name: 'Leader', value: mention(session.leaderId), inline: true },
+      { name: 'Target (Stage 1)', value: `${target} (d100, support bonus possible)`, inline: true }
     )
-    stage1_msg = await lobby_msg.channel.send(embed=stage1_embed, view=support_view)
-    session.msg_refs["stage1"] = stage1_msg
+    .setFooter({ text: `Join window: ${JOIN_WINDOW}s` });
 
-    await asyncio.sleep(10)
-    support_view.stop()
-    bonus = session.bonus()
+  await interaction.editReply({ embeds: [lobbyEmbed], components: [joinView] });
+  const lobbyMsg = await interaction.fetchReply();
+  session.messages.lobby = lobbyMsg;
 
-    roll = random.randint(1, 100)
-    total = roll + bonus
-    success = total >= session.target
-    result_text = (
-        f"🎲 Roll: **{roll}**  |  Bonus: **+{bonus}**  |  Summe: **{total}**  → "
-        + ("✅ **ERFOLG!**" if success else "❌ **FAIL!**")
-    )
-    await stage1_msg.reply(result_text)
+  // Button Collector für Join
+  const joinCollector = lobbyMsg.createMessageComponentCollector({ time: JOIN_WINDOW * 1000 });
+  joinCollector.on('collect', async (i) => {
+    if (i.customId !== 'join_heist') return;
+    if (i.user.id === session.leaderId && session.players.includes(i.user.id)) {
+      return i.reply({ content: 'Du bist schon drin!', ephemeral: true });
+    }
+    if (session.players.includes(i.user.id)) {
+      return i.reply({ content: 'Du bist schon drin!', ephemeral: true });
+    }
+    session.players.push(i.user.id);
+    await i.reply({ content: `${i.user} joined! (${session.players.length} players)`, ephemeral: true });
+  });
 
-    if not success:
-        await lobby_msg.channel.send("Heist gescheitert in Stage 1. Versuch's nochmal mit `/heist`!")
-        session.active = False
-        return
+  joinCollector.on('end', async () => {
+    session.started = true;
+    await lobbyMsg.edit({ components: [] });
+    await interaction.followUp(`🔒 Lobby closed. Players (${session.players.length}): ${session.players.map(mention).join(', ')}`);
+    // weiter zu Stage 1
+    await stage1_StrengthRoll(session, interaction.channel);
+  });
+});
 
-    # ---------------- Stage 2: Button Mashing ----------------
-    stage2_embed = discord.Embed(title="🟡 Stage 2 – Button Mashing", color=discord.Color.gold())
-    stage2_embed.description = (
-        f"**In {BUTTON_MASH_SECONDS} Sekunden so oft wie möglich '💪' tippen!**\n"
-        "Schreibe einfach Nachrichten mit dem Emoji (Copy-Paste erlaubt)."
-    )
-    stage2_msg = await lobby_msg.channel.send(embed=stage2_embed)
-    session.msg_refs["stage2"] = stage2_msg
+// ---------- Stage 1: Strength Roll ----------
+async function stage1_StrengthRoll(session, channel) {
+  if (!session.active) return;
 
-    counts: dict[int, int] = {uid: 0 for uid in session.players}
-    start_time = discord.utils.utcnow()
-    end_time = start_time + timedelta(seconds=BUTTON_MASH_SECONDS)
+  const supportRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('support_leader').setStyle(ButtonStyle.Primary).setEmoji('💪').setLabel('Support the Leader (+5)')
+  );
 
-    def check_msg(m: discord.Message):
-        if m.channel.id != channel_id:
-            return False
-        if m.author.bot:
-            return False
-        return "💪" in m.content
+  const embed = new EmbedBuilder()
+    .setTitle('🟡 Stage 1 – Strength Roll (d100)')
+    .setColor(0xFFD700)
+    .setDescription(
+      `Leader: ${mention(session.leaderId)}\n` +
+      `Target: **${session.target}**\n` +
+      `Click **Support** for +${SUPPORT_BONUS_PER} (max +${SUPPORT_BONUS_CAP}). **10s** window!`
+    );
 
-    async def collector():
-        nonlocal counts
-        while discord.utils.utcnow() < end_time:
-            try:
-                m: discord.Message = await bot.wait_for("message", timeout=0.7, check=check_msg)
-                if m.author.id in counts:
-                    counts[m.author.id] += m.content.count("💪")
-            except asyncio.TimeoutError:
-                pass
+  const msg = await channel.send({ embeds: [embed], components: [supportRow] });
+  session.messages.stage1 = msg;
 
-    await stage2_msg.reply(f"GO! ({now_ts()})")
-    await collector()
-    await stage2_msg.reply(f"STOP! ({now_ts()})")
+  const collector = msg.createMessageComponentCollector({ time: 10_000 });
+  collector.on('collect', async (i) => {
+    if (i.customId !== 'support_leader') return;
+    if (!session.players.includes(i.user.id)) return i.reply({ content: 'Only heist players can support.', ephemeral: true });
+    if (i.user.id === session.leaderId) return i.reply({ content: 'Leader cannot support themselves.', ephemeral: true });
+    if (session.supporters.has(i.user.id)) return i.reply({ content: 'You already supported.', ephemeral: true });
+    session.supporters.add(i.user.id);
+    const bonus = Math.min(SUPPORT_BONUS_CAP, SUPPORT_BONUS_PER * session.supporters.size);
+    await i.reply({ content: `Support counted! Current bonus: **+${bonus}**`, ephemeral: true });
+  });
 
-    if all(v == 0 for v in counts.values()):
-        await stage2_msg.reply("Niemand hat 💪 gesendet – Heist scheitert hier. 😅")
-        session.active = False
-        return
+  collector.on('end', async () => {
+    await msg.edit({ components: [] });
 
-    winner_id = max(counts, key=counts.get)
-    scoreboard = "\n".join([f"{user_mention(uid)}: **{c}**" for uid, c in sorted(counts.items(), key=lambda x: x[1], reverse=True)])
-    await stage2_msg.reply(f"🏆 Gewinner: {user_mention(winner_id)}\n\n**Scoreboard:**\n{scoreboard}")
+    const bonus = Math.min(SUPPORT_BONUS_CAP, SUPPORT_BONUS_PER * session.supporters.size);
+    const roll = randomInt(1, 101); // 1..100
+    const total = roll + bonus;
+    const success = total >= session.target;
 
-    # ---------------- Stage 3: Push Challenge ----------------
-    player_count = max(1, len(session.players))
-    push_time = PUSH_TIME_BASE + PUSH_TIME_PER_PLAYER * (player_count - 1)
-    push_target = int(PUSH_TARGET_BASE * (1 + (player_count - 1) * 0.25))  # skaliert mit Teamgröße
-    current_push = 0
+    await channel.send(`🎲 Roll: **${roll}** | Bonus: **+${bonus}** | Total: **${total}** → ${success ? '✅ **SUCCESS!**' : '❌ **FAIL!**'}`);
 
-    async def on_push(inter: discord.Interaction):
-        nonlocal current_push
-        if inter.user.id not in session.players:
-            return await inter.response.send_message("Nur teilnehmende Spieler dürfen PUSHen!", ephemeral=True)
-        current_push += 1
-        await inter.response.defer(ephemeral=True, thinking=False)
+    if (!success) {
+      await channel.send('Heist failed at Stage 1. Try `/heistmuscle` again!');
+      session.active = false;
+      return;
+    }
+    await stage2_ButtonMashing(session, channel);
+  });
+}
 
-    push_view = PushView(on_push, timeout=push_time + 5)
-    stage3_embed = discord.Embed(title="🟡 Stage 3 – Push Challenge", color=discord.Color.gold())
-    stage3_embed.description = (
-        "Spammt den **PUSH!**-Button, um die Leiste zu füllen, bevor die Zeit abläuft.\n"
-        f"Zeit: **{push_time}s** – Ziel: **{push_target}** Punkte"
-    )
-    stage3_msg = await lobby_msg.channel.send(embed=stage3_embed, view=push_view)
-    session.msg_refs["stage3"] = stage3_msg
+// ---------- Stage 2: Button Mashing (💪 count) ----------
+async function stage2_ButtonMashing(session, channel) {
+  if (!session.active) return;
 
-    # Fortschritt regelmäßig updaten
-    async def progress_updater():
-        while True:
-            bar = progress_bar(current_push, push_target, width=24)
-            await safe_edit(stage3_msg, embed=discord.Embed(
-                title="🟡 Stage 3 – Push Challenge",
-                description=(
-                    "Spammt den **PUSH!**-Button, um die Leiste zu füllen, bevor die Zeit abläuft.\n"
-                    f"Zeit: **{push_time}s** – Ziel: **{push_target}** Punkte\n\n"
-                    f"{bar}\nPunkte: **{current_push}/{push_target}**"
-                ),
-                color=discord.Color.gold()
-            ), view=push_view)
-            if current_push >= push_target:
-                break
-            await asyncio.sleep(0.4)
+  const embed = new EmbedBuilder()
+    .setTitle('🟡 Stage 2 – Button Mashing')
+    .setColor(0xFFD700)
+    .setDescription(`**Type "💪" as many times as you can in ${BUTTON_MASH_SECONDS}s!** Messages with the emoji are counted.`);
 
-    updater_task = asyncio.create_task(progress_updater())
-    try:
-        await asyncio.wait_for(asyncio.sleep(push_time), timeout=push_time)
-    except asyncio.TimeoutError:
-        pass
+  const msg = await channel.send({ embeds: [embed] });
+  session.messages.stage2 = msg;
 
-    push_view.stop()
-    await updater_task
+  const counts = new Map(); // userId -> number
+  session.players.forEach((id) => counts.set(id, 0));
 
-    if current_push < push_target:
-        await stage3_msg.reply("❌ Zeit vorbei – Leiste nicht voll! Heist gescheitert.")
-        session.active = False
-        return
-    await stage3_msg.reply("✅ Stufe bestanden!")
+  const endAt = Date.now() + BUTTON_MASH_SECONDS * 1000;
 
-    # ---------------- Stage 4: Guard Showdown ----------------
-    stage4_embed = discord.Embed(title="🟡 Stage 4 – Guard Showdown", color=discord.Color.gold())
-    stage4_embed.description = (
-        "Wartet auf **DRAW** … sobald es erscheint, **der Erste**, der `HIT` schreibt, gewinnt. "
-        "Wer zu früh schreibt, verliert automatisch!"
-    )
-    stage4_msg = await lobby_msg.channel.send(embed=stage4_embed)
-    session.msg_refs["stage4"] = stage4_msg
+  const collector = channel.createMessageCollector({
+    time: BUTTON_MASH_SECONDS * 1000,
+    filter: (m) => !m.author.bot && session.players.includes(m.author.id) && m.content.includes('💪'),
+  });
 
-    delay = random.randint(DRAW_DELAY_MIN, DRAW_DELAY_MAX)
-    await asyncio.sleep(delay)
-    draw_time = discord.utils.utcnow()
-    announce = await stage4_msg.reply("**DRAW!** (tippt `HIT`)")
-    session.msg_refs["draw"] = announce
+  await channel.send(`GO!`);
+  collector.on('collect', (m) => {
+    const c = (m.content.match(/💪/g) || []).length;
+    counts.set(m.author.id, (counts.get(m.author.id) || 0) + c);
+  });
 
-    premature: set[int] = set()
+  collector.on('end', async () => {
+    await channel.send(`STOP!`);
 
-    def check_hit(m: discord.Message):
-        if m.channel.id != channel_id:
-            return False
-        if m.author.bot:
-            return False
-        if m.author.id not in session.players:
-            return False
-        if m.content.strip().lower() != "hit":
-            # track premature non-"hit" only if desired; here ignore
-            return False
-        # zu früh?
-        if m.created_at < draw_time:
-            premature.add(m.author.id)
-            return False
-        return True
+    // niemand?
+    if ([...counts.values()].every((v) => v === 0)) {
+      await channel.send('Nobody sent 💪 — heist fails here.');
+      session.active = false;
+      return;
+    }
 
-    winner = None
-    try:
-        msg: discord.Message = await bot.wait_for("message", timeout=4.0, check=check_hit)
-        winner = msg.author.id
-    except asyncio.TimeoutError:
-        pass
+    // winner
+    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    const [winnerId, winCount] = sorted[0];
 
-    if winner is None:
-        await stage4_msg.reply("Niemand hat rechtzeitig `HIT` geschrieben – Heist knapp gescheitert.")
-        session.active = False
-        return
+    const scoreboard = sorted.map(([uid, c]) => `${mention(uid)}: **${c}**`).join('\n');
+    await channel.send(`🏆 Winner: ${mention(winnerId)} with **${winCount}**\n\n**Scoreboard:**\n${scoreboard}`);
 
-    await stage4_msg.reply(f"🏆 **HEIST ABGESCHLOSSEN!** Gewinner des Showdowns: {user_mention(winner)}\n"
-                           f"Team: {', '.join(user_mention(uid) for uid in session.players)}")
+    await stage3_PushChallenge(session, channel);
+  });
+}
 
-    session.active = False
-    # Session bleibt im Dict, ist aber inaktiv; optional: del _sessions[channel_id]
+// ---------- Stage 3: Push Challenge (button spam fills bar) ----------
+async function stage3_PushChallenge(session, channel) {
+  if (!session.active) return;
 
-# ---------- Bot lifecycle ----------
-@bot.event
-async def on_ready():
-    try:
-        if GUILD_IDS:
-            for gid in GUILD_IDS:
-                guild = discord.Object(id=gid)
-                bot.tree.copy_global_to(guild=guild)
-                await bot.tree.sync(guild=guild)
-        else:
-            await bot.tree.sync()
-    except Exception as e:
-        print("Slash command sync error:", e)
-    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+  const playerCount = Math.max(1, session.players.length);
+  const pushTime = PUSH_TIME_BASE + Math.max(0, playerCount - 1) * PUSH_TIME_PER_PLAYER;
+  const pushTarget = Math.floor(PUSH_TARGET_BASE * (1 + (playerCount - 1) * 0.25));
+  let current = 0;
 
-# ---------- Run ----------
-def main():
-    token = os.getenv("DISCORD_TOKEN")
-    if not token:
-        raise RuntimeError("Bitte setze die Umgebungsvariable DISCORD_TOKEN mit deinem Bot-Token.")
-    bot.run(token)
+  const pushRow = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('push_bar').setStyle(ButtonStyle.Danger).setLabel('PUSH!').setEmoji('🏋️')
+  );
 
-if __name__ == "__main__":
-    main()
+  const makeEmbed = () =>
+    new EmbedBuilder()
+      .setTitle('🟡 Stage 3 – Push Challenge')
+      .setColor(0xFFD700)
+      .setDescription(
+        `Spam **PUSH!** to fill the bar before time runs out.\n` +
+        `Time: **${pushTime}s** – Target: **${pushTarget}** points\n\n` +
+        `${progressBar(current, pushTarget, 26)}\nPoints: **${current}/${pushTarget}**`
+      );
+
+  const msg = await channel.send({ embeds: [makeEmbed()], components: [pushRow] });
+  session.messages.stage3 = msg;
+
+  const btnCollector = msg.createMessageComponentCollector({ time: pushTime * 1000 });
+  btnCollector.on('collect', async (i) => {
+    if (i.customId !== 'push_bar') return;
+    if (!session.players.includes(i.user.id)) return i.reply({ content: 'Only heist players can PUSH!', ephemeral: true });
+    current += 1;
+    await i.deferUpdate();
+  });
+
+  // Fortschritt updater
+  const updater = setInterval(() => {
+    safeEdit(msg, { embeds: [makeEmbed()], components: [pushRow] });
+    if (current >= pushTarget) {
+      clearInterval(updater);
+      btnCollector.stop('filled');
+    }
+  }, 400);
+
+  btnCollector.on('end', async (_c, reason) => {
+    clearInterval(updater);
+    await msg.edit({ components: [] });
+
+    if (current < pushTarget) {
+      await channel.send('❌ Time is up — bar not full! Heist failed.');
+      session.active = false;
+      return;
+    }
+    await channel.send('✅ Stage passed!');
+    await stage4_GuardShowdown(session, channel);
+  });
+}
+
+// ---------- Stage 4: Guard Showdown (reaction speed) ----------
+async function stage4_GuardShowdown(session, channel) {
+  if (!session.active) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle('🟡 Stage 4 – Guard Showdown')
+    .setColor(0xFFD700)
+    .setDescription('Wait for **DRAW**… once it appears, the **first** player to type `HIT` wins. Too early = fail.');
+
+  const msg = await channel.send({ embeds: [embed] });
+  session.messages.stage4 = msg;
+
+  const delay = randomInt(DRAW_DELAY_MIN, DRAW_DELAY_MAX + 1); // inclusive range
+  await wait(delay * 1000);
+  const drawMsg = await channel.send('**DRAW!** (type `HIT`)');
+  const drawTime = Date.now();
+
+  let winner = null;
+
+  const collector = channel.createMessageCollector({
+    time: 4_000,
+    filter: (m) =>
+      !m.author.bot &&
+      session.players.includes(m.author.id) &&
+      m.content.trim().toLowerCase() === 'hit',
+  });
+
+  collector.on('collect', (m) => {
+    if (winner) return; // already have one
+    // simple check: must be after drawMsg timestamp (race in ms-level)
+    if (m.createdTimestamp >= drawTime) {
+      winner = m.author.id;
+      collector.stop('winner');
+    }
+  });
+
+  collector.on('end', async (_c, reason) => {
+    if (!winner) {
+      await channel.send('Nobody typed `HIT` in time — heist narrowly failed.');
+      sessions.get(session.channelId).active = false;
+      return;
+    }
+    await channel.send(
+      `🏆 **HEIST COMPLETE!** Showdown winner: ${mention(winner)}\n` +
+      `Team: ${session.players.map(mention).join(', ')}`
+    );
+    sessions.get(session.channelId).active = false;
+  });
+}
+
+// ---------- HELPERS ----------
+function wait(ms) {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
+// ---------- BOOT ----------
+client.once('ready', () => {
+  console.log(`Logged in as ${client.user.tag}`);
+});
+
+(async () => {
+  if (!TOKEN || !CLIENT_ID) {
+    console.error('Bitte setze DISCORD_TOKEN und DISCORD_CLIENT_ID als Umgebungsvariablen.');
+    process.exit(1);
+  }
+  await registerCommands();
+  await client.login(TOKEN);
+})();
