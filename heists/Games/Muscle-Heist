@@ -1,0 +1,350 @@
+# heist_bot.py
+# Python 3.10+ | discord.py 2.4+
+# pip install -U discord.py
+
+import os
+import random
+import asyncio
+from datetime import datetime, timedelta
+
+import discord
+from discord import app_commands
+from discord.ext import commands
+
+# --------------- CONFIG ---------------
+GUILD_IDS = None  # Optional: [123456789012345678] um Commands schneller zu syncen
+JOIN_WINDOW = 20          # Sekunden Join-Phase
+SUPPORT_BONUS_PER = 5     # +5 pro Supporter
+SUPPORT_BONUS_CAP = 25    # max +25
+BUTTON_MASH_SECONDS = 5
+PUSH_TIME_BASE = 12       # Grundzeit in Sekunden
+PUSH_TIME_PER_PLAYER = 2  # Zusatz pro Spieler
+PUSH_TARGET_BASE = 60     # benötigte "Push"-Punkte (wird dynamisch skaliert)
+DRAW_DELAY_MIN = 2
+DRAW_DELAY_MAX = 5
+
+INTENTS = discord.Intents.default()
+INTENTS.message_content = True
+INTENTS.messages = True
+INTENTS.guilds = True
+INTENTS.reactions = True
+INTENTS.members = True
+
+bot = commands.Bot(command_prefix="!", intents=INTENTS)
+tree = bot.tree
+
+# -------- Heist Session State --------
+class HeistSession:
+    def __init__(self, guild_id: int, channel_id: int, leader_id: int, target: int):
+        self.guild_id = guild_id
+        self.channel_id = channel_id
+        self.leader_id = leader_id
+        self.target = target
+        self.players: list[int] = [leader_id]
+        self.supporters: set[int] = set()  # Stage 1 supporters
+        self.active = True
+        self.msg_refs = {}  # to keep message refs by key
+        self.lock = asyncio.Lock()
+        self.started = False
+
+    def bonus(self) -> int:
+        # Support bonus: +5 per supporter, capped
+        return min(SUPPORT_BONUS_CAP, SUPPORT_BONUS_PER * len(self.supporters))
+
+_sessions: dict[int, HeistSession] = {}  # key = channel_id (1 session per channel)
+
+# ---------- Utilities ----------
+def user_mention(uid: int) -> str:
+    return f"<@{uid}>"
+
+def progress_bar(current: int, total: int, width: int = 20) -> str:
+    if total <= 0:
+        total = 1
+    ratio = max(0.0, min(1.0, current / total))
+    filled = int(round(ratio * width))
+    return "[" + "█" * filled + " " * (width - filled) + f"] {int(ratio*100)}%"
+
+async def safe_edit(message: discord.Message, **kwargs):
+    try:
+        await message.edit(**kwargs)
+    except discord.HTTPException:
+        pass
+
+def now_ts():
+    return discord.utils.format_dt(discord.utils.utcnow(), style="T")
+
+# ---------- Views (Buttons) ----------
+class JoinView(discord.ui.View):
+    def __init__(self, session: HeistSession, timeout: float):
+        super().__init__(timeout=timeout)
+        self.session = session
+
+    @discord.ui.button(label="Join Heist", style=discord.ButtonStyle.success, emoji="🧑‍🤝‍🧑")
+    async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
+        async with self.session.lock:
+            if not self.session.active or self.session.started:
+                return await interaction.response.send_message("Die Lobby ist bereits geschlossen.", ephemeral=True)
+            if interaction.user.id in self.session.players:
+                return await interaction.response.send_message("Du bist schon drin!", ephemeral=True)
+            self.session.players.append(interaction.user.id)
+            await interaction.response.send_message(f"{interaction.user.mention} ist beigetreten! ({len(self.session.players)} Spieler)", ephemeral=True)
+
+class SupportView(discord.ui.View):
+    def __init__(self, session: HeistSession, timeout: float):
+        super().__init__(timeout=timeout)
+        self.session = session
+
+    @discord.ui.button(label="Support the Leader (+5)", style=discord.ButtonStyle.primary, emoji="💪")
+    async def support(self, interaction: discord.Interaction, button: discord.ui.Button):
+        async with self.session.lock:
+            if interaction.user.id == self.session.leader_id:
+                return await interaction.response.send_message("Leader kann sich nicht selbst supporten.", ephemeral=True)
+            if interaction.user.id not in self.session.players:
+                return await interaction.response.send_message("Nur Mitspieler können supporten.", ephemeral=True)
+            if interaction.user.id in self.session.supporters:
+                return await interaction.response.send_message("Du supportest bereits!", ephemeral=True)
+            self.session.supporters.add(interaction.user.id)
+            await interaction.response.send_message(f"Support gezählt! Aktueller Bonus: +{self.session.bonus()}", ephemeral=True)
+
+class PushView(discord.ui.View):
+    def __init__(self, on_push_cb, timeout: float):
+        super().__init__(timeout=timeout)
+        self.on_push_cb = on_push_cb
+
+    @discord.ui.button(label="PUSH!", style=discord.ButtonStyle.danger, emoji="🏋️")
+    async def push(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.on_push_cb(interaction)
+
+# ---------- Command ----------
+@tree.command(name="heist", description="Starte einen Heist mit allen 4 Muscle Stages.")
+@app_commands.describe(target="Ziel-Schwierigkeit für den Strength Roll (0-100)")
+async def heist(interaction: discord.Interaction, target: app_commands.Range[int, 0, 100]):
+    channel_id = interaction.channel_id
+    if channel_id in _sessions and _sessions[channel_id].active:
+        return await interaction.response.send_message("In diesem Kanal läuft bereits ein Heist.", ephemeral=True)
+
+    session = HeistSession(interaction.guild_id, channel_id, interaction.user.id, target)
+    _sessions[channel_id] = session
+
+    # Lobby
+    join_view = JoinView(session, timeout=JOIN_WINDOW)
+    embed = discord.Embed(title="💣 HEIST LOBBY", color=discord.Color.orange())
+    embed.add_field(name="Leader", value=interaction.user.mention, inline=True)
+    embed.add_field(name="Target (Stage 1)", value=f"{target} (d100, Support-Bonus möglich)", inline=True)
+    embed.set_footer(text=f"Join offen für {JOIN_WINDOW}s …")
+    await interaction.response.send_message(embed=embed, view=join_view)
+    lobby_msg = await interaction.original_response()
+    session.msg_refs["lobby"] = lobby_msg
+
+    # Warten auf Join-Fenster
+    await asyncio.sleep(JOIN_WINDOW)
+    join_view.stop()
+
+    # Close lobby
+    async with session.lock:
+        session.started = True
+
+    players_mentions = ", ".join(user_mention(uid) for uid in session.players)
+    await lobby_msg.reply(f"🔒 Lobby geschlossen. Spieler ({len(session.players)}): {players_mentions}")
+
+    # ---------------- Stage 1: Strength Roll ----------------
+    support_view = SupportView(session, timeout=10)
+    stage1_embed = discord.Embed(title="🟡 Stage 1 – Strength Roll (d100)", color=discord.Color.gold())
+    stage1_embed.description = (
+        f"Leader: {user_mention(session.leader_id)}\n"
+        f"Zielzahl: **{session.target}**\n"
+        f"Klicke **Support** für +{SUPPORT_BONUS_PER} (max +{SUPPORT_BONUS_CAP}). 10s Zeit!"
+    )
+    stage1_msg = await lobby_msg.channel.send(embed=stage1_embed, view=support_view)
+    session.msg_refs["stage1"] = stage1_msg
+
+    await asyncio.sleep(10)
+    support_view.stop()
+    bonus = session.bonus()
+
+    roll = random.randint(1, 100)
+    total = roll + bonus
+    success = total >= session.target
+    result_text = (
+        f"🎲 Roll: **{roll}**  |  Bonus: **+{bonus}**  |  Summe: **{total}**  → "
+        + ("✅ **ERFOLG!**" if success else "❌ **FAIL!**")
+    )
+    await stage1_msg.reply(result_text)
+
+    if not success:
+        await lobby_msg.channel.send("Heist gescheitert in Stage 1. Versuch's nochmal mit `/heist`!")
+        session.active = False
+        return
+
+    # ---------------- Stage 2: Button Mashing ----------------
+    stage2_embed = discord.Embed(title="🟡 Stage 2 – Button Mashing", color=discord.Color.gold())
+    stage2_embed.description = (
+        f"**In {BUTTON_MASH_SECONDS} Sekunden so oft wie möglich '💪' tippen!**\n"
+        "Schreibe einfach Nachrichten mit dem Emoji (Copy-Paste erlaubt)."
+    )
+    stage2_msg = await lobby_msg.channel.send(embed=stage2_embed)
+    session.msg_refs["stage2"] = stage2_msg
+
+    counts: dict[int, int] = {uid: 0 for uid in session.players}
+    start_time = discord.utils.utcnow()
+    end_time = start_time + timedelta(seconds=BUTTON_MASH_SECONDS)
+
+    def check_msg(m: discord.Message):
+        if m.channel.id != channel_id:
+            return False
+        if m.author.bot:
+            return False
+        return "💪" in m.content
+
+    async def collector():
+        nonlocal counts
+        while discord.utils.utcnow() < end_time:
+            try:
+                m: discord.Message = await bot.wait_for("message", timeout=0.7, check=check_msg)
+                if m.author.id in counts:
+                    counts[m.author.id] += m.content.count("💪")
+            except asyncio.TimeoutError:
+                pass
+
+    await stage2_msg.reply(f"GO! ({now_ts()})")
+    await collector()
+    await stage2_msg.reply(f"STOP! ({now_ts()})")
+
+    if all(v == 0 for v in counts.values()):
+        await stage2_msg.reply("Niemand hat 💪 gesendet – Heist scheitert hier. 😅")
+        session.active = False
+        return
+
+    winner_id = max(counts, key=counts.get)
+    scoreboard = "\n".join([f"{user_mention(uid)}: **{c}**" for uid, c in sorted(counts.items(), key=lambda x: x[1], reverse=True)])
+    await stage2_msg.reply(f"🏆 Gewinner: {user_mention(winner_id)}\n\n**Scoreboard:**\n{scoreboard}")
+
+    # ---------------- Stage 3: Push Challenge ----------------
+    player_count = max(1, len(session.players))
+    push_time = PUSH_TIME_BASE + PUSH_TIME_PER_PLAYER * (player_count - 1)
+    push_target = int(PUSH_TARGET_BASE * (1 + (player_count - 1) * 0.25))  # skaliert mit Teamgröße
+    current_push = 0
+
+    async def on_push(inter: discord.Interaction):
+        nonlocal current_push
+        if inter.user.id not in session.players:
+            return await inter.response.send_message("Nur teilnehmende Spieler dürfen PUSHen!", ephemeral=True)
+        current_push += 1
+        await inter.response.defer(ephemeral=True, thinking=False)
+
+    push_view = PushView(on_push, timeout=push_time + 5)
+    stage3_embed = discord.Embed(title="🟡 Stage 3 – Push Challenge", color=discord.Color.gold())
+    stage3_embed.description = (
+        "Spammt den **PUSH!**-Button, um die Leiste zu füllen, bevor die Zeit abläuft.\n"
+        f"Zeit: **{push_time}s** – Ziel: **{push_target}** Punkte"
+    )
+    stage3_msg = await lobby_msg.channel.send(embed=stage3_embed, view=push_view)
+    session.msg_refs["stage3"] = stage3_msg
+
+    # Fortschritt regelmäßig updaten
+    async def progress_updater():
+        while True:
+            bar = progress_bar(current_push, push_target, width=24)
+            await safe_edit(stage3_msg, embed=discord.Embed(
+                title="🟡 Stage 3 – Push Challenge",
+                description=(
+                    "Spammt den **PUSH!**-Button, um die Leiste zu füllen, bevor die Zeit abläuft.\n"
+                    f"Zeit: **{push_time}s** – Ziel: **{push_target}** Punkte\n\n"
+                    f"{bar}\nPunkte: **{current_push}/{push_target}**"
+                ),
+                color=discord.Color.gold()
+            ), view=push_view)
+            if current_push >= push_target:
+                break
+            await asyncio.sleep(0.4)
+
+    updater_task = asyncio.create_task(progress_updater())
+    try:
+        await asyncio.wait_for(asyncio.sleep(push_time), timeout=push_time)
+    except asyncio.TimeoutError:
+        pass
+
+    push_view.stop()
+    await updater_task
+
+    if current_push < push_target:
+        await stage3_msg.reply("❌ Zeit vorbei – Leiste nicht voll! Heist gescheitert.")
+        session.active = False
+        return
+    await stage3_msg.reply("✅ Stufe bestanden!")
+
+    # ---------------- Stage 4: Guard Showdown ----------------
+    stage4_embed = discord.Embed(title="🟡 Stage 4 – Guard Showdown", color=discord.Color.gold())
+    stage4_embed.description = (
+        "Wartet auf **DRAW** … sobald es erscheint, **der Erste**, der `HIT` schreibt, gewinnt. "
+        "Wer zu früh schreibt, verliert automatisch!"
+    )
+    stage4_msg = await lobby_msg.channel.send(embed=stage4_embed)
+    session.msg_refs["stage4"] = stage4_msg
+
+    delay = random.randint(DRAW_DELAY_MIN, DRAW_DELAY_MAX)
+    await asyncio.sleep(delay)
+    draw_time = discord.utils.utcnow()
+    announce = await stage4_msg.reply("**DRAW!** (tippt `HIT`)")
+    session.msg_refs["draw"] = announce
+
+    premature: set[int] = set()
+
+    def check_hit(m: discord.Message):
+        if m.channel.id != channel_id:
+            return False
+        if m.author.bot:
+            return False
+        if m.author.id not in session.players:
+            return False
+        if m.content.strip().lower() != "hit":
+            # track premature non-"hit" only if desired; here ignore
+            return False
+        # zu früh?
+        if m.created_at < draw_time:
+            premature.add(m.author.id)
+            return False
+        return True
+
+    winner = None
+    try:
+        msg: discord.Message = await bot.wait_for("message", timeout=4.0, check=check_hit)
+        winner = msg.author.id
+    except asyncio.TimeoutError:
+        pass
+
+    if winner is None:
+        await stage4_msg.reply("Niemand hat rechtzeitig `HIT` geschrieben – Heist knapp gescheitert.")
+        session.active = False
+        return
+
+    await stage4_msg.reply(f"🏆 **HEIST ABGESCHLOSSEN!** Gewinner des Showdowns: {user_mention(winner)}\n"
+                           f"Team: {', '.join(user_mention(uid) for uid in session.players)}")
+
+    session.active = False
+    # Session bleibt im Dict, ist aber inaktiv; optional: del _sessions[channel_id]
+
+# ---------- Bot lifecycle ----------
+@bot.event
+async def on_ready():
+    try:
+        if GUILD_IDS:
+            for gid in GUILD_IDS:
+                guild = discord.Object(id=gid)
+                bot.tree.copy_global_to(guild=guild)
+                await bot.tree.sync(guild=guild)
+        else:
+            await bot.tree.sync()
+    except Exception as e:
+        print("Slash command sync error:", e)
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+
+# ---------- Run ----------
+def main():
+    token = os.getenv("DISCORD_TOKEN")
+    if not token:
+        raise RuntimeError("Bitte setze die Umgebungsvariable DISCORD_TOKEN mit deinem Bot-Token.")
+    bot.run(token)
+
+if __name__ == "__main__":
+    main()
