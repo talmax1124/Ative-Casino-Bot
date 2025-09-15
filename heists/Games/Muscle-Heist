@@ -1,166 +1,136 @@
-// muscle_heist.js
-// Node 18+, discord.js v14
-// npm i discord.js
+// heistmuscle.js
+// Discord.js v14 Command-Modul – plug & play in bestehenden Bot
+// Stages: Strength Roll (d100 + support), Button Mashing (💪), Push Bar, Guard Showdown (HIT)
 
 const {
-  Client,
-  GatewayIntentBits,
-  Partials,
   SlashCommandBuilder,
-  REST,
-  Routes,
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  Collection,
 } = require('discord.js');
-
 const { randomInt } = require('crypto');
 
-// ---------- CONFIG ----------
-const TOKEN = process.env.DISCORD_TOKEN;            // setze als Env-Var
-const CLIENT_ID = process.env.DISCORD_CLIENT_ID;    // Bot Application ID
-const GUILD_ID = process.env.DISCORD_GUILD_ID;      // optional für Guild-Register
-
-const JOIN_WINDOW = 20;           // Sekunden fürs Joinen
+// ---- Einstellungen (bei Bedarf tweaken) ----
+const JOIN_WINDOW = 20;           // s – Join-Phase
 const SUPPORT_BONUS_PER = 5;      // +5 pro Supporter
 const SUPPORT_BONUS_CAP = 25;     // max +25
-const BUTTON_MASH_SECONDS = 5;    // Stage 2
+const BUTTON_MASH_SECONDS = 5;    // Stage 2 Zeitfenster
 const PUSH_TIME_BASE = 12;        // Stage 3 Grundzeit
-const PUSH_TIME_PER_PLAYER = 2;   // extra Sekunden pro Spieler
-const PUSH_TARGET_BASE = 60;      // Basiszielpunkte
+const PUSH_TIME_PER_PLAYER = 2;   // + pro Spieler
+const PUSH_TARGET_BASE = 60;      // Stage 3 Basisziel
 const DRAW_DELAY_MIN = 2;         // Stage 4 min Delay
 const DRAW_DELAY_MAX = 5;         // Stage 4 max Delay
 
-// ---------- CLIENT ----------
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent, // wichtig für Stage 2 & 4
-  ],
-  partials: [Partials.Channel],
-});
-
-// Slash-Command definieren
-const heistCmd = new SlashCommandBuilder()
-  .setName('heistmuscle')
-  .setDescription('Start a 4-stage Muscle Heist (Brute Force, Action, Reflexes).')
-  .addIntegerOption(opt =>
-    opt.setName('target')
-      .setDescription('Target number for the d100 Strength Roll (0-100).')
-      .setRequired(true)
-      .setMinValue(0)
-      .setMaxValue(100)
-  );
-
-// Einfache Session-Verwaltung: 1 Session pro Channel
+// 1 aktive Heist-Session pro Channel
 const sessions = new Map(); // channelId -> session
 
-// Utils
 const mention = (id) => `<@${id}>`;
-const progressBar = (current, total, width = 24) => {
-  const safeTotal = Math.max(1, total);
-  const ratio = Math.max(0, Math.min(1, current / safeTotal));
+const progressBar = (current, total, width = 26) => {
+  const t = Math.max(1, total);
+  const ratio = Math.max(0, Math.min(1, current / t));
   const filled = Math.round(ratio * width);
   return `[${'█'.repeat(filled)}${' '.repeat(width - filled)}] ${Math.floor(ratio * 100)}%`;
 };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function safeEdit(message, payload) {
-  try {
-    await message.edit(payload);
-  } catch { /* noop */ }
-}
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('heistmuscle')
+    .setDescription('Start a 4-stage Muscle Heist (Brute Force, Action, Reflexes).')
+    .addIntegerOption(o =>
+      o.setName('target')
+        .setDescription('Target number for the d100 Strength Roll (0-100).')
+        .setRequired(true)
+        .setMinValue(0)
+        .setMaxValue(100)
+    ),
 
-// ---------- REGISTER COMMAND ----------
-async function registerCommands() {
-  const rest = new REST({ version: '10' }).setToken(TOKEN);
-  if (GUILD_ID) {
-    await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: [heistCmd.toJSON()] });
-    console.log('Registered guild command /heistmuscle');
-  } else {
-    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: [heistCmd.toJSON()] });
-    console.log('Registered global command /heistmuscle (kann bis zu 1h dauern)');
-  }
-}
+  /**
+   * Command-Handler
+   * @param {import('discord.js').ChatInputCommandInteraction} interaction
+   */
+  async execute(interaction) {
+    const channelId = interaction.channelId;
+    const target = interaction.options.getInteger('target', true);
 
-// ---------- GAME FLOW ----------
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.commandName !== 'heistmuscle') return;
-
-  const target = interaction.options.getInteger('target', true);
-  const channelId = interaction.channelId;
-
-  if (sessions.get(channelId)?.active) {
-    return interaction.reply({ content: 'In diesem Kanal läuft bereits ein Heist.', ephemeral: true });
-  }
-
-  await interaction.deferReply();
-
-  // Session-Objekt
-  const session = {
-    active: true,
-    started: false,
-    channelId,
-    guildId: interaction.guildId,
-    leaderId: interaction.user.id,
-    target,
-    players: [interaction.user.id],
-    supporters: new Set(),
-    messages: {},
-    lock: false, // einfacher Lock
-  };
-  sessions.set(channelId, session);
-
-  // ---------- Lobby ----------
-  const joinView = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('join_heist').setStyle(ButtonStyle.Success).setLabel('Join Heist').setEmoji('🧑‍🤝‍🧑')
-  );
-
-  const lobbyEmbed = new EmbedBuilder()
-    .setTitle('💣 HEIST LOBBY')
-    .setColor(0xFFA500)
-    .addFields(
-      { name: 'Leader', value: mention(session.leaderId), inline: true },
-      { name: 'Target (Stage 1)', value: `${target} (d100, support bonus possible)`, inline: true }
-    )
-    .setFooter({ text: `Join window: ${JOIN_WINDOW}s` });
-
-  await interaction.editReply({ embeds: [lobbyEmbed], components: [joinView] });
-  const lobbyMsg = await interaction.fetchReply();
-  session.messages.lobby = lobbyMsg;
-
-  // Button Collector für Join
-  const joinCollector = lobbyMsg.createMessageComponentCollector({ time: JOIN_WINDOW * 1000 });
-  joinCollector.on('collect', async (i) => {
-    if (i.customId !== 'join_heist') return;
-    if (i.user.id === session.leaderId && session.players.includes(i.user.id)) {
-      return i.reply({ content: 'Du bist schon drin!', ephemeral: true });
+    // Session-Check
+    if (sessions.get(channelId)?.active) {
+      return interaction.reply({ content: 'In diesem Kanal läuft bereits ein Heist.', ephemeral: true });
     }
-    if (session.players.includes(i.user.id)) {
-      return i.reply({ content: 'Du bist schon drin!', ephemeral: true });
-    }
-    session.players.push(i.user.id);
-    await i.reply({ content: `${i.user} joined! (${session.players.length} players)`, ephemeral: true });
-  });
 
-  joinCollector.on('end', async () => {
-    session.started = true;
-    await lobbyMsg.edit({ components: [] });
-    await interaction.followUp(`🔒 Lobby closed. Players (${session.players.length}): ${session.players.map(mention).join(', ')}`);
-    // weiter zu Stage 1
-    await stage1_StrengthRoll(session, interaction.channel);
-  });
-});
+    await interaction.deferReply();
 
-// ---------- Stage 1: Strength Roll ----------
+    // Session anlegen
+    const session = {
+      active: true,
+      started: false,
+      channelId,
+      guildId: interaction.guildId,
+      leaderId: interaction.user.id,
+      target,
+      players: [interaction.user.id],
+      supporters: new Set(),
+      messages: {},
+    };
+    sessions.set(channelId, session);
+
+    // LOBBY
+    const joinRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('join_heist')
+        .setStyle(ButtonStyle.Success)
+        .setLabel('Join Heist')
+        .setEmoji('🧑‍🤝‍🧑')
+    );
+
+    const lobbyEmbed = new EmbedBuilder()
+      .setTitle('💣 HEIST LOBBY')
+      .setColor(0xFFA500)
+      .addFields(
+        { name: 'Leader', value: mention(session.leaderId), inline: true },
+        { name: 'Target (Stage 1)', value: `${target} (d100, support bonus possible)`, inline: true },
+      )
+      .setFooter({ text: `Join window: ${JOIN_WINDOW}s` });
+
+    await interaction.editReply({ embeds: [lobbyEmbed], components: [joinRow] });
+    const lobbyMsg = await interaction.fetchReply();
+    session.messages.lobby = lobbyMsg;
+
+    const joinCollector = lobbyMsg.createMessageComponentCollector({ time: JOIN_WINDOW * 1000 });
+    joinCollector.on('collect', async (i) => {
+      if (i.customId !== 'join_heist') return;
+      if (session.players.includes(i.user.id)) {
+        return i.reply({ content: 'Du bist schon drin!', ephemeral: true });
+      }
+      session.players.push(i.user.id);
+      await i.reply({ content: `${i.user} joined! (${session.players.length} players)`, ephemeral: true });
+    });
+
+    joinCollector.on('end', async () => {
+      session.started = true;
+      await lobbyMsg.edit({ components: [] });
+      await interaction.followUp(
+        `🔒 Lobby closed. Players (${session.players.length}): ${session.players.map(mention).join(', ')}`
+      );
+
+      // STAGE 1
+      await stage1_StrengthRoll(session, interaction.channel);
+    });
+  },
+};
+
+// ---------------- Stages ----------------
+
 async function stage1_StrengthRoll(session, channel) {
   if (!session.active) return;
 
   const supportRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('support_leader').setStyle(ButtonStyle.Primary).setEmoji('💪').setLabel('Support the Leader (+5)')
+    new ButtonBuilder()
+      .setCustomId('support_leader')
+      .setStyle(ButtonStyle.Primary)
+      .setLabel('Support the Leader (+5)')
+      .setEmoji('💪')
   );
 
   const embed = new EmbedBuilder()
@@ -169,7 +139,7 @@ async function stage1_StrengthRoll(session, channel) {
     .setDescription(
       `Leader: ${mention(session.leaderId)}\n` +
       `Target: **${session.target}**\n` +
-      `Click **Support** for +${SUPPORT_BONUS_PER} (max +${SUPPORT_BONUS_CAP}). **10s** window!`
+      `Press **Support** for +${SUPPORT_BONUS_PER} (max +${SUPPORT_BONUS_CAP}). **10s** window!`
     );
 
   const msg = await channel.send({ embeds: [embed], components: [supportRow] });
@@ -178,9 +148,15 @@ async function stage1_StrengthRoll(session, channel) {
   const collector = msg.createMessageComponentCollector({ time: 10_000 });
   collector.on('collect', async (i) => {
     if (i.customId !== 'support_leader') return;
-    if (!session.players.includes(i.user.id)) return i.reply({ content: 'Only heist players can support.', ephemeral: true });
-    if (i.user.id === session.leaderId) return i.reply({ content: 'Leader cannot support themselves.', ephemeral: true });
-    if (session.supporters.has(i.user.id)) return i.reply({ content: 'You already supported.', ephemeral: true });
+    if (!session.players.includes(i.user.id)) {
+      return i.reply({ content: 'Only heist players can support.', ephemeral: true });
+    }
+    if (i.user.id === session.leaderId) {
+      return i.reply({ content: 'Leader cannot support themselves.', ephemeral: true });
+    }
+    if (session.supporters.has(i.user.id)) {
+      return i.reply({ content: 'You already supported.', ephemeral: true });
+    }
     session.supporters.add(i.user.id);
     const bonus = Math.min(SUPPORT_BONUS_CAP, SUPPORT_BONUS_PER * session.supporters.size);
     await i.reply({ content: `Support counted! Current bonus: **+${bonus}**`, ephemeral: true });
@@ -198,63 +174,57 @@ async function stage1_StrengthRoll(session, channel) {
 
     if (!success) {
       await channel.send('Heist failed at Stage 1. Try `/heistmuscle` again!');
-      session.active = false;
+      sessions.get(session.channelId).active = false;
       return;
     }
     await stage2_ButtonMashing(session, channel);
   });
 }
 
-// ---------- Stage 2: Button Mashing (💪 count) ----------
 async function stage2_ButtonMashing(session, channel) {
   if (!session.active) return;
 
   const embed = new EmbedBuilder()
     .setTitle('🟡 Stage 2 – Button Mashing')
     .setColor(0xFFD700)
-    .setDescription(`**Type "💪" as many times as you can in ${BUTTON_MASH_SECONDS}s!** Messages with the emoji are counted.`);
+    .setDescription(`**Type "💪" as many times as you can in ${BUTTON_MASH_SECONDS}s!** Messages containing the emoji are counted.`);
 
   const msg = await channel.send({ embeds: [embed] });
   session.messages.stage2 = msg;
 
-  const counts = new Map(); // userId -> number
+  const counts = new Map();
   session.players.forEach((id) => counts.set(id, 0));
-
-  const endAt = Date.now() + BUTTON_MASH_SECONDS * 1000;
 
   const collector = channel.createMessageCollector({
     time: BUTTON_MASH_SECONDS * 1000,
     filter: (m) => !m.author.bot && session.players.includes(m.author.id) && m.content.includes('💪'),
   });
 
-  await channel.send(`GO!`);
+  await channel.send('GO!');
   collector.on('collect', (m) => {
-    const c = (m.content.match(/💪/g) || []).length;
-    counts.set(m.author.id, (counts.get(m.author.id) || 0) + c);
+    const found = (m.content.match(/💪/g) || []).length;
+    counts.set(m.author.id, (counts.get(m.author.id) || 0) + found);
   });
 
   collector.on('end', async () => {
-    await channel.send(`STOP!`);
+    await channel.send('STOP!');
 
-    // niemand?
     if ([...counts.values()].every((v) => v === 0)) {
       await channel.send('Nobody sent 💪 — heist fails here.');
-      session.active = false;
+      sessions.get(session.channelId).active = false;
       return;
     }
 
-    // winner
     const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
     const [winnerId, winCount] = sorted[0];
-
     const scoreboard = sorted.map(([uid, c]) => `${mention(uid)}: **${c}**`).join('\n');
+
     await channel.send(`🏆 Winner: ${mention(winnerId)} with **${winCount}**\n\n**Scoreboard:**\n${scoreboard}`);
 
     await stage3_PushChallenge(session, channel);
   });
 }
 
-// ---------- Stage 3: Push Challenge (button spam fills bar) ----------
 async function stage3_PushChallenge(session, channel) {
   if (!session.active) return;
 
@@ -264,7 +234,11 @@ async function stage3_PushChallenge(session, channel) {
   let current = 0;
 
   const pushRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('push_bar').setStyle(ButtonStyle.Danger).setLabel('PUSH!').setEmoji('🏋️')
+    new ButtonBuilder()
+      .setCustomId('push_bar')
+      .setStyle(ButtonStyle.Danger)
+      .setLabel('PUSH!')
+      .setEmoji('🏋️')
   );
 
   const makeEmbed = () =>
@@ -274,7 +248,7 @@ async function stage3_PushChallenge(session, channel) {
       .setDescription(
         `Spam **PUSH!** to fill the bar before time runs out.\n` +
         `Time: **${pushTime}s** – Target: **${pushTarget}** points\n\n` +
-        `${progressBar(current, pushTarget, 26)}\nPoints: **${current}/${pushTarget}**`
+        `${progressBar(current, pushTarget)}\nPoints: **${current}/${pushTarget}**`
       );
 
   const msg = await channel.send({ embeds: [makeEmbed()], components: [pushRow] });
@@ -283,27 +257,28 @@ async function stage3_PushChallenge(session, channel) {
   const btnCollector = msg.createMessageComponentCollector({ time: pushTime * 1000 });
   btnCollector.on('collect', async (i) => {
     if (i.customId !== 'push_bar') return;
-    if (!session.players.includes(i.user.id)) return i.reply({ content: 'Only heist players can PUSH!', ephemeral: true });
+    if (!session.players.includes(i.user.id)) {
+      return i.reply({ content: 'Only heist players can PUSH!', ephemeral: true });
+    }
     current += 1;
     await i.deferUpdate();
   });
 
-  // Fortschritt updater
   const updater = setInterval(() => {
-    safeEdit(msg, { embeds: [makeEmbed()], components: [pushRow] });
+    msg.edit({ embeds: [makeEmbed()], components: [pushRow] }).catch(() => {});
     if (current >= pushTarget) {
       clearInterval(updater);
       btnCollector.stop('filled');
     }
   }, 400);
 
-  btnCollector.on('end', async (_c, reason) => {
+  btnCollector.on('end', async () => {
     clearInterval(updater);
     await msg.edit({ components: [] });
 
     if (current < pushTarget) {
       await channel.send('❌ Time is up — bar not full! Heist failed.');
-      session.active = false;
+      sessions.get(session.channelId).active = false;
       return;
     }
     await channel.send('✅ Stage passed!');
@@ -311,7 +286,6 @@ async function stage3_PushChallenge(session, channel) {
   });
 }
 
-// ---------- Stage 4: Guard Showdown (reaction speed) ----------
 async function stage4_GuardShowdown(session, channel) {
   if (!session.active) return;
 
@@ -320,16 +294,14 @@ async function stage4_GuardShowdown(session, channel) {
     .setColor(0xFFD700)
     .setDescription('Wait for **DRAW**… once it appears, the **first** player to type `HIT` wins. Too early = fail.');
 
-  const msg = await channel.send({ embeds: [embed] });
-  session.messages.stage4 = msg;
+  await channel.send({ embeds: [embed] });
 
-  const delay = randomInt(DRAW_DELAY_MIN, DRAW_DELAY_MAX + 1); // inclusive range
+  const delay = randomInt(DRAW_DELAY_MIN, DRAW_DELAY_MAX + 1);
   await wait(delay * 1000);
-  const drawMsg = await channel.send('**DRAW!** (type `HIT`)');
+  await channel.send('**DRAW!** (type `HIT`)');
   const drawTime = Date.now();
 
   let winner = null;
-
   const collector = channel.createMessageCollector({
     time: 4_000,
     filter: (m) =>
@@ -339,15 +311,15 @@ async function stage4_GuardShowdown(session, channel) {
   });
 
   collector.on('collect', (m) => {
-    if (winner) return; // already have one
-    // simple check: must be after drawMsg timestamp (race in ms-level)
+    if (winner) return;
+    // muss nach dem DRAW kommen
     if (m.createdTimestamp >= drawTime) {
       winner = m.author.id;
       collector.stop('winner');
     }
   });
 
-  collector.on('end', async (_c, reason) => {
+  collector.on('end', async () => {
     if (!winner) {
       await channel.send('Nobody typed `HIT` in time — heist narrowly failed.');
       sessions.get(session.channelId).active = false;
@@ -360,22 +332,3 @@ async function stage4_GuardShowdown(session, channel) {
     sessions.get(session.channelId).active = false;
   });
 }
-
-// ---------- HELPERS ----------
-function wait(ms) {
-  return new Promise((res) => setTimeout(res, ms));
-}
-
-// ---------- BOOT ----------
-client.once('ready', () => {
-  console.log(`Logged in as ${client.user.tag}`);
-});
-
-(async () => {
-  if (!TOKEN || !CLIENT_ID) {
-    console.error('Bitte setze DISCORD_TOKEN und DISCORD_CLIENT_ID als Umgebungsvariablen.');
-    process.exit(1);
-  }
-  await registerCommands();
-  await client.login(TOKEN);
-})();
