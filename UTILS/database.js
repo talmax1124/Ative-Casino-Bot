@@ -408,6 +408,26 @@ class DatabaseManager {
     }
 
     /**
+     * Remove money from user balance (alias for updateUserBalance with negative amounts)
+     * @param {string} userId - Discord user ID
+     * @param {string} guildId - Guild ID (kept for API compatibility)
+     * @param {number} amount - Amount to remove (positive number that will be subtracted)
+     * @param {string} type - 'wallet' or 'bank' (defaults to 'wallet')
+     * @returns {boolean} Success status
+     */
+    async removeMoney(userId, guildId = null, amount = 0, type = 'wallet') {
+        // Ensure amount is positive for subtraction
+        const amountToRemove = Math.abs(amount);
+        
+        if (type === 'wallet') {
+            return await this.updateUserBalance(userId, guildId, -amountToRemove, 0);
+        } else if (type === 'bank') {
+            return await this.updateUserBalance(userId, guildId, 0, -amountToRemove);
+        }
+        return false;
+    }
+
+    /**
      * Update balance (alias for updateUserBalance with different parameter order)
      * @param {string} userId - Discord user ID
      * @param {string} guildId - Guild ID (kept for API compatibility)

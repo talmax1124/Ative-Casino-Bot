@@ -196,6 +196,151 @@ class UASConnector {
     }
 
     /**
+     * Get user balance
+     */
+    async getUserBalance(userId, guildId, apiKey, botId) {
+        try {
+            if (!this.authenticate(apiKey, botId)) {
+                return {
+                    success: false,
+                    error: 'Authentication failed',
+                    code: 'AUTH_FAILED'
+                };
+            }
+
+            const balance = await dbManager.getUserBalance(userId, guildId);
+            return {
+                success: true,
+                balance: balance,
+                wallet: balance.wallet,
+                bank: balance.bank,
+                total: balance.wallet + balance.bank
+            };
+
+        } catch (error) {
+            logger.error(`UAS Connector: Error getting user balance: ${error.message}`);
+            return {
+                success: false,
+                error: error.message,
+                code: 'GET_BALANCE_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Check if user has sufficient funds for an operation
+     */
+    async checkSufficientFunds(userId, guildId, amount, account, apiKey, botId) {
+        try {
+            if (!this.authenticate(apiKey, botId)) {
+                return {
+                    success: false,
+                    error: 'Authentication failed',
+                    code: 'AUTH_FAILED'
+                };
+            }
+
+            const balance = await dbManager.getUserBalance(userId, guildId);
+            const requiredAmount = Math.abs(amount);
+            let sufficient = false;
+            let currentAmount = 0;
+
+            if (account === 'wallet') {
+                currentAmount = balance.wallet;
+                sufficient = balance.wallet >= requiredAmount;
+            } else if (account === 'bank') {
+                currentAmount = balance.bank;
+                sufficient = balance.bank >= requiredAmount;
+            } else {
+                return {
+                    success: false,
+                    error: 'Invalid account type. Must be "wallet" or "bank"',
+                    code: 'INVALID_ACCOUNT'
+                };
+            }
+
+            return {
+                success: true,
+                sufficient: sufficient,
+                currentAmount: currentAmount,
+                requiredAmount: requiredAmount,
+                deficit: sufficient ? 0 : (requiredAmount - currentAmount),
+                account: account,
+                balance: balance
+            };
+
+        } catch (error) {
+            logger.error(`UAS Connector: Error checking sufficient funds: ${error.message}`);
+            return {
+                success: false,
+                error: error.message,
+                code: 'CHECK_FUNDS_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Edit user money (admin function)
+     */
+    async editUserMoney(userId, guildId, amount, account, requestedBy, reason, apiKey, botId) {
+        try {
+            if (!this.authenticate(apiKey, botId)) {
+                return {
+                    success: false,
+                    error: 'Authentication failed',
+                    code: 'AUTH_FAILED'
+                };
+            }
+
+            logger.info(`UAS Connector: Editing money for user ${userId} by ${requestedBy}: ${amount} to ${account}`);
+
+            // Ensure user exists
+            await dbManager.ensureUser(userId, `User-${userId}`);
+
+            // Get current balance
+            const currentBalance = await dbManager.getUserBalance(userId, guildId);
+            
+            // Perform the money edit operation using updateUserBalance
+            let result;
+            if (account === 'wallet') {
+                result = await dbManager.updateUserBalance(userId, guildId, amount, 0);
+            } else if (account === 'bank') {
+                result = await dbManager.updateUserBalance(userId, guildId, 0, amount);
+            } else {
+                return {
+                    success: false,
+                    error: 'Invalid account type. Must be "wallet" or "bank"',
+                    code: 'INVALID_ACCOUNT'
+                };
+            }
+
+            // Get new balance after operation
+            const newBalance = await dbManager.getUserBalance(userId, guildId);
+
+            logger.info(`UAS Connector: Money edit completed for user ${userId}: ${JSON.stringify(currentBalance)} → ${JSON.stringify(newBalance)}`);
+
+            return {
+                success: true,
+                action: 'MONEY_EDITED',
+                amount: amount,
+                account: account,
+                previousBalance: currentBalance,
+                newBalance: newBalance,
+                requestedBy: requestedBy,
+                reason: reason || 'No reason provided'
+            };
+
+        } catch (error) {
+            logger.error(`UAS Connector: Error editing user money: ${error.message}`);
+            return {
+                success: false,
+                error: error.message,
+                code: 'EDIT_MONEY_ERROR'
+            };
+        }
+    }
+
+    /**
      * Get system session statistics
      */
     async getSystemStats(apiKey, botId) {
@@ -462,7 +607,107 @@ class UASConnector {
             }
         });
 
-        logger.info('UAS Connector: Express routes created');
+        // Economy routes with same authentication middleware
+        app.use('/uas/economy', (req, res, next) => {
+            const apiKey = req.headers['x-uas-api-key'] || req.body.apiKey;
+            const botId = req.headers['x-uas-bot-id'] || req.body.botId;
+
+            if (!this.authenticate(apiKey, botId)) {
+                return res.status(401).json({
+                    success: false,
+                    error: 'Authentication failed',
+                    code: 'AUTH_FAILED'
+                });
+            }
+
+            req.uasAuth = { apiKey, botId };
+            next();
+        });
+
+        // Get user balance
+        app.get('/uas/economy/balance/:userId/:guildId', async (req, res) => {
+            try {
+                const result = await this.getUserBalance(
+                    req.params.userId,
+                    req.params.guildId,
+                    req.uasAuth.apiKey,
+                    req.uasAuth.botId
+                );
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({
+                    success: false,
+                    error: error.message,
+                    code: 'INTERNAL_ERROR'
+                });
+            }
+        });
+
+        // Check if user has sufficient funds
+        app.post('/uas/economy/check-funds', async (req, res) => {
+            try {
+                const { userId, guildId, amount, account } = req.body;
+                
+                if (!userId || !guildId || amount === undefined || !account) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Missing required fields: userId, guildId, amount, account',
+                        code: 'MISSING_FIELDS'
+                    });
+                }
+
+                const result = await this.checkSufficientFunds(
+                    userId,
+                    guildId,
+                    amount,
+                    account,
+                    req.uasAuth.apiKey,
+                    req.uasAuth.botId
+                );
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({
+                    success: false,
+                    error: error.message,
+                    code: 'INTERNAL_ERROR'
+                });
+            }
+        });
+
+        // Edit user money
+        app.post('/uas/economy/edit-money', async (req, res) => {
+            try {
+                const { userId, guildId, amount, account, requestedBy, reason } = req.body;
+                
+                if (!userId || !guildId || amount === undefined || !account || !requestedBy) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Missing required fields: userId, guildId, amount, account, requestedBy',
+                        code: 'MISSING_FIELDS'
+                    });
+                }
+
+                const result = await this.editUserMoney(
+                    userId,
+                    guildId,
+                    amount,
+                    account,
+                    requestedBy,
+                    reason,
+                    req.uasAuth.apiKey,
+                    req.uasAuth.botId
+                );
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({
+                    success: false,
+                    error: error.message,
+                    code: 'INTERNAL_ERROR'
+                });
+            }
+        });
+
+        logger.info('UAS Connector: Express routes created (including economy endpoints)');
     }
 
     /**
