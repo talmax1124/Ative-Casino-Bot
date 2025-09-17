@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const dbManager = require('../UTILS/database');
+const dbManager = require('../UTILS/databaseAdapter');
 const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { validateAmount, formatMoneyFull } = require('../UTILS/moneyFormatter');
 const logger = require('../UTILS/logger');
@@ -132,8 +132,12 @@ module.exports = {
                 return;
             }
 
-            // Calculate tax (5% for lottery pool)
-            const taxRate = 0.05;
+            // Check if users are married for reduced tax rate
+            const marriageCheck = await dbManager.areUsersMarried(senderId, targetUser.id, guildId);
+            const isMarriedCouple = marriageCheck.success && marriageCheck.married;
+            
+            // Calculate tax (2% for married couples, 5% for others)
+            const taxRate = isMarriedCouple ? 0.02 : 0.05;
             const taxAmount = Math.floor(amount * taxRate);
             const netAmount = amount - taxAmount; // Amount recipient receives
 
@@ -155,10 +159,11 @@ module.exports = {
                 const recipientBalance = await dbManager.getUserBalance(targetUser.id, guildId);
                 
                 // Transfer details in topFields
+                const marriageBonus = isMarriedCouple ? ' 💕 Married Couple Discount!' : '';
                 const topFields = [{
                     name: '💸 TRANSFER DETAILS',
-                    value: `**${interaction.user.displayName}** ➜ **${targetUser.displayName}**\n` +
-                           `\`\`\`yaml\nAmount Sent: ${fmt(amount)}\nRecipient Gets: ${fmt(netAmount)}\nTax (5%): ${fmt(taxAmount)}\`\`\``,
+                    value: `**${interaction.user.displayName}** ➜ **${targetUser.displayName}**${marriageBonus}\n` +
+                           `\`\`\`yaml\nAmount Sent: ${fmt(amount)}\nRecipient Gets: ${fmt(netAmount)}\nTax (${Math.round(taxRate * 100)}%): ${fmt(taxAmount)}\`\`\``,
                     inline: false
                 }];
 
@@ -173,13 +178,17 @@ module.exports = {
                 const stageText = 'TRANSFER COMPLETE';
                 
                 // Build the embed using gameSessionKit
+                const footerText = isMarriedCouple 
+                    ? '💸 SendMoney • 2% married couple tax • ATIVE Casino'
+                    : '💸 SendMoney • 5% tax supports weekly lottery • ATIVE Casino';
+                    
                 const embed = buildSessionEmbed({
                     title: '💸 Money Transfer Successful',
                     topFields,
                     bankFields,
                     stageText,
                     color: 0x00FF00,
-                    footer: '💸 SendMoney • 5% tax supports weekly lottery • ATIVE Casino'
+                    footer: footerText
                 });
 
                 await interaction.editReply({ embeds: [embed] });

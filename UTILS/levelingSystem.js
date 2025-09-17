@@ -154,13 +154,24 @@ class LevelingSystem {
 
             const xpAmount = XP_REWARDS.CHAT_MESSAGE;
             try {
+                // Check if database is initialized before awarding XP
+                if (!dbManager.usingAdapter) {
+                    logger.debug('Database not ready for XP awarding yet');
+                    return null;
+                }
+                
                 const result = await dbManager.addXpToUser(userId, guildId, xpAmount, 'chat activity');
                 if (!result) {
                     logger.debug(`Failed to award chat XP to ${userId}, result was null`);
                 }
                 return result;
             } catch (xpError) {
-                logger.error(`Error awarding chat XP to ${userId}: ${xpError.message}`);
+                // Only log actual errors, not database initialization issues
+                if (xpError.message.includes('Database not initialized')) {
+                    logger.debug('Database not ready for XP awarding yet');
+                } else {
+                    logger.error(`Error awarding chat XP to ${userId}: ${xpError.message}`);
+                }
                 return null;
             }
 

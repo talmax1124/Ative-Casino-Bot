@@ -110,6 +110,12 @@ class AutomaticWealthControl {
      */
     async getUltraWealthyUsers() {
         try {
+            // Check if database adapter is available
+            if (!dbManager.usingAdapter || !dbManager.databaseAdapter) {
+                logger.debug('Database adapter not available for wealth control');
+                return [];
+            }
+
             const DEVELOPER_ID = '466050111680544798';
             const result = await dbManager.databaseAdapter.executeQuery(
                 'SELECT user_id, username, wallet, bank, (wallet + bank) as total_balance FROM user_balances WHERE (wallet + bank) > ? AND user_id != ? ORDER BY (wallet + bank) DESC',

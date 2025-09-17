@@ -12,7 +12,7 @@ require('dotenv').config();
 
 const logger = require('./UTILS/logger');
 const StartupBanner = require('./UTILS/startupBanner');
-const dbManager = require('./UTILS/database');
+const dbManager = require('./UTILS/databaseAdapter');
 const nodeCache = require('./UTILS/nodeCache');
 const axios = require('axios');
 // Economy analyzer moved to UAS bot
@@ -424,6 +424,12 @@ async function createStartupEconomicSummary(client) {
                 SUM(payout) as total_paid_out
             FROM game_results
         `;
+
+        // Check if database adapter is available
+        if (!dbManager.usingAdapter || !dbManager.databaseAdapter) {
+            logger.debug('Database adapter not available for startup economic summary');
+            return;
+        }
 
         const [userStats] = await dbManager.databaseAdapter.executeQuery(userStatsQuery);
         const [gameStats] = await dbManager.databaseAdapter.executeQuery(gameStatsQuery);
@@ -1769,6 +1775,123 @@ client.on('interactionCreate', async interaction => {
                     });
                 }
             }
+            // Handle divorce confirmation buttons
+            else if (customId.startsWith('divorce_confirm_') || customId.startsWith('divorce_cancel_')) {
+                const action = customId.startsWith('divorce_confirm_') ? 'confirm' : 'cancel';
+                const marriageId = customId.replace(`divorce_${action}_`, '');
+                
+                await interaction.deferReply({ ephemeral: true });
+                
+                try {
+                    const guildId = interaction.guild?.id;
+                    const userId = interaction.user.id;
+                    
+                    if (action === 'cancel') {
+                        await interaction.editReply({
+                            content: '✅ Divorce cancelled. Your marriage remains intact.'
+                        });
+                        
+                        // Update the original message
+                        const cancelEmbed = new EmbedBuilder()
+                            .setTitle('✅ Divorce Cancelled')
+                            .setDescription('The divorce request has been cancelled.')
+                            .setColor(0x00FF00);
+                            
+                        await interaction.message.edit({
+                            embeds: [cancelEmbed],
+                            components: []
+                        });
+                        return;
+                    }
+                    
+                    // Get marriage details
+                    const marriageData = await dbManager.getUserMarriage(userId, guildId);
+                    
+                    if (!marriageData.married || marriageData.marriage.id != marriageId) {
+                        await interaction.editReply({
+                            content: '❌ Marriage not found or you are not authorized to divorce this marriage.'
+                        });
+                        return;
+                    }
+                    
+                    const marriage = marriageData.marriage;
+                    const sharedBankSplit = marriage.shared_bank / 2;
+                    
+                    // Process the divorce
+                    const divorceResult = await dbManager.divorceMarriage(marriageId, 'User initiated divorce');
+                    
+                    if (!divorceResult.success) {
+                        await interaction.editReply({
+                            content: `❌ Failed to process divorce: ${divorceResult.error}`
+                        });
+                        return;
+                    }
+                    
+                    // Distribute shared bank equally
+                    if (sharedBankSplit > 0) {
+                        await dbManager.updateUserBalance(userId, guildId, sharedBankSplit, 0);
+                        await dbManager.updateUserBalance(marriage.partnerId, guildId, sharedBankSplit, 0);
+                    }
+                    
+                    await interaction.editReply({
+                        content: `💔 Divorce completed. You and **${marriage.partnerName}** are no longer married.\n\n${sharedBankSplit > 0 ? `You each received ${fmt(sharedBankSplit)} from the shared bank account.` : 'No shared funds to distribute.'}`
+                    });
+                    
+                    // Update the original message if it exists
+                    try {
+                        const divorceEmbed = new EmbedBuilder()
+                            .setTitle('💔 Divorce Completed')
+                            .setDescription(`The marriage between **${marriage.partner1_name}** and **${marriage.partner2_name}** has been dissolved.`)
+                            .setColor(0xFF0000)
+                            .setTimestamp();
+                            
+                        if (interaction.message) {
+                            await interaction.message.edit({
+                                embeds: [divorceEmbed],
+                                components: []
+                            });
+                        }
+                    } catch (messageEditError) {
+                        logger.debug(`Could not edit divorce message: ${messageEditError.message}`);
+                    }
+                    
+                    // Notify the partner
+                    try {
+                        const partner = await client.users.fetch(marriage.partnerId);
+                        const partnerEmbed = new EmbedBuilder()
+                            .setTitle('💔 Divorce Notice')
+                            .setDescription(`**${interaction.user.displayName}** has divorced you.`)
+                            .addFields(
+                                {
+                                    name: '💰 Shared Bank Distribution',
+                                    value: sharedBankSplit > 0 ? `You received ${fmt(sharedBankSplit)} from your shared bank account.` : 'No shared funds to distribute.',
+                                    inline: false
+                                }
+                            )
+                            .setColor(0xFF0000)
+                            .setTimestamp();
+                            
+                        await partner.send({ embeds: [partnerEmbed] });
+                    } catch (dmError) {
+                        logger.info(`Could not DM divorce notification: ${dmError.message}`);
+                    }
+                    
+                    // Log the divorce
+                    await sendLogMessage(
+                        interaction.client,
+                        'info',
+                        `Divorce completed: ${marriage.partner1_name} & ${marriage.partner2_name}`,
+                        userId,
+                        guildId
+                    );
+                    
+                } catch (error) {
+                    logger.error(`Error handling divorce confirmation: ${error.message}`);
+                    await interaction.editReply({
+                        content: '❌ An error occurred while processing the divorce.'
+                    });
+                }
+            }
             // Handle shop buttons
             else if (customId === 'open_premium_shop' || customId === 'shop_help') {
                 const shopCommand = client.commands.get('shop');
@@ -1882,7 +2005,7 @@ client.on('interactionCreate', async interaction => {
                         // For blackjack, show bet selection interface
                         const { EmbedBuilder } = require('discord.js');
                         const GamePanel = require('./UTILS/gamePanel');
-                        const dbManager = require('./UTILS/database');
+                        const dbManager = require('./UTILS/databaseAdapter');
                         const { getGuildId } = require('./UTILS/common');
 
                         try {

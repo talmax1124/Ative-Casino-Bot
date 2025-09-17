@@ -333,6 +333,50 @@ class DatabaseAdapter {
                 INDEX idx_target (target),
                 INDEX idx_source (source),
                 INDEX idx_created_at (created_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            // Marriage system tables
+            `CREATE TABLE IF NOT EXISTS marriage_proposals (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                proposer_id VARCHAR(20) NOT NULL,
+                proposer_name VARCHAR(100) NOT NULL,
+                recipient_id VARCHAR(20) NOT NULL,
+                recipient_name VARCHAR(100) NOT NULL,
+                guild_id VARCHAR(20) NOT NULL,
+                status ENUM('pending', 'accepted', 'rejected', 'expired') DEFAULT 'pending',
+                proposal_message TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NULL,
+                responded_at TIMESTAMP NULL,
+                INDEX idx_proposer (proposer_id),
+                INDEX idx_recipient (recipient_id),
+                INDEX idx_guild (guild_id),
+                INDEX idx_status (status),
+                INDEX idx_created (created_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS marriages (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                partner1_id VARCHAR(20) NOT NULL,
+                partner1_name VARCHAR(100) NOT NULL,
+                partner1_role ENUM('husband', 'wife') NOT NULL,
+                partner2_id VARCHAR(20) NOT NULL,
+                partner2_name VARCHAR(100) NOT NULL,
+                partner2_role ENUM('husband', 'wife') NOT NULL,
+                guild_id VARCHAR(20) NOT NULL,
+                married_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                ceremony_data JSON,
+                shared_bank DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                status ENUM('active', 'divorced') DEFAULT 'active',
+                divorced_at TIMESTAMP NULL,
+                divorce_reason TEXT NULL,
+                INDEX idx_partner1 (partner1_id),
+                INDEX idx_partner2 (partner2_id),
+                INDEX idx_guild (guild_id),
+                INDEX idx_status (status),
+                INDEX idx_married (married_at),
+                UNIQUE KEY unique_partner1_active (partner1_id, status),
+                UNIQUE KEY unique_partner2_active (partner2_id, status)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -396,18 +440,64 @@ class DatabaseAdapter {
         }
     }
 
+
     /**
      * Execute query with automatic connection management
      */
     async executeQuery(query, params = []) {
-        const connection = await this.pool.getConnection();
+        if (!this.pool) {
+            throw new Error('Database not initialized - pool is null');
+        }
+        
         try {
-            const [results] = await connection.execute(query, params);
-            return results; // Return the actual results, not wrapped in extra array
-        } finally {
-            connection.release();
+            const connection = await this.pool.getConnection();
+            try {
+                const [results] = await connection.execute(query, params);
+                return results; // Return the actual results, not wrapped in extra array
+            } finally {
+                connection.release();
+            }
+        } catch (error) {
+            logger.error(`Database query failed: ${error.message}`);
+            logger.error(`Query: ${query}`);
+            logger.error(`Params: ${JSON.stringify(params)}`);
+            throw error;
         }
     }
+
+    /**
+     * Execute query with automatic connection management, but suppress specific error messages
+     */
+    async executeQuerySilent(query, params = [], suppressedErrors = []) {
+        if (!this.pool) {
+            throw new Error('Database not initialized - pool is null');
+        }
+        
+        try {
+            const connection = await this.pool.getConnection();
+            try {
+                const [results] = await connection.execute(query, params);
+                return results; // Return the actual results, not wrapped in extra array
+            } finally {
+                connection.release();
+            }
+        } catch (error) {
+            // Check if this error should be suppressed
+            const shouldSuppress = suppressedErrors.some(suppressedMsg => 
+                error.message.includes(suppressedMsg)
+            );
+            
+            if (!shouldSuppress) {
+                logger.error(`Database query failed: ${error.message}`);
+                logger.error(`Query: ${query}`);
+                logger.error(`Params: ${JSON.stringify(params)}`);
+                throw error;
+            }
+            // If error is suppressed, return null instead of throwing
+            return null;
+        }
+    }
+
 
     // ========================= USER BALANCE OPERATIONS =========================
 
@@ -1445,13 +1535,13 @@ class DatabaseAdapter {
             
             // Add vote_streak column if it doesn't exist (migration)
             try {
-                await this.executeQuery(`
+                await this.executeQuerySilent(`
                     ALTER TABLE user_votes 
                     ADD COLUMN vote_streak INT NOT NULL DEFAULT 0 AFTER total_earned
-                `);
+                `, [], ['Duplicate column name']);
                 logger.info('Added vote_streak column to existing table');
             } catch (alterError) {
-                // Column might already exist, which is fine
+                // Column might already exist, which is fine - suppress duplicate column errors
                 if (!alterError.message.includes('Duplicate column name')) {
                     logger.warn(`Vote streak column migration: ${alterError.message}`);
                 }
@@ -1459,13 +1549,13 @@ class DatabaseAdapter {
             
             // Add index for vote_streak if it doesn't exist
             try {
-                await this.executeQuery(`
+                await this.executeQuerySilent(`
                     ALTER TABLE user_votes 
                     ADD INDEX idx_vote_streak (vote_streak)
-                `);
+                `, [], ['Duplicate key name']);
                 logger.info('Added vote_streak index');
             } catch (indexError) {
-                // Index might already exist
+                // Index might already exist - suppress duplicate key errors
                 if (!indexError.message.includes('Duplicate key name')) {
                     logger.warn(`Vote streak index creation: ${indexError.message}`);
                 }
@@ -3283,6 +3373,314 @@ class DatabaseAdapter {
             
         } catch (error) {
             logger.error(`Failed to apply balance integrity constraints: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // =================
+    // MARRIAGE SYSTEM
+    // =================
+
+    /**
+     * Create a marriage proposal
+     */
+    async createMarriageProposal(proposerId, proposerName, recipientId, recipientName, guildId, proposalMessage) {
+        try {
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+            
+            const query = `
+                INSERT INTO marriage_proposals (proposer_id, proposer_name, recipient_id, recipient_name, guild_id, proposal_message, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `;
+            
+            const [result] = await this.pool.execute(query, [
+                proposerId, proposerName, recipientId, recipientName, guildId, proposalMessage, expiresAt
+            ]);
+            
+            logger.info(`Marriage proposal created: ${proposerName} -> ${recipientName}`);
+            return { success: true, proposalId: result.insertId };
+            
+        } catch (error) {
+            logger.error(`Error creating marriage proposal: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Get pending marriage proposals for a user
+     */
+    async getPendingMarriageProposals(userId, guildId) {
+        try {
+            const query = `
+                SELECT * FROM marriage_proposals 
+                WHERE recipient_id = ? AND guild_id = ? AND status = 'pending' AND expires_at > NOW()
+                ORDER BY created_at DESC
+            `;
+            
+            const [rows] = await this.pool.execute(query, [userId, guildId]);
+            return { success: true, proposals: rows };
+            
+        } catch (error) {
+            logger.error(`Error getting pending proposals: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Respond to a marriage proposal
+     */
+    async respondToMarriageProposal(proposalId, response) {
+        try {
+            const query = `
+                UPDATE marriage_proposals 
+                SET status = ?, responded_at = NOW() 
+                WHERE id = ? AND status = 'pending'
+            `;
+            
+            const [result] = await this.pool.execute(query, [response, proposalId]);
+            
+            if (result.affectedRows === 0) {
+                return { success: false, error: 'Proposal not found or already responded to' };
+            }
+            
+            logger.info(`Marriage proposal ${proposalId} ${response}`);
+            return { success: true };
+            
+        } catch (error) {
+            logger.error(`Error responding to proposal: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Create a marriage
+     */
+    async createMarriage(partner1Id, partner1Name, partner1Role, partner2Id, partner2Name, partner2Role, guildId, ceremonyData) {
+        try {
+            const query = `
+                INSERT INTO marriages (partner1_id, partner1_name, partner1_role, partner2_id, partner2_name, partner2_role, guild_id, ceremony_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            
+            const [result] = await this.pool.execute(query, [
+                partner1Id, partner1Name, partner1Role, partner2Id, partner2Name, partner2Role, guildId, JSON.stringify(ceremonyData)
+            ]);
+            
+            logger.info(`Marriage created: ${partner1Name} (${partner1Role}) & ${partner2Name} (${partner2Role})`);
+            return { success: true, marriageId: result.insertId };
+            
+        } catch (error) {
+            logger.error(`Error creating marriage: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Get marriage status for a user
+     */
+    async getUserMarriage(userId, guildId) {
+        try {
+            const query = `
+                SELECT * FROM marriages 
+                WHERE (partner1_id = ? OR partner2_id = ?) AND guild_id = ? AND status = 'active'
+            `;
+            
+            const [rows] = await this.pool.execute(query, [userId, userId, guildId]);
+            
+            if (rows.length === 0) {
+                return { success: true, married: false, marriage: null };
+            }
+            
+            const marriage = rows[0];
+            const isPartner1 = marriage.partner1_id === userId;
+            
+            return {
+                success: true,
+                married: true,
+                marriage: {
+                    ...marriage,
+                    userRole: isPartner1 ? marriage.partner1_role : marriage.partner2_role,
+                    partnerId: isPartner1 ? marriage.partner2_id : marriage.partner1_id,
+                    partnerName: isPartner1 ? marriage.partner2_name : marriage.partner1_name,
+                    partnerRole: isPartner1 ? marriage.partner2_role : marriage.partner1_role
+                }
+            };
+            
+        } catch (error) {
+            logger.error(`Error getting user marriage: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Update marriage shared bank
+     */
+    async updateMarriageSharedBank(marriageId, amount) {
+        try {
+            const query = `
+                UPDATE marriages 
+                SET shared_bank = shared_bank + ? 
+                WHERE id = ? AND status = 'active'
+            `;
+            
+            const [result] = await this.pool.execute(query, [amount, marriageId]);
+            
+            if (result.affectedRows === 0) {
+                return { success: false, error: 'Marriage not found or not active' };
+            }
+            
+            return { success: true };
+            
+        } catch (error) {
+            logger.error(`Error updating marriage shared bank: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Divorce a marriage
+     */
+    async divorceMarriage(marriageId, reason) {
+        try {
+            const query = `
+                UPDATE marriages 
+                SET status = 'divorced', divorced_at = NOW(), divorce_reason = ?
+                WHERE id = ? AND status = 'active'
+            `;
+            
+            const [result] = await this.pool.execute(query, [reason, marriageId]);
+            
+            if (result.affectedRows === 0) {
+                return { success: false, error: 'Marriage not found or already divorced' };
+            }
+            
+            logger.info(`Marriage ${marriageId} divorced: ${reason}`);
+            return { success: true };
+            
+        } catch (error) {
+            logger.error(`Error divorcing marriage: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Check if two users are married
+     */
+    async areUsersMarried(userId1, userId2, guildId) {
+        try {
+            const query = `
+                SELECT id FROM marriages 
+                WHERE ((partner1_id = ? AND partner2_id = ?) OR (partner1_id = ? AND partner2_id = ?)) 
+                AND guild_id = ? AND status = 'active'
+            `;
+            
+            const [rows] = await this.pool.execute(query, [userId1, userId2, userId2, userId1, guildId]);
+            return { success: true, married: rows.length > 0, marriageId: rows[0]?.id || null };
+            
+        } catch (error) {
+            logger.error(`Error checking if users are married: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Transfer money to shared bank account
+     */
+    async transferToSharedBank(userId, guildId, amount) {
+        try {
+            // Get user's marriage
+            const marriageData = await this.getUserMarriage(userId, guildId);
+            if (!marriageData.married) {
+                return { success: false, error: 'User is not married' };
+            }
+
+            // Get user's balance
+            const userBalance = await this.getUserBalance(userId, guildId);
+            if (userBalance.wallet < amount) {
+                return { success: false, error: 'Insufficient funds' };
+            }
+
+            // Start transaction
+            const connection = await this.pool.getConnection();
+            try {
+                await connection.beginTransaction();
+
+                // Deduct from user's wallet
+                await connection.execute(
+                    'UPDATE user_balances SET wallet = wallet - ? WHERE user_id = ? AND guild_id = ?',
+                    [amount, userId, guildId || 'default']
+                );
+
+                // Add to shared bank
+                await connection.execute(
+                    'UPDATE marriages SET shared_bank = shared_bank + ? WHERE id = ? AND status = ?',
+                    [amount, marriageData.marriage.id, 'active']
+                );
+
+                await connection.commit();
+                
+                logger.info(`${amount} transferred to shared bank by user ${userId}`);
+                return { success: true, newSharedBalance: marriageData.marriage.shared_bank + amount };
+
+            } catch (error) {
+                await connection.rollback();
+                throw error;
+            } finally {
+                connection.release();
+            }
+
+        } catch (error) {
+            logger.error(`Error transferring to shared bank: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Withdraw money from shared bank account
+     */
+    async withdrawFromSharedBank(userId, guildId, amount) {
+        try {
+            // Get user's marriage
+            const marriageData = await this.getUserMarriage(userId, guildId);
+            if (!marriageData.married) {
+                return { success: false, error: 'User is not married' };
+            }
+
+            if (marriageData.marriage.shared_bank < amount) {
+                return { success: false, error: 'Insufficient funds in shared bank' };
+            }
+
+            // Start transaction
+            const connection = await this.pool.getConnection();
+            try {
+                await connection.beginTransaction();
+
+                // Deduct from shared bank
+                await connection.execute(
+                    'UPDATE marriages SET shared_bank = shared_bank - ? WHERE id = ? AND status = ?',
+                    [amount, marriageData.marriage.id, 'active']
+                );
+
+                // Add to user's wallet
+                await connection.execute(
+                    'UPDATE user_balances SET wallet = wallet + ? WHERE user_id = ? AND guild_id = ?',
+                    [amount, userId, guildId || 'default']
+                );
+
+                await connection.commit();
+                
+                logger.info(`${amount} withdrawn from shared bank by user ${userId}`);
+                return { success: true, newSharedBalance: marriageData.marriage.shared_bank - amount };
+
+            } catch (error) {
+                await connection.rollback();
+                throw error;
+            } finally {
+                connection.release();
+            }
+
+        } catch (error) {
+            logger.error(`Error withdrawing from shared bank: ${error.message}`);
             return { success: false, error: error.message };
         }
     }

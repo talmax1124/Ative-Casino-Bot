@@ -163,6 +163,12 @@ class GameDataCollector {
                 JSON.stringify(data.features)
             ];
 
+            // Check if database adapter is available
+            if (!dbManager.usingAdapter || !dbManager.databaseAdapter) {
+                logger.debug('Database adapter not available for ML data storage');
+                return;
+            }
+
             await dbManager.databaseAdapter.executeQuery(query, values);
 
         } catch (error) {
@@ -206,6 +212,12 @@ class GameDataCollector {
                     INDEX idx_guild_id (guild_id)
                 )
             `;
+
+            // Check if database adapter is available
+            if (!dbManager.usingAdapter || !dbManager.databaseAdapter) {
+                logger.debug('Database adapter not available for ML table creation');
+                return;
+            }
 
             await dbManager.databaseAdapter.executeQuery(createQuery);
             logger.info('ML data table created successfully');
@@ -329,6 +341,12 @@ class GameDataCollector {
             }
 
             query += ' ORDER BY played_at DESC LIMIT 10000';
+
+            // Check if database adapter is available
+            if (!dbManager.usingAdapter || !dbManager.databaseAdapter) {
+                logger.debug('Database adapter not available for ML analysis');
+                return [];
+            }
 
             const results = await dbManager.databaseAdapter.executeQuery(query, params);
             return results;
