@@ -35,7 +35,7 @@ process.on('unhandledRejection', (reason, promise) => {
         logger.debug('Unknown interaction error caught and handled:', reason.message);
         return;
     }
-    
+
     // Handle other unhandled rejections
     logger.error('Unhandled promise rejection:', reason instanceof Error ? reason.message : JSON.stringify(reason, null, 2));
     logger.error('Promise:', promise ? JSON.stringify(promise, null, 2) : 'undefined');
@@ -87,7 +87,7 @@ client.commands = new Collection();
 // Load commands from COMMANDS folder
 async function loadCommands() {
     const commandsPath = path.join(__dirname, 'COMMANDS');
-    
+
     // Load all command files
     const commandFiles = fs.readdirSync(commandsPath)
         .filter(file => file.endsWith('.js'));
@@ -98,7 +98,7 @@ async function loadCommands() {
         try {
             const filePath = path.join(commandsPath, file);
             logger.debug(`Loading command from: ${filePath}`);
-            
+
             const command = require(filePath);
 
             if ('data' in command && 'execute' in command) {
@@ -108,88 +108,88 @@ async function loadCommands() {
 
                 // Handle special case for dev.js which has multiple commands
                 if (file === 'dev.js') {
-                // Load additional commands from dev module
-                if (command.reloadCommand && command.reloadCommand.data) {
-                    client.commands.set(command.reloadCommand.data.name, command.reloadCommand);
-                    commands.push(command.reloadCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.reloadCommand.data.name}`);
-                }
-                if (command.logsCommand && command.logsCommand.data) {
-                    client.commands.set(command.logsCommand.data.name, command.logsCommand);
-                    commands.push(command.logsCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.logsCommand.data.name}`);
-                }
-                if (command.stopCrashCommand && command.stopCrashCommand.data) {
-                    // Skip loading stopcrash from dev.js since it exists as a separate file
-                    if (command.stopCrashCommand.data.name !== 'stopcrash') {
-                        client.commands.set(command.stopCrashCommand.data.name, command.stopCrashCommand);
-                        commands.push(command.stopCrashCommand.data.toJSON());
-                        logger.info(`Loaded command: ${command.stopCrashCommand.data.name}`);
+                    // Load additional commands from dev module
+                    if (command.reloadCommand && command.reloadCommand.data) {
+                        client.commands.set(command.reloadCommand.data.name, command.reloadCommand);
+                        commands.push(command.reloadCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.reloadCommand.data.name}`);
+                    }
+                    if (command.logsCommand && command.logsCommand.data) {
+                        client.commands.set(command.logsCommand.data.name, command.logsCommand);
+                        commands.push(command.logsCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.logsCommand.data.name}`);
+                    }
+                    if (command.stopCrashCommand && command.stopCrashCommand.data) {
+                        // Skip loading stopcrash from dev.js since it exists as a separate file
+                        if (command.stopCrashCommand.data.name !== 'stopcrash') {
+                            client.commands.set(command.stopCrashCommand.data.name, command.stopCrashCommand);
+                            commands.push(command.stopCrashCommand.data.toJSON());
+                            logger.info(`Loaded command: ${command.stopCrashCommand.data.name}`);
+                        }
+                    }
+                    if (command.cogCommand && command.cogCommand.data) {
+                        client.commands.set(command.cogCommand.data.name, command.cogCommand);
+                        commands.push(command.cogCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.cogCommand.data.name}`);
                     }
                 }
-                if (command.cogCommand && command.cogCommand.data) {
-                    client.commands.set(command.cogCommand.data.name, command.cogCommand);
-                    commands.push(command.cogCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.cogCommand.data.name}`);
-                }
-            }
 
-            // Handle special case for general.js which has multiple commands
-            if (file === 'general.js') {
-                // Load additional commands from general module
-                if (command.profileCommand && command.profileCommand.data) {
-                    client.commands.set(command.profileCommand.data.name, command.profileCommand);
-                    commands.push(command.profileCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.profileCommand.data.name}`);
+                // Handle special case for general.js which has multiple commands
+                if (file === 'general.js') {
+                    // Load additional commands from general module
+                    if (command.profileCommand && command.profileCommand.data) {
+                        client.commands.set(command.profileCommand.data.name, command.profileCommand);
+                        commands.push(command.profileCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.profileCommand.data.name}`);
+                    }
+                    if (command.leaderboardCommand && command.leaderboardCommand.data) {
+                        client.commands.set(command.leaderboardCommand.data.name, command.leaderboardCommand);
+                        commands.push(command.leaderboardCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.leaderboardCommand.data.name}`);
+                    }
+                    if (command.testXpCommand && command.testXpCommand.data) {
+                        client.commands.set(command.testXpCommand.data.name, command.testXpCommand);
+                        commands.push(command.testXpCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.testXpCommand.data.name}`);
+                    }
+                    if (command.setXpCommand && command.setXpCommand.data) {
+                        client.commands.set(command.setXpCommand.data.name, command.setXpCommand);
+                        commands.push(command.setXpCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.setXpCommand.data.name}`);
+                    }
+                    if (command.debugXpCommand && command.debugXpCommand.data) {
+                        client.commands.set(command.debugXpCommand.data.name, command.debugXpCommand);
+                        commands.push(command.debugXpCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.debugXpCommand.data.name}`);
+                    }
+                    if (command.fixXpCommand && command.fixXpCommand.data) {
+                        client.commands.set(command.fixXpCommand.data.name, command.fixXpCommand);
+                        commands.push(command.fixXpCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.fixXpCommand.data.name}`);
+                    }
                 }
-                if (command.leaderboardCommand && command.leaderboardCommand.data) {
-                    client.commands.set(command.leaderboardCommand.data.name, command.leaderboardCommand);
-                    commands.push(command.leaderboardCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.leaderboardCommand.data.name}`);
-                }
-                if (command.testXpCommand && command.testXpCommand.data) {
-                    client.commands.set(command.testXpCommand.data.name, command.testXpCommand);
-                    commands.push(command.testXpCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.testXpCommand.data.name}`);
-                }
-                if (command.setXpCommand && command.setXpCommand.data) {
-                    client.commands.set(command.setXpCommand.data.name, command.setXpCommand);
-                    commands.push(command.setXpCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.setXpCommand.data.name}`);
-                }
-                if (command.debugXpCommand && command.debugXpCommand.data) {
-                    client.commands.set(command.debugXpCommand.data.name, command.debugXpCommand);
-                    commands.push(command.debugXpCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.debugXpCommand.data.name}`);
-                }
-                if (command.fixXpCommand && command.fixXpCommand.data) {
-                    client.commands.set(command.fixXpCommand.data.name, command.fixXpCommand);
-                    commands.push(command.fixXpCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.fixXpCommand.data.name}`);
-                }
-            }
 
-            // Handle special case for admin.js which has multiple commands
-            if (file === 'admin.js') {
-                // Load additional commands from admin module
-                // SetMoney command removed - functionality available via editmoney
-                // Backup command removed - functionality moved to developer panel
-                if (command.drawLotteryCommand && command.drawLotteryCommand.data) {
-                    client.commands.set(command.drawLotteryCommand.data.name, command.drawLotteryCommand);
-                    commands.push(command.drawLotteryCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.drawLotteryCommand.data.name}`);
+                // Handle special case for admin.js which has multiple commands
+                if (file === 'admin.js') {
+                    // Load additional commands from admin module
+                    // SetMoney command removed - functionality available via editmoney
+                    // Backup command removed - functionality moved to developer panel
+                    if (command.drawLotteryCommand && command.drawLotteryCommand.data) {
+                        client.commands.set(command.drawLotteryCommand.data.name, command.drawLotteryCommand);
+                        commands.push(command.drawLotteryCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.drawLotteryCommand.data.name}`);
+                    }
+                    if (command.portalAnnouncementCommand && command.portalAnnouncementCommand.data) {
+                        client.commands.set(command.portalAnnouncementCommand.data.name, command.portalAnnouncementCommand);
+                        commands.push(command.portalAnnouncementCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.portalAnnouncementCommand.data.name}`);
+                    }
+                    if (command.portalCommand && command.portalCommand.data) {
+                        client.commands.set(command.portalCommand.data.name, command.portalCommand);
+                        commands.push(command.portalCommand.data.toJSON());
+                        logger.info(`Loaded command: ${command.portalCommand.data.name}`);
+                    }
                 }
-                if (command.portalAnnouncementCommand && command.portalAnnouncementCommand.data) {
-                    client.commands.set(command.portalAnnouncementCommand.data.name, command.portalAnnouncementCommand);
-                    commands.push(command.portalAnnouncementCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.portalAnnouncementCommand.data.name}`);
-                }
-                if (command.portalCommand && command.portalCommand.data) {
-                    client.commands.set(command.portalCommand.data.name, command.portalCommand);
-                    commands.push(command.portalCommand.data.toJSON());
-                    logger.info(`Loaded command: ${command.portalCommand.data.name}`);
-                }
-            }
             } else {
                 logger.warn(`Command file ${file} is missing 'data' or 'execute' property`);
             }
@@ -227,28 +227,27 @@ async function registerCommands(commands) {
 // Dynamic Bot Activity System
 function setupBotActivity() {
     const activities = [
-        { name: "the house always wins 🎰", type: ActivityType.Watching },
-        { name: "you lose money 💸", type: ActivityType.Watching },
-        { name: "players gamble away life savings", type: ActivityType.Watching },
-        { name: "slots spinning 🎰", type: ActivityType.Listening },
-        { name: "blackjack deals 🃏", type: ActivityType.Playing },
-        { name: "poker hands fold 🂠", type: ActivityType.Playing },
-        { name: "roulette wheels spin 🎡", type: ActivityType.Playing },
-        { name: "dice roll snake eyes 🎲", type: ActivityType.Playing },
-        { name: "jackpots being missed 💰", type: ActivityType.Watching },
-        { name: "wallets getting lighter 💸", type: ActivityType.Watching },
-        { name: "lucky streaks end 📉", type: ActivityType.Watching },
-        { name: "for big winners 🏆", type: ActivityType.Watching },
-        { name: "the economy crash 📊", type: ActivityType.Watching },
-        { name: "bank accounts drain 🏦", type: ActivityType.Watching },
-        { name: "with /help for commands 🎲", type: ActivityType.Playing },
+        { name: "hitting jackpots 🎰", type: ActivityType.Watching },
+        { name: "stacking coins 💸", type: ActivityType.Watching },
+        { name: "big poker brains 🃏", type: ActivityType.Playing },
+        { name: "slots vibin’ 🎶", type: ActivityType.Listening },
+        { name: "royal flush hype 👑", type: ActivityType.Playing },
+        { name: "roulette wins 🎡", type: ActivityType.Playing },
+        { name: "lucky rolls 🎲", type: ActivityType.Playing },
+        { name: "jackpots dropping 💰", type: ActivityType.Watching },
+        { name: "wallets leveling up 📈", type: ActivityType.Watching },
+        { name: "super streaks 🔥", type: ActivityType.Watching },
+        { name: "winner vibes 🏆", type: ActivityType.Watching },
+        { name: "bonus spins 🎊", type: ActivityType.Watching },
+        { name: "coin showers ✨", type: ActivityType.Watching },
+        { name: "/help for the fun 🎲", type: ActivityType.Playing },
         { name: "ATIVE Casino 🎰", type: ActivityType.Playing }
     ];
 
     // Set initial activity
     const initialActivity = activities[Math.floor(Math.random() * activities.length)];
     client.user.setActivity(initialActivity.name, { type: initialActivity.type });
-    
+
     // Change activity every 3 minutes for more dynamic feel
     setInterval(() => {
         const randomActivity = activities[Math.floor(Math.random() * activities.length)];
@@ -259,7 +258,7 @@ function setupBotActivity() {
 
 // Helper function to get activity type name for logging
 function getActivityTypeName(type) {
-    switch(type) {
+    switch (type) {
         case ActivityType.Playing: return 'Playing';
         case ActivityType.Listening: return 'Listening to';
         case ActivityType.Watching: return 'Watching';
@@ -292,14 +291,14 @@ async function sendStartupNotification() {
 
         logger.info('Startup notification sent successfully');
 
-    // Initialize Max Bet Removal Monitor
-    try {
-        const { maxBetRemovalMonitor } = require('./UTILS/maxBetRemovalMonitor');
-        await maxBetRemovalMonitor.initialize(client);
-        logger.info('Max Bet Removal Monitor initialized successfully');
-    } catch (error) {
-        logger.error(`Failed to initialize Max Bet Removal Monitor: ${error.message}`);
-    }
+        // Initialize Max Bet Removal Monitor
+        try {
+            const { maxBetRemovalMonitor } = require('./UTILS/maxBetRemovalMonitor');
+            await maxBetRemovalMonitor.initialize(client);
+            logger.info('Max Bet Removal Monitor initialized successfully');
+        } catch (error) {
+            logger.error(`Failed to initialize Max Bet Removal Monitor: ${error.message}`);
+        }
     } catch (error) {
         logger.error(`Failed to send startup notification: ${error.message}`);
     }
@@ -409,7 +408,7 @@ async function createStartupEconomicSummary(client) {
     try {
         // Get live economic data
         const guildId = process.env.GUILD_ID || '1264644848721256449'; // Default guild ID
-        
+
         // Get basic statistics
         const userStatsQuery = `
             SELECT 
@@ -420,7 +419,7 @@ async function createStartupEconomicSummary(client) {
                 COUNT(CASE WHEN wallet + bank > 500000000 THEN 1 END) as wealth_tax_eligible
             FROM user_balances
         `;
-        
+
         const gameStatsQuery = `
             SELECT 
                 COUNT(*) as total_games,
@@ -429,14 +428,14 @@ async function createStartupEconomicSummary(client) {
                 AVG(bet_amount) as avg_bet
             FROM game_results
         `;
-        
+
         const [userStats] = await dbManager.databaseAdapter.executeQuery(userStatsQuery);
         const [gameStats] = await dbManager.databaseAdapter.executeQuery(gameStatsQuery);
-        
+
         // Get EconomyGuardian data if available
         let economicHealth = null;
         let giniData = null;
-        
+
         if (client.economyGuardian?.economicInterceptor) {
             try {
                 economicHealth = await client.economyGuardian.economicInterceptor.getFastEconomicHealth();
@@ -445,14 +444,14 @@ async function createStartupEconomicSummary(client) {
                 logger.warn(`Could not get EconomyGuardian data: ${error.message}`);
             }
         }
-        
+
         // Create ChatGPT summary
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
             logger.warn('No OpenAI API key found - skipping startup economic summary');
             return;
         }
-        
+
         const prompt = `You are ATIVE, the AI economic advisor for a Discord casino. Create a comprehensive economic summary with improvement recommendations.
 
 CURRENT ECONOMIC DATA:
@@ -497,9 +496,9 @@ Format your response as:
         });
 
         const summary = response.data.choices[0]?.message?.content || 'Economic analysis unavailable';
-        
+
         logger.info(`🤖 ChatGPT Economic Summary: ${summary}`);
-        
+
         // Send to the specified economic summary channel
         const logChannelId = '1413722166024863866';
         if (logChannelId) {
@@ -512,14 +511,14 @@ Format your response as:
                         .setColor(0x00D4FF)
                         .setFooter({ text: 'Powered by ATIVE AI • Auto-Generated' })
                         .setTimestamp();
-                    
+
                     await channel.send({ embeds: [embed] });
                 }
             } catch (error) {
                 logger.warn(`Could not send startup summary to channel: ${error.message}`);
             }
         }
-        
+
     } catch (error) {
         logger.error(`Failed to create startup economic summary: ${error.message}`);
     }
@@ -528,86 +527,27 @@ Format your response as:
 // Event handlers
 client.once('clientReady', async () => {
     logger.info(`ATIVE Casino Bot logged in as ${client.user.tag} (ID: ${client.user.id})`);
-    
+
     // Set dynamic bot activity status
     setupBotActivity();
     logger.info('Bot activity system initialized');
-    
+
     // LEGACY: Economic notification system replaced by Real AI Engine
     // economicManager.setNotificationClient(client);
     // logger.info('Economic notification system initialized');
-    
-    // Initialize Real AI Engine and Autonomous AI
-    try {
-        const realAI = require('./UTILS/realAIEngine');
-        const AutonomousAI = require('./UTILS/autonomousAI');
-        const optimizedAIService = require('./UTILS/optimizedAIService');
-        const hasApiKey = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'your_openai_api_key_here';
-        
-        // Initialize optimized AI service for token optimization
-        await optimizedAIService.initialize();
-        logger.info('🚀 Optimized AI Service initialized - token usage reduced by ~70%');
-        
-        if (hasApiKey) {
-            logger.info('🤖 Real AI Engine initialized successfully - OpenAI GPT-4o active');
-            
-            // Start autonomous AI after database is ready
-            setTimeout(async () => {
-                try {
-                    logger.info('Initializing Autonomous AI system...');
-                    client.autonomousAI = new AutonomousAI(client);
-                    await client.autonomousAI.start();
-                    logger.info('🚀 Autonomous AI started - fully automated casino management active');
-                    
-                    // Ensure AI is properly running in production
-                    if (process.env.ENVIRONMENT === 'production') {
-                        logger.info('Production mode: Autonomous AI economic management enabled');
-                        // Force a status check after 1 minute
-                        setTimeout(() => {
-                            if (client.autonomousAI && client.autonomousAI.isRunning) {
-                                logger.info('✅ Autonomous AI confirmed running in production');
-                            } else {
-                                logger.error('❌ Autonomous AI not running in production - manual restart required');
-                            }
-                        }, 60000);
-                    }
-                } catch (error) {
-                    logger.error(`Autonomous AI startup failed: ${error.message}`);
-                    
-                    // Try to restart AI in production after failure
-                    if (process.env.ENVIRONMENT === 'production') {
-                        logger.warn('Production mode: Attempting AI restart in 2 minutes...');
-                        setTimeout(async () => {
-                            try {
-                                client.autonomousAI = new AutonomousAI(client);
-                                await client.autonomousAI.start();
-                                logger.info('🚀 Autonomous AI restarted successfully');
-                            } catch (restartError) {
-                                logger.error(`AI restart failed: ${restartError.message}`);
-                            }
-                        }, 120000); // 2 minutes
-                    }
-                }
-            }, 5000); // Wait 5 seconds for database initialization
-            
-        } else {
-            logger.warn('⚠️ Real AI Engine loaded in fallback mode - OpenAI API key not configured');
-            logger.warn('⚠️ Autonomous AI disabled - requires OpenAI API key');
-        }
-    } catch (error) {
-        logger.error(`Real AI Engine initialization failed: ${error.message}`);
-    }
+
+    // AI systems removed - no longer using advanced AI features
 
     // Initialize database
     try {
         await dbManager.initialize();
         logger.info('Database initialized successfully');
-        
+
         // 🚀 Initialize NodeCache System
         logger.info('🔄 Initializing NodeCache system...');
         const cacheStats = nodeCache.getStats();
         logger.info('✅ NodeCache system initialized and operational');
-        
+
         // Create startup economic summary with ChatGPT (now that database is ready)
         if (process.env.ENVIRONMENT === 'production') {
             setTimeout(async () => {
@@ -616,10 +556,10 @@ client.once('clientReady', async () => {
         } else {
             logger.info('🚫 Startup economic summary disabled in development mode');
         }
-        
+
         // Economy Analyzer moved to UAS bot - functionality integrated in /ai command
         logger.info('✅ Economy analysis available via /ai analyze command');
-        
+
         // Initialize server products database table
         // Removed: serverProducts initialization - using web-based purchases now
         logger.info('Server products system initialized successfully');
@@ -643,7 +583,7 @@ client.once('clientReady', async () => {
             client.lotteryGame = new LotteryGame(client);
             await client.lotteryGame.initialize();
             logger.info('Lottery system initialized successfully');
-            
+
             // Set up lottery restart handler in case of critical failures
             client.restartLotterySystem = async () => {
                 try {
@@ -660,10 +600,10 @@ client.once('clientReady', async () => {
                     return false;
                 }
             };
-            
+
         } catch (error) {
             logger.error('Failed to initialize lottery system:', error);
-            
+
             // Fallback: Try to initialize lottery system again after 5 minutes
             setTimeout(async () => {
                 try {
@@ -748,7 +688,7 @@ client.once('clientReady', async () => {
         'Game Sessions': { online: true, details: 'Session manager active' },
         'Security': { online: true, details: 'Anti-abuse AI active' }
     };
-    
+
     StartupBanner.showSystemStatus(systemStatus);
     StartupBanner.showStartupComplete();
 
@@ -782,7 +722,7 @@ client.on('interactionCreate', async interaction => {
                 logger.debug(`Command interaction expired: ${interaction.commandName}`);
                 return;
             }
-            
+
             logger.error(`Error executing command ${interaction.commandName}:`, error);
 
             // Send error log to designated channel
@@ -808,9 +748,9 @@ client.on('interactionCreate', async interaction => {
                 .setColor(0xFF0000)
                 .setTimestamp();
 
-            await SafeInteractionHandler.safeReply(interaction, { 
-                embeds: [errorEmbed], 
-                flags: MessageFlags.Ephemeral 
+            await SafeInteractionHandler.safeReply(interaction, {
+                embeds: [errorEmbed],
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -1010,7 +950,7 @@ client.on('interactionCreate', async interaction => {
                 const parts = interaction.customId.split('-');
                 if (parts.length >= 3) {
                     const userId = parts[1];
-                    
+
                     // Verify the user is the game owner
                     if (userId === interaction.user.id) {
                         const rouletteCommand = client.commands.get('roulette');
@@ -1030,7 +970,7 @@ client.on('interactionCreate', async interaction => {
                 const parts = interaction.customId.split('-');
                 if (parts.length >= 3) {
                     const userId = parts[1];
-                    
+
                     // Verify the user is the game owner
                     if (userId === interaction.user.id) {
                         const rouletteCommand = client.commands.get('roulette');
@@ -1075,9 +1015,9 @@ client.on('interactionCreate', async interaction => {
                 await panelManager.handleStopGameUserSelect(interaction);
             }
             // Handle release command select menus
-            else if (interaction.customId === 'release_action' || 
-                     interaction.customId === 'release_user_action' || 
-                     interaction.customId === 'release_admin_action') {
+            else if (interaction.customId === 'release_action' ||
+                interaction.customId === 'release_user_action' ||
+                interaction.customId === 'release_admin_action') {
                 const releaseCommand = client.commands.get('release');
                 if (releaseCommand && releaseCommand.handleSelectMenuInteraction) {
                     const action = interaction.values[0];
@@ -1104,28 +1044,28 @@ client.on('interactionCreate', async interaction => {
                 try {
                     const selectedCategory = interaction.values[0];
                     logger.info(`Help category selected: ${selectedCategory} by user ${interaction.user.id}`);
-                    
+
                     // Import help functions
                     const { showCategoryHelp, handleHelpError } = require('./COMMANDS/help');
-                    
+
                     // Always defer update for select menus to prevent timeout
                     if (!interaction.deferred && !interaction.replied) {
                         await interaction.deferUpdate();
                     }
-                    
+
                     // Show the selected category
                     await showCategoryHelp(interaction, selectedCategory);
-                    
+
                 } catch (error) {
                     logger.error(`Critical error in help category selection: ${error.message}\nStack: ${error.stack}`);
-                    
+
                     // Use the centralized error handler
                     try {
                         const { handleHelpError } = require('./COMMANDS/help');
                         await handleHelpError(interaction, error);
                     } catch (fallbackError) {
                         logger.error(`Fallback error handler failed: ${fallbackError.message}`);
-                        
+
                         // Last resort error handling
                         try {
                             const errorMessage = '⚠️ A critical error occurred. Please try `/help` again.';
@@ -1162,7 +1102,7 @@ client.on('interactionCreate', async interaction => {
             // Handle blackjack bet selection for Play Again
             else if (interaction.customId === 'blackjack_bet_select') {
                 const betAmount = interaction.values[0];
-                
+
                 // Create a proper mock slash command interaction for blackjack
                 const mockInteraction = {
                     ...interaction,
@@ -1184,7 +1124,7 @@ client.on('interactionCreate', async interaction => {
                     replied: false,
                     deferred: false
                 };
-                
+
                 try {
                     const blackjackCommand = client.commands.get('blackjack');
                     if (blackjackCommand) {
@@ -1198,7 +1138,7 @@ client.on('interactionCreate', async interaction => {
                     }
                 } catch (error) {
                     logger.error(`Error starting blackjack from Play Again: ${error.message}`);
-                    
+
                     try {
                         if (!interaction.replied) {
                             await interaction.update({
@@ -1217,7 +1157,7 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
             }
-            
+
             // Handle VPS management select menus (future expansion)
             else if (interaction.customId.startsWith('vps_')) {
                 try {
@@ -1233,25 +1173,25 @@ client.on('interactionCreate', async interaction => {
                     }
                 } catch (vpsError) {
                     logger.error(`Error handling VPS select menu ${interaction.customId}:`, vpsError);
-                    
+
                     const UITemplates = require('./UTILS/uiTemplates');
                     const errorEmbed = UITemplates.createErrorEmbed('VPS Management', {
                         description: `Failed to process VPS selection`,
                         error: vpsError.message,
                         isLoss: false
                     });
-                    
+
                     await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 }
             }
-            
+
         } catch (error) {
             // Handle expired interactions
             if (error.code === 10062) {
                 logger.debug(`Select menu interaction expired: ${interaction.customId}`);
                 return;
             }
-            
+
             logger.error(`Error handling select menu ${interaction.customId}:`, error);
 
             const errorEmbed = new EmbedBuilder()
@@ -1259,9 +1199,9 @@ client.on('interactionCreate', async interaction => {
                 .setDescription('An error occurred while processing your selection.')
                 .setColor(0xFF0000);
 
-            await SafeInteractionHandler.safeReply(interaction, { 
-                embeds: [errorEmbed], 
-                flags: MessageFlags.Ephemeral 
+            await SafeInteractionHandler.safeReply(interaction, {
+                embeds: [errorEmbed],
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -1304,7 +1244,7 @@ client.on('interactionCreate', async interaction => {
                         const parts = customId.split('-');
                         const userId = parts[2];
                         const mode = parts[3];
-                        
+
                         if (userId === interaction.user.id) {
                             await duckCommand.handleModeSelect(interaction, mode);
                         } else {
@@ -1315,7 +1255,7 @@ client.on('interactionCreate', async interaction => {
                         }
                     } else if (customId.startsWith('duck-cancel-')) {
                         const userId = customId.split('-')[2];
-                        
+
                         if (userId === interaction.user.id) {
                             await duckCommand.handleCancel(interaction);
                         } else {
@@ -1327,7 +1267,7 @@ client.on('interactionCreate', async interaction => {
                     } else if (customId.startsWith('duck-')) {
                         const [namespace, actionId] = customId.split(':');
                         const userId = namespace.split('-')[1];
-                        
+
                         if (userId === interaction.user.id) {
                             await duckCommand.handleGameAction(interaction, actionId);
                         } else {
@@ -1404,7 +1344,7 @@ client.on('interactionCreate', async interaction => {
                     } else if (customId.startsWith('bonus-')) {
                         const [namespace, actionId] = customId.split(':');
                         const userId = namespace.split('-')[1];
-                        
+
                         if (userId === interaction.user.id) {
                             if (actionId === 'spin') {
                                 await multiSlotsCommand.handleBonusSpin(interaction);
@@ -1422,7 +1362,7 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('fishing-')) {
                 const [namespace, actionId] = customId.split(':');
                 const userId = namespace.split('-')[1];
-                
+
                 if (userId === interaction.user.id) {
                     const fishingCommand = client.commands.get('fishing');
                     if (fishingCommand && fishingCommand.handleButtonInteraction) {
@@ -1469,7 +1409,7 @@ client.on('interactionCreate', async interaction => {
                 const parts = customId.split('_');
                 const action = parts[1]; // mode or drop
                 const value = parts[2];  // mode name or drop position
-                
+
                 const plinkoCommand = client.commands.get('plinko');
                 if (plinkoCommand && plinkoCommand.handleButtonInteraction) {
                     await plinkoCommand.handleButtonInteraction(interaction, action, value);
@@ -1485,13 +1425,13 @@ client.on('interactionCreate', async interaction => {
             // Handle Bingo buttons (namespace: bingo_{action}_{channelId})
             else if (customId.startsWith('bingo_')) {
                 const parts = customId.split('_');
-                
+
                 if (parts[1] === 'card' && parts.length >= 6) {
                     // Interactive card button click: bingo_card_{userId}_{row}_{col}_{number}
                     const row = parseInt(parts[3]);
                     const col = parseInt(parts[4]);
                     const number = parseInt(parts[5]);
-                    
+
                     const bingoCommand = client.commands.get('bingo');
                     if (bingoCommand && bingoCommand.handleButtonInteraction) {
                         await bingoCommand.handleButtonInteraction(interaction, 'card_click', row, col, number);
@@ -1499,7 +1439,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     // Regular bingo buttons: bingo_{action}_{channelId}
                     const action = parts[1]; // join, start, leave, show_card, interactive_card, game_status
-                    
+
                     const bingoCommand = client.commands.get('bingo');
                     if (bingoCommand && bingoCommand.handleButtonInteraction) {
                         await bingoCommand.handleButtonInteraction(interaction, action);
@@ -1510,7 +1450,7 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('uno_')) {
                 const parts = customId.split('_');
                 const action = parts[1]; // join, start, leave, hand, draw, play, uno, status
-                
+
                 const unoCommand = client.commands.get('uno');
                 if (unoCommand && unoCommand.handleButtonInteraction) {
                     await unoCommand.handleButtonInteraction(interaction, action);
@@ -1519,13 +1459,13 @@ client.on('interactionCreate', async interaction => {
             // Handle lottery buttons
             else if (customId.startsWith('lottery_')) {
                 const action = customId.substring('lottery_'.length);
-                
+
                 // Try new lottery command first for specific actions
                 const lotteryCommand = client.commands.get('lottery');
-                if (lotteryCommand && lotteryCommand.handleButtonInteraction && 
+                if (lotteryCommand && lotteryCommand.handleButtonInteraction &&
                     ['buy_tickets', 'rules', 'my_tickets', 'prizes', 'cancel_game'].includes(action)) {
                     await lotteryCommand.handleButtonInteraction(interaction, action);
-                } 
+                }
                 // Try purchaselottery command for purchase-specific actions (buy_1, buy_2, view_tickets, etc.)
                 else {
                     const purchaseLotteryCommand = client.commands.get('purchaselottery');
@@ -1568,7 +1508,7 @@ client.on('interactionCreate', async interaction => {
                             .setTitle('❌ Help Error')
                             .setDescription('Unable to show help at this time.')
                             .setColor(0xFF0000);
-                        
+
                         if (interaction.replied || interaction.deferred) {
                             await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                         } else {
@@ -1651,7 +1591,7 @@ client.on('interactionCreate', async interaction => {
                         .setTitle('❌ Battleship Error')
                         .setDescription('An error occurred while processing your battleship action.')
                         .setColor(0xFF0000);
-                    
+
                     if (interaction.replied || interaction.deferred) {
                         await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                     } else {
@@ -1679,7 +1619,7 @@ client.on('interactionCreate', async interaction => {
                         .setTitle('❌ Plinko Error')
                         .setDescription('An error occurred while processing your Plinko action.')
                         .setColor(0xFF0000);
-                    
+
                     if (interaction.replied || interaction.deferred) {
                         await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                     } else {
@@ -1696,10 +1636,10 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('help_')) {
                 try {
                     logger.info(`Help button clicked: ${customId} by user ${interaction.user.id}`);
-                    
+
                     // Import help functions
                     const { showMainHelp, showCategoryHelp, handleHelpError, HELP_CATEGORIES } = require('./COMMANDS/help');
-                    
+
                     // Always defer update for buttons
                     if (!interaction.deferred && !interaction.replied) {
                         await interaction.deferUpdate();
@@ -1711,10 +1651,10 @@ client.on('interactionCreate', async interaction => {
                         case 'help_close':
                             if (customId === 'help_close') {
                                 // Close help with a simple message
-                                await interaction.editReply({ 
-                                    content: '✅ **Help closed!** Use `/help` anytime to access the help system again.', 
-                                    embeds: [], 
-                                    components: [] 
+                                await interaction.editReply({
+                                    content: '✅ **Help closed!** Use `/help` anytime to access the help system again.',
+                                    embeds: [],
+                                    components: []
                                 });
                             } else {
                                 await showMainHelp(interaction);
@@ -1734,7 +1674,7 @@ client.on('interactionCreate', async interaction => {
                                     }
                                 }
                             }
-                            
+
                             if (category) {
                                 await showCategoryHelp(interaction, category);
                             } else {
@@ -1768,9 +1708,9 @@ client.on('interactionCreate', async interaction => {
 
                         default:
                             // Handle category-specific buttons (examples, tips, FAQ, tutorials)
-                            if (customId.includes('_examples_') || customId.includes('_tips_') || 
+                            if (customId.includes('_examples_') || customId.includes('_tips_') ||
                                 customId.includes('_faq_') || customId.includes('_tutorial_')) {
-                                
+
                                 await showAdvancedHelpContent(interaction, customId);
                             } else {
                                 logger.warn(`Unknown help button: ${customId}`);
@@ -1781,14 +1721,14 @@ client.on('interactionCreate', async interaction => {
 
                 } catch (error) {
                     logger.error(`Critical error in help button ${customId}: ${error.message}\nStack: ${error.stack}`);
-                    
+
                     // Use centralized error handling
                     try {
                         const { handleHelpError } = require('./COMMANDS/help');
                         await handleHelpError(interaction, error);
                     } catch (fallbackError) {
                         logger.error(`Help button fallback error: ${fallbackError.message}`);
-                        
+
                         try {
                             const errorMessage = '⚠️ Help system error. Try `/help` to restart.';
                             if (interaction.deferred) {
@@ -1806,7 +1746,7 @@ client.on('interactionCreate', async interaction => {
             else if (customId === 'vote_remind_me') {
                 await handleVoteReminder(interaction);
             }
-            
+
             // Handle VPS management buttons
             else if (customId.startsWith('vps_')) {
                 try {
@@ -1822,14 +1762,14 @@ client.on('interactionCreate', async interaction => {
                     }
                 } catch (vpsError) {
                     logger.error(`Error handling VPS button ${customId}:`, vpsError);
-                    
+
                     const UITemplates = require('./UTILS/uiTemplates');
                     const errorEmbed = UITemplates.createErrorEmbed('VPS Management', {
                         description: `Failed to execute VPS operation: ${customId.replace('vps_', '')}`,
                         error: vpsError.message,
                         isLoss: false
                     });
-                    
+
                     if (interaction.deferred || interaction.replied) {
                         await interaction.editReply({ embeds: [errorEmbed] });
                     } else {
@@ -1925,15 +1865,15 @@ client.on('interactionCreate', async interaction => {
             // Handle generic game buttons (game_play_again, game_quit)
             else if (customId.startsWith('game_')) {
                 const action = customId.substring('game_'.length);
-                
+
                 // Handle new play again with amount format
                 if (action.startsWith('play_again_')) {
                     const betAmount = parseInt(action.replace('play_again_', ''));
-                    
+
                     // Determine which game to restart based on the embed content
                     const embed = interaction.message.embeds[0];
                     let gameType = null;
-                    
+
                     if (embed && embed.title) {
                         if (embed.title.includes('Blackjack') || embed.title.includes('🃏')) {
                             gameType = 'blackjack';
@@ -1945,11 +1885,11 @@ client.on('interactionCreate', async interaction => {
                             gameType = 'crash';
                         }
                     }
-                    
+
                     if (gameType === 'blackjack' && betAmount > 0) {
                         // Start a new blackjack game directly with the specified bet
                         const blackjackCommand = require('./COMMANDS/blackjack');
-                        
+
                         // Create a fake interaction with the bet amount
                         const fakeInteraction = {
                             ...interaction,
@@ -1961,7 +1901,7 @@ client.on('interactionCreate', async interaction => {
                             editReply: async (data) => await interaction.editReply(data),
                             reply: async (data) => await interaction.editReply(data)
                         };
-                        
+
                         try {
                             await blackjackCommand.execute(fakeInteraction);
                         } catch (error) {
@@ -1973,7 +1913,7 @@ client.on('interactionCreate', async interaction => {
                     } else if (gameType === 'roulette' && betAmount > 0) {
                         // Start a new roulette game directly with the specified bet
                         const rouletteCommand = require('./COMMANDS/roulette');
-                        
+
                         // Create a fake interaction with the bet amount
                         const fakeInteraction = {
                             ...interaction,
@@ -1987,7 +1927,7 @@ client.on('interactionCreate', async interaction => {
                             replied: false,
                             deferred: true
                         };
-                        
+
                         try {
                             await rouletteCommand.execute(fakeInteraction);
                         } catch (error) {
@@ -2006,7 +1946,7 @@ client.on('interactionCreate', async interaction => {
                     // Determine which game to restart based on the embed content
                     const embed = interaction.message.embeds[0];
                     let gameType = null;
-                    
+
                     if (embed && embed.title) {
                         if (embed.title.includes('Blackjack') || embed.title.includes('🃏')) {
                             gameType = 'blackjack';
@@ -2018,18 +1958,18 @@ client.on('interactionCreate', async interaction => {
                             gameType = 'crash';
                         }
                     }
-                    
+
                     if (gameType === 'blackjack') {
                         // For blackjack, show bet selection interface
                         const { EmbedBuilder } = require('discord.js');
                         const GamePanel = require('./UTILS/gamePanel');
                         const dbManager = require('./UTILS/database');
                         const { getGuildId } = require('./UTILS/common');
-                        
+
                         try {
                             const guildId = await getGuildId(interaction);
                             const userBalance = await dbManager.getUserBalance(interaction.user.id, guildId);
-                            
+
                             const betEmbed = new EmbedBuilder()
                                 .setTitle('🃏 Play Blackjack Again')
                                 .setDescription(`Select your bet amount to start a new game of Blackjack.`)
@@ -2039,13 +1979,13 @@ client.on('interactionCreate', async interaction => {
                                 ])
                                 .setColor(0x00ff00)
                                 .setTimestamp();
-                            
+
                             const betSelector = GamePanel.createBetSelector({
                                 balance: userBalance.wallet,
                                 minBet: 10,
                                 customId: 'blackjack_bet_select'
                             });
-                            
+
                             if (betSelector) {
                                 await interaction.update({
                                     embeds: [betEmbed],
@@ -2082,7 +2022,7 @@ client.on('interactionCreate', async interaction => {
                         .setDescription('The game session has been ended by the player.')
                         .setColor(0x808080)
                         .setTimestamp();
-                    
+
                     await interaction.update({
                         content: null,
                         embeds: [endEmbed],
@@ -2124,14 +2064,14 @@ client.on('interactionCreate', async interaction => {
                 }
             }
             */
-            
+
         } catch (error) {
             // Handle "Unknown interaction" errors gracefully (interaction expired)
             if (error.message.includes('Unknown interaction') || error.code === 10062) {
                 logger.debug(`Button interaction expired for customId: ${customId}, user: ${interaction.user.id}`);
                 return; // Silently ignore expired interactions
             }
-            
+
             logger.error(`Error handling button ${customId}:`, error);
 
             const errorEmbed = new EmbedBuilder()
@@ -2140,9 +2080,9 @@ client.on('interactionCreate', async interaction => {
                 .setColor(0xFF0000);
 
             // Use safe interaction handler
-            await SafeInteractionHandler.safeReply(interaction, { 
-                embeds: [errorEmbed], 
-                flags: MessageFlags.Ephemeral 
+            await SafeInteractionHandler.safeReply(interaction, {
+                embeds: [errorEmbed],
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -2171,23 +2111,23 @@ client.on('messageCreate', async message => {
     try {
         // Check if this message is a follow-up to a panel action
         await panelManager.processFollowUpAction(message);
-        
-        
+
+
         // Guild-specific message reward system (3K-15K every 15-30 messages)
         const { messageRewardSystem } = require('./UTILS/messageRewardSystem');
         await messageRewardSystem.processMessage(message);
-        
+
         // Process XP for chat activity (rate-limited)
         const levelingSystem = require('./UTILS/levelingSystem');
         const levelResult = await levelingSystem.handleChatMessage(message.author.id, message.guildId, message.channelId);
-        
+
         // Handle level up if occurred
         if (levelResult && levelResult.levelUp) {
             const levelUpEmbed = levelingSystem.createLevelUpEmbed(message.author, levelResult.newLevel);
-            
+
             // Award level-up rewards
             const levelReward = await levelingSystem.processLevelUpRewards(message.author.id, message.guildId, levelResult.newLevel);
-            
+
             // Send level up message in level up channel
             try {
                 const levelUpChannel = message.client.channels.cache.get('1411018763008217208');
@@ -2198,7 +2138,7 @@ client.on('messageCreate', async message => {
                 logger.debug(`Could not send level up message: ${levelError.message}`);
             }
         }
-        
+
         logger.debug(`Message processed - rewards and XP handled for target guild`);
     } catch (error) {
         logger.error(`Error processing message: ${error.message}`);
@@ -2213,18 +2153,18 @@ client.on('messageCreate', async message => {
 
 client.on('error', async error => {
     logger.error('Discord client error:', error);
-    try { await sendLogMessage(client, 'error', `Discord client error: ${error.message}`); } catch (_) {}
+    try { await sendLogMessage(client, 'error', `Discord client error: ${error.message}`); } catch (_) { }
 });
 
 client.on('warn', async warning => {
     logger.warn('Discord client warning:', warning);
-    try { await sendLogMessage(client, 'warn', `Discord client warning: ${warning}`); } catch (_) {}
+    try { await sendLogMessage(client, 'warn', `Discord client warning: ${warning}`); } catch (_) { }
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', async error => {
     logger.error('Unhandled promise rejection:', error);
-    try { await sendLogMessage(client, 'error', `Unhandled rejection: ${error?.message || error}`); } catch (_) {}
+    try { await sendLogMessage(client, 'error', `Unhandled rejection: ${error?.message || error}`); } catch (_) { }
 });
 
 // ========================= VOTE REMINDER SYSTEM =========================
@@ -2235,13 +2175,13 @@ process.on('unhandledRejection', async error => {
 async function handleVoteReminder(interaction) {
     try {
         const userId = interaction.user.id;
-        
+
         // Get user's current vote data to determine when they can vote next
         const voteData = await dbManager.databaseAdapter.getUserVoteData(userId);
         const lastVoteTime = voteData?.last_vote_ts || 0;
         const nextVoteTime = lastVoteTime + (12 * 60 * 60 * 1000); // 12 hours after last vote
         const timeUntilVote = nextVoteTime - Date.now();
-        
+
         if (timeUntilVote <= 0) {
             // Can vote now
             await interaction.reply({
@@ -2250,17 +2190,17 @@ async function handleVoteReminder(interaction) {
             });
             return;
         }
-        
+
         // Set reminder for when they can vote
         const reminderTime = timeUntilVote;
-        const reminderTimeFormatted = Math.floor(reminderTime / (1000 * 60 * 60)) + 'h ' + 
-                                    Math.floor((reminderTime % (1000 * 60 * 60)) / (1000 * 60)) + 'm';
-        
+        const reminderTimeFormatted = Math.floor(reminderTime / (1000 * 60 * 60)) + 'h ' +
+            Math.floor((reminderTime % (1000 * 60 * 60)) / (1000 * 60)) + 'm';
+
         await interaction.reply({
             content: `⏰ **Reminder Set!** I'll remind you to vote in **${reminderTimeFormatted}**!\n\n💡 *You can vote every 12 hours for maximum rewards and streak bonuses!*`,
             ephemeral: true
         });
-        
+
         // Schedule the reminder
         setTimeout(async () => {
             try {
@@ -2284,7 +2224,7 @@ async function handleVoteReminder(interaction) {
                     .setThumbnail(interaction.client.user.displayAvatarURL())
                     .setFooter({ text: '🎰 ATIVE Casino • Reminder System' })
                     .setTimestamp();
-                
+
                 const voteButton = new ActionRowBuilder()
                     .addComponents(
                         new ButtonBuilder()
@@ -2292,22 +2232,22 @@ async function handleVoteReminder(interaction) {
                             .setStyle(ButtonStyle.Link)
                             .setURL('https://top.gg/bot/1403236218900185088/vote')
                     );
-                
-                await interaction.user.send({ 
-                    embeds: [reminderEmbed], 
-                    components: [voteButton] 
+
+                await interaction.user.send({
+                    embeds: [reminderEmbed],
+                    components: [voteButton]
                 }).catch(() => {
                     // If DM fails, that's okay - user might have DMs disabled
                     logger.info(`Failed to send vote reminder DM to ${interaction.user.username}`);
                 });
-                
+
             } catch (error) {
                 logger.error(`Error sending vote reminder: ${error.message}`);
             }
         }, reminderTime);
-        
+
         logger.info(`Vote reminder set for ${interaction.user.username} (${userId}) - ${reminderTimeFormatted}`);
-        
+
     } catch (error) {
         logger.error(`Error handling vote reminder: ${error.message}`);
         await interaction.reply({
@@ -2333,97 +2273,97 @@ uasConnector.initialize(app);
 app.post('/role-assignment', async (req, res) => {
     try {
         const { userId, guildId, roleId, action, reason } = req.body;
-        
+
         // Validate required fields
         if (!userId || !guildId || !roleId || !action) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Missing required fields: userId, guildId, roleId, action' 
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required fields: userId, guildId, roleId, action'
             });
         }
-        
+
         // Validate action
         if (!['assign', 'remove'].includes(action)) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Invalid action. Must be "assign" or "remove"' 
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid action. Must be "assign" or "remove"'
             });
         }
-        
+
         // Get guild and member
         const guild = client.guilds.cache.get(guildId);
         if (!guild) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'Guild not found or bot not in guild' 
+            return res.status(404).json({
+                success: false,
+                error: 'Guild not found or bot not in guild'
             });
         }
-        
+
         const member = await guild.members.fetch(userId).catch(() => null);
         if (!member) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'User not found in guild' 
+            return res.status(404).json({
+                success: false,
+                error: 'User not found in guild'
             });
         }
-        
+
         const role = guild.roles.cache.get(roleId);
         if (!role) {
-            return res.status(404).json({ 
-                success: false, 
-                error: 'Role not found in guild' 
+            return res.status(404).json({
+                success: false,
+                error: 'Role not found in guild'
             });
         }
-        
+
         // Perform role action
         if (action === 'assign') {
             if (member.roles.cache.has(roleId)) {
-                return res.status(200).json({ 
-                    success: true, 
+                return res.status(200).json({
+                    success: true,
                     message: 'User already has this role',
                     alreadyHadRole: true
                 });
             }
-            
+
             await member.roles.add(roleId, reason || 'Subscription purchase');
-            
+
             logger.info(`Role assigned: ${role.name} to ${member.user.username} (${userId}) in ${guild.name}`);
-            
-            res.status(200).json({ 
-                success: true, 
+
+            res.status(200).json({
+                success: true,
                 message: `Role ${role.name} assigned successfully`,
                 action: 'assigned',
                 roleName: role.name,
                 userName: member.user.username
             });
-            
+
         } else { // action === 'remove'
             if (!member.roles.cache.has(roleId)) {
-                return res.status(200).json({ 
-                    success: true, 
+                return res.status(200).json({
+                    success: true,
                     message: 'User does not have this role',
                     alreadyRemovedRole: true
                 });
             }
-            
+
             await member.roles.remove(roleId, reason || 'Subscription cancelled');
-            
+
             logger.info(`Role removed: ${role.name} from ${member.user.username} (${userId}) in ${guild.name}`);
-            
-            res.status(200).json({ 
-                success: true, 
+
+            res.status(200).json({
+                success: true,
                 message: `Role ${role.name} removed successfully`,
                 action: 'removed',
                 roleName: role.name,
                 userName: member.user.username
             });
         }
-        
+
     } catch (error) {
         logger.error(`Role assignment webhook error: ${error.message}`);
-        res.status(500).json({ 
-            success: false, 
-            error: error.message 
+        res.status(500).json({
+            success: false,
+            error: error.message
         });
     }
 });
@@ -2434,7 +2374,7 @@ app.post('/topgg/webhook', async (req, res) => {
         // Initialize TopGG manager
         const TopGGManager = require('./UTILS/topgg');
         const topggManager = new TopGGManager(client);
-        
+
         // Handle the webhook
         await topggManager.handleVoteWebhook(req, res);
     } catch (error) {
@@ -2445,8 +2385,8 @@ app.post('/topgg/webhook', async (req, res) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.status(200).json({ 
-        status: 'healthy', 
+    res.status(200).json({
+        status: 'healthy',
         uptime: Math.floor((Date.now() - client.startTime) / 1000),
         timestamp: new Date().toISOString()
     });
@@ -2461,7 +2401,7 @@ app.listen(PORT, () => {
 // Handle uncaught exceptions
 process.on('uncaughtException', async error => {
     logger.error('Uncaught exception:', error);
-    try { await sendLogMessage(client, 'error', `Uncaught exception: ${error?.message || error}`); } catch (_) {}
+    try { await sendLogMessage(client, 'error', `Uncaught exception: ${error?.message || error}`); } catch (_) { }
     process.exit(1);
 });
 
@@ -2508,9 +2448,9 @@ async function showAllCommandsList(interaction) {
         )
         .setColor(0x3498DB)
         .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ 
-            text: '📋 Command Reference • All 25+ Commands • ATIVE Casino Bot', 
-            iconURL: interaction.client.user.displayAvatarURL() 
+        .setFooter({
+            text: '📋 Command Reference • All 25+ Commands • ATIVE Casino Bot',
+            iconURL: interaction.client.user.displayAvatarURL()
         })
         .setTimestamp();
 
@@ -2596,9 +2536,9 @@ async function showQuickStartGuide(interaction) {
         )
         .setColor(0x2ECC71)
         .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ 
-            text: '🚀 Quick Start • 5-Minute Tutorial • ATIVE Casino Bot', 
-            iconURL: interaction.client.user.displayAvatarURL() 
+        .setFooter({
+            text: '🚀 Quick Start • 5-Minute Tutorial • ATIVE Casino Bot',
+            iconURL: interaction.client.user.displayAvatarURL()
         })
         .setTimestamp();
 
@@ -2865,10 +2805,10 @@ async function showFishingHelp(interaction) {
 // Graceful shutdown utility to check for active games
 async function checkActiveGames() {
     const activeGameSessions = [];
-    
+
     // Check each game command for active games
     const gameCommands = ['blackjack', 'slots', 'crash', 'plinko', 'duck', 'treasurevault', 'fishing', 'uno', 'rps', 'multi-slots'];
-    
+
     for (const gameName of gameCommands) {
         const command = client.commands.get(gameName);
         if (command) {
@@ -2880,7 +2820,7 @@ async function checkActiveGames() {
                     players: Array.from(command.activeGames.keys())
                 });
             }
-            
+
             // Check for module-level activeGames exports
             try {
                 const gameModule = require(`./COMMANDS/${gameName}.js`);
@@ -2896,7 +2836,7 @@ async function checkActiveGames() {
             }
         }
     }
-    
+
     return activeGameSessions;
 }
 
@@ -2906,17 +2846,17 @@ const gracefulShutdown = require('./UTILS/gracefulShutdown');
 // Initialize graceful shutdown manager with client after ready
 client.once('clientReady', async () => {
     StartupBanner.showBanner();
-    
+
     // Clear any stale game sessions from previous runs
     const { clearActiveGame } = require('./UTILS/common');
     const sessionManager = require('./UTILS/sessionManager');
-    
+
     // Clear legacy game registry
     const clearedCount = clearActiveGame(null, true);
     if (clearedCount > 0) {
         logger.info(`Cleared ${clearedCount} stale legacy game sessions from previous run`);
     }
-    
+
     // Clean up any stale sessions from the session manager
     try {
         await sessionManager.performCleanup();
@@ -2924,31 +2864,31 @@ client.once('clientReady', async () => {
     } catch (error) {
         logger.error('Failed to perform session manager cleanup on startup:', error);
     }
-    
+
     gracefulShutdown.initialize(client);
 });
 
 // Graceful shutdown
 process.on('SIGINT', async () => {
     logger.info('Received SIGINT, starting enhanced graceful shutdown...');
-    
+
     try {
         // Stop EconomyGuardian
         if (client.economyGuardian) {
             const { shutdownEconomyGuardian } = require('./ECONOMY_GUARDIAN/integration');
             await shutdownEconomyGuardian(client);
         }
-        
+
         // Stop storage monitoring
         storageMonitor.stopMonitoring();
         logger.info('Storage monitoring stopped');
-        
+
         const result = await gracefulShutdown.initiateGracefulShutdown('SIGINT received', 5);
         logger.info(`Graceful shutdown completed: ${result.message}`);
     } catch (error) {
         logger.error(`Error during graceful shutdown: ${error.message}`);
     }
-    
+
     client.destroy();
     process.exit(0);
 });
@@ -2966,23 +2906,23 @@ if (process.env.NODE_ENV === 'production' || process.env.ENVIRONMENT === 'produc
 // Enhanced shutdown handler for Railway
 process.on('SIGTERM', async () => {
     logger.info('Received SIGTERM, starting enhanced graceful shutdown...');
-    
+
     try {
         // Stop storage monitoring
         storageMonitor.stopMonitoring();
         logger.info('Storage monitoring stopped');
-        
+
         // Stop health check server
         if (healthCheckServer) {
             healthCheckServer.stop();
         }
-        
+
         const result = await gracefulShutdown.initiateGracefulShutdown('SIGTERM received (deployment)', 3);
         logger.info(`Graceful shutdown completed: ${result.message}`);
     } catch (error) {
         logger.error(`Error during graceful shutdown: ${error.message}`);
     }
-    
+
     client.destroy();
     process.exit(0);
 });
@@ -3023,7 +2963,7 @@ async function showBotStats(interaction) {
         .setTitle('📊 Bot Statistics')
         .setDescription('📈 **Coming Soon!** Comprehensive statistics.')
         .setColor(0x3498DB);
-    
+
     const buttons = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
@@ -3042,7 +2982,7 @@ async function showChangelog(interaction) {
         .setTitle('📰 What\'s New')
         .setDescription('🚀 **Coming Soon!** Latest updates.')
         .setColor(0xE67E22);
-    
+
     const buttons = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
@@ -3061,7 +3001,7 @@ async function showAdvancedHelpContent(interaction, customId) {
         .setTitle('🔧 Advanced Help')
         .setDescription('⚡ **Coming Soon!** Advanced tutorials.')
         .setColor(0x9B59B6);
-    
+
     const buttons = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()

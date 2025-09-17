@@ -21,50 +21,118 @@ const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 const { sendLogMessage } = require('../UTILS/common');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
-const { secureRandomFloat, generateProvablyFairRandom, generateVolatilityAdjustedRandom } = require('../UTILS/rng');
+const { secureRandomFloat } = require('../UTILS/rng');
 const tuningManager = require('../UTILS/tuningManager');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
-// ECONOMIC SYSTEM COMPLIANT - Max 3x multipliers, AI-regulated betting
+// ECONOMIC SYSTEM COMPLIANT - Progressive difficulty modes with incremental multipliers to 3x max
+const CRASH_MODES = {
+  safe: {
+    name: '🛡️ Safe',
+    description: 'Conservative mode with lower crash risk',
+    minBet: 500,
+    maxMultiplier: 1.5,        // Small incremental cap at 1.5x
+    houseEdge: 0.08,           // 8% house edge
+    emoji: '🛡️',
+    color: '#4CAF50'
+  },
+  balanced: {
+    name: '⚖️ Balanced',
+    description: 'Moderate risk with balanced rewards',
+    minBet: 1000,
+    maxMultiplier: 2.0,        // Medium incremental cap at 2.0x
+    houseEdge: 0.10,           // 10% house edge
+    emoji: '⚖️',
+    color: '#FF9800'
+  },
+  risky: {
+    name: '⚡ Risky',
+    description: 'High risk with substantial rewards',
+    minBet: 2500,
+    maxMultiplier: 2.5,        // Higher incremental cap at 2.5x
+    houseEdge: 0.12,           // 12% house edge
+    emoji: '⚡',
+    color: '#F44336'
+  },
+  extreme: {
+    name: '🔥 Extreme',
+    description: 'Maximum risk with highest rewards',
+    minBet: 5000,
+    maxMultiplier: 3.0,        // Maximum incremental cap at 3.0x
+    houseEdge: 0.15,           // 15% house edge
+    emoji: '🔥',
+    color: '#9C27B0'
+  }
+};
+
+// Global configuration
 const CRASH_CONFIG = {
-  min_bet: 10,
-  max_bet: 400000,            // Maximum $400K bet
   update_interval: 1000,      // Update every 1 second
-  max_multiplier: 3.0,        // ECONOMIC COMPLIANCE: Max 3x multiplier
-  house_edge: 0.052,          // Match system house edge
   max_duration: 30,           // Max 30 seconds per game
   betting_duration: 60        // 60 seconds to place bets
 };
 
-// Advanced crash point generation with CSPRNG
-function generateCrashPoint(userId = null, gameId = null) {
-  // Use provably fair random for crash point generation
-  // For multiplayer games, use a game-specific seed when no userId is provided
-  const seed = userId || `crash_game_${Date.now()}_${Math.random()}`;
-  const fairRandom = generateProvablyFairRandom('crash', seed, 0, 10000);
-  const rand = fairRandom.value / 10000; // Convert to 0-1 range
+// Advanced crash point generation with CSPRNG and mode-specific maximums
+function generateCrashPoint(mode = 'balanced') {
+  const modeConfig = CRASH_MODES[mode] || CRASH_MODES.balanced;
+  const maxMultiplier = modeConfig.maxMultiplier;
+  
+  // Generate random number for crash point
+  const rand = secureRandomFloat(); // 0-1 range
   
   // Add volatility adjustment for more realistic crash patterns
-  const volatilityRandom = generateVolatilityAdjustedRandom(0, 1000, 0.6) / 1000;
+  const volatilityRandom = secureRandomFloat();
   
   // Combine both randoms for enhanced unpredictability
   const combinedRand = (rand * 0.7) + (volatilityRandom * 0.3);
   
   let crashPoint;
   
-  // ECONOMIC COMPLIANCE: Enhanced probability curve with 3x max
-  if (combinedRand < 0.40) {
-    crashPoint = 1.0 + (secureRandomFloat() * 0.8); // 1.0x - 1.8x (40%)
-  } else if (combinedRand < 0.70) {
-    crashPoint = 1.8 + (secureRandomFloat() * 0.7); // 1.8x - 2.5x (30%)
-  } else if (combinedRand < 0.90) {
-    crashPoint = 2.5 + (secureRandomFloat() * 0.4); // 2.5x - 2.9x (20%)
+  // Mode-specific probability curves with incremental progression
+  if (maxMultiplier <= 1.5) {
+    // Safe mode: 1.0x - 1.5x with conservative distribution
+    if (combinedRand < 0.50) {
+      crashPoint = 1.0 + (secureRandomFloat() * 0.3); // 1.0x - 1.3x (50%)
+    } else {
+      crashPoint = 1.3 + (secureRandomFloat() * 0.2); // 1.3x - 1.5x (50%)
+    }
+  } else if (maxMultiplier <= 2.0) {
+    // Balanced mode: 1.0x - 2.0x with moderate distribution
+    if (combinedRand < 0.45) {
+      crashPoint = 1.0 + (secureRandomFloat() * 0.5); // 1.0x - 1.5x (45%)
+    } else if (combinedRand < 0.80) {
+      crashPoint = 1.5 + (secureRandomFloat() * 0.3); // 1.5x - 1.8x (35%)
+    } else {
+      crashPoint = 1.8 + (secureRandomFloat() * 0.2); // 1.8x - 2.0x (20%)
+    }
+  } else if (maxMultiplier <= 2.5) {
+    // Risky mode: 1.0x - 2.5x with aggressive distribution
+    if (combinedRand < 0.40) {
+      crashPoint = 1.0 + (secureRandomFloat() * 0.6); // 1.0x - 1.6x (40%)
+    } else if (combinedRand < 0.70) {
+      crashPoint = 1.6 + (secureRandomFloat() * 0.4); // 1.6x - 2.0x (30%)
+    } else if (combinedRand < 0.90) {
+      crashPoint = 2.0 + (secureRandomFloat() * 0.3); // 2.0x - 2.3x (20%)
+    } else {
+      crashPoint = 2.3 + (secureRandomFloat() * 0.2); // 2.3x - 2.5x (10%)
+    }
   } else {
-    crashPoint = 2.9 + (secureRandomFloat() * 0.1); // 2.9x - 3.0x (10%)
+    // Extreme mode: 1.0x - 3.0x with maximum risk distribution
+    if (combinedRand < 0.35) {
+      crashPoint = 1.0 + (secureRandomFloat() * 0.7); // 1.0x - 1.7x (35%)
+    } else if (combinedRand < 0.65) {
+      crashPoint = 1.7 + (secureRandomFloat() * 0.5); // 1.7x - 2.2x (30%)
+    } else if (combinedRand < 0.85) {
+      crashPoint = 2.2 + (secureRandomFloat() * 0.5); // 2.2x - 2.7x (20%)
+    } else if (combinedRand < 0.95) {
+      crashPoint = 2.7 + (secureRandomFloat() * 0.2); // 2.7x - 2.9x (10%)
+    } else {
+      crashPoint = 2.9 + (secureRandomFloat() * 0.1); // 2.9x - 3.0x (5%)
+    }
   }
   
-  // Ensure we don't exceed maximum
-  return Math.min(CRASH_CONFIG.max_multiplier, Number(crashPoint.toFixed(2)));
+  // Ensure we don't exceed mode-specific maximum
+  return Math.min(maxMultiplier, Number(crashPoint.toFixed(2)));
 }
 
 // Improved multiplier calculation - starts at 1.00x with smaller increments
@@ -91,15 +159,17 @@ function calculateMultiplier(startTime, crashPoint) {
   return Math.min(Number(multiplier.toFixed(2)), crashPoint);
 }
 
-// Lightweight game state management
+// Lightweight game state management with mode support
 class OptimizedCrashGame {
-  constructor(channelId, guildId) {
+  constructor(channelId, guildId, mode = 'balanced') {
     this.channelId = channelId;
     this.guildId = guildId;
+    this.mode = mode;
+    this.modeConfig = CRASH_MODES[mode] || CRASH_MODES.balanced;
     this.players = new Map();
     this.state = 'betting'; // betting, running, crashed, finished
     this.startTime = null;
-    this.crashPoint = generateCrashPoint();
+    this.crashPoint = generateCrashPoint(mode);
     this.currentMultiplier = 1.0;
     this.gameMessage = null;
     this.updateInterval = null;
@@ -107,7 +177,7 @@ class OptimizedCrashGame {
     this.sessionId = null;
     this.createdAt = Date.now();
     
-    logger.info(`Created optimized crash game for channel ${channelId} with crash point ${this.crashPoint.toFixed(2)}x`);
+    logger.info(`Created optimized crash game for channel ${channelId} in ${mode} mode with crash point ${this.crashPoint.toFixed(2)}x (max: ${this.modeConfig.maxMultiplier}x)`);
   }
 
   async addPlayer(userId, username, betAmount) {
@@ -206,7 +276,7 @@ class OptimizedCrashGame {
         title = `💰 ${ownerInfo}Crash - Betting Phase`;
         color = 0x00FF00;
         const timeRemaining = this.bettingTimeout ? Math.max(0, Math.ceil((CRASH_CONFIG.betting_duration * 1000 - (Date.now() - (this.createdAt || Date.now()))) / 1000)) : CRASH_CONFIG.betting_duration;
-        description = `🎯 Place your bets! Minimum bet: ${fmt(CRASH_CONFIG.min_bet)}\n⏱️ Time remaining: ${timeRemaining}s${this.players.size > 0 ? '\n🎮 Game will auto-start when timer reaches 0' : ''}`;
+        description = `🎯 Place your bets! ${this.modeConfig.emoji} ${this.modeConfig.name} Mode\nMinimum bet: ${fmt(this.modeConfig.minBet)} | Max multiplier: ${this.modeConfig.maxMultiplier}x\n⏱️ Time remaining: ${timeRemaining}s${this.players.size > 0 ? '\n🎮 Game will auto-start when timer reaches 0' : ''}`;
         break;
       case 'running':
         title = `🚀 ${ownerInfo}Crash - ${this.currentMultiplier.toFixed(2)}x`;
@@ -559,7 +629,7 @@ class OptimizedCrashManager {
     this.games = new Map();
   }
 
-  createGame(channelId, guildId, sessionId = null, userId = null, username = null) {
+  createGame(channelId, guildId, sessionId = null, userId = null, username = null, mode = 'balanced') {
     // Create unique game key: use sessionId if provided, otherwise channelId
     // This prevents multiple games conflicting in the same channel
     let gameKey;
@@ -577,7 +647,7 @@ class OptimizedCrashManager {
       existing.cleanup();
     }
     
-    const game = new OptimizedCrashGame(channelId, guildId);
+    const game = new OptimizedCrashGame(channelId, guildId, mode);
     game.gameKey = gameKey; // Store the key for later reference
     game.ownerId = userId; // Store who owns this game session
     game.ownerUsername = username; // Store the owner's username
@@ -777,12 +847,15 @@ async function handlePlayAgain(interaction, game) {
   const guildId = interaction.guildId;
   
   try {
+    // Preserve the mode from the old game before cleanup
+    const oldMode = game.mode || 'balanced';
+    
     // Clean up the old game
     game.cleanup();
     crashManager.removeGame(channelId);
     
-    // Create a completely new game
-    const newGame = crashManager.createGame(channelId, guildId, null, userId, username);
+    // Create a completely new game with the same mode
+    const newGame = crashManager.createGame(channelId, guildId, null, userId, username, oldMode);
     
     // Create new embed and buttons
     const embed = newGame.createEmbed();
@@ -942,9 +1015,25 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
   const userId = interaction.user.id;
   const username = interaction.user.displayName;
   
+  // Extract mode from session metadata or initialBetData
+  let mode = 'balanced';
+  if (sessionId) {
+    try {
+      const session = await sessionManager.getSession(sessionId);
+      if (session && session.metadata && session.metadata.mode) {
+        mode = session.metadata.mode;
+      }
+    } catch (error) {
+      logger.warn(`Failed to get session metadata for mode: ${error.message}`);
+    }
+  }
+  if (initialBetData && initialBetData.mode) {
+    mode = initialBetData.mode;
+  }
+  
   // Always create a new user-specific game - this allows multiple independent sessions
   // Each user gets their own crash game that doesn't interfere with others
-  let game = crashManager.createGame(channelId, guildId, sessionId, userId, username);
+  let game = crashManager.createGame(channelId, guildId, sessionId, userId, username, mode);
   game.sessionId = sessionId;
   
   // Check if there's an initial bet from the command
@@ -968,7 +1057,7 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
   const embed = game.createEmbed();
   const components = game.createButtons();
   
-  const message = await interaction.reply({
+  const message = await interaction.editReply({
     embeds: [embed],
     components
   });
@@ -1000,6 +1089,52 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
   }, CRASH_CONFIG.betting_duration * 1000);
 }
 
+// NEW: Entry point function for crash command
+async function startCrashGame(interaction, selectedMode = 'balanced', betAmount = 0) {
+  const userId = interaction.user.id;
+  const guildId = interaction.guildId;
+  const channelId = interaction.channelId;
+  
+  // Validate mode
+  if (!CRASH_MODES[selectedMode]) {
+    selectedMode = 'balanced';
+  }
+  
+  const mode = CRASH_MODES[selectedMode];
+  
+  // Create session for crash game with mode metadata
+  const sessionResult = await sessionManager.createSession({
+    userId,
+    guildId,
+    channelId: interaction.channelId,
+    gameType: GameType.CRASH,
+    betAmount: betAmount, // Initial bet amount provided
+    timeout: 120000, // 2 minutes
+    metadata: {
+      gamePhase: 'joining',
+      betPlaced: betAmount > 0,
+      initialBet: betAmount,
+      mode: selectedMode,
+      minBet: mode.minBet,
+      maxMultiplier: mode.maxMultiplier
+    }
+  });
+
+  if (!sessionResult.success) {
+    throw new Error(`Session creation failed: ${sessionResult.error}`);
+  }
+
+  const sessionId = sessionResult.sessionId;
+
+  // Pass session info to crash game handler with initial bet
+  await handleGameExecution(interaction, interaction.client, sessionId, {
+    initialBet: betAmount,
+    userId: userId,
+    username: interaction.user.displayName,
+    mode: selectedMode
+  });
+}
+
 module.exports = {
   OptimizedCrashGame,
   OptimizedCrashManager,
@@ -1007,5 +1142,7 @@ module.exports = {
   handleGameExecution,
   handleButtonInteraction,
   handleModalSubmit,
-  CRASH_CONFIG
+  startCrashGame,
+  CRASH_CONFIG,
+  CRASH_MODES
 };

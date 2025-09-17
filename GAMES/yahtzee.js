@@ -3,7 +3,7 @@
  * Complete Yahtzee game implementation with dice rolling, scoring, and game state management
  */
 
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomDice } = require('../UTILS/rng');
 
 // Yahtzee scoring combinations
 const SCORING_CATEGORIES = {
@@ -53,7 +53,7 @@ class YahtzeeDice {
     roll() {
         for (let i = 0; i < 5; i++) {
             if (!this.kept[i]) {
-                this.values[i] = secureRandomInt(1, 6);
+                this.values[i] = secureRandomDice(6);
             }
         }
     }

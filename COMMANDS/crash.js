@@ -5,7 +5,8 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
-const { sendLogMessage } = require('../UTILS/common');
+const { sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
+const dbManager = require('../UTILS/database');
 // Using real GameSessionIntegrator for session management
 const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
@@ -15,21 +16,93 @@ const allInManager = require('../UTILS/allInManager');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('crash')
-    .setDescription('Start or join a Crash round — bet and cash out before it crashes!'),
+    .setDescription('Start or join a Crash round — bet and cash out before it crashes!')
+    .addStringOption(option =>
+      option.setName('bet')
+        .setDescription('Your bet amount (e.g., 1000, 1k, 50%, all)')
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName('mode')
+        .setDescription('Risk mode (higher modes have higher minimum bets and max multipliers)')
+        .setRequired(false)
+        .addChoices(
+          { name: '🛡️ Safe (Min: $500, Max: 1.5x)', value: 'safe' },
+          { name: '⚖️ Balanced (Min: $1K, Max: 2.0x)', value: 'balanced' },
+          { name: '⚡ Risky (Min: $2.5K, Max: 2.5x)', value: 'risky' },
+          { name: '🔥 Extreme (Min: $5K, Max: 3.0x)', value: 'extreme' }
+        )
+    ),
 
   async execute(interaction) {
     const userId = interaction.user.id;
     const username = interaction.user.displayName;
     const guildId = interaction.guildId;
+    const selectedMode = interaction.options.getString('mode') || 'balanced';
+    const betString = interaction.options.getString('bet');
 
     try {
-      logger.debug(`Crash execute called by ${username} (${userId}) in guild ${guildId}`);
+      await interaction.deferReply();
+      
+      logger.debug(`Crash execute called by ${username} (${userId}) in guild ${guildId} with bet ${betString} and mode ${selectedMode}`);
+
+      // Import crash modes to check minimum bets
+      const { CRASH_MODES } = require('../GAMES/crash');
+      const modeConfig = CRASH_MODES[selectedMode] || CRASH_MODES.balanced;
+
+      // Get user balance first
+      const userBalance = await dbManager.getUserBalance(userId, guildId);
+      if (!userBalance) {
+        const embed = new EmbedBuilder()
+          .setTitle('❌ Database Error')
+          .setDescription('Unable to fetch your balance. Please try again.')
+          .setColor(0xFF0000);
+        return await interaction.editReply({ embeds: [embed] });
+      }
+
+      // Parse and validate bet amount
+      const parsedAmount = parseAmount(betString);
+      if (parsedAmount === null) {
+        const embed = new EmbedBuilder()
+          .setTitle('❌ Invalid Bet Amount')
+          .setDescription(`Invalid bet format: \`${betString}\`\n\nValid formats: 1000, 1k, 50%, all`)
+          .setColor(0xFF0000);
+        return await interaction.editReply({ embeds: [embed] });
+      }
+
+      // Resolve the actual bet amount
+      const betAmount = await resolveAmount(parsedAmount, userBalance.wallet);
+      if (betAmount === null || betAmount <= 0) {
+        const embed = new EmbedBuilder()
+          .setTitle('❌ Invalid Bet Amount')
+          .setDescription('Bet amount must be positive.')
+          .setColor(0xFF0000);
+        return await interaction.editReply({ embeds: [embed] });
+      }
+
+      // Check if user has enough balance
+      if (betAmount > userBalance.wallet) {
+        const embed = new EmbedBuilder()
+          .setTitle('❌ Insufficient Funds')
+          .setDescription(`You need ${betAmount} coins but only have ${userBalance.wallet} coins.\n\nUse \`/work\` or other commands to earn more coins!`)
+          .setColor(0xFF0000);
+        return await interaction.editReply({ embeds: [embed] });
+      }
+
+      // Check minimum bet for selected mode
+      if (betAmount < modeConfig.minBet) {
+        const embed = new EmbedBuilder()
+          .setTitle('❌ Bet Too Low')
+          .setDescription(`Minimum bet for ${modeConfig.name} mode is ${modeConfig.minBet} coins.\n\nYour bet: ${betAmount} coins`)
+          .setColor(0xFF0000);
+        return await interaction.editReply({ embeds: [embed] });
+      }
 
       // Check maintenance mode first
       const maintenanceGuard = require('../UTILS/maintenanceGuard');
       const maintenanceCheck = await maintenanceGuard.check(guildId, 'crash');
       if (!maintenanceCheck.allowed) {
-        return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+        return await interaction.editReply({ embeds: [maintenanceCheck.embed] });
       }
 
       // Check if user can create session (via sessionGuard)
@@ -40,48 +113,12 @@ module.exports = {
           .setTitle('❌ Session Error')
           .setDescription(check.message)
           .setColor(0xFF0000);
-        return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        return await interaction.editReply({ embeds: [embed] });
       }
 
-      // Quick balance check to provide better error messages
-      const dbManager = require('../UTILS/database');
-      const userBalance = await dbManager.getUserBalance(userId, guildId);
-      if (userBalance.wallet <= 0) {
-        const embed = new EmbedBuilder()
-          .setTitle('❌ Insufficient Funds')
-          .setDescription(`You need at least 10 coins to play Crash, but you have ${userBalance.wallet} coins.\n\nUse \`/work\` or other commands to earn more coins!`)
-          .setColor(0xFF0000);
-        return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      }
-
-      // Create session for crash game
-      const sessionResult = await sessionManager.createSession({
-        userId,
-        guildId,
-        channelId: interaction.channelId,
-        gameType: GameType.CRASH,
-        betAmount: 0, // No initial bet required
-        timeout: 120000, // 2 minutes
-        metadata: {
-          gamePhase: 'joining',
-          betPlaced: false,
-          initialBet: 0
-        }
-      });
-
-      if (!sessionResult.success) {
-        throw new Error(`Session creation failed: ${sessionResult.error}`);
-      }
-
-      const sessionId = sessionResult.sessionId;
-
-      // Pass session info to crash game handler without initial bet
-      const { handleGameExecution } = require('../GAMES/crash');
-      await handleGameExecution(interaction, interaction.client, sessionId, {
-        initialBet: 0,
-        userId: userId,
-        username: username
-      });
+      // Start crash game with selected mode and bet amount
+      const { startCrashGame } = require('../GAMES/crash');
+      await startCrashGame(interaction, selectedMode, betAmount);
 
     } catch (error) {
       logger.error(`crash command failed: ${error?.stack || error}`);

@@ -8,7 +8,8 @@ const { EmbedBuilder } = require('discord.js');
 const dbManager = require('./database');
 const progressiveTax = require('./progressiveTax');
 // const wealthCeiling = require('./wealthCeiling'); // DISABLED - replaced by allInManager
-const gameAITracker = require('./gameAITracker');
+// AI tracking removed
+const BulletproofEconomyController = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
 const { 
     fmt, 
     getGuildId, 
@@ -28,6 +29,18 @@ const {
 } = require('./common');
 const logger = require('./logger');
 const sessionManager = require('./sessionManager');
+
+// Initialize bulletproof economy controller
+let bulletproofEconomy = null;
+(async () => {
+    try {
+        bulletproofEconomy = new BulletproofEconomyController();
+        await bulletproofEconomy.initialize();
+        logger.info('✅ Bulletproof Economy Controller initialized successfully');
+    } catch (error) {
+        logger.error(`Failed to initialize Bulletproof Economy Controller: ${error.message}`);
+    }
+})();
 
 // ========================= ENUMS AND CONSTANTS =========================
 
@@ -356,14 +369,13 @@ class PayoutManager {
         
         logger.info(`User ${userId} placed bet of ${fmt(parsedAmount)} for ${gameType}`);
         
-        // Track game start with AI monitoring
-        const aiTracking = await gameAITracker.trackGameStart(userId, gameType, parsedAmount);
+        // AI tracking removed
         
         return new ValidationResult({
             isValid: true,
             parsedAmount: parsedAmount,
             newWallet: currentWallet - parsedAmount, // Wallet after bet deduction
-            aiTracking: aiTracking // Include AI tracking data for games to use
+            aiTracking: null // AI tracking removed - using bulletproof economy
         });
     }
     
@@ -376,11 +388,39 @@ class PayoutManager {
     static async processGamePayout(gameResult, interaction = null) {
         const { userId, guildId, gameType, betAmount, payout, won } = gameResult;
         
+        // Process game through bulletproof economy system for house edge optimization
+        let finalPayout = payout;
+        if (bulletproofEconomy) {
+            try {
+                const economyResult = await bulletproofEconomy.processGame({
+                    gameType,
+                    userId,
+                    betAmount,
+                    originalPayout: payout,
+                    won,
+                    guildId
+                });
+                
+                // Apply bulletproof economy adjustments
+                if (economyResult && economyResult.adjustedPayout !== undefined) {
+                    finalPayout = economyResult.adjustedPayout;
+                    
+                    // Log significant adjustments
+                    if (Math.abs(finalPayout - payout) > betAmount * 0.1) {
+                        logger.warn(`🎯 Bulletproof Economy adjusted payout: ${gameType} - Original: ${fmt(payout)} -> Adjusted: ${fmt(finalPayout)} (${((finalPayout/payout - 1) * 100).toFixed(1)}%)`);
+                    }
+                }
+            } catch (economyError) {
+                logger.error(`Bulletproof economy processing failed: ${economyError.message}`);
+                // Continue with original payout if economy system fails
+            }
+        }
+        
         // Log all game results for anti-abuse monitoring
-        const resultMultiplier = betAmount > 0 ? (payout / betAmount) : 0;
+        const resultMultiplier = betAmount > 0 ? (finalPayout / betAmount) : 0;
         if (won && resultMultiplier >= 10) {
-            logger.warn(`HIGH WIN ALERT: User ${userId} won ${payout} (${resultMultiplier.toFixed(2)}x) in ${gameType}`);
-        } else if (!won && payout === 0) {
+            logger.warn(`HIGH WIN ALERT: User ${userId} won ${finalPayout} (${resultMultiplier.toFixed(2)}x) in ${gameType}`);
+        } else if (!won && finalPayout === 0) {
             logger.info(`Total Loss: User ${userId} lost entire bet ${betAmount} in ${gameType}`);
         }
         
@@ -389,19 +429,15 @@ class PayoutManager {
             const balance = await dbManager.getUserBalance(userId, guildId);
             
             // Validate payout amount
-            const payoutValue = parseFloat(payout) || 0;
-            if (isNaN(payoutValue) || !isFinite(payoutValue)) {
-                logger.error(`Invalid payout amount for user ${userId}: ${payout}`);
+            if (isNaN(finalPayout) || !isFinite(finalPayout)) {
+                logger.error(`Invalid payout amount for user ${userId}: ${finalPayout}`);
                 return { success: false, error: 'Invalid payout amount' };
             }
             
-            // Since bet was already deducted, payout is the full amount to give back
-            // If player loses: payout = 0 (they get nothing back)  
-            // If player wins: payout = bet + winnings (they get their bet back plus profit)
-            
-            // WEALTH CEILING DISABLED - ALL-IN SYSTEM HANDLES ECONOMIC PROTECTION
-            // The allInManager in individual game commands now handles payout adjustments
-            let finalPayout = payoutValue;
+            // Since bet was already deducted, finalPayout is the full amount to give back
+            // If player loses: finalPayout = 0 (they get nothing back)  
+            // If player wins: finalPayout = bet + winnings (they get their bet back plus profit)
+            // Bulletproof economy may have adjusted this value above
 
             // Apply progressive tax on remaining winnings (only if they won and payout > bet amount)
             let taxAmount = 0;
@@ -496,11 +532,7 @@ class PayoutManager {
             
             logger.info(`Processed payout for ${userId}: ${fmt(payout)} (${won ? 'win' : 'loss'})`);
             
-            // Track game end with AI analysis
-            if (gameResult.metadata && gameResult.metadata.sessionId) {
-                const aiAnalysis = await gameAITracker.trackGameEnd(gameResult.metadata.sessionId, won, finalPayout);
-                gameResult.aiAnalysis = aiAnalysis;
-            }
+            // AI analysis removed
             
             return {
                 success: true,
@@ -509,7 +541,7 @@ class PayoutManager {
                 finalPayout: payout + boosterBonus,
                 isBooster: gameResult.isBooster || false,
                 boosterPercentage: gameResult.isBooster ? 2 : 0,
-                aiTracking: gameResult.aiAnalysis
+                aiTracking: null // AI analysis removed - using bulletproof economy
             };
             
         } catch (error) {

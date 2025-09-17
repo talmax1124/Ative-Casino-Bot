@@ -6,7 +6,7 @@
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, StringSelectMenuBuilder } = require('discord.js');
 const path = require('path');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomInt, secureRandomChoice } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const battleshipRenderer = require('../UTILS/battleshipRenderer');
@@ -365,7 +365,7 @@ class BattleshipGameSession {
         
         // Random first player
         const playerIds = Array.from(this.players.keys());
-        this.currentTurn = playerIds[secureRandomInt(0, playerIds.length)];
+        this.currentTurn = secureRandomChoice(playerIds);
         
         logger.info(`Battleship game started with auto-placed ships in channel ${this.channelId}`);
         return true;
@@ -385,7 +385,7 @@ class BattleshipGameSession {
         
         // Random first player
         const playerIds = Array.from(this.players.keys());
-        this.currentTurn = playerIds[secureRandomInt(0, playerIds.length)];
+        this.currentTurn = secureRandomChoice(playerIds);
         
         logger.info(`Battleship battle started in channel ${this.channelId}, first turn: ${this.currentTurn}`);
         return true;

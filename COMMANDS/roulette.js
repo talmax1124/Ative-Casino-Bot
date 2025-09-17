@@ -16,12 +16,52 @@ const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const levelingSystem = require('../UTILS/levelingSystem');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const gifAnimator = require('../UTILS/gifAnimator');
-const economicManager = require('../UTILS/economicManager');
+// economicManager removed - using bulletproof economy
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 const tuningManager = require('../UTILS/tuningManager');
 
 // Game type constant
 const SMGameType = { ROULETTE: 'roulette' };
+
+// PROGRESSIVE DIFFICULTY MODES
+const ROULETTE_MODES = {
+    safe: {
+        name: '🛡️ Safe',
+        description: 'Conservative mode with lower house edge',
+        minBet: 500,
+        houseEdge: 0.027,            // 2.7% house edge
+        maxMultiplier: 2.0,          // Much more reasonable 2x max
+        emoji: '🛡️',
+        color: '#4CAF50'
+    },
+    balanced: {
+        name: '⚖️ Balanced',
+        description: 'Standard mode with traditional house edge',
+        minBet: 1000,
+        houseEdge: 0.035,            // 3.5% house edge
+        maxMultiplier: 3.0,          // Reasonable 3x max
+        emoji: '⚖️',
+        color: '#FF9800'
+    },
+    risky: {
+        name: '⚡ Risky',
+        description: 'High risk with increased house edge',
+        minBet: 2500,
+        houseEdge: 0.040,            // 4.0% house edge
+        maxMultiplier: 4.0,          // Moderate 4x max
+        emoji: '⚡',
+        color: '#FF8800'
+    },
+    extreme: {
+        name: '🔥 Extreme',
+        description: 'Maximum risk with highest house edge',
+        minBet: 5000,
+        houseEdge: 0.050,            // 5.0% house edge
+        maxMultiplier: 6.0,          // Increased to 6x max
+        emoji: '🔥',
+        color: '#FF0000'
+    }
+};
 
 // Active games storage (indexed by sessionId)
 const activeGames = new Map();
@@ -51,11 +91,16 @@ async function createRouletteWheelImage(game, showResult = false, frameIndex = 0
  * Create payout information embed with current bet info and dynamic multipliers
  */
 async function createPayoutEmbed(user, balance, currentBet = null) {
-    // Get personalized payouts for this player
-    const PersonalizedGameHelper = require('../UTILS/personalizedGameHelper');
-    const personalizedConfig = await PersonalizedGameHelper.getPersonalizedRoulette(user.id);
+    // Personalized game helper removed - using bulletproof economy
+    const personalizedConfig = { 
+        colorPayout: 2.0, 
+        dozenPayout: 3.0, 
+        singleNumberPayout: 6.0, 
+        greenPayout: 6.0, 
+        basketPayout: 6.0 
+    }; // Default values
     
-    // Use personalized payouts in the UI display with null checks
+    // Use default payouts in the UI display
     const colorPayout = (personalizedConfig.colorPayout || 2.0).toFixed(2);
     const dozenPayout = (personalizedConfig.dozenPayout || 2.2).toFixed(2);  
     const numberPayout = (personalizedConfig.singleNumberPayout || 8.0).toFixed(2);
@@ -63,8 +108,7 @@ async function createPayoutEmbed(user, balance, currentBet = null) {
     const basketPayout = (personalizedConfig.basketPayout || 3.5).toFixed(2);
     
     // Show personalization status
-    const personalizationStatus = (personalizedConfig.personalizationLevel || 0) > 0 
-        ? ` (${personalizedConfig.wealthTier || 'unknown'} tier)` : '';
+    const personalizationStatus = '';
     
     const embed = new EmbedBuilder()
         .setTitle('🎰 American Roulette')
@@ -280,13 +324,13 @@ function createBettingButtons(userId, game = null) {
                 .setDisabled(game?.isSpinning || game?.gameEnded),
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-basket`)
-                .setLabel('Basket (5.2x)')
+                .setLabel('Basket (6x)')
                 .setEmoji('🧺')
                 .setStyle(ButtonStyle.Success)
                 .setDisabled(game?.isSpinning || game?.gameEnded),
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-numbers`)
-                .setLabel('Numbers (12.5x)')
+                .setLabel('Numbers (6x)')
                 .setEmoji('🔢')
                 .setStyle(ButtonStyle.Primary)
                 .setDisabled(game?.isSpinning || game?.gameEnded)
@@ -330,13 +374,13 @@ function createNumberSelector(userId, betAmount) {
     
     // Add green zeros
     options.push({
-        label: '0 (Green) - 12.5x',
+        label: '0 (Green) - 6x',
         value: '0',
         emoji: '🟢'
     });
     
     options.push({
-        label: '00 (Green) - 12.5x',
+        label: '00 (Green) - 6x',
         value: '00',
         emoji: '🟢'
     });
@@ -345,7 +389,7 @@ function createNumberSelector(userId, betAmount) {
     const redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21];
     for (const num of redNumbers) {
         options.push({
-            label: `${num} (Red) - 12.5x`,
+            label: `${num} (Red) - 6x`,
             value: num.toString(),
             emoji: '🔴'
         });
@@ -355,7 +399,7 @@ function createNumberSelector(userId, betAmount) {
     const blackNumbers = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24];
     for (const num of blackNumbers) {
         options.push({
-            label: `${num} (Black) - 12.5x`,
+            label: `${num} (Black) - 6x`,
             value: num.toString(),
             emoji: '⚫'
         });
@@ -375,17 +419,17 @@ function createNumberSelector(userId, betAmount) {
 function createDozenSelector(userId) {
     const options = [
         {
-            label: '1st Dozen (1-12) - 2.2x',
+            label: '1st Dozen (1-12) - 3x',
             value: 'dozen1',
             emoji: '1️⃣'
         },
         {
-            label: '2nd Dozen (13-24) - 2.2x',
+            label: '2nd Dozen (13-24) - 3x',
             value: 'dozen2',
             emoji: '2️⃣'
         },
         {
-            label: '3rd Dozen (25-36) - 2.2x',
+            label: '3rd Dozen (25-36) - 3x',
             value: 'dozen3',
             emoji: '3️⃣'
         }
@@ -407,18 +451,33 @@ module.exports = {
             option.setName('amount')
                 .setDescription('Amount to bet (supports K/M/B, "all", "all in", "half")')
                 .setRequired(true)
+        )
+        .addStringOption(option =>
+            option.setName('mode')
+                .setDescription('Risk mode (higher modes have higher minimum bets and max multipliers)')
+                .setRequired(false)
+                .addChoices(
+                    { name: '🛡️ Safe (Min: $500, House Edge: 2.7%, Max Multiplier: 2x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, House Edge: 3.5%, Max Multiplier: 3x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, House Edge: 4.0%, Max Multiplier: 4x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, House Edge: 5.0%, Max Multiplier: 6x)', value: 'extreme' }
+                )
         ),
 
     async execute(interaction) {
         const userId = interaction.user.id;
         const username = interaction.user.displayName;
         const amount = interaction.options.getString('amount');
+        const selectedMode = interaction.options.getString('mode') || 'balanced';
         const guildId = await getGuildId(interaction);
-        logger.debug(`Roulette execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}'`);
+        logger.debug(`Roulette execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}' and mode '${selectedMode}'`);
 
         let validation;
         
         try {
+            // Get mode configuration
+            const modeConfig = ROULETTE_MODES[selectedMode] || ROULETTE_MODES.balanced;
+            
             // Check maintenance mode first
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'roulette');
@@ -445,41 +504,13 @@ module.exports = {
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
-            // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
-            let dynamicMaxBet = 400000; // Default fallback limit
-            let maxBetConfig = { userCapped: false, adjustmentApplied: false };
-            
-            try {
-                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'roulette', 400000);
-                dynamicMaxBet = maxBetConfig.maxBetLimit;
-                
-                // Comprehensive logging for bet attempt
-                await comprehensiveLogger.logGame(userId, username, 'roulette', 'BET_ATTEMPT', {
-                    betAmount: parseAmount(amount),
-                    maxBetAllowed: dynamicMaxBet,
-                    userCapped: maxBetConfig.userCapped,
-                    aiAdjusted: maxBetConfig.adjustmentApplied,
-                    walletBalance: userBalance.wallet,
-                    bankBalance: userBalance.bank
-                }).catch(err => logger.error('Logging error:', err));
-                
-            } catch (tuningError) {
-                // Fallback logging for tuning system failure
-                await comprehensiveLogger.logError('ROULETTE_TUNING_SYSTEM', tuningError, { 
-                    critical: false, 
-                    fallback: 'default_limits',
-                    userId: userId 
-                }).catch(err => logger.error('Logging error:', err));
-                logger.warn(`Tuning manager failed for ${username}, using default limits: ${tuningError.message}`);
-            }
-
-            // Validate and deduct bet with AI-regulated limits
+            // Validate and deduct bet using mode-specific minimum bet
             validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.BLACKJACK, // Using existing GameType, can create ROULETTE later
-                10,         // Min bet: $10
-                dynamicMaxBet // AI-regulated max bet limit for economic compliance
+                modeConfig.minBet,  // Mode-specific minimum bet
+                null                // No max bet limit - bulletproof economy handles risk
             );
 
             if (!validation.isValid) {
@@ -501,7 +532,9 @@ module.exports = {
                 metadata: {
                     gamePhase: 'betting',
                     currentBet: null,
-                    lastResult: null
+                    lastResult: null,
+                    mode: selectedMode,
+                    modeConfig: modeConfig
                 },
                 interaction
             });
@@ -552,7 +585,9 @@ module.exports = {
                     gameData: {
                         gamePhase: 'betting',
                         currentBet: null,
-                        lastResult: null
+                        lastResult: null,
+                        mode: selectedMode,
+                        modeConfig: modeConfig
                     }
                 }, 'game_start');
                 logger.debug(`Session ${sessionId} updated with initial game data`);
@@ -728,9 +763,9 @@ module.exports = {
                         commands: [
                             '**Red/Black/Odd/Even/High/Low:** 2x payout',
                             '**Dozens (1-12, 13-24, 25-36):** 2.5x payout',
-                            '**Single Numbers:** 3x payout - Max allowed!',
-                            '**Green (0 or 00):** 3x payout - Max allowed!',
-                            '**Basket (0, 00, 1, 2, 3):** 3x payout - Max allowed!'
+                            '**Single Numbers:** 6x payout - Max allowed!',
+                            '**Green (0 or 00):** 6x payout - Max allowed!',
+                            '**Basket (0, 00, 1, 2, 3):** 6x payout - Max allowed!'
                         ],
                         tips: [
                             'American wheel has both 0 and 00',

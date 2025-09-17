@@ -18,7 +18,7 @@ const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PayoutManager, GameResult } = require('../UTILS/gameUtils');
-const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('../UTILS/rng');
+const { secureRandomBool, secureRandomInt, secureRandomFloat } = require('../UTILS/rng');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
 // Game Configuration - FAST MODE
@@ -93,7 +93,7 @@ class RussianRouletteGame {
         const chamber = new Array(CONFIG.CHAMBER_SIZE).fill(false);
         
         // Place 1-2 bullets randomly
-        const bulletCount = secureRandomFloat() < 0.7 ? 1 : 2; // 70% chance of 1 bullet, 30% chance of 2
+        const bulletCount = secureRandomBool(0.7) ? 1 : 2; // 70% chance of 1 bullet, 30% chance of 2
         
         for (let i = 0; i < bulletCount; i++) {
             let position;
@@ -654,7 +654,7 @@ class RussianRouletteGame {
      */
     pullTrigger() {
         // Check for jam first
-        if (secureRandomFloat() < CONFIG.JAM_CHANCE) {
+        if (secureRandomBool(CONFIG.JAM_CHANCE)) {
             return { 
                 bullet: false, 
                 jammed: true, 
@@ -1083,7 +1083,7 @@ class RussianRouletteGame {
      */
     shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
-            const j = secureRandomInt(0, (i + 1));
+            const j = secureRandomInt(0, i + 1);
             [array[i], array[j]] = [array[j], array[i]];
         }
     }

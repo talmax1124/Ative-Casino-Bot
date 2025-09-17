@@ -16,8 +16,43 @@ const tuningManager = require('../UTILS/tuningManager');
 // CEELO Configuration
 const CEELO_CONFIG = {
     MIN_BET: 5,            // Minimum $5 entry
-    MAX_BET: 400000,       // Maximum $400K bet
     PAYOUT_MULTIPLIER: 0.8 // 0.8:1 reduced payout (increased house edge)
+};
+
+// PROGRESSIVE DIFFICULTY MODES
+const CEELO_MODES = {
+    safe: {
+        name: '🛡️ Safe',
+        description: 'Conservative mode with standard payouts',
+        minBet: 500,
+        evenMoneyMultiplier: 1.2,
+        emoji: '🛡️',
+        color: '#4CAF50'
+    },
+    balanced: {
+        name: '⚖️ Balanced',
+        description: 'Standard mode with traditional payouts',
+        minBet: 1000,
+        evenMoneyMultiplier: 1.5,
+        emoji: '⚖️',
+        color: '#FF9800'
+    },
+    risky: {
+        name: '⚡ Risky',
+        description: 'High risk with enhanced payouts',
+        minBet: 2500,
+        evenMoneyMultiplier: 2.0,
+        emoji: '⚡',
+        color: '#FF8800'
+    },
+    extreme: {
+        name: '🔥 Extreme',
+        description: 'Maximum risk with premium payouts',
+        minBet: 5000,
+        evenMoneyMultiplier: 3.0,
+        emoji: '🔥',
+        color: '#FF0000'
+    }
 };
 
 module.exports = {
@@ -26,8 +61,19 @@ module.exports = {
         .setDescription('🎲 CEELO - Simple dice game! You vs House, 3 dice each, best hand wins 1:1!')
         .addStringOption(option =>
             option.setName('bet')
-                .setDescription(`Bet amount (Min: $${CEELO_CONFIG.MIN_BET}, Max: ${fmt(CEELO_CONFIG.MAX_BET)}) - supports K/M/B suffixes`)
+                .setDescription(`Bet amount (Min: $${CEELO_CONFIG.MIN_BET}) - supports K/M/B suffixes (no max limit!)`)
                 .setRequired(true)
+        )
+        .addStringOption(option =>
+            option.setName('mode')
+                .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
+                .setRequired(false)
+                .addChoices(
+                    { name: '🛡️ Safe (Min: $500, Even Money: 1.2x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, Even Money: 1.5x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, Even Money: 2.0x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, Even Money: 3.0x)', value: 'extreme' }
+                )
         ),
 
     async execute(interaction) {
@@ -35,6 +81,10 @@ module.exports = {
         const username = interaction.user.displayName;
         const guildId = interaction.guildId;
         const betAmountStr = interaction.options.getString('bet');
+        const selectedMode = interaction.options.getString('mode') || 'balanced';
+
+        // Get mode configuration
+        const modeConfig = CEELO_MODES[selectedMode] || CEELO_MODES.balanced;
 
         try {
             // Defer reply immediately to prevent timeout
@@ -58,39 +108,13 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
-            let dynamicMaxBet = CEELO_CONFIG.MAX_BET; // Default fallback limit
-            let maxBetConfig = { userCapped: false, adjustmentApplied: false };
-            
-            try {
-                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'ceelo', CEELO_CONFIG.MAX_BET);
-                dynamicMaxBet = maxBetConfig.maxBetLimit;
-                
-                // Comprehensive logging for bet attempt
-                await comprehensiveLogger.logGame(userId, username, 'ceelo', 'BET_ATTEMPT', {
-                    betAmount: parseAmount(betAmountStr),
-                    maxBetAllowed: dynamicMaxBet,
-                    userCapped: maxBetConfig.userCapped,
-                    aiAdjusted: maxBetConfig.adjustmentApplied
-                }).catch(err => logger.error('Logging error:', err));
-                
-            } catch (tuningError) {
-                // Fallback logging for tuning system failure
-                await comprehensiveLogger.logError('CEELO_TUNING_SYSTEM', tuningError, { 
-                    critical: false, 
-                    fallback: 'default_limits',
-                    userId: userId 
-                }).catch(err => logger.error('Logging error:', err));
-                logger.warn(`Tuning manager failed for ${username}, using default limits: ${tuningError.message}`);
-            }
-
-            // Use PayoutManager for bet validation and deduction with AI-regulated limits
+            // Use PayoutManager for bet validation and deduction (no max bet limit)
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 betAmountStr,
                 GameType.CEELO,
-                CEELO_CONFIG.MIN_BET,
-                dynamicMaxBet // AI-regulated max bet limit for economic compliance
+                modeConfig.minBet,
+                null // No max bet limit - bulletproof economy handles all risk
             );
             
             if (!validation.isValid) {
@@ -110,7 +134,9 @@ module.exports = {
                 timeout: 120000, // 2 minutes
                 metadata: {
                     gamePhase: 'playing',
-                    betAmount: betAmount
+                    betAmount: betAmount,
+                    mode: selectedMode,
+                    modeConfig: modeConfig
                 }
             });
 

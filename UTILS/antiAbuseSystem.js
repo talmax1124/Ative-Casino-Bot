@@ -544,28 +544,8 @@ class AntiAbuseSystem {
      * PUBLIC API - Check if user action is allowed
      */
     async isUserActionAllowed(userId, action, amount = 0) {
-        // NOTIFICATION-ONLY MODE: Always allow actions, just monitor
-        // We no longer block users, only notify about risky behavior
-        
-        // Check if user has any risk alerts (for monitoring purposes only)
-        const riskAlert = this.behaviorCache.get(`risk_alert_${userId}`);
-        if (riskAlert) {
-            logger.debug(`High-risk user ${userId} is performing action: ${action} (amount: ${amount})`);
-        }
-        
-        // NOTIFICATION-ONLY MODE: Log restrictions but don't enforce them
-        const restriction = this.behaviorCache.get(`restriction_${userId}`);
-        if (restriction && Date.now() < restriction.endTime) {
-            logger.debug(`High-risk user ${userId} has temporary restriction but action is still allowed (notification-only mode)`);
-        }
-        
-        // Check betting limits (log but don't enforce)
-        if (action === 'bet' && amount > 0) {
-            const limit = this.behaviorCache.get(`limit_${userId}`);
-            if (limit && amount > limit.maxBet) {
-                logger.debug(`High-risk user ${userId} exceeds bet limit (${amount} > ${limit.maxBet}) but action is still allowed (notification-only mode)`);
-            }
-        }
+        // ENFORCEMENT MODE: Now actively blocking risky behavior
+        // Changed from notification-only to active enforcement
         
         // Check if user is blocked due to high risk
         if (this.blockedUsers.has(userId)) {
@@ -575,7 +555,36 @@ class AntiAbuseSystem {
             };
         }
         
-        // Allow actions for non-blocked users
+        // Check if user has active restrictions
+        const restriction = this.behaviorCache.get(`restriction_${userId}`);
+        if (restriction && Date.now() < restriction.endTime) {
+            logger.warn(`High-risk user ${userId} attempting action during restriction period - BLOCKED`);
+            return {
+                allowed: false,
+                reason: 'Your account is temporarily restricted due to suspicious activity. Please wait before trying again.'
+            };
+        }
+        
+        // Enforce betting limits for high-risk users
+        if (action === 'bet' && amount > 0) {
+            const limit = this.behaviorCache.get(`limit_${userId}`);
+            if (limit && amount > limit.maxBet) {
+                logger.warn(`High-risk user ${userId} exceeds bet limit (${amount} > ${limit.maxBet}) - BLOCKED`);
+                return {
+                    allowed: false,
+                    reason: `Your betting limit is currently ${limit.maxBet} coins due to risk assessment. Please bet a smaller amount.`
+                };
+            }
+        }
+        
+        // Check for high risk alerts and potentially block
+        const riskAlert = this.behaviorCache.get(`risk_alert_${userId}`);
+        if (riskAlert && riskAlert.severity === 'HIGH') {
+            logger.warn(`High-risk user ${userId} performing action: ${action} (amount: ${amount}) - MONITORING CLOSELY`);
+            // For now, allow but monitor closely - can be changed to block if needed
+        }
+        
+        // Allow actions for users who pass all checks
         return { allowed: true };
     }
     

@@ -104,7 +104,7 @@ class ScratchTicketSystem {
                 // Schedule first drop tomorrow
                 const tomorrow = new Date();
                 tomorrow.setDate(tomorrow.getDate() + 1);
-                tomorrow.setHours(secureRandomInt(0, 12) + 8, secureRandomInt(0, 60), 0, 0);
+                tomorrow.setHours(secureRandomInt(8, 20), secureRandomInt(0, 60), 0, 0);
                 
                 const timeUntilTomorrow = tomorrow.getTime() - Date.now();
                 
@@ -124,7 +124,7 @@ class ScratchTicketSystem {
             // Schedule within the random interval
             const minInterval = TICKET_CONFIG.DROP_INTERVALS.MIN;
             const maxInterval = TICKET_CONFIG.DROP_INTERVALS.MAX;
-            const randomInterval = minInterval + secureRandomFloat(0, (maxInterval) - minInterval);
+            const randomInterval = secureRandomFloat(minInterval, maxInterval);
             
             const nextDropTime = new Date(Date.now() + randomInterval);
             
@@ -225,15 +225,13 @@ class ScratchTicketSystem {
                 // Sort by activity and pick a random one from the top 3
                 channelsWithActivity.sort((a, b) => b.activityScore - a.activityScore);
                 const topChannels = channelsWithActivity.slice(0, Math.min(3, channelsWithActivity.length));
-                const randomIndex = secureRandomInt(0, topChannels.length);
-                return topChannels[randomIndex].channel;
+                return secureRandomChoice(topChannels).channel;
             }
 
             // Fallback to any available text channel
             const channelArray = Array.from(textChannels.values());
             if (channelArray.length > 0) {
-                const randomIndex = secureRandomInt(0, channelArray.length);
-                return channelArray[randomIndex];
+                return secureRandomChoice(channelArray);
             }
 
             return null;
@@ -248,7 +246,7 @@ class ScratchTicketSystem {
      */
     async createScratchTicket(guildId, channelId, adminUserId = null) {
         try {
-            const ticketId = `ST-${Date.now()}-${secureRandomInt(1000, 9999)}`;
+            const ticketId = `ST-${Date.now()}-${secureRandomInt(1000, 10000)}`;
             
             // Generate symbols and determine if this is a winning ticket
             const { symbols, isWinning, winAmount, winningCombination } = this.generateTicketData();
@@ -323,7 +321,7 @@ class ScratchTicketSystem {
 
         if (isWinning) {
             // Create a winning ticket
-            const winningSymbol = TICKET_CONFIG.SYMBOLS[secureRandomInt(0, TICKET_CONFIG.SYMBOLS.length - 1)];
+            const winningSymbol = secureRandomChoice(TICKET_CONFIG.SYMBOLS.slice(0, -1));
             winningCombination = [winningSymbol, winningSymbol, winningSymbol];
             
             // Place 3 matching symbols randomly
@@ -342,13 +340,13 @@ class ScratchTicketSystem {
                 } else {
                     // Use different symbols for non-winning positions
                     const availableSymbols = TICKET_CONFIG.SYMBOLS.filter(s => s !== winningSymbol);
-                    symbols[i] = availableSymbols[secureRandomInt(0, availableSymbols.length - 1)];
+                    symbols[i] = secureRandomChoice(availableSymbols.slice(0, -1));
                 }
             }
         } else {
             // Create a losing ticket (ensure no 3 matches)
             for (let i = 0; i < 9; i++) {
-                symbols[i] = TICKET_CONFIG.SYMBOLS[secureRandomInt(0, TICKET_CONFIG.SYMBOLS.length - 1)];
+                symbols[i] = secureRandomChoice(TICKET_CONFIG.SYMBOLS.slice(0, -1));
             }
 
             // Check and fix any accidental matches
@@ -364,7 +362,7 @@ class ScratchTicketSystem {
                     for (let i = 0; i < symbols.length && replacements > 0; i++) {
                         if (symbols[i] === symbol) {
                             const availableSymbols = TICKET_CONFIG.SYMBOLS.filter(s => s !== symbol);
-                            symbols[i] = availableSymbols[secureRandomInt(0, availableSymbols.length - 1)];
+                            symbols[i] = secureRandomChoice(availableSymbols.slice(0, -1));
                             replacements--;
                         }
                     }

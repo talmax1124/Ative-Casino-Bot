@@ -17,7 +17,6 @@ const tuningManager = require('../UTILS/tuningManager');
 // Russian Roulette Configuration
 const ROULETTE_CONFIG = {
     MIN_BET: 50,           // Minimum $50 entry
-    MAX_BET: 400000,       // Maximum $400K bet
     MIN_PLAYERS: 2,        // Minimum 2 players to start
     MAX_PLAYERS: null,     // No player limit - unlimited players allowed
     JOIN_TIME: 60000,      // 60 seconds to join
@@ -77,32 +76,7 @@ module.exports = {
             }
 
             // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
-            let dynamicMaxBet = 400000; // Default very high limit for Russian Roulette
-            let maxBetConfig = { userCapped: false, adjustmentApplied: false };
-            
-            try {
-                maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'russianroulette', 400000);
-                dynamicMaxBet = maxBetConfig.maxBetLimit;
-                
-                // Comprehensive logging for bet attempt
-                await comprehensiveLogger.logGame(userId, username, 'russianroulette', 'BET_ATTEMPT', {
-                    betAmount: parseAmount(betAmountStr),
-                    maxBetAllowed: dynamicMaxBet,
-                    userCapped: maxBetConfig.userCapped,
-                    aiAdjusted: maxBetConfig.adjustmentApplied
-                }).catch(err => logger.error('Logging error:', err));
-                
-            } catch (tuningError) {
-                // Fallback logging for tuning system failure
-                await comprehensiveLogger.logError('RUSSIANROULETTE_TUNING_SYSTEM', tuningError, { 
-                    critical: false, 
-                    fallback: 'default_limits',
-                    userId: userId 
-                }).catch(err => logger.error('Logging error:', err));
-                logger.warn(`Tuning manager failed for ${username}, using default limits: ${tuningError.message}`);
-            }
-
-            // Custom validation for Russian Roulette with AI regulation
+            // Custom validation for Russian Roulette (no max bet limit)
             const parsedAmount = parseAmount(betAmountStr);
             if (isNaN(parsedAmount) || parsedAmount <= 0) {
                 const embed = buildInvalidBetEmbed('Invalid bet amount.');
@@ -111,11 +85,6 @@ module.exports = {
             
             if (parsedAmount < ROULETTE_CONFIG.MIN_BET) {
                 const embed = buildInvalidBetEmbed(`Minimum bet is ${fmt(ROULETTE_CONFIG.MIN_BET)}.`);
-                return await interaction.editReply({ embeds: [embed] });
-            }
-            
-            if (parsedAmount > dynamicMaxBet) {
-                const embed = buildInvalidBetEmbed(`Maximum bet is ${fmt(dynamicMaxBet)}${maxBetConfig.userCapped ? ' (user limit)' : ''}.`);
                 return await interaction.editReply({ embeds: [embed] });
             }
             

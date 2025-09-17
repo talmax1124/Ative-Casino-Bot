@@ -5,7 +5,7 @@
  */
 
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
-const { secureWeightedChoice, secureRandomFloat } = require('../UTILS/rng');
+const { secureRandomFloat } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
@@ -71,7 +71,18 @@ const fishWeights = fishTypes.map(type => FISH_TYPES[type].probability);
 function generateRandomFish() {
     try {
         // Select fish type using weighted random choice
-        const fishType = secureWeightedChoice(fishTypes, fishWeights) || 'common';
+        // Weighted choice using CSPRNG
+        const totalWeight = fishWeights.reduce((sum, weight) => sum + weight, 0);
+        const randomValue = secureRandomFloat(0, totalWeight);
+        let currentWeight = 0;
+        let fishType = 'common';
+        for (let i = 0; i < fishTypes.length; i++) {
+            currentWeight += fishWeights[i];
+            if (randomValue <= currentWeight) {
+                fishType = fishTypes[i];
+                break;
+            }
+        }
         const fishData = FISH_TYPES[fishType];
         
         // Generate random multiplier within the fish's range

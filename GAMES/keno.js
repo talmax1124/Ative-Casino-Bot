@@ -11,7 +11,7 @@ const dbManager = require('../UTILS/database');
 const sessionManager = require('../UTILS/sessionManager');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
-const { secureRandomShuffle, generateProvablyFairRandom, secureRandomInt } = require('../UTILS/rng');
+const { secureRandomInt } = require('../UTILS/rng');
 
 // KENO Configuration - Simplified for 1-5 numbers only
 const CONFIG = {

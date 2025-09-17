@@ -5,7 +5,7 @@
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomInt, secureRandomChoice } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const path = require('path');
 const sessionManager = require('../UTILS/sessionManager');
@@ -402,7 +402,7 @@ class UnoGameSession {
 
         // Handle wild card color change
         if (playedCard.type === 'wild') {
-            this.currentColor = chosenColor || UNO_COLORS[secureRandomInt(0, UNO_COLORS.length)];
+            this.currentColor = chosenColor || secureRandomChoice(UNO_COLORS);
             playedCard.color = this.currentColor; // Temporarily set for display
         } else {
             this.currentColor = playedCard.color;

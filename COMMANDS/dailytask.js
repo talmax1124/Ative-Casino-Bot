@@ -7,7 +7,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
@@ -103,7 +103,7 @@ module.exports = {
                 }
             ];
 
-            const scenario = taskScenarios[secureRandomInt(0, taskScenarios.length)];
+            const scenario = secureRandomChoice(taskScenarios);
             
             // Task presentation embed
             const taskEmbed = buildSessionEmbed({

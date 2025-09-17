@@ -6,7 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
 
@@ -60,7 +60,7 @@ module.exports = {
                 { crime: 'Snuck extra chips during confusion', min: 1800, max: 4200 }
             ];
 
-            const scenario = crimeScenarios[secureRandomInt(0, crimeScenarios.length)];
+            const scenario = secureRandomChoice(crimeScenarios);
             const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
 
             // Calculate server booster bonus (5%)

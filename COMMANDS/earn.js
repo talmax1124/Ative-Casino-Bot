@@ -6,7 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
@@ -62,7 +62,7 @@ module.exports = {
                 { source: 'Gift card you forgot about', min: 15000, max: 22000 }
             ];
 
-            const scenario = earnScenarios[secureRandomInt(0, earnScenarios.length)];
+            const scenario = secureRandomChoice(earnScenarios);
             const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
 
             // Apply shop economy boosts

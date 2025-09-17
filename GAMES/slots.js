@@ -7,9 +7,9 @@ const Canvas = require('canvas');
 const GIFEncoder = require('gif-encoder-2');
 const path = require('path');
 const logger = require('../UTILS/logger');
-const { secureWeightedChoice, secureRandomInt, secureRandomFloat } = require('../UTILS/rng');
+const { secureRandomFloat, secureRandomInt, secureRandomChoice } = require('../UTILS/rng');
 
-// BALANCED slot symbols - Max 3x multipliers, fun but safe
+// BALANCED slot symbols - Max 3.5x multipliers, fun but safe
 const SLOT_SYMBOLS = {
     'cherries': { name: 'Cherries', emoji: '🍒', rarity: 35, payout: 1.1 },     // Common small win
     'lemon': { name: 'Lemon', emoji: '🍋', rarity: 30, payout: 1.2 },           // Common small win
@@ -17,13 +17,13 @@ const SLOT_SYMBOLS = {
     'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, payout: 1.8 },         // Good payout
     'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 3, payout: 2.2 },   // Great payout
     'bar': { name: 'Bar', emoji: '📊', rarity: 1.5, payout: 2.8 },              // Excellent payout
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 0.4, payout: 3.0 },    // Max payout - exciting!
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.08, payout: 3.0 },      // Max payout - rare
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.02, payout: 3.0 },      // Max payout - very rare
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.001, payout: 3.0 }      // Max payout - ultra rare
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 0.4, payout: 3.5 },    // Max payout - exciting!
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.08, payout: 3.5 },      // Max payout - rare
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.02, payout: 3.5 },      // Max payout - very rare
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.001, payout: 3.5 }      // Max payout - ultra rare
 };
 
-// Matrix mode symbols - Max 3x multipliers, more frequent wins
+// Matrix mode symbols - Max 3.5x multipliers, more frequent wins
 const MATRIX_SYMBOLS = {
     'cherries': { name: 'Cherries', emoji: '🍒', rarity: 30, payout: 1.2 },
     'lemon': { name: 'Lemon', emoji: '🍋', rarity: 25, payout: 1.4 },
@@ -31,10 +31,10 @@ const MATRIX_SYMBOLS = {
     'grapes': { name: 'Grapes', emoji: '🍇', rarity: 15, payout: 1.9 },
     'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 6, payout: 2.3 },
     'bar': { name: 'Bar', emoji: '📊', rarity: 2.5, payout: 2.7 },
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1, payout: 3.0 },       // Max payout
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.4, payout: 3.0 },       // Max payout
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.08, payout: 3.0 },      // Max payout + triggers bonus
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.02, payout: 3.0 }       // Max payout - rare
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1, payout: 3.5 },       // Max payout
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.4, payout: 3.5 },       // Max payout
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.08, payout: 3.5 },      // Max payout + triggers bonus
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.02, payout: 3.5 }       // Max payout - rare
 };
 
 // Special combinations
@@ -114,14 +114,24 @@ function getWeightedSymbol(matrixMode = false, entropy = 0) {
         return Math.max(0.01, weight * (1 + adjustment));
     });
     
-    return secureWeightedChoice(symbols, adjustedWeights) || symbols[0];
+    // Weighted choice using CSPRNG
+    const totalWeight = adjustedWeights.reduce((sum, weight) => sum + weight, 0);
+    const randomValue = secureRandomFloat(0, totalWeight);
+    let currentWeight = 0;
+    for (let i = 0; i < symbols.length; i++) {
+        currentWeight += adjustedWeights[i];
+        if (randomValue <= currentWeight) {
+            return symbols[i];
+        }
+    }
+    return symbols[0];
 }
 
 /**
  * Generate entropy seed using CSPRNG
  */
 function generateEntropy() {
-    return Date.now() * Math.PI + (secureRandomFloat() * 1000);
+    return Date.now() * Math.PI + secureRandomFloat(0, 1000);
 }
 
 
@@ -148,7 +158,7 @@ function spinMatrixSlots() {
         const matrixRow = [];
         for (let col = 0; col < 3; col++) {
             // Each position gets completely fresh entropy - no patterns possible
-            const independentEntropy = generateEntropy() + secureRandomFloat() * 1000;
+            const independentEntropy = generateEntropy() + secureRandomFloat(0, 1000);
             matrixRow.push(getWeightedSymbol(true, independentEntropy));
         }
         matrix.push(matrixRow);
@@ -160,7 +170,7 @@ function spinMatrixSlots() {
 /**
  * Calculate payout for regular slots
  */
-function calculatePayout(symbols, betAmount, personalizedPayouts = null) {
+function calculatePayout(symbols, betAmount, personalizedPayouts = null, modeConfig = null) {
     // Check for three of a kind
     if (symbols[0] === symbols[1] && symbols[1] === symbols[2]) {
         const symbol = symbols[0];
@@ -170,6 +180,11 @@ function calculatePayout(symbols, betAmount, personalizedPayouts = null) {
         let multiplier = symbolData.payout;
         if (personalizedPayouts && personalizedPayouts[symbol]) {
             multiplier = personalizedPayouts[symbol];
+        }
+        
+        // Apply mode-specific maximum multiplier cap
+        if (modeConfig && modeConfig.maxMatrixMultiplier) {
+            multiplier = Math.min(multiplier, modeConfig.maxMatrixMultiplier);
         }
         
         const originalMultiplier = symbolData.payout;
@@ -198,7 +213,7 @@ function calculatePayout(symbols, betAmount, personalizedPayouts = null) {
 /**
  * Calculate payout for matrix slots
  */
-function calculateMatrixPayout(matrix, betAmount) {
+function calculateMatrixPayout(matrix, betAmount, modeConfig = null) {
     let totalPayout = 0;
     const resultMessages = [];
     const winningLines = [];
@@ -212,13 +227,21 @@ function calculateMatrixPayout(matrix, betAmount) {
             const symbolData = MATRIX_SYMBOLS[symbol];
             
             if (symbol === 'buffalo') {
-                const bonusPayout = betAmount * 2.2; // 2.2x for buffalo bonus in matrix - balanced
+                let bonusMultiplier = 2.2; // 2.2x for buffalo bonus in matrix - balanced
+                if (modeConfig && modeConfig.maxMatrixMultiplier) {
+                    bonusMultiplier = Math.min(bonusMultiplier, modeConfig.maxMatrixMultiplier);
+                }
+                const bonusPayout = betAmount * bonusMultiplier;
                 totalPayout += bonusPayout;
                 resultMessages.push(`🦬 BUFFALO BONUS! Line: +${bonusPayout.toLocaleString()}`);
                 winningLines.push({ type: 'horizontal', row, col: 0, endRow: row, endCol: 2 });
                 buffaloBonus = true;
             } else {
-                const linePayout = betAmount * symbolData.payout;
+                let lineMultiplier = symbolData.payout;
+                if (modeConfig && modeConfig.maxMatrixMultiplier) {
+                    lineMultiplier = Math.min(lineMultiplier, modeConfig.maxMatrixMultiplier);
+                }
+                const linePayout = betAmount * lineMultiplier;
                 totalPayout += linePayout;
                 resultMessages.push(`${symbolData.name} Line: +${linePayout.toLocaleString()}`);
                 winningLines.push({ type: 'horizontal', row, col: 0, endRow: row, endCol: 2 });
@@ -234,13 +257,21 @@ function calculateMatrixPayout(matrix, betAmount) {
             const symbolData = MATRIX_SYMBOLS[symbol];
             
             if (symbol === 'buffalo') {
-                const bonusPayout = betAmount * 3;
+                let bonusMultiplier = 3;
+                if (modeConfig && modeConfig.maxMatrixMultiplier) {
+                    bonusMultiplier = Math.min(bonusMultiplier, modeConfig.maxMatrixMultiplier);
+                }
+                const bonusPayout = betAmount * bonusMultiplier;
                 totalPayout += bonusPayout;
                 resultMessages.push(`🦬 BUFFALO BONUS! Column: +${bonusPayout.toLocaleString()}`);
                 winningLines.push({ type: 'vertical', row: 0, col, endRow: 2, endCol: col });
                 buffaloBonus = true;
             } else {
-                const linePayout = betAmount * symbolData.payout;
+                let lineMultiplier = symbolData.payout;
+                if (modeConfig && modeConfig.maxMatrixMultiplier) {
+                    lineMultiplier = Math.min(lineMultiplier, modeConfig.maxMatrixMultiplier);
+                }
+                const linePayout = betAmount * lineMultiplier;
                 totalPayout += linePayout;
                 resultMessages.push(`${symbolData.name} Column: +${linePayout.toLocaleString()}`);
                 winningLines.push({ type: 'vertical', row: 0, col, endRow: 2, endCol: col });
@@ -255,13 +286,21 @@ function calculateMatrixPayout(matrix, betAmount) {
         const symbolData = MATRIX_SYMBOLS[symbol];
         
         if (symbol === 'buffalo') {
-            const bonusPayout = betAmount * 3;
+            let bonusMultiplier = 3;
+            if (modeConfig && modeConfig.maxMatrixMultiplier) {
+                bonusMultiplier = Math.min(bonusMultiplier, modeConfig.maxMatrixMultiplier);
+            }
+            const bonusPayout = betAmount * bonusMultiplier;
             totalPayout += bonusPayout;
             resultMessages.push(`🦬 BUFFALO BONUS! Diagonal: +${bonusPayout.toLocaleString()}`);
             winningLines.push({ type: 'diagonal1', row: 0, col: 0, endRow: 2, endCol: 2 });
             buffaloBonus = true;
         } else {
-            const linePayout = betAmount * symbolData.payout;
+            let lineMultiplier = symbolData.payout;
+            if (modeConfig && modeConfig.maxMatrixMultiplier) {
+                lineMultiplier = Math.min(lineMultiplier, modeConfig.maxMatrixMultiplier);
+            }
+            const linePayout = betAmount * lineMultiplier;
             totalPayout += linePayout;
             resultMessages.push(`${symbolData.name} Diagonal: +${linePayout.toLocaleString()}`);
             winningLines.push({ type: 'diagonal1', row: 0, col: 0, endRow: 2, endCol: 2 });
@@ -274,13 +313,21 @@ function calculateMatrixPayout(matrix, betAmount) {
         const symbolData = MATRIX_SYMBOLS[symbol];
         
         if (symbol === 'buffalo') {
-            const bonusPayout = betAmount * 3;
+            let bonusMultiplier = 3;
+            if (modeConfig && modeConfig.maxMatrixMultiplier) {
+                bonusMultiplier = Math.min(bonusMultiplier, modeConfig.maxMatrixMultiplier);
+            }
+            const bonusPayout = betAmount * bonusMultiplier;
             totalPayout += bonusPayout;
             resultMessages.push(`🦬 BUFFALO BONUS! Diagonal: +${bonusPayout.toLocaleString()}`);
             winningLines.push({ type: 'diagonal2', row: 0, col: 2, endRow: 2, endCol: 0 });
             buffaloBonus = true;
         } else {
-            const linePayout = betAmount * symbolData.payout;
+            let lineMultiplier = symbolData.payout;
+            if (modeConfig && modeConfig.maxMatrixMultiplier) {
+                lineMultiplier = Math.min(lineMultiplier, modeConfig.maxMatrixMultiplier);
+            }
+            const linePayout = betAmount * lineMultiplier;
             totalPayout += linePayout;
             resultMessages.push(`${symbolData.name} Diagonal: +${linePayout.toLocaleString()}`);
             winningLines.push({ type: 'diagonal2', row: 0, col: 2, endRow: 2, endCol: 0 });
@@ -485,7 +532,7 @@ async function createSpinningSlotGIF(finalSymbols) {
             const strip = [];
             // Fewer symbols for faster, cleaner animation
             for (let j = 0; j < 8; j++) {
-                strip.push(symbolKeys[secureRandomInt(0, symbolKeys.length)]);
+                strip.push(secureRandomChoice(symbolKeys));
             }
             // Add the final result at the end
             strip.push(finalSymbols[i]);
@@ -590,7 +637,7 @@ async function createSpinningMatrixGIF(finalMatrix) {
                 const strip = [];
                 // Add random symbols before the final result - reduced for performance
                 for (let j = 0; j < 10; j++) {
-                    strip.push(symbolKeys[secureRandomInt(0, symbolKeys.length)]);
+                    strip.push(secureRandomChoice(symbolKeys));
                 }
                 // Add the final result at the end
                 strip.push(finalMatrix[row][col]);

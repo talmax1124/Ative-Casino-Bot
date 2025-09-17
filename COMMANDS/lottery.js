@@ -54,7 +54,7 @@ module.exports = {
         // Create standardized game embed
         const gameOptions = {
             minBet: 12000,
-            maxBet: 84000, // 7 tickets max
+            maxBet: null, // No max bet limit
             wins: 0, // Lottery doesn't track individual wins
             losses: 0,
             botAvatar: interaction.client.user.displayAvatarURL()

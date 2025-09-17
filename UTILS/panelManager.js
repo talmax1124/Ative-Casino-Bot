@@ -1494,7 +1494,7 @@ class PanelManager {
      */
     async handleWealthTaxStatus(interaction) {
         try {
-            const wealthTax = require('./wealthTax');
+            // wealthTax system removed - using bulletproof economy
             const guildId = interaction.guildId;
             
             // Show loading message
@@ -1505,57 +1505,13 @@ class PanelManager {
             
             await interaction.editReply({ embeds: [loadingEmbed] });
 
-            const wealthSummary = await wealthTax.getWealthTaxSummary(guildId, 15);
-
-            if (!wealthSummary) {
-                throw new Error('Failed to generate wealth tax summary');
-            }
-
-            const { summary, userStatuses } = wealthSummary;
-
-            let description = `**💎 Wealth Tax Summary:**\n`;
-            description += `• Total Users: ${summary.totalUsers}\n`;
-            description += `• Wealthy Users ($100K+): ${summary.wealthyUsers}\n`;
-            description += `• High-Stakes Gamblers: ${summary.highStakesGamblers}\n`;
-            description += `• Taxable Rich: ${summary.taxableUsers}\n`;
-            description += `• Inactive Rich: ${summary.inactiveRich}\n`;
-            description += `• Potential Revenue: ${fmt(summary.potentialTaxRevenue)}\n\n`;
-
-            // Add bracket breakdown
-            if (Object.keys(summary.bracketBreakdown).length > 0) {
-                description += `**🏦 By Wealth Bracket:**\n`;
-                for (const [bracket, data] of Object.entries(summary.bracketBreakdown)) {
-                    if (data.taxable > 0) {
-                        description += `• ${bracket}: ${data.taxable}/${data.count} taxable (${fmt(data.taxRevenue)})\n`;
-                    }
-                }
-                description += '\n';
-            }
-
-            // Show top taxable wealthy users
-            const taxableUsers = userStatuses.filter(u => u.isSubjectToTax && !u.isDeveloper);
-            if (taxableUsers.length > 0) {
-                description += `**🎯 Top Taxable Wealthy Users:**\n`;
-                for (const user of taxableUsers.slice(0, 8)) {
-                    const reasonEmoji = user.reason === 'no_gambling_activity' ? '❌' : '📉';
-                    const reasonText = user.reason === 'no_gambling_activity' ? 'No gambling' : 'Low stakes only';
-                    description += `• ${user.username}: ${fmt(user.totalBalance)} → ${fmt(user.taxAmount)} tax (${reasonEmoji} ${reasonText})\n`;
-                }
-            }
-
+            // Return message that wealth tax system has been replaced
             const embed = new EmbedBuilder()
-                .setTitle('💎 Wealth Tax Status')
-                .setDescription(description)
-                .addFields([
-                    { name: 'Wealth Threshold', value: '$100,000+', inline: true },
-                    { name: 'High Stakes', value: '1% of wealth per bet', inline: true },
-                    { name: 'Max Tax Rate', value: '5% (Billionaires)', inline: true }
-                ])
-                .setColor(summary.taxableUsers > 0 ? '#FF6600' : '#00FF00')
-                .setFooter({ text: 'Gambling high stakes exempts from wealth tax' })
-                .setTimestamp();
-
-            await interaction.editReply({ embeds: [embed] });
+                .setTitle('💰 Wealth Control Status')
+                .setDescription('The old wealth tax system has been replaced with the **Bulletproof Economy System**.\n\nWealth control is now handled automatically through:\n• Dynamic house edge adjustment\n• AI risk management\n• Intelligent payout optimization')
+                .setColor('#00FF00');
+                
+            return await interaction.editReply({ embeds: [embed] });
 
         } catch (error) {
             const errorEmbed = new EmbedBuilder()
@@ -1572,116 +1528,21 @@ class PanelManager {
      */
     async handleRunWealthTaxes(interaction) {
         try {
-            const wealthTax = require('./wealthTax');
-            const guildId = interaction.guildId;
-
-            // Show confirmation message
-            const confirmEmbed = new EmbedBuilder()
-                .setTitle('🏦 Run Wealth Taxes')
-                .setDescription('⚠️ **WARNING**: This will tax wealthy users who don\'t gamble high stakes\n\nAre you sure you want to proceed?')
-                .addFields([
-                    { name: 'Who Gets Taxed:', value: '• Rich users ($100K+) who don\'t bet high stakes\n• High stakes = 1% of wealth per bet\n• Real gambling games only (not /earn)\n• Developer account exempt', inline: false },
-                    { name: 'Tax Brackets:', value: 'Upper Class: 0.5% | Rich: 1%\nVery Rich: 2% | Ultra Rich: 3%\nMega Rich: 4% | Billionaire: 5%', inline: false },
-                    { name: 'Multipliers:', value: '• No gambling: 2x tax\n• Low stakes only: 1.5x tax\n• High stakes gamblers: EXEMPT', inline: false }
-                ])
-                .setColor('#FF6600')
-                .setFooter({ text: 'This encourages high-stakes gambling!' });
-
-            const confirmButton = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('confirm_run_wealth_taxes')
-                        .setLabel('✅ Tax the Rich')
-                        .setStyle(ButtonStyle.Danger),
-                    new ButtonBuilder()
-                        .setCustomId('cancel_run_wealth_taxes')
-                        .setLabel('❌ Cancel')
-                        .setStyle(ButtonStyle.Secondary)
-                );
-
-            await interaction.editReply({ embeds: [confirmEmbed], components: [confirmButton] });
-
-        } catch (error) {
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Wealth Tax Setup Failed')
-                .setDescription(`Failed to setup wealth tax run: ${error.message}`)
-                .setColor('#ff0000');
-
-            await interaction.editReply({ embeds: [errorEmbed] });
-        }
-    }
-
-    /**
-     * Handle Wealth Tax Confirmation
-     */
-    async handleWealthTaxConfirmation(interaction, action) {
-        try {
-            if (action === 'cancel') {
-                const cancelEmbed = new EmbedBuilder()
-                    .setTitle('❌ Wealth Tax Cancelled')
-                    .setDescription('Wealth tax processing has been cancelled.')
-                    .setColor('#FFA500');
-
-                await interaction.update({ embeds: [cancelEmbed], components: [] });
-                return;
-            }
-
-            // Show processing message
-            const processingEmbed = new EmbedBuilder()
-                .setTitle('🏦 Processing Wealth Taxes...')
-                .setDescription('Analyzing wealthy users and applying taxes to those not gambling high stakes...\n\n⏳ This may take a few moments...')
-                .setColor('#FFA500');
-
-            await interaction.update({ embeds: [processingEmbed], components: [] });
-
-            // Run the actual wealth tax process
-            const wealthTax = require('./wealthTax');
-            const guildId = interaction.guildId;
-            
-            const result = await wealthTax.processWealthTaxes(guildId, interaction.client);
-
-            let embed;
-            if (result.success) {
-                let description = `**✅ Wealth Tax Processing Complete**\n\n`;
-                description += `• Wealthy Users Processed: ${result.usersProcessed}\n`;
-                description += `• Rich Users Taxed: ${result.usersTaxed}\n`;
-                description += `• Total Revenue: ${fmt(result.totalTaxCollected)}\n`;
-                description += `• Processing Time: ${Math.round(result.processingTime/1000)}s\n\n`;
-
-                if (result.usersTaxed === 0) {
-                    description += `🎉 All wealthy users are actively gambling high stakes!`;
-                } else {
-                    description += `💰 ${fmt(result.totalTaxCollected)} collected from wealth hoarders.\n\n`;
-                    description += `**Tax Breakdown:**\n`;
-                    const noGamblingTaxed = result.taxRecords.filter(r => r.reason === 'no_gambling_activity').length;
-                    const lowStakesTaxed = result.taxRecords.filter(r => r.reason === 'low_stakes_only').length;
-                    if (noGamblingTaxed > 0) description += `• ${noGamblingTaxed} users taxed for not gambling (2x rate)\n`;
-                    if (lowStakesTaxed > 0) description += `• ${lowStakesTaxed} users taxed for low stakes only (1.5x rate)\n`;
-                }
-
-                embed = new EmbedBuilder()
-                    .setTitle('🏦 Wealth Tax Collection Complete')
-                    .setDescription(description)
-                    .setColor('#00FF00')
-                    .setTimestamp();
-            } else {
-                embed = new EmbedBuilder()
-                    .setTitle('❌ Wealth Tax Processing Failed')
-                    .setDescription(`Error: ${result.error}`)
-                    .setColor('#FF0000');
-            }
-
+            // Return message that wealth tax system has been replaced
+            const embed = new EmbedBuilder()
+                .setTitle('💰 Wealth Tax System Removed')
+                .setDescription('The old wealth tax system has been completely replaced with the **Bulletproof Economy System**.\n\nWealth control is now handled automatically and in real-time through:\n• Dynamic house edge adjustment\n• AI-powered risk management\n• Intelligent payout optimization\n\nNo manual wealth tax processing is needed anymore!')
+                .setColor('#00FF00');
+                
             await interaction.editReply({ embeds: [embed], components: [] });
-            await sendLogMessage(interaction.client, 'info', `Wealth taxes processed by ${interaction.user.tag}: ${result.usersTaxed} rich users taxed for ${fmt(result.totalTaxCollected || 0)}`, interaction.user.id, guildId);
 
         } catch (error) {
             const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Wealth Tax Processing Error')
-                .setDescription(`Failed to process wealth taxes: ${error.message}`)
+                .setTitle('❌ Error')
+                .setDescription(`An error occurred: ${error.message}`)
                 .setColor('#ff0000');
 
             await interaction.editReply({ embeds: [errorEmbed], components: [] });
-            logger.error(`Wealth tax processing error: ${error.message}`);
         }
     }
 }

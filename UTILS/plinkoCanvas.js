@@ -12,35 +12,39 @@ const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvably
 const BASE_PLINKO_MODES = {
     Easy: {
         rows: 8,
-        multipliers: [0.2, 0.4, 0.6, 0.8, 1.5, 0.8, 0.6, 0.4, 0.2], // Safe multipliers, no 0x slots
+        multipliers: [0.2, 0.4, 0.6, 0.8, 1.3, 0.8, 0.6, 0.4, 0.2], // Max 1.3x multiplier
         description: "Safest option with decent win potential. Great for beginners!",
         color: '#00FF00',
         emoji: '🟢',
-        house_edge: 0.15
+        house_edge: 0.15,
+        minBet: 500 // Increased base minimum bet
     },
     Medium: {
         rows: 12,
-        multipliers: [0.1, 0.2, 0.3, 0.5, 0.8, 1.2, 2.0, 1.2, 0.8, 0.5, 0.3, 0.2, 0.1], // Balanced risk
+        multipliers: [0.1, 0.2, 0.3, 0.5, 0.8, 1.2, 2.0, 1.2, 0.8, 0.5, 0.3, 0.2, 0.1], // Max 2.0x multiplier
         description: "Moderate risk with good win potential. Balanced gameplay!",
         color: '#FFA500',
         emoji: '🟠',
-        house_edge: 0.20
+        house_edge: 0.20,
+        minBet: 1000 // 2x base minimum
     },
     Hard: {
         rows: 16,
-        multipliers: [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.0, 1.5, 2.5, 1.5, 1.0, 0.8, 0.5, 0.3, 0.2, 0.1, 0.0], // Max 2.5x
+        multipliers: [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.0, 1.5, 2.8, 1.5, 1.0, 0.8, 0.5, 0.3, 0.2, 0.1, 0.0], // Max 2.8x multiplier
         description: "High risk with some 0x slots. For thrill seekers!",
         color: '#FF0000',
         emoji: '🔴',
-        house_edge: 0.25
+        house_edge: 0.25,
+        minBet: 2500 // 5x base minimum
     },
     Nightmare: {
         rows: 20,
-        multipliers: [0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.8, 1.0, 3.0, 1.0, 0.8, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0, 0.0], // Max 3.0x
-        description: "💀 NIGHTMARE MODE 💀 - Many 0x slots but max 3x payout!",
+        multipliers: [0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.8, 1.0, 3.2, 1.0, 0.8, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0, 0.0], // Max 3.2x multiplier
+        description: "💀 NIGHTMARE MODE 💀 - Many 0x slots but max 3.2x payout!",
         color: '#8B008B',
         emoji: '💀',
-        house_edge: 0.30
+        house_edge: 0.30,
+        minBet: 5000 // 10x base minimum
     }
 };
 

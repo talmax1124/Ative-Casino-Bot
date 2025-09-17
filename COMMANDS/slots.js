@@ -12,18 +12,43 @@ const SMGameType = { SLOTS: 'slots' };
 const sessionManager = require('../UTILS/sessionManager');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
-const OffEconomyBadge = require('../UTILS/offEconomyBadge');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const EconomyGuardianInterface = require('../UTILS/economyGuardianInterface');
+// EconomyGuardianInterface removed - using bulletproof economy
 const tuningManager = require('../UTILS/tuningManager');
 
+// SLOTS DIFFICULTY MODES - Progressive risk/reward system
+const SLOTS_MODES = {
+    safe: {
+        name: '🛡️ Safe',
+        minBet: 500,
+        maxMultiplier: 2.0,
+        description: 'Min: $500, Max Multiplier: 2x'
+    },
+    balanced: {
+        name: '⚖️ Balanced', 
+        minBet: 1000,
+        maxMultiplier: 2.5,
+        description: 'Min: $1K, Max Multiplier: 2.5x'
+    },
+    risky: {
+        name: '⚡ Risky',
+        minBet: 2500, 
+        maxMultiplier: 3.0,
+        description: 'Min: $2.5K, Max Multiplier: 3x'
+    },
+    extreme: {
+        name: '🔥 Extreme',
+        minBet: 5000,
+        maxMultiplier: 3.5,
+        description: 'Min: $5K, Max Multiplier: 3.5x'
+    }
+};
 
 /**
  * Create slots result embed using gameSessionKit style
  */
 async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWallet, aiResult = null) {
-    // Get off economy badge for the user
-    const offEcoBadge = await OffEconomyBadge.getGamePanelBadge(user.id);
+    // Economy badge removed - using bulletproof economy system
     const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
     
     const topFields = [];
@@ -73,16 +98,11 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
     // Get economic indicators if AI result is available
     let economicFooter = result.won ? result.type : 'Better luck next time!';
     if (aiResult) {
-        try {
-            const economicIndicators = EconomyGuardianInterface.getEconomicIndicators(user.client);
-            economicFooter += ` • Economy: ${economicIndicators.status} (${economicIndicators.gini})`;
-        } catch (error) {
-            // Ignore errors getting economic indicators
-        }
+        // EconomyGuardianInterface removed - using bulletproof economy
     }
 
     return buildSessionEmbed({
-        title: `🎰 ${user.displayName}'s Slots${offEcoBadge}`,
+        title: `🎰 ${user.displayName}'s Slots`,
         topFields,
         bankFields,
         stageText,
@@ -99,16 +119,38 @@ module.exports = {
             option.setName('amount')
                 .setDescription('Amount to bet (supports K/M/B, "all", "half")')
                 .setRequired(true)
+        )
+        .addStringOption(option =>
+            option.setName('mode')
+                .setDescription('Risk mode (higher modes have better multipliers but higher minimum bets)')
+                .setRequired(false)
+                .addChoices(
+                    { name: '🛡️ Safe (Min: $500, Max: 2x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, Max: 2.5x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, Max: 3x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, Max: 3.5x)', value: 'extreme' }
+                )
         ),
 
     async execute(interaction) {
         const userId = interaction.user.id;
         const username = interaction.user.displayName;
         const amount = interaction.options.getString('amount');
+        const mode = interaction.options.getString('mode') || 'balanced'; // Default to balanced mode
         const guildId = await getGuildId(interaction);
+        
+        // Get mode configuration
+        const modeConfig = SLOTS_MODES[mode];
+        if (!modeConfig) {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Invalid Mode')
+                .setDescription('Invalid game mode selected.')
+                .setColor(0xFF0000);
+            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+        }
 
         try {
-            logger.debug(`Slots execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}'`);
+            logger.debug(`Slots execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}' and mode '${mode}'`);
             
             // Check maintenance mode first
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
@@ -138,23 +180,14 @@ module.exports = {
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
-            // 🎛️ GET AI-REGULATED MAX BET LIMIT (allows higher bets with safety)
-            const maxBetConfig = await tuningManager.getMaxBetLimit(userId, 'slots', 400000);
-            const dynamicMaxBet = maxBetConfig.maxBet;
-            
-            // Validate and deduct bet with AI-regulated limits
+            // Validate and deduct bet using mode-specific minimum
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.SLOTS,
-                1,               // Min bet: $1
-                dynamicMaxBet    // Max bet: AI-regulated (can be much higher now!)
+                modeConfig.minBet,  // Mode-specific minimum bet
+                null                // No max bet limit - bulletproof economy handles risk
             );
-            
-            // Log max bet changes for monitoring
-            if (maxBetConfig.adjustmentApplied || maxBetConfig.userCapped) {
-                logger.info(`🎛️ SLOTS MAX BET: ${userId} -> ${fmt(dynamicMaxBet)} (${maxBetConfig.userCapped ? 'user-capped' : 'AI-adjusted'})`);
-            }
 
             if (!validation.isValid) {
                 return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
@@ -164,13 +197,8 @@ module.exports = {
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
             const oldWallet = validation.newWallet + betAmount; // Wallet before bet
 
-            // AI Economic Interception - Silent optimization and wealth tax assessment
-            const aiResult = await EconomyGuardianInterface.interceptEconomicCommand(
-                interaction, 'slots', betAmount, { 
-                    userBalance: userBalance.wallet + userBalance.bank, 
-                    gameType: 'casino_game' 
-                }
-            );
+            // EconomyGuardianInterface removed - using bulletproof economy
+            const aiResult = null;
 
             // Create game session
             const sessionResult = await sessionManager.createSession({
@@ -183,7 +211,9 @@ module.exports = {
                 timeout: 60000, // 1 minute
                 metadata: {
                     gamePhase: 'spinning',
-                    symbols: []
+                    symbols: [],
+                    mode: mode,
+                    modeConfig: modeConfig
                 },
                 interaction
             });
@@ -198,20 +228,19 @@ module.exports = {
             // Defer reply for animation and image generation
             await interaction.deferReply();
 
-            // Get personalized payouts for this player
-            const PersonalizedGameHelper = require('../UTILS/personalizedGameHelper');
-            const personalizedConfig = await PersonalizedGameHelper.getPersonalizedSlots(userId, validation);
+            // Personalized game helper removed - using bulletproof economy
+            const personalizedConfig = { payouts: { cherry: 2, lemon: 3, orange: 5, bar: 10, seven: 20 } }; // Default payouts
             
             // Spin the slots for real result immediately
             const symbols = spinSlots();
-            const baseResult = calculatePayout(symbols, betAmount, personalizedConfig.payouts);
+            const baseResult = calculatePayout(symbols, betAmount, personalizedConfig.payouts, modeConfig);
             
             // 🎰 APPLY AI TUNING SYSTEM - REAL ECONOMIC REGULATION
             const tuningAdjustment = await tuningManager.getAdjustedPayout('slots', baseResult.payout, betAmount);
             const regulatedPayout = baseResult.won ? tuningAdjustment.adjustedPayout : 0;
             
             // Apply AI multiplier adjustment to tuning-regulated payout
-            const aiMultiplier = aiResult.multiplierAdjustment?.finalMultiplier || 1.0;
+            const aiMultiplier = aiResult?.multiplierAdjustment?.finalMultiplier || 1.0;
             const aiAdjustedPayout = regulatedPayout > 0 ? Math.floor(regulatedPayout * aiMultiplier) : 0;
             const aiAdjustedResult = {
                 ...baseResult,
@@ -344,9 +373,8 @@ module.exports = {
 
             // Build a minimal "spinning" embed so users see the GIF first
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-            const userOffEcoBadge = await OffEconomyBadge.getGamePanelBadge(interaction.user.id);
             const spinningEmbed = buildSessionEmbed({
-                title: `🎰 ${interaction.user.displayName}'s Slots${userOffEcoBadge}`,
+                title: `🎰 ${interaction.user.displayName}'s Slots`,
                 topFields: [
                     { name: 'Spinning', value: 'Reels are spinning... 🎞️', inline: false },
                 ],
@@ -382,6 +410,11 @@ module.exports = {
                             oldWallet,
                             aiResult
                         );
+                        
+                        // Add mode information to the embed
+                        finalEmbed.addFields(
+                            { name: '🎮 Mode', value: `${modeConfig.name} ${modeConfig.description}`, inline: true }
+                        );
 
                         // Add booster bonus info if applicable
                         if (payoutResult.boosterBonus > 0) {
@@ -398,12 +431,9 @@ module.exports = {
                             }
                         }
 
-                        // Show wealth tax notification if applied
-                        if (aiResult?.wealthTaxResult?.taxApplied) {
-                            const taxNotificationEmbed = EconomyGuardianInterface.createWealthTaxNotificationEmbed(
-                                aiResult.wealthTaxResult, 
-                                finalBalance
-                            );
+                        // Wealth tax notifications removed - using bulletproof economy
+                        if (false) { // aiResult is now null
+                            const taxNotificationEmbed = null;
                             
                             if (taxNotificationEmbed) {
                                 // Send tax notification as a follow-up message
@@ -475,7 +505,7 @@ module.exports = {
 
             // Log AI transaction result for audit
             try {
-                await EconomyGuardianInterface.logTransactionResult(interaction, 'slots', betAmount, result, aiResult);
+                // EconomyGuardianInterface logging removed - using bulletproof economy
             } catch (logError) {
                 logger.warn(`Failed to log AI transaction result: ${logError.message}`);
             }

@@ -4,7 +4,6 @@ const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { validateAmount, formatMoneyFull } = require('../UTILS/moneyFormatter');
 const logger = require('../UTILS/logger');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-const OffEconomyBadge = require('../UTILS/offEconomyBadge');
 
 // Simple transaction lock to prevent duplicate executions
 const transactionLocks = new Map();
@@ -51,9 +50,7 @@ module.exports = {
             return;
         }
 
-        // Get economy types for logging purposes
-        const senderOffEco = await OffEconomyBadge.isOffEconomy(senderId);
-        const targetOffEco = await OffEconomyBadge.isOffEconomy(targetUser.id);
+        // Economy badge system removed - using bulletproof economy
 
         // MUST defer immediately to prevent "Unknown interaction" error
         await interaction.deferReply();

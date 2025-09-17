@@ -15,16 +15,59 @@ const logger = require('../UTILS/logger');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 const levelingSystem = require('../UTILS/levelingSystem');
-const OffEconomyBadge = require('../UTILS/offEconomyBadge');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 // LEGACY: economicManager replaced by EconomyGuardian AI
 // const economicManager = require('../UTILS/economicManager');
-const EconomyGuardianInterface = require('../UTILS/economyGuardianInterface');
+// EconomyGuardianInterface removed - using bulletproof economy
 const tuningManager = require('../UTILS/tuningManager');
 const allInManager = require('../UTILS/allInManager');
 
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
+
+// PROGRESSIVE DIFFICULTY MODES - Incremental payouts with economic protection
+const BLACKJACK_MODES = {
+    safe: {
+        name: '🛡️ Safe',
+        description: 'Conservative mode with standard payouts',
+        minBet: 500,
+        blackjackMultiplier: 1.5,    // 1.5x for blackjack
+        winMultiplier: 1.1,          // 1.1x for regular wins
+        houseEdge: 0.05,             // 5% house edge
+        emoji: '🛡️',
+        color: '#4CAF50'
+    },
+    balanced: {
+        name: '⚖️ Balanced',
+        description: 'Standard mode with traditional payouts',
+        minBet: 1000,
+        blackjackMultiplier: 2.0,    // 2.0x for blackjack
+        winMultiplier: 1.2,          // 1.2x for regular wins
+        houseEdge: 0.07,             // 7% house edge
+        emoji: '⚖️',
+        color: '#FF9800'
+    },
+    risky: {
+        name: '⚡ Risky',
+        description: 'High risk with enhanced payouts',
+        minBet: 2500,
+        blackjackMultiplier: 2.5,    // 2.5x for blackjack
+        winMultiplier: 1.5,          // 1.5x for regular wins
+        houseEdge: 0.10,             // 10% house edge
+        emoji: '⚡',
+        color: '#FF8800'
+    },
+    extreme: {
+        name: '🔥 Extreme',
+        description: 'Maximum risk with premium payouts',
+        minBet: 5000,
+        blackjackMultiplier: 3.0,    // 3.0x for blackjack
+        winMultiplier: 2.0,          // 2.0x for regular wins
+        houseEdge: 0.12,             // 12% house edge
+        emoji: '🔥',
+        color: '#FF0000'
+    }
+};
 
 // Active games storage (indexed by sessionId for better session management)
 const activeGames = new Map();
@@ -37,8 +80,7 @@ const gamePanelUtil = new GamePanelUtil();
  * Create game embed with consistent styling using gameSessionKit
  */
 async function createGameEmbed(game, user, showDealer = false, balance = null, economicIndicators = null) {
-    // Get off economy badge for the user
-    const offEcoBadge = await OffEconomyBadge.getGamePanelBadge(user.id);
+    // Economy badge removed - using bulletproof economy system
     // Top fields for game information
     const topFields = [];
     
@@ -135,7 +177,7 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
     }
     
     return buildSessionEmbed({
-        title: `🃏 ${user.displayName}'s Blackjack${offEcoBadge}`,
+        title: `🃏 ${user.displayName}'s Blackjack`,
         topFields,
         bankFields,
         stageText,
@@ -231,14 +273,29 @@ module.exports = {
             option.setName('amount')
                 .setDescription('Amount to bet (supports K/M/B, "all", "all in", "half")')
                 .setRequired(true)
+        )
+        .addStringOption(option =>
+            option.setName('mode')
+                .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
+                .setRequired(false)
+                .addChoices(
+                    { name: '🛡️ Safe (Min: $500, BJ: 1.5x, Win: 1.1x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, BJ: 2.0x, Win: 1.2x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, BJ: 2.5x, Win: 1.5x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, BJ: 3.0x, Win: 2.0x)', value: 'extreme' }
+                )
         ),
 
     async execute(interaction) {
         const userId = interaction.user.id;
         const username = interaction.user.displayName;
         const amount = interaction.options.getString('amount');
+        const selectedMode = interaction.options.getString('mode') || 'balanced';
         const guildId = await getGuildId(interaction);
-        logger.debug(`Blackjack execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}'`);
+        logger.debug(`Blackjack execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}' and mode '${selectedMode}'`);
+
+        // Get mode configuration
+        const modeConfig = BLACKJACK_MODES[selectedMode] || BLACKJACK_MODES.balanced;
 
         let validation; // Declare validation at function scope
         
@@ -270,43 +327,25 @@ module.exports = {
 
             // 🤖 AI ECONOMIC INTERCEPTION - Analyze transaction before processing
             const parsedAmount = parseAmount(amount);
-            const aiResult = await EconomyGuardianInterface.interceptEconomicCommand(
-                interaction,
-                'blackjack',
-                parsedAmount,
-                { 
-                    userBalance: userBalance.wallet + userBalance.bank,
-                    gameType: 'casino_game'
-                }
-            );
+            // EconomyGuardianInterface removed - using bulletproof economy
+            const aiResult = null;
             
             // 🚀 AI SILENT OPTIMIZATION: Never block transactions, only adjust payouts silently
             // All transactions proceed normally for seamless high-volume gameplay
             
-            // Log ATIVE AI analysis if significant
-            if (aiResult.riskScore && aiResult.riskScore > 0.3) {
-                logger.info(`🤖 ATIVE AI Blackjack Analysis: ${userId} - Amount: ${fmt(parsedAmount)} - Risk: ${aiResult.riskScore.toFixed(3)} - Multiplier: ${aiResult.multiplierAdjustment?.finalMultiplier?.toFixed(3)}x`);
-                if (aiResult.multiplierAdjustment?.aiReasoning) {
-                    logger.info(`🧠 AI Reasoning: ${aiResult.multiplierAdjustment.aiReasoning}`);
-                }
-            }
+            // AI analysis logging removed - using bulletproof economy
             
             // 🎛️ INITIALIZE AI SYSTEMS
             await tuningManager.initialize();
             await allInManager.initialize();
             
-            // 🎯 ALL-IN SYSTEM: Allow betting entire balance, use dynamic house edge for protection
-            const balance = await dbManager.getUserBalance(userId);
-            const totalWealth = balance.wallet + balance.bank;
-            const dynamicMaxBet = Math.min(totalWealth, 400000); // Max bet: $400K
-            
-            // Validate and deduct bet with all-in system
+            // Validate and deduct bet with mode-specific minimum (no max bet limit - bulletproof economy handles risk)
             validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.BLACKJACK,
-                1,              // Min bet: $1
-                dynamicMaxBet   // Max bet: $400K (capped)
+                modeConfig.minBet,  // Mode-specific minimum bet
+                null                // No max bet limit
             );
             
             // Log all-in bets for monitoring
@@ -337,7 +376,9 @@ module.exports = {
                     gamePhase: 'dealing',
                     dealerHand: [],
                     playerHand: [],
-                    gameStarted: false
+                    gameStarted: false,
+                    mode: selectedMode,
+                    modeConfig: modeConfig
                 },
                 interaction
             });
@@ -349,8 +390,8 @@ module.exports = {
             const sessionId = sessionResult.sessionId;
             logger.debug(`Blackjack session created: ${sessionId} for ${userId}`);
 
-            // Create new game and link to session
-            const game = new BlackjackGame(userId, betAmount);
+            // Create new game with mode configuration and link to session
+            const game = new BlackjackGame(userId, betAmount, modeConfig);
             game.dealInitialCards();
             game.sessionId = sessionId; // Link game to session
             
@@ -376,7 +417,7 @@ module.exports = {
             }, 'initial_deal');
 
             // Create embed and table image with economic indicators
-            const economicIndicators = EconomyGuardianInterface.getEconomicIndicators(interaction.client);
+            const economicIndicators = null; // EconomyGuardianInterface removed
             const embed = await createGameEmbed(game, interaction.user, false, userBalance, economicIndicators);
             const actionRows = createGameButtons(userId, game);
             const tableImage = await createGameTableImage(game, false);
@@ -729,8 +770,8 @@ module.exports = {
                         '**Split:** Split pairs into two hands (doubles bet)'
                     ],
                     tips: [
-                        'Blackjack (Ace + 10-value) pays 1.9x your bet',
-                        'Regular wins pay 1.7x your bet',
+                        'Blackjack multipliers vary by mode (1.5x to 3.0x)',
+                        'Regular win multipliers vary by mode (1.1x to 2.0x)',
                         'Dealer must hit on 16 and stand on 17',
                         'If dealer busts, all remaining players win'
                     ]
@@ -776,11 +817,7 @@ module.exports = {
                     logger.info(`🤖 Applying AI multiplier for blackjack: ${economicMultiplier.toFixed(3)}x`);
                 } else {
                     // Fallback: get fresh AI multiplier
-                    economicMultiplier = await EconomyGuardianInterface.getDynamicMultiplier(
-                        { user: { id: userId }, client: game.client },
-                        'blackjack',
-                        game.betAmount
-                    );
+                    economicMultiplier = 1.0; // Default multiplier - EconomyGuardianInterface removed
                 }
                 economicMultiplier = Math.max(0.5, Math.min(1.5, economicMultiplier)); // Cap between 0.5x - 1.5x
             } catch (error) {
@@ -788,9 +825,8 @@ module.exports = {
                 economicMultiplier = 1.0;
             }
             
-            // Get personalized payouts for this player
-            const PersonalizedGameHelper = require('../UTILS/personalizedGameHelper');
-            const personalizedConfig = await PersonalizedGameHelper.getPersonalizedBlackjack(userId, null);
+            // Personalized game helper removed - using bulletproof economy
+            const personalizedConfig = { blackjackPayout: 1.5, winPayout: 1.0 }; // Default values
             
             const results = game.getResults({ 
                 economicMultiplier,
@@ -1037,15 +1073,9 @@ module.exports = {
 
             // 🤖 Log transaction result to EconomyGuardian for learning
             try {
-                await EconomyGuardianInterface.logTransactionResult(
-                    interaction,
-                    'blackjack',
-                    totalBetAmount,
-                    { won: won, payout: totalPayout },
-                    sessionData.aiResult || {}
-                );
+                // EconomyGuardianInterface logging removed - using bulletproof economy
             } catch (error) {
-                logger.error(`Failed to log transaction to EconomyGuardian: ${error.message}`);
+                logger.error(`Transaction logging error: ${error.message}`);
             }
             
             // Clean up after interaction update (success or failure)

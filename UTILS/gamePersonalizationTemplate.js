@@ -137,7 +137,7 @@ const gameResult = new GameResult({
     payout: finalPayout,
     won: won,
     metadata: {
-        sessionId: aiTracking?.sessionId,
+        sessionId: null, // aiTracking removed - using bulletproof economy
         personalization: {
             tier: personalizedConfig.wealthTier,
             level: personalizedConfig.personalizationLevel,
@@ -178,7 +178,7 @@ STEP 8: Add helper method to PersonalizedGameHelper.js
 
 static async getPersonalizedYourGame(userId, validation = null) {
     const config = await dynamicGamePersonalizer.getPersonalizedGameConfig(
-        userId, 'yourGame', validation?.aiTracking
+        userId, 'yourGame', null // aiTracking removed - using bulletproof economy
     );
 
     const basePayouts = config?.basePayout || { outcome1: 2.0, outcome2: 5.0, outcome3: 10.0 };

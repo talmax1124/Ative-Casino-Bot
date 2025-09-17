@@ -123,8 +123,8 @@ class GamePanel {
         // Create dropdown options for bet amounts
         const dropdownOptions = [];
         
-        // Add same bet option if valid
-        if (lastBet > 0 && lastBet <= balance && lastBet >= minBet && lastBet <= maxBet) {
+        // 1. Same Bet - if valid
+        if (lastBet > 0 && lastBet <= balance && lastBet >= minBet) {
             dropdownOptions.push({
                 label: `Same Bet - $${lastBet.toLocaleString()}`,
                 description: 'Play again with your previous bet',
@@ -133,30 +133,40 @@ class GamePanel {
             });
         }
         
-        // Add preset amount options based on balance
-        const possibleAmounts = [100, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 150000];
-        
-        for (const amount of possibleAmounts) {
-            if (amount >= minBet && amount <= Math.min(balance, maxBet) && amount !== lastBet) {
-                dropdownOptions.push({
-                    label: `$${amount.toLocaleString()}`,
-                    description: `Bet $${amount.toLocaleString()}`,
-                    value: `play_again_${amount}`,
-                    emoji: '💰'
-                });
-                
-                // Limit to 20 options (Discord limit is 25)
-                if (dropdownOptions.length >= 20) break;
-            }
+        // 2. Half of Bet - if valid
+        const halfBet = Math.floor(lastBet / 2);
+        if (halfBet >= minBet && halfBet <= balance) {
+            dropdownOptions.push({
+                label: `Half of Bet - $${halfBet.toLocaleString()}`,
+                description: 'Play with half your previous bet',
+                value: `play_again_${halfBet}`,
+                emoji: '📉'
+            });
         }
         
-        // Add custom amounts
-        const customAmounts = [
-            { amount: Math.floor(balance * 0.1), label: '10% of Balance', emoji: '📊' },
-            { amount: Math.floor(balance * 0.25), label: '25% of Balance', emoji: '📈' },
-            { amount: Math.floor(balance * 0.5), label: '50% of Balance', emoji: '⚡' },
-            { amount: balance, label: 'All In', emoji: '🎰' }
-        ];
+        // 3. Half of Wallet - if valid
+        const halfWallet = Math.floor(balance / 2);
+        if (halfWallet >= minBet && halfWallet <= balance) {
+            dropdownOptions.push({
+                label: `Half of Wallet - $${halfWallet.toLocaleString()}`,
+                description: 'Bet half of your current wallet',
+                value: `play_again_${halfWallet}`,
+                emoji: '⚡'
+            });
+        }
+        
+        // 4. All IN! - if valid
+        if (balance >= minBet) {
+            dropdownOptions.push({
+                label: `All IN! - $${balance.toLocaleString()}`,
+                description: 'Bet your entire wallet',
+                value: `play_again_${balance}`,
+                emoji: '🎰'
+            });
+        }
+        
+        // Placeholder for removed code
+        const customAmounts = [];
         
         for (const custom of customAmounts) {
             if (custom.amount >= minBet && custom.amount <= maxBet && 

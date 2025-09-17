@@ -10,7 +10,7 @@ const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { fmt, getGuildId } = require('../UTILS/common');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomInt, secureRandomChoice } = require('../UTILS/rng');
 const { createCanvas, loadImage } = require('canvas');
 const path = require('path');
 const fs = require('fs').promises;
@@ -706,7 +706,7 @@ function generateRoundOutcomes() {
         
         // Randomly assign one good multiplier, one medium multiplier, one trap
         const shuffledMultipliers = [...config.multipliers].sort(() => secureRandomInt(0, 2) - 1);
-        const randomTrap = config.traps[secureRandomInt(0, config.traps.length)];
+        const randomTrap = secureRandomChoice(config.traps);
         
         // Assign outcomes to doors (2 multipliers, 1 trap)
         const outcomes = [

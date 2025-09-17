@@ -7,7 +7,7 @@
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } = require('discord.js');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
-const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('../UTILS/rng');
+const { secureRandomChoice } = require('../UTILS/rng');
 
 // Game choices
 const CHOICES = {
@@ -141,8 +141,7 @@ class RPSGameSession {
      */
     makeBotChoice() {
         const choices = ['ROCK', 'PAPER', 'SCISSORS'];
-        const randomIndex = secureRandomInt(0, choices.length);
-        const choice = choices[randomIndex];
+        const choice = secureRandomChoice(choices);
         logger.info(`Bot making random choice: ${choice}`);
         return choice;
     }

@@ -157,9 +157,15 @@ class BlackjackHand {
 }
 
 class BlackjackGame {
-    constructor(userId, betAmount) {
+    constructor(userId, betAmount, modeConfig = null) {
         this.userId = userId;
         this.betAmount = betAmount;
+        this.modeConfig = modeConfig || {
+            name: 'Balanced',
+            blackjackMultiplier: 1.5,
+            winMultiplier: 1.0,
+            houseEdge: 0.07
+        };
         this.deck = new Deck();
         this.playerHand = new BlackjackHand();
         this.dealerHand = new BlackjackHand();
@@ -344,13 +350,13 @@ class BlackjackGame {
             baseMultiplier = 1;
             outcome = 'PUSH';
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
-            baseMultiplier = options.personalizedPayouts?.blackjack || 1.9;  // Reduced from 2.5x for house edge
+            baseMultiplier = options.personalizedPayouts?.blackjack || this.modeConfig?.blackjackMultiplier || 2.0;
             outcome = 'BLACKJACK';
         } else if (this.dealerHand.isBusted()) {
-            baseMultiplier = options.personalizedPayouts?.win || 1.7;  // Reduced from 2.0x for house edge
+            baseMultiplier = options.personalizedPayouts?.win || this.modeConfig?.winMultiplier || 1.2;
             outcome = 'DEALER BUSTED';
         } else if (playerValue > dealerValue) {
-            baseMultiplier = options.personalizedPayouts?.win || 1.7;  // Reduced from 2.0x for house edge
+            baseMultiplier = options.personalizedPayouts?.win || this.modeConfig?.winMultiplier || 1.2;
             outcome = 'WIN';
         } else if (playerValue === dealerValue) {
             baseMultiplier = 1;  // Push returns bet (1x multiplier)

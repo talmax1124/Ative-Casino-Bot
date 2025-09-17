@@ -25,13 +25,13 @@ module.exports = {
         )
         .addStringOption(option =>
             option.setName('mode')
-                .setDescription('Difficulty mode')
+                .setDescription('Difficulty mode (higher modes have higher minimum bets)')
                 .setRequired(false)
                 .addChoices(
-                    { name: '🟢 Easy', value: 'Easy' },
-                    { name: '🟡 Medium', value: 'Medium' },
-                    { name: '🔴 Hard', value: 'Hard' },
-                    { name: '💀 Nightmare', value: 'Nightmare' }
+                    { name: '🟢 Easy (Min: $500)', value: 'Easy' },
+                    { name: '🟡 Medium (Min: $1K)', value: 'Medium' },
+                    { name: '🔴 Hard (Min: $2.5K)', value: 'Hard' },
+                    { name: '💀 Nightmare (Min: $5K, Max: 3.0x)', value: 'Nightmare' }
                 )
         ), // Removed slot option - drop position is always random
 
@@ -91,12 +91,18 @@ module.exports = {
                 return;
             }
 
-            // Use PayoutManager to validate and deduct bet IMMEDIATELY
+            // Get mode-specific minimum bet from plinko modes
+            const { getCurrentPlinkoModes } = require('../UTILS/plinkoCanvas');
+            const allModes = await getCurrentPlinkoModes(guildId);
+            const modeData = allModes[selectedMode];
+            const modeMinBet = modeData ? modeData.minBet : 100; // Fallback to 100 if mode not found
+            
+            // Use PayoutManager to validate and deduct bet IMMEDIATELY with mode-specific minimum
             const validationResult = await PayoutManager.validateAndDeductBet(
                 interaction,
                 betAmountStr,
                 GameType.PLINKO,
-                100, // Minimum bet: 100 chips
+                modeMinBet, // Mode-specific minimum bet
                 null     // No max bet - advanced risk engine handles limits
             );
 
@@ -107,15 +113,10 @@ module.exports = {
 
             const betAmount = validationResult.parsedAmount;
             const newWalletAfterBet = validationResult.newWallet;
-
-            // Get proper mode data from plinkoCanvas
-            const { getCurrentPlinkoModes } = require('../UTILS/plinkoCanvas');
-            const allModes = await getCurrentPlinkoModes(guildId);
-            const modeData = allModes[selectedMode]; // Use original selectedMode (not lowercase)
             
             // Use FIXED multipliers from plinko.js - NO DYNAMIC ADJUSTMENTS
             const { startPlinkoGame } = require('../GAMES/plinko');
-const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('../UTILS/rng');
+            const { secureRandomFloat, secureRandomInt } = require('../UTILS/rng');
             const normalizedMode = selectedMode.toLowerCase(); // Convert to lowercase
             const gameSession = startPlinkoGame(userId, username, betAmount, interaction.channelId, normalizedMode);
             

@@ -11,7 +11,7 @@ const dbManager = require('../UTILS/database');
 const sessionManager = require('../UTILS/sessionManager');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
-const { secureRandomInt, generateProvablyFairRandom, generateAntiStreakRandom } = require('../UTILS/rng');
+const { secureRandomDiceMultiple } = require('../UTILS/rng');
 const Canvas = require('canvas');
 const path = require('path');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
@@ -70,6 +70,10 @@ class CeeloGame {
         this.client = client;
         
         try {
+            // Get mode configuration from session metadata
+            const session = sessionManager.getSession(this.sessionId);
+            const modeConfig = session?.metadata?.modeConfig || { evenMoneyMultiplier: 1.0 };
+            
             // Roll dice for both player and house
             this.rollDice();
             
@@ -80,9 +84,11 @@ class CeeloGame {
             // Determine winner
             this.determineWinner();
             
-            // Calculate payout (1:1 means bet amount returned + bet amount won)
+            // Calculate payout using mode-specific multiplier
             if (this.winner === 'player') {
-                this.payout = this.betAmount * 2; // Return bet + equal amount as winnings (1:1)
+                // Use mode-specific multiplier instead of hardcoded 2x
+                const multiplier = 1 + modeConfig.evenMoneyMultiplier; // Add 1 to get total return (bet + winnings)
+                this.payout = this.betAmount * multiplier;
             } else if (this.winner === 'tie') {
                 this.payout = this.betAmount; // Return bet on tie
             } else {
@@ -100,26 +106,14 @@ class CeeloGame {
     }
 
     /**
-     * Roll 3 dice for both player and house using advanced CSPRNG
+     * Roll 3 dice for both player and house using CSPRNG
      */
     rollDice() {
-        // Generate provably fair dice rolls for player
-        const playerFairRoll = generateProvablyFairRandom('ceelo_player', this.userId, 0, 216); // 6^3 = 216 combinations
-        const playerRollValue = playerFairRoll.value;
+        // CSPRNG dice rolls for player
+        this.playerDice = secureRandomDiceMultiple(3, 6).sort((a, b) => a - b);
         
-        // Convert single value to three dice (base-6 decomposition)
-        this.playerDice = [
-            Math.floor(playerRollValue / 36) + 1,
-            Math.floor((playerRollValue % 36) / 6) + 1,
-            (playerRollValue % 6) + 1
-        ].sort((a, b) => a - b);
-        
-        // Generate house dice using secure random (simplified to avoid anti-streak issues)
-        this.houseDice = [
-            secureRandomInt(1, 7),
-            secureRandomInt(1, 7),
-            secureRandomInt(1, 7)
-        ].sort((a, b) => a - b);
+        // CSPRNG dice rolls for house
+        this.houseDice = secureRandomDiceMultiple(3, 6).sort((a, b) => a - b);
     }
 
     /**
@@ -437,7 +431,6 @@ class CeeloGame {
             await sessionManager.updateSession(this.sessionId, { state: 'completed' });
 
             // Log game result
-            const won = this.winner === 'player';
             await dbManager.recordGameResult(
                 this.userId, 
                 this.guildId, 

@@ -150,7 +150,7 @@ module.exports = {
                 validation.newWallet,
                 {
                     minBet: MIN_BET,
-                    maxBet: MAX_BET,
+                    maxBet: null,
                     wins: 0,
                     losses: 0,
                     gameSpecific: [
@@ -460,7 +460,7 @@ module.exports = {
                 0, // No wallet display needed during active game
                 {
                     minBet: 0,
-                    maxBet: 0,
+                    maxBet: null,
                     wins: 0,
                     losses: 0,
                     hideWalletInfo: true,

@@ -79,7 +79,7 @@ class RouletteGame {
             throw new Error('Game already completed');
         }
 
-        // Generate secure random number for American wheel (0, 00, 1-36)
+        // Generate random number for American wheel (0, 00, 1-36)
         const randomIndex = secureRandomInt(0, 38); // 0 to 37 inclusive for 38 slots
         const result = this.wheelNumbers[randomIndex];
         
@@ -183,26 +183,26 @@ class RouletteGame {
             case 'dozen1':
             case 'dozen2':
             case 'dozen3':
-                // Dozen bets: 2.5x payout - balanced risk/reward
-                payout = amount * 2.5;
+                // Dozen bets: 3.0x payout - balanced risk/reward
+                payout = amount * 3.0;
                 break;
             case 'column1':
             case 'column2':
             case 'column3':
-                // Column bets: 2.5x payout - balanced risk/reward
-                payout = amount * 2.5;
+                // Column bets: 3.0x payout - balanced risk/reward
+                payout = amount * 3.0;
                 break;
             case 'number':
-                // All number bets: 3x payout - MAXIMUM ALLOWED
-                payout = amount * 3.0;
+                // All number bets: 6x payout - MAXIMUM ALLOWED
+                payout = amount * 6.0;
                 break;
             case 'green':
-                // Green bet (0 or 00): 3x payout - MAXIMUM ALLOWED
-                payout = amount * 3.0;
+                // Green bet (0 or 00): 6x payout - MAXIMUM ALLOWED
+                payout = amount * 6.0;
                 break;
             case 'basket':
-                // Basket bet: 3x payout - MAXIMUM ALLOWED
-                payout = amount * 3.0;
+                // Basket bet: 6x payout - MAXIMUM ALLOWED
+                payout = amount * 6.0;
                 break;
             default:
                 payout = 0;

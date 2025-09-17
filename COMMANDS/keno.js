@@ -14,11 +14,46 @@ const logger = require('../UTILS/logger');
 // KENO Configuration
 const KENO_CONFIG = {
     MIN_BET: 10,           // Minimum $10 entry
-    MAX_BET: 400000,       // Maximum $400K bet
     MIN_NUMBERS: 1,        // Minimum 1 number to pick
     MAX_NUMBERS: 10,       // Maximum 10 numbers to pick
     TOTAL_NUMBERS: 80,     // Numbers 1-80 available
     DRAW_COUNT: 20         // 20 numbers drawn
+};
+
+// PROGRESSIVE DIFFICULTY MODES
+const KENO_MODES = {
+    safe: {
+        name: '🛡️ Safe',
+        description: 'Conservative mode with standard payouts',
+        minBet: 500,
+        maxSingleMatchMultiplier: 2.0,
+        emoji: '🛡️',
+        color: '#4CAF50'
+    },
+    balanced: {
+        name: '⚖️ Balanced',
+        description: 'Standard mode with traditional payouts',
+        minBet: 1000,
+        maxSingleMatchMultiplier: 3.0,
+        emoji: '⚖️',
+        color: '#FF9800'
+    },
+    risky: {
+        name: '⚡ Risky',
+        description: 'High risk with enhanced payouts',
+        minBet: 2500,
+        maxSingleMatchMultiplier: 3.0,
+        emoji: '⚡',
+        color: '#FF8800'
+    },
+    extreme: {
+        name: '🔥 Extreme',
+        description: 'Maximum risk with premium payouts',
+        minBet: 5000,
+        maxSingleMatchMultiplier: 3.0,
+        emoji: '🔥',
+        color: '#FF0000'
+    }
 };
 
 module.exports = {
@@ -27,7 +62,7 @@ module.exports = {
         .setDescription('🎲 KENO - Simple lottery! We pick numbers for you, house draws 20, matches = wins!')
         .addStringOption(option =>
             option.setName('bet')
-                .setDescription(`Bet amount (Min: $${KENO_CONFIG.MIN_BET}, Max: ${fmt(KENO_CONFIG.MAX_BET)}) - supports K/M/B suffixes`)
+                .setDescription(`Bet amount (Min: $${KENO_CONFIG.MIN_BET}) - supports K/M/B suffixes (no max limit!)`)
                 .setRequired(true)
         )
         .addIntegerOption(option =>
@@ -36,6 +71,17 @@ module.exports = {
                 .setMinValue(1)
                 .setMaxValue(5)
                 .setRequired(false)
+        )
+        .addStringOption(option =>
+            option.setName('mode')
+                .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
+                .setRequired(false)
+                .addChoices(
+                    { name: '🛡️ Safe (Min: $500, Max Single Match: 2x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, Max Single Match: 3x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, Max Single Match: 3x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, Max Single Match: 3x)', value: 'extreme' }
+                )
         ),
 
     async execute(interaction) {
@@ -44,7 +90,11 @@ module.exports = {
         const guildId = interaction.guildId;
         const betAmountStr = interaction.options.getString('bet');
         const spots = Math.min(interaction.options.getInteger('spots') || 5, 5); // Default 5 spots, max 5
+        const selectedMode = interaction.options.getString('mode') || 'balanced';
         const quickPick = true; // ALWAYS use quickpick for simplicity
+
+        // Get mode configuration
+        const modeConfig = KENO_MODES[selectedMode] || KENO_MODES.balanced;
 
         try {
             // Defer reply immediately to prevent timeout
@@ -73,8 +123,8 @@ module.exports = {
                 interaction,
                 betAmountStr,
                 GameType.KENO,
-                KENO_CONFIG.MIN_BET,
-                KENO_CONFIG.MAX_BET
+                modeConfig.minBet,
+                null // No max bet limit - bulletproof economy handles risk
             );
             
             if (!validation.isValid) {
@@ -97,7 +147,9 @@ module.exports = {
                     spots: spots,
                     selectedNumbers: [],
                     quickPick: quickPick,
-                    betAmount: betAmount
+                    betAmount: betAmount,
+                    mode: selectedMode,
+                    modeConfig: modeConfig
                 }
             });
 

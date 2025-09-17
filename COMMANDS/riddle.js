@@ -7,7 +7,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
@@ -126,7 +126,7 @@ module.exports = {
 
             if (!userAnswer) {
                 // Present a new riddle
-                const riddleData = riddles[secureRandomInt(0, riddles.length)];
+                const riddleData = secureRandomChoice(riddles);
                 
                 // Store riddle data temporarily (in a real bot, you'd store this in database)
                 global.userRiddles = global.userRiddles || {};

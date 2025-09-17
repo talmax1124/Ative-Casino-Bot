@@ -6,7 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
@@ -302,7 +302,7 @@ module.exports = {
             { job: 'Security Guard', min: 6000, max: 14000 }
         ];
 
-        const scenario = workScenarios[secureRandomInt(0, workScenarios.length)];
+        const scenario = secureRandomChoice(workScenarios);
         const earning = secureRandomInt(scenario.min, scenario.max + 1);
         
         return { 
@@ -331,7 +331,7 @@ module.exports = {
             { person: 'a lucky high roller', min: 3000, max: 8000 }
         ];
 
-        const scenario = begScenarios[secureRandomInt(0, begScenarios.length)];
+        const scenario = secureRandomChoice(begScenarios);
         const earning = secureRandomInt(scenario.min, scenario.max + 1);
         
         return { 
@@ -362,7 +362,7 @@ module.exports = {
             { crime: 'Snuck extra chips during confusion', min: 1800, max: 4200 }
         ];
 
-        const scenario = crimeScenarios[secureRandomInt(0, crimeScenarios.length)];
+        const scenario = secureRandomChoice(crimeScenarios);
         const earning = secureRandomInt(scenario.min, scenario.max + 1);
         
         return { 
@@ -391,7 +391,7 @@ module.exports = {
             { target: 'Slot Machine Jackpot', min: 16000, max: 26000 }
         ];
 
-        const scenario = heistScenarios[secureRandomInt(0, heistScenarios.length)];
+        const scenario = secureRandomChoice(heistScenarios);
         const earning = secureRandomInt(scenario.min, scenario.max + 1);
         
         return { 
@@ -421,7 +421,7 @@ module.exports = {
             { task: 'Updated security protocols', min: 9000, max: 15000 }
         ];
 
-        const scenario = taskScenarios[secureRandomInt(0, taskScenarios.length)];
+        const scenario = secureRandomChoice(taskScenarios);
         const earning = secureRandomInt(scenario.min, scenario.max + 1);
         
         return { 
@@ -451,7 +451,7 @@ module.exports = {
             { topic: 'Lucky number predictions', min: 5000, max: 8000 }
         ];
 
-        const topic = quizTopics[secureRandomInt(0, quizTopics.length)];
+        const topic = secureRandomChoice(quizTopics);
         const earning = secureRandomInt(topic.min, topic.max + 1);
         
         return { 

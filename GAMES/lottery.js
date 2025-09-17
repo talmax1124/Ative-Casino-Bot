@@ -7,7 +7,7 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const moment = require('moment-timezone');
 const dbManager = require('../UTILS/database');
 const { fmt, sendLogMessage } = require('../UTILS/common');
-const { secureRandomInt } = require('../UTILS/rng');
+// RNG imports removed - not used in lottery.js
 const logger = require('../UTILS/logger');
 // Canvas removed - no image generation
 

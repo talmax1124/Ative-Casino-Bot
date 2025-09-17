@@ -5,7 +5,7 @@
  */
 
 const dbManager = require('./database');
-const wealthTaxManager = require('./wealthTax');
+// wealthTax removed - using bulletproof economy system
 const { fmt, sendLogMessage } = require('./common');
 const logger = require('./logger');
 
@@ -162,23 +162,17 @@ class AutomaticWealthControl {
             const repeatOffenderMultiplier = Math.min(3.0, 1.0 + (userHistory.count * 0.5));
             const finalMultiplier = baseMultiplier * repeatOffenderMultiplier;
 
-            // Apply wealth tax using the existing system
-            const guildId = process.env.GUILD_ID || '1403244656845787167';
-            const taxRecord = await wealthTaxManager.applyWealthTax(userId, guildId, username);
-            
+            // Wealth tax system removed - bulletproof economy handles wealth control
             let taxAmount = 0;
-            if (taxRecord && taxRecord.taxAmount > 0) {
-                taxAmount = taxRecord.taxAmount;
+            
+            // Apply additional emergency tax for ultra-wealthy (above standard wealth tax) - more lenient
+            if (totalBalance > this.CRITICAL_THRESHOLD) {
+                const emergencyTaxRate = 0.02 + (finalMultiplier - 0.5) * 0.05; // 2% base + smaller escalation (was 10% + 10%)
+                const emergencyTax = Math.floor(totalBalance * Math.max(0, emergencyTaxRate)); // Ensure non-negative
                 
-                // Apply additional emergency tax for ultra-wealthy (above standard wealth tax) - more lenient
-                if (totalBalance > this.CRITICAL_THRESHOLD) {
-                    const emergencyTaxRate = 0.02 + (finalMultiplier - 0.5) * 0.05; // 2% base + smaller escalation (was 10% + 10%)
-                    const emergencyTax = Math.floor(totalBalance * Math.max(0, emergencyTaxRate)); // Ensure non-negative
-                    
-                    if (emergencyTax > 0) {
-                        await this.applyEmergencyTax(userId, guildId, emergencyTax);
-                        taxAmount += emergencyTax;
-                    }
+                if (emergencyTax > 0) {
+                    await this.applyEmergencyTax(userId, guildId, emergencyTax);
+                    taxAmount += emergencyTax;
                 }
             }
 

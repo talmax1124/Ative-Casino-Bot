@@ -6,7 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
 
@@ -61,7 +61,7 @@ module.exports = {
                 { person: 'a casino winner', message: 'shared their jackpot', min: 5000, max: 10000 }
             ];
 
-            const scenario = begScenarios[secureRandomInt(0, begScenarios.length)];
+            const scenario = secureRandomChoice(begScenarios);
             const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
 
             // Calculate server booster bonus (5%)

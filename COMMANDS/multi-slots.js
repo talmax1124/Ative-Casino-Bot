@@ -22,6 +22,42 @@ const dbManager = require('../UTILS/database');
 const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 
+// PROGRESSIVE DIFFICULTY MODES
+const MULTI_SLOTS_MODES = {
+    safe: {
+        name: '🛡️ Safe',
+        description: 'Conservative mode with standard payouts',
+        minBet: 500,
+        maxMatrixMultiplier: 3.0,
+        emoji: '🛡️',
+        color: '#4CAF50'
+    },
+    balanced: {
+        name: '⚖️ Balanced',
+        description: 'Standard mode with traditional payouts',
+        minBet: 1000,
+        maxMatrixMultiplier: 5.0,
+        emoji: '⚖️',
+        color: '#FF9800'
+    },
+    risky: {
+        name: '⚡ Risky',
+        description: 'High risk with enhanced payouts',
+        minBet: 2500,
+        maxMatrixMultiplier: 5.0,
+        emoji: '⚡',
+        color: '#FF8800'
+    },
+    extreme: {
+        name: '🔥 Extreme',
+        description: 'Maximum risk with premium payouts',
+        minBet: 5000,
+        maxMatrixMultiplier: 5.0,
+        emoji: '🔥',
+        color: '#FF0000'
+    }
+};
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('multi-slots')
@@ -30,12 +66,27 @@ module.exports = {
             option.setName('amount')
                 .setDescription('Amount to bet (supports K/M/B, "all", "half")')
                 .setRequired(true)
+        )
+        .addStringOption(option =>
+            option.setName('mode')
+                .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
+                .setRequired(false)
+                .addChoices(
+                    { name: '🛡️ Safe (Min: $500, Max Matrix: 3x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, Max Matrix: 5x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, Max Matrix: 5x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, Max Matrix: 5x)', value: 'extreme' }
+                )
         ),
 
     async execute(interaction) {
         const userId = interaction.user.id;
         const amount = interaction.options.getString('amount');
+        const selectedMode = interaction.options.getString('mode') || 'balanced';
         const guildId = await getGuildId(interaction);
+
+        // Get mode configuration
+        const modeConfig = MULTI_SLOTS_MODES[selectedMode] || MULTI_SLOTS_MODES.balanced;
 
         try {
             // Check maintenance mode first
@@ -61,8 +112,8 @@ module.exports = {
                 interaction,
                 amount,
                 GameType.MULTI_SLOTS,
-                1,                      // Min bet: $1
-                400000,              // Max bet: $100M (safe with personalization)
+                modeConfig.minBet,      // Mode-specific minimum bet
+                null,                // No max bet limit
                 { matrixMinBet: MATRIX_MIN_BET }  // Special requirement for matrix mode
             );
 
@@ -84,7 +135,9 @@ module.exports = {
                 timeout: 180000, // 3 minutes for Multi-Slots
                 metadata: {
                     gamePhase: 'active',
-                    singlePlayer: true
+                    singlePlayer: true,
+                    mode: selectedMode,
+                    modeConfig: modeConfig
                 },
                 interaction
             });
@@ -104,7 +157,7 @@ module.exports = {
 
             // Spin the matrix slots for real result immediately
             const matrix = spinMatrixSlots();
-            const result = calculateMatrixPayout(matrix, betAmount);
+            const result = calculateMatrixPayout(matrix, betAmount, modeConfig); // Apply mode restrictions
 
             // Check for buffalo bonus
             const buffaloBonus = result.buffaloBonus;

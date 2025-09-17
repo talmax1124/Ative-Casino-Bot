@@ -6,7 +6,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
@@ -64,7 +64,7 @@ module.exports = {
                 { job: 'Delivery Driver', min: 8000, max: 18000 }
             ];
 
-            const scenario = workScenarios[secureRandomInt(0, workScenarios.length)];
+            const scenario = secureRandomChoice(workScenarios);
             const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
 
             // Apply shop economy boosts

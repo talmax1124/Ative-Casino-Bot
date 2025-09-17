@@ -35,6 +35,11 @@ const HEIST_GAMES = {
         name: 'Keypad Code',
         description: '4-digit code breaking game - crack the security system with clues',
         file: '../heists/Games/KeypadCode.js'
+    },
+    'muscle-heist': {
+        name: 'Muscle Heist',
+        description: '4-stage brute force heist - teamwork, button mashing, and quick reactions',
+        file: '../heists/Games/Muscle-Heist.js'
     }
 };
 
@@ -51,7 +56,8 @@ module.exports = {
                     { name: 'Reaction - Fast emoji reactions', value: 'reaction' },
                     { name: 'Unscramble - Word puzzle solving', value: 'unscramble' },
                     { name: 'Lie Detector - Truth vs Bluff voting', value: 'liedetector' },
-                    { name: 'Keypad Code - 4-digit security bypass', value: 'keypadcode' }
+                    { name: 'Keypad Code - 4-digit security bypass', value: 'keypadcode' },
+                    { name: 'Muscle Heist - 4-stage brute force teamwork', value: 'muscle-heist' }
                 )
         ),
 

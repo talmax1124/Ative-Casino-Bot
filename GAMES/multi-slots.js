@@ -38,7 +38,7 @@ class BuffaloBonusSession {
     async spinBonus() {
         this.spinsLeft--;
         const matrix = spinMatrixSlots();
-        const result = calculateMatrixPayout(matrix, this.bonusBetAmount);
+        const result = calculateMatrixPayout(matrix, this.bonusBetAmount, null); // No mode restrictions for bonus spins
         
         if (result.won) {
             this.totalBonusWinnings += result.payout;

@@ -79,7 +79,7 @@ async function autoPlaceAllShips(board) {
         let placed = false;
         while (!placed && attempts < maxAttempts) {
             attempts++;
-            const direction = secureRandomFloat() < 0.5 ? HORIZONTAL : VERTICAL;
+            const direction = secureRandomBool(0.5) ? HORIZONTAL : VERTICAL;
             const startRow = secureRandomInt(0, BOARD_SIZE);
             const startCol = secureRandomInt(0, BOARD_SIZE);
             
@@ -960,7 +960,7 @@ module.exports = {
             // Try to update database stats if available
             try {
                 const db = require('../UTILS/database');
-const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvablyFairRandom } = require('../UTILS/rng');
+const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
                 
                 // Update winner stats
                 await db.query(`
