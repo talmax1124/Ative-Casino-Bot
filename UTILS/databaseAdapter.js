@@ -1069,25 +1069,29 @@ class DatabaseAdapter {
             }
             
             // Update lottery info with tier support
-            // First check if a record exists for this guild_id and tier
-            const [existingRecord] = await connection.execute(
-                'SELECT total_tickets FROM lottery_info WHERE guild_id = ? AND tier = ?',
-                [guildId, tier]
-            );
-            
-            if (existingRecord.length > 0) {
-                // Update existing record for this tier
-                await connection.execute(
-                    'UPDATE lottery_info SET total_tickets = total_tickets + ?, current_week_start = ? WHERE guild_id = ? AND tier = ?',
-                    [ticketCount, currentWeekStart, guildId, tier]
-                );
+            if (tier === 2) {
+                // Handle tier 2 using separate table
+                await this.updateTier2LotteryTickets(connection, guildId, ticketCount, currentWeekStart);
             } else {
-                // Insert new record for this tier
-                const defaultPrize = tier === 1 ? 400000.00 : 3000000.00;
-                await connection.execute(
-                    'INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start, tier) VALUES (?, ?, ?, ?, ?)',
-                    [guildId, ticketCount, defaultPrize, currentWeekStart, tier]
+                // Handle tier 1 using main table
+                const [existingRecord] = await connection.execute(
+                    'SELECT total_tickets FROM lottery_info WHERE guild_id = ? AND (tier = 1 OR tier IS NULL)',
+                    [guildId]
                 );
+                
+                if (existingRecord.length > 0) {
+                    // Update existing record for tier 1
+                    await connection.execute(
+                        'UPDATE lottery_info SET total_tickets = total_tickets + ?, current_week_start = ? WHERE guild_id = ?',
+                        [ticketCount, currentWeekStart, guildId]
+                    );
+                } else {
+                    // Insert new record for tier 1
+                    await connection.execute(
+                        'INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start, tier) VALUES (?, ?, 400000.00, ?, 1)',
+                        [guildId, ticketCount, currentWeekStart]
+                    );
+                }
             }
             
             await connection.commit();
@@ -1127,6 +1131,12 @@ class DatabaseAdapter {
                 // Column already exists, continue
             }
             
+            // For tier 2, we'll use a different approach due to primary key constraints
+            if (tier === 2) {
+                // Use a separate table for tier 2 or store tier 2 data differently
+                return await this.getTier2LotteryInfo(guildId);
+            }
+            
             // For tier 1, check both tier 1 and legacy records (no tier column)
             let query, params;
             if (tier === 1) {
@@ -1142,10 +1152,33 @@ class DatabaseAdapter {
             if (rows.length === 0) {
                 // Create default lottery info for guild and tier
                 const defaultPrize = tier === 1 ? 400000.00 : 3000000.00; // Tier 2 starts at 3M
-                await this.pool.execute(
-                    'INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start, tier) VALUES (?, 0, ?, ?, ?)',
-                    [guildId, defaultPrize, currentWeekStart, tier]
-                );
+                
+                try {
+                    // Use INSERT IGNORE to handle duplicate key gracefully
+                    await this.pool.execute(
+                        `INSERT IGNORE INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start, tier) 
+                         VALUES (?, 0, ?, ?, ?)`,
+                        [guildId, defaultPrize, currentWeekStart, tier]
+                    );
+                } catch (insertError) {
+                    // If INSERT IGNORE fails, the record might already exist or there's a schema issue
+                    // Try to handle the existing record case
+                    if (insertError.code === 'ER_DUP_ENTRY') {
+                        // If tier 1 exists and we're trying to create tier 2, we need to work around the constraint
+                        if (tier === 2) {
+                            // For tier 2, return a default object since we can't create the record due to PK constraint
+                            logger.warn(`Cannot create tier 2 lottery record due to primary key constraint for guild ${guildId}`);
+                            return {
+                                total_tickets: 0,
+                                total_prize: defaultPrize,
+                                next_drawing: null,
+                                current_week_start: currentWeekStart,
+                                tier: tier
+                            };
+                        }
+                    }
+                    throw insertError;
+                }
                 
                 return {
                     total_tickets: 0,
@@ -1167,6 +1200,98 @@ class DatabaseAdapter {
                 current_week_start: this.getCurrentWeekStart(),
                 tier: tier
             };
+        }
+    }
+
+    /**
+     * Get tier 2 lottery info using a separate storage mechanism
+     * This handles the primary key constraint issue with the main lottery_info table
+     */
+    async getTier2LotteryInfo(guildId) {
+        try {
+            const currentWeekStart = this.getCurrentWeekStart();
+            
+            // Try to create a tier 2 lottery table if it doesn't exist
+            try {
+                await this.pool.execute(`
+                    CREATE TABLE IF NOT EXISTS lottery_info_tier2 (
+                        guild_id VARCHAR(255) PRIMARY KEY,
+                        total_tickets INT DEFAULT 0,
+                        total_prize DECIMAL(15,2) DEFAULT 3000000.00,
+                        current_week_start BIGINT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    )
+                `);
+            } catch (createError) {
+                logger.debug(`Tier 2 table already exists or creation failed: ${createError.message}`);
+            }
+            
+            // Get tier 2 lottery info
+            const [rows] = await this.pool.execute(
+                'SELECT *, 2 as tier FROM lottery_info_tier2 WHERE guild_id = ?',
+                [guildId]
+            );
+            
+            if (rows.length === 0) {
+                // Create default tier 2 record
+                await this.pool.execute(
+                    'INSERT INTO lottery_info_tier2 (guild_id, total_tickets, total_prize, current_week_start) VALUES (?, 0, 3000000.00, ?)',
+                    [guildId, currentWeekStart]
+                );
+                
+                return {
+                    total_tickets: 0,
+                    total_prize: 3000000.00,
+                    next_drawing: null,
+                    current_week_start: currentWeekStart,
+                    tier: 2
+                };
+            }
+            
+            return rows[0];
+        } catch (error) {
+            logger.error(`Failed to get tier 2 lottery info: ${error.message}`);
+            // Return default values
+            return {
+                total_tickets: 0,
+                total_prize: 3000000.00,
+                next_drawing: null,
+                current_week_start: this.getCurrentWeekStart(),
+                tier: 2
+            };
+        }
+    }
+
+    /**
+     * Update tier 2 lottery tickets count using separate table
+     */
+    async updateTier2LotteryTickets(connection, guildId, ticketCount, currentWeekStart) {
+        try {
+            // Ensure tier 2 table exists
+            await connection.execute(`
+                CREATE TABLE IF NOT EXISTS lottery_info_tier2 (
+                    guild_id VARCHAR(255) PRIMARY KEY,
+                    total_tickets INT DEFAULT 0,
+                    total_prize DECIMAL(15,2) DEFAULT 3000000.00,
+                    current_week_start BIGINT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            `);
+            
+            // Update or insert tier 2 lottery info
+            await connection.execute(
+                `INSERT INTO lottery_info_tier2 (guild_id, total_tickets, total_prize, current_week_start) 
+                 VALUES (?, ?, 3000000.00, ?) 
+                 ON DUPLICATE KEY UPDATE 
+                 total_tickets = total_tickets + ?, 
+                 current_week_start = ?`,
+                [guildId, ticketCount, currentWeekStart, ticketCount, currentWeekStart]
+            );
+        } catch (error) {
+            logger.error(`Failed to update tier 2 lottery tickets: ${error.message}`);
+            throw error;
         }
     }
 
