@@ -5,7 +5,7 @@
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const moment = require('moment-timezone');
-const dbManager = require('../UTILS/database');
+const dbManager = require('../UTILS/databaseAdapter');
 const { fmt, sendLogMessage } = require('../UTILS/common');
 // RNG imports removed - not used in lottery.js
 const logger = require('../UTILS/logger');
@@ -666,7 +666,13 @@ class LotteryGame {
             
             logger.info('Checking for orphaned lottery tickets to recover...');
             
-            const recoveryResult = await dbManager.checkAndRecoverOrphanedTickets(DESIGNATED_SERVER_ID);
+            let recoveryResult;
+            try {
+                recoveryResult = await dbManager.checkAndRecoverOrphanedTickets(DESIGNATED_SERVER_ID);
+            } catch (recoveryError) {
+                logger.warn(`Error calling checkAndRecoverOrphanedTickets: ${recoveryError.message}`);
+                recoveryResult = { success: false, reason: 'error', error: recoveryError.message };
+            }
             
             if (recoveryResult.success) {
                 if (recoveryResult.recovered > 0) {
@@ -684,7 +690,12 @@ class LotteryGame {
                     logger.info('No orphaned tickets found - all tickets properly assigned');
                 }
             } else {
-                logger.error(`Ticket recovery failed: ${recoveryResult.reason}`);
+                // Suppress known "no_database" error to clean up startup logs
+                if (recoveryResult.reason === 'no_database') {
+                    logger.debug(`Ticket recovery skipped: database adapter not available`);
+                } else {
+                    logger.warn(`Ticket recovery failed: ${recoveryResult.reason}`);
+                }
             }
         } catch (error) {
             logger.error(`Error during ticket recovery process: ${error.message}`);
