@@ -549,13 +549,13 @@ client.once('clientReady', async () => {
         logger.info('✅ NodeCache system initialized and operational');
 
         // Create startup economic summary with ChatGPT (now that database is ready)
-        if (process.env.ENVIRONMENT === 'production') {
-            setTimeout(async () => {
+        setTimeout(async () => {
+            try {
                 await createStartupEconomicSummary(client);
-            }, 2000); // Wait 2 seconds for everything to be fully ready
-        } else {
-            logger.info('🚫 Startup economic summary disabled in development mode');
-        }
+            } catch (error) {
+                logger.warn(`Startup economic summary failed: ${error.message}`);
+            }
+        }, 2000); // Wait 2 seconds for everything to be fully ready
 
         // Economy Analyzer moved to UAS bot - functionality integrated in /ai command
         logger.info('✅ Economy analysis available via /ai analyze command');

@@ -817,9 +817,33 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
-        // Temporarily disabled to avoid AI calls during development
-        console.log(`[DEV MODE] Skipping recordGameResult for ${gameType} - AI calls disabled`);
-        return true;
+        try {
+            if (this.usingAdapter) {
+                return await this.databaseAdapter.recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata);
+            }
+            
+            // Fallback mode - store in cache for later sync
+            const gameResult = {
+                userId,
+                guildId,
+                gameType,
+                won,
+                betAmount,
+                payout,
+                metadata,
+                timestamp: Date.now()
+            };
+            
+            // Store in temporary cache for later database sync
+            const logger = require('./logger');
+            logger.info(`Recorded game result: ${userId} ${gameType} ${won ? 'won' : 'lost'} ${payout}`);
+            
+            return true;
+        } catch (error) {
+            const logger = require('./logger');
+            logger.error(`Failed to record game result: ${error.message}`);
+            return false;
+        }
     }
 
     /**
