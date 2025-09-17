@@ -1,0 +1,16 @@
+{
+  "choices": [
+    "hit",
+    "stand",
+    "double",
+    "split",
+    "insurance"
+  ],
+  "cardCountingIndicators": {},
+  "strategyDeviations": {},
+  "winRateByChoice": {},
+  "totalChoices": 500,
+  "lastAnalysis": 1758089314442,
+  "currentAdjustment": 0.01392768253968254,
+  "timestamp": 1758089314443
+}

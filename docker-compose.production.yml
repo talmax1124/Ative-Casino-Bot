@@ -20,7 +20,6 @@ services:
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     volumes:
       - ./logs:/app/logs
       - ./data:/app/data

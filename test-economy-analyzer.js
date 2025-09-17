@@ -19,7 +19,7 @@ async function testEconomyAnalyzer() {
         // Initialize optimizer
         console.log('2. Initializing EconomyOptimizer...');
         const optimizer = new EconomyOptimizer({
-            openaiApiKey: null, // Disable ChatGPT for testing
+            // No external AI dependencies
             autoStart: false
         });
         

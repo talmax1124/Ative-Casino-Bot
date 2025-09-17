@@ -131,6 +131,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: 'ceelo',
                 betAmount,
+                betPreDeducted: true, // Bet already deducted by PayoutManager
                 timeout: 120000, // 2 minutes
                 metadata: {
                     gamePhase: 'playing',

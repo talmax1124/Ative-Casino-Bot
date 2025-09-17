@@ -8,6 +8,7 @@ const BulletproofEconomyEngine = require('./core/EconomyEngine');
 const DynamicHouseEdgeSystem = require('./adaptive/DynamicHouseEdge');
 const AdvancedRiskManager = require('./risk/AdvancedRiskManager');
 const IntelligentPayoutSystem = require('./adaptive/IntelligentPayoutSystem');
+const GameTrendAnalyzer = require('../UTILS/GameTrendAnalyzer');
 
 const crypto = require('crypto');
 const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
@@ -19,6 +20,7 @@ class BulletproofEconomyController {
         this.houseEdgeSystem = null;
         this.riskManager = null;
         this.payoutSystem = null;
+        this.trendAnalyzer = null;
         
         // CSPRNG Security Layer
         this.cryptoManager = {
@@ -256,6 +258,9 @@ class BulletproofEconomyController {
             this.riskManager
         );
         
+        // Initialize Nash equilibrium trend analyzer
+        this.trendAnalyzer = new GameTrendAnalyzer();
+        
         console.log('✅ Core economy components initialized');
     }
 
@@ -315,6 +320,16 @@ class BulletproofEconomyController {
         const { gameType, userId, betAmount, originalPayout, won, guildId } = gameData;
         
         try {
+            // Record player choice/behavior for trend analysis
+            if (this.trendAnalyzer && gameData.choice) {
+                await this.trendAnalyzer.recordChoice(gameType, userId, gameData.choice, {
+                    betAmount,
+                    won,
+                    originalPayout,
+                    ...gameData.metadata
+                });
+            }
+            
             // Ensure components are initialized
             if (!this.riskManager || !this.houseEdgeSystem) {
                 console.warn('Bulletproof economy components not fully initialized, using fallback values');
@@ -345,6 +360,15 @@ class BulletproofEconomyController {
                 houseEdge = this.houseEdgeSystem.calculateDynamicEdge(
                     gameType, userId, betAmount, playerProfile
                 );
+                
+                // 2.5. Apply Nash equilibrium trend-based adjustments
+                if (this.trendAnalyzer) {
+                    const trendAdjustment = this.trendAnalyzer.getTrendAdjustment(gameType);
+                    if (trendAdjustment > 0) {
+                        houseEdge += trendAdjustment;
+                        console.log(`🎯 Applied trend adjustment to ${gameType}: +${(trendAdjustment * 100).toFixed(3)}% house edge`);
+                    }
+                }
             } catch (edgeError) {
                 console.warn(`Dynamic house edge calculation failed for ${gameType}, using default: ${edgeError.message}`);
             }
@@ -433,6 +457,39 @@ class BulletproofEconomyController {
         await this.validateGameResult(result);
         
         return result;
+    }
+
+    /**
+     * Record game choice for trend analysis
+     */
+    async recordGameChoice(gameType, userId, choice, metadata = {}) {
+        if (this.trendAnalyzer) {
+            try {
+                await this.trendAnalyzer.recordChoice(gameType, userId, choice, metadata);
+            } catch (error) {
+                console.warn(`Failed to record game choice: ${error.message}`);
+            }
+        }
+    }
+
+    /**
+     * Get trend-based house edge adjustment
+     */
+    getTrendHouseEdgeAdjustment(gameType) {
+        if (this.trendAnalyzer) {
+            return this.trendAnalyzer.getTrendAdjustment(gameType);
+        }
+        return 0;
+    }
+
+    /**
+     * Get comprehensive trend analysis summary
+     */
+    getTrendAnalysisSummary() {
+        if (this.trendAnalyzer) {
+            return this.trendAnalyzer.getTrendSummary();
+        }
+        return { message: 'Trend analyzer not initialized' };
     }
 
     /**

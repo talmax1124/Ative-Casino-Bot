@@ -83,6 +83,7 @@ class GameResult {
         sessionTotalWinnings = 0.0,
         bonusTriggered = false,
         specialResult = null,
+        choice = null,
         metadata = {}
     }) {
         this.userId = userId;
@@ -91,6 +92,7 @@ class GameResult {
         this.betAmount = betAmount;
         this.payout = payout;
         this.won = won;
+        this.choice = choice;
         this.sessionGames = sessionGames;
         this.sessionTotalBet = sessionTotalBet;
         this.sessionTotalWinnings = sessionTotalWinnings;
@@ -398,7 +400,9 @@ class PayoutManager {
                     betAmount,
                     originalPayout: payout,
                     won,
-                    guildId
+                    guildId,
+                    choice: gameResult.choice || gameResult.metadata?.choice || 'unknown',
+                    metadata: gameResult.metadata || {}
                 });
                 
                 // Apply bulletproof economy adjustments
@@ -531,6 +535,17 @@ class PayoutManager {
             }
             
             logger.info(`Processed payout for ${userId}: ${fmt(payout)} (${won ? 'win' : 'loss'})`);
+            
+            // Record activity for log summaries
+            if (global.client && global.client.logSummaryManager) {
+                global.client.logSummaryManager.recordGameActivity(
+                    gameType, 
+                    userId, 
+                    betAmount, 
+                    finalPayout + boosterBonus, 
+                    won
+                );
+            }
             
             // AI analysis removed
             

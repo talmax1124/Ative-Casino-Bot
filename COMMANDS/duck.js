@@ -768,28 +768,40 @@ module.exports = {
 
     async endGame(interaction, gameSession, won, payout) {
         try {
-            // Process payout
-            const gameResult = new GameResult({
-                userId: gameSession.userId,
-                guildId: gameSession.guildId,
-                gameType: GameType.DUCK_GAME,
-                betAmount: gameSession.betAmount,
-                payout: payout,
-                won: won
-            });
+            // Process payout with comprehensive bet size analysis using PayoutManager
+            if (payout > 0) {
+                const gameResult = new GameResult({
+                    userId: gameSession.userId,
+                    guildId: gameSession.guildId,
+                    gameType: GameType.DUCK_GAME,
+                    betAmount: gameSession.betAmount,
+                    payout: payout,
+                    won: won,
+                    metadata: {
+                        position: gameSession.position,
+                        lanes: gameSession.config.lanes,
+                        mode: gameSession.mode
+                    }
+                });
 
-            // Payout handled via SessionManager below
+                try {
+                    await PayoutManager.processGamePayout(gameResult);
+                    logger.info(`Processed duck game payout for ${gameSession.userId}: ${fmt(payout)}`);
+                } catch (payoutError) {
+                    logger.error(`Failed to process duck game payout: ${payoutError.message}`);
+                }
+            }
 
             // Clean up
             activeGames.delete(gameSession.userId);
             TimeoutManager.clearTimeout(gameSession.userId);
 
-            // Complete session if it exists
+            // Complete session without payout (PayoutManager handled the wallet update)
             if (gameSession.sessionId) {
                 try {
                     await sessionManager.endSession(gameSession.sessionId, {
                         outcome: won ? 'WON' : 'LOST',
-                        payout: payout,
+                        payout: 0, // PayoutManager already processed the payout
                         won: won,
                         netChange: payout - gameSession.betAmount
                     });

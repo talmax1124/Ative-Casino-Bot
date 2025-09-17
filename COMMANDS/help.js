@@ -516,8 +516,8 @@ function createAdminHelp(interaction, categoryInfo) {
                 inline: false
             },
             {
-                name: '🤖 **AI Assistant Features** 🤖',
-                value: '```yaml\nAI Help:      /askative <question> - GPT-4 powered assistance\nSession Mgmt: "release @user" - Free stuck sessions  \nMoney Help:   "check @user balance" - View user finances\nStuck Users:  Natural language: "I\'m stuck" for help\nPortal Promo: Auto-suggests portal for money questions\nSupport Hub:  Auto-redirects non-main server users\n```\n🧠 **Smart Help:** AI understands natural language commands',
+                name: '🤖 **Assistant Features** 🤖',
+                value: '```yaml\nSession Mgmt: "release @user" - Free stuck sessions  \nMoney Help:   "check @user balance" - View user finances\nStuck Users:  Natural language: "I\'m stuck" for help\nPortal Promo: Auto-suggests portal for money questions\nSupport Hub:  Auto-redirects non-main server users\n```\n🧠 **Smart Help:** Built-in assistance system',
                 inline: false
             },
             {

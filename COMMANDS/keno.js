@@ -141,6 +141,7 @@ module.exports = {
                 channelId: interaction.channelId,
                 gameType: 'keno',
                 betAmount,
+                betPreDeducted: true, // Bet already deducted by PayoutManager
                 timeout: 300000, // 5 minutes
                 metadata: {
                     gamePhase: quickPick ? 'quickpick' : 'selecting',

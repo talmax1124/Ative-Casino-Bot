@@ -960,25 +960,34 @@ module.exports = {
             let resultMessage = '';
             try {
                 if (results.length > 1) {
-                    // Split hands
+                    // Split hands - use regulated payout for display
                     const handResults = [];
                     for (let i = 0; i < results.length; i++) {
                         const result = results[i] || {};
-                        const payout = result.payout || 0;
-                        const status = result.won ? '🎉 WIN!' : '💸 LOSE';
+                        // Calculate proportion of regulated payout for this hand (avoid division by zero)
+                        const handProportion = totalPayout > 0 ? (result.payout || 0) / totalPayout : 0;
+                        const handRegulatedPayout = regulatedPayout * handProportion;
+                        const status = handRegulatedPayout > 0 ? '🎉 WIN!' : '💸 LOSE';
                         const doubledText = result.doubled ? ' (DOUBLED)' : '';
-                        handResults.push(`Hand ${i + 1}: ${status} ${fmt(payout)}${doubledText}`);
+                        handResults.push(`Hand ${i + 1}: ${status} ${fmt(handRegulatedPayout)}${doubledText}`);
                     }
                     resultMessage = handResults.join('\n');
-                    resultMessage += `\n\n**Total Payout: ${fmt(totalPayout)}**`;
+                    resultMessage += `\n\n**Total Payout: ${fmt(regulatedPayout)}**`;
                 } else {
                     const result = results[0] || {};
-                    const payout = result.payout || 0;
-                    logger.info(`🔍 DEBUG: won=${result.won}, outcome=${result.outcome}, baseMultiplier=${result.baseMultiplier}, multiplier=${result.multiplier}, payout=${payout}`);
+                    // Use the actual regulated payout, not the original game result payout
+                    const actualPayout = regulatedPayout || 0;
+                    logger.info(`🔍 DEBUG: won=${result.won}, outcome=${result.outcome}, baseMultiplier=${result.baseMultiplier}, multiplier=${result.multiplier}, originalPayout=${result.payout}, regulatedPayout=${actualPayout}`);
                     
-                    // Force win display based on base game outcome, not economic multipliers
-                    if (result.baseMultiplier > 1 || result.outcome === 'DEALER BUSTED' || result.outcome === 'BLACKJACK' || result.outcome === 'WIN') {
-                        resultMessage = `🎉 **YOU WIN!** ${fmt(payout)}`;
+                    // Display win/loss based on actual regulated payout amount
+                    if (actualPayout > 0) {
+                        if (result.outcome === 'BLACKJACK') {
+                            resultMessage = `🎉 **BLACKJACK!** ${fmt(actualPayout)}`;
+                        } else if (result.outcome === 'PUSH') {
+                            resultMessage = `🤝 **PUSH** - Your bet is returned.`;
+                        } else {
+                            resultMessage = `🎉 **YOU WIN!** ${fmt(actualPayout)}`;
+                        }
                     } else if (result.outcome === 'PUSH') {
                         resultMessage = `🤝 **PUSH** - Your bet is returned.`;
                     } else {
@@ -987,7 +996,7 @@ module.exports = {
                 }
             } catch (messageError) {
                 logger.error(`Error creating result message for user ${userId}: ${messageError.message}`);
-                resultMessage = `🎰 **GAME COMPLETE** - Total Payout: ${fmt(totalPayout)}`;
+                resultMessage = `🎰 **GAME COMPLETE** - Total Payout: ${fmt(regulatedPayout)}`;
             }
             
             // Add level up message if applicable
@@ -997,7 +1006,7 @@ module.exports = {
             
             // Safety check - ensure resultMessage is not empty and has content
             if (!resultMessage || resultMessage.trim() === '' || resultMessage.length < 3) {
-                resultMessage = `🎰 **GAME COMPLETE** - Total Payout: ${fmt(totalPayout)}`;
+                resultMessage = `🎰 **GAME COMPLETE** - Total Payout: ${fmt(regulatedPayout)}`;
                 logger.warn(`Empty or invalid result message for blackjack game, using fallback for user ${userId}`);
             }
 
@@ -1006,7 +1015,7 @@ module.exports = {
             
             // Enhanced interaction update with validation
             const finalData = {
-                content: resultMessage || `🎰 Game Complete - Total Payout: ${fmt(totalPayout)}`,
+                content: resultMessage || `🎰 Game Complete - Total Payout: ${fmt(regulatedPayout)}`,
                 embeds: [finalEmbed],
                 components: GamePanel.createGameButtons({ 
                     actions: ['play_again_multi', 'quit'],
@@ -1023,7 +1032,7 @@ module.exports = {
             try {
                 // Validate finalData before sending
                 if (!finalData.content || finalData.content.trim() === '') {
-                    finalData.content = `🎰 Game Complete - Payout: ${fmt(totalPayout)}`;
+                    finalData.content = `🎰 Game Complete - Payout: ${fmt(regulatedPayout)}`;
                 }
                 
                 if (interaction.deferred || interaction.replied) {
@@ -1040,7 +1049,7 @@ module.exports = {
                 try {
                     if (!interaction.replied && !interaction.deferred) {
                         const fallbackData = {
-                            content: `🎰 Game Complete - Payout: ${fmt(totalPayout)}`,
+                            content: `🎰 Game Complete - Payout: ${fmt(regulatedPayout)}`,
                             embeds: [finalEmbed],
                             components: GamePanel.createGameButtons({ 
                                 actions: ['play_again_multi', 'quit'],

@@ -12,6 +12,7 @@ const sessionManager = require('../UTILS/sessionManager');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const { secureRandomInt } = require('../UTILS/rng');
+const BulletproofEconomyController = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
 
 // KENO Configuration - Simplified for 1-5 numbers only
 const CONFIG = {
@@ -423,7 +424,7 @@ class KenoGame {
             this.calculatePayout();
             
             // Create result embed
-            const embed = this.createResultEmbed();
+            const embed = await this.createResultEmbed();
             
             // Process payout using correct GameResult object
             const gameResult = new GameResult({
@@ -487,9 +488,32 @@ class KenoGame {
     /**
      * Create result embed with clear explanations
      */
-    createResultEmbed() {
+    async createResultEmbed() {
         const matchedNumbers = this.selectedNumbers.filter(num => this.drawnNumbers.includes(num));
         const won = this.payout > 0;
+        
+        // Calculate economy-adjusted payout to show accurate amount to user
+        let displayPayout = this.payout;
+        if (won && this.payout > 0) {
+            try {
+                const bulletproofEconomy = new BulletproofEconomyController();
+                await bulletproofEconomy.initialize();
+                const economyResult = await bulletproofEconomy.processGame({
+                    gameType: 'keno',
+                    userId: this.userId,
+                    betAmount: this.betAmount,
+                    originalPayout: this.payout,
+                    won: true,
+                    guildId: this.guildId
+                });
+                if (economyResult && economyResult.adjustedPayout !== undefined) {
+                    displayPayout = economyResult.adjustedPayout;
+                }
+            } catch (error) {
+                logger.warn(`Failed to calculate economy-adjusted payout for display: ${error.message}`);
+                // Use original payout if economy calculation fails
+            }
+        }
         
         // Create number display with clear highlighting
         const selectedDisplay = this.selectedNumbers.map(num => 
@@ -501,7 +525,7 @@ class KenoGame {
         if (won) {
             winExplanation = `🎉 **YOU WON!** You matched ${this.matches} out of your ${this.spots} numbers.\n` +
                            `With ${this.spots} numbers picked, you needed ${Math.min(...Object.keys(PAYOUT_TABLE[this.spots]).map(Number))} matches to win.\n` +
-                           `Your ${this.matches} matches earned ${this.multiplier}x your bet = ${fmt(this.payout)}!`;
+                           `Your ${this.matches} matches earned ${this.multiplier}x your bet = ${fmt(displayPayout)}!`;
         } else {
             const minToWin = Math.min(...Object.keys(PAYOUT_TABLE[this.spots]).map(Number));
             winExplanation = `❌ **No payout this time.** You matched ${this.matches} out of your ${this.spots} numbers.\n` +

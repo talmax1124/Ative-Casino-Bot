@@ -253,7 +253,7 @@ module.exports = {
             }
             
             // Apply transparent payout system - show full multiplier in UI but adjust actual payout
-            const transparentResult = await transparentPayoutManager.processTransparentPayout(
+            const transparentResult = await transparentPayoutManager.calculateHonestPayout(
                 userId,
                 'slots',
                 betAmount,
@@ -267,9 +267,9 @@ module.exports = {
             // Use UI multiplier for display, AI-adjusted payout for winnings
             const result = {
                 ...baseResult,
-                multiplier: transparentResult.uiMultiplier,  // Show attractive multiplier
+                multiplier: transparentResult.displayedMultiplier,  // Show transparent multiplier
                 payout: finalActualPayout,                    // AI and transparent system adjusted payout
-                displayMultiplier: transparentResult.uiMultiplier,
+                displayMultiplier: transparentResult.displayedMultiplier,
                 actualMultiplier: baseResult.multiplier,
                 aiMultiplier: aiMultiplier,                  // Track AI adjustment
                 transparentPayout: transparentResult.actualPayout

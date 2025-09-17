@@ -135,8 +135,7 @@ MYSQL_DATABASE=casino_bot
 # Redis Cache Configuration
 REDIS_URL=redis://localhost:6379
 
-# OpenAI API (Optional)
-OPENAI_API_KEY=your_openai_api_key_here
+# Removed OpenAI integration
 
 # Environment
 NODE_ENV=production

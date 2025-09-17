@@ -557,11 +557,34 @@ module.exports = {
             components: []
         });
 
-        // End session and credit the actual payout
+        // Process payout with comprehensive bet size analysis using PayoutManager
+        if (currentPayout > 0) {
+            try {
+                const gameResult = new GameResult({
+                    userId: userId,
+                    guildId: guildId,
+                    gameType: GameType.TREASURE_VAULT,
+                    betAmount: betAmount,
+                    payout: currentPayout,
+                    won: won,
+                    metadata: {
+                        rounds: gameSession.round,
+                        reason: reason,
+                        finalMultiplier: currentPayout / betAmount
+                    }
+                });
+                await PayoutManager.processGamePayout(gameResult);
+                logger.info(`Processed treasure vault payout for ${userId}: ${fmt(currentPayout)}`);
+            } catch (payoutError) {
+                logger.error(`Failed to process treasure vault payout: ${payoutError.message}`);
+            }
+        }
+
+        // End session without payout (PayoutManager handled the wallet update)
         if (gameSession.sessionId) {
             try {
                 await sessionManager.endSession(gameSession.sessionId, {
-                    payout: currentPayout,
+                    payout: 0, // PayoutManager already processed the payout
                     won,
                     reason: 'completed'
                 });

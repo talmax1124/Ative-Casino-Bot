@@ -542,13 +542,64 @@ module.exports = {
             logger.info(`RPS game completed in channel ${channelId}: ${finalWinner === 0 ? 'Tie' : 
                        finalWinner === 1 ? `${game.player1Name} wins` : `${game.player2Name} wins`}`);
 
-            // Complete the game sessions for both players using SessionManager (handles wallet credit + flag)
+            // Process payouts using PayoutManager for comprehensive bet size analysis
+            // Player 1 payout processing
+            if (p1Payout > 0) {
+                try {
+                    const p1GameResult = new GameResult({
+                        userId: game.player1Id,
+                        guildId: guildId,
+                        gameType: GameType.RPS,
+                        betAmount: game.potAmount,
+                        payout: p1Payout,
+                        won: finalWinner === 1,
+                        choice: game.player1Choice || 'unknown',
+                        metadata: { 
+                            opponent: game.vsBot ? 'bot' : 'player',
+                            finalScore: `${game.player1Wins}-${game.player2Wins}`,
+                            rounds: game.currentRound,
+                            choice: game.player1Choice
+                        }
+                    });
+                    await PayoutManager.processGamePayout(p1GameResult);
+                    logger.info(`Processed RPS payout for player 1 (${game.player1Id}): ${fmt(p1Payout)}`);
+                } catch (payoutError) {
+                    logger.error(`Failed to process player 1 RPS payout: ${payoutError.message}`);
+                }
+            }
+            
+            // Player 2 payout processing (not for bot games)
+            if (game.player2Id && !game.vsBot && p2Payout > 0) {
+                try {
+                    const p2GameResult = new GameResult({
+                        userId: game.player2Id,
+                        guildId: guildId,
+                        gameType: GameType.RPS,
+                        betAmount: game.potAmount,
+                        payout: p2Payout,
+                        won: finalWinner === 2,
+                        choice: game.player2Choice || 'unknown',
+                        metadata: { 
+                            opponent: 'player',
+                            finalScore: `${game.player2Wins}-${game.player1Wins}`,
+                            rounds: game.currentRound,
+                            choice: game.player2Choice
+                        }
+                    });
+                    await PayoutManager.processGamePayout(p2GameResult);
+                    logger.info(`Processed RPS payout for player 2 (${game.player2Id}): ${fmt(p2Payout)}`);
+                } catch (payoutError) {
+                    logger.error(`Failed to process player 2 RPS payout: ${payoutError.message}`);
+                }
+            }
+            
+            // Complete sessions without payouts (PayoutManager handled the wallet updates)
             if (game.sessionId) {
                 try {
                     await sessionManager.endSession(game.sessionId, {
-                        payout: p1Payout,
+                        payout: 0, // PayoutManager already processed the payout
                         won: finalWinner === 1,
-                        reason: finalWinner === 0 ? 'completed' : 'completed'
+                        reason: 'completed'
                     });
                     logger.info(`Completed RPS session ${game.sessionId} for player 1 (${game.player1Id})`);
                 } catch (sessionError) {
@@ -560,7 +611,7 @@ module.exports = {
             if (game.player2SessionId && !game.vsBot) {
                 try {
                     await sessionManager.endSession(game.player2SessionId, {
-                        payout: p2Payout,
+                        payout: 0, // PayoutManager already processed the payout
                         won: finalWinner === 2,
                         reason: 'completed'
                     });
