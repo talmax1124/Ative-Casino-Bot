@@ -9,6 +9,7 @@ const DynamicHouseEdgeSystem = require('./adaptive/DynamicHouseEdge');
 const AdvancedRiskManager = require('./risk/AdvancedRiskManager');
 const IntelligentPayoutSystem = require('./adaptive/IntelligentPayoutSystem');
 const GameTrendAnalyzer = require('../UTILS/GameTrendAnalyzer');
+const EconomicOversightSystem = require('../UTILS/economicOversightSystem');
 
 const crypto = require('crypto');
 const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
@@ -21,6 +22,7 @@ class BulletproofEconomyController {
         this.riskManager = null;
         this.payoutSystem = null;
         this.trendAnalyzer = null;
+        this.oversightSystem = null;
         
         // CSPRNG Security Layer
         this.cryptoManager = {
@@ -41,13 +43,31 @@ class BulletproofEconomyController {
             lastOptimization: null
         };
         
-        // Economic safety systems
+        // ENHANCED ECONOMIC SAFETY SYSTEMS - Stricter Controls
         this.safeguards = {
-            maximumLossPerHour: 1000000,     // $1M max loss per hour
-            maximumPlayerWinRate: 0.65,      // 65% max sustained win rate
-            minimumHouseEdge: 0.005,         // 0.5% minimum house edge
-            emergencyShutdownThreshold: 0.9,  // 90% risk threshold
-            isEmergencyMode: false
+            maximumLossPerHour: 500000,      // $500K max loss per hour (reduced)
+            maximumPlayerWinRate: 0.55,      // 55% max sustained win rate (reduced)
+            minimumHouseEdge: 0.025,         // 2.5% minimum house edge (increased)
+            emergencyShutdownThreshold: 0.75, // 75% risk threshold (reduced)
+            isEmergencyMode: false,
+            
+            // NEW STRICT REGULATIONS
+            maxConsecutiveWins: 5,           // Max 5 consecutive wins before forced adjustment
+            maxWinStreakValue: 100000,       // Max $100K in consecutive wins
+            suspiciousActivityThreshold: 0.8, // 80% win rate triggers investigation
+            automaticHouseEdgeIncrease: 0.01, // 1% auto-increase on losses
+            emergencyHouseEdgeBoost: 0.05,   // 5% emergency boost
+            
+            // PAYOUT RESTRICTIONS
+            maxPayoutRatio: 50,              // Max 50x payout on any game
+            bigWinThreshold: 50000,          // $50K+ wins require validation
+            maxDailyPayouts: 2000000,        // $2M max daily payouts total
+            
+            // PATTERN DETECTION
+            patternDetectionEnabled: true,
+            antiExploitMode: true,
+            behaviorAnalysisDepth: 100,      // Analyze last 100 games
+            riskAssessmentFrequency: 300000  // Every 5 minutes
         };
         
         // Quantum-resistant security
@@ -261,7 +281,11 @@ class BulletproofEconomyController {
         // Initialize Nash equilibrium trend analyzer
         this.trendAnalyzer = new GameTrendAnalyzer();
         
+        // Initialize comprehensive economic oversight system
+        this.oversightSystem = EconomicOversightSystem;
+        
         console.log('✅ Core economy components initialized');
+        console.log('🔍 Economic oversight system integrated');
     }
 
     /**

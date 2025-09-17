@@ -59,6 +59,11 @@ class GameTrendAnalyzer {
         // Initialize data structures
         this.initializeDataStructures();
         
+        // Load existing trend data (async, fire-and-forget)
+        this.loadExistingTrendData().catch(error => {
+            logger.error(`Failed to load existing trend data: ${error.message}`);
+        });
+        
         // Start periodic analysis
         this.startPeriodicAnalysis();
         
@@ -822,6 +827,77 @@ class GameTrendAnalyzer {
     }
     
     /**
+     * Load existing trend data from disk on startup
+     */
+    async loadExistingTrendData() {
+        try {
+            const dataDir = path.join(__dirname, '..', 'TREND_DATA');
+            
+            // Check if data directory exists
+            try {
+                await fs.access(dataDir);
+            } catch {
+                logger.info('🧠 No existing trend data found, starting fresh');
+                return;
+            }
+            
+            // Load trend data for each game type
+            for (const gameType of Object.keys(this.gameStructures)) {
+                await this.loadTrendDataForGame(gameType);
+            }
+            
+            logger.info('🧠 Existing trend data loaded successfully');
+            
+        } catch (error) {
+            logger.error(`Error loading existing trend data: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Load trend data for specific game type
+     */
+    async loadTrendDataForGame(gameType) {
+        try {
+            const dataDir = path.join(__dirname, '..', 'TREND_DATA');
+            const filePath = path.join(dataDir, `${gameType}_trends.json`);
+            
+            try {
+                const data = await fs.readFile(filePath, 'utf8');
+                const savedData = JSON.parse(data);
+                
+                // Restore basic data
+                const gameData = this.trendData.get(gameType);
+                if (gameData && savedData) {
+                    gameData.totalChoices = savedData.totalChoices || 0;
+                    gameData.lastAnalysis = savedData.lastAnalysis || Date.now();
+                    gameData.currentAdjustment = savedData.currentAdjustment || 0;
+                    
+                    // Restore game adjustments if they exist
+                    if (savedData.currentAdjustment > 0) {
+                        this.gameAdjustments.set(gameType, {
+                            houseEdgeAdjustment: savedData.currentAdjustment,
+                            reason: savedData.reason || 'loaded_from_persistence',
+                            confidence: savedData.confidence || 0.5,
+                            dominantStrategy: savedData.dominantStrategy || null,
+                            appliedAt: savedData.lastAnalysis || Date.now(),
+                            decayRate: this.config.adjustmentDecay
+                        });
+                        
+                        logger.info(`🎯 Restored ${gameType} trend adjustment: +${(savedData.currentAdjustment * 100).toFixed(3)}%`);
+                    }
+                }
+                
+            } catch (error) {
+                // File doesn't exist or is corrupted, skip silently
+                logger.debug(`No valid trend data for ${gameType}: ${error.message}`);
+            }
+            
+        } catch (error) {
+            logger.error(`Error loading trend data for ${gameType}: ${error.message}`);
+        }
+    }
+
+    /**
      * Save trend data to disk
      */
     async saveTrendData(gameType) {
@@ -832,10 +908,15 @@ class GameTrendAnalyzer {
             const gameData = this.trendData.get(gameType);
             const filePath = path.join(dataDir, `${gameType}_trends.json`);
             
-            // Convert Maps to objects for JSON
+            // Convert Maps to objects for JSON and include adjustment data
+            const adjustment = this.gameAdjustments.get(gameType);
             const saveData = {
                 ...gameData,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                // Include adjustment data for persistence
+                reason: adjustment?.reason || null,
+                confidence: adjustment?.confidence || null,
+                dominantStrategy: adjustment?.dominantStrategy || null
             };
             
             await fs.writeFile(filePath, JSON.stringify(saveData, null, 2));

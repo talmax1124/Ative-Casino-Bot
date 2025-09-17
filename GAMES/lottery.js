@@ -147,65 +147,72 @@ class LotteryGame {
     }
 
     /**
-     * Safely check if we missed any drawings during bot downtime
-     * More conservative approach to prevent accidental resets
+     * Check if we should conduct a drawing RIGHT NOW
+     * VERY STRICT validation to prevent accidental drawings on VPS restart
      */
     async checkMissedDrawingsSafely() {
         try {
-            // Note: Lottery system checks for missed drawings in all environments
-            
             logger.info('Checking for missed lottery drawings during downtime...');
+            
+            // CRITICAL: Only conduct drawing if we are EXACTLY at a scheduled drawing time
+            if (!this.isExactDrawingTime()) {
+                logger.info('Not at exact drawing time (Tuesday/Saturday 10:00-10:15 AM EST) - skipping missed drawing check');
+                return;
+            }
             
             const lotteryInfo = await dbManager.getLotteryInfo(DESIGNATED_SERVER_ID);
             logger.info(`Current lottery status: ${lotteryInfo.total_tickets} tickets, prize pool: $${lotteryInfo.total_prize}`);
             
-            // Only conduct missed drawing if there are participants
+            // Only conduct missed drawing if there are participants AND we're at the exact time
             if (lotteryInfo.total_tickets > 0) {
-                // Check if we actually have participants
                 const allTickets = await dbManager.getAllLotteryTickets(DESIGNATED_SERVER_ID);
                 if (allTickets.length > 0) {
-                    logger.info(`Found ${allTickets.length} participants with ${lotteryInfo.total_tickets} total tickets - eligible for drawing`);
-                    
-                    // Additional safety: Only trigger if we're well past a drawing time
-                    const nowNY = moment.tz('America/New_York');
-                    const currentDay = nowNY.day();
-                    const currentHour = nowNY.hour();
-                    
-                    // Much more restrictive: Only trigger on specific days with clear missed drawing evidence
-                    const shouldTriggerMissedDrawing = 
-                        ((currentDay === 2 || currentDay === 6) && currentHour > 15) || // Same day, 5+ hours past drawing time
-                        ((currentDay === 3) && currentHour > 6) || // Wednesday morning after Tuesday drawing
-                        ((currentDay === 0) && currentHour > 6);   // Sunday morning after Saturday drawing
-                    
-                    if (shouldTriggerMissedDrawing) {
-                        // Additional safety check: verify next drawing timestamp is actually in the future
-                        const nextDrawingTime = this.getNextDrawingTimestamp();
-                        const nowTimestamp = Math.floor(Date.now() / 1000);
-                        
-                        // Only conduct if the next scheduled drawing is properly in the future (at least 1 hour from now)
-                        if (nextDrawingTime > (nowTimestamp + 3600)) {
-                            logger.warn('Detected likely missed drawing - conducting lottery now');
-                            const success = await this.conductWeeklyDrawing();
-                            if (success) {
-                                logger.info('Successfully conducted missed lottery drawing on startup');
-                            } else {
-                                logger.error('Failed to conduct missed lottery drawing on startup - tickets preserved');
-                            }
-                        } else {
-                            logger.info('Next drawing timestamp check failed - skipping missed drawing to prevent duplicate draws');
-                        }
+                    logger.warn('Found active lottery with participants and we are at exact drawing time - conducting drawing now');
+                    const success = await this.conductWeeklyDrawing();
+                    if (success) {
+                        logger.info('Successfully conducted lottery drawing at scheduled time');
                     } else {
-                        logger.info('Tickets found but timing suggests no missed drawing needed');
+                        logger.error('Failed to conduct scheduled lottery drawing - tickets preserved');
                     }
                 } else {
-                    logger.info(`No participants found - no drawing to conduct`);
+                    logger.info('No participants found - no drawing to conduct');
                 }
             } else {
-                logger.info('No active lottery tickets found - no missed drawing to conduct');
+                logger.info('No active lottery tickets found - no drawing to conduct');
             }
         } catch (error) {
             logger.error(`Error checking for missed drawings: ${error.message}`);
         }
+    }
+
+    /**
+     * Check if current time is EXACTLY a scheduled drawing time
+     * Only returns true for Tuesday/Saturday between 10:00-10:15 AM Eastern
+     */
+    isExactDrawingTime() {
+        const nowNY = moment.tz('America/New_York');
+        const currentDay = nowNY.day(); // 0=Sunday, 1=Monday, 2=Tuesday, ..., 6=Saturday
+        const currentHour = nowNY.hour();
+        const currentMinute = nowNY.minute();
+        
+        // Must be Tuesday (2) or Saturday (6)
+        const isDrawingDay = (currentDay === 2 || currentDay === 6);
+        
+        // Must be exactly 10 AM hour
+        const isDrawingHour = (currentHour === 10);
+        
+        // Must be within first 15 minutes (10:00-10:15 AM) to account for restart timing
+        const isDrawingMinute = (currentMinute >= 0 && currentMinute <= 15);
+        
+        const isExactTime = isDrawingDay && isDrawingHour && isDrawingMinute;
+        
+        if (isExactTime) {
+            logger.info(`EXACT DRAWING TIME DETECTED: ${nowNY.format('dddd, MMMM Do YYYY, h:mm:ss A')} EST`);
+        } else {
+            logger.debug(`Not drawing time - Day: ${nowNY.format('dddd')} (need Tue/Sat), Hour: ${currentHour} (need 10), Minute: ${currentMinute} (need 0-15)`);
+        }
+        
+        return isExactTime;
     }
 
     /**

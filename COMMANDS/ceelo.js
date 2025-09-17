@@ -25,7 +25,7 @@ const CEELO_MODES = {
         name: '🛡️ Safe',
         description: 'Conservative mode with standard payouts',
         minBet: 500,
-        evenMoneyMultiplier: 1.2,
+        evenMoneyMultiplier: 0.95,
         emoji: '🛡️',
         color: '#4CAF50'
     },
@@ -33,7 +33,7 @@ const CEELO_MODES = {
         name: '⚖️ Balanced',
         description: 'Standard mode with traditional payouts',
         minBet: 1000,
-        evenMoneyMultiplier: 1.5,
+        evenMoneyMultiplier: 0.98,
         emoji: '⚖️',
         color: '#FF9800'
     },
@@ -41,7 +41,7 @@ const CEELO_MODES = {
         name: '⚡ Risky',
         description: 'High risk with enhanced payouts',
         minBet: 2500,
-        evenMoneyMultiplier: 2.0,
+        evenMoneyMultiplier: 1.02,
         emoji: '⚡',
         color: '#FF8800'
     },
@@ -49,7 +49,7 @@ const CEELO_MODES = {
         name: '🔥 Extreme',
         description: 'Maximum risk with premium payouts',
         minBet: 5000,
-        evenMoneyMultiplier: 3.0,
+        evenMoneyMultiplier: 1.05,
         emoji: '🔥',
         color: '#FF0000'
     }
@@ -69,10 +69,10 @@ module.exports = {
                 .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
                 .setRequired(false)
                 .addChoices(
-                    { name: '🛡️ Safe (Min: $500, Even Money: 1.2x)', value: 'safe' },
-                    { name: '⚖️ Balanced (Min: $1K, Even Money: 1.5x)', value: 'balanced' },
-                    { name: '⚡ Risky (Min: $2.5K, Even Money: 2.0x)', value: 'risky' },
-                    { name: '🔥 Extreme (Min: $5K, Even Money: 3.0x)', value: 'extreme' }
+                    { name: '🛡️ Safe (Min: $500, Payout: 1.95x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, Payout: 1.98x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, Payout: 2.02x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, Payout: 2.05x)', value: 'extreme' }
                 )
         ),
 

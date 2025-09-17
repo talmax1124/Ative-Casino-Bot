@@ -10,6 +10,7 @@ const { fmt, getGuildId, sendLogMessage, getEconomicTier, getAllTiers } = requir
 const { secureRandomChance } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
+const robStatsManager = require('../UTILS/robStatsManager');
 
 const DEVELOPER_ID = '466050111680544798'; // From CLAUDE.md
 const ROB_COOLDOWN = 3600; // 1 hour cooldown
@@ -228,6 +229,28 @@ module.exports = {
             }
 
             await interaction.editReply({ embeds: [resultEmbed] });
+
+            // Record comprehensive rob stats
+            try {
+                await robStatsManager.recordRobbery(
+                    {
+                        id: userId,
+                        name: username,
+                        balance: robberBalance
+                    },
+                    {
+                        id: targetId,
+                        name: targetUser.displayName,
+                        balance: targetBalance
+                    },
+                    success,
+                    success ? robAmount : 0,
+                    success ? 0 : actualPenalty,
+                    guildId
+                );
+            } catch (error) {
+                logger.error(`Failed to record rob stats: ${error.message}`);
+            }
 
             // Record game result for ML analysis
             try {

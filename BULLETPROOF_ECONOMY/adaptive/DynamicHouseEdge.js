@@ -62,39 +62,69 @@ class DynamicHouseEdgeSystem {
      * Initialize base house edges for all games
      */
     initializeBaseEdges() {
+        // STRICT HOUSE EDGE ENFORCEMENT - More aggressive house-favored settings
         this.baseEdges.set('slots', {
-            minimum: 0.015,    // 1.5%
-            base: 0.025,       // 2.5%
-            maximum: 0.08,     // 8%
-            current: 0.025
+            minimum: 0.035,    // 3.5% (increased from 1.5%)
+            base: 0.055,       // 5.5% (increased from 2.5%)
+            maximum: 0.12,     // 12% (increased from 8%)
+            current: 0.055,
+            strictMode: true
         });
         
         this.baseEdges.set('blackjack', {
-            minimum: 0.005,    // 0.5%
-            base: 0.015,       // 1.5%
-            maximum: 0.05,     // 5%
-            current: 0.015
+            minimum: 0.02,     // 2% (increased from 0.5%)
+            base: 0.035,       // 3.5% (increased from 1.5%)
+            maximum: 0.08,     // 8% (increased from 5%)
+            current: 0.035,
+            strictMode: true
         });
         
         this.baseEdges.set('roulette', {
-            minimum: 0.02,     // 2%
-            base: 0.027,       // 2.7%
-            maximum: 0.06,     // 6%
-            current: 0.027
+            minimum: 0.035,    // 3.5% (increased from 2%)
+            base: 0.05,        // 5% (increased from 2.7%)
+            maximum: 0.1,      // 10% (increased from 6%)
+            current: 0.05,
+            strictMode: true
         });
         
         this.baseEdges.set('plinko', {
-            minimum: 0.01,     // 1%
-            base: 0.02,        // 2%
-            maximum: 0.07,     // 7%
-            current: 0.02
+            minimum: 0.03,     // 3% (increased from 1%)
+            base: 0.045,       // 4.5% (increased from 2%)
+            maximum: 0.12,     // 12% (increased from 7%)
+            current: 0.045,
+            strictMode: true
         });
         
         this.baseEdges.set('crash', {
-            minimum: 0.005,    // 0.5%
-            base: 0.01,        // 1%
-            maximum: 0.04,     // 4%
-            current: 0.01
+            minimum: 0.025,    // 2.5% (increased from 0.5%)
+            base: 0.04,        // 4% (increased from 1%)
+            maximum: 0.08,     // 8% (increased from 4%)
+            current: 0.04,
+            strictMode: true
+        });
+        
+        this.baseEdges.set('treasurevault', {
+            minimum: 0.05,     // 5%
+            base: 0.07,        // 7%
+            maximum: 0.15,     // 15%
+            current: 0.07,
+            strictMode: true
+        });
+        
+        this.baseEdges.set('ceelo', {
+            minimum: 0.03,     // 3%
+            base: 0.05,        // 5%
+            maximum: 0.1,      // 10%
+            current: 0.05,
+            strictMode: true
+        });
+        
+        this.baseEdges.set('keno', {
+            minimum: 0.15,     // 15%
+            base: 0.25,        // 25%
+            maximum: 0.4,      // 40%
+            current: 0.25,
+            strictMode: true
         });
         
         // Add all missing game types with appropriate house edges

@@ -257,16 +257,24 @@ class DatabaseManager {
                 
                 // Update cache with successful changes for consistency
                 if (result) {
+                    // IMMEDIATE cache invalidation to prevent stale data
+                    try {
+                        const cacheKey = `casino:balance:${userId}:${guildId}`;
+                        await nodeCache.del(cacheKey);
+                        logger.debug(`🗑️ Invalidated cache for ${userId} after balance update`);
+                    } catch (cacheError) {
+                        logger.debug(`Cache invalidation failed: ${cacheError.message}`);
+                    }
+                    
                     // Get current data for cache update
                     let currentData;
                     try {
                         currentData = await this.databaseAdapter.getUserBalance(userId, guildId);
                         
-                        // 🚀 Update NodeCache with fresh data
+                        // 🚀 Update NodeCache with fresh data SYNCHRONOUSLY
                         if (currentData) {
-                            nodeCache.cacheUserBalance(userId, guildId, currentData).catch(err => 
-                                logger.debug(`NodeCache update failed: ${err.message}`)
-                            );
+                            await nodeCache.cacheUserBalance(userId, guildId, currentData);
+                            logger.debug(`✅ Cache updated for ${userId} with fresh balance data`);
                         }
                     } catch (fetchError) {
                         logger.debug(`Could not fetch updated balance for cache: ${fetchError.message}`);
@@ -330,6 +338,15 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async setUserBalance(userId, guildId = null, wallet = null, bank = null, kwargs = {}) {
+        // IMMEDIATE cache invalidation before operation to prevent stale reads
+        try {
+            const cacheKey = `casino:balance:${userId}:${guildId}`;
+            await nodeCache.del(cacheKey);
+            logger.debug(`🗑️ Pre-invalidated cache for ${userId} before setUserBalance operation`);
+        } catch (cacheError) {
+            logger.debug(`Pre-cache invalidation failed: ${cacheError.message}`);
+        }
+
         // Try primary database connection with fallback system
         if (this.usingAdapter && !fallbackSystem.fallbackMode) {
             try {
@@ -345,10 +362,9 @@ class DatabaseManager {
                         updated_at: new Date()
                     };
                     
-                    // 🚀 Update NodeCache
-                    nodeCache.cacheUserBalance(userId, guildId, updatedData).catch(err => 
-                        logger.debug(`NodeCache set failed: ${err.message}`)
-                    );
+                    // 🚀 Update NodeCache SYNCHRONOUSLY
+                    await nodeCache.cacheUserBalance(userId, guildId, updatedData);
+                    logger.debug(`✅ Cache updated for ${userId} with fresh balance data`);
                     
                     fallbackSystem.updateCachedUser(userId, updatedData);
                 }
@@ -391,6 +407,22 @@ class DatabaseManager {
     }
 
     /**
+     * Force cache invalidation for a user's balance
+     * Utility function to ensure immediate cache consistency
+     */
+    async invalidateUserBalanceCache(userId, guildId = null) {
+        try {
+            const cacheKey = `casino:balance:${userId}:${guildId}`;
+            await nodeCache.del(cacheKey);
+            logger.debug(`🗑️ Cache invalidated for user ${userId}`);
+            return true;
+        } catch (error) {
+            logger.debug(`Cache invalidation failed for user ${userId}: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
      * Add money to user balance (alias for updateUserBalance)
      * @param {string} userId - Discord user ID
      * @param {string} guildId - Guild ID (kept for API compatibility)
@@ -399,6 +431,15 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async addMoney(userId, guildId = null, amount = 0, type = 'wallet') {
+        // IMMEDIATE cache invalidation before operation to prevent stale reads
+        try {
+            const cacheKey = `casino:balance:${userId}:${guildId}`;
+            await nodeCache.del(cacheKey);
+            logger.debug(`🗑️ Pre-invalidated cache for ${userId} before addMoney operation`);
+        } catch (cacheError) {
+            logger.debug(`Pre-cache invalidation failed: ${cacheError.message}`);
+        }
+
         if (type === 'wallet') {
             return await this.updateUserBalance(userId, guildId, amount, 0);
         } else if (type === 'bank') {
@@ -416,6 +457,15 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async removeMoney(userId, guildId = null, amount = 0, type = 'wallet') {
+        // IMMEDIATE cache invalidation before operation to prevent stale reads
+        try {
+            const cacheKey = `casino:balance:${userId}:${guildId}`;
+            await nodeCache.del(cacheKey);
+            logger.debug(`🗑️ Pre-invalidated cache for ${userId} before removeMoney operation`);
+        } catch (cacheError) {
+            logger.debug(`Pre-cache invalidation failed: ${cacheError.message}`);
+        }
+
         // Ensure amount is positive for subtraction
         const amountToRemove = Math.abs(amount);
         

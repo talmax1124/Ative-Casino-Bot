@@ -21,26 +21,26 @@ const SLOTS_MODES = {
     safe: {
         name: '🛡️ Safe',
         minBet: 500,
-        maxMultiplier: 2.0,
-        description: 'Min: $500, Max Multiplier: 2x'
+        maxMultiplier: 1.8,
+        description: 'Min: $500, Max Multiplier: 1.8x'
     },
     balanced: {
         name: '⚖️ Balanced', 
         minBet: 1000,
-        maxMultiplier: 2.5,
-        description: 'Min: $1K, Max Multiplier: 2.5x'
+        maxMultiplier: 2.0,
+        description: 'Min: $1K, Max Multiplier: 2.0x'
     },
     risky: {
         name: '⚡ Risky',
         minBet: 2500, 
-        maxMultiplier: 3.0,
-        description: 'Min: $2.5K, Max Multiplier: 3x'
+        maxMultiplier: 2.2,
+        description: 'Min: $2.5K, Max Multiplier: 2.2x'
     },
     extreme: {
         name: '🔥 Extreme',
         minBet: 5000,
-        maxMultiplier: 3.5,
-        description: 'Min: $5K, Max Multiplier: 3.5x'
+        maxMultiplier: 2.2,
+        description: 'Min: $5K, Max Multiplier: 2.2x'
     }
 };
 

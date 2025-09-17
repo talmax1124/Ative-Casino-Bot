@@ -65,7 +65,8 @@ const GameType = {
     BATTLESHIP: 'battleship',
     WORDCHAIN: 'wordchain',
     RUSSIAN_ROULETTE: 'russianroulette',
-    CEELO: 'ceelo'
+    CEELO: 'ceelo',
+    TREASURE_VAULT: 'treasurevault'
 };
 
 // ========================= DATA CLASSES =========================

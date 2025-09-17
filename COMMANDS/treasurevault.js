@@ -15,6 +15,15 @@ const { createCanvas, loadImage } = require('canvas');
 const path = require('path');
 const fs = require('fs').promises;
 const sessionManager = require('../UTILS/sessionManager');
+const GameTrendAnalyzer = require('../UTILS/GameTrendAnalyzer');
+
+// Initialize trend analyzer
+let trendAnalyzer = null;
+try {
+    trendAnalyzer = new GameTrendAnalyzer();
+} catch (error) {
+    logger.warn('Trend analyzer not available:', error.message);
+}
 
 // Game session storage
 const activeGames = new Map();
@@ -25,30 +34,30 @@ const TREASURE_CONFIG = {
     DOORS: 3,
     DECISION_TIME: 10000, // 10 seconds
     
-    // BALANCED outcomes per round - challenging but fair, max 3x multipliers
+    // CONSERVATIVE outcomes per round - heavily house-favored, max 1.3x multipliers
     ROUND_OUTCOMES: {
-        1: { // Round 1 - 2 good, 1 trap - reasonable start
-            multipliers: [1.1, 1.2],
-            traps: ['lose_20']
+        1: { // Round 1 - 2 good, 1 trap - minimal gains
+            multipliers: [1.02, 1.05],
+            traps: ['lose_25']
         },
-        2: { // Round 2 - 2 good, 1 trap - building up
-            multipliers: [1.3, 1.5],
+        2: { // Round 2 - 2 good, 1 trap - slight progression
+            multipliers: [1.07, 1.1],
             traps: ['lose_30']
         },
-        3: { // Round 3 - 1 good, 2 traps - getting riskier
-            multipliers: [1.8],
+        3: { // Round 3 - 1 good, 2 traps - risk increases
+            multipliers: [1.15],
             traps: ['lose_40', 'lose_50']
         },
-        4: { // Round 4 - 1 good, 2 traps - high risk
-            multipliers: [2.2],
+        4: { // Round 4 - 1 good, 2 traps - high risk, low reward
+            multipliers: [1.2],
             traps: ['lose_60', 'lose_all']
         },
-        5: { // Round 5 - 1 good, 2 traps - very high risk
-            multipliers: [2.8],
+        5: { // Round 5 - 1 good, 2 traps - very risky
+            multipliers: [1.25],
             traps: ['lose_75', 'lose_all']
         },
-        6: { // Round 6 - 1 good, 2 traps - max reward but very risky
-            multipliers: [3.0],
+        6: { // Round 6 - 1 good, 2 traps - minimal max reward
+            multipliers: [1.3],
             traps: ['lose_all', 'lose_all']
         }
     }
@@ -91,7 +100,7 @@ module.exports = {
             const validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 betAmountStr,
-                GameType.TREASUREVAULT || 'treasurevault',
+                GameType.TREASURE_VAULT,
                 100, // minimum bet
                 null,     // No max bet - sophisticated analytics control risk
                 {} // no special requirements
@@ -209,6 +218,20 @@ module.exports = {
             } else if (customId.startsWith('treasurevault_door_')) {
                 const doorNumber = parseInt(customId.split('_')[2]);
                 logger.info(`Player ${userId} chose door ${doorNumber}`);
+                
+                // Record choice for trend analysis
+                if (trendAnalyzer) {
+                    try {
+                        await trendAnalyzer.recordChoice('treasurevault', userId, `door_${doorNumber}`, {
+                            round: gameSession.round,
+                            betAmount: gameSession.betAmount,
+                            currentPayout: gameSession.currentPayout
+                        });
+                    } catch (error) {
+                        logger.debug('Trend analysis recording failed:', error.message);
+                    }
+                }
+                
                 await this.selectDoor(interaction, gameSession, doorNumber);
             } else {
                 logger.warn(`Unknown customId: ${customId}`);
@@ -351,14 +374,34 @@ module.exports = {
         let outcomeColor = 0x00FF00;
         let continueGame = true;
 
+        // Apply trend analysis adjustment to multipliers
+        let finalOutcome = doorOutcome;
+        if (typeof doorOutcome === 'number' && trendAnalyzer) {
+            try {
+                const trendAdjustment = trendAnalyzer.getTrendAdjustment('treasurevault');
+                if (trendAdjustment > 0) {
+                    // Reduce multiplier based on trend analysis
+                    finalOutcome = Math.max(1.01, doorOutcome * (1 - trendAdjustment));
+                    logger.debug(`Trend adjustment applied: ${doorOutcome}x -> ${finalOutcome.toFixed(3)}x`);
+                }
+            } catch (error) {
+                logger.debug('Trend adjustment failed:', error.message);
+            }
+        }
+        
         // Process the door outcome
-        if (typeof doorOutcome === 'number') {
+        if (typeof finalOutcome === 'number') {
             // Multiplier
-            newPayout = Math.floor(currentPayout * doorOutcome);
-            outcomeText = `🎉 **TREASURE FOUND!**\nYou discovered a **${doorOutcome}x multiplier**!\nYour treasure grew from ${fmt(currentPayout)} to **${fmt(newPayout)}**!`;
+            newPayout = Math.floor(currentPayout * finalOutcome);
+            outcomeText = `🎉 **TREASURE FOUND!**\nYou discovered a **${finalOutcome.toFixed(2)}x multiplier**!\nYour treasure grew from ${fmt(currentPayout)} to **${fmt(newPayout)}**!`;
         } else {
             // Trap
-            switch (doorOutcome) {
+            switch (finalOutcome) {
+                case 'lose_20':
+                    newPayout = Math.floor(currentPayout * 0.80);
+                    outcomeText = `⚠️ **TRAP TRIGGERED!**\nYou lost 20% of your treasure!\nTreasure reduced from ${fmt(currentPayout)} to **${fmt(newPayout)}**!`;
+                    outcomeColor = 0xFFA500;
+                    break;
                 case 'lose_25':
                     newPayout = Math.floor(currentPayout * 0.75);
                     outcomeText = `⚠️ **TRAP TRIGGERED!**\nYou lost 25% of your treasure!\nTreasure reduced from ${fmt(currentPayout)} to **${fmt(newPayout)}**!`;

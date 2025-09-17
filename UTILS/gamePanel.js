@@ -122,10 +122,21 @@ class GamePanel {
         
         // Create dropdown options for bet amounts
         const dropdownOptions = [];
+        const usedValues = new Set(); // Track used values to prevent duplicates
+        
+        // Helper function to add option if unique
+        const addUniqueOption = (option) => {
+            if (!usedValues.has(option.value)) {
+                usedValues.add(option.value);
+                dropdownOptions.push(option);
+                return true;
+            }
+            return false;
+        };
         
         // 1. Same Bet - if valid
         if (lastBet > 0 && lastBet <= balance && lastBet >= minBet) {
-            dropdownOptions.push({
+            addUniqueOption({
                 label: `Same Bet - $${lastBet.toLocaleString()}`,
                 description: 'Play again with your previous bet',
                 value: `play_again_${lastBet}`,
@@ -133,10 +144,10 @@ class GamePanel {
             });
         }
         
-        // 2. Half of Bet - if valid
+        // 2. Half of Bet - if valid and different from same bet
         const halfBet = Math.floor(lastBet / 2);
-        if (halfBet >= minBet && halfBet <= balance) {
-            dropdownOptions.push({
+        if (halfBet >= minBet && halfBet <= balance && halfBet !== lastBet) {
+            addUniqueOption({
                 label: `Half of Bet - $${halfBet.toLocaleString()}`,
                 description: 'Play with half your previous bet',
                 value: `play_again_${halfBet}`,
@@ -144,10 +155,11 @@ class GamePanel {
             });
         }
         
-        // 3. Half of Wallet - if valid
+        // 3. Half of Wallet - if valid and different from previous options
         const halfWallet = Math.floor(balance / 2);
-        if (halfWallet >= minBet && halfWallet <= balance) {
-            dropdownOptions.push({
+        if (halfWallet >= minBet && halfWallet <= balance && 
+            halfWallet !== lastBet && halfWallet !== halfBet) {
+            addUniqueOption({
                 label: `Half of Wallet - $${halfWallet.toLocaleString()}`,
                 description: 'Bet half of your current wallet',
                 value: `play_again_${halfWallet}`,
@@ -155,9 +167,10 @@ class GamePanel {
             });
         }
         
-        // 4. All IN! - if valid
-        if (balance >= minBet) {
-            dropdownOptions.push({
+        // 4. All IN! - if valid and different from previous options
+        if (balance >= minBet && balance !== lastBet && 
+            balance !== halfBet && balance !== halfWallet) {
+            addUniqueOption({
                 label: `All IN! - $${balance.toLocaleString()}`,
                 description: 'Bet your entire wallet',
                 value: `play_again_${balance}`,
@@ -165,15 +178,12 @@ class GamePanel {
             });
         }
         
-        // Placeholder for removed code
+        // Placeholder for removed code - using unique value checker for any future custom amounts
         const customAmounts = [];
         
         for (const custom of customAmounts) {
-            if (custom.amount >= minBet && custom.amount <= maxBet && 
-                custom.amount !== lastBet && 
-                !dropdownOptions.find(opt => opt.value === `play_again_${custom.amount}`) &&
-                dropdownOptions.length < 20) {
-                dropdownOptions.push({
+            if (custom.amount >= minBet && custom.amount <= maxBet && dropdownOptions.length < 20) {
+                addUniqueOption({
                     label: `${custom.label} - $${custom.amount.toLocaleString()}`,
                     description: `Bet ${custom.label.toLowerCase()}`,
                     value: `play_again_${custom.amount}`,

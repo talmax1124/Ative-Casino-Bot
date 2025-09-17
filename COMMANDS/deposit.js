@@ -192,6 +192,16 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
+            // Force cache refresh to ensure immediate balance display
+            try {
+                const nodeCache = require('../UTILS/nodeCache');
+                const cacheKey = `casino:balance:${userId}:${guildId}`;
+                await nodeCache.del(cacheKey);
+                logger.debug(`🔄 Forced cache refresh for deposit display`);
+            } catch (cacheError) {
+                logger.debug(`Cache refresh failed: ${cacheError.message}`);
+            }
+
             // Get updated balance for display
             const newBalance = await dbManager.getUserBalance(userId, guildId);
 

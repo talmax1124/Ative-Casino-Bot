@@ -31,8 +31,8 @@ const BLACKJACK_MODES = {
         name: '🛡️ Safe',
         description: 'Conservative mode with standard payouts',
         minBet: 500,
-        blackjackMultiplier: 1.5,    // 1.5x for blackjack
-        winMultiplier: 1.1,          // 1.1x for regular wins
+        blackjackMultiplier: 1.45,   // 1.45x for blackjack (slight house edge)
+        winMultiplier: 0.95,         // 0.95x for regular wins (house edge)
         houseEdge: 0.05,             // 5% house edge
         emoji: '🛡️',
         color: '#4CAF50'
@@ -41,8 +41,8 @@ const BLACKJACK_MODES = {
         name: '⚖️ Balanced',
         description: 'Standard mode with traditional payouts',
         minBet: 1000,
-        blackjackMultiplier: 2.0,    // 2.0x for blackjack
-        winMultiplier: 1.2,          // 1.2x for regular wins
+        blackjackMultiplier: 1.5,    // 1.5x for blackjack (traditional)
+        winMultiplier: 0.98,         // 0.98x for regular wins (small house edge)
         houseEdge: 0.07,             // 7% house edge
         emoji: '⚖️',
         color: '#FF9800'
@@ -51,8 +51,8 @@ const BLACKJACK_MODES = {
         name: '⚡ Risky',
         description: 'High risk with enhanced payouts',
         minBet: 2500,
-        blackjackMultiplier: 2.5,    // 2.5x for blackjack
-        winMultiplier: 1.5,          // 1.5x for regular wins
+        blackjackMultiplier: 1.55,   // 1.55x for blackjack (slight player advantage)
+        winMultiplier: 1.02,         // 1.02x for regular wins (small player advantage)
         houseEdge: 0.10,             // 10% house edge
         emoji: '⚡',
         color: '#FF8800'
@@ -61,8 +61,8 @@ const BLACKJACK_MODES = {
         name: '🔥 Extreme',
         description: 'Maximum risk with premium payouts',
         minBet: 5000,
-        blackjackMultiplier: 3.0,    // 3.0x for blackjack
-        winMultiplier: 2.0,          // 2.0x for regular wins
+        blackjackMultiplier: 1.6,    // 1.6x for blackjack (player advantage)
+        winMultiplier: 1.05,         // 1.05x for regular wins (player advantage)
         houseEdge: 0.12,             // 12% house edge
         emoji: '🔥',
         color: '#FF0000'
@@ -279,10 +279,10 @@ module.exports = {
                 .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
                 .setRequired(false)
                 .addChoices(
-                    { name: '🛡️ Safe (Min: $500, BJ: 1.5x, Win: 1.1x)', value: 'safe' },
-                    { name: '⚖️ Balanced (Min: $1K, BJ: 2.0x, Win: 1.2x)', value: 'balanced' },
-                    { name: '⚡ Risky (Min: $2.5K, BJ: 2.5x, Win: 1.5x)', value: 'risky' },
-                    { name: '🔥 Extreme (Min: $5K, BJ: 3.0x, Win: 2.0x)', value: 'extreme' }
+                    { name: '🛡️ Safe (Min: $500, BJ: 1.45x, Win: 0.95x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, BJ: 1.5x, Win: 0.98x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, BJ: 1.55x, Win: 1.02x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, BJ: 1.6x, Win: 1.05x)', value: 'extreme' }
                 )
         ),
 

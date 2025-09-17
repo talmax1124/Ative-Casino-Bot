@@ -9,32 +9,32 @@ const path = require('path');
 const logger = require('../UTILS/logger');
 const { secureRandomFloat, secureRandomInt, secureRandomChoice } = require('../UTILS/rng');
 
-// BALANCED slot symbols - Max 3.5x multipliers, fun but safe
+// BALANCED slot symbols - Max 2.0x multipliers, economically balanced
 const SLOT_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 35, payout: 1.1 },     // Common small win
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 30, payout: 1.2 },           // Common small win
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 20, payout: 1.4 },         // Decent payout
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, payout: 1.8 },         // Good payout
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 3, payout: 2.2 },   // Great payout
-    'bar': { name: 'Bar', emoji: '📊', rarity: 1.5, payout: 2.8 },              // Excellent payout
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 0.4, payout: 3.5 },    // Max payout - exciting!
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.08, payout: 3.5 },      // Max payout - rare
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.02, payout: 3.5 },      // Max payout - very rare
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.001, payout: 3.5 }      // Max payout - ultra rare
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 35, payout: 1.05 },    // Common small win
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 30, payout: 1.1 },           // Common small win
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 20, payout: 1.2 },         // Decent payout
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, payout: 1.4 },         // Good payout
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 3, payout: 1.6 },   // Great payout
+    'bar': { name: 'Bar', emoji: '📊', rarity: 1.5, payout: 1.8 },              // Excellent payout
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 0.4, payout: 2.0 },    // Max payout - exciting!
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.08, payout: 2.0 },      // Max payout - rare
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.02, payout: 2.0 },      // Max payout - very rare
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.001, payout: 2.0 }      // Max payout - ultra rare
 };
 
-// Matrix mode symbols - Max 3.5x multipliers, more frequent wins
+// Matrix mode symbols - Max 2.2x multipliers, economically balanced
 const MATRIX_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 30, payout: 1.2 },
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 25, payout: 1.4 },
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 20, payout: 1.6 },
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 15, payout: 1.9 },
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 6, payout: 2.3 },
-    'bar': { name: 'Bar', emoji: '📊', rarity: 2.5, payout: 2.7 },
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1, payout: 3.5 },       // Max payout
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.4, payout: 3.5 },       // Max payout
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.08, payout: 3.5 },      // Max payout + triggers bonus
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.02, payout: 3.5 }       // Max payout - rare
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 30, payout: 1.1 },
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 25, payout: 1.2 },
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 20, payout: 1.3 },
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 15, payout: 1.5 },
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 6, payout: 1.7 },
+    'bar': { name: 'Bar', emoji: '📊', rarity: 2.5, payout: 1.9 },
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1, payout: 2.2 },       // Max payout
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.4, payout: 2.2 },       // Max payout
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.08, payout: 2.2 },      // Max payout + triggers bonus
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.02, payout: 2.2 }       // Max payout - rare
 };
 
 // Special combinations
