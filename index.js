@@ -1665,10 +1665,6 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
             }
-            // Handle vote reminder button
-            else if (customId === 'vote_remind_me') {
-                await handleVoteReminder(interaction);
-            }
 
             // Handle VPS management buttons
             else if (customId.startsWith('vps_')) {
@@ -2092,93 +2088,6 @@ process.on('unhandledRejection', async error => {
 
 // ========================= VOTE REMINDER SYSTEM =========================
 
-/**
- * Handle vote reminder button
- */
-async function handleVoteReminder(interaction) {
-    try {
-        const userId = interaction.user.id;
-
-        // Get user's current vote data to determine when they can vote next
-        const voteData = await dbManager.databaseAdapter.getUserVoteData(userId);
-        const lastVoteTime = voteData?.last_vote_ts || 0;
-        const nextVoteTime = lastVoteTime + (12 * 60 * 60 * 1000); // 12 hours after last vote
-        const timeUntilVote = nextVoteTime - Date.now();
-
-        if (timeUntilVote <= 0) {
-            // Can vote now
-            await interaction.reply({
-                content: '🗳️ **You can vote right now!** Click the "Vote on Top.GG" button above! 🚀',
-                ephemeral: true
-            });
-            return;
-        }
-
-        // Set reminder for when they can vote
-        const reminderTime = timeUntilVote;
-        const reminderTimeFormatted = Math.floor(reminderTime / (1000 * 60 * 60)) + 'h ' +
-            Math.floor((reminderTime % (1000 * 60 * 60)) / (1000 * 60)) + 'm';
-
-        await interaction.reply({
-            content: `⏰ **Reminder Set!** I'll remind you to vote in **${reminderTimeFormatted}**!\n\n💡 *You can vote every 12 hours for maximum rewards and streak bonuses!*`,
-            ephemeral: true
-        });
-
-        // Schedule the reminder
-        setTimeout(async () => {
-            try {
-                const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-                const reminderEmbed = new EmbedBuilder()
-                    .setTitle('🗳️ Time to Vote!')
-                    .setDescription(`**${interaction.user.username}**, it's time to vote for ATIVE Casino Bot on Top.GG!`)
-                    .addFields(
-                        {
-                            name: '💰 Vote Rewards',
-                            value: '• **25,000 coins** per vote\n• **Weekend Bonus**: +50% extra coins\n• **Streak Bonuses**: Up to 1M coins!',
-                            inline: false
-                        },
-                        {
-                            name: '🔗 Vote Now',
-                            value: '[🗳️ **Click here to vote!**](https://top.gg/bot/1403236218900185088/vote)',
-                            inline: false
-                        }
-                    )
-                    .setColor(0x00D4FF)
-                    .setThumbnail(interaction.client.user.displayAvatarURL())
-                    .setFooter({ text: '🎰 ATIVE Casino • Reminder System' })
-                    .setTimestamp();
-
-                const voteButton = new ActionRowBuilder()
-                    .addComponents(
-                        new ButtonBuilder()
-                            .setLabel('🗳️ Vote on Top.GG')
-                            .setStyle(ButtonStyle.Link)
-                            .setURL('https://top.gg/bot/1403236218900185088/vote')
-                    );
-
-                await interaction.user.send({
-                    embeds: [reminderEmbed],
-                    components: [voteButton]
-                }).catch(() => {
-                    // If DM fails, that's okay - user might have DMs disabled
-                    logger.info(`Failed to send vote reminder DM to ${interaction.user.username}`);
-                });
-
-            } catch (error) {
-                logger.error(`Error sending vote reminder: ${error.message}`);
-            }
-        }, reminderTime);
-
-        logger.info(`Vote reminder set for ${interaction.user.username} (${userId}) - ${reminderTimeFormatted}`);
-
-    } catch (error) {
-        logger.error(`Error handling vote reminder: ${error.message}`);
-        await interaction.reply({
-            content: '❌ Failed to set vote reminder. Please try again.',
-            ephemeral: true
-        });
-    }
-}
 
 // ========================= TOP.GG WEBHOOK SERVER =========================
 
