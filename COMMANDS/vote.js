@@ -9,6 +9,7 @@ const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const { createEvents } = require('ics');
 const moment = require('moment-timezone');
+const SafeInteractionHandler = require('../UTILS/interactionHandler');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -24,7 +25,7 @@ module.exports = {
             console.error('Vote command error:', error);
             await interaction.reply({
                 content: '❌ An error occurred while processing the vote command.',
-                ephemeral: true
+                flags: require('discord.js').MessageFlags.Ephemeral
             });
         }
     },
@@ -57,7 +58,7 @@ module.exports = {
             console.error('Error showing unified vote interface:', error);
             await interaction.reply({
                 content: '❌ Failed to load voting interface.',
-                ephemeral: true
+                flags: require('discord.js').MessageFlags.Ephemeral
             });
         }
     },
@@ -242,6 +243,12 @@ module.exports = {
 
         collector.on('collect', async (i) => {
             try {
+                // Check if interaction is still valid
+                if (!SafeInteractionHandler.isValid(i)) {
+                    logger.debug(`Skipping expired interaction: ${i.customId}`);
+                    return;
+                }
+
                 switch (i.customId) {
                     case 'vote_remind_me':
                         await this.handleReminderRequest(i, votingStatus.nextVoteTime);
@@ -263,11 +270,15 @@ module.exports = {
                         break;
                 }
             } catch (error) {
+                if (error.code === 10062) {
+                    logger.debug(`Unknown interaction error: ${i.customId}`);
+                    return;
+                }
                 console.error('Collector error:', error);
-                await i.reply({
+                await SafeInteractionHandler.safeReply(i, {
                     content: '❌ An error occurred while processing your request.',
-                    ephemeral: true
-                }).catch(() => {});
+                    flags: require('discord.js').MessageFlags.Ephemeral
+                });
             }
         });
 
@@ -476,7 +487,7 @@ module.exports = {
             console.error('Error showing leaderboard:', error);
             await interaction.reply({
                 content: '❌ Failed to load leaderboard.',
-                ephemeral: true
+                flags: require('discord.js').MessageFlags.Ephemeral
             });
         }
     },
@@ -597,7 +608,7 @@ module.exports = {
         await interaction.reply({
             embeds: [reminderEmbed],
             components: [menuRow],
-            ephemeral: true
+            flags: require('discord.js').MessageFlags.Ephemeral
         });
 
         // Collect the selection
@@ -605,8 +616,22 @@ module.exports = {
         const menuCollector = interaction.channel.createMessageComponentCollector({ filter, time: 30000, max: 1 });
 
         menuCollector.on('collect', async (menuInteraction) => {
-            const reminderType = menuInteraction.values[0];
-            await this.createReminder(menuInteraction, reminderType, nextVoteTime);
+            try {
+                // Check if interaction is still valid
+                if (!SafeInteractionHandler.isValid(menuInteraction)) {
+                    logger.debug(`Skipping expired menu interaction: ${menuInteraction.customId}`);
+                    return;
+                }
+                
+                const reminderType = menuInteraction.values[0];
+                await this.createReminder(menuInteraction, reminderType, nextVoteTime);
+            } catch (error) {
+                if (error.code === 10062) {
+                    logger.debug(`Unknown interaction error in reminder: ${menuInteraction.customId}`);
+                    return;
+                }
+                logger.error('Error handling vote reminder:', error);
+            }
         });
 
         menuCollector.on('end', collected => {
@@ -631,7 +656,7 @@ module.exports = {
 
         if (type === 'ics' || type === 'all') {
             // Generate ICS file
-            const icsFile = await this.generateICSFile(voteDate, interaction.user);
+            const icsFile = await this.generateICSFile(voteDate);
             if (icsFile) {
                 files.push(icsFile);
             }
@@ -712,7 +737,7 @@ module.exports = {
     /**
      * Generate ICS calendar file for vote reminder
      */
-    async generateICSFile(voteDate, user) {
+    async generateICSFile(voteDate) {
         try {
             // Create recurring event (every 12 hours)
             const event = {

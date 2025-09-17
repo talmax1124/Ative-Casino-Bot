@@ -111,12 +111,18 @@ class TopGGManager {
             await dbManager.adjustWallet(userId, null, rewardAmount);
 
             // Get user for notification
-            const user = await this.client.users.fetch(userId);
-            
-            // Send reward notification
-            await this.sendVoteRewardNotification(user, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes);
+            try {
+                const user = await this.client.users.fetch(userId);
+                
+                // Send reward notification
+                await this.sendVoteRewardNotification(user, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes);
+            } catch (userError) {
+                logger.error(`Failed to fetch user ${userId} for vote notification: ${userError.message}`);
+                // Try to send notification without user object
+                await this.sendVoteRewardNotification({ id: userId, username: 'Unknown User', displayAvatarURL: () => null }, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes);
+            }
 
-            logger.info(`Vote reward processed: ${user.username} received ${fmt(rewardAmount)} coins`);
+            logger.info(`Vote reward processed: User ${userId} received ${fmt(rewardAmount)} coins`);
 
         } catch (error) {
             logger.error(`Failed to process vote reward: ${error.message}`);
@@ -193,21 +199,41 @@ class TopGGManager {
                 });
             }
 
-            // Try to DM user
+            // Try to DM user first
+            let dmSent = false;
             try {
                 await user.send({ embeds: [embed] });
+                dmSent = true;
+                logger.info(`✅ Vote confirmation DM sent to ${user.username || user.id}`);
             } catch (dmError) {
-                logger.info(`Failed to DM user ${user.username}, will only log to channel`);
+                logger.info(`❌ Failed to DM user ${user.username || user.id}: ${dmError.message}`);
             }
 
-            // Send to vote log channel
+            // Always send to vote log channel as backup and for logging
             try {
-                const logChannel = await this.client.channels.fetch(process.env.LOG_CHANNEL_ID);
-                if (logChannel) {
-                    await logChannel.send({ embeds: [embed] });
+                const logChannelId = process.env.LOG_CHANNEL_ID || process.env.VOTE_LOG_CHANNEL_ID;
+                if (logChannelId) {
+                    const logChannel = await this.client.channels.fetch(logChannelId);
+                    if (logChannel) {
+                        const logEmbed = { ...embed };
+                        if (!dmSent) {
+                            logEmbed.description = `**${user.username || user.id}** received vote rewards! ⚠️ *DM failed - user may have DMs disabled*\n\n${embed.description}`;
+                        }
+                        await logChannel.send({ embeds: [logEmbed] });
+                        logger.info(`📋 Vote notification logged to channel ${logChannel.name}`);
+                    } else {
+                        logger.error(`❌ Could not find log channel with ID: ${logChannelId}`);
+                    }
+                } else {
+                    logger.warn(`⚠️ No LOG_CHANNEL_ID configured - vote notifications will only be sent via DM`);
                 }
             } catch (channelError) {
-                logger.error(`Failed to send vote notification to log channel: ${channelError.message}`);
+                logger.error(`❌ Failed to send vote notification to log channel: ${channelError.message}`);
+            }
+
+            // If both DM and channel failed, log the issue
+            if (!dmSent) {
+                logger.warn(`⚠️ Vote confirmation may not have reached user ${user.username || user.id} - DM failed and log channel unavailable`);
             }
 
         } catch (error) {
