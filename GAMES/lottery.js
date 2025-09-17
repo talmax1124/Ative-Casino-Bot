@@ -675,7 +675,7 @@ class LotteryGame {
                     
                     // Update the lottery panel to reflect the recovered tickets
                     try {
-                        await this.updateLotteryPanel();
+                        await this.upsertLotteryPanel();
                         logger.info('Updated lottery panel after ticket recovery');
                     } catch (panelError) {
                         logger.error(`Failed to update lottery panel after recovery: ${panelError.message}`);
