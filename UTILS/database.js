@@ -1653,6 +1653,16 @@ class DatabaseManager {
     }
 
     /**
+     * Check if two users are married to each other
+     */
+    async areUsersMarried(userId1, userId2, guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.areUsersMarried(userId1, userId2, guildId);
+        }
+        return false;
+    }
+
+    /**
      * Transfer money to shared bank
      */
     async transferToSharedBank(userId, guildId, amount) {
