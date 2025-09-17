@@ -162,47 +162,47 @@ class RouletteGame {
             return 0;
         }
 
-        // Calculate payout based on custom multipliers
+        // Calculate payout based on reduced multipliers for house edge
         let payout = 0;
         switch (type) {
             case 'red':
             case 'black':
-                // Color bets: 2x payout
-                payout = amount * 2;
+                // Color bets: 1.8x payout (reduced from 2x)
+                payout = amount * 1.8;
                 break;
             case 'odd':
             case 'even':
-                // Even/odd bets: 2x payout
-                payout = amount * 2;
+                // Even/odd bets: 1.8x payout (reduced from 2x)
+                payout = amount * 1.8;
                 break;
             case 'low':
             case 'high':
-                // 1-18/19-36 bets: 2x payout
-                payout = amount * 2;
+                // 1-18/19-36 bets: 1.8x payout (reduced from 2x)
+                payout = amount * 1.8;
                 break;
             case 'dozen1':
             case 'dozen2':
             case 'dozen3':
-                // Dozen bets: 3.0x payout - balanced risk/reward
-                payout = amount * 3.0;
+                // Dozen bets: 2.5x payout (reduced from 3.0x)
+                payout = amount * 2.5;
                 break;
             case 'column1':
             case 'column2':
             case 'column3':
-                // Column bets: 3.0x payout - balanced risk/reward
-                payout = amount * 3.0;
+                // Column bets: 2.5x payout (reduced from 3.0x)
+                payout = amount * 2.5;
                 break;
             case 'number':
-                // All number bets: 6x payout - MAXIMUM ALLOWED
-                payout = amount * 6.0;
+                // All number bets: 4.5x payout (reduced from 6x)
+                payout = amount * 4.5;
                 break;
             case 'green':
-                // Green bet (0 or 00): 6x payout - MAXIMUM ALLOWED
-                payout = amount * 6.0;
+                // Green bet (0 or 00): 4.5x payout (reduced from 6x)
+                payout = amount * 4.5;
                 break;
             case 'basket':
-                // Basket bet: 6x payout - MAXIMUM ALLOWED
-                payout = amount * 6.0;
+                // Basket bet: 2.2x payout (VERY SLIM - reduced from 6x)
+                payout = amount * 2.2;
                 break;
             default:
                 payout = 0;
@@ -274,21 +274,21 @@ class RouletteGame {
     getPayoutOdds(betType) {
         // Displayed odds must match calculatePayout() multipliers exactly
         const odds = {
-            'red': '2.0x',
-            'black': '2.0x',
-            'odd': '2.0x',
-            'even': '2.0x',
-            'low': '2.0x',
-            'high': '2.0x',
-            'dozen1': '3.0x',
-            'dozen2': '3.0x',
-            'dozen3': '3.0x',
-            'column1': '3.0x',
-            'column2': '3.0x',
-            'column3': '3.0x',
-            'number': '6.0x',
-            'green': '6.0x',
-            'basket': '6.0x'
+            'red': '1.8x',
+            'black': '1.8x',
+            'odd': '1.8x',
+            'even': '1.8x',
+            'low': '1.8x',
+            'high': '1.8x',
+            'dozen1': '2.5x',
+            'dozen2': '2.5x',
+            'dozen3': '2.5x',
+            'column1': '2.5x',
+            'column2': '2.5x',
+            'column3': '2.5x',
+            'number': '4.5x',
+            'green': '4.5x',
+            'basket': '2.2x'
         };
         return odds[betType] || '0x';
     }

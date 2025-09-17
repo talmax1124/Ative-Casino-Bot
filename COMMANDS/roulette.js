@@ -91,21 +91,21 @@ async function createRouletteWheelImage(game, showResult = false, frameIndex = 0
  * Create payout information embed with current bet info and dynamic multipliers
  */
 async function createPayoutEmbed(user, balance, currentBet = null) {
-    // Personalized game helper removed - using bulletproof economy
+    // Updated reduced payout rates for house edge
     const personalizedConfig = { 
-        colorPayout: 2.0, 
-        dozenPayout: 3.0, 
-        singleNumberPayout: 6.0, 
-        greenPayout: 6.0, 
-        basketPayout: 6.0 
-    }; // Default values
+        colorPayout: 1.8, 
+        dozenPayout: 2.5, 
+        singleNumberPayout: 4.5, 
+        greenPayout: 4.5, 
+        basketPayout: 2.2 
+    }; // Reduced values
     
-    // Use default payouts in the UI display
-    const colorPayout = (personalizedConfig.colorPayout || 2.0).toFixed(2);
-    const dozenPayout = (personalizedConfig.dozenPayout || 2.2).toFixed(2);  
-    const numberPayout = (personalizedConfig.singleNumberPayout || 8.0).toFixed(2);
-    const greenPayout = (personalizedConfig.greenPayout || 4.0).toFixed(2);
-    const basketPayout = (personalizedConfig.basketPayout || 3.5).toFixed(2);
+    // Use updated payouts in the UI display
+    const colorPayout = (personalizedConfig.colorPayout || 1.8).toFixed(1);
+    const dozenPayout = (personalizedConfig.dozenPayout || 2.5).toFixed(1);  
+    const numberPayout = (personalizedConfig.singleNumberPayout || 4.5).toFixed(1);
+    const greenPayout = (personalizedConfig.greenPayout || 4.5).toFixed(1);
+    const basketPayout = (personalizedConfig.basketPayout || 2.2).toFixed(1);
     
     // Show personalization status
     const personalizationStatus = '';
@@ -254,25 +254,25 @@ function createGameEmbed(game, user, balance = null) {
 function createBettingButtons(userId, game = null) {
     const rows = [];
     
-    // Row 1: Color bets (2x payout)
+    // Row 1: Color bets (reduced payouts)
     const row1 = {
         type: 1,
         components: [
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-red`)
-                .setLabel('Red (2x)')
+                .setLabel('Red (1.8x)')
                 .setEmoji('🔴')
                 .setStyle(ButtonStyle.Danger)
                 .setDisabled(game?.isSpinning || game?.gameEnded),
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-black`)
-                .setLabel('Black (2x)')
+                .setLabel('Black (1.8x)')
                 .setEmoji('⚫')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(game?.isSpinning || game?.gameEnded),
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-green`)
-                .setLabel('Green (6x)')
+                .setLabel('Green (4.5x)')
                 .setEmoji('🟢')
                 .setStyle(ButtonStyle.Success)
                 .setDisabled(game?.isSpinning || game?.gameEnded)
@@ -280,31 +280,31 @@ function createBettingButtons(userId, game = null) {
     };
     rows.push(row1);
 
-    // Row 2: Odd/Even and High/Low (2x payout)
+    // Row 2: Odd/Even and High/Low (reduced payouts)
     const row2 = {
         type: 1,
         components: [
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-odd`)
-                .setLabel('Odd (2x)')
+                .setLabel('Odd (1.8x)')
                 .setEmoji('🎲')
                 .setStyle(ButtonStyle.Primary)
                 .setDisabled(game?.isSpinning || game?.gameEnded),
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-even`)
-                .setLabel('Even (2x)')
+                .setLabel('Even (1.8x)')
                 .setEmoji('🎯')
                 .setStyle(ButtonStyle.Primary)
                 .setDisabled(game?.isSpinning || game?.gameEnded),
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-low`)
-                .setLabel('Low 1-18 (2x)')
+                .setLabel('Low 1-18 (1.8x)')
                 .setEmoji('⬇️')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(game?.isSpinning || game?.gameEnded),
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-high`)
-                .setLabel('High 19-36 (2x)')
+                .setLabel('High 19-36 (1.8x)')
                 .setEmoji('⬆️')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(game?.isSpinning || game?.gameEnded)
@@ -312,25 +312,25 @@ function createBettingButtons(userId, game = null) {
     };
     rows.push(row2);
 
-    // Row 3: Special bets
+    // Row 3: Special bets (reduced payouts)
     const row3 = {
         type: 1,
         components: [
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-dozen`)
-                .setLabel('Dozens (2.2x)')
+                .setLabel('Dozens (2.5x)')
                 .setEmoji('📊')
                 .setStyle(ButtonStyle.Secondary)
                 .setDisabled(game?.isSpinning || game?.gameEnded),
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-basket`)
-                .setLabel('Basket (6x)')
+                .setLabel('Basket (2.2x)')
                 .setEmoji('🧺')
-                .setStyle(ButtonStyle.Success)
+                .setStyle(ButtonStyle.Secondary)
                 .setDisabled(game?.isSpinning || game?.gameEnded),
             new ButtonBuilder()
                 .setCustomId(`roulette-${userId}-numbers`)
-                .setLabel('Numbers (6x)')
+                .setLabel('Numbers (4.5x)')
                 .setEmoji('🔢')
                 .setStyle(ButtonStyle.Primary)
                 .setDisabled(game?.isSpinning || game?.gameEnded)
@@ -374,13 +374,13 @@ function createNumberSelector(userId, betAmount) {
     
     // Add green zeros
     options.push({
-        label: '0 (Green) - 6x',
+        label: '0 (Green) - 4.5x',
         value: '0',
         emoji: '🟢'
     });
     
     options.push({
-        label: '00 (Green) - 6x',
+        label: '00 (Green) - 4.5x',
         value: '00',
         emoji: '🟢'
     });
@@ -389,7 +389,7 @@ function createNumberSelector(userId, betAmount) {
     const redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21];
     for (const num of redNumbers) {
         options.push({
-            label: `${num} (Red) - 6x`,
+            label: `${num} (Red) - 4.5x`,
             value: num.toString(),
             emoji: '🔴'
         });
@@ -399,7 +399,7 @@ function createNumberSelector(userId, betAmount) {
     const blackNumbers = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24];
     for (const num of blackNumbers) {
         options.push({
-            label: `${num} (Black) - 6x`,
+            label: `${num} (Black) - 4.5x`,
             value: num.toString(),
             emoji: '⚫'
         });
@@ -419,17 +419,17 @@ function createNumberSelector(userId, betAmount) {
 function createDozenSelector(userId) {
     const options = [
         {
-            label: '1st Dozen (1-12) - 3x',
+            label: '1st Dozen (1-12) - 2.5x',
             value: 'dozen1',
             emoji: '1️⃣'
         },
         {
-            label: '2nd Dozen (13-24) - 3x',
+            label: '2nd Dozen (13-24) - 2.5x',
             value: 'dozen2',
             emoji: '2️⃣'
         },
         {
-            label: '3rd Dozen (25-36) - 3x',
+            label: '3rd Dozen (25-36) - 2.5x',
             value: 'dozen3',
             emoji: '3️⃣'
         }
@@ -761,11 +761,11 @@ module.exports = {
                             'You can only place one bet per spin'
                         ],
                         commands: [
-                            '**Red/Black/Odd/Even/High/Low:** 2x payout',
+                            '**Red/Black/Odd/Even/High/Low:** 1.8x payout',
                             '**Dozens (1-12, 13-24, 25-36):** 2.5x payout',
-                            '**Single Numbers:** 6x payout - Max allowed!',
-                            '**Green (0 or 00):** 6x payout - Max allowed!',
-                            '**Basket (0, 00, 1, 2, 3):** 6x payout - Max allowed!'
+                            '**Single Numbers:** 4.5x payout',
+                            '**Green (0 or 00):** 4.5x payout',
+                            '**Basket (0, 00, 1, 2, 3):** 2.2x payout - Very slim!'
                         ],
                         tips: [
                             'American wheel has both 0 and 00',
