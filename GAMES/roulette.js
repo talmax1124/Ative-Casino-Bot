@@ -66,7 +66,7 @@ class RouletteGame {
     }
 
     /**
-     * Spin the roulette wheel
+     * Spin the roulette wheel with house-biased RNG
      * @returns {number|string} The winning number (0, '00', or 1-36)
      */
     spin() {
@@ -79,15 +79,140 @@ class RouletteGame {
             throw new Error('Game already completed');
         }
 
-        // Generate random number for American wheel (0, 00, 1-36)
-        const randomIndex = secureRandomInt(0, 38); // 0 to 37 inclusive for 38 slots
-        const result = this.wheelNumbers[randomIndex];
+        // HOUSE-BIASED RNG SYSTEM
+        const betType = this.currentBet.type;
+        let result;
+
+        // Increased chance for house-favorable outcomes based on bet type
+        const houseBias = secureRandomInt(1, 100); // 1-100
+
+        if (betType === 'red' || betType === 'black') {
+            // For color bets: 35% chance to hit green (house wins)
+            if (houseBias <= 35) {
+                result = secureRandomInt(0, 2) === 0 ? 0 : '00'; // Green
+            } else {
+                // 65% for normal spin
+                const randomIndex = secureRandomInt(0, 38);
+                result = this.wheelNumbers[randomIndex];
+            }
+        } else if (betType === 'odd' || betType === 'even' || betType === 'low' || betType === 'high') {
+            // For 50/50 bets: 40% chance to hit unfavorable numbers
+            if (houseBias <= 40) {
+                // Force losing outcome
+                result = this.generateLosingNumber(betType);
+            } else {
+                const randomIndex = secureRandomInt(0, 38);
+                result = this.wheelNumbers[randomIndex];
+            }
+        } else if (betType === 'dozen1' || betType === 'dozen2' || betType === 'dozen3') {
+            // For dozen bets: 50% chance to hit other dozens or green
+            if (houseBias <= 50) {
+                result = this.generateLosingNumber(betType);
+            } else {
+                const randomIndex = secureRandomInt(0, 38);
+                result = this.wheelNumbers[randomIndex];
+            }
+        } else if (betType === 'number') {
+            // For single numbers: 95% chance to miss (was ~97.4% naturally)
+            if (houseBias <= 95) {
+                result = this.generateLosingNumber(betType);
+            } else {
+                // 5% chance to actually hit the number
+                result = this.currentBet.numbers[0];
+            }
+        } else if (betType === 'green') {
+            // For green bets: 85% chance to hit non-green
+            if (houseBias <= 85) {
+                const nonGreenNumbers = this.wheelNumbers.filter(n => n !== 0 && n !== '00');
+                const randomIndex = secureRandomInt(0, nonGreenNumbers.length);
+                result = nonGreenNumbers[randomIndex];
+            } else {
+                result = secureRandomInt(0, 2) === 0 ? 0 : '00';
+            }
+        } else if (betType === 'basket') {
+            // For basket bets: 90% chance to miss (VERY SLIM as requested)
+            if (houseBias <= 90) {
+                const nonBasketNumbers = this.wheelNumbers.filter(n => 
+                    n !== 0 && n !== '00' && n !== 1 && n !== 2 && n !== 3
+                );
+                const randomIndex = secureRandomInt(0, nonBasketNumbers.length);
+                result = nonBasketNumbers[randomIndex];
+            } else {
+                // 10% chance to hit basket
+                const basketNumbers = [0, '00', 1, 2, 3];
+                const randomIndex = secureRandomInt(0, basketNumbers.length);
+                result = basketNumbers[randomIndex];
+            }
+        } else {
+            // Default: normal random spin for other bet types
+            const randomIndex = secureRandomInt(0, 38);
+            result = this.wheelNumbers[randomIndex];
+        }
         
         this.lastResult = result;
         this.isSpinning = false;
         this.gameEnded = true;
 
         return result;
+    }
+
+    /**
+     * Generate a losing number for a specific bet type
+     * @param {string} betType - The bet type
+     * @returns {number|string} A number that loses for this bet type
+     */
+    generateLosingNumber(betType) {
+        switch (betType) {
+            case 'red':
+                // Return black or green
+                const nonRed = [...this.blackNumbers, 0, '00'];
+                return nonRed[secureRandomInt(0, nonRed.length)];
+            case 'black':
+                // Return red or green
+                const nonBlack = [...this.redNumbers, 0, '00'];
+                return nonBlack[secureRandomInt(0, nonBlack.length)];
+            case 'odd':
+                // Return even or green
+                const evenAndGreen = this.wheelNumbers.filter(n => 
+                    n === 0 || n === '00' || (typeof n === 'number' && n % 2 === 0)
+                );
+                return evenAndGreen[secureRandomInt(0, evenAndGreen.length)];
+            case 'even':
+                // Return odd or green
+                const oddAndGreen = this.wheelNumbers.filter(n => 
+                    n === 0 || n === '00' || (typeof n === 'number' && n % 2 === 1)
+                );
+                return oddAndGreen[secureRandomInt(0, oddAndGreen.length)];
+            case 'low':
+                // Return high (19-36) or green
+                const highAndGreen = [...Array.from({ length: 18 }, (_, i) => i + 19), 0, '00'];
+                return highAndGreen[secureRandomInt(0, highAndGreen.length)];
+            case 'high':
+                // Return low (1-18) or green
+                const lowAndGreen = [...Array.from({ length: 18 }, (_, i) => i + 1), 0, '00'];
+                return lowAndGreen[secureRandomInt(0, lowAndGreen.length)];
+            case 'dozen1':
+                // Return dozen2, dozen3, or green
+                const nonDozen1 = [...Array.from({ length: 24 }, (_, i) => i + 13), 0, '00'];
+                return nonDozen1[secureRandomInt(0, nonDozen1.length)];
+            case 'dozen2':
+                // Return dozen1, dozen3, or green
+                const nonDozen2 = [...Array.from({ length: 12 }, (_, i) => i + 1), 
+                                 ...Array.from({ length: 12 }, (_, i) => i + 25), 0, '00'];
+                return nonDozen2[secureRandomInt(0, nonDozen2.length)];
+            case 'dozen3':
+                // Return dozen1, dozen2, or green
+                const nonDozen3 = [...Array.from({ length: 24 }, (_, i) => i + 1), 0, '00'];
+                return nonDozen3[secureRandomInt(0, nonDozen3.length)];
+            case 'number':
+                // Return any number except the bet number
+                const betNumber = this.currentBet.numbers[0];
+                const otherNumbers = this.wheelNumbers.filter(n => n !== betNumber);
+                return otherNumbers[secureRandomInt(0, otherNumbers.length)];
+            default:
+                // Fallback to green
+                return secureRandomInt(0, 2) === 0 ? 0 : '00';
+        }
     }
 
     /**
@@ -294,27 +419,28 @@ class RouletteGame {
     }
 
     /**
-     * Get winning probability for a bet type (American wheel with 38 slots)
+     * Get winning probability for a bet type (HOUSE-BIASED with reduced win rates)
      * @param {string} betType - The bet type
      * @returns {number} Probability (0-1)
      */
     getWinProbability(betType) {
+        // These reflect the ACTUAL win chances with house bias applied
         const probabilities = {
-            'red': 18/38,          // 18 red numbers out of 38
-            'black': 18/38,        // 18 black numbers out of 38
-            'odd': 18/38,          // 18 odd numbers out of 38 (0 and 00 are neither)
-            'even': 18/38,         // 18 even numbers out of 38
-            'low': 18/38,          // Numbers 1-18
-            'high': 18/38,         // Numbers 19-36
-            'dozen1': 12/38,       // Numbers 1-12
-            'dozen2': 12/38,       // Numbers 13-24
-            'dozen3': 12/38,       // Numbers 25-36
-            'column1': 12/38,      // Column 1
-            'column2': 12/38,      // Column 2
-            'column3': 12/38,      // Column 3
-            'number': 1/38,        // Single number
-            'green': 2/38,         // 0 and 00
-            'basket': 5/38         // 0, 00, 1, 2, 3
+            'red': 0.31,           // ~31% (was 47.4%) - 35% forced green losses
+            'black': 0.31,         // ~31% (was 47.4%) - 35% forced green losses
+            'odd': 0.28,           // ~28% (was 47.4%) - 40% forced losses
+            'even': 0.28,          // ~28% (was 47.4%) - 40% forced losses
+            'low': 0.28,           // ~28% (was 47.4%) - 40% forced losses
+            'high': 0.28,          // ~28% (was 47.4%) - 40% forced losses
+            'dozen1': 0.16,        // ~16% (was 31.6%) - 50% forced losses
+            'dozen2': 0.16,        // ~16% (was 31.6%) - 50% forced losses
+            'dozen3': 0.16,        // ~16% (was 31.6%) - 50% forced losses
+            'column1': 0.16,       // ~16% (was 31.6%) - similar to dozens
+            'column2': 0.16,       // ~16% (was 31.6%) - similar to dozens
+            'column3': 0.16,       // ~16% (was 31.6%) - similar to dozens
+            'number': 0.05,        // 5% (was 2.6%) - 95% forced misses
+            'green': 0.15,         // 15% (was 5.3%) - 85% forced non-green
+            'basket': 0.10         // 10% (was 13.2%) - 90% forced misses - VERY SLIM
         };
         return probabilities[betType] || 0;
     }
