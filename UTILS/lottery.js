@@ -100,11 +100,7 @@ async function findAllLotteryPanels(bot, maxToScan = 500) {
  */
 async function findAndTrackLotteryPanel(bot, guildId) {
     try {
-        // Skip in development environment
-        if (process.env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development') {
-            logger.info('Lottery panel tracking skipped - development environment');
-            return null;
-        }
+        // Note: Lottery system is enabled in all environments
         
         if (guildId !== DESIGNATED_SERVER_ID) return null;
 
@@ -128,11 +124,7 @@ async function findAndTrackLotteryPanel(bot, guildId) {
  */
 async function updateLotteryPanel(bot, guildId) {
     try {
-        // Skip lottery panel updates in development environment
-        if (process.env.ENVIRONMENT === 'development' || process.env.NODE_ENV === 'development') {
-            logger.info('Lottery panel update skipped - development environment');
-            return;
-        }
+        // Note: Lottery system is enabled in all environments
         
         logger.info(`updateLotteryPanel called for guild ${guildId}`);
         

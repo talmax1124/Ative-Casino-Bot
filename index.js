@@ -577,9 +577,8 @@ client.once('clientReady', async () => {
         logger.error('Failed to load commands:', error);
     }
 
-    // Initialize lottery system (ONLY in production)
-    if (process.env.ENVIRONMENT === 'production') {
-        try {
+    // Initialize lottery system in all environments
+    try {
             client.lotteryGame = new LotteryGame(client);
             await client.lotteryGame.initialize();
             logger.info('Lottery system initialized successfully');
@@ -601,23 +600,20 @@ client.once('clientReady', async () => {
                 }
             };
 
-        } catch (error) {
-            logger.error('Failed to initialize lottery system:', error);
+    } catch (error) {
+        logger.error('Failed to initialize lottery system:', error);
 
-            // Fallback: Try to initialize lottery system again after 5 minutes
-            setTimeout(async () => {
-                try {
-                    logger.info('Attempting lottery system fallback initialization...');
-                    client.lotteryGame = new LotteryGame(client);
-                    await client.lotteryGame.initialize();
-                    logger.info('Lottery system fallback initialization successful');
-                } catch (fallbackError) {
-                    logger.error('Lottery system fallback initialization failed:', fallbackError.message);
-                }
-            }, 5 * 60 * 1000); // 5 minutes
-        }
-    } else {
-        logger.info('🚫 Lottery system DISABLED - not running in production environment');
+        // Fallback: Try to initialize lottery system again after 5 minutes
+        setTimeout(async () => {
+            try {
+                logger.info('Attempting lottery system fallback initialization...');
+                client.lotteryGame = new LotteryGame(client);
+                await client.lotteryGame.initialize();
+                logger.info('Lottery system fallback initialization successful');
+            } catch (fallbackError) {
+                logger.error('Lottery system fallback initialization failed:', fallbackError.message);
+            }
+        }, 5 * 60 * 1000); // 5 minutes
     }
 
     // Initialize scratch ticket system
