@@ -136,6 +136,16 @@ module.exports = {
             return;
         }
 
+        // Invalidate user's cache after shared bank deposit
+        try {
+            const nodeCache = require('../UTILS/nodeCache');
+            const cacheKey = `casino:balance:${userId}:${guildId}`;
+            await nodeCache.del(cacheKey);
+            logger.debug(`🔄 Forced cache refresh for shared bank deposit display`);
+        } catch (cacheError) {
+            logger.debug(`Cache refresh failed: ${cacheError.message}`);
+        }
+
         // Get updated user balance after the transfer
         const updatedUserBalance = await dbManager.getUserBalance(userId, guildId);
 
@@ -207,6 +217,16 @@ module.exports = {
                 content: `❌ Withdrawal failed: ${result.error}`
             });
             return;
+        }
+
+        // Invalidate user's cache after shared bank withdrawal
+        try {
+            const nodeCache = require('../UTILS/nodeCache');
+            const cacheKey = `casino:balance:${userId}:${guildId}`;
+            await nodeCache.del(cacheKey);
+            logger.debug(`🔄 Forced cache refresh for shared bank withdrawal display`);
+        } catch (cacheError) {
+            logger.debug(`Cache refresh failed: ${cacheError.message}`);
         }
 
         // Get updated user balance

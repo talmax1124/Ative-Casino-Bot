@@ -601,19 +601,22 @@ class DatabaseManager {
     /**
      * Get lottery information for a guild
      * @param {string} guildId - Guild ID
+     * @param {number} tier - Lottery tier (1 or 2, defaults to 1)
      * @returns {Object} Lottery information
      */
-    async getLotteryInfo(guildId) {
+    async getLotteryInfo(guildId, tier = 1) {
         if (this.usingAdapter) {
-            return await this.databaseAdapter.getLotteryInfo(guildId);
+            return await this.databaseAdapter.getLotteryInfo(guildId, tier);
         }
+        const defaultPrize = tier === 1 ? 400000 : 3000000;
         return {
-            base_prize: 400000,
+            base_prize: defaultPrize,
             tax_pool: 0,
-            total_prize: 400000,
+            total_prize: defaultPrize,
             total_tickets: 0,
             participants: {},
-            lastDrawing: null
+            lastDrawing: null,
+            tier: tier
         };
     }
 
@@ -652,12 +655,6 @@ class DatabaseManager {
         return 0;
     }
 
-    async getLotteryInfo(guildId) {
-        if (this.usingAdapter) {
-            return await this.databaseAdapter.getLotteryInfo(guildId);
-        }
-        return { total_tickets: 0, total_prize: 400000 };
-    }
 
     async getAllLotteryTickets(guildId) {
         if (this.usingAdapter) {

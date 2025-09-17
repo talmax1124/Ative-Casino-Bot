@@ -3767,6 +3767,16 @@ class DatabaseAdapter {
 
                 await connection.commit();
                 
+                // Invalidate user's balance cache after successful transaction
+                try {
+                    const nodeCache = require('./nodeCache');
+                    const cacheKey = `casino:balance:${userId}:${guildId}`;
+                    await nodeCache.del(cacheKey);
+                    logger.debug(`🗑️ Invalidated cache for ${userId} after marriage transfer`);
+                } catch (cacheError) {
+                    logger.debug(`Cache invalidation failed: ${cacheError.message}`);
+                }
+                
                 logger.info(`${amount} transferred to shared bank by user ${userId}`);
                 return { success: true, newSharedBalance: marriageData.marriage.shared_bank + amount };
 
@@ -3816,6 +3826,16 @@ class DatabaseAdapter {
                 );
 
                 await connection.commit();
+                
+                // Invalidate user's balance cache after successful transaction
+                try {
+                    const nodeCache = require('./nodeCache');
+                    const cacheKey = `casino:balance:${userId}:${guildId}`;
+                    await nodeCache.del(cacheKey);
+                    logger.debug(`🗑️ Invalidated cache for ${userId} after marriage withdrawal`);
+                } catch (cacheError) {
+                    logger.debug(`Cache invalidation failed: ${cacheError.message}`);
+                }
                 
                 logger.info(`${amount} withdrawn from shared bank by user ${userId}`);
                 return { success: true, newSharedBalance: marriageData.marriage.shared_bank - amount };

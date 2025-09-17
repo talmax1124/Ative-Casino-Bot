@@ -326,6 +326,16 @@ module.exports = {
                 throw new Error('Failed to update sender balance');
             }
 
+            // Invalidate sender's cache
+            try {
+                const nodeCache = require('../UTILS/nodeCache');
+                const senderCacheKey = `casino:balance:${senderId}:${guildId}`;
+                await nodeCache.del(senderCacheKey);
+                logger.debug(`🔄 Forced cache refresh for sender balance display`);
+            } catch (cacheError) {
+                logger.debug(`Sender cache refresh failed: ${cacheError.message}`);
+            }
+
             // Update recipient balance
             const recipientUpdateSuccess = await dbManager.updateUserBalance(
                 recipientId, 
@@ -347,6 +357,16 @@ module.exports = {
                     }
                 );
                 throw new Error('Failed to update recipient balance');
+            }
+
+            // Invalidate recipient's cache
+            try {
+                const nodeCache = require('../UTILS/nodeCache');
+                const recipientCacheKey = `casino:balance:${recipientId}:${guildId}`;
+                await nodeCache.del(recipientCacheKey);
+                logger.debug(`🔄 Forced cache refresh for recipient balance display`);
+            } catch (cacheError) {
+                logger.debug(`Recipient cache refresh failed: ${cacheError.message}`);
             }
 
             // Add tax to lottery pool (only for designated server)

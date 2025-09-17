@@ -34,6 +34,16 @@ module.exports = {
             // Ensure user exists in database
             await dbManager.ensureUser(userId, username);
             
+            // Force cache refresh to ensure accurate balance display
+            try {
+                const nodeCache = require('../UTILS/nodeCache');
+                const cacheKey = `casino:balance:${userId}:${guildId}`;
+                await nodeCache.del(cacheKey);
+                logger.debug(`🔄 Forced cache refresh for balance command`);
+            } catch (cacheError) {
+                logger.debug(`Balance cache refresh failed: ${cacheError.message}`);
+            }
+            
             // Get balance information
             const balance = await dbManager.getUserBalance(userId, guildId);
             const totalBalance = balance.wallet + balance.bank;
