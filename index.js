@@ -1833,6 +1833,31 @@ client.on('interactionCreate', async interaction => {
                         await dbManager.updateUserBalance(marriage.partnerId, guildId, sharedBankSplit, 0);
                     }
                     
+                    // Remove Married Couples role from both partners
+                    try {
+                        const marriedCouplesRoleId = '1417807951627943987';
+                        const guild = interaction.guild;
+                        
+                        if (guild) {
+                            const partner1Member = await guild.members.fetch(userId).catch(() => null);
+                            const partner2Member = await guild.members.fetch(marriage.partnerId).catch(() => null);
+                            
+                            if (partner1Member) {
+                                await partner1Member.roles.remove(marriedCouplesRoleId).catch(err => 
+                                    logger.warn(`Failed to remove married role from ${marriage.partner1_name}: ${err.message}`)
+                                );
+                            }
+                            
+                            if (partner2Member) {
+                                await partner2Member.roles.remove(marriedCouplesRoleId).catch(err => 
+                                    logger.warn(`Failed to remove married role from ${marriage.partner2_name}: ${err.message}`)
+                                );
+                            }
+                        }
+                    } catch (roleError) {
+                        logger.warn(`Error removing married couples role during divorce: ${roleError.message}`);
+                    }
+                    
                     await interaction.editReply({
                         content: `💔 Divorce completed. You and **${marriage.partnerName}** are no longer married.\n\n${sharedBankSplit > 0 ? `You each received ${fmt(sharedBankSplit)} from the shared bank account.` : 'No shared funds to distribute.'}`
                     });

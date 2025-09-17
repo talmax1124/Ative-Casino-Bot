@@ -251,10 +251,22 @@ class UASConnector {
             } else if (account === 'bank') {
                 currentAmount = balance.bank;
                 sufficient = balance.bank >= requiredAmount;
+            } else if (account === 'marriage') {
+                // Check marriage balance
+                const marriageStatus = await dbManager.getUserMarriage(userId, guildId);
+                if (!marriageStatus.married) {
+                    return {
+                        success: false,
+                        error: 'User is not married - cannot check marriage balance',
+                        code: 'NOT_MARRIED'
+                    };
+                }
+                currentAmount = marriageStatus.marriage.sharedBank || 0;
+                sufficient = currentAmount >= requiredAmount;
             } else {
                 return {
                     success: false,
-                    error: 'Invalid account type. Must be "wallet" or "bank"',
+                    error: 'Invalid account type. Must be "wallet", "bank", or "marriage"',
                     code: 'INVALID_ACCOUNT'
                 };
             }
@@ -306,20 +318,40 @@ class UASConnector {
                 result = await dbManager.updateUserBalance(userId, guildId, amount, 0);
             } else if (account === 'bank') {
                 result = await dbManager.updateUserBalance(userId, guildId, 0, amount);
+            } else if (account === 'marriage') {
+                // Handle marriage balance editing
+                const marriageStatus = await dbManager.getUserMarriage(userId, guildId);
+                if (!marriageStatus.married) {
+                    return {
+                        success: false,
+                        error: 'User is not married - cannot edit marriage balance',
+                        code: 'NOT_MARRIED'
+                    };
+                }
+                
+                // Update marriage shared bank
+                result = await dbManager.updateMarriageSharedBank(marriageStatus.marriage.id, amount);
             } else {
                 return {
                     success: false,
-                    error: 'Invalid account type. Must be "wallet" or "bank"',
+                    error: 'Invalid account type. Must be "wallet", "bank", or "marriage"',
                     code: 'INVALID_ACCOUNT'
                 };
             }
 
             // Get new balance after operation
             const newBalance = await dbManager.getUserBalance(userId, guildId);
+            
+            // For marriage account edits, also get updated marriage info
+            let marriageInfo = null;
+            if (account === 'marriage') {
+                const updatedMarriageStatus = await dbManager.getUserMarriage(userId, guildId);
+                marriageInfo = updatedMarriageStatus.marriage;
+            }
 
-            logger.info(`UAS Connector: Money edit completed for user ${userId}: ${JSON.stringify(currentBalance)} → ${JSON.stringify(newBalance)}`);
+            logger.info(`UAS Connector: Money edit completed for user ${userId}: ${account} account ${amount > 0 ? '+' : ''}${amount}`);
 
-            return {
+            const response = {
                 success: true,
                 action: 'MONEY_EDITED',
                 amount: amount,
@@ -329,6 +361,18 @@ class UASConnector {
                 requestedBy: requestedBy,
                 reason: reason || 'No reason provided'
             };
+            
+            // Add marriage info if editing marriage account
+            if (account === 'marriage' && marriageInfo) {
+                response.marriageInfo = {
+                    marriageId: marriageInfo.id,
+                    sharedBank: marriageInfo.sharedBank,
+                    partnerId: marriageInfo.partner1.id === userId ? marriageInfo.partner2.id : marriageInfo.partner1.id,
+                    partnerName: marriageInfo.partner1.id === userId ? marriageInfo.partner2.name : marriageInfo.partner1.name
+                };
+            }
+            
+            return response;
 
         } catch (error) {
             logger.error(`UAS Connector: Error editing user money: ${error.message}`);

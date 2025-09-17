@@ -957,26 +957,35 @@ class DatabaseAdapter {
     }
 
 
-    async getUserLotteryTickets(userId, guildId) {
+    async getUserLotteryTickets(userId, guildId, tier = 1) {
         try {
             // Get current week start (Sunday)
             const currentWeekStart = this.getCurrentWeekStart();
             
-            const [rows] = await this.pool.execute(
-                `SELECT COALESCE(SUM(ticket_count), 0) as total_tickets 
-                 FROM lottery_tickets 
-                 WHERE user_id = ? AND guild_id = ? AND week_start = ?`,
-                [userId, guildId, currentWeekStart]
-            );
+            // For tier 1, check both tier 1 and legacy records (no tier column)
+            let query, params;
+            if (tier === 1) {
+                query = `SELECT COALESCE(SUM(ticket_count), 0) as total_tickets 
+                         FROM lottery_tickets 
+                         WHERE user_id = ? AND guild_id = ? AND week_start = ? AND (tier = 1 OR tier IS NULL)`;
+                params = [userId, guildId, currentWeekStart];
+            } else {
+                query = `SELECT COALESCE(SUM(ticket_count), 0) as total_tickets 
+                         FROM lottery_tickets 
+                         WHERE user_id = ? AND guild_id = ? AND week_start = ? AND tier = ?`;
+                params = [userId, guildId, currentWeekStart, tier];
+            }
+            
+            const [rows] = await this.pool.execute(query, params);
             
             return rows[0].total_tickets || 0;
         } catch (error) {
-            logger.error(`Failed to get user lottery tickets: ${error.message}`);
+            logger.error(`Failed to get user lottery tickets for tier ${tier}: ${error.message}`);
             return 0;
         }
     }
 
-    async purchaseLotteryTickets(userId, guildId, ticketCount, totalCost) {
+    async purchaseLotteryTickets(userId, guildId, ticketCount, totalCost, tier = 1) {
         const connection = await this.pool.getConnection();
         try {
             await connection.beginTransaction();
@@ -984,20 +993,27 @@ class DatabaseAdapter {
             // Get current week start
             const currentWeekStart = this.getCurrentWeekStart();
             
-            // Check current ticket count to enforce 7 ticket limit
-            const [currentTicketsResult] = await connection.execute(
-                `SELECT COALESCE(SUM(ticket_count), 0) as total_tickets 
-                 FROM lottery_tickets 
-                 WHERE user_id = ? AND guild_id = ? AND week_start = ?`,
-                [userId, guildId, currentWeekStart]
-            );
+            // Check current ticket count to enforce 10 ticket limit per tier
+            let query, params;
+            if (tier === 1) {
+                query = `SELECT COALESCE(SUM(ticket_count), 0) as total_tickets 
+                         FROM lottery_tickets 
+                         WHERE user_id = ? AND guild_id = ? AND week_start = ? AND (tier = 1 OR tier IS NULL)`;
+                params = [userId, guildId, currentWeekStart];
+            } else {
+                query = `SELECT COALESCE(SUM(ticket_count), 0) as total_tickets 
+                         FROM lottery_tickets 
+                         WHERE user_id = ? AND guild_id = ? AND week_start = ? AND tier = ?`;
+                params = [userId, guildId, currentWeekStart, tier];
+            }
             
+            const [currentTicketsResult] = await connection.execute(query, params);
             const currentTickets = currentTicketsResult[0].total_tickets || 0;
             
-            // Check if purchase would exceed 7 ticket limit
-            if (currentTickets + ticketCount > 7) {
+            // Check if purchase would exceed 10 ticket limit
+            if (currentTickets + ticketCount > 10) {
                 await connection.rollback();
-                logger.warn(`User ${userId} attempted to purchase ${ticketCount} tickets but already has ${currentTickets}/7`);
+                logger.warn(`User ${userId} attempted to purchase ${ticketCount} tier ${tier} tickets but already has ${currentTickets}/10`);
                 return false; // Would exceed ticket limit
             }
             
@@ -1012,31 +1028,74 @@ class DatabaseAdapter {
                 return false; // Insufficient funds
             }
             
-            // Insert or update lottery tickets (one record per user per week)
-            await connection.execute(
-                `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, purchase_cost, week_start, purchased_at) 
-                 VALUES (?, ?, ?, ?, ?, NOW()) 
-                 ON DUPLICATE KEY UPDATE 
-                 ticket_count = ticket_count + ?, 
-                 purchase_cost = purchase_cost + ?,
-                 purchased_at = NOW()`,
-                [userId, guildId, ticketCount, totalCost, currentWeekStart, ticketCount, totalCost]
+            // First try to add tier column if it doesn't exist (backward compatibility)
+            try {
+                await connection.execute('ALTER TABLE lottery_tickets ADD COLUMN tier INT DEFAULT 1');
+            } catch (alterError) {
+                // Column already exists, continue
+            }
+            
+            // Insert or update lottery tickets with tier support
+            if (tier === 1) {
+                // For tier 1, use legacy behavior (tier = 1 or NULL)
+                await connection.execute(
+                    `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, purchase_cost, week_start, tier, purchased_at) 
+                     VALUES (?, ?, ?, ?, ?, 1, NOW()) 
+                     ON DUPLICATE KEY UPDATE 
+                     ticket_count = ticket_count + ?, 
+                     purchase_cost = purchase_cost + ?,
+                     tier = 1,
+                     purchased_at = NOW()`,
+                    [userId, guildId, ticketCount, totalCost, currentWeekStart, ticketCount, totalCost]
+                );
+            } else {
+                // For tier 2+, explicitly set tier
+                await connection.execute(
+                    `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, purchase_cost, week_start, tier, purchased_at) 
+                     VALUES (?, ?, ?, ?, ?, ?, NOW()) 
+                     ON DUPLICATE KEY UPDATE 
+                     ticket_count = ticket_count + ?, 
+                     purchase_cost = purchase_cost + ?,
+                     purchased_at = NOW()`,
+                    [userId, guildId, ticketCount, totalCost, currentWeekStart, tier, ticketCount, totalCost]
+                );
+            }
+            
+            // Add tier column to lottery_info if it doesn't exist
+            try {
+                await connection.execute('ALTER TABLE lottery_info ADD COLUMN tier INT DEFAULT 1');
+            } catch (alterError) {
+                // Column already exists, continue
+            }
+            
+            // Update lottery info with tier support
+            // First check if a record exists for this guild_id and tier
+            const [existingRecord] = await connection.execute(
+                'SELECT total_tickets FROM lottery_info WHERE guild_id = ? AND tier = ?',
+                [guildId, tier]
             );
             
-            // Update lottery info
-            await connection.execute(
-                `INSERT INTO lottery_info (guild_id, total_tickets, current_week_start) 
-                 VALUES (?, ?, ?)
-                 ON DUPLICATE KEY UPDATE total_tickets = total_tickets + ?`,
-                [guildId, ticketCount, currentWeekStart, ticketCount]
-            );
+            if (existingRecord.length > 0) {
+                // Update existing record for this tier
+                await connection.execute(
+                    'UPDATE lottery_info SET total_tickets = total_tickets + ?, current_week_start = ? WHERE guild_id = ? AND tier = ?',
+                    [ticketCount, currentWeekStart, guildId, tier]
+                );
+            } else {
+                // Insert new record for this tier
+                const defaultPrize = tier === 1 ? 400000.00 : 3000000.00;
+                await connection.execute(
+                    'INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start, tier) VALUES (?, ?, ?, ?, ?)',
+                    [guildId, ticketCount, defaultPrize, currentWeekStart, tier]
+                );
+            }
             
             await connection.commit();
-            logger.info(`User ${userId} purchased ${ticketCount} lottery tickets for $${totalCost} (now has ${currentTickets + ticketCount}/7)`);
+            logger.info(`User ${userId} purchased ${ticketCount} tier ${tier} lottery tickets for $${totalCost} (now has ${currentTickets + ticketCount}/10)`);
             return true;
         } catch (error) {
             await connection.rollback();
-            logger.error(`Failed to purchase lottery tickets: ${error.message}`);
+            logger.error(`Failed to purchase tier ${tier} lottery tickets: ${error.message}`);
             return false;
         } finally {
             connection.release();
@@ -1057,38 +1116,56 @@ class DatabaseAdapter {
         }
     }
 
-    async getLotteryInfo(guildId) {
+    async getLotteryInfo(guildId, tier = 1) {
         try {
             const currentWeekStart = this.getCurrentWeekStart();
             
-            const [rows] = await this.pool.execute(
-                'SELECT * FROM lottery_info WHERE guild_id = ?',
-                [guildId]
-            );
+            // First try to add tier column if it doesn't exist (backward compatibility)
+            try {
+                await this.pool.execute('ALTER TABLE lottery_info ADD COLUMN tier INT DEFAULT 1');
+            } catch (alterError) {
+                // Column already exists, continue
+            }
+            
+            // For tier 1, check both tier 1 and legacy records (no tier column)
+            let query, params;
+            if (tier === 1) {
+                query = 'SELECT * FROM lottery_info WHERE guild_id = ? AND (tier = 1 OR tier IS NULL)';
+                params = [guildId];
+            } else {
+                query = 'SELECT * FROM lottery_info WHERE guild_id = ? AND tier = ?';
+                params = [guildId, tier];
+            }
+            
+            const [rows] = await this.pool.execute(query, params);
             
             if (rows.length === 0) {
-                // Create default lottery info for guild
+                // Create default lottery info for guild and tier
+                const defaultPrize = tier === 1 ? 400000.00 : 3000000.00; // Tier 2 starts at 3M
                 await this.pool.execute(
-                    'INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start) VALUES (?, 0, 400000.00, ?)',
-                    [guildId, currentWeekStart]
+                    'INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start, tier) VALUES (?, 0, ?, ?, ?)',
+                    [guildId, defaultPrize, currentWeekStart, tier]
                 );
                 
                 return {
                     total_tickets: 0,
-                    total_prize: 400000,
+                    total_prize: defaultPrize,
                     next_drawing: null,
-                    current_week_start: currentWeekStart
+                    current_week_start: currentWeekStart,
+                    tier: tier
                 };
             }
             
             return rows[0];
         } catch (error) {
-            logger.error(`Failed to get lottery info: ${error.message}`);
+            logger.error(`Failed to get lottery info for tier ${tier}: ${error.message}`);
+            const defaultPrize = tier === 1 ? 400000 : 3000000;
             return {
                 total_tickets: 0,
-                total_prize: 400000,
+                total_prize: defaultPrize,
                 next_drawing: null,
-                current_week_start: this.getCurrentWeekStart()
+                current_week_start: this.getCurrentWeekStart(),
+                tier: tier
             };
         }
     }
@@ -1596,59 +1673,86 @@ class DatabaseAdapter {
     // ========================= LOTTERY POOL OPERATIONS =========================
 
     /**
-     * Add amount to lottery pool with 10M cap
+     * Add amount to lottery pool with tier-specific caps
      */
-    async addToLotteryPool(guildId, amount) {
+    async addToLotteryPool(guildId, amount, tier = 1) {
         const connection = await this.pool.getConnection();
         try {
             await connection.beginTransaction();
             
             const currentWeekStart = this.getCurrentWeekStart();
-            const maxPrizePool = 10000000; // 10M cap
+            const maxPrizePool = tier === 1 ? 5000000 : 20000000; // 5M cap for tier 1, 20M for tier 2
+            const basePrize = tier === 1 ? 400000 : 3000000; // Base prizes
             
-            // Get current prize pool
-            const [currentInfo] = await connection.execute(
-                'SELECT total_prize FROM lottery_info WHERE guild_id = ?',
-                [guildId]
-            );
-            
-            let currentPrize = 400000; // Default base pool
-            if (currentInfo.length > 0) {
-                currentPrize = currentInfo[0].total_prize || 400000;
+            // First try to add tier column if it doesn't exist
+            try {
+                await connection.execute('ALTER TABLE lottery_info ADD COLUMN tier INT DEFAULT 1');
+            } catch (alterError) {
+                // Column already exists, continue
             }
             
-            // Calculate how much can actually be added (respecting the 10M cap)
+            // Get current prize pool for this tier
+            let query, params;
+            if (tier === 1) {
+                query = 'SELECT total_prize FROM lottery_info WHERE guild_id = ? AND (tier = 1 OR tier IS NULL)';
+                params = [guildId];
+            } else {
+                query = 'SELECT total_prize FROM lottery_info WHERE guild_id = ? AND tier = ?';
+                params = [guildId, tier];
+            }
+            
+            const [currentInfo] = await connection.execute(query, params);
+            
+            let currentPrize = basePrize; // Default base pool for tier
+            if (currentInfo.length > 0) {
+                currentPrize = currentInfo[0].total_prize || basePrize;
+            }
+            
+            // Calculate how much can actually be added (respecting the tier cap)
             const availableSpace = maxPrizePool - currentPrize;
             const actualAmountToAdd = Math.min(amount, Math.max(0, availableSpace));
             
             if (actualAmountToAdd > 0) {
-                // Add to lottery pool
-                await connection.execute(`
-                    INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start) 
-                    VALUES (?, 0, ?, ?)
-                    ON DUPLICATE KEY UPDATE 
-                    total_prize = LEAST(total_prize + VALUES(total_prize), ?),
-                    updated_at = CURRENT_TIMESTAMP
-                `, [guildId, 400000 + actualAmountToAdd, currentWeekStart, maxPrizePool]);
+                // Add to lottery pool with tier support - use explicit tier handling
+                const [existingRecord] = await connection.execute(
+                    'SELECT total_prize FROM lottery_info WHERE guild_id = ? AND tier = ?',
+                    [guildId, tier]
+                );
+                
+                if (existingRecord.length > 0) {
+                    // Update existing record for this tier
+                    await connection.execute(
+                        'UPDATE lottery_info SET total_prize = LEAST(total_prize + ?, ?) WHERE guild_id = ? AND tier = ?',
+                        [actualAmountToAdd, maxPrizePool, guildId, tier]
+                    );
+                } else {
+                    // Insert new record for this tier
+                    await connection.execute(
+                        'INSERT INTO lottery_info (guild_id, total_tickets, total_prize, current_week_start, tier) VALUES (?, 0, ?, ?, ?)',
+                        [guildId, basePrize + actualAmountToAdd, currentWeekStart, tier]
+                    );
+                }
                 
                 await connection.commit();
                 
+                const capText = tier === 1 ? '5M' : '20M';
                 if (actualAmountToAdd < amount) {
-                    logger.info(`Added ${actualAmountToAdd} to lottery pool for guild ${guildId} (capped at 10M, ${amount - actualAmountToAdd} overflow prevented)`);
+                    logger.info(`Added ${actualAmountToAdd} to tier ${tier} lottery pool for guild ${guildId} (capped at ${capText}, ${amount - actualAmountToAdd} overflow prevented)`);
                 } else {
-                    logger.info(`Added ${actualAmountToAdd} to lottery pool for guild ${guildId}`);
+                    logger.info(`Added ${actualAmountToAdd} to tier ${tier} lottery pool for guild ${guildId}`);
                 }
                 
                 return { success: true, amountAdded: actualAmountToAdd, overflow: amount - actualAmountToAdd };
             } else {
                 await connection.rollback();
-                logger.info(`Lottery pool at maximum (10M) for guild ${guildId}, no money added`);
+                const capText = tier === 1 ? '5M' : '20M';
+                logger.info(`Tier ${tier} lottery pool at maximum (${capText}) for guild ${guildId}, no money added`);
                 return { success: true, amountAdded: 0, overflow: amount };
             }
             
         } catch (error) {
             await connection.rollback();
-            logger.error(`Error adding to lottery pool: ${error.message}`);
+            logger.error(`Error adding to tier ${tier} lottery pool: ${error.message}`);
             return { success: false, error: error.message };
         } finally {
             connection.release();

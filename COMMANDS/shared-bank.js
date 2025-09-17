@@ -78,7 +78,7 @@ module.exports = {
     async handleBalance(interaction, marriage) {
         const balanceEmbed = new EmbedBuilder()
             .setTitle('💰 Shared Bank Account')
-            .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**`)
+            .setDescription(`<@${marriage.partner1_id}> & <@${marriage.partner2_id}>`)
             .addFields(
                 {
                     name: '💳 Current Balance',
@@ -92,7 +92,7 @@ module.exports = {
                 },
                 {
                     name: '👫 Account Holders',
-                    value: `• ${marriage.partner1_name}\n• ${marriage.partner2_name}`,
+                    value: `• <@${marriage.partner1_id}>\n• <@${marriage.partner2_id}>`,
                     inline: false
                 },
                 {
@@ -136,6 +136,9 @@ module.exports = {
             return;
         }
 
+        // Get updated user balance after the transfer
+        const updatedUserBalance = await dbManager.getUserBalance(userId, guildId);
+
         // Success embed
         const depositEmbed = new EmbedBuilder()
             .setTitle('💰 Deposit Successful')
@@ -153,7 +156,7 @@ module.exports = {
                 },
                 {
                     name: '💼 Your New Wallet',
-                    value: fmt(userBalance.wallet - amount),
+                    value: fmt(updatedUserBalance.wallet),
                     inline: true
                 }
             )

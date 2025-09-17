@@ -259,21 +259,48 @@ class LotteryGame {
                 return;
             }
 
-            const info = await dbManager.getLotteryInfo(DESIGNATED_SERVER_ID);
+            // Get data for both lottery tiers
+            const tier1Info = await dbManager.getLotteryInfo(DESIGNATED_SERVER_ID, 1);
+            const tier2Info = await dbManager.getLotteryInfo(DESIGNATED_SERVER_ID, 2);
             const nextTs = this.getNextDrawingTimestamp();
 
             const embed = new EmbedBuilder()
-                .setTitle('🎟️ Bi-Weekly Lottery System')
+                .setTitle('🎰 ATIVE CASINO LOTTERY SYSTEM')
                 .setColor(0xFFD700)
-                .setDescription('Every Tuesday & Saturday at 10 AM Eastern (America/New_York), we draw 3 winners!')
+                .setDescription('🎯 **Two Distinct Lottery Tiers • Separate Drawings • Independent Prize Pools**\n\n📅 **Next Drawing:** <t:' + nextTs + ':F> (<t:' + nextTs + ':R>)\n🏆 **Drawing Schedule:** Every Tuesday & Saturday at 10 AM EST')
                 .addFields(
-                    { name: '💰 Current Prize Pool', value: `**${fmt(info.total_prize || 400000)}**`, inline: true },
-                    { name: '🎫 Tickets Sold', value: `**${info.total_tickets || 0}**`, inline: true },
-                    { name: '⏰ Next Drawing', value: `<t:${nextTs}:F>\n<t:${nextTs}:R>`, inline: true },
-                    { name: 'How to Buy', value: 'Use `/purchaselottery [count]` • $12,000 per ticket • Max 7/week', inline: false },
-                    { name: 'Prize Distribution', value: '🥇 45% • 🥈 45% • 🥉 10%', inline: false }
+                    {
+                        name: '\u200B', // Empty field for spacing
+                        value: '\u200B',
+                        inline: false
+                    },
+                    {
+                        name: '🥇 **═══════ TIER 1 STANDARD ═══════**',
+                        value: `\`\`\`yaml\nPrize Pool: ${fmt(tier1Info.total_prize || 400000)} / $5M Max\nTickets Sold: ${tier1Info.total_tickets || 0} tickets\nTicket Price: $50,000 each\nMax Per Person: 10 tickets per week\`\`\`\n🎮 **Commands:** \`/lottery\` • \`/purchaselottery\`\n💡 **Best For:** Regular players seeking solid rewards`,
+                        inline: true
+                    },
+                    {
+                        name: '💎 **═══════ TIER 2 HIGH STAKES ═══════**',
+                        value: `\`\`\`yaml\nPrize Pool: ${fmt(tier2Info.total_prize || 3000000)} / $20M Max\nTickets Sold: ${tier2Info.total_tickets || 0} tickets\nTicket Price: $200,000 each\nMax Per Person: 10 tickets per week\`\`\`\n🎮 **Commands:** \`/lottery2\` • \`/purchaselottery2\`\n💡 **Best For:** High rollers chasing massive jackpots`,
+                        inline: true
+                    },
+                    {
+                        name: '\u200B', // Empty field for spacing
+                        value: '\u200B',
+                        inline: false
+                    },
+                    {
+                        name: '🏆 **PRIZE DISTRIBUTION** (Per Tier)',
+                        value: '```diff\n+ 1st Place: 45% of tier prize pool\n+ 2nd Place: 45% of tier prize pool\n+ 3rd Place: 10% of tier prize pool\n\n= 3 Winners Per Tier = 6 Total Winners!```',
+                        inline: false
+                    },
+                    {
+                        name: '🎯 **STRATEGY GUIDE**',
+                        value: '> **🎲 Casual Players:** Start with Tier 1 for affordable entry\n> **💰 High Rollers:** Go Tier 2 for maximum reward potential\n> **🎰 Max Strategy:** Play BOTH tiers to double your chances!\n> **📊 Smart Play:** Each tier is completely independent',
+                        inline: false
+                    }
                 )
-                .setFooter({ text: '🍀 Good luck! • Last updated' })
+                .setFooter({ text: '🎰 ATIVE Casino • Two Tiers, Six Winners, Unlimited Excitement! • Updated' })
                 .setTimestamp();
 
             const help = new ButtonBuilder().setCustomId('lottery_help_panel').setLabel('How It Works').setEmoji('❓').setStyle(ButtonStyle.Secondary);
@@ -288,9 +315,12 @@ class LotteryGame {
                 }
             }
             if (!message) {
-                // Try to find an existing recent panel by title
+                // Try to find an existing recent panel by title (supports both old and new titles)
                 const msgs = await channel.messages.fetch({ limit: 30 });
-                message = msgs.find(m => m.author.id === this.bot.user.id && m.embeds?.[0]?.title?.includes('Weekly Lottery System')) || null;
+                message = msgs.find(m => m.author.id === this.bot.user.id && 
+                    (m.embeds?.[0]?.title?.includes('Weekly Lottery System') ||
+                     m.embeds?.[0]?.title?.includes('Dual-Tier Lottery System') ||
+                     m.embeds?.[0]?.title?.includes('Lottery System'))) || null;
             }
 
             if (message) {
@@ -321,8 +351,8 @@ class LotteryGame {
                 .setColor(0xFF4500)
                 .setDescription('**Final call to purchase your lottery tickets!**\n\nThe bi-weekly lottery drawing starts in just **5 minutes**!')
                 .addFields(
-                    { name: '🎫 How to Buy', value: 'Use `/purchaselottery [count]` right now!', inline: true },
-                    { name: '💰 Cost', value: '$12,000 per ticket', inline: true },
+                    { name: '🎫 How to Buy', value: 'Use `/purchaselottery` or `/purchaselottery2` right now!', inline: true },
+                    { name: '💰 Cost', value: 'Tier 1: $50K • Tier 2: $200K per ticket', inline: true },
                     { name: '⏰ Time Left', value: '**5 minutes!**', inline: true }
                 )
                 .setFooter({ text: 'Last chance to get in on this drawing!' })

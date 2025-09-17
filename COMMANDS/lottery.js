@@ -46,7 +46,7 @@ module.exports = {
         
         // Create standardized game embed
         const gameOptions = {
-            minBet: 12000,
+            minBet: 50000,
             maxBet: null, // No max bet limit
             wins: 0, // Lottery doesn't track individual wins
             losses: 0,
@@ -71,7 +71,7 @@ module.exports = {
             },
             {
                 name: '🎟️ Your Tickets',
-                value: `${userTickets}/7 tickets`,
+                value: `${userTickets}/10 tickets`,
                 inline: true
             },
             {
@@ -86,7 +86,7 @@ module.exports = {
             },
             {
                 name: '🎫 Ticket Price',
-                value: '$12,000 each',
+                value: '$50,000 each',
                 inline: true
             },
             {
@@ -181,7 +181,7 @@ module.exports = {
 
     async showLotteryRules(interaction) {
         const rules = [
-            '🎟️ Purchase 1-7 lottery tickets per week for $12,000 each',
+            '🎟️ Purchase 1-10 lottery tickets per week for $50,000 each',
             '🗓️ Bi-weekly drawings every Tuesday & Saturday at 10 AM EST',
             '🏆 Winner takes the entire prize pool',
             '📊 More tickets = better odds of winning',
@@ -190,8 +190,8 @@ module.exports = {
         ];
 
         const payouts = {
-            'Ticket Cost': '$12,000 per ticket',
-            'Max Tickets': '7 tickets per player per week',
+            'Ticket Cost': '$50,000 per ticket',
+            'Max Tickets': '10 tickets per player per week',
             'Prize Pool': 'All ticket sales combined',
             'Winner Selection': 'Random draw from all tickets'
         };
@@ -223,7 +223,7 @@ module.exports = {
             .addFields(
                 {
                     name: 'Your Tickets',
-                    value: `${userTickets}/7 tickets purchased`,
+                    value: `${userTickets}/10 tickets purchased`,
                     inline: true
                 },
                 {
@@ -233,7 +233,7 @@ module.exports = {
                 },
                 {
                     name: 'Investment',
-                    value: `$${(userTickets * 12000).toLocaleString()}`,
+                    value: `$${(userTickets * 50000).toLocaleString()}`,
                     inline: true
                 },
                 {
@@ -243,7 +243,7 @@ module.exports = {
                 },
                 {
                     name: 'Remaining Tickets',
-                    value: `${7 - userTickets} more you can buy`,
+                    value: `${10 - userTickets} more you can buy`,
                     inline: true
                 },
                 {
@@ -331,7 +331,7 @@ module.exports = {
                 .addFields(
                     {
                         name: '🎫 Your Tickets This Week',
-                        value: `**${userTickets}/7** tickets purchased\n${userTickets > 0 ? '✅ You\'re in the drawing!' : '❌ No tickets yet'}`,
+                        value: `**${userTickets}/10** tickets purchased\n${userTickets > 0 ? '✅ You\'re in the drawing!' : '❌ No tickets yet'}`,
                         inline: true
                     },
                     {
@@ -351,7 +351,7 @@ module.exports = {
                     },
                     {
                         name: '💰 Current Prize Pool Info',
-                        value: `Total Pool: **${fmt(currentPrize)}**\nTickets Sold: **${totalTickets}** tickets\nRemaining Tickets: **${7 - userTickets}** you can buy`,
+                        value: `Total Pool: **${fmt(currentPrize)}**\nTickets Sold: **${totalTickets}** tickets\nRemaining Tickets: **${10 - userTickets}** you can buy`,
                         inline: true
                     },
                     {
@@ -364,9 +364,9 @@ module.exports = {
                 .setTimestamp();
 
             // Add ticket cost info if user can buy more
-            if (userTickets < 7) {
-                const canBuy = 7 - userTickets;
-                const ticketCost = 12000;
+            if (userTickets < 10) {
+                const canBuy = 10 - userTickets;
+                const ticketCost = 50000;
                 const totalCost = canBuy * ticketCost;
                 const canAfford = Math.floor(userBalance.wallet / ticketCost);
                 const maxAffordable = Math.min(canBuy, canAfford);
@@ -381,9 +381,9 @@ module.exports = {
             const buyButton = new ButtonBuilder()
                 .setCustomId('lottery_buy')
                 .setLabel('Buy Tickets')
-                .setStyle(userTickets >= 7 ? ButtonStyle.Secondary : ButtonStyle.Primary)
+                .setStyle(userTickets >= 10 ? ButtonStyle.Secondary : ButtonStyle.Primary)
                 .setEmoji('🎫')
-                .setDisabled(userTickets >= 7);
+                .setDisabled(userTickets >= 10);
 
             const helpButton = new ButtonBuilder()
                 .setCustomId('lottery_help')

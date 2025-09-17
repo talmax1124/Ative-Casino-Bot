@@ -137,8 +137,8 @@ module.exports = {
                 return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
-            // Calculate success chance (45% base chance)
-            const SUCCESS_CHANCE = 45;
+            // Calculate success chance (40% base chance - reduced for economic balance)
+            const SUCCESS_CHANCE = 40;
             const success = secureRandomChance(SUCCESS_CHANCE);
             
             // Calculate amounts

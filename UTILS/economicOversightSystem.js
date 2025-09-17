@@ -234,11 +234,18 @@ class EconomicOversightSystem {
         try {
             const robStats = await robStatsManager.getGlobalRobStats();
             
-            // Check robbery success rate
-            if (robStats.averageSuccessRate > this.thresholds.maxRobberySuccessRate) {
+            // Get recent robbery statistics (last 24 hours) for more accurate monitoring
+            const recentStats = await this.getRecentRobberyStats();
+            const recentSuccessRate = recentStats.attempts > 0 ? (recentStats.successes / recentStats.attempts) : 0;
+            
+            // Only trigger alert if there's sufficient recent activity (minimum 5 robberies in 24h)
+            // and success rate is consistently high
+            if (recentStats.attempts >= 5 && recentSuccessRate > this.thresholds.maxRobberySuccessRate) {
                 await this.triggerAlert('YELLOW_ALERT', 'HIGH_ROBBERY_SUCCESS_RATE', {
-                    currentRate: robStats.averageSuccessRate,
-                    threshold: this.thresholds.maxRobberySuccessRate
+                    currentRate: recentSuccessRate,
+                    threshold: this.thresholds.maxRobberySuccessRate,
+                    recentAttempts: recentStats.attempts,
+                    timeframe: '24 hours'
                 });
             }
             
@@ -477,6 +484,32 @@ class EconomicOversightSystem {
                 logger.info(`📊 ACTIVE ALERTS: ${this.liveData.activeAlerts.size} | SUSPICIOUS PLAYERS: ${this.liveData.suspiciousPlayers.size}`);
             }
         }, 5 * 60 * 1000); // Every 5 minutes
+    }
+
+    /**
+     * Get recent robbery statistics for more accurate monitoring
+     */
+    async getRecentRobberyStats(hours = 24) {
+        try {
+            const dbAdapter = dbManager.databaseAdapter;
+            if (!dbAdapter) return { attempts: 0, successes: 0 };
+
+            const [recentStats] = await dbAdapter.pool.execute(`
+                SELECT 
+                    COUNT(*) as attempts,
+                    SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successes
+                FROM rob_stats 
+                WHERE timestamp >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+            `, [hours]);
+
+            return {
+                attempts: parseInt(recentStats[0]?.attempts || 0),
+                successes: parseInt(recentStats[0]?.successes || 0)
+            };
+        } catch (error) {
+            logger.error(`Failed to get recent robbery stats: ${error.message}`);
+            return { attempts: 0, successes: 0 };
+        }
     }
 
     /**

@@ -35,51 +35,56 @@ async function createLotteryPanel(interaction, lotteryInfo = {}) {
             throw new Error(`Lottery channel ${LOTTERY_CHANNEL_ID} not found`);
         }
 
-        const currentPrize = lotteryInfo.total_prize || 400000;
-        const ticketCount = lotteryInfo.total_tickets || 0;
+        // Get data for both lottery tiers
+        const dbManager = require('./database');
+        
+        // Tier 1 data
+        const tier1Info = await dbManager.getLotteryInfo(guildId, 1);
+        const tier1Prize = tier1Info.total_prize || 400000;
+        const tier1TicketCount = tier1Info.total_tickets || 0;
+        
+        // Tier 2 data  
+        const tier2Info = await dbManager.getLotteryInfo(guildId, 2);
+        const tier2Prize = tier2Info.total_prize || 3000000;
+        const tier2TicketCount = tier2Info.total_tickets || 0;
 
         const embed = new EmbedBuilder()
-            .setTitle('🎟️ Bi-Weekly Lottery System')
-            .setDescription('**Try your luck in our bi-weekly lottery drawings!**\n\nEvery Tuesday & Saturday at 10 AM EST, we draw 3 lucky winners! 1st and 2nd place get 45% each, 3rd place gets 10%!')
+            .setTitle('🎟️ Dual-Tier Lottery System')
+            .setDescription('**Two exciting lottery tiers with different stakes and massive prizes!**\n\n🎯 Every Tuesday & Saturday at 10 AM EST, we draw winners for both tiers!\n🏆 Each tier has its own separate prize pool and drawings!')
             .setColor(0xFFD700)
             .addFields(
                 {
-                    name: '💰 Current Prize Pool',
-                    value: `**${fmt(currentPrize)}**\n*Updates with each money transfer (5% tax goes to lottery)*`,
+                    name: '🥇 **TIER 1 - STANDARD LOTTERY**',
+                    value: `💰 **Prize Pool:** ${fmt(tier1Prize)} (Max: $5M)\n🎫 **Tickets Sold:** ${tier1TicketCount}\n💳 **Price:** $50,000 per ticket\n📊 **Max:** 10 tickets per person\n🎮 **Commands:** \`/lottery\`, \`/purchaselottery\``,
                     inline: true
                 },
                 {
-                    name: '🎫 Tickets Sold This Week',
-                    value: `**${ticketCount}** tickets\n*Max 7 tickets per person*`,
+                    name: '💎 **TIER 2 - HIGH STAKES**',
+                    value: `💰 **Prize Pool:** ${fmt(tier2Prize)} (Max: $20M)\n🎫 **Tickets Sold:** ${tier2TicketCount}\n💳 **Price:** $200,000 per ticket\n📊 **Max:** 10 tickets per person\n🎮 **Commands:** \`/lottery2\`, \`/purchaselottery2\``,
                     inline: true
                 },
                 {
                     name: '🗓️ Next Drawing',
-                    value: `<t:${getNextLotteryTimestamp()}:F>\n<t:${getNextLotteryTimestamp()}:R>\n*Every Tuesday & Saturday at 10 AM EST*`,
-                    inline: true
-                },
-                {
-                    name: '🛒 How to Buy Tickets',
-                    value: 'Use `/lottery buy [count]` to purchase tickets\n• Price: **$12,000** per ticket\n• Maximum: **7 tickets** per person per week\n• Tickets reset after each drawing',
+                    value: `<t:${getNextLotteryTimestamp()}:F>\n<t:${getNextLotteryTimestamp()}:R>\n*Both tiers drawn simultaneously!*`,
                     inline: false
                 },
                 {
-                    name: '🏆 Prize Distribution',
-                    value: '• 1st Winner: 45% of total prize pool\n• 2nd Winner: 45% of total prize pool\n• 3rd Winner: 10% of total prize pool\n*Three winners with guaranteed prizes!*',
+                    name: '🏆 Prize Distribution (Same for Both Tiers)',
+                    value: '• 🥇 **1st Winner:** 45% of total prize pool\n• 🥈 **2nd Winner:** 45% of total prize pool\n• 🥉 **3rd Winner:** 10% of total prize pool\n*Three winners guaranteed per tier!*',
                     inline: false
                 },
                 {
-                    name: '📈 How Prize Pool Grows',
-                    value: '• Base Prize: $400,000 every week\n• Money Transfer Tax: 5% of all `/sendmoney` transfers\n• Ticket Sales: All ticket money goes to next week\'s pool\n• No Winner: Prize rolls over to next week',
+                    name: '📈 How Prize Pools Grow',
+                    value: '**Tier 1:** Base $400K, grows to $5M max via ticket sales\n**Tier 2:** Base $3M, grows to $20M max via ticket sales\n• Money Transfer Tax (5%) → Tier 1\n• Ticket Sales → Respective tier pools\n• No Winners → Prizes roll over',
                     inline: false
                 },
                 {
-                    name: '📋 Lottery Commands',
-                    value: '`/lottery buy [count]` - Buy 1-7 lottery tickets\n`/lottery status` - Check current lottery status\n`/balance` - View your wallet and bank',
+                    name: '🎯 Choose Your Stakes',
+                    value: '**💡 Play Strategy:**\n• Play **Tier 1** for affordable fun with great prizes\n• Play **Tier 2** for high-stakes, massive rewards\n• Play **BOTH** to maximize your winning chances!\n• Each tier is completely independent',
                     inline: false
                 }
             )
-            .setFooter({ text: 'Good luck! • Created' })
+            .setFooter({ text: 'Two tiers, double the excitement! • Created' })
             .setTimestamp();
 
         // Try to find existing panel first and update it

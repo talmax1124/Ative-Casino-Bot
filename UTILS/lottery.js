@@ -81,7 +81,9 @@ async function findAllLotteryPanels(bot, maxToScan = 500) {
                 if (
                     msg.author?.id === bot.user.id &&
                     msg.embeds?.length > 0 &&
-                    msg.embeds[0]?.title?.includes('Weekly Lottery System')
+                    (msg.embeds[0]?.title?.includes('Weekly Lottery System') ||
+                     msg.embeds[0]?.title?.includes('Dual-Tier Lottery System') ||
+                     msg.embeds[0]?.title?.includes('Lottery System'))
                 ) {
                     results.push(msg);
                 }
@@ -161,31 +163,44 @@ async function updateLotteryPanel(bot, guildId) {
             ticketCount = 0;
         }
         
-        // Create updated embed (same as original but with current data)
+        // Get tier 2 lottery info
+        let tier2Prize, tier2TicketCount;
+        try {
+            const tier2LotteryInfo = await dbManager.getLotteryInfo(guildId, 2);
+            tier2Prize = tier2LotteryInfo.total_prize || 3000000;
+            tier2TicketCount = tier2LotteryInfo.total_tickets || 0;
+            logger.info(`Retrieved tier 2 lottery info - Prize: ${tier2Prize}, Tickets: ${tier2TicketCount}`);
+        } catch (error) {
+            logger.error(`Error getting tier 2 lottery info: ${error.message}`);
+            tier2Prize = 3000000;
+            tier2TicketCount = 0;
+        }
+
+        // Create updated embed with both tiers
         const { EmbedBuilder } = require('discord.js');
         const embed = new EmbedBuilder()
-            .setTitle('🎟️ Weekly Lottery System')
-            .setDescription('**Try your luck in our bi-weekly lottery drawings!**\n\nEvery Tuesday & Saturday at 10 AM EST, we draw 3 lucky winners! 1st and 2nd place get 45% each, 3rd place gets 10%!')
+            .setTitle('🎟️ Dual-Tier Lottery System')
+            .setDescription('**Two exciting lottery tiers with different stakes and prizes!**\n\nEvery Tuesday & Saturday at 10 AM EST, we draw winners for both tiers!')
             .setColor(0xFFD700)
             .addFields(
                 {
-                    name: '💰 Current Prize Pool',
-                    value: `**${fmt(currentPrize)}**\n*Updates with each money transfer (5% tax goes to lottery)*`,
+                    name: '🥇 **TIER 1 LOTTERY**',
+                    value: `💰 **Prize Pool:** ${fmt(currentPrize)} (Max: $5M)\n🎫 **Tickets Sold:** ${ticketCount}\n💳 **Price:** $50,000 per ticket\n📊 **Max Tickets:** 10 per person`,
                     inline: true
                 },
                 {
-                    name: '🎫 Tickets Sold This Week',
-                    value: `**${ticketCount}** tickets\n*Max 7 tickets per person*`,
+                    name: '💎 **TIER 2 HIGH STAKES**',
+                    value: `💰 **Prize Pool:** ${fmt(tier2Prize)} (Max: $20M)\n🎫 **Tickets Sold:** ${tier2TicketCount}\n💳 **Price:** $200,000 per ticket\n📊 **Max Tickets:** 10 per person`,
                     inline: true
                 },
                 {
                     name: '🗓️ Next Drawing',
-                    value: `<t:${getNextLotteryTimestamp()}:F>\n<t:${getNextLotteryTimestamp()}:R>\n*Every Tuesday & Saturday at 10 AM EST*`,
-                    inline: true
+                    value: `<t:${getNextLotteryTimestamp()}:F>\n<t:${getNextLotteryTimestamp()}:R>\n*Both tiers drawn simultaneously*`,
+                    inline: false
                 },
                 {
-                    name: '🛒 How to Buy Tickets',
-                    value: 'Use `/lottery buy [count]` to purchase tickets\n• Price: **$12,000** per ticket\n• Maximum: **7 tickets** per person per week\n• Tickets reset after each drawing',
+                    name: '🛒 How to Play',
+                    value: '**Tier 1:** Use `/lottery` and `/purchaselottery`\n**Tier 2:** Use `/lottery2` and `/purchaselottery2`\n• Each tier has separate tickets and prizes\n• You can play both tiers simultaneously\n• Tickets reset after each drawing',
                     inline: false
                 },
                 {
@@ -194,13 +209,13 @@ async function updateLotteryPanel(bot, guildId) {
                     inline: false
                 },
                 {
-                    name: '📈 How Prize Pool Grows',
-                    value: '• Base Prize: $400,000 every week\n• Money Transfer Tax: 5% of all `/sendmoney` transfers\n• Ticket Sales: All ticket money goes to next week\'s pool\n• No Winner: Prize rolls over to next week',
+                    name: '📈 How Prize Pools Grow',
+                    value: '**Tier 1:** Base $400K, grows via ticket sales to $5M max\n**Tier 2:** Base $3M, grows via ticket sales to $20M max\n• Money Transfer Tax: 5% goes to Tier 1\n• Ticket Sales: All ticket money goes to respective tier\n• No Winner: Prize rolls over to next week',
                     inline: false
                 },
                 {
                     name: '📋 Lottery Commands',
-                    value: '`/lottery buy [count]` - Buy 1-7 lottery tickets\n`/lottery status` - Check current lottery status\n`/balance` - View your wallet and bank',
+                    value: '**Tier 1:**\n`/lottery` - Check tier 1 status\n`/purchaselottery` - Buy tier 1 tickets\n\n**Tier 2:**\n`/lottery2` - Check tier 2 status\n`/purchaselottery2` - Buy tier 2 tickets',
                     inline: false
                 }
             )
@@ -257,7 +272,10 @@ async function cleanupDuplicatePanels(bot, keepMessageId) {
         if (!pinned) return;
 
         for (const msg of pinned.values()) {
-            const isPanel = msg.author?.id === bot.user.id && msg.embeds?.[0]?.title?.includes('Weekly Lottery System');
+            const isPanel = msg.author?.id === bot.user.id && msg.embeds?.[0]?.title && 
+                           (msg.embeds[0].title.includes('Weekly Lottery System') ||
+                            msg.embeds[0].title.includes('Dual-Tier Lottery System') ||
+                            msg.embeds[0].title.includes('Lottery System'));
             if (isPanel && msg.id !== keepMessageId && msg.pinned) {
                 try {
                     await msg.unpin();
@@ -293,15 +311,15 @@ function calculatePrizeDistribution(total_prize) {
 /**
  * Validate ticket purchase parameters
  */
-function validateTicketPurchase(ticketCount, currentTickets, balance, ticketPrice = 12000) {
+function validateTicketPurchase(ticketCount, currentTickets, balance, ticketPrice = 50000) {
     const errors = [];
     
-    if (ticketCount < 1 || ticketCount > 7) {
-        errors.push('Ticket count must be between 1 and 7');
+    if (ticketCount < 1 || ticketCount > 10) {
+        errors.push('Ticket count must be between 1 and 10');
     }
     
-    if (currentTickets + ticketCount > 7) {
-        errors.push(`You can only have a maximum of 7 tickets per week. You currently have ${currentTickets} tickets.`);
+    if (currentTickets + ticketCount > 10) {
+        errors.push(`You can only have a maximum of 10 tickets per week. You currently have ${currentTickets} tickets.`);
     }
     
     const totalCost = ticketCount * ticketPrice;

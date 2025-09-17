@@ -121,6 +121,25 @@ if (!validation.isValid) {
 - **KENO**: Min $10, Max $50K (conservative multipliers - max 50x)
 - **CEELO**: Min $5, Max $25K (1:1 payouts, traditional dice game)
 
+## Lottery System
+### Tier 1 Lottery (Standard)
+- **Ticket Price**: $50,000 each
+- **Max Tickets**: 10 per player per week
+- **Prize Pool**: $400K base, max $5M
+- **Commands**: `/lottery`, `/purchaselottery`
+
+### Tier 2 Lottery (High Stakes)
+- **Ticket Price**: $200,000 each
+- **Max Tickets**: 10 per player per week
+- **Prize Pool**: $3M base, max $20M
+- **Commands**: `/lottery2`, `/purchaselottery2`
+
+### Lottery Features
+- **Drawing Schedule**: Every Tuesday & Saturday at 10 AM EST
+- **Prize Distribution**: 45% first place, 45% second place, 10% third place
+- **Pool Growth**: Money transfer tax (5%) goes to Tier 1, ticket sales to respective tiers
+- **Database Support**: Automatic tier column migration, backward compatibility
+
 ## Environment Variables
 Required in `.env`:
 - `DISCORD_TOKEN`

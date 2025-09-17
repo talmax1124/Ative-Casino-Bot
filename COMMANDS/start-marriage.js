@@ -407,6 +407,31 @@ module.exports = {
             );
 
             if (marriageResult.success) {
+                // Assign Married Couples role to both partners
+                try {
+                    const marriedCouplesRoleId = '1417807951627943987';
+                    const guild = interaction.guild;
+                    
+                    if (guild) {
+                        const partner1Member = await guild.members.fetch(partner1Id).catch(() => null);
+                        const partner2Member = await guild.members.fetch(partner2Id).catch(() => null);
+                        
+                        if (partner1Member) {
+                            await partner1Member.roles.add(marriedCouplesRoleId).catch(err => 
+                                logger.warn(`Failed to add married role to ${partner1Name}: ${err.message}`)
+                            );
+                        }
+                        
+                        if (partner2Member) {
+                            await partner2Member.roles.add(marriedCouplesRoleId).catch(err => 
+                                logger.warn(`Failed to add married role to ${partner2Name}: ${err.message}`)
+                            );
+                        }
+                    }
+                } catch (roleError) {
+                    logger.warn(`Error assigning married couples role: ${roleError.message}`);
+                }
+
                 // Final celebration embed
                 const celebrationEmbed = new EmbedBuilder()
                     .setTitle('🎊 Congratulations!')
@@ -414,7 +439,7 @@ module.exports = {
                     .addFields(
                         {
                             name: '💰 Marriage Benefits',
-                            value: '• Shared bank account\n• Reduced transfer taxes (2% instead of 5%)\n• Special marriage profile\n• Joint financial standing',
+                            value: '• Shared bank account\n• Reduced transfer taxes (2% instead of 5%)\n• Special marriage profile\n• Joint financial standing\n• Married Couples role',
                             inline: false
                         },
                         {
@@ -428,6 +453,17 @@ module.exports = {
                     .setFooter({ text: '💒 ATIVE Casino Wedding Services • Congratulations!' });
 
                 await interaction.followUp({ embeds: [celebrationEmbed] });
+
+                // Ping the married couples role
+                try {
+                    const marriedCouplesRoleId = '1417807951627943987';
+                    await interaction.followUp({
+                        content: `🎉 <@&${marriedCouplesRoleId}> Welcome our newest married couple! 💒✨`,
+                        allowedMentions: { roles: [marriedCouplesRoleId] }
+                    });
+                } catch (pingError) {
+                    logger.warn(`Error pinging married couples role: ${pingError.message}`);
+                }
 
                 // Log the marriage
                 await sendLogMessage(

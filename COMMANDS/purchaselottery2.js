@@ -1,7 +1,7 @@
 /**
- * Purchase Lottery command for the casino bot
- * Allows users to buy lottery tickets (1-7)
- * REDESIGNED: Complete UI overhaul with standardized templates
+ * Purchase Tier 2 Lottery command for the casino bot
+ * Allows users to buy tier 2 lottery tickets (1-10) at $200K each
+ * HIGH STAKES VERSION: Premium tier with bigger prizes
  */
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -12,24 +12,22 @@ const logger = require('../UTILS/logger');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('purchaselottery')
-        .setDescription('Purchase lottery tickets for the weekly drawing'),
+        .setName('purchaselottery2')
+        .setDescription('Purchase Tier 2 lottery tickets - High stakes, bigger prizes!'),
 
     async execute(interaction) {
-        // Note: Lottery system is enabled in all environments
-
         const userId = interaction.user.id;
         const guildId = await getGuildId(interaction);
 
         try {
-            // Show main lottery purchase interface
-            await this.showLotteryInterface(interaction, userId, guildId);
+            // Show main tier 2 lottery purchase interface
+            await this.showLottery2Interface(interaction, userId, guildId);
 
         } catch (error) {
-            logger.error(`Error in purchaselottery command: ${error.message}`);
+            logger.error(`Error in purchaselottery2 command: ${error.message}`);
             
-            const errorEmbed = UITemplates.createErrorEmbed('Lottery Purchase', {
-                description: 'An error occurred while loading the lottery interface. Please try again.',
+            const errorEmbed = UITemplates.createErrorEmbed('Tier 2 Lottery Purchase', {
+                description: 'An error occurred while loading the tier 2 lottery interface. Please try again.',
                 error: error.message
             });
 
@@ -41,16 +39,16 @@ module.exports = {
         }
     },
 
-    async showLotteryInterface(interaction, userId, guildId) {
+    async showLottery2Interface(interaction, userId, guildId) {
         // Ensure user exists in database
         await dbManager.ensureUser(userId, interaction.user.displayName);
 
         // Get current user data
         const balance = await dbManager.getUserBalance(userId, guildId);
-        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId);
-        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId, 2); // Tier 2
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId, 2); // Tier 2
         
-        const ticketPrice = 50000;
+        const ticketPrice = 200000; // $200K per ticket
         const maxTickets = 10;
         const remainingTickets = maxTickets - currentTickets;
         
@@ -61,8 +59,8 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(UITemplates.getColors().PRIMARY_GAME)
-            .setTitle('🎫 Weekly Lottery - Purchase Tickets')
-            .setDescription('Buy lottery tickets for your chance to win the weekly prize pool!')
+            .setTitle('💎 Tier 2 High Stakes Lottery - Purchase Tickets')
+            .setDescription('Buy premium lottery tickets for your chance to win the massive tier 2 prize pool!')
             .addFields(
                 {
                     name: '💰 Your Balance',
@@ -70,7 +68,7 @@ module.exports = {
                     inline: true
                 },
                 {
-                    name: '🎟️ Your Tickets',
+                    name: '🎟️ Your Tier 2 Tickets',
                     value: `${currentTickets}/${maxTickets}`,
                     inline: true
                 },
@@ -85,18 +83,18 @@ module.exports = {
                     inline: true
                 },
                 {
-                    name: '💎 Prize Pool',
-                    value: `$${(lotteryInfo.total_prize || 400000).toLocaleString()}`,
+                    name: '💎 Tier 2 Prize Pool',
+                    value: `$${(lotteryInfo.total_prize || 3000000).toLocaleString()}`,
                     inline: true
                 },
                 {
-                    name: '🎫 Ticket Price',
+                    name: '🎫 Tier 2 Ticket Price',
                     value: `$${ticketPrice.toLocaleString()} each`,
                     inline: true
                 }
             )
             .setFooter({
-                text: "Casino Bot • Select ticket quantity below",
+                text: "Casino Bot • Select tier 2 ticket quantity below",
                 iconURL: interaction.client.user.displayAvatarURL()
             })
             .setTimestamp();
@@ -125,16 +123,16 @@ module.exports = {
                     const cost = i * ticketPrice;
                     ticketRow1.addComponents(
                         new ButtonBuilder()
-                            .setCustomId(`lottery_buy_${i}`)
+                            .setCustomId(`lottery2_buy_${i}`)
                             .setLabel(`${i} Ticket${i > 1 ? 's' : ''} ($${cost.toLocaleString()})`)
                             .setStyle(ButtonStyle.Primary)
-                            .setEmoji('🎫')
+                            .setEmoji('💎')
                             .setDisabled(balance < cost || (currentTickets + i) > 10)
                     );
                 }
                 components.push(ticketRow1);
                 
-                // Second row: 6-7 tickets if user can afford them and within limits
+                // Second row: 6-10 tickets if user can afford them and within limits
                 if (maxBuyable > 5) {
                     const ticketRow2 = new ActionRowBuilder();
                     
@@ -143,10 +141,10 @@ module.exports = {
                             const cost = i * ticketPrice;
                             ticketRow2.addComponents(
                                 new ButtonBuilder()
-                                    .setCustomId(`lottery_buy_${i}`)
+                                    .setCustomId(`lottery2_buy_${i}`)
                                     .setLabel(`${i} Ticket${i > 1 ? 's' : ''} ($${cost.toLocaleString()})`)
                                     .setStyle(ButtonStyle.Primary)
-                                    .setEmoji('🎫')
+                                    .setEmoji('💎')
                                     .setDisabled(balance < cost || (currentTickets + i) > 10)
                             );
                         }
@@ -158,7 +156,7 @@ module.exports = {
                         while (ticketRow2.components.length < 2) {
                             ticketRow2.addComponents(
                                 new ButtonBuilder()
-                                    .setCustomId(`lottery_empty_${ticketRow2.components.length}`)
+                                    .setCustomId(`lottery2_empty_${ticketRow2.components.length}`)
                                     .setLabel('─')
                                     .setStyle(ButtonStyle.Secondary)
                                     .setDisabled(true)
@@ -173,17 +171,17 @@ module.exports = {
             const actionRow = new ActionRowBuilder()
                 .addComponents(
                     new ButtonBuilder()
-                        .setCustomId('lottery_view_tickets')
-                        .setLabel('View My Tickets')
+                        .setCustomId('lottery2_view_tickets')
+                        .setLabel('View My Tier 2 Tickets')
                         .setStyle(ButtonStyle.Secondary)
                         .setEmoji('📋'),
                     new ButtonBuilder()
-                        .setCustomId('lottery_rules')
-                        .setLabel('How to Play')
+                        .setCustomId('lottery2_rules')
+                        .setLabel('Tier 2 Rules')
                         .setStyle(ButtonStyle.Secondary)
                         .setEmoji('📖'),
                     new ButtonBuilder()
-                        .setCustomId('lottery_cancel')
+                        .setCustomId('lottery2_cancel')
                         .setLabel('Cancel')
                         .setStyle(ButtonStyle.Danger)
                         .setEmoji('❌')
@@ -195,17 +193,17 @@ module.exports = {
             const maxRow = new ActionRowBuilder()
                 .addComponents(
                     new ButtonBuilder()
-                        .setCustomId('lottery_view_tickets')
-                        .setLabel('View My Tickets')
+                        .setCustomId('lottery2_view_tickets')
+                        .setLabel('View My Tier 2 Tickets')
                         .setStyle(ButtonStyle.Secondary)
                         .setEmoji('📋'),
                     new ButtonBuilder()
-                        .setCustomId('lottery_rules')
-                        .setLabel('How to Play')
+                        .setCustomId('lottery2_rules')
+                        .setLabel('Tier 2 Rules')
                         .setStyle(ButtonStyle.Secondary)
                         .setEmoji('📖'),
                     new ButtonBuilder()
-                        .setCustomId('lottery_cancel')
+                        .setCustomId('lottery2_cancel')
                         .setLabel('Close')
                         .setStyle(ButtonStyle.Secondary)
                         .setEmoji('❌')
@@ -228,12 +226,12 @@ module.exports = {
             } else if (action === 'view_tickets') {
                 await this.showUserTickets(interaction, userId, guildId);
             } else if (action === 'rules') {
-                await this.showLotteryRules(interaction);
+                await this.showLottery2Rules(interaction);
             } else if (action === 'cancel') {
                 const embed = new EmbedBuilder()
                     .setColor(UITemplates.getColors().INFO)
-                    .setTitle('🎫 Lottery Purchase Cancelled')
-                    .setDescription('You can purchase tickets anytime before the weekly drawing!')
+                    .setTitle('💎 Tier 2 Lottery Purchase Cancelled')
+                    .setDescription('You can purchase tier 2 tickets anytime before the weekly drawing!')
                     .setTimestamp();
 
                 await interaction.update({
@@ -242,9 +240,9 @@ module.exports = {
                 });
             }
         } catch (error) {
-            logger.error(`Error handling lottery button: ${error.message}`);
+            logger.error(`Error handling lottery2 button: ${error.message}`);
             
-            const errorEmbed = UITemplates.createErrorEmbed('Lottery', {
+            const errorEmbed = UITemplates.createErrorEmbed('Tier 2 Lottery', {
                 description: 'An error occurred while processing your request.',
                 error: error.message
             });
@@ -254,17 +252,17 @@ module.exports = {
     },
 
     async purchaseTickets(interaction, userId, guildId, ticketCount) {
-        const ticketPrice = 50000;
+        const ticketPrice = 200000; // $200K per ticket
         const totalCost = ticketCount * ticketPrice;
 
         // Get current user data
         const balance = await dbManager.getUserBalance(userId, guildId);
-        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId);
+        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId, 2); // Tier 2
 
         // Validation checks
         if (currentTickets + ticketCount > 10) {
-            const embed = UITemplates.createErrorEmbed('Lottery Purchase', {
-                description: `You can only buy a maximum of **10 tickets per week**.\n\n**Current Tickets:** ${currentTickets}\n**Can Still Buy:** ${10 - currentTickets} more tickets`,
+            const embed = UITemplates.createErrorEmbed('Tier 2 Lottery Purchase', {
+                description: `You can only buy a maximum of **10 tier 2 tickets per week**.\n\n**Current Tickets:** ${currentTickets}\n**Can Still Buy:** ${10 - currentTickets} more tickets`,
                 isLoss: false
             });
 
@@ -277,7 +275,7 @@ module.exports = {
         }
 
         // Show loading state
-        const loadingEmbed = UITemplates.createLoadingEmbed('Lottery', 'Processing purchase');
+        const loadingEmbed = UITemplates.createLoadingEmbed('Tier 2 Lottery', 'Processing tier 2 purchase');
         await interaction.update({ embeds: [loadingEmbed], components: [] });
 
         // Process the purchase with fallback retry logic
@@ -289,19 +287,19 @@ module.exports = {
         while (!success && attempts < maxAttempts) {
             attempts++;
             try {
-                success = await dbManager.purchaseLotteryTickets(userId, guildId, ticketCount, totalCost);
+                success = await dbManager.purchaseLotteryTickets(userId, guildId, ticketCount, totalCost, 2); // Tier 2
                 if (success) {
                     break;
                 }
                 
                 // If not successful, wait before retry
                 if (attempts < maxAttempts) {
-                    logger.warn(`Lottery purchase attempt ${attempts} failed for user ${userId}, retrying...`);
+                    logger.warn(`Tier 2 lottery purchase attempt ${attempts} failed for user ${userId}, retrying...`);
                     await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // Increasing delay
                 }
             } catch (error) {
                 lastError = error;
-                logger.error(`Lottery purchase attempt ${attempts} error: ${error.message}`);
+                logger.error(`Tier 2 lottery purchase attempt ${attempts} error: ${error.message}`);
                 
                 // Wait before retry on error
                 if (attempts < maxAttempts) {
@@ -315,12 +313,12 @@ module.exports = {
             const newBalance = balance.wallet - totalCost;
             
             // Get updated lottery info
-            const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+            const lotteryInfo = await dbManager.getLotteryInfo(guildId, 2); // Tier 2
             const totalTickets = lotteryInfo.total_tickets || 0;
             const winProbability = totalTickets > 0 ? ((newTicketCount / totalTickets) * 100).toFixed(2) : "0.00";
 
-            const successEmbed = UITemplates.createSuccessEmbed('Lottery Purchase', {
-                description: `✅ Successfully purchased **${ticketCount}** lottery ticket${ticketCount > 1 ? 's' : ''}!`,
+            const successEmbed = UITemplates.createSuccessEmbed('Tier 2 Lottery Purchase', {
+                description: `✅ Successfully purchased **${ticketCount}** tier 2 lottery ticket${ticketCount > 1 ? 's' : ''}!`,
                 winAmount: null,
                 newBalance: newBalance
             });
@@ -328,17 +326,17 @@ module.exports = {
             successEmbed.addFields(
                 {
                     name: '💳 Purchase Details',
-                    value: `**Tickets Bought:** ${ticketCount}\n**Cost per Ticket:** $${ticketPrice.toLocaleString()}\n**Total Cost:** $${totalCost.toLocaleString()}`,
+                    value: `**Tier 2 Tickets Bought:** ${ticketCount}\n**Cost per Ticket:** $${ticketPrice.toLocaleString()}\n**Total Cost:** $${totalCost.toLocaleString()}`,
                     inline: false
                 },
                 {
-                    name: '🎟️ Your Lottery Status',
-                    value: `**Your Tickets:** ${newTicketCount}/10\n**Win Probability:** ${winProbability}%\n${newTicketCount >= 10 ? '🔥 **Maximum tickets reached!**' : `💰 Can buy **${10 - newTicketCount} more** tickets`}`,
+                    name: '🎟️ Your Tier 2 Lottery Status',
+                    value: `**Your Tickets:** ${newTicketCount}/10\n**Win Probability:** ${winProbability}%\n${newTicketCount >= 10 ? '🔥 **Maximum tier 2 tickets reached!**' : `💰 Can buy **${10 - newTicketCount} more** tickets`}`,
                     inline: false
                 },
                 {
-                    name: '💎 Prize Pool',
-                    value: `$${(lotteryInfo.total_prize || 400000).toLocaleString()}`,
+                    name: '💎 Tier 2 Prize Pool',
+                    value: `$${(lotteryInfo.total_prize || 3000000).toLocaleString()}`,
                     inline: true
                 }
             );
@@ -349,7 +347,7 @@ module.exports = {
             await sendLogMessage(
                 interaction.client,
                 'economy',
-                `Lottery Purchase: ${interaction.user.displayName} bought ${ticketCount} tickets for $${totalCost.toLocaleString()} (now has ${newTicketCount}/10 tickets)`,
+                `Tier 2 Lottery Purchase: ${interaction.user.displayName} bought ${ticketCount} tier 2 tickets for $${totalCost.toLocaleString()} (now has ${newTicketCount}/10 tickets)`,
                 userId,
                 guildId
             );
@@ -359,22 +357,22 @@ module.exports = {
                 const { updateLotteryPanel } = require('../UTILS/lottery');
                 if (updateLotteryPanel) {
                     await updateLotteryPanel(interaction.client, guildId);
-                    logger.info('Lottery panel updated after ticket purchase');
+                    logger.info('Lottery panel updated after tier 2 ticket purchase');
                 }
             } catch (panelError) {
-                logger.error(`Failed to update lottery panel after purchase: ${panelError.message}`);
+                logger.error(`Failed to update lottery panel after tier 2 purchase: ${panelError.message}`);
             }
 
         } else {
             // All attempts failed
-            logger.error(`Lottery purchase failed after ${maxAttempts} attempts for user ${userId}. Last error: ${lastError?.message || 'Unknown error'}`);
+            logger.error(`Tier 2 lottery purchase failed after ${maxAttempts} attempts for user ${userId}. Last error: ${lastError?.message || 'Unknown error'}`);
             
             const errorDescription = attempts >= maxAttempts 
-                ? `Failed to process your ticket purchase after ${maxAttempts} attempts. Your balance has not been charged.`
-                : 'Failed to process your ticket purchase. Your balance has not been charged.';
+                ? `Failed to process your tier 2 ticket purchase after ${maxAttempts} attempts. Your balance has not been charged.`
+                : 'Failed to process your tier 2 ticket purchase. Your balance has not been charged.';
             
-            const errorEmbed = UITemplates.createErrorEmbed('Lottery Purchase', {
-                description: `${errorDescription}\n\n**What happened?**\nThere may be a temporary issue with the lottery system.\n\n**Next steps:**\n• Try again in a few moments\n• Contact support if this persists`,
+            const errorEmbed = UITemplates.createErrorEmbed('Tier 2 Lottery Purchase', {
+                description: `${errorDescription}\n\n**What happened?**\nThere may be a temporary issue with the tier 2 lottery system.\n\n**Next steps:**\n• Try again in a few moments\n• Contact support if this persists`,
                 isLoss: false
             });
 
@@ -382,7 +380,7 @@ module.exports = {
             await sendLogMessage(
                 interaction.client,
                 'error',
-                `Lottery purchase failed after ${maxAttempts} attempts: ${interaction.user.displayName} (${userId}) trying to buy ${ticketCount} tickets. Error: ${lastError?.message || 'Unknown'}`,
+                `Tier 2 lottery purchase failed after ${maxAttempts} attempts: ${interaction.user.displayName} (${userId}) trying to buy ${ticketCount} tickets. Error: ${lastError?.message || 'Unknown'}`,
                 userId,
                 guildId
             );
@@ -392,17 +390,17 @@ module.exports = {
     },
 
     async showUserTickets(interaction, userId, guildId) {
-        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId);
-        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId, 2); // Tier 2
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId, 2); // Tier 2
         const totalTickets = lotteryInfo.total_tickets || 0;
         const winProbability = totalTickets > 0 ? ((currentTickets / totalTickets) * 100).toFixed(2) : "0.00";
 
         const embed = new EmbedBuilder()
             .setColor(UITemplates.getColors().INFO)
-            .setTitle('🎟️ Your Lottery Tickets')
+            .setTitle('🎟️ Your Tier 2 Lottery Tickets')
             .addFields(
                 {
-                    name: 'Current Tickets',
+                    name: 'Current Tier 2 Tickets',
                     value: `${currentTickets}/10`,
                     inline: true
                 },
@@ -412,27 +410,27 @@ module.exports = {
                     inline: true
                 },
                 {
-                    name: 'Prize Pool',
-                    value: `$${(lotteryInfo.total_prize || 400000).toLocaleString()}`,
+                    name: 'Tier 2 Prize Pool',
+                    value: `$${(lotteryInfo.total_prize || 3000000).toLocaleString()}`,
                     inline: true
                 }
             )
-            .setFooter({ text: 'Good luck in the weekly drawing!' })
+            .setFooter({ text: 'Good luck in the high stakes drawing!' })
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed], ephemeral: true });
     },
 
-    async showLotteryRules(interaction) {
+    async showLottery2Rules(interaction) {
         const rules = [
-            '🎫 Purchase 1-10 tickets per week for $50,000 each',
+            '💎 Purchase 1-10 tier 2 tickets per week for $200,000 each',
             '🗓️ Bi-weekly drawings every Tuesday & Saturday at 10 AM EST',
-            '🏆 Winner takes the entire prize pool',
+            '🏆 Winner takes the entire tier 2 prize pool',
             '📊 Higher ticket count = better winning odds',
-            '💰 All ticket sales contribute to the prize pool'
+            '💰 All tier 2 ticket sales contribute to the tier 2 prize pool'
         ];
 
-        const rulesEmbed = UITemplates.createRulesEmbed('Bi-Weekly Lottery', rules);
+        const rulesEmbed = UITemplates.createRulesEmbed('Tier 2 High Stakes Lottery', rules);
         
         await interaction.reply({ embeds: [rulesEmbed], ephemeral: true });
     },
