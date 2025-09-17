@@ -60,9 +60,13 @@ class RobStatsManager {
      */
     async createRobStatsTable() {
         const dbAdapter = dbManager.databaseAdapter;
-        if (!dbAdapter) return;
+        if (!dbAdapter) {
+            logger.warn('Database adapter not available for rob stats table creation');
+            return;
+        }
 
         try {
+            // Create the table immediately to fix current runtime error
             await dbAdapter.pool.execute(`
                 CREATE TABLE IF NOT EXISTS rob_stats (
                     id VARCHAR(100) PRIMARY KEY,
@@ -89,9 +93,14 @@ class RobStatsManager {
                 ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `);
             
-            logger.debug('✅ Rob stats table created/verified');
+            logger.info('✅ Rob stats table created/verified successfully');
         } catch (error) {
-            logger.error(`Failed to create rob stats table: ${error.message}`);
+            if (error.message.includes('already exists')) {
+                logger.debug('Rob stats table already exists');
+            } else {
+                logger.error(`Failed to create rob stats table: ${error.message}`);
+                // Continue without crashing - the system should still work for basic rob functionality
+            }
         }
     }
 
@@ -231,6 +240,18 @@ class RobStatsManager {
         try {
             const dbAdapter = dbManager.databaseAdapter;
             if (!dbAdapter) return this.globalRobStats;
+
+            // Check if table exists before querying
+            try {
+                await dbAdapter.pool.execute('SELECT 1 FROM rob_stats LIMIT 1');
+            } catch (tableError) {
+                if (tableError.message.includes("doesn't exist")) {
+                    logger.debug('Rob stats table does not exist yet, creating...');
+                    await this.createRobStatsTable();
+                    return this.globalRobStats; // Return empty stats for now
+                }
+                throw tableError;
+            }
 
             const [globalStats] = await dbAdapter.pool.execute(`
                 SELECT 

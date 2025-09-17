@@ -377,6 +377,30 @@ class DatabaseAdapter {
                 INDEX idx_married (married_at),
                 UNIQUE KEY unique_partner1_active (partner1_id, status),
                 UNIQUE KEY unique_partner2_active (partner2_id, status)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS rob_stats (
+                id VARCHAR(100) PRIMARY KEY,
+                robber_id VARCHAR(20) NOT NULL,
+                victim_id VARCHAR(20) NOT NULL,
+                robber_name VARCHAR(255),
+                victim_name VARCHAR(255),
+                amount_stolen DECIMAL(20,2) DEFAULT 0.00,
+                penalty_paid DECIMAL(20,2) DEFAULT 0.00,
+                success BOOLEAN NOT NULL,
+                robber_tier VARCHAR(50),
+                victim_tier VARCHAR(50),
+                tier_difference INT DEFAULT 0,
+                robber_balance_before DECIMAL(20,2),
+                victim_balance_before DECIMAL(20,2),
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                guild_id VARCHAR(20),
+                
+                INDEX idx_robber_id (robber_id),
+                INDEX idx_victim_id (victim_id),
+                INDEX idx_timestamp (timestamp),
+                INDEX idx_success (success),
+                INDEX idx_guild (guild_id)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 

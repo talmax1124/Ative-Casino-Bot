@@ -25,15 +25,15 @@ const allInManager = require('../UTILS/allInManager');
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
 
-// PROGRESSIVE DIFFICULTY MODES - Incremental payouts with economic protection
+// PROGRESSIVE DIFFICULTY MODES - REDUCED WIN RATES with stronger house edge
 const BLACKJACK_MODES = {
     safe: {
         name: '🛡️ Safe',
         description: 'Conservative mode with standard payouts',
         minBet: 500,
-        blackjackMultiplier: 1.45,   // 1.45x for blackjack (slight house edge)
-        winMultiplier: 0.95,         // 0.95x for regular wins (house edge)
-        houseEdge: 0.05,             // 5% house edge
+        blackjackMultiplier: 1.25,   // 1.25x for blackjack (reduced from 1.45x)
+        winMultiplier: 0.85,         // 0.85x for regular wins (increased house edge)
+        houseEdge: 0.08,             // 8% house edge (increased)
         emoji: '🛡️',
         color: '#4CAF50'
     },
@@ -41,9 +41,9 @@ const BLACKJACK_MODES = {
         name: '⚖️ Balanced',
         description: 'Standard mode with traditional payouts',
         minBet: 1000,
-        blackjackMultiplier: 1.5,    // 1.5x for blackjack (traditional)
-        winMultiplier: 0.98,         // 0.98x for regular wins (small house edge)
-        houseEdge: 0.07,             // 7% house edge
+        blackjackMultiplier: 1.35,   // 1.35x for blackjack (reduced from 1.5x)
+        winMultiplier: 0.9,          // 0.9x for regular wins (increased house edge)
+        houseEdge: 0.12,             // 12% house edge (increased)
         emoji: '⚖️',
         color: '#FF9800'
     },
@@ -51,9 +51,9 @@ const BLACKJACK_MODES = {
         name: '⚡ Risky',
         description: 'High risk with enhanced payouts',
         minBet: 2500,
-        blackjackMultiplier: 1.55,   // 1.55x for blackjack (slight player advantage)
-        winMultiplier: 1.02,         // 1.02x for regular wins (small player advantage)
-        houseEdge: 0.10,             // 10% house edge
+        blackjackMultiplier: 1.4,    // 1.4x for blackjack (reduced from 1.55x)
+        winMultiplier: 0.95,         // 0.95x for regular wins (reduced from 1.02x)
+        houseEdge: 0.15,             // 15% house edge (increased)
         emoji: '⚡',
         color: '#FF8800'
     },
@@ -61,9 +61,9 @@ const BLACKJACK_MODES = {
         name: '🔥 Extreme',
         description: 'Maximum risk with premium payouts',
         minBet: 5000,
-        blackjackMultiplier: 1.6,    // 1.6x for blackjack (player advantage)
-        winMultiplier: 1.05,         // 1.05x for regular wins (player advantage)
-        houseEdge: 0.12,             // 12% house edge
+        blackjackMultiplier: 1.45,   // 1.45x for blackjack (reduced from 1.6x)
+        winMultiplier: 1.0,          // 1.0x for regular wins (reduced from 1.05x)
+        houseEdge: 0.18,             // 18% house edge (increased)
         emoji: '🔥',
         color: '#FF0000'
     }
@@ -79,7 +79,7 @@ const gamePanelUtil = new GamePanelUtil();
 /**
  * Create game embed with consistent styling using gameSessionKit
  */
-async function createGameEmbed(game, user, showDealer = false, balance = null, economicIndicators = null) {
+async function createGameEmbed(game, user, showDealer = false, balance = null, economicIndicators = null, regulatedPayout = null) {
     // Economy badge removed - using bulletproof economy system
     // Top fields for game information
     const topFields = [];
@@ -144,25 +144,54 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
 
     if (game.gameEnded) {
         const results = game.getResults();
-        if (results.length > 1) {
-            // Split hands results
-            const wins = results.filter(r => r.won).length;
-            stageText = wins > 0 ? 'SPLIT WIN' : 'SPLIT LOSS';
-            color = wins > 0 ? 0x00ff00 : 0xff0000;
-        } else {
-            const result = results[0];
-            if (result.outcome === 'BLACKJACK') {
-                stageText = 'BLACKJACK';
-                color = 0xFFD700; // Gold for blackjack
-            } else if (result.won) {
-                stageText = 'WIN';
-                color = 0x00ff00; // Green for win
-            } else if (result.outcome === 'PUSH') {
-                stageText = 'PUSH';
-                color = 0xFFFF00; // Yellow for push
+        
+        // Use regulated payout if available, otherwise fall back to original game result
+        if (regulatedPayout !== null) {
+            // Determine result based on actual regulated payout
+            if (regulatedPayout > 0) {
+                const result = results[0];
+                if (result && result.outcome === 'BLACKJACK') {
+                    stageText = 'BLACKJACK';
+                    color = 0xFFD700; // Gold for blackjack
+                } else if (result && result.outcome === 'PUSH') {
+                    stageText = 'PUSH';
+                    color = 0xFFFF00; // Yellow for push
+                } else {
+                    stageText = results.length > 1 ? 'SPLIT WIN' : 'WIN';
+                    color = 0x00ff00; // Green for win
+                }
             } else {
-                stageText = 'LOSS';
-                color = 0xff0000; // Red for loss
+                const result = results[0];
+                if (result && result.outcome === 'PUSH') {
+                    stageText = 'PUSH';
+                    color = 0xFFFF00; // Yellow for push
+                } else {
+                    stageText = results.length > 1 ? 'SPLIT LOSS' : 'LOSS';
+                    color = 0xff0000; // Red for loss
+                }
+            }
+        } else {
+            // Original logic for cases where regulated payout isn't available yet
+            if (results.length > 1) {
+                // Split hands results
+                const wins = results.filter(r => r.won).length;
+                stageText = wins > 0 ? 'SPLIT WIN' : 'SPLIT LOSS';
+                color = wins > 0 ? 0x00ff00 : 0xff0000;
+            } else {
+                const result = results[0];
+                if (result.outcome === 'BLACKJACK') {
+                    stageText = 'BLACKJACK';
+                    color = 0xFFD700; // Gold for blackjack
+                } else if (result.won) {
+                    stageText = 'WIN';
+                    color = 0x00ff00; // Green for win
+                } else if (result.outcome === 'PUSH') {
+                    stageText = 'PUSH';
+                    color = 0xFFFF00; // Yellow for push
+                } else {
+                    stageText = 'LOSS';
+                    color = 0xff0000; // Red for loss
+                }
             }
         }
     } else {
@@ -953,7 +982,7 @@ module.exports = {
 
             // Create final embed (before cleanup)
             const userBalance = await dbManager.getUserBalance(userId, guildId);
-            const finalEmbed = await createGameEmbed(game, interaction.user, true, userBalance);
+            const finalEmbed = await createGameEmbed(game, interaction.user, true, userBalance, null, regulatedPayout);
             const tableImage = await createGameTableImage(game, true);
 
             // Create result message with enhanced safety checks

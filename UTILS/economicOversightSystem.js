@@ -416,6 +416,17 @@ class EconomicOversightSystem {
             const dbAdapter = dbManager.databaseAdapter;
             if (!dbAdapter) return 0;
 
+            // Check if rob_stats table exists before querying
+            try {
+                await dbAdapter.pool.execute('SELECT 1 FROM rob_stats LIMIT 1');
+            } catch (tableError) {
+                if (tableError.message.includes("doesn't exist")) {
+                    logger.debug('Rob stats table does not exist yet, returning 0 for robbery count');
+                    return 0;
+                }
+                throw tableError;
+            }
+
             const [result] = await dbAdapter.pool.execute(`
                 SELECT COUNT(*) as robbery_count
                 FROM rob_stats 
