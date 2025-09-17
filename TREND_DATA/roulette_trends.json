@@ -11,13 +11,13 @@
   ],
   "patterns": {},
   "hotStreak": {
-    "type": "black",
+    "type": "red",
     "count": 15,
-    "started": 1758089314425
+    "started": 1758091462493
   },
   "playerDistribution": {},
-  "totalChoices": 500,
-  "lastAnalysis": 1758089314426,
-  "currentAdjustment": 0.02645999999999999,
-  "timestamp": 1758089314426
+  "totalChoices": 115,
+  "lastAnalysis": 1758091462493,
+  "currentAdjustment": 0.006871984877126655,
+  "timestamp": 1758091462494
 }
