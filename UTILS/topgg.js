@@ -215,9 +215,11 @@ class TopGGManager {
                 if (logChannelId) {
                     const logChannel = await this.client.channels.fetch(logChannelId);
                     if (logChannel) {
-                        const logEmbed = { ...embed };
+                        const logEmbed = new EmbedBuilder(embed);
                         if (!dmSent) {
-                            logEmbed.description = `**${user.username || user.id}** received vote rewards! ⚠️ *DM failed - user may have DMs disabled*\n\n${embed.description}`;
+                            logEmbed.setDescription(`**${user.username || user.id}** received vote rewards! ⚠️ *DM failed - user may have DMs disabled*\n\n${embed.description || 'Vote reward notification'}`);
+                        } else {
+                            logEmbed.setDescription(embed.description || `**${user.username || user.id}** received vote rewards!`);
                         }
                         await logChannel.send({ embeds: [logEmbed] });
                         logger.info(`📋 Vote notification logged to channel ${logChannel.name}`);
