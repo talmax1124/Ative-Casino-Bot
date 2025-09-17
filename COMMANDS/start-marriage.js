@@ -440,10 +440,12 @@ module.exports = {
 
                 // Update the original proposal to mark it as completed
                 try {
-                    await dbManager.pool.execute(
-                        'UPDATE marriage_proposals SET status = ? WHERE (proposer_id = ? AND recipient_id = ?) OR (proposer_id = ? AND recipient_id = ?) AND guild_id = ? AND status = ?',
-                        ['expired', partner1Id, partner2Id, partner2Id, partner1Id, guildId, 'accepted']
-                    );
+                    if (dbManager.databaseAdapter && dbManager.databaseAdapter.pool) {
+                        await dbManager.databaseAdapter.pool.execute(
+                            'UPDATE marriage_proposals SET status = ? WHERE (proposer_id = ? AND recipient_id = ?) OR (proposer_id = ? AND recipient_id = ?) AND guild_id = ? AND status = ?',
+                            ['expired', partner1Id, partner2Id, partner2Id, partner1Id, guildId, 'accepted']
+                        );
+                    }
                 } catch (updateError) {
                     logger.error(`Error updating proposal status: ${updateError.message}`);
                 }
