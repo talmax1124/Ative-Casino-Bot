@@ -18,6 +18,8 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const { EmbedBuilder } = require('discord.js');
+require('dotenv').config();
 
 class SystemValidationRunner {
     constructor() {
@@ -221,6 +223,13 @@ class SystemValidationRunner {
         }
         
         await this.saveResults(validationReport, validationType);
+
+        // Attempt to send alert to Discord channel if configured
+        try {
+            await this.sendDiscordAlert(validationReport, validationType);
+        } catch (e) {
+            console.warn('⚠️ Failed to send Discord alert:', e.message);
+        }
         
         this.displayRecommendations(validationReport);
         
@@ -237,6 +246,58 @@ class SystemValidationRunner {
         };
     }
 
+    async sendDiscordAlert(validationReport, validationType) {
+        const webhookUrl = process.env.VALIDATION_ALERT_WEBHOOK_URL || '';
+        const token = process.env.DISCORD_TOKEN;
+        const channelId = process.env.VALIDATION_ALERT_CHANNEL_ID || '1409016191049142434';
+
+        // Build embed content (plain object for webhook)
+        const conf = (validationReport.overallConfidence * 100).toFixed(1);
+        const categories = Object.entries(validationReport.categoryResults || {})
+            .map(([k, v]) => `${k}: ${v.status || 'N/A'}`).slice(0, 10).join('\n') || 'N/A';
+        const color = validationReport.systemReadiness === 'PRODUCTION_READY' ? 0x00C853 : 0xFFD600;
+
+        const embedJson = {
+            title: `Validation: ${validationReport.systemReadiness}`,
+            description: `Type: ${validationType.replace(/_/g, ' ')}\nExecution: ${validationReport.executionId || 'N/A'}`,
+            color,
+            fields: [
+                { name: 'Confidence', value: `${conf}%`, inline: true },
+                { name: 'Critical Issues', value: String(validationReport.criticalIssues?.length || 0), inline: true },
+                { name: 'Status', value: validationReport.status || 'COMPLETED', inline: true },
+                { name: 'Categories', value: categories, inline: false }
+            ],
+            timestamp: new Date().toISOString()
+        };
+
+        // Prefer webhook if configured
+        if (webhookUrl) {
+            await fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: 'Validation Reporter',
+                    embeds: [embedJson]
+                })
+            });
+            return;
+        }
+
+        // Fallback: send via bot client to a channel
+        if (!token || !channelId) return; // Not configured
+        const { Client, GatewayIntentBits } = require('discord.js');
+        const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+        await client.login(token);
+        try {
+            const channel = await client.channels.fetch(channelId);
+            if (!channel) throw new Error('Channel not found');
+            const embed = new EmbedBuilder(embedJson);
+            await channel.send({ embeds: [embed] });
+        } finally {
+            await client.destroy();
+        }
+    }
+
     displayValidationSummary(validationReport, totalDuration) {
         console.log(`🆔 Execution ID: ${validationReport.executionId}`);
         console.log(`⏱️ Duration: ${this.formatDuration(totalDuration)}`);
@@ -247,9 +308,11 @@ class SystemValidationRunner {
         
         console.log('\n📋 Category Results:');
         Object.entries(validationReport.categoryResults || {}).forEach(([category, result]) => {
-            const statusIcon = this.getCategoryStatusIcon(result.status);
+            const safeCategory = String(category || 'unknown');
+            const status = result && result.status ? String(result.status) : 'UNKNOWN';
+            const statusIcon = this.getCategoryStatusIcon(status);
             const confidence = this.extractCategoryConfidence(result);
-            console.log(`  ${statusIcon} ${category.padEnd(20)}: ${result.status.padEnd(12)} (${(confidence * 100).toFixed(0)}%)`);
+            console.log(`  ${statusIcon} ${safeCategory.padEnd(20)}: ${status.padEnd(12)} (${(confidence * 100).toFixed(0)}%)`);
         });
     }
 
@@ -432,6 +495,7 @@ class SystemValidationRunner {
     }
 
     extractCategoryConfidence(result) {
+        if (!result || typeof result !== 'object') return 0.5;
         if (result.confidence !== undefined) return result.confidence;
         if (result.overallHealth !== undefined) return result.overallHealth;
         if (result.integrationScore !== undefined) return result.integrationScore;
@@ -442,11 +506,12 @@ class SystemValidationRunner {
         if (result.dataQuality !== undefined) return result.dataQuality;
         
         // Status-based confidence
-        if (result.status === 'PASSED' || result.status === 'HEALTHY') return 0.95;
-        if (result.status === 'COMPLETED') return 0.85;
-        if (result.status === 'DEGRADED' || result.status === 'PARTIAL') return 0.65;
-        if (result.status === 'FAILED') return 0.30;
-        if (result.status === 'ERROR') return 0.10;
+        const status = result.status || 'UNKNOWN';
+        if (status === 'PASSED' || status === 'HEALTHY') return 0.95;
+        if (status === 'COMPLETED') return 0.85;
+        if (status === 'DEGRADED' || status === 'PARTIAL') return 0.65;
+        if (status === 'FAILED') return 0.30;
+        if (status === 'ERROR') return 0.10;
         
         return 0.50;
     }

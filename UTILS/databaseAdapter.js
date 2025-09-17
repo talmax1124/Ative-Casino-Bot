@@ -1333,6 +1333,29 @@ class DatabaseAdapter {
     }
 
     /**
+     * Get top voters leaderboard
+     * @param {number} limit - Number of top voters to return
+     * @returns {Array} Array of top voters
+     */
+    async getTopVoters(limit = 10) {
+        try {
+            const result = await this.executeQuery(
+                `SELECT user_id, total_votes, total_earned, vote_streak 
+                 FROM user_votes 
+                 WHERE total_votes > 0 
+                 ORDER BY total_votes DESC, vote_streak DESC 
+                 LIMIT ?`,
+                [limit]
+            );
+            
+            return result;
+        } catch (error) {
+            logger.error(`Error getting top voters: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
      * Initialize vote tracking table
      */
     async initializeVoteSchema() {

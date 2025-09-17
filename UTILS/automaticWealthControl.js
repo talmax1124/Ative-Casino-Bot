@@ -11,8 +11,9 @@ const logger = require('./logger');
 
 class AutomaticWealthControl {
     constructor() {
-        this.CRITICAL_THRESHOLD = 2000000000; // $2B threshold (increased from $500M - more lenient)
-        this.ULTRA_THRESHOLD = 5000000000;    // $5B threshold for maximum intervention (increased from $1B)
+        // Tighten thresholds to make it hard to reach $1B+
+        this.CRITICAL_THRESHOLD = 800_000_000; // $800M threshold
+        this.ULTRA_THRESHOLD = 1_000_000_000;  // $1B threshold for maximum intervention
         this.CHECK_INTERVAL = 2 * 60 * 60 * 1000; // Check every 2 hours
         this.isProcessing = false;
         this.lastCheck = null;
@@ -148,14 +149,14 @@ class AutomaticWealthControl {
             
             // Determine intervention level based on balance (more lenient tiers)
             let interventionLevel = 'MODERATE';
-            let baseMultiplier = 0.5; // Start more lenient
+            let baseMultiplier = 1.0; // Baseline intervention at threshold
             
-            if (totalBalance >= this.ULTRA_THRESHOLD) { // $5B+
+            if (totalBalance >= this.ULTRA_THRESHOLD) { // $1B+
                 interventionLevel = 'MAXIMUM';
-                baseMultiplier = 1.0; // Less aggressive than before (was 2.0)
-            } else if (totalBalance >= 3500000000) { // $3.5B+
+                baseMultiplier = 1.5;
+            } else if (totalBalance >= 750_000_000) { // $750M–$1B
                 interventionLevel = 'SEVERE';
-                baseMultiplier = 0.75; // Less aggressive than before (was 1.5)
+                baseMultiplier = 1.25;
             }
 
             // Progressive intervention - more aggressive with repeat offenders
@@ -167,11 +168,12 @@ class AutomaticWealthControl {
             
             // Apply additional emergency tax for ultra-wealthy (above standard wealth tax) - more lenient
             if (totalBalance > this.CRITICAL_THRESHOLD) {
-                const emergencyTaxRate = 0.02 + (finalMultiplier - 0.5) * 0.05; // 2% base + smaller escalation (was 10% + 10%)
-                const emergencyTax = Math.floor(totalBalance * Math.max(0, emergencyTaxRate)); // Ensure non-negative
+                // Base 5% + scaled escalation for wealth tier and repeat offenses
+                const emergencyTaxRate = 0.05 + (finalMultiplier - 1.0) * 0.10; 
+                const emergencyTax = Math.floor(totalBalance * Math.max(0, emergencyTaxRate));
                 
                 if (emergencyTax > 0) {
-                    await this.applyEmergencyTax(userId, guildId, emergencyTax);
+                    await this.applyEmergencyTax(userId, null, emergencyTax); // global context
                     taxAmount += emergencyTax;
                 }
             }
@@ -183,7 +185,7 @@ class AutomaticWealthControl {
             this.interventionHistory.set(userId, userHistory);
 
             // Get updated balance
-            const newBalance = await dbManager.getUserBalance(userId, guildId);
+            const newBalance = await dbManager.getUserBalance(userId, null);
             const newTotalBalance = newBalance.wallet + newBalance.bank;
 
             const result = {

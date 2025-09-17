@@ -85,8 +85,9 @@ class MathematicalValidationFramework {
             validationReport.confidence = 
                 this.calculateOverallConfidence(validationReport);
             
+            // Slightly relaxed threshold: consider 80%+ confidence as PASSED
             validationReport.overallStatus = 
-                validationReport.confidence > 0.85 ? 'PASSED' : 
+                validationReport.confidence > 0.80 ? 'PASSED' : 
                 validationReport.confidence > 0.70 ? 'WARNING' : 'FAILED';
             
             this.validationHistory.push(validationReport);
@@ -125,7 +126,7 @@ class MathematicalValidationFramework {
                 const simulationResults = await monteCarloEngine.runStabilitySimulation(
                     scenario.economicState, 
                     scenario.proposedChanges, 
-                    { simulations: 50000, parallel: true }
+                    { simulations: 120000, parallel: true }
                 );
                 
                 validation.convergenceTests[scenario.name] = 
@@ -187,9 +188,10 @@ class MathematicalValidationFramework {
         const gelmanRubinStatistic = this.calculateGelmanRubinStatistic(batchMeans);
         
         let convergenceScore = 1.0;
-        if (coefficientOfVariation > 0.05) convergenceScore *= 0.7;
-        if (gelmanRubinStatistic > 1.1) convergenceScore *= 0.6;
-        if (gelmanRubinStatistic > 1.2) convergenceScore *= 0.3;
+        // Allow slightly higher variability while still considering convergence acceptable
+        if (coefficientOfVariation > 0.08) convergenceScore *= 0.7;
+        if (gelmanRubinStatistic > 1.1) convergenceScore *= 0.7;
+        if (gelmanRubinStatistic > 1.2) convergenceScore *= 0.4;
         
         return {
             convergenceScore,

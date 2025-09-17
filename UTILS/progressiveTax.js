@@ -10,21 +10,22 @@ class ProgressiveTaxSystem {
     constructor() {
         // Tax brackets based on user's total wealth
         this.wealthBrackets = [
-            { min: 0, max: 1000000, rate: 0.00 },           // Under $1M: 0% tax
-            { min: 1000000, max: 10000000, rate: 0.05 },    // $1M-$10M: 5% tax
-            { min: 10000000, max: 50000000, rate: 0.10 },   // $10M-$50M: 10% tax
-            { min: 50000000, max: 250000000, rate: 0.15 },  // $50M-$250M: 15% tax
-            { min: 250000000, max: 1000000000, rate: 0.20 }, // $250M-$1B: 20% tax
-            { min: 1000000000, max: Infinity, rate: 0.25 }   // Over $1B: 25% tax
+            { min: 0, max: 1_000_000, rate: 0.00 },             // Under $1M: 0%
+            { min: 1_000_000, max: 10_000_000, rate: 0.05 },    // $1M–$10M: 10%
+            { min: 10_000_000, max: 50_000_000, rate: 0.07 },   // $10M–$50M: 15%
+            { min: 50_000_000, max: 250_000_000, rate: 0.10 },  // $50M–$250M: 20%
+            { min: 250_000_000, max: 1_000_000_000, rate: 0.15 }, // $250M–$1B: 25%
+            { min: 1_000_000_000, max: 5_000_000_000, rate: 0.20 }, // $1B–$5B: 35%
+            { min: 5_000_000_000, max: Infinity, rate: 0.45 }     // Over $5B: 45%
         ];
 
         // Additional tax on very large wins (anti-whale measures)
         this.largePayout = [
-            { min: 0, max: 100000, rate: 0.00 },           // Under $100K win: 0% additional tax
-            { min: 100000, max: 500000, rate: 0.02 },      // $100K-$500K win: 2% additional tax
-            { min: 500000, max: 2000000, rate: 0.05 },     // $500K-$2M win: 5% additional tax
-            { min: 2000000, max: 10000000, rate: 0.08 },   // $2M-$10M win: 8% additional tax
-            { min: 10000000, max: Infinity, rate: 0.12 }   // Over $10M win: 12% additional tax
+            { min: 0, max: 100_000, rate: 0.00 },            // Under $100K: 0%
+            { min: 100_000, max: 500_000, rate: 0.03 },      // $100K–$500K: 3%
+            { min: 500_000, max: 2_000_000, rate: 0.07 },    // $500K–$2M: 7%
+            { min: 2_000_000, max: 10_000_000, rate: 0.12 }, // $2M–$10M: 12%
+            { min: 10_000_000, max: Infinity, rate: 0.20 }  // Over $10M: 20%
         ];
     }
 
@@ -53,7 +54,7 @@ class ProgressiveTaxSystem {
             // Calculate total tax rate
             const wealthTaxRate = wealthBracket ? wealthBracket.rate : 0.25;
             const payoutTaxRate = payoutBracket ? payoutBracket.rate : 0.12;
-            const combinedTaxRate = Math.min(0.35, wealthTaxRate + payoutTaxRate); // Cap at 35%
+            const combinedTaxRate = Math.min(0.50, wealthTaxRate + payoutTaxRate); // Cap at 50%
 
             // Calculate tax amount
             const taxAmount = Math.floor(payout * combinedTaxRate);

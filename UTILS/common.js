@@ -502,11 +502,11 @@ function getAllActiveGames() {
 const ECONOMIC_TIERS = {
     BRONZE: { min: 0, max: 9999, name: 'Bronze', emoji: '🥉', color: 0xCD7F32, interest: 0 },
     SILVER: { min: 10000, max: 99999, name: 'Silver', emoji: '🥈', color: 0xC0C0C0, interest: 0 },
-    GOLD: { min: 100000, max: 999999, name: 'Gold', emoji: '🥇', color: 0xFFD700, interest: 0.02 },
-    PLATINUM: { min: 1000000, max: 9999999, name: 'Platinum', emoji: '💎', color: 0xE5E4E2, interest: 0.03 },
-    DIAMOND: { min: 10000000, max: 99999999, name: 'Diamond', emoji: '💠', color: 0xB9F2FF, interest: 0.05 },
-    LEGENDARY: { min: 100000000, max: 999999999, name: 'Legendary', emoji: '🌟', color: 0xFF6B35, interest: 0.07 },
-    MYTHIC: { min: 1000000000, max: Infinity, name: 'Mythic', emoji: '⚡', color: 0x9B59B6, interest: 0.10 }
+    GOLD: { min: 100000, max: 999999, name: 'Gold', emoji: '🥇', color: 0xFFD700, interest: 0.01 },          // 1% annual
+    PLATINUM: { min: 1000000, max: 9999999, name: 'Platinum', emoji: '💎', color: 0xE5E4E2, interest: 0.005 }, // 0.5% annual
+    DIAMOND: { min: 10000000, max: 99999999, name: 'Diamond', emoji: '💠', color: 0xB9F2FF, interest: 0.0 },   // 0% above $10M
+    LEGENDARY: { min: 100000000, max: 999999999, name: 'Legendary', emoji: '🌟', color: 0xFF6B35, interest: 0.0 },
+    MYTHIC: { min: 1000000000, max: Infinity, name: 'Mythic', emoji: '⚡', color: 0x9B59B6, interest: 0.0 }
 };
 
 /**

@@ -29,8 +29,9 @@ class ComprehensiveSimulationFramework {
 
     async initializeFramework() {
         try {
-            const DatabaseManager = require('./database');
-            this.databaseManager = new DatabaseManager();
+            // Use singleton database manager instance
+            const dbManager = require('./database');
+            this.databaseManager = dbManager;
             await this.databaseManager.initialize();
             
             const MathematicalValidationFramework = require('./mathematicalValidationFramework');

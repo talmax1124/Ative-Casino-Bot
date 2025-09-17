@@ -272,22 +272,23 @@ class RouletteGame {
      * @returns {string} Odds description
      */
     getPayoutOdds(betType) {
+        // Displayed odds must match calculatePayout() multipliers exactly
         const odds = {
-            'red': '2x',
-            'black': '2x',
-            'odd': '2x',
-            'even': '2x',
-            'low': '2x',
-            'high': '2x',
-            'dozen1': '2.2x',
-            'dozen2': '2.2x',
-            'dozen3': '2.2x',
-            'column1': '2.2x',
-            'column2': '2.2x',
-            'column3': '2.2x',
-            'number': '12.5x',
+            'red': '2.0x',
+            'black': '2.0x',
+            'odd': '2.0x',
+            'even': '2.0x',
+            'low': '2.0x',
+            'high': '2.0x',
+            'dozen1': '3.0x',
+            'dozen2': '3.0x',
+            'dozen3': '3.0x',
+            'column1': '3.0x',
+            'column2': '3.0x',
+            'column3': '3.0x',
+            'number': '6.0x',
             'green': '6.0x',
-            'basket': '5.2x'
+            'basket': '6.0x'
         };
         return odds[betType] || '0x';
     }

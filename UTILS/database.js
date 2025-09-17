@@ -1098,6 +1098,18 @@ class DatabaseManager {
     }
 
     /**
+     * Get top voters leaderboard
+     * @param {number} limit - Number of top voters to return
+     * @returns {Array} Array of top voters
+     */
+    async getTopVoters(limit = 10) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getTopVoters(limit);
+        }
+        return [];
+    }
+
+    /**
      * Update user vote data
      * @param {string} userId - Discord user ID
      * @param {string} guildId - Guild ID (kept for compatibility)

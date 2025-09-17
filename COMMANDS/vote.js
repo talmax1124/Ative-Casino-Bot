@@ -13,28 +13,13 @@ const moment = require('moment-timezone');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('vote')
-        .setDescription('Vote for the bot on Top.GG and get rewards!')
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('info')
-                .setDescription('Get voting information and links')
-        )
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('stats')
-                .setDescription('Check your voting statistics')
-        ),
+        .setDescription('Vote for the bot on Top.GG - Get rewards, check stats, and set reminders!'),
 
     async execute(interaction) {
-        const subcommand = interaction.options.getSubcommand();
         const userId = interaction.user.id;
 
         try {
-            if (subcommand === 'info') {
-                await this.showVoteInfo(interaction);
-            } else if (subcommand === 'stats') {
-                await this.showVoteStats(interaction, userId);
-            }
+            await this.showUnifiedVoteInterface(interaction, userId);
         } catch (error) {
             console.error('Vote command error:', error);
             await interaction.reply({
@@ -44,196 +29,473 @@ module.exports = {
         }
     },
 
-    async showVoteInfo(interaction) {
-        const voteEmbed = new EmbedBuilder()
-            .setTitle('🗳️ Vote for ATIVE Casino Bot!')
-            .setDescription('**Support the bot and get awesome rewards!**')
-            .addFields(
-                {
-                    name: '💰 Voting Rewards',
-                    value: '• **25,000 coins** per vote\n• **Weekend Bonus**: +50% extra coins\n• **Streak Bonuses**: Up to 1M coins!',
-                    inline: false
-                },
-                {
-                    name: '🏆 Streak Bonuses',
-                    value: '• **7 days**: +50K coins\n• **30 days**: +200K coins\n• **100 days**: +1M coins!',
-                    inline: false
-                },
-                {
-                    name: '⏰ Voting Schedule',
-                    value: '• Vote **every 12 hours**\n• Automatic rewards via webhook\n• Streak resets if you miss a day',
-                    inline: false
-                },
-                {
-                    name: '🔗 Vote Links',
-                    value: '[🗳️ **Vote on Top.GG**](https://top.gg/bot/1403236218900185088/vote)\n[📊 **Bot Page**](https://top.gg/bot/1403236218900185088)',
-                    inline: false
-                }
-            )
-            .setColor(0x00D4FF)
+    async showUnifiedVoteInterface(interaction, userId) {
+        try {
+            // Get user vote data from database
+            const voteData = await dbManager.getUserVoteData(userId);
+            
+            // Calculate voting status
+            const votingStatus = this.calculateVotingStatus(voteData);
+            
+            // Create main dashboard embed
+            const dashboardEmbed = this.createDashboardEmbed(interaction, voteData, votingStatus);
+            
+            // Create navigation and action buttons
+            const actionButtons = this.createActionButtons(votingStatus.canVoteNow);
+            const navButtons = this.createNavigationButtons();
+            
+            const response = await interaction.reply({
+                embeds: [dashboardEmbed],
+                components: [actionButtons, navButtons],
+                fetchReply: true
+            });
+
+            // Set up collectors for all interactions
+            await this.setupCollectors(response, interaction, voteData, votingStatus);
+
+        } catch (error) {
+            console.error('Error showing unified vote interface:', error);
+            await interaction.reply({
+                content: '❌ Failed to load voting interface.',
+                ephemeral: true
+            });
+        }
+    },
+
+    calculateVotingStatus(voteData) {
+        if (!voteData) {
+            return {
+                canVoteNow: true,
+                isFirstTime: true,
+                currentStreak: 0,
+                isStreakValid: true,
+                nextVoteTime: Date.now(),
+                hoursSinceLastVote: 0,
+                totalVotes: 0,
+                totalEarned: 0
+            };
+        }
+
+        const lastVoteTime = voteData.last_vote_ts || 0;
+        const currentTime = Date.now();
+        const nextVoteTime = lastVoteTime + (12 * 60 * 60 * 1000);
+        const hoursSinceLastVote = (currentTime - lastVoteTime) / (1000 * 60 * 60);
+        
+        const canVoteNow = (lastVoteTime === 0) || (currentTime >= nextVoteTime);
+        const storedStreak = voteData.vote_streak || 0;
+        
+        // Streak is broken if more than 12 hours since last vote (same as voting window)
+        // This ensures streaks don't persist beyond when voting becomes available again
+        const isStreakValid = hoursSinceLastVote <= 12 || lastVoteTime === 0;
+        const currentStreak = isStreakValid ? storedStreak : 0;
+
+        return {
+            canVoteNow,
+            isFirstTime: lastVoteTime === 0,
+            currentStreak,
+            isStreakValid,
+            nextVoteTime,
+            hoursSinceLastVote,
+            totalVotes: voteData.total_votes || 0,
+            totalEarned: voteData.total_earned || 0,
+            lastVoteTime,
+            storedStreak,
+            canUseEarnmoney: voteData.can_use_earnmoney
+        };
+    },
+
+    createDashboardEmbed(interaction, voteData, status) {
+        const embed = new EmbedBuilder()
+            .setTitle('🗳️ ATIVE Casino Bot - Voting Dashboard')
+            .setDescription(`**${interaction.user.username}**, here's your complete voting overview!`)
+            .setColor(status.canVoteNow ? 0x00D4FF : 0x64748b)
             .setThumbnail(interaction.client.user.displayAvatarURL())
-            .setFooter({ 
-                text: '🎰 ATIVE Casino • Every vote helps us grow!',
-                iconURL: interaction.client.user.displayAvatarURL()
-            })
             .setTimestamp();
 
-        // Create vote buttons
-        const voteButtons = new ActionRowBuilder()
-            .addComponents(
+        // Voting Status Section
+        let statusText = '';
+        if (status.isFirstTime) {
+            statusText = '🆕 **Ready to vote for the first time!**\nStart your voting journey now!';
+        } else if (status.canVoteNow) {
+            statusText = '✅ **Vote Available Now!**\nClaim your rewards immediately!';
+        } else {
+            const hoursRemaining = 12 - status.hoursSinceLastVote;
+            const hours = Math.floor(hoursRemaining);
+            const minutes = Math.floor((hoursRemaining - hours) * 60);
+            statusText = `⏳ **Next vote in ${hours}h ${minutes}m**\n<t:${Math.floor(status.nextVoteTime / 1000)}:R>`;
+        }
+
+        embed.addFields(
+            {
+                name: '🎯 Voting Status',
+                value: statusText,
+                inline: false
+            },
+            {
+                name: '📊 Your Stats',
+                value: `**${status.totalVotes}** votes • **${fmt(status.totalEarned)}** coins earned`,
+                inline: true
+            },
+            {
+                name: '🔥 Current Streak',
+                value: this.getStreakDisplay(status.currentStreak, status.isStreakValid, status.storedStreak),
+                inline: true
+            },
+            {
+                name: '🎯 /earnmoney Status',
+                value: this.getEarnmoneyStatus(status.totalVotes, status.currentStreak, status.canUseEarnmoney),
+                inline: true
+            },
+            {
+                name: '💰 Vote Rewards',
+                value: '• **25,000 coins** per vote\n• **Weekend Bonus**: +50% extra\n• **Streak Bonuses**: Up to 1M coins!',
+                inline: false
+            }
+        );
+
+        if (!status.isFirstTime) {
+            embed.addFields({
+                name: '📅 Last Vote',
+                value: `<t:${Math.floor(status.lastVoteTime / 1000)}:R>`,
+                inline: true
+            });
+        }
+
+        embed.setFooter({ 
+            text: '🎰 ATIVE Casino • Vote every 12 hours for maximum rewards!',
+            iconURL: interaction.client.user.displayAvatarURL()
+        });
+
+        return embed;
+    },
+
+    createActionButtons(canVoteNow) {
+        const actionRow = new ActionRowBuilder();
+        
+        if (canVoteNow) {
+            actionRow.addComponents(
+                new ButtonBuilder()
+                    .setLabel('🗳️ Vote Now!')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://top.gg/bot/1403236218900185088/vote')
+                    .setEmoji('⚡'),
+                new ButtonBuilder()
+                    .setCustomId('vote_remind_me')
+                    .setLabel('Set Reminder')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('⏰'),
+                new ButtonBuilder()
+                    .setCustomId('vote_refresh')
+                    .setLabel('Refresh')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🔄')
+            );
+        } else {
+            actionRow.addComponents(
                 new ButtonBuilder()
                     .setLabel('🗳️ Vote on Top.GG')
                     .setStyle(ButtonStyle.Link)
                     .setURL('https://top.gg/bot/1403236218900185088/vote'),
                 new ButtonBuilder()
                     .setCustomId('vote_remind_me')
-                    .setLabel('⏰ Remind Me')
+                    .setLabel('Set Reminder')
                     .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('🔔')
+                    .setEmoji('⏰'),
+                new ButtonBuilder()
+                    .setCustomId('vote_refresh')
+                    .setLabel('Refresh')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🔄')
             );
+        }
 
-        const response = await interaction.reply({ 
-            embeds: [voteEmbed], 
-            components: [voteButtons],
-            fetchReply: true
-        });
+        return actionRow;
+    },
 
-        // Set up collector for reminder button
+    createNavigationButtons() {
+        return new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('vote_detailed_stats')
+                    .setLabel('📊 Detailed Stats')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('📈'),
+                new ButtonBuilder()
+                    .setCustomId('vote_rewards_info')
+                    .setLabel('💰 Rewards Info')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('💎'),
+                new ButtonBuilder()
+                    .setCustomId('vote_leaderboard')
+                    .setLabel('🏆 Leaderboard')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('👑')
+            );
+    },
+
+    async setupCollectors(response, interaction, voteData, votingStatus) {
+        const filter = i => i.user.id === interaction.user.id;
         const collector = response.createMessageComponentCollector({
-            filter: i => i.customId === 'vote_remind_me' && i.user.id === interaction.user.id,
-            time: 60000
+            filter,
+            time: 300000 // 5 minutes
         });
 
         collector.on('collect', async (i) => {
-            await this.handleReminderRequest(i);
+            try {
+                switch (i.customId) {
+                    case 'vote_remind_me':
+                        await this.handleReminderRequest(i, votingStatus.nextVoteTime);
+                        break;
+                    case 'vote_refresh':
+                        await this.handleRefresh(i);
+                        break;
+                    case 'vote_detailed_stats':
+                        await this.showDetailedStats(i, voteData, votingStatus);
+                        break;
+                    case 'vote_rewards_info':
+                        await this.showRewardsInfo(i);
+                        break;
+                    case 'vote_leaderboard':
+                        await this.showLeaderboard(i);
+                        break;
+                    case 'back_to_dashboard':
+                        await this.backToDashboard(i);
+                        break;
+                }
+            } catch (error) {
+                console.error('Collector error:', error);
+                await i.reply({
+                    content: '❌ An error occurred while processing your request.',
+                    ephemeral: true
+                }).catch(() => {});
+            }
+        });
+
+        collector.on('end', () => {
+            // Disable buttons when collector expires
+            const disabledComponents = response.components.map(row => {
+                const newRow = ActionRowBuilder.from(row);
+                newRow.components.forEach(component => {
+                    if (component.data.style !== ButtonStyle.Link) {
+                        component.setDisabled(true);
+                    }
+                });
+                return newRow;
+            });
+
+            interaction.editReply({ components: disabledComponents }).catch(() => {});
         });
     },
 
-    async showVoteStats(interaction, userId) {
+    async handleRefresh(interaction) {
+        const userId = interaction.user.id;
+        const voteData = await dbManager.getUserVoteData(userId);
+        const votingStatus = this.calculateVotingStatus(voteData);
+        
+        const dashboardEmbed = this.createDashboardEmbed(interaction, voteData, votingStatus);
+        const actionButtons = this.createActionButtons(votingStatus.canVoteNow);
+        const navButtons = this.createNavigationButtons();
+
+        await interaction.update({
+            embeds: [dashboardEmbed],
+            components: [actionButtons, navButtons]
+        });
+    },
+
+    async showDetailedStats(interaction, voteData, status) {
+        const statsEmbed = new EmbedBuilder()
+            .setTitle('📊 Detailed Voting Statistics')
+            .setDescription(`**${interaction.user.username}**'s complete voting history`)
+            .addFields(
+                {
+                    name: '📈 Vote Metrics',
+                    value: `**Total Votes:** ${status.totalVotes}\n**Total Earned:** ${fmt(status.totalEarned)} coins\n**Average per Vote:** ${status.totalVotes > 0 ? fmt(Math.round(status.totalEarned / status.totalVotes)) : '0'} coins`,
+                    inline: true
+                },
+                {
+                    name: '🔥 Streak Information',
+                    value: `**Current Streak:** ${status.currentStreak} days\n**Streak Status:** ${status.isStreakValid ? '✅ Active' : '💔 Broken'}\n**Best Streak:** ${status.storedStreak} days`,
+                    inline: true
+                },
+                {
+                    name: '⏰ Timing Details',
+                    value: status.isFirstTime ? 
+                        '🆕 **First Time Voter**\nReady to start your journey!' :
+                        `**Last Vote:** <t:${Math.floor(status.lastVoteTime / 1000)}:R>\n**Next Vote:** <t:${Math.floor(status.nextVoteTime / 1000)}:R>\n**Hours Since Last:** ${status.hoursSinceLastVote.toFixed(1)}h`,
+                    inline: false
+                },
+                {
+                    name: '🎯 Feature Access',
+                    value: this.getEarnmoneyStatus(status.totalVotes, status.currentStreak, status.canUseEarnmoney),
+                    inline: true
+                },
+                {
+                    name: '💎 Streak Milestones',
+                    value: `**7 days:** ${status.currentStreak >= 7 ? '✅' : '🔒'} +50K coins\n**30 days:** ${status.currentStreak >= 30 ? '✅' : '🔒'} +200K coins\n**100 days:** ${status.currentStreak >= 100 ? '✅' : '🔒'} +1M coins`,
+                    inline: true
+                }
+            )
+            .setColor(0x00D4FF)
+            .setThumbnail(interaction.user.displayAvatarURL())
+            .setTimestamp();
+
+        const backButton = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('back_to_dashboard')
+                    .setLabel('← Back to Dashboard')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🏠'),
+                new ButtonBuilder()
+                    .setLabel('🗳️ Vote Now')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://top.gg/bot/1403236218900185088/vote')
+            );
+
+        await interaction.update({
+            embeds: [statsEmbed],
+            components: [backButton]
+        });
+    },
+
+    async showRewardsInfo(interaction) {
+        const rewardsEmbed = new EmbedBuilder()
+            .setTitle('💰 Complete Rewards Guide')
+            .setDescription('Everything you need to know about voting rewards!')
+            .addFields(
+                {
+                    name: '🗳️ Base Voting Rewards',
+                    value: '• **25,000 coins** per vote\n• Vote **every 12 hours**\n• Automatic reward delivery',
+                    inline: false
+                },
+                {
+                    name: '🎊 Weekend Bonus',
+                    value: '• **+50% extra coins** on weekends\n• Friday 6PM - Monday 6AM\n• **37,500 coins** per weekend vote!',
+                    inline: true
+                },
+                {
+                    name: '🔥 Streak Bonuses',
+                    value: '• **7 days:** +50,000 coins\n• **30 days:** +200,000 coins\n• **100 days:** +1,000,000 coins!',
+                    inline: true
+                },
+                {
+                    name: '🎯 Special Features',
+                    value: '• **10+ votes:** Unlock `/earnmoney`\n• **Active streak required** for earnmoney\n• **Exclusive perks** for loyal voters',
+                    inline: false
+                },
+                {
+                    name: '⚠️ Important Notes',
+                    value: '• Streak resets after 12 hours\n• Must vote every 12 hours to maintain\n• Rewards delivered automatically',
+                    inline: true
+                },
+                {
+                    name: '🏆 Pro Tips',
+                    value: '• Set reminders to maintain streaks\n• Vote during weekends for bonus\n• Consistency is key for big rewards!',
+                    inline: true
+                }
+            )
+            .setColor(0xFFD700)
+            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setFooter({ text: '🎰 ATIVE Casino • Every vote counts!' })
+            .setTimestamp();
+
+        const backButton = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('back_to_dashboard')
+                    .setLabel('← Back to Dashboard')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('🏠'),
+                new ButtonBuilder()
+                    .setLabel('🗳️ Vote Now')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://top.gg/bot/1403236218900185088/vote')
+            );
+
+        await interaction.update({
+            embeds: [rewardsEmbed],
+            components: [backButton]
+        });
+    },
+
+    async showLeaderboard(interaction) {
         try {
-            // Get user vote data from database
-            const voteData = await dbManager.databaseAdapter.getUserVoteData(userId);
-
-            if (!voteData) {
-                const noStatsEmbed = new EmbedBuilder()
-                    .setTitle('🗳️ No Voting History')
-                    .setDescription('You haven\'t voted yet! Use `/vote info` to get started.')
-                    .setColor(0xFF6B35)
-                    .setFooter({ text: '🎰 ATIVE Casino' });
-
-                await interaction.reply({ embeds: [noStatsEmbed] });
-                return;
+            // Get top voters from database
+            const topVoters = await dbManager.getTopVoters(10);
+            
+            let leaderboardText = '';
+            if (topVoters && topVoters.length > 0) {
+                for (let i = 0; i < topVoters.length; i++) {
+                    const voter = topVoters[i];
+                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+                    leaderboardText += `${medal} <@${voter.user_id}> - **${voter.total_votes}** votes (${voter.vote_streak} streak)\n`;
+                }
+            } else {
+                leaderboardText = 'No voting data available yet. Be the first to vote!';
             }
 
-            // Calculate voting times
-            const lastVoteTime = voteData.last_vote_ts || 0;
-            const currentTime = Date.now();
-            const nextVoteTime = lastVoteTime + (12 * 60 * 60 * 1000); // 12 hours after last vote
-            const hoursSinceLastVote = (currentTime - lastVoteTime) / (1000 * 60 * 60);
-            
-            // Can vote if 12+ hours since last vote OR never voted
-            const canVoteNow = (lastVoteTime === 0) || (currentTime >= nextVoteTime);
-            
-            // Calculate current streak (check if still valid)
-            const storedStreak = voteData.vote_streak || 0;
-            
-            // Streak is broken if more than 25 hours since last vote (12h voting window + 13h grace)
-            const isStreakValid = hoursSinceLastVote <= 25 || lastVoteTime === 0;
-            const currentStreak = isStreakValid ? storedStreak : 0;
-
-            const statsEmbed = new EmbedBuilder()
-                .setTitle('🗳️ Your Voting Statistics')
-                .setDescription(`**${interaction.user.username}**'s voting history`)
+            const leaderboardEmbed = new EmbedBuilder()
+                .setTitle('🏆 Top Voters Leaderboard')
+                .setDescription('Hall of Fame - Our most dedicated voters!')
                 .addFields(
                     {
-                        name: '📊 Vote Count',
-                        value: `${voteData.total_votes || 0} total votes`,
-                        inline: true
+                        name: '👑 Leaderboard',
+                        value: leaderboardText,
+                        inline: false
                     },
                     {
-                        name: '💰 Total Earned',
-                        value: `${fmt(voteData.total_earned || 0)} coins`,
-                        inline: true
-                    },
-                    {
-                        name: '🔥 Current Streak',
-                        value: this.getStreakDisplay(currentStreak, isStreakValid, storedStreak),
-                        inline: true
-                    },
-                    {
-                        name: '⏰ Next Vote',
-                        value: this.getNextVoteDisplay(canVoteNow, nextVoteTime, lastVoteTime, hoursSinceLastVote),
-                        inline: true
-                    },
-                    {
-                        name: '🎯 /earnmoney Status',
-                        value: this.getEarnmoneyStatus(voteData.total_votes || 0, currentStreak, voteData.can_use_earnmoney),
-                        inline: true
-                    },
-                    {
-                        name: '📅 Last Vote',
-                        value: lastVoteTime > 0 ? `<t:${Math.floor(lastVoteTime / 1000)}:R>` : 'Never',
-                        inline: true
+                        name: '🎯 How to Climb',
+                        value: '• Vote consistently every 12 hours\n• Maintain voting streaks\n• Spread the word about ATIVE Casino!',
+                        inline: false
                     }
                 )
-                .setColor(canVoteNow ? 0x00D4FF : 0x64748b)
-                .setThumbnail(interaction.user.displayAvatarURL())
-                .setFooter({ text: '🎰 ATIVE Casino • Vote every 12 hours!' })
+                .setColor(0xFFD700)
+                .setThumbnail(interaction.client.user.displayAvatarURL())
+                .setFooter({ text: '🎰 ATIVE Casino • Compete for the top spot!' })
                 .setTimestamp();
 
-            // Create action buttons
-            const actionButtons = new ActionRowBuilder();
-            
-            if (canVoteNow) {
-                actionButtons.addComponents(
+            const backButton = new ActionRowBuilder()
+                .addComponents(
                     new ButtonBuilder()
-                        .setLabel('🗳️ Vote Now!')
-                        .setStyle(ButtonStyle.Link)
-                        .setURL('https://top.gg/bot/1403236218900185088/vote'),
-                    new ButtonBuilder()
-                        .setCustomId('vote_remind_me')
-                        .setLabel('⏰ Remind Me')
+                        .setCustomId('back_to_dashboard')
+                        .setLabel('← Back to Dashboard')
                         .setStyle(ButtonStyle.Secondary)
-                        .setEmoji('🔔')
-                );
-            } else {
-                actionButtons.addComponents(
+                        .setEmoji('🏠'),
                     new ButtonBuilder()
-                        .setLabel('🗳️ Vote on Top.GG')
+                        .setLabel('🗳️ Vote Now')
                         .setStyle(ButtonStyle.Link)
-                        .setURL('https://top.gg/bot/1403236218900185088/vote'),
-                    new ButtonBuilder()
-                        .setCustomId('vote_remind_me')
-                        .setLabel('⏰ Set Reminder')
-                        .setStyle(ButtonStyle.Secondary)
-                        .setEmoji('🔔')
+                        .setURL('https://top.gg/bot/1403236218900185088/vote')
                 );
-            }
 
-            const response = await interaction.reply({ 
-                embeds: [statsEmbed],
-                components: [actionButtons],
-                fetchReply: true
-            });
-
-            // Set up collector for reminder button
-            const collector = response.createMessageComponentCollector({
-                filter: i => i.customId === 'vote_remind_me' && i.user.id === interaction.user.id,
-                time: 60000
-            });
-
-            collector.on('collect', async (i) => {
-                await this.handleReminderRequest(i, nextVoteTime);
+            await interaction.update({
+                embeds: [leaderboardEmbed],
+                components: [backButton]
             });
 
         } catch (error) {
-            console.error('Error getting vote stats:', error);
+            console.error('Error showing leaderboard:', error);
             await interaction.reply({
-                content: '❌ Failed to retrieve voting statistics.',
+                content: '❌ Failed to load leaderboard.',
                 ephemeral: true
             });
         }
     },
+
+    async backToDashboard(interaction) {
+        const userId = interaction.user.id;
+        const voteData = await dbManager.getUserVoteData(userId);
+        const votingStatus = this.calculateVotingStatus(voteData);
+        
+        const dashboardEmbed = this.createDashboardEmbed(interaction, voteData, votingStatus);
+        const actionButtons = this.createActionButtons(votingStatus.canVoteNow);
+        const navButtons = this.createNavigationButtons();
+
+        await interaction.update({
+            embeds: [dashboardEmbed],
+            components: [actionButtons, navButtons]
+        });
+    },
+
 
     /**
      * Get formatted earnmoney status message

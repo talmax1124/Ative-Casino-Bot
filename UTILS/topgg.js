@@ -75,7 +75,9 @@ class TopGGManager {
             // Calculate vote streak first
             const lastVoteTime = voteInfo?.last_vote_ts || 0;
             const hoursSinceLastVote = (currentTime - lastVoteTime) / (1000 * 60 * 60);
-            const isValidStreak = hoursSinceLastVote >= 11 && hoursSinceLastVote <= 25; // 12h ± 1h window
+            // Streak continues if voting within reasonable window (11-13 hours)
+            // 11h minimum prevents spam voting, 13h gives 1h grace for streak continuation
+            const isValidStreak = hoursSinceLastVote >= 11 && hoursSinceLastVote <= 13;
             
             let currentStreak;
             let streakBonus = 0;
