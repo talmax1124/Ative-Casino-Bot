@@ -12,7 +12,7 @@ require('dotenv').config();
 
 const logger = require('./UTILS/logger');
 const StartupBanner = require('./UTILS/startupBanner');
-const dbManager = require('./UTILS/databaseAdapter');
+const dbManager = require('./UTILS/database');
 const nodeCache = require('./UTILS/nodeCache');
 const axios = require('axios');
 // Economy analyzer moved to UAS bot
@@ -2005,7 +2005,7 @@ client.on('interactionCreate', async interaction => {
                         // For blackjack, show bet selection interface
                         const { EmbedBuilder } = require('discord.js');
                         const GamePanel = require('./UTILS/gamePanel');
-                        const dbManager = require('./UTILS/databaseAdapter');
+                        const dbManager = require('./UTILS/database');
                         const { getGuildId } = require('./UTILS/common');
 
                         try {

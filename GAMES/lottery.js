@@ -5,7 +5,7 @@
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const moment = require('moment-timezone');
-const dbManager = require('../UTILS/databaseAdapter');
+const dbManager = require('../UTILS/database');
 const { fmt, sendLogMessage } = require('../UTILS/common');
 // RNG imports removed - not used in lottery.js
 const logger = require('../UTILS/logger');

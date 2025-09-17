@@ -1,5 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const dbManager = require('../UTILS/databaseAdapter');
+const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const { validateAmount } = require('../UTILS/moneyFormatter');
 const logger = require('../UTILS/logger');

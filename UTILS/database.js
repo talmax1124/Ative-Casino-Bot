@@ -63,10 +63,10 @@ class DatabaseFallbackSystem {
             return this.inMemoryCache.get(userId);
         }
 
-        // Return safe default user data
+        // Return safe default user data - MINIMAL BALANCE TO PREVENT EXPLOITS
         const defaultUser = {
             user_id: userId,
-            wallet: 1000.0, // Start with $1000 in emergency mode
+            wallet: 0.0, // Start with $0 to prevent balance exploits
             bank: 0.0,
             last_earn_ts: 0.0,
             last_rob_ts: 0.0,
@@ -1531,6 +1531,105 @@ class DatabaseManager {
             return await this.databaseAdapter.updateUserSettings(userId, settings);
         }
         return false;
+    }
+
+    // ========================= MARRIAGE SYSTEM =========================
+
+    /**
+     * Create a marriage proposal
+     */
+    async createMarriageProposal(proposerId, proposerName, recipientId, recipientName, guildId, proposalMessage) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.createMarriageProposal(proposerId, proposerName, recipientId, recipientName, guildId, proposalMessage);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    /**
+     * Get pending marriage proposals for a user
+     */
+    async getPendingMarriageProposals(userId, guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getPendingMarriageProposals(userId, guildId);
+        }
+        return [];
+    }
+
+    /**
+     * Respond to a marriage proposal (accept/reject)
+     */
+    async respondToMarriageProposal(proposalId, response) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.respondToMarriageProposal(proposalId, response);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    /**
+     * Accept a marriage proposal (alias for respondToMarriageProposal)
+     */
+    async acceptMarriageProposal(proposalId, userId) {
+        return await this.respondToMarriageProposal(proposalId, 'accepted');
+    }
+
+    /**
+     * Create a marriage
+     */
+    async createMarriage(partner1Id, partner1Name, partner1Role, partner2Id, partner2Name, partner2Role, guildId, ceremonyData) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.createMarriage(partner1Id, partner1Name, partner1Role, partner2Id, partner2Name, partner2Role, guildId, ceremonyData);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    /**
+     * Get user's marriage status
+     */
+    async getUserMarriage(userId, guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getUserMarriage(userId, guildId);
+        }
+        return { married: false, marriage: null };
+    }
+
+    /**
+     * Transfer money to shared bank
+     */
+    async transferToSharedBank(userId, guildId, amount) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.transferToSharedBank(userId, guildId, amount);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    /**
+     * Withdraw money from shared bank
+     */
+    async withdrawFromSharedBank(userId, guildId, amount) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.withdrawFromSharedBank(userId, guildId, amount);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    /**
+     * Update marriage shared bank balance
+     */
+    async updateMarriageSharedBank(marriageId, amount) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updateMarriageSharedBank(marriageId, amount);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    /**
+     * Divorce a marriage
+     */
+    async divorceMarriage(marriageId, reason) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.divorceMarriage(marriageId, reason);
+        }
+        return { success: false, error: 'Database not available' };
     }
 }
 

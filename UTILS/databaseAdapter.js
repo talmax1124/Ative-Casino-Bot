@@ -3607,8 +3607,8 @@ class DatabaseAdapter {
 
                 // Deduct from user's wallet
                 await connection.execute(
-                    'UPDATE user_balances SET wallet = wallet - ? WHERE user_id = ? AND guild_id = ?',
-                    [amount, userId, guildId || 'default']
+                    'UPDATE user_balances SET wallet = wallet - ? WHERE user_id = ?',
+                    [amount, userId]
                 );
 
                 // Add to shared bank
@@ -3663,8 +3663,8 @@ class DatabaseAdapter {
 
                 // Add to user's wallet
                 await connection.execute(
-                    'UPDATE user_balances SET wallet = wallet + ? WHERE user_id = ? AND guild_id = ?',
-                    [amount, userId, guildId || 'default']
+                    'UPDATE user_balances SET wallet = wallet + ? WHERE user_id = ?',
+                    [amount, userId]
                 );
 
                 await connection.commit();
