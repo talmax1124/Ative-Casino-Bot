@@ -3427,6 +3427,26 @@ class DatabaseAdapter {
     }
 
     /**
+     * Get sent marriage proposals for a user
+     */
+    async getSentMarriageProposals(userId, guildId, status = 'accepted') {
+        try {
+            const query = `
+                SELECT * FROM marriage_proposals 
+                WHERE proposer_id = ? AND guild_id = ? AND status = ?
+                ORDER BY created_at DESC
+            `;
+            
+            const [rows] = await this.pool.execute(query, [userId, guildId, status]);
+            return { success: true, proposals: rows };
+            
+        } catch (error) {
+            logger.error(`Error getting sent proposals: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
      * Respond to a marriage proposal
      */
     async respondToMarriageProposal(proposalId, response) {

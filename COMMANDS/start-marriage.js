@@ -73,12 +73,9 @@ module.exports = {
             // Also check if they made a proposal that was accepted
             let sentAcceptedProposal = null;
             try {
-                const allProposals = await dbManager.pool.execute(
-                    'SELECT * FROM marriage_proposals WHERE proposer_id = ? AND guild_id = ? AND status = ?',
-                    [userId, guildId, 'accepted']
-                );
-                if (allProposals[0].length > 0) {
-                    sentAcceptedProposal = allProposals[0][0];
+                const sentProposals = await dbManager.getSentMarriageProposals(userId, guildId, 'accepted');
+                if (sentProposals.success && sentProposals.proposals.length > 0) {
+                    sentAcceptedProposal = sentProposals.proposals[0];
                 }
             } catch (error) {
                 logger.error(`Error checking sent proposals: ${error.message}`);

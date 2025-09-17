@@ -1556,6 +1556,16 @@ class DatabaseManager {
     }
 
     /**
+     * Get sent marriage proposals for a user
+     */
+    async getSentMarriageProposals(userId, guildId, status = 'accepted') {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getSentMarriageProposals(userId, guildId, status);
+        }
+        return { success: true, proposals: [] };
+    }
+
+    /**
      * Respond to a marriage proposal (accept/reject)
      */
     async respondToMarriageProposal(proposalId, response) {
