@@ -16,11 +16,11 @@ class HonestPayoutManager {
             
             // House Edge Configuration (applied transparently upfront)
             houseEdges: {
-                slots: 0.05,        // 5% house edge (95% RTP)
-                plinko: 0.03,       // 3% house edge (97% RTP) 
-                crash: 0.04,        // 4% house edge (96% RTP)
-                blackjack: 0.005,   // 0.5% house edge (99.5% RTP)
-                roulette: 0.027     // 2.7% house edge (97.3% RTP - standard European)
+                slots: 0.03,        // 3% house edge (97% RTP) - reduced from 5%
+                plinko: 0.02,       // 2% house edge (98% RTP) - reduced from 3%
+                crash: 0.025,       // 2.5% house edge (97.5% RTP) - reduced from 4%
+                blackjack: 0.005,   // 0.5% house edge (99.5% RTP) - kept same
+                roulette: 0.027     // 2.7% house edge (97.3% RTP) - kept same (standard)
             },
             
             // Audit Trail

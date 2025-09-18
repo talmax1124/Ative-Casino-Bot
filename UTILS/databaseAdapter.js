@@ -18,6 +18,23 @@ class DatabaseAdapter {
         this.pool = null;
     }
 
+    // Helper function to calculate consistent week start (Thursday at 00:00:00 UTC)
+    getWeekStart(date = null) {
+        const now = date || new Date();
+        const dayOfWeek = now.getDay();
+        // Calculate days to Thursday: Thu=4, so (dayOfWeek + 3) % 7 days ago
+        const daysToThursday = (dayOfWeek + 3) % 7; // Thu=0, Fri=1, Sat=2, Sun=3, Mon=4, Tue=5, Wed=6
+        
+        // Create week start in UTC to avoid timezone issues
+        const weekStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - daysToThursday, 0, 0, 0, 0));
+        
+        // Enhanced debug logging
+        logger.info(`Week start calculation: Today ${now.toDateString()} (day ${dayOfWeek}), Days to Thursday: ${daysToThursday}`);
+        logger.info(`Week start result: ${weekStart.toDateString()} ${weekStart.toISOString()}`);
+        
+        return weekStart;
+    }
+
     /**
      * Initialize MariaDB connection
      */
@@ -405,6 +422,77 @@ class DatabaseAdapter {
                 INDEX idx_timestamp (timestamp),
                 INDEX idx_success (success),
                 INDEX idx_guild (guild_id)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS marriage_levels (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                marriage_id INT NOT NULL,
+                current_level INT DEFAULT 1,
+                current_xp INT DEFAULT 0,
+                total_challenges_completed INT DEFAULT 0,
+                last_level_up TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                
+                FOREIGN KEY (marriage_id) REFERENCES marriages(id) ON DELETE CASCADE,
+                INDEX idx_marriage_id (marriage_id),
+                INDEX idx_level (current_level),
+                INDEX idx_xp (current_xp)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS marriage_challenges (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                week_start DATE NOT NULL,
+                challenge_1 JSON NOT NULL,
+                challenge_2 JSON NOT NULL,
+                challenge_3 JSON NOT NULL,
+                challenge_4 JSON NOT NULL,
+                bonus_challenge JSON NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                
+                UNIQUE KEY unique_week (week_start),
+                INDEX idx_week_start (week_start)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS marriage_challenge_progress (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                marriage_id INT NOT NULL,
+                week_start DATE NOT NULL,
+                challenge_1_completed BOOLEAN DEFAULT FALSE,
+                challenge_1_completed_at TIMESTAMP NULL,
+                challenge_2_completed BOOLEAN DEFAULT FALSE,
+                challenge_2_completed_at TIMESTAMP NULL,
+                challenge_3_completed BOOLEAN DEFAULT FALSE,
+                challenge_3_completed_at TIMESTAMP NULL,
+                challenge_4_completed BOOLEAN DEFAULT FALSE,
+                challenge_4_completed_at TIMESTAMP NULL,
+                bonus_challenge_completed BOOLEAN DEFAULT FALSE,
+                bonus_challenge_completed_at TIMESTAMP NULL,
+                total_xp_earned INT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                
+                FOREIGN KEY (marriage_id) REFERENCES marriages(id) ON DELETE CASCADE,
+                UNIQUE KEY unique_marriage_week (marriage_id, week_start),
+                INDEX idx_marriage_id (marriage_id),
+                INDEX idx_week_start (week_start),
+                INDEX idx_completed (challenge_1_completed, challenge_2_completed, challenge_3_completed, challenge_4_completed)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+            
+            // Marriage task completions table (simplified task tracking)
+            `CREATE TABLE IF NOT EXISTS marriage_task_completions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                marriage_id INT NOT NULL,
+                task_number TINYINT NOT NULL,
+                completed_by VARCHAR(255) NOT NULL,
+                week_start DATE NOT NULL,
+                completion_data TEXT NULL,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                
+                FOREIGN KEY (marriage_id) REFERENCES marriages(id) ON DELETE CASCADE,
+                UNIQUE KEY unique_marriage_task_week (marriage_id, task_number, week_start),
+                INDEX idx_marriage_week (marriage_id, week_start),
+                INDEX idx_completed_at (completed_at)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -3991,6 +4079,399 @@ class DatabaseAdapter {
         } catch (error) {
             logger.error(`Error withdrawing from shared bank: ${error.message}`);
             return { success: false, error: error.message };
+        }
+    }
+
+    // ================================
+    // MARRIAGE TASK COMPLETION TRACKING
+    // ================================
+
+    /**
+     * Mark a marriage task as completed
+     */
+    async completeMarriageTask(marriageId, taskNumber, completedBy, completionData = null) {
+        try {
+            // Get current week start using consistent calculation
+            const weekStart = this.getWeekStart();
+
+            const query = `
+                INSERT INTO marriage_task_completions (marriage_id, task_number, completed_by, week_start, completion_data, completed_at)
+                VALUES (?, ?, ?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE 
+                    completed_by = VALUES(completed_by),
+                    completion_data = VALUES(completion_data),
+                    completed_at = NOW()
+            `;
+            
+            // Debug logging
+            logger.info(`Completing task ${taskNumber} for marriage ${marriageId}`);
+            logger.info(`Week start calculated as: ${weekStart.toISOString()} (${weekStart.toDateString()})`);
+            logger.info(`Task data: taskNumber=${taskNumber}, completedBy=${completedBy}`);
+            
+            await this.pool.execute(query, [
+                marriageId, 
+                taskNumber, 
+                completedBy, 
+                weekStart, 
+                completionData ? JSON.stringify(completionData) : null
+            ]);
+            
+            logger.info(`Marriage task ${taskNumber} completed for marriage ${marriageId} by ${completedBy}`);
+            return { success: true };
+            
+        } catch (error) {
+            logger.error(`Error completing marriage task: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Get marriage task completion status for current week
+     */
+    async getMarriageTaskStatus(marriageId, weekStart = null) {
+        try {
+            if (!weekStart) {
+                // Use consistent week start calculation
+                weekStart = this.getWeekStart();
+            }
+
+            // First, let's see what's actually in the database
+            const debugQuery = `
+                SELECT task_number, completed_by, completed_at, week_start
+                FROM marriage_task_completions 
+                WHERE marriage_id = ?
+            `;
+            const [allRows] = await this.pool.execute(debugQuery, [marriageId]);
+            logger.info(`DEBUG: All task completions for marriage ${marriageId}:`);
+            allRows.forEach(row => {
+                const weekStartDate = new Date(row.week_start);
+                logger.info(`  Task ${row.task_number}: completed_at=${row.completed_at}, week_start=${weekStartDate.toISOString()} (${weekStartDate.toDateString()})`);
+            });
+
+            const query = `
+                SELECT task_number, completed_by, completed_at, completion_data
+                FROM marriage_task_completions 
+                WHERE marriage_id = ? AND week_start = ?
+            `;
+            
+            // Debug logging
+            logger.info(`Retrieving task status for marriage ${marriageId}`);
+            logger.info(`Week start calculated as: ${weekStart.toISOString()} (${weekStart.toDateString()})`);
+            
+            const [rows] = await this.pool.execute(query, [marriageId, weekStart]);
+            
+            logger.info(`Found ${rows.length} completed tasks:`, rows.map(r => `task${r.task_number}`));
+            
+            const tasks = {};
+            rows.forEach(row => {
+                tasks[`task${row.task_number}`] = {
+                    completed: true,
+                    completedBy: row.completed_by,
+                    completedAt: row.completed_at,
+                    completionData: row.completion_data ? JSON.parse(row.completion_data) : null
+                };
+            });
+            
+            return { tasks, weekStart };
+            
+        } catch (error) {
+            logger.error(`Error getting marriage task status: ${error.message}`);
+            logger.error(`Full error details:`, error);
+            
+            // Check if it's a table doesn't exist error
+            if (error.code === 'ER_NO_SUCH_TABLE') {
+                logger.warn('marriage_task_completions table does not exist yet. Creating tables...');
+                // Try to initialize tables
+                try {
+                    await this.initializeTables();
+                } catch (initError) {
+                    logger.error(`Failed to initialize tables: ${initError.message}`);
+                }
+            }
+            
+            return { tasks: {}, weekStart: null };
+        }
+    }
+
+    /**
+     * Reset marriage tasks for new week (cleanup old completions)
+     */
+    async resetMarriageTasksForWeek(marriageId) {
+        try {
+            // Delete task completions older than 4 weeks
+            const fourWeeksAgo = new Date();
+            fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+            
+            const query = `
+                DELETE FROM marriage_task_completions 
+                WHERE marriage_id = ? AND week_start < ?
+            `;
+            
+            const [result] = await this.pool.execute(query, [marriageId, fourWeeksAgo]);
+            
+            logger.info(`Cleaned up ${result.affectedRows} old task completions for marriage ${marriageId}`);
+            return { success: true, deletedRows: result.affectedRows };
+            
+        } catch (error) {
+            logger.error(`Error resetting marriage tasks: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Get marriage task history
+     */
+    async getMarriageTaskHistory(marriageId, limit = 10) {
+        try {
+            const query = `
+                SELECT task_number, completed_by, completed_at, week_start, completion_data
+                FROM marriage_task_completions 
+                WHERE marriage_id = ?
+                ORDER BY completed_at DESC
+                LIMIT ?
+            `;
+            
+            const [rows] = await this.pool.execute(query, [marriageId, limit]);
+            
+            return rows.map(row => ({
+                taskNumber: row.task_number,
+                completedBy: row.completed_by,
+                completedAt: row.completed_at,
+                weekStart: row.week_start,
+                completionData: row.completion_data ? JSON.parse(row.completion_data) : null
+            }));
+            
+        } catch (error) {
+            logger.error(`Error getting marriage task history: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Debug method to check what's in the task completions table
+     */
+    async debugTaskCompletions(marriageId) {
+        try {
+            const query = `
+                SELECT marriage_id, task_number, completed_by, week_start, completed_at
+                FROM marriage_task_completions 
+                WHERE marriage_id = ?
+                ORDER BY completed_at DESC
+            `;
+            
+            const [rows] = await this.pool.execute(query, [marriageId]);
+            logger.info(`All task completions for marriage ${marriageId}:`, rows);
+            return rows;
+            
+        } catch (error) {
+            logger.error(`Error debugging task completions: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Temporary method to fix existing task completion dates
+     */
+    async fixTaskCompletionDates(marriageId) {
+        try {
+            // Get all existing completions
+            const query = `
+                SELECT id, completed_at, week_start
+                FROM marriage_task_completions 
+                WHERE marriage_id = ?
+            `;
+            
+            const [rows] = await this.pool.execute(query, [marriageId]);
+            let fixedCount = 0;
+            
+            for (const row of rows) {
+                // Calculate correct week start for this completion
+                const completedAt = new Date(row.completed_at);
+                const correctWeekStart = this.getWeekStart(completedAt);
+                
+                // Check if week_start needs correction
+                const existingWeekStart = new Date(row.week_start);
+                const needsUpdate = existingWeekStart.getTime() !== correctWeekStart.getTime();
+                
+                if (needsUpdate) {
+                    // Update week_start only
+                    await this.pool.execute(
+                        'UPDATE marriage_task_completions SET week_start = ? WHERE id = ?',
+                        [correctWeekStart, row.id]
+                    );
+                    fixedCount++;
+                    logger.info(`Fixed completion ${row.id}: ${existingWeekStart.toISOString()} -> ${correctWeekStart.toISOString()}`);
+                }
+            }
+            
+            logger.info(`Fixed ${fixedCount} task completion dates for marriage ${marriageId}`);
+            return { success: true, updated: fixedCount };
+            
+        } catch (error) {
+            logger.error(`Error fixing task completion dates: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // ================================
+    // Marriage XP System
+    // ================================
+
+    /**
+     * Award XP to a marriage for completing challenges
+     */
+    async awardMarriageXP(marriageId, xpAmount, source, details = null) {
+        try {
+            // First check if marriage exists
+            const [marriageRows] = await this.pool.execute(
+                'SELECT id FROM marriages WHERE id = ? AND status = ?',
+                [marriageId, 'active']
+            );
+
+            if (marriageRows.length === 0) {
+                throw new Error('Marriage not found or inactive');
+            }
+
+            // Get current XP or initialize if not exists
+            let [xpRows] = await this.pool.execute(
+                'SELECT total_xp, level FROM marriage_xp WHERE marriage_id = ?',
+                [marriageId]
+            );
+
+            const currentXP = xpRows.length > 0 ? xpRows[0].total_xp : 0;
+            const newTotalXP = currentXP + xpAmount;
+
+            // Calculate new level
+            const { getMarriageLevelByXP } = require('./marriageLevels');
+            const newLevel = getMarriageLevelByXP(newTotalXP);
+            const oldLevel = getMarriageLevelByXP(currentXP);
+
+            if (xpRows.length === 0) {
+                // Insert new XP record
+                await this.pool.execute(
+                    'INSERT INTO marriage_xp (marriage_id, total_xp, level, last_updated) VALUES (?, ?, ?, NOW())',
+                    [marriageId, newTotalXP, newLevel.level]
+                );
+            } else {
+                // Update existing XP record
+                await this.pool.execute(
+                    'UPDATE marriage_xp SET total_xp = ?, level = ?, last_updated = NOW() WHERE marriage_id = ?',
+                    [newTotalXP, newLevel.level, marriageId]
+                );
+            }
+
+            // Log XP transaction
+            await this.pool.execute(
+                'INSERT INTO marriage_xp_history (marriage_id, xp_awarded, source, details, awarded_at) VALUES (?, ?, ?, ?, NOW())',
+                [marriageId, xpAmount, source, details]
+            );
+
+            logger.info(`Awarded ${xpAmount} XP to marriage ${marriageId} from ${source}. Total: ${newTotalXP}`);
+
+            return {
+                success: true,
+                xpAwarded: xpAmount,
+                newTotalXP,
+                oldLevel: oldLevel.level,
+                newLevel: newLevel.level,
+                leveledUp: newLevel.level > oldLevel.level,
+                levelData: newLevel
+            };
+
+        } catch (error) {
+            logger.error(`Error awarding marriage XP: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get marriage XP and level data
+     */
+    async getMarriageXP(marriageId) {
+        try {
+            const [rows] = await this.pool.execute(
+                'SELECT total_xp, level, last_updated FROM marriage_xp WHERE marriage_id = ?',
+                [marriageId]
+            );
+
+            if (rows.length === 0) {
+                // Return default values for new marriage
+                return {
+                    marriageId,
+                    totalXP: 0,
+                    level: 1,
+                    lastUpdated: null,
+                    exists: false
+                };
+            }
+
+            return {
+                marriageId,
+                totalXP: rows[0].total_xp,
+                level: rows[0].level,
+                lastUpdated: rows[0].last_updated,
+                exists: true
+            };
+
+        } catch (error) {
+            logger.error(`Error getting marriage XP: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get marriage XP history
+     */
+    async getMarriageXPHistory(marriageId, limit = 10) {
+        try {
+            const [rows] = await this.pool.execute(
+                'SELECT xp_awarded, source, details, awarded_at FROM marriage_xp_history WHERE marriage_id = ? ORDER BY awarded_at DESC LIMIT ?',
+                [marriageId, limit]
+            );
+
+            return rows;
+
+        } catch (error) {
+            logger.error(`Error getting marriage XP history: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Initialize marriage XP tables
+     */
+    async initializeMarriageXPTables() {
+        try {
+            // Create marriage_xp table
+            await this.pool.execute(`
+                CREATE TABLE IF NOT EXISTS marriage_xp (
+                    marriage_id INT PRIMARY KEY,
+                    total_xp INT NOT NULL DEFAULT 0,
+                    level INT NOT NULL DEFAULT 1,
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (marriage_id) REFERENCES marriages(id) ON DELETE CASCADE
+                )
+            `);
+
+            // Create marriage_xp_history table
+            await this.pool.execute(`
+                CREATE TABLE IF NOT EXISTS marriage_xp_history (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    marriage_id INT NOT NULL,
+                    xp_awarded INT NOT NULL,
+                    source VARCHAR(50) NOT NULL,
+                    details TEXT,
+                    awarded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (marriage_id) REFERENCES marriages(id) ON DELETE CASCADE,
+                    INDEX idx_marriage_awarded (marriage_id, awarded_at)
+                )
+            `);
+
+            logger.info('Marriage XP tables initialized successfully');
+
+        } catch (error) {
+            logger.error(`Error initializing marriage XP tables: ${error.message}`);
+            throw error;
         }
     }
 }

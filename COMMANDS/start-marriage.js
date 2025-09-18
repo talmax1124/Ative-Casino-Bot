@@ -54,6 +54,15 @@ module.exports = {
         const officiant = interaction.options.getUser('officiant');
         const guildId = await getGuildId(interaction);
 
+        // Check if restricted user is selected as flower girl
+        if (flowerGirl && flowerGirl.id === '1009220009739960411') {
+            await interaction.reply({
+                content: '❌ This person does not give consent. Please choose someone else.',
+                ephemeral: true
+            });
+            return;
+        }
+
         await interaction.deferReply();
 
         try {

@@ -1,7 +1,10 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId } = require('../UTILS/common');
+const { getMarriageLevelByXP, getLevelProgress, getXPForNextLevel } = require('../UTILS/marriageLevels');
 const logger = require('../UTILS/logger');
+const fs = require('fs');
+const path = require('path');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -57,14 +60,29 @@ module.exports = {
 
             const householdWealth = (userBalance.wallet + userBalance.bank) + (partnerBalance.wallet + partnerBalance.bank);
 
+            // Get marriage level data from database
+            const marriageXPData = await dbManager.getMarriageXP(marriage.id);
+            const currentLevel = getMarriageLevelByXP(marriageXPData.totalXP);
+            const levelProgress = getLevelProgress(marriageXPData.totalXP);
+
             // Create marriage profile embed with mobile-friendly formatting using separators
             const profileEmbed = new EmbedBuilder()
                 .setTitle('💒 Marriage Profile')
-                .setDescription(`💖 <@${marriage.partner1_id}> & <@${marriage.partner2_id}>\n\n*"Two hearts united as one"*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━`)
+                .setDescription(`💖 <@${marriage.partner1_id}> & <@${marriage.partner2_id}>\n\n${currentLevel.emoji} **Level ${currentLevel.level}: ${currentLevel.name}**\n*${currentLevel.description}*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━`)
                 .addFields(
                     {
                         name: '👰 Married Couple',
                         value: `• <@${marriage.partner1_id}> (${marriage.partner1_role.charAt(0).toUpperCase() + marriage.partner1_role.slice(1)})\n• <@${marriage.partner2_id}> (${marriage.partner2_role.charAt(0).toUpperCase() + marriage.partner2_role.slice(1)})`,
+                        inline: false
+                    },
+                    {
+                        name: '\u200b',
+                        value: '━━━━━━━━━━━━━━━━━━━━━━━━━━',
+                        inline: false
+                    },
+                    {
+                        name: '💝 Marriage Level',
+                        value: `**Level:** ${currentLevel.level}/10\n**XP:** ${marriageXPData.totalXP.toLocaleString()}\n**Progress:** ${levelProgress}%\n**Next Level:** ${currentLevel.level < 10 ? `${getXPForNextLevel(marriageXPData.totalXP).toLocaleString()} XP needed` : 'Max Level!'}`,
                         inline: false
                     },
                     {
@@ -103,7 +121,7 @@ module.exports = {
                         inline: false
                     }
                 )
-                .setColor(0xFF69B4)
+                .setColor(currentLevel.color)
                 .setTimestamp()
                 .setFooter({ text: '💒 ATIVE Casino Marriage Registry' });
 
@@ -163,6 +181,50 @@ module.exports = {
             }
             const daysToMonthlyAnniversary = Math.ceil((nextMonthlyAnniversary - now) / (1000 * 60 * 60 * 24));
             
+            // Add weekly tasks section
+            try {
+                const tasksPath = path.join(__dirname, '..', 'marriages', 'Tasks-For-This-Week.md');
+                const tasksContent = fs.readFileSync(tasksPath, 'utf8');
+                const taskLines = tasksContent.split('\n').filter(line => line.startsWith('- [ ]'));
+                
+                // Get task completion status (placeholder - would be stored in database)
+                const taskStatus = { task1: false, task2: false, task3: false, task4: false };
+                const completedCount = Object.values(taskStatus).filter(Boolean).length;
+                
+                const tasksText = taskLines.map((line, index) => {
+                    const taskText = line.replace('- [ ]', '').trim();
+                    const isCompleted = taskStatus[`task${index + 1}`];
+                    return `${isCompleted ? '✅' : '📋'} ${taskText}`;
+                }).join('\n');
+
+                profileEmbed.addFields(
+                    {
+                        name: '\u200b',
+                        value: '━━━━━━━━━━━━━━━━━━━━━━━━━━',
+                        inline: false
+                    },
+                    {
+                        name: '📋 Weekly Tasks',
+                        value: `${tasksText}\n\n**Progress:** ${completedCount}/4 tasks completed`,
+                        inline: false
+                    }
+                );
+            } catch (taskError) {
+                // If tasks file can't be read, show default tasks
+                profileEmbed.addFields(
+                    {
+                        name: '\u200b',
+                        value: '━━━━━━━━━━━━━━━━━━━━━━━━━━',
+                        inline: false
+                    },
+                    {
+                        name: '📋 Weekly Tasks',
+                        value: '📋 Win a game of tic tac toe\n📋 Plant a tree. Keep it alive for a week\n📋 Write a poem about nature together\n📋 How well do you know each other? Take a quiz\n\n**Progress:** 0/4 tasks completed',
+                        inline: false
+                    }
+                );
+            }
+
             profileEmbed.addFields(
                 {
                     name: '\u200b',
@@ -184,7 +246,24 @@ module.exports = {
             // Set thumbnail to the requesting user's avatar
             profileEmbed.setThumbnail(targetUser.displayAvatarURL());
 
-            await interaction.editReply({ embeds: [profileEmbed] });
+            // Add task button if viewing own profile
+            const components = [];
+            if (targetUser.id === interaction.user.id) {
+                const taskButton = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('open_marriage_tasks')
+                            .setLabel('View Tasks')
+                            .setEmoji('📋')
+                            .setStyle(ButtonStyle.Primary)
+                    );
+                components.push(taskButton);
+            }
+
+            await interaction.editReply({ 
+                embeds: [profileEmbed],
+                components: components
+            });
 
         } catch (error) {
             logger.error(`Error in marriage-profile command: ${error.message}`);

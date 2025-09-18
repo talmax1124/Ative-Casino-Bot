@@ -1698,6 +1698,114 @@ class DatabaseManager {
         }
         return { success: false, error: 'Database not available' };
     }
+
+    // ================================
+    // MARRIAGE TASK COMPLETION TRACKING
+    // ================================
+
+    /**
+     * Mark a marriage task as completed
+     */
+    async completeMarriageTask(marriageId, taskNumber, completedBy, completionData = null) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.completeMarriageTask(marriageId, taskNumber, completedBy, completionData);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    /**
+     * Get marriage task completion status for current week
+     */
+    async getMarriageTaskStatus(marriageId, weekStart = null) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getMarriageTaskStatus(marriageId, weekStart);
+        }
+        return { tasks: {}, weekStart: null };
+    }
+
+    /**
+     * Reset marriage tasks for new week
+     */
+    async resetMarriageTasksForWeek(marriageId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.resetMarriageTasksForWeek(marriageId);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    /**
+     * Get marriage task history
+     */
+    async getMarriageTaskHistory(marriageId, limit = 10) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getMarriageTaskHistory(marriageId, limit);
+        }
+        return [];
+    }
+
+    /**
+     * Debug task completions (temporary)
+     */
+    async debugTaskCompletions(marriageId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.debugTaskCompletions(marriageId);
+        }
+        return [];
+    }
+
+    /**
+     * Fix task completion dates (temporary)
+     */
+    async fixTaskCompletionDates(marriageId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.fixTaskCompletionDates(marriageId);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    // ================================
+    // Marriage XP System Methods
+    // ================================
+
+    /**
+     * Award XP to a marriage for completing challenges
+     */
+    async awardMarriageXP(marriageId, xpAmount, source, details = null) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.awardMarriageXP(marriageId, xpAmount, source, details);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    /**
+     * Get marriage XP and level data
+     */
+    async getMarriageXP(marriageId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getMarriageXP(marriageId);
+        }
+        return { marriageId, totalXP: 0, level: 1, lastUpdated: null, exists: false };
+    }
+
+    /**
+     * Get marriage XP history
+     */
+    async getMarriageXPHistory(marriageId, limit = 10) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getMarriageXPHistory(marriageId, limit);
+        }
+        return [];
+    }
+
+    /**
+     * Initialize marriage XP tables
+     */
+    async initializeMarriageXPTables() {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.initializeMarriageXPTables();
+        }
+        throw new Error('Database adapter not available');
+    }
 }
 
 // Export singleton instance

@@ -482,6 +482,14 @@ client.once('clientReady', async () => {
         await dbManager.initialize();
         logger.info('Database initialized successfully');
 
+        // Initialize Marriage XP system tables
+        try {
+            await dbManager.initializeMarriageXPTables();
+            logger.info('Marriage XP system initialized successfully');
+        } catch (error) {
+            logger.error('Failed to initialize Marriage XP system:', error);
+        }
+
         // 🚀 Initialize NodeCache System
         logger.info('🔄 Initializing NodeCache system...');
         const cacheStats = nodeCache.getStats();
@@ -2144,6 +2152,85 @@ client.on('interactionCreate', async interaction => {
                 }
             }
             */
+            // Handle marriage task buttons
+            else if (customId.startsWith('marriage_task_') || customId === 'open_marriage_tasks' || customId === 'refresh_tasks') {
+                if (customId === 'open_marriage_tasks') {
+                    // Handle View Tasks button from marriage-profile
+                    const marriageTaskCommand = client.commands.get('marriage-task');
+                    if (marriageTaskCommand) {
+                        // Create a fake interaction for the view action
+                        const fakeInteraction = {
+                            ...interaction,
+                            options: {
+                                getString: () => 'view'
+                            },
+                            deferReply: async () => {}, // Will be handled by update
+                            editReply: async (options) => await interaction.update(options),
+                            reply: async (options) => await interaction.update(options)
+                        };
+                        await marriageTaskCommand.execute(fakeInteraction);
+                    }
+                } else if (customId === 'refresh_tasks') {
+                    // Handle refresh button in marriage-task
+                    const marriageTaskCommand = client.commands.get('marriage-task');
+                    if (marriageTaskCommand) {
+                        const fakeInteraction = {
+                            ...interaction,
+                            options: {
+                                getString: () => 'view'
+                            },
+                            deferReply: async () => {},
+                            editReply: async (options) => await interaction.update(options)
+                        };
+                        await marriageTaskCommand.execute(fakeInteraction);
+                    }
+                } else {
+                    // Handle task buttons (marriage_task_task1, marriage_task_task2, etc.)
+                    const marriageTaskCommand = client.commands.get('marriage-task');
+                    if (marriageTaskCommand && marriageTaskCommand.handleButtonInteraction) {
+                        await marriageTaskCommand.handleButtonInteraction(interaction);
+                    }
+                }
+            }
+            // Handle confirmed task start buttons
+            else if (customId.startsWith('confirmed_start_')) {
+                const marriageTaskCommand = client.commands.get('marriage-task');
+                if (marriageTaskCommand && marriageTaskCommand.handleConfirmedStart) {
+                    await marriageTaskCommand.handleConfirmedStart(interaction);
+                }
+            }
+            // Handle tic tac toe game moves
+            else if (customId.startsWith('ttt_move_')) {
+                const marriageTaskCommand = client.commands.get('marriage-task');
+                if (marriageTaskCommand && marriageTaskCommand.handleTicTacToeMove) {
+                    await marriageTaskCommand.handleTicTacToeMove(interaction);
+                }
+            }
+            // Handle tree care buttons
+            else if (customId.startsWith('tree_care_') || customId.startsWith('tree_refresh_')) {
+                const marriageTaskCommand = client.commands.get('marriage-task');
+                if (marriageTaskCommand && marriageTaskCommand.handleTreeCare) {
+                    await marriageTaskCommand.handleTreeCare(interaction);
+                }
+            }
+            // Handle poem interaction buttons
+            else if (customId.startsWith('poem_add_') || customId.startsWith('poem_preview_') || customId.startsWith('poem_publish_') || customId.startsWith('poem_vote_')) {
+                const marriageTaskCommand = client.commands.get('marriage-task');
+                if (marriageTaskCommand) {
+                    if (customId.startsWith('poem_vote_')) {
+                        await marriageTaskCommand.handlePoemVote(interaction);
+                    } else {
+                        await marriageTaskCommand.handlePoemInteraction(interaction);
+                    }
+                }
+            }
+            // Handle quiz answer buttons
+            else if (customId.startsWith('quiz_answer_')) {
+                const marriageTaskCommand = client.commands.get('marriage-task');
+                if (marriageTaskCommand && marriageTaskCommand.handleQuizAnswer) {
+                    await marriageTaskCommand.handleQuizAnswer(interaction);
+                }
+            }
 
         } catch (error) {
             // Handle "Unknown interaction" errors gracefully (interaction expired)
@@ -2157,6 +2244,39 @@ client.on('interactionCreate', async interaction => {
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Button Error')
                 .setDescription('An error occurred while processing your action.')
+                .setColor(0xFF0000);
+
+            // Use safe interaction handler
+            await SafeInteractionHandler.safeReply(interaction, {
+                embeds: [errorEmbed],
+                flags: MessageFlags.Ephemeral
+            });
+        }
+    }
+    // Handle modal submit interactions
+    else if (interaction.isModalSubmit()) {
+        const customId = interaction.customId;
+        
+        try {
+            // Handle poem line input modals
+            if (customId.startsWith('poem_line_input_')) {
+                const marriageTaskCommand = client.commands.get('marriage-task');
+                if (marriageTaskCommand && marriageTaskCommand.handlePoemLineSubmission) {
+                    await marriageTaskCommand.handlePoemLineSubmission(interaction);
+                }
+            }
+        } catch (error) {
+            // Handle "Unknown interaction" errors gracefully (interaction expired)
+            if (error.message.includes('Unknown interaction') || error.code === 10062) {
+                logger.debug(`Modal interaction expired for customId: ${customId}, user: ${interaction.user.id}`);
+                return; // Silently ignore expired interactions
+            }
+
+            logger.error(`Error handling modal ${customId}:`, error);
+
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Modal Error')
+                .setDescription('An error occurred while processing your submission.')
                 .setColor(0xFF0000);
 
             // Use safe interaction handler
@@ -2859,6 +2979,21 @@ client.once('clientReady', async () => {
     }
 
     gracefulShutdown.initialize(client);
+
+    // Send BOT IS ONLINE notification to specified channel (PRODUCTION ONLY)
+    if (!IS_DEVELOPMENT) {
+        try {
+            const onlineChannel = client.channels.cache.get('1403244656845787170');
+            if (onlineChannel) {
+                await onlineChannel.send('🟢 **BOT IS ONLINE**');
+                logger.info('Bot online notification sent successfully');
+            } else {
+                logger.warn('Online notification channel not found: 1403244656845787170');
+            }
+        } catch (error) {
+            logger.error('Failed to send bot online notification:', error);
+        }
+    }
 
     // Initialize automatic inactivity tax checking every 12 hours
     const inactivityTax = require('./UTILS/inactivityTax');

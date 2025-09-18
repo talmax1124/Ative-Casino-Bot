@@ -320,6 +320,7 @@ class LotteryGame {
                 message = msgs.find(m => m.author.id === this.bot.user.id && 
                     (m.embeds?.[0]?.title?.includes('Weekly Lottery System') ||
                      m.embeds?.[0]?.title?.includes('Dual-Tier Lottery System') ||
+                     m.embeds?.[0]?.title?.includes('ATIVE CASINO LOTTERY SYSTEM') ||
                      m.embeds?.[0]?.title?.includes('Lottery System'))) || null;
             }
 
