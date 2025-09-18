@@ -167,8 +167,14 @@ class InactivityTaxManager {
             for (const user of users) {
                 usersProcessed++;
                 
+                // Skip if user_id is null or undefined
+                if (!user.user_id) {
+                    logger.warn(`Skipping user with undefined user_id: ${JSON.stringify(user)}`);
+                    continue;
+                }
+                
                 try {
-                    const taxRecord = await this.applyTaxToUser(user.userId, guildId, user.username || 'Unknown');
+                    const taxRecord = await this.applyTaxToUser(user.user_id, guildId, user.username || 'Unknown');
                     
                     if (taxRecord) {
                         taxRecords.push(taxRecord);
@@ -176,7 +182,7 @@ class InactivityTaxManager {
                         usersTaxed++;
                     }
                 } catch (error) {
-                    logger.error(`Error taxing user ${user.userId}: ${error.message}`);
+                    logger.error(`Error taxing user ${user.user_id}: ${error.message}`);
                 }
             }
 
@@ -281,7 +287,7 @@ class InactivityTaxManager {
             const userStatuses = [];
 
             for (const user of users.slice(0, limit)) {
-                const status = await this.getUserTaxStatus(user.userId, guildId);
+                const status = await this.getUserTaxStatus(user.user_id, guildId);
                 if (status) {
                     userStatuses.push({
                         ...status,
