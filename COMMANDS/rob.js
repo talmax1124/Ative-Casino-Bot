@@ -121,13 +121,12 @@ module.exports = {
                 return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
-            // Target must have at least $1000 to rob
-            const targetTotal = targetBalance.wallet + targetBalance.bank;
-            if (targetTotal < 1000) {
+            // Target must have at least $1000 in wallet to rob (only wallet can be robbed)
+            if (targetBalance.wallet < 1000) {
                 const errorEmbed = buildSessionEmbed({
                     title: '💸 Target Too Poor',
                     topFields: [
-                        { name: '🏦 Insufficient Funds', value: `${targetUser.displayName} doesn't have enough money to rob (less than $1,000 total).` }
+                        { name: '🏦 Insufficient Funds', value: `${targetUser.displayName} doesn't have enough money in their wallet to rob (less than $1,000 wallet).` }
                     ],
                     stageText: 'TARGET TOO POOR',
                     color: 0xFFAA00,
@@ -141,24 +140,21 @@ module.exports = {
             const SUCCESS_CHANCE = 40;
             const success = secureRandomChance(SUCCESS_CHANCE);
             
-            // Calculate amounts
-            const robAmount = Math.floor(targetTotal * 0.08); // 8% of target's total
+            // Calculate amounts - only rob from wallet
+            const robAmount = Math.floor(targetBalance.wallet * 0.08); // 8% of target's wallet only
             const penaltyAmount = Math.floor(robberBalance.wallet * 0.04); // 4% penalty of robber's wallet
+            let actualPenalty = 0; // Initialize actualPenalty for all cases
 
             let resultEmbed;
             
             if (success && robAmount > 0) {
                 // Successful robbery
-                // Take from target (prioritize wallet, then bank)
-                let targetWalletDeduction = Math.min(targetBalance.wallet, robAmount);
-                let targetBankDeduction = robAmount - targetWalletDeduction;
-                
-                const newTargetWallet = targetBalance.wallet - targetWalletDeduction;
-                const newTargetBank = targetBalance.bank - targetBankDeduction;
+                // Take from target's wallet only
+                const newTargetWallet = targetBalance.wallet - robAmount;
                 const newRobberWallet = robberBalance.wallet + robAmount;
 
-                // Update balances
-                await dbManager.setUserBalance(targetId, guildId, newTargetWallet, newTargetBank);
+                // Update balances (target bank remains unchanged)
+                await dbManager.setUserBalance(targetId, guildId, newTargetWallet, targetBalance.bank);
                 await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank, {
                     last_rob_ts: now
                 });
@@ -173,7 +169,7 @@ module.exports = {
                     ],
                     bankFields: [
                         { name: 'Your New Balance', value: fmt(newRobberWallet), inline: true },
-                        { name: 'Target Remaining', value: fmt(newTargetWallet + newTargetBank), inline: true },
+                        { name: 'Target Wallet Remaining', value: fmt(newTargetWallet), inline: true },
                         { name: 'Next Rob Available', value: 'In 1 hour', inline: true }
                     ],
                     stageText: 'ROBBERY SUCCESS',
@@ -192,7 +188,7 @@ module.exports = {
 
             } else {
                 // Failed robbery - apply penalty if robber has enough money
-                const actualPenalty = Math.min(penaltyAmount, robberBalance.wallet);
+                actualPenalty = Math.min(penaltyAmount, robberBalance.wallet);
                 const newRobberWallet = robberBalance.wallet - actualPenalty;
 
                 await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank, {
@@ -263,7 +259,7 @@ module.exports = {
                     success, // True if successful robbery
                     {
                         targetUser: targetUser.displayName,
-                        targetTotal: targetTotal,
+                        targetWallet: targetBalance.wallet,
                         robAmount: robAmount,
                         penaltyAmount: penaltyAmount,
                         successChance: SUCCESS_CHANCE

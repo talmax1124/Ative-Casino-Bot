@@ -47,8 +47,8 @@ module.exports = {
 
         // Get current user data
         const balance = await dbManager.getUserBalance(userId, guildId);
-        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId);
-        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId, 1); // Tier 1
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId, 1); // Tier 1
         
         const ticketPrice = 50000;
         const maxTickets = 10;
@@ -259,7 +259,7 @@ module.exports = {
 
         // Get current user data
         const balance = await dbManager.getUserBalance(userId, guildId);
-        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId);
+        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId, 1); // Tier 1
 
         // Validation checks
         if (currentTickets + ticketCount > 10) {
@@ -289,7 +289,7 @@ module.exports = {
         while (!success && attempts < maxAttempts) {
             attempts++;
             try {
-                success = await dbManager.purchaseLotteryTickets(userId, guildId, ticketCount, totalCost);
+                success = await dbManager.purchaseLotteryTickets(userId, guildId, ticketCount, totalCost, 1); // Tier 1
                 if (success) {
                     break;
                 }
@@ -315,7 +315,7 @@ module.exports = {
             const newBalance = balance.wallet - totalCost;
             
             // Get updated lottery info
-            const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+            const lotteryInfo = await dbManager.getLotteryInfo(guildId, 1); // Tier 1
             const totalTickets = lotteryInfo.total_tickets || 0;
             const winProbability = totalTickets > 0 ? ((newTicketCount / totalTickets) * 100).toFixed(2) : "0.00";
 
@@ -392,8 +392,8 @@ module.exports = {
     },
 
     async showUserTickets(interaction, userId, guildId) {
-        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId);
-        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId, 1); // Tier 1
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId, 1); // Tier 1
         const totalTickets = lotteryInfo.total_tickets || 0;
         const winProbability = totalTickets > 0 ? ((currentTickets / totalTickets) * 100).toFixed(2) : "0.00";
 

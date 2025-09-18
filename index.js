@@ -1427,6 +1427,16 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
             }
+            // Handle lottery2 buttons
+            else if (customId.startsWith('lottery2_')) {
+                const action = customId.substring('lottery2_'.length);
+                const purchaseLottery2Command = client.commands.get('purchaselottery2');
+                if (purchaseLottery2Command && purchaseLottery2Command.handleButtonInteraction) {
+                    await purchaseLottery2Command.handleButtonInteraction(interaction, action);
+                } else {
+                    logger.warn(`No handler found for lottery2 button: ${customId}`);
+                }
+            }
             // Handle mystats buttons
             else if (customId.startsWith('mystats_')) {
                 const mystatsCommand = client.commands.get('mystats');

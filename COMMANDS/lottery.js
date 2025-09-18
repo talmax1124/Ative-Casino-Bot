@@ -41,8 +41,8 @@ module.exports = {
 
     async showLotteryMainPanel(interaction, userId, guildId) {
         const userBalance = await dbManager.getUserBalance(userId, guildId);
-        const userTickets = await dbManager.getUserLotteryTickets(userId, guildId);
-        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        const userTickets = await dbManager.getUserLotteryTickets(userId, guildId, 1); // Tier 1
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId, 1); // Tier 1
         
         // Create standardized game embed
         const gameOptions = {
@@ -201,8 +201,8 @@ module.exports = {
     },
 
     async showUserTickets(interaction, userId, guildId) {
-        const userTickets = await dbManager.getUserLotteryTickets(userId, guildId);
-        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        const userTickets = await dbManager.getUserLotteryTickets(userId, guildId, 1); // Tier 1
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId, 1); // Tier 1
         
         if (userTickets === 0) {
             const embed = UITemplates.createErrorEmbed('Lottery Tickets', {
@@ -259,7 +259,7 @@ module.exports = {
     },
 
     async showPrizeBreakdown(interaction, guildId) {
-        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId, 1); // Tier 1
         const prizePool = lotteryInfo.total_prize || 400000;
         const totalTickets = lotteryInfo.total_tickets || 0;
 
@@ -307,8 +307,8 @@ module.exports = {
 
     async showPlayerLotteryStatus(interaction, userId, guildId) {
         try {
-            const lotteryInfo = await dbManager.getLotteryInfo(guildId);
-            const userTickets = await dbManager.getUserLotteryTickets(userId, guildId);
+            const lotteryInfo = await dbManager.getLotteryInfo(guildId, 1); // Tier 1
+            const userTickets = await dbManager.getUserLotteryTickets(userId, guildId, 1); // Tier 1
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             const nextDrawingTime = this.getNextDrawingTimestamp();
             

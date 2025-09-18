@@ -624,11 +624,12 @@ class DatabaseManager {
      * Get user's lottery tickets for current week
      * @param {string} userId - Discord user ID
      * @param {string} guildId - Guild ID
+     * @param {number} tier - Lottery tier (1 or 2)
      * @returns {number} Number of tickets
      */
-    async getUserLotteryTickets(userId, guildId) {
+    async getUserLotteryTickets(userId, guildId, tier = 1) {
         if (this.usingAdapter) {
-            return await this.databaseAdapter.getUserLotteryTickets(userId, guildId);
+            return await this.databaseAdapter.getUserLotteryTickets(userId, guildId, tier);
         }
         return 0;
     }
@@ -639,35 +640,21 @@ class DatabaseManager {
      * @param {string} guildId - Guild ID
      * @param {number} ticketCount - Number of tickets to purchase
      * @param {number} totalCost - Total cost of tickets
+     * @param {number} tier - Lottery tier (1 or 2)
      * @returns {boolean} Success status
      */
-    async purchaseLotteryTickets(userId, guildId, ticketCount, totalCost) {
+    async purchaseLotteryTickets(userId, guildId, ticketCount, totalCost, tier = 1) {
         if (this.usingAdapter) {
-            return await this.databaseAdapter.purchaseLotteryTickets(userId, guildId, ticketCount, totalCost);
+            return await this.databaseAdapter.purchaseLotteryTickets(userId, guildId, ticketCount, totalCost, tier);
         }
         return false;
     }
-
-    async getUserLotteryTickets(userId, guildId) {
-        if (this.usingAdapter) {
-            return await this.databaseAdapter.getUserLotteryTickets(userId, guildId);
-        }
-        return 0;
-    }
-
 
     async getAllLotteryTickets(guildId) {
         if (this.usingAdapter) {
             return await this.databaseAdapter.getAllLotteryTickets(guildId);
         }
         return [];
-    }
-
-    async purchaseLotteryTickets(userId, guildId, ticketCount, totalCost) {
-        if (this.usingAdapter) {
-            return await this.databaseAdapter.purchaseLotteryTickets(userId, guildId, ticketCount, totalCost);
-        }
-        return false;
     }
 
     /**

@@ -153,7 +153,7 @@ async function updateLotteryPanel(bot, guildId) {
         let currentPrize;
         let ticketCount;
         try {
-            const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+            const lotteryInfo = await dbManager.getLotteryInfo(guildId, 1); // Tier 1
             currentPrize = lotteryInfo.total_prize || 400000;
             ticketCount = lotteryInfo.total_tickets || 0;
             logger.info(`Retrieved lottery info - Prize: ${currentPrize}, Tickets: ${ticketCount}`);
@@ -339,7 +339,7 @@ function validateTicketPurchase(ticketCount, currentTickets, balance, ticketPric
  */
 async function checkEarlyDrawingTrigger(guildId) {
     try {
-        const lotteryInfo = await dbManager.getLotteryInfo(guildId);
+        const lotteryInfo = await dbManager.getLotteryInfo(guildId, 1); // Tier 1
         const maxPrizePool = 400000000; // 400M as specified
         
         return lotteryInfo.total_prize >= maxPrizePool;

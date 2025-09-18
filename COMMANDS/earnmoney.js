@@ -14,7 +14,7 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('earnmoney')
-        .setDescription('Claim all economy commands at once (requires 10+ votes & active streak)'),
+        .setDescription('Claim all economy commands at once (5min cooldown, requires 10+ votes & active streak)'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -52,6 +52,29 @@ module.exports = {
             const balance = await dbManager.getUserBalance(userId, guildId);
             const now = Date.now() / 1000;
             
+            // Check overall earnmoney cooldown (prevent spam - 5 minute cooldown)
+            const lastEarnmoney = balance.last_earnmoney_ts || 0;
+            const earnmoneyCooldown = 300; // 5 minutes
+            
+            if (now - lastEarnmoney < earnmoneyCooldown) {
+                const remainingTime = Math.ceil(earnmoneyCooldown - (now - lastEarnmoney));
+                const minutes = Math.floor(remainingTime / 60);
+                const seconds = remainingTime % 60;
+
+                const cooldownEmbed = buildSessionEmbed({
+                    title: '⏰ EarnMoney Cooldown Active',
+                    topFields: [
+                        { name: '🕐 Please Wait', value: `You can use /earnmoney again in **${minutes}m ${seconds}s**` },
+                        { name: '🚫 Anti-Spam Protection', value: 'This prevents excessive command usage and ensures fair play for everyone.' }
+                    ],
+                    stageText: 'EARNMONEY COOLDOWN',
+                    color: 0xFFAA00,
+                    footer: 'EarnMoney has a 5-minute cooldown between uses'
+                });
+
+                return await interaction.editReply({ embeds: [cooldownEmbed] });
+            }
+            
             // Check all cooldowns and calculate earnings
             const results = {
                 earn: await this.processEarn(balance, now),
@@ -76,6 +99,11 @@ module.exports = {
             const totalEarned = boostedEarnings + boosterBonus;
             
             if (baseEarnings === 0) {
+                // Update earnmoney timestamp even when no earnings to prevent spam
+                await dbManager.setUserBalance(userId, guildId, balance.wallet, balance.bank, {
+                    last_earnmoney_ts: now
+                });
+
                 const cooldowns = Object.entries(results)
                     .filter(([_, result]) => result.cooldownRemaining > 0)
                     .map(([command, result]) => {
@@ -87,7 +115,8 @@ module.exports = {
                 const cooldownEmbed = buildSessionEmbed({
                     title: '⏰ All Commands on Cooldown',
                     topFields: [
-                        { name: '🕐 Active Cooldowns', value: cooldowns.join('\n') || 'No active cooldowns' }
+                        { name: '🕐 Active Cooldowns', value: cooldowns.join('\n') || 'No active cooldowns' },
+                        { name: '⚠️ Note', value: 'You can check this again in **5 minutes** due to /earnmoney cooldown.' }
                     ],
                     stageText: 'WAIT FOR COOLDOWNS',
                     color: 0xFFAA00,
@@ -102,6 +131,8 @@ module.exports = {
             
             // Update all timestamps
             const updateFields = {};
+            // Always update earnmoney timestamp to enforce cooldown
+            updateFields.last_earnmoney_ts = now;
             if (results.earn.earned > 0) updateFields.last_earn_ts = now;
             if (results.work.earned > 0) updateFields.last_work_ts = now;
             if (results.beg.earned > 0) updateFields.last_beg_ts = now;
