@@ -15,6 +15,7 @@ class LogSummaryManager {
             users: new Set(),
             totalWagered: 0,
             totalPayouts: 0,
+            netWinnings: 0,
             largestWin: { amount: 0, user: null, game: null },
             errors: 0,
             activities: []
@@ -54,6 +55,7 @@ class LogSummaryManager {
                 plays: 0,
                 totalWagered: 0,
                 totalPayouts: 0,
+                netWinnings: 0,
                 biggestWin: 0,
                 users: new Set()
             });
@@ -63,6 +65,9 @@ class LogSummaryManager {
         gameData.plays++;
         gameData.totalWagered += betAmount;
         gameData.totalPayouts += payout;
+        // Calculate net winnings (profit only, not including returned bet)
+        const netWinnings = won ? (payout - betAmount) : 0;
+        gameData.netWinnings += netWinnings;
         gameData.users.add(userId);
 
         if (won && payout > gameData.biggestWin) {
@@ -73,6 +78,7 @@ class LogSummaryManager {
         this.summaryData.users.add(userId);
         this.summaryData.totalWagered += betAmount;
         this.summaryData.totalPayouts += payout;
+        this.summaryData.netWinnings = (this.summaryData.netWinnings || 0) + netWinnings;
 
         // Track largest win
         if (won && payout > this.summaryData.largestWin.amount) {
@@ -167,13 +173,13 @@ class LogSummaryManager {
                 });
             }
 
-            // House edge
+            // House edge using correct casino mathematics
             const houseEdge = summary.totalWagered > 0 ? 
-                (((summary.totalWagered - summary.totalPayouts) / summary.totalWagered) * 100).toFixed(2) : '0.00';
+                (((summary.totalWagered - (summary.netWinnings || 0)) / summary.totalWagered) * 100).toFixed(2) : '0.00';
             
             embed.addFields({
                 name: '🏛️ House Performance',
-                value: `📊 **House Edge:** ${houseEdge}%\n💸 **House Profit:** $${(summary.totalWagered - summary.totalPayouts).toLocaleString()}`,
+                value: `📊 **House Edge:** ${houseEdge}%\n💸 **House Profit:** $${(summary.totalWagered - (summary.netWinnings || 0)).toLocaleString()}`,
                 inline: false
             });
 
@@ -271,6 +277,7 @@ class LogSummaryManager {
                     COUNT(*) as total_games,
                     SUM(bet_amount) as total_wagered,
                     SUM(payout) as total_payouts,
+                    SUM(CASE WHEN won = 1 THEN payout - bet_amount ELSE 0 END) as net_winnings,
                     COUNT(DISTINCT user_id) as unique_players,
                     AVG(bet_amount) as avg_bet,
                     MAX(payout) as biggest_win,
@@ -297,7 +304,8 @@ class LogSummaryManager {
 
             const [activePlayer] = await dbManager.databaseAdapter.executeQuery(activePlayerQuery, [twentyFourHoursAgo]);
 
-            const houseProfit = (gameStats?.total_wagered || 0) - (gameStats?.total_payouts || 0);
+            // Use proper casino mathematics for daily stats
+            const houseProfit = (gameStats?.total_wagered || 0) - (gameStats?.net_winnings || 0);
             const houseEdge = gameStats?.total_wagered > 0 ? 
                 ((houseProfit / gameStats.total_wagered) * 100).toFixed(2) : '0.00';
 
@@ -340,6 +348,7 @@ class LogSummaryManager {
             users: new Set(),
             totalWagered: 0,
             totalPayouts: 0,
+            netWinnings: 0,
             largestWin: { amount: 0, user: null, game: null },
             errors: 0,
             activities: []

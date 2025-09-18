@@ -178,22 +178,26 @@ class DatabaseAdapter {
                 ticket_count INT NOT NULL DEFAULT 1,
                 purchase_cost DECIMAL(20,2) NOT NULL,
                 week_start DATE NOT NULL,
+                tier TINYINT DEFAULT 1,
                 purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 awarded_manually BOOLEAN DEFAULT FALSE,
                 award_reason TEXT DEFAULT NULL,
                 awarded_by VARCHAR(20) DEFAULT NULL,
-                UNIQUE KEY unique_user_week (user_id, guild_id, week_start),
-                INDEX idx_week_start (week_start)
+                UNIQUE KEY unique_user_week_tier (user_id, guild_id, week_start, tier),
+                INDEX idx_week_start (week_start),
+                INDEX idx_tier (tier)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
             `CREATE TABLE IF NOT EXISTS lottery_info (
-                guild_id VARCHAR(20) PRIMARY KEY,
+                guild_id VARCHAR(20) NOT NULL,
+                tier TINYINT DEFAULT 1,
                 total_tickets INT NOT NULL DEFAULT 0,
                 total_prize DECIMAL(20,2) NOT NULL DEFAULT 400000.00,
                 next_drawing TIMESTAMP NULL,
                 current_week_start DATE NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (guild_id, tier)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
             `CREATE TABLE IF NOT EXISTS lottery_winners (
@@ -430,7 +434,19 @@ class DatabaseAdapter {
                 `ALTER TABLE lottery_tickets ADD COLUMN awarded_by VARCHAR(20) DEFAULT NULL`,
                 // Add daily send limit tracking columns to user_balances table
                 `ALTER TABLE user_balances ADD COLUMN daily_sent DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
-                `ALTER TABLE user_balances ADD COLUMN last_send_reset BIGINT NOT NULL DEFAULT 0`
+                `ALTER TABLE user_balances ADD COLUMN last_send_reset BIGINT NOT NULL DEFAULT 0`,
+                // Add tier column to lottery tables for multi-tier lottery support
+                `ALTER TABLE lottery_tickets ADD COLUMN tier TINYINT DEFAULT 1`,
+                `ALTER TABLE lottery_info ADD COLUMN tier TINYINT DEFAULT 1`,
+                // Update lottery_info primary key to include tier
+                `ALTER TABLE lottery_info DROP PRIMARY KEY, ADD PRIMARY KEY (guild_id, tier)`,
+                // Update lottery_tickets unique key to include tier  
+                `ALTER TABLE lottery_tickets DROP INDEX unique_user_week, ADD UNIQUE KEY unique_user_week_tier (user_id, guild_id, week_start, tier)`,
+                // Add indexes for tier columns
+                `ALTER TABLE lottery_tickets ADD INDEX idx_tier (tier)`,
+                `ALTER TABLE lottery_info ADD INDEX idx_tier (tier)`,
+                // Fix lottery_info_tier2 current_week_start column type to match main table
+                `ALTER TABLE lottery_info_tier2 MODIFY COLUMN current_week_start DATE`
             ];
             
             for (const query of alterQueries) {
@@ -1218,7 +1234,7 @@ class DatabaseAdapter {
                         guild_id VARCHAR(255) PRIMARY KEY,
                         total_tickets INT DEFAULT 0,
                         total_prize DECIMAL(15,2) DEFAULT 3000000.00,
-                        current_week_start BIGINT,
+                        current_week_start DATE,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                     )

@@ -400,32 +400,37 @@ class BulletproofEconomyController {
             // 3. Determine payout adjustment based on multiple factors
             let adjustmentMultiplier = 1.0;
             
-            // Factor 1: Player risk level (higher risk = lower payouts when winning)
-            if (won && playerProfile.riskLevel > 0.7) {
-                adjustmentMultiplier *= (1 - (playerProfile.riskLevel - 0.7) * 0.5);
+            // Factor 1: Player risk level (REDUCED to prevent over-penalization)
+            if (won && playerProfile.riskLevel > 0.8) { // Increased threshold from 0.7 to 0.8
+                adjustmentMultiplier *= (1 - (playerProfile.riskLevel - 0.8) * 0.3); // Reduced penalty from 0.5 to 0.3
             }
             
-            // Factor 2: Win rate optimization (frequent winners get reduced payouts)
-            if (won && playerProfile.historicalWinRate > 0.6) {
-                const winRatePenalty = Math.pow((playerProfile.historicalWinRate - 0.5) * 2, 1.5);
-                adjustmentMultiplier *= (1 - winRatePenalty * 0.3);
+            // Factor 2: Win rate optimization (REDUCED to prevent over-penalization)
+            if (won && playerProfile.historicalWinRate > 0.75) { // Increased threshold from 0.6 to 0.75
+                const winRatePenalty = Math.pow((playerProfile.historicalWinRate - 0.65) * 1.5, 1.2); // Reduced multiplier and exponent
+                adjustmentMultiplier *= (1 - winRatePenalty * 0.15); // Reduced penalty from 0.3 to 0.15
             }
             
             // Factor 3: Economic stability protection
             const profitMargin = won ? (originalPayout - betAmount) : betAmount;
             const totalProfitLoss = this.globalMetrics?.totalProfitLoss || 0;
-            if (totalProfitLoss < -500000 && won && profitMargin > 50000) {
-                // Reduce large payouts when casino is losing money
-                adjustmentMultiplier *= 0.8;
+            if (totalProfitLoss < -1000000 && won && profitMargin > 100000) { // Higher thresholds
+                // Reduce large payouts when casino is losing money (REDUCED impact)
+                adjustmentMultiplier *= 0.9; // Reduced from 0.8 to 0.9 (only 10% reduction vs 20%)
             }
             
-            // Factor 4: House edge enforcement
+            // Factor 4: House edge enforcement (REDUCED to prevent over-taxation)
             if (won) {
                 const impliedEdge = 1 - (originalPayout / betAmount);
-                if (impliedEdge < houseEdge) {
-                    // Payout is too generous, reduce it
-                    const edgeAdjustment = houseEdge / Math.max(impliedEdge, 0.01);
-                    adjustmentMultiplier *= Math.max(0.5, 1 / edgeAdjustment);
+                // Only enforce if implied edge is significantly below target AND below 8%
+                if (impliedEdge < houseEdge && impliedEdge < 0.08) {
+                    const edgeDeficit = houseEdge - impliedEdge;
+                    // Only apply if deficit is substantial (>3%)
+                    if (edgeDeficit > 0.03) {
+                        // Much gentler adjustment to prevent massive payout reductions
+                        const gentleAdjustment = 1 - (edgeDeficit * 0.5); // Only apply 50% of the deficit
+                        adjustmentMultiplier *= Math.max(0.85, gentleAdjustment); // Never reduce below 85%
+                    }
                 }
             }
             

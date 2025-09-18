@@ -63,6 +63,7 @@ module.exports = {
                     COUNT(*) as total_games,
                     SUM(bet_amount) as total_wagered,
                     SUM(payout) as total_payouts,
+                    SUM(CASE WHEN won = 1 THEN payout - bet_amount ELSE 0 END) as net_winnings,
                     COUNT(DISTINCT user_id) as unique_players,
                     AVG(bet_amount) as avg_bet,
                     MAX(payout) as biggest_win,
@@ -78,6 +79,7 @@ module.exports = {
                     COUNT(*) as total_games,
                     SUM(bet_amount) as total_wagered,
                     SUM(payout) as total_payouts,
+                    SUM(CASE WHEN won = 1 THEN payout - bet_amount ELSE 0 END) as net_winnings,
                     COUNT(DISTINCT user_id) as unique_players,
                     AVG(bet_amount) as avg_bet,
                     MAX(payout) as biggest_win
@@ -95,8 +97,9 @@ module.exports = {
                 });
             }
 
-            // Calculate house edge
-            const houseProfit = (overallStats.total_wagered || 0) - (overallStats.total_payouts || 0);
+            // Calculate house edge using proper casino mathematics
+            // House Edge = (Total Wagered - Net Player Winnings) / Total Wagered × 100%
+            const houseProfit = (overallStats.total_wagered || 0) - (overallStats.net_winnings || 0);
             const houseEdge = overallStats.total_wagered > 0 ? 
                 ((houseProfit / overallStats.total_wagered) * 100).toFixed(2) : '0.00';
 
@@ -129,7 +132,7 @@ module.exports = {
                     .slice(0, 5)
                     .map((game, index) => {
                         const gameHouseEdge = game.total_wagered > 0 ? 
-                            (((game.total_wagered - game.total_payouts) / game.total_wagered) * 100).toFixed(1) : '0.0';
+                            (((game.total_wagered - (game.net_winnings || 0)) / game.total_wagered) * 100).toFixed(1) : '0.0';
                         return `${index + 1}. **${game.game_type}** - ${game.total_games} games${isAdmin ? ` (${gameHouseEdge}% edge)` : ''}`;
                     })
                     .join('\n');

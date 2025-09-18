@@ -59,6 +59,16 @@ class RobStatsManager {
      * Create dedicated rob stats table
      */
     async createRobStatsTable() {
+        // Wait for database to be initialized if not ready yet
+        if (!dbManager.initialized && dbManager.initialize) {
+            try {
+                await dbManager.initialize();
+            } catch (error) {
+                logger.warn('Database initialization failed during rob stats table creation');
+                return;
+            }
+        }
+
         const dbAdapter = dbManager.databaseAdapter;
         if (!dbAdapter) {
             logger.warn('Database adapter not available for rob stats table creation');

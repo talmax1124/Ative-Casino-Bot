@@ -3,7 +3,10 @@
   "cashoutTiming": {},
   "positionStrategies": {},
   "totalChoices": 400,
-  "lastAnalysis": 1758089314446,
+  "lastAnalysis": 1758167863319,
   "currentAdjustment": 0,
-  "timestamp": 1758089314446
+  "timestamp": 1758167863319,
+  "reason": null,
+  "confidence": null,
+  "dominantStrategy": null
 }

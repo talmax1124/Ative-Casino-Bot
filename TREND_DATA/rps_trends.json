@@ -7,7 +7,10 @@
   "sequencePatterns": {},
   "antiPatterns": {},
   "totalChoices": 250,
-  "lastAnalysis": 1758089314435,
+  "lastAnalysis": 1758167863317,
   "currentAdjustment": 0.015,
-  "timestamp": 1758089314435
+  "timestamp": 1758167863318,
+  "reason": "loaded_from_persistence",
+  "confidence": 0.5,
+  "dominantStrategy": null
 }

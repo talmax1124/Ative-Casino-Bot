@@ -11,13 +11,16 @@
   ],
   "patterns": {},
   "hotStreak": {
-    "type": "red",
-    "count": 15,
-    "started": 1758091462493
+    "type": null,
+    "count": 0,
+    "started": 1758166063344
   },
   "playerDistribution": {},
   "totalChoices": 115,
-  "lastAnalysis": 1758091462493,
+  "lastAnalysis": 1758167863312,
   "currentAdjustment": 0.006871984877126655,
-  "timestamp": 1758091462494
+  "timestamp": 1758167863312,
+  "reason": "loaded_from_persistence",
+  "confidence": 0.5,
+  "dominantStrategy": null
 }

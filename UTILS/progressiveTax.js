@@ -11,12 +11,13 @@ class ProgressiveTaxSystem {
         // Tax brackets based on user's total wealth
         this.wealthBrackets = [
             { min: 0, max: 1_000_000, rate: 0.00 },             // Under $1M: 0%
-            { min: 1_000_000, max: 10_000_000, rate: 0.05 },    // $1M–$10M: 10%
-            { min: 10_000_000, max: 50_000_000, rate: 0.07 },   // $10M–$50M: 15%
-            { min: 50_000_000, max: 250_000_000, rate: 0.10 },  // $50M–$250M: 20%
-            { min: 250_000_000, max: 1_000_000_000, rate: 0.15 }, // $250M–$1B: 25%
-            { min: 1_000_000_000, max: 5_000_000_000, rate: 0.20 }, // $1B–$5B: 35%
-            { min: 5_000_000_000, max: Infinity, rate: 0.45 }     // Over $5B: 45%
+            { min: 1_000_000, max: 10_000_000, rate: 0.08 },    // $1M–$10M: 8% (increased from 5%)
+            { min: 10_000_000, max: 50_000_000, rate: 0.12 },   // $10M–$50M: 12% (increased from 7%)
+            { min: 50_000_000, max: 250_000_000, rate: 0.16 },  // $50M–$250M: 16% (increased from 10%)
+            { min: 250_000_000, max: 1_000_000_000, rate: 0.22 }, // $250M–$1B: 22% (increased from 15%)
+            { min: 1_000_000_000, max: 3_000_000_000, rate: 0.28 }, // $1B–$3B: 28% (reduced from 20%, new bracket)
+            { min: 3_000_000_000, max: 8_000_000_000, rate: 0.32 }, // $3B–$8B: 32% (new bracket, reduced from 45%)
+            { min: 8_000_000_000, max: Infinity, rate: 0.35 }     // Over $8B: 35% (reduced from 45%, higher threshold)
         ];
 
         // Additional tax on very large wins (anti-whale measures)

@@ -31,28 +31,29 @@ class GameTrendAnalyzer {
             playerProfileExpiry: 30,     // Days to retain player profiles
             
             // Nash equilibrium parameters
-            nashSensitivity: 0.001,      // How sensitive to trend changes
-            maxAdjustment: 0.05,         // Maximum 5% house edge increase
-            equilibriumThreshold: 0.7,   // When 70%+ players use same strategy
+            nashSensitivity: 0.01,       // How sensitive to trend changes (increased from 0.001)
+            maxAdjustment: 0.15,         // Maximum 15% house edge increase (increased from 0.05)
+            equilibriumThreshold: 0.55,  // When 55%+ players use same strategy (reduced from 0.7)
             
             // Adjustment decay
             adjustmentDecay: 0.98,       // Adjustments decay 2% per day
             minDecayInterval: 3600000,   // 1 hour minimum between decays
             
             // Pattern detection
-            minSampleSize: 100,          // Minimum choices before analysis
-            patternConfidence: 0.85,     // 85% confidence for pattern detection
+            minSampleSize: 20,           // Minimum choices before analysis (reduced from 100)
+            patternConfidence: 0.65,     // 65% confidence for pattern detection (reduced from 0.85)
             
             // Game-specific sensitivities
             gameSensitivities: {
-                'roulette': 1.2,         // Higher sensitivity for choice-heavy games
-                'blackjack': 0.8,        // Lower for skill-based games
-                'slots': 0.5,            // Lower for random games
-                'crash': 1.5,            // Higher for timing games
-                'plinko': 0.7,
-                'rps': 1.0,
-                'duck': 0.9,
-                'treasurevault': 1.1
+                'roulette': 2.0,         // Higher sensitivity for choice-heavy games (increased)
+                'blackjack': 1.5,        // Higher for skill-based games (increased)
+                'slots': 1.2,            // Higher for random games (increased)
+                'crash': 2.5,            // Higher for timing games (increased)
+                'plinko': 1.5,           // Increased sensitivity
+                'rps': 1.8,              // Increased sensitivity
+                'duck': 1.6,             // Increased sensitivity
+                'treasurevault': 1.8,    // Increased sensitivity
+                'ceelo': 2.0             // Added ceelo with high sensitivity
             }
         };
         
@@ -503,18 +504,39 @@ class GameTrendAnalyzer {
      * Perform game-specific trend analysis
      */
     async performGameAnalysis(gameType, gameData) {
+        let primaryAnalysis;
+        
         switch (gameType) {
             case 'roulette':
-                return this.analyzeRouletteTrends(gameData);
+                primaryAnalysis = this.analyzeRouletteTrends(gameData);
+                break;
             case 'blackjack':
-                return this.analyzeBlackjackTrends(gameData);
+                primaryAnalysis = this.analyzeBlackjackTrends(gameData);
+                break;
             case 'crash':
-                return this.analyzeCrashTrends(gameData);
+                primaryAnalysis = this.analyzeCrashTrends(gameData);
+                break;
             case 'rps':
-                return this.analyzeRPSTrends(gameData);
+                primaryAnalysis = this.analyzeRPSTrends(gameData);
+                break;
             default:
-                return this.analyzeGenericTrends(gameData);
+                primaryAnalysis = this.analyzeGenericTrends(gameData);
         }
+        
+        // Always check for big win patterns regardless of game type
+        const bigWinAnalysis = this.analyzeBigWinPatterns(gameData);
+        
+        // Combine analyses - use the higher exploitation value
+        if (bigWinAnalysis.exploitation > primaryAnalysis.exploitation) {
+            logger.warn(`🎯 Big win analysis shows higher exploitation (${(bigWinAnalysis.exploitation * 100).toFixed(1)}%) than primary analysis (${(primaryAnalysis.exploitation * 100).toFixed(1)}%)`);
+            return {
+                ...bigWinAnalysis,
+                primaryPattern: primaryAnalysis.pattern,
+                combinedAnalysis: true
+            };
+        }
+        
+        return primaryAnalysis;
     }
     
     /**
@@ -937,6 +959,289 @@ class GameTrendAnalyzer {
         await Promise.all(promises);
     }
     
+    /**
+     * Record a big win event and trigger immediate analysis
+     */
+    async recordBigWin(gameType, userId, winAmount, betAmount = 0, metadata = {}) {
+        try {
+            logger.warn(`🚨 BIG WIN DETECTED: ${gameType} - User ${userId} won ${winAmount} (bet: ${betAmount})`);
+            
+            // Calculate win multiplier
+            const multiplier = betAmount > 0 ? winAmount / betAmount : winAmount / 1000;
+            
+            // Enhanced wealth tracking - get user's total wealth
+            const dbManager = require('./database');
+            const balance = await dbManager.getUserBalance(userId);
+            const totalWealth = balance.wallet + balance.bank;
+            const wealthImpact = winAmount / Math.max(totalWealth, 1000); // Prevent division by zero
+            
+            // Determine if this is an extraordinary win (multiple criteria)
+            const isExtraordinaryWin = 
+                winAmount >= 10000000 ||        // 10M+ absolute win
+                multiplier >= 100 ||             // 100x+ multiplier  
+                wealthImpact >= 0.5 ||           // Win is 50%+ of current wealth
+                (winAmount >= 5000000 && totalWealth < 50000000) || // 5M+ win for users under 50M wealth
+                (winAmount >= 1000000 && totalWealth < 10000000);   // 1M+ win for users under 10M wealth
+            
+            // Record the win event with enhanced wealth tracking
+            const bigWinRecord = {
+                userId,
+                gameType,
+                winAmount,
+                betAmount,
+                multiplier,
+                timestamp: Date.now(),
+                isExtraordinary: isExtraordinaryWin,
+                totalWealthBefore: totalWealth - winAmount, // Approximate wealth before win
+                totalWealthAfter: totalWealth,
+                wealthImpact: wealthImpact,
+                wealthPercentageIncrease: wealthImpact * 100,
+                metadata
+            };
+            
+            // Add to game-specific tracking
+            if (!this.trendData.has(gameType)) {
+                logger.warn(`Unknown game type for big win: ${gameType}`);
+                return;
+            }
+            
+            const gameData = this.trendData.get(gameType);
+            if (!gameData.bigWins) gameData.bigWins = [];
+            
+            gameData.bigWins.push(bigWinRecord);
+            
+            // Keep only recent big wins (last 100)
+            if (gameData.bigWins.length > 100) {
+                gameData.bigWins.splice(0, gameData.bigWins.length - 100);
+            }
+            
+            // Trigger immediate analysis for extraordinary wins
+            if (isExtraordinaryWin) {
+                logger.warn(`🎯 EXTRAORDINARY WIN - Triggering immediate trend analysis for ${gameType}`);
+                const { fmt } = require('./common');
+                logger.warn(`   Wealth Impact: ${(wealthImpact * 100).toFixed(1)}% | Before: ${fmt(totalWealth - winAmount)} | After: ${fmt(totalWealth)}`);
+                
+                await this.analyzeGameTrends(gameType);
+                
+                // Apply emergency adjustment for massive wins
+                await this.applyEmergencyAdjustment(gameType, winAmount, multiplier);
+                
+                // Check for rapid wealth accumulation and apply emergency brakes
+                await this.checkRapidWealthAccumulation(userId, bigWinRecord);
+            }
+            
+        } catch (error) {
+            logger.error(`Error recording big win: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Apply emergency adjustment for massive wins
+     */
+    async applyEmergencyAdjustment(gameType, winAmount, multiplier) {
+        try {
+            // Calculate emergency adjustment based on win size
+            let emergencyAdjustment = 0;
+            
+            if (winAmount >= 50000000) { // 50M+
+                emergencyAdjustment = 0.1; // 10% house edge increase
+            } else if (winAmount >= 20000000) { // 20M+
+                emergencyAdjustment = 0.07; // 7% house edge increase
+            } else if (winAmount >= 10000000) { // 10M+
+                emergencyAdjustment = 0.05; // 5% house edge increase
+            } else if (multiplier >= 1000) { // 1000x+ multiplier
+                emergencyAdjustment = 0.08; // 8% house edge increase
+            } else if (multiplier >= 500) { // 500x+ multiplier
+                emergencyAdjustment = 0.06; // 6% house edge increase
+            } else if (multiplier >= 100) { // 100x+ multiplier
+                emergencyAdjustment = 0.04; // 4% house edge increase
+            }
+            
+            if (emergencyAdjustment > 0) {
+                const trendAnalysis = {
+                    exploitation: 1.0, // Maximum exploitation
+                    confidence: 1.0,   // Maximum confidence
+                    dominantStrategy: 'big_win_detected',
+                    pattern: `emergency_big_win_${winAmount}`
+                };
+                
+                await this.applyTrendAdjustment(gameType, emergencyAdjustment, trendAnalysis);
+                
+                logger.warn(`🚨 EMERGENCY ADJUSTMENT: ${gameType} +${(emergencyAdjustment * 100).toFixed(1)}% house edge`);
+                logger.warn(`   Reason: Massive win of ${winAmount} (${multiplier.toFixed(1)}x multiplier)`);
+            }
+            
+        } catch (error) {
+            logger.error(`Error applying emergency adjustment: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Check for concerning win patterns in recent big wins
+     */
+    analyzeBigWinPatterns(gameData) {
+        if (!gameData.bigWins || gameData.bigWins.length < 5) {
+            return { exploitation: 0, dominantStrategy: null, confidence: 0 };
+        }
+        
+        const recentWins = gameData.bigWins.slice(-20); // Last 20 big wins
+        const now = Date.now();
+        const recentTimeframe = 24 * 60 * 60 * 1000; // 24 hours
+        
+        // Check for frequency of big wins
+        const recentBigWins = recentWins.filter(win => now - win.timestamp < recentTimeframe);
+        const extraordinaryWins = recentBigWins.filter(win => win.isExtraordinary);
+        
+        // Calculate average win multiplier
+        const avgMultiplier = recentBigWins.reduce((sum, win) => sum + win.multiplier, 0) / recentBigWins.length;
+        
+        // Calculate exploitation based on frequency and size of wins
+        let exploitation = 0;
+        let confidence = 0;
+        
+        if (extraordinaryWins.length >= 2) {
+            // Multiple extraordinary wins in 24h is concerning
+            exploitation = 0.8;
+            confidence = 0.9;
+        } else if (recentBigWins.length >= 5 && avgMultiplier > 50) {
+            // Frequent big wins with high multipliers
+            exploitation = 0.6;
+            confidence = 0.7;
+        } else if (avgMultiplier > 100) {
+            // Very high average multipliers
+            exploitation = 0.5;
+            confidence = 0.6;
+        }
+        
+        return {
+            exploitation,
+            dominantStrategy: extraordinaryWins.length > 0 ? 'extraordinary_wins' : 'frequent_big_wins',
+            confidence,
+            pattern: 'big_win_analysis',
+            recentBigWins: recentBigWins.length,
+            extraordinaryWins: extraordinaryWins.length,
+            avgMultiplier
+        };
+    }
+
+    /**
+     * Check for rapid wealth accumulation and apply emergency brakes
+     */
+    async checkRapidWealthAccumulation(userId, bigWinRecord) {
+        try {
+            const { fmt } = require('./common');
+            const wealthBasedBetLimits = require('./wealthBasedBetLimits');
+            
+            // Check if this user is accumulating wealth too rapidly
+            const now = Date.now();
+            const oneHour = 60 * 60 * 1000;
+            const sixHours = 6 * oneHour;
+            const oneDay = 24 * oneHour;
+            
+            // Get all recent big wins for this user across all games
+            const userBigWins = [];
+            for (const [gameType, gameData] of this.trendData) {
+                if (gameData.bigWins) {
+                    const userWinsForGame = gameData.bigWins.filter(win => 
+                        win.userId === userId && (now - win.timestamp) < oneDay
+                    );
+                    userBigWins.push(...userWinsForGame);
+                }
+            }
+            
+            // Calculate wealth accumulation rates
+            const hourlyWins = userBigWins.filter(win => now - win.timestamp < oneHour);
+            const sixHourWins = userBigWins.filter(win => now - win.timestamp < sixHours);
+            const dailyWins = userBigWins.filter(win => now - win.timestamp < oneDay);
+            
+            const hourlyWinnings = hourlyWins.reduce((sum, win) => sum + win.winAmount, 0);
+            const sixHourWinnings = sixHourWins.reduce((sum, win) => sum + win.winAmount, 0);
+            const dailyWinnings = dailyWins.reduce((sum, win) => sum + win.winAmount, 0);
+            
+            // Get starting wealth estimates
+            const currentWealth = bigWinRecord.totalWealthAfter;
+            const hourlyStartWealth = Math.max(currentWealth - hourlyWinnings, 1000);
+            const sixHourStartWealth = Math.max(currentWealth - sixHourWinnings, 1000);
+            const dailyStartWealth = Math.max(currentWealth - dailyWinnings, 1000);
+            
+            // Calculate growth rates
+            const hourlyGrowthRate = (currentWealth / hourlyStartWealth) - 1;
+            const sixHourGrowthRate = (currentWealth / sixHourStartWealth) - 1;
+            const dailyGrowthRate = (currentWealth / dailyStartWealth) - 1;
+            
+            // Define emergency thresholds
+            const emergencyThresholds = {
+                hourly: 1.0,    // 100% growth in 1 hour
+                sixHour: 3.0,   // 300% growth in 6 hours  
+                daily: 10.0     // 1000% growth in 1 day
+            };
+            
+            // Check for emergency conditions
+            let emergencyTriggered = false;
+            let emergencyReason = '';
+            
+            if (hourlyGrowthRate > emergencyThresholds.hourly) {
+                emergencyTriggered = true;
+                emergencyReason = `Hourly wealth growth: ${(hourlyGrowthRate * 100).toFixed(0)}%`;
+            } else if (sixHourGrowthRate > emergencyThresholds.sixHour) {
+                emergencyTriggered = true;
+                emergencyReason = `6-hour wealth growth: ${(sixHourGrowthRate * 100).toFixed(0)}%`;
+            } else if (dailyGrowthRate > emergencyThresholds.daily) {
+                emergencyTriggered = true;
+                emergencyReason = `Daily wealth growth: ${(dailyGrowthRate * 100).toFixed(0)}%`;
+            }
+            
+            // Additional checks
+            if (hourlyWins.length >= 3 && hourlyWinnings >= 50000000) {
+                emergencyTriggered = true;
+                emergencyReason += ` | 3+ big wins in 1 hour (${fmt(hourlyWinnings)})`;
+            }
+            
+            if (dailyWins.length >= 5 && currentWealth >= 1000000000) {
+                emergencyTriggered = true;
+                emergencyReason += ` | 5+ big wins reaching 1B+ wealth`;
+            }
+            
+            // Apply emergency brakes if triggered
+            if (emergencyTriggered) {
+                logger.error(`🚨 EMERGENCY BRAKES ACTIVATED for user ${userId}`);
+                logger.error(`   Reason: ${emergencyReason}`);
+                logger.error(`   Current Wealth: ${fmt(currentWealth)}`);
+                logger.error(`   Recent Wins: 1h=${hourlyWins.length}, 6h=${sixHourWins.length}, 24h=${dailyWins.length}`);
+                
+                // TODO: Implement emergency actions:
+                // 1. Temporarily reduce max bet limits for this user
+                // 2. Flag account for manual review
+                // 3. Apply additional house edge penalties
+                // 4. Notify administrators
+                
+                // For now, log the emergency condition
+                const emergencyData = {
+                    userId,
+                    triggerTime: now,
+                    reason: emergencyReason,
+                    currentWealth,
+                    recentWins: {
+                        hourly: { count: hourlyWins.length, amount: hourlyWinnings },
+                        sixHour: { count: sixHourWins.length, amount: sixHourWinnings },
+                        daily: { count: dailyWins.length, amount: dailyWinnings }
+                    },
+                    growthRates: {
+                        hourly: hourlyGrowthRate,
+                        sixHour: sixHourGrowthRate,
+                        daily: dailyGrowthRate
+                    }
+                };
+                
+                // Store emergency flag (implementation depends on your data storage)
+                // await this.storeEmergencyFlag(userId, emergencyData);
+            }
+            
+        } catch (error) {
+            logger.error(`Error checking rapid wealth accumulation: ${error.message}`);
+        }
+    }
+
     /**
      * Get trend analysis summary for monitoring
      */

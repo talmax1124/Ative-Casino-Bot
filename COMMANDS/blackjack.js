@@ -380,6 +380,9 @@ module.exports = {
             // Log all-in bets for monitoring
             const isAllIn = await allInManager.isAllInBet(userId, amount);
             if (isAllIn) {
+                // Get user's total wealth for logging
+                const userBalance = await dbManager.getUserBalance(userId, guildId);
+                const totalWealth = userBalance.wallet + userBalance.bank;
                 logger.info(`🎯 BLACKJACK ALL-IN: ${userId} -> ${fmt(amount)} (${((amount / totalWealth) * 100).toFixed(1)}% of wealth)`);
             }
 

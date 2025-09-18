@@ -19,37 +19,37 @@ const CEELO_CONFIG = {
     PAYOUT_MULTIPLIER: 0.8 // 0.8:1 reduced payout (increased house edge)
 };
 
-// PROGRESSIVE DIFFICULTY MODES
+// PROGRESSIVE DIFFICULTY MODES - ALL HOUSE FAVORABLE NOW
 const CEELO_MODES = {
     safe: {
         name: '🛡️ Safe',
-        description: 'Conservative mode with standard payouts',
+        description: 'Conservative mode with reduced payouts',
         minBet: 500,
-        evenMoneyMultiplier: 0.95,
+        evenMoneyMultiplier: 0.90, // 90% payout (10% house edge)
         emoji: '🛡️',
         color: '#4CAF50'
     },
     balanced: {
         name: '⚖️ Balanced',
-        description: 'Standard mode with traditional payouts',
+        description: 'Standard mode with moderate house edge',
         minBet: 1000,
-        evenMoneyMultiplier: 0.98,
+        evenMoneyMultiplier: 0.85, // 85% payout (15% house edge)
         emoji: '⚖️',
         color: '#FF9800'
     },
     risky: {
         name: '⚡ Risky',
-        description: 'High risk with enhanced payouts',
+        description: 'High risk with lower payouts',
         minBet: 2500,
-        evenMoneyMultiplier: 1.02,
+        evenMoneyMultiplier: 0.80, // 80% payout (20% house edge)
         emoji: '⚡',
         color: '#FF8800'
     },
     extreme: {
         name: '🔥 Extreme',
-        description: 'Maximum risk with premium payouts',
+        description: 'Maximum risk with minimal payouts',
         minBet: 5000,
-        evenMoneyMultiplier: 1.05,
+        evenMoneyMultiplier: 0.75, // 75% payout (25% house edge)
         emoji: '🔥',
         color: '#FF0000'
     }

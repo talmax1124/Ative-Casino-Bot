@@ -51,6 +51,7 @@ module.exports = {
         }
 
         // Economy badge system removed - using bulletproof economy
+        const senderOffEco = false; // All users are in regular economy now
 
         // MUST defer immediately to prevent "Unknown interaction" error
         await interaction.deferReply();

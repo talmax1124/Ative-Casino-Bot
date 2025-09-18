@@ -300,6 +300,15 @@ async function sendStartupNotification() {
         } catch (error) {
             logger.error(`Failed to initialize Max Bet Removal Monitor: ${error.message}`);
         }
+
+        // Initialize Marriage Anniversary Manager
+        try {
+            const marriageAnniversaryManager = require('./UTILS/marriageAnniversaryManager');
+            await marriageAnniversaryManager.initialize(client);
+            logger.info('💒 Marriage Anniversary Manager initialized successfully');
+        } catch (error) {
+            logger.error(`Failed to initialize Marriage Anniversary Manager: ${error.message}`);
+        }
     } catch (error) {
         logger.error(`Failed to send startup notification: ${error.message}`);
     }
@@ -421,7 +430,9 @@ async function createStartupEconomicSummary(client) {
             SELECT 
                 COUNT(*) as total_games,
                 SUM(bet_amount) as total_wagered,
-                SUM(payout) as total_paid_out
+                SUM(payout) as total_paid_out,
+                SUM(CASE WHEN won = 1 THEN payout - bet_amount ELSE 0 END) as total_winnings_only,
+                SUM(CASE WHEN won = 0 THEN bet_amount ELSE 0 END) as total_losses
             FROM game_results
         `;
 
@@ -434,9 +445,11 @@ async function createStartupEconomicSummary(client) {
         const [userStats] = await dbManager.databaseAdapter.executeQuery(userStatsQuery);
         const [gameStats] = await dbManager.databaseAdapter.executeQuery(gameStatsQuery);
 
-        // Create simple economic summary
+        // Create simple economic summary using correct casino mathematics
+        // House Edge = (Total Wagered - Net Player Winnings) / Total Wagered × 100%
+        // Net Player Winnings = total_winnings_only (profit only, not including returned bets)
         const houseEdge = gameStats?.total_wagered > 0 ? 
-            (((gameStats.total_wagered - gameStats.total_paid_out) / gameStats.total_wagered) * 100).toFixed(2) : '0.00';
+            (((gameStats.total_wagered - (gameStats.total_winnings_only || 0)) / gameStats.total_wagered) * 100).toFixed(2) : '0.00';
 
         logger.info('📊 CASINO ECONOMIC SUMMARY:');
         logger.info(`   Users: ${userStats?.total_users?.toLocaleString() || 'N/A'}`);
@@ -2846,6 +2859,51 @@ client.once('clientReady', async () => {
     }
 
     gracefulShutdown.initialize(client);
+
+    // Initialize automatic inactivity tax checking every 12 hours
+    const inactivityTax = require('./UTILS/inactivityTax');
+    
+    // Run tax check immediately on startup (delayed by 5 minutes to ensure everything is ready)
+    setTimeout(async () => {
+        try {
+            logger.info('🏛️ Running initial inactivity tax check...');
+            const result = await inactivityTax.processInactivityTaxes(client.guilds.cache.first()?.id, client);
+            if (result.success && result.usersTaxed > 0) {
+                logger.info(`Initial tax collection: ${result.usersTaxed} users taxed for ${result.totalTaxCollected}`);
+            }
+        } catch (error) {
+            logger.error(`Initial tax check failed: ${error.message}`);
+        }
+    }, 5 * 60 * 1000); // 5 minutes after startup
+
+    // Set up automatic tax checking every 12 hours
+    setInterval(async () => {
+        try {
+            logger.info('🏛️ Running scheduled inactivity tax check...');
+            const guildId = client.guilds.cache.first()?.id;
+            if (guildId) {
+                const result = await inactivityTax.processInactivityTaxes(guildId, client);
+                if (result.success) {
+                    if (result.usersTaxed > 0) {
+                        logger.info(`Scheduled tax collection: ${result.usersTaxed} users taxed for ${result.totalTaxCollected}`);
+                    } else {
+                        logger.info('Scheduled tax check completed - no users eligible for taxation');
+                    }
+                } else {
+                    logger.error(`Scheduled tax check failed: ${result.error}`);
+                }
+            }
+        } catch (error) {
+            logger.error(`Scheduled tax check error: ${error.message}`);
+        }
+    }, 12 * 60 * 60 * 1000); // 12 hours in milliseconds
+
+    logger.info('✅ Automatic inactivity tax system initialized - checks every 12 hours');
+
+    // Initialize the global trend analyzer and behavioral analyzer for game integrations
+    const trendAnalyzerIntegration = require('./UTILS/trendAnalyzerIntegration');
+    trendAnalyzerIntegration.initializeTrendAnalyzer();
+    trendAnalyzerIntegration.initializeBehavioralAnalyzer();
 });
 
 // Graceful shutdown

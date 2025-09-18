@@ -57,69 +57,79 @@ module.exports = {
 
             const householdWealth = (userBalance.wallet + userBalance.bank) + (partnerBalance.wallet + partnerBalance.bank);
 
-            // Create marriage profile embed with beautiful formatting
+            // Create marriage profile embed with mobile-friendly formatting using separators
             const profileEmbed = new EmbedBuilder()
-                .setTitle('💒 Marriage Profile 💒')
-                .setDescription(`🌸 <@${marriage.partner1_id}> & <@${marriage.partner2_id}> 🌸\n\n*"Two hearts united as one in eternal love"*\n\n🌹════════════════════════════🌹`)
+                .setTitle('💒 Marriage Profile')
+                .setDescription(`💖 <@${marriage.partner1_id}> & <@${marriage.partner2_id}>\n\n*"Two hearts united as one"*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━`)
                 .addFields(
                     {
-                        name: '👰 💍 👰‍♂️ Married Couple',
-                        value: `🌺 <@${marriage.partner1_id}> (${marriage.partner1_role.charAt(0).toUpperCase() + marriage.partner1_role.slice(1)})\n🌺 <@${marriage.partner2_id}> (${marriage.partner2_role.charAt(0).toUpperCase() + marriage.partner2_role.slice(1)})`,
-                        inline: true
+                        name: '👰 Married Couple',
+                        value: `• <@${marriage.partner1_id}> (${marriage.partner1_role.charAt(0).toUpperCase() + marriage.partner1_role.slice(1)})\n• <@${marriage.partner2_id}> (${marriage.partner2_role.charAt(0).toUpperCase() + marriage.partner2_role.slice(1)})`,
+                        inline: false
                     },
                     {
-                        name: '📅 💐 Wedding Day',
-                        value: `🌸 <t:${Math.floor(marriedDate.getTime() / 1000)}:F>\n🌺 *A day to remember forever*`,
-                        inline: true
+                        name: '\u200b',
+                        value: '━━━━━━━━━━━━━━━━━━━━━━━━━━',
+                        inline: false
                     },
                     {
-                        name: '⏰ 🌹 Time Together',
-                        value: `💕 **${durationDays}** days, **${durationHours}** hours\n🌸 *Love grows stronger each day*`,
-                        inline: true
+                        name: '📅 Wedding Day',
+                        value: `<t:${Math.floor(marriedDate.getTime() / 1000)}:F>`,
+                        inline: false
                     },
                     {
-                        name: '💰 🌺 Shared Treasure',
-                        value: `💎 ${fmt(marriage.shared_bank)}\n🌹 *Building dreams together*`,
-                        inline: true
+                        name: '⏰ Time Together',
+                        value: `**${durationDays}** days, **${durationHours}** hours`,
+                        inline: false
                     },
                     {
-                        name: '🏠 💐 Household Wealth',
-                        value: `🌟 ${fmt(householdWealth)}\n🌸 *Prosperity through unity*`,
-                        inline: true
+                        name: '\u200b',
+                        value: '━━━━━━━━━━━━━━━━━━━━━━━━━━',
+                        inline: false
                     },
                     {
-                        name: '💎 🌹 Marriage Blessings',
-                        value: '🌺 2% transfer tax (instead of 5%)\n🌸 Shared bank account\n🌹 Joint financial standing\n💐 Married Couples role\n💕 *Love conquers all*',
-                        inline: true
+                        name: '💰 Financial Information',
+                        value: `**Shared Bank:** ${fmt(marriage.shared_bank)}\n**Household Wealth:** ${fmt(householdWealth)}`,
+                        inline: false
+                    },
+                    {
+                        name: '\u200b',
+                        value: '━━━━━━━━━━━━━━━━━━━━━━━━━━',
+                        inline: false
+                    },
+                    {
+                        name: '💎 Marriage Benefits',
+                        value: '• 2% transfer tax (instead of 5%)\n• Shared bank account\n• Joint financial standing\n• Married Couples role',
+                        inline: false
                     }
                 )
                 .setColor(0xFF69B4)
                 .setTimestamp()
-                .setFooter({ text: '💒 ATIVE Casino Marriage Registry • Where Love Blooms 🌸', iconURL: 'https://cdn.discordapp.com/emojis/1234567890123456789.png' });
+                .setFooter({ text: '💒 ATIVE Casino Marriage Registry' });
 
             // Add wedding party information if available
             if (ceremonyData.officiant || ceremonyData.maidOfHonor || ceremonyData.bestPerson || ceremonyData.flowerGirl || ceremonyData.ringBearer) {
                 let weddingParty = '';
                 
                 if (ceremonyData.officiant) {
-                    weddingParty += `🌺 **Officiant:** ${ceremonyData.officiant.name}\n`;
+                    weddingParty += `• **Officiant:** ${ceremonyData.officiant.name}\n`;
                 }
                 if (ceremonyData.maidOfHonor) {
-                    weddingParty += `🌸 **Maid of Honor:** ${ceremonyData.maidOfHonor.name}\n`;
+                    weddingParty += `• **Maid of Honor:** ${ceremonyData.maidOfHonor.name}\n`;
                 }
                 if (ceremonyData.bestPerson) {
-                    weddingParty += `🌹 **Best Person:** ${ceremonyData.bestPerson.name}\n`;
+                    weddingParty += `• **Best Person:** ${ceremonyData.bestPerson.name}\n`;
                 }
                 if (ceremonyData.flowerGirl) {
-                    weddingParty += `🌼 **Flower Girl:** ${ceremonyData.flowerGirl.name}\n`;
+                    weddingParty += `• **Flower Girl:** ${ceremonyData.flowerGirl.name}\n`;
                 }
                 if (ceremonyData.ringBearer) {
-                    weddingParty += `💐 **Ring Bearer:** ${ceremonyData.ringBearer.name}\n`;
+                    weddingParty += `• **Ring Bearer:** ${ceremonyData.ringBearer.name}\n`;
                 }
 
                 profileEmbed.addFields({
-                    name: '🎉 🌸 Wedding Party 🌸 🎉',
-                    value: weddingParty.trim() + '\n🌹 *Our beloved witnesses of love* 🌹',
+                    name: '🎉 Wedding Party',
+                    value: weddingParty.trim(),
                     inline: false
                 });
             }
@@ -127,26 +137,49 @@ module.exports = {
             // Add ceremony location if available
             if (ceremonyData.location) {
                 profileEmbed.addFields({
-                    name: '📍 🌺 Wedding Venue',
-                    value: `🌸 ${ceremonyData.location}\n💐 *Where our hearts became one*`,
+                    name: '📍 Wedding Venue',
+                    value: ceremonyData.location,
                     inline: true
                 });
             }
 
-            // Add anniversary countdown
-            const nextAnniversary = new Date(marriedDate);
-            nextAnniversary.setFullYear(now.getFullYear());
-            if (nextAnniversary < now) {
-                nextAnniversary.setFullYear(now.getFullYear() + 1);
+            // Calculate monthly and yearly anniversaries
+            const monthsMarried = Math.floor(durationMs / (1000 * 60 * 60 * 24 * 30.44)); // Average days per month
+            
+            // Next yearly anniversary
+            const nextYearlyAnniversary = new Date(marriedDate);
+            nextYearlyAnniversary.setFullYear(now.getFullYear());
+            if (nextYearlyAnniversary < now) {
+                nextYearlyAnniversary.setFullYear(now.getFullYear() + 1);
             }
+            const daysToYearlyAnniversary = Math.ceil((nextYearlyAnniversary - now) / (1000 * 60 * 60 * 24));
             
-            const daysToAnniversary = Math.ceil((nextAnniversary - now) / (1000 * 60 * 60 * 24));
+            // Next monthly anniversary
+            const nextMonthlyAnniversary = new Date(marriedDate);
+            nextMonthlyAnniversary.setMonth(now.getMonth());
+            nextMonthlyAnniversary.setFullYear(now.getFullYear());
+            if (nextMonthlyAnniversary < now) {
+                nextMonthlyAnniversary.setMonth(nextMonthlyAnniversary.getMonth() + 1);
+            }
+            const daysToMonthlyAnniversary = Math.ceil((nextMonthlyAnniversary - now) / (1000 * 60 * 60 * 24));
             
-            profileEmbed.addFields({
-                name: '🎂 🌹 Next Anniversary',
-                value: `💕 **${daysToAnniversary}** days away\n🌸 *Counting moments until we celebrate again*`,
-                inline: true
-            });
+            profileEmbed.addFields(
+                {
+                    name: '\u200b',
+                    value: '━━━━━━━━━━━━━━━━━━━━━━━━━━',
+                    inline: false
+                },
+                {
+                    name: '🎂 Anniversaries',
+                    value: `**Monthly:** ${daysToMonthlyAnniversary} days away\n**Yearly:** ${daysToYearlyAnniversary} days away`,
+                    inline: false
+                },
+                {
+                    name: '💌 Anniversary Reminders',
+                    value: 'Monthly anniversary DMs are sent automatically! 💕',
+                    inline: false
+                }
+            );
 
             // Set thumbnail to the requesting user's avatar
             profileEmbed.setThumbnail(targetUser.displayAvatarURL());

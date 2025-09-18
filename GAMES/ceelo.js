@@ -86,11 +86,12 @@ class CeeloGame {
             
             // Calculate payout using mode-specific multiplier
             if (this.winner === 'player') {
-                // Use mode-specific multiplier instead of hardcoded 2x
-                const multiplier = 1 + modeConfig.evenMoneyMultiplier; // Add 1 to get total return (bet + winnings)
+                // Use mode-specific multiplier - this is TOTAL payout, not added to bet
+                const multiplier = modeConfig.evenMoneyMultiplier; // Direct multiplier of bet amount
                 this.payout = this.betAmount * multiplier;
             } else if (this.winner === 'tie') {
-                this.payout = this.betAmount; // Return bet on tie
+                // Ties return most of the bet (small house edge)
+                this.payout = this.betAmount * 0.98; // Return 98% of bet on tie (2% house edge)
             } else {
                 this.payout = 0; // No payout on loss
             }

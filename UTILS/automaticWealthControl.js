@@ -11,9 +11,9 @@ const logger = require('./logger');
 
 class AutomaticWealthControl {
     constructor() {
-        // Tighten thresholds to make it hard to reach $1B+
-        this.CRITICAL_THRESHOLD = 800_000_000; // $800M threshold
-        this.ULTRA_THRESHOLD = 1_000_000_000;  // $1B threshold for maximum intervention
+        // Adjust thresholds to be less harsh but still effective
+        this.CRITICAL_THRESHOLD = 3_000_000_000; // $3B threshold (increased from $800M)
+        this.ULTRA_THRESHOLD = 8_000_000_000;    // $8B threshold for maximum intervention (increased from $1B)
         this.CHECK_INTERVAL = 2 * 60 * 60 * 1000; // Check every 2 hours
         this.isProcessing = false;
         this.lastCheck = null;
@@ -157,12 +157,12 @@ class AutomaticWealthControl {
             let interventionLevel = 'MODERATE';
             let baseMultiplier = 1.0; // Baseline intervention at threshold
             
-            if (totalBalance >= this.ULTRA_THRESHOLD) { // $1B+
+            if (totalBalance >= this.ULTRA_THRESHOLD) { // $8B+
                 interventionLevel = 'MAXIMUM';
-                baseMultiplier = 1.5;
-            } else if (totalBalance >= 750_000_000) { // $750M–$1B
+                baseMultiplier = 1.3; // Reduced from 1.5
+            } else if (totalBalance >= 5_000_000_000) { // $5B–$8B
                 interventionLevel = 'SEVERE';
-                baseMultiplier = 1.25;
+                baseMultiplier = 1.15; // Reduced from 1.25
             }
 
             // Progressive intervention - more aggressive with repeat offenders
@@ -174,8 +174,8 @@ class AutomaticWealthControl {
             
             // Apply additional emergency tax for ultra-wealthy (above standard wealth tax) - more lenient
             if (totalBalance > this.CRITICAL_THRESHOLD) {
-                // Base 5% + scaled escalation for wealth tier and repeat offenses
-                const emergencyTaxRate = 0.05 + (finalMultiplier - 1.0) * 0.10; 
+                // Base 3% + scaled escalation for wealth tier and repeat offenses (reduced from 5%)
+                const emergencyTaxRate = 0.03 + (finalMultiplier - 1.0) * 0.06; // Reduced from 0.10 
                 const emergencyTax = Math.floor(totalBalance * Math.max(0, emergencyTaxRate));
                 
                 if (emergencyTax > 0) {

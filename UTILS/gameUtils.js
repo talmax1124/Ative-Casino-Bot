@@ -10,6 +10,7 @@ const progressiveTax = require('./progressiveTax');
 // const wealthCeiling = require('./wealthCeiling'); // DISABLED - replaced by allInManager
 // AI tracking removed
 const BulletproofEconomyController = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
+// wealthBasedBetLimits removed - no bet limits enforced
 const { 
     fmt, 
     getGuildId, 
@@ -214,9 +215,9 @@ class PayoutManager {
             });
         }
 
-        // WEALTH-BASED BET LIMITS DISABLED - ALL-IN SYSTEM ACTIVE
-        // The new all-in system allows betting entire balance with dynamic house edge
-        // Old wealth ceiling system has been replaced with allInManager
+        // NO MAX BET LIMITS - UNLIMITED BETTING ALLOWED
+        // All wealth protection is handled by house edge, trend analysis, and progressive taxation
+        // Players can bet their entire balance if they want to take the risk
         
         // Check special requirements
         if (specialRequirements) {
@@ -327,9 +328,9 @@ class PayoutManager {
             });
         }
 
-        // WEALTH-BASED BET LIMITS DISABLED - ALL-IN SYSTEM ACTIVE
-        // The new all-in system allows betting entire balance with dynamic house edge
-        // Old wealth ceiling system has been replaced with allInManager
+        // NO MAX BET LIMITS - UNLIMITED BETTING ALLOWED
+        // All wealth protection is handled by house edge, trend analysis, and progressive taxation
+        // Players can bet their entire balance if they want to take the risk
         
         // Check special requirements
         if (specialRequirements) {
@@ -358,6 +359,9 @@ class PayoutManager {
                 errorEmbed: buildInvalidBetEmbed('Failed to process bet. Please try again.')
             });
         }
+        
+        // Bet tracking removed - no bet limits enforced
+        // All risk management handled by house edge and trend analysis
         
         // Set active game (only for legacy games, modern games use Unified Session Manager)
         // Comprehensive list to avoid touching legacy registry for any supported game
@@ -421,10 +425,29 @@ class PayoutManager {
             }
         }
         
-        // Log all game results for anti-abuse monitoring
+        // Log all game results for anti-abuse monitoring and trend analysis
         const resultMultiplier = betAmount > 0 ? (finalPayout / betAmount) : 0;
         if (won && resultMultiplier >= 10) {
             logger.warn(`HIGH WIN ALERT: User ${userId} won ${finalPayout} (${resultMultiplier.toFixed(2)}x) in ${gameType}`);
+            
+            // Report big wins to trend analyzer for immediate analysis
+            try {
+                const trendAnalyzerIntegration = require('./trendAnalyzerIntegration');
+                await trendAnalyzerIntegration.reportBigWin(
+                    gameType, 
+                    userId, 
+                    finalPayout - betAmount, // Report only the winnings, not the returned bet
+                    betAmount,
+                    { 
+                        originalPayout: payout,
+                        adjustedPayout: finalPayout,
+                        multiplier: resultMultiplier,
+                        timestamp: Date.now()
+                    }
+                );
+            } catch (trendError) {
+                logger.error(`Failed to report big win to trend analyzer: ${trendError.message}`);
+            }
         } else if (!won && finalPayout === 0) {
             logger.info(`Total Loss: User ${userId} lost entire bet ${betAmount} in ${gameType}`);
         }
@@ -549,6 +572,26 @@ class PayoutManager {
             }
             
             // AI analysis removed
+            
+            // Report game result to behavioral analyzer for pattern detection
+            try {
+                const trendAnalyzerIntegration = require('./trendAnalyzerIntegration');
+                await trendAnalyzerIntegration.reportGameResult(
+                    userId,
+                    gameType,
+                    betAmount,
+                    finalPayout,
+                    won ? 'win' : 'loss',
+                    {
+                        multiplier: betAmount > 0 ? (finalPayout / betAmount) : 0,
+                        boosterBonus: boosterBonus,
+                        taxAmount: taxAmount || 0,
+                        timestamp: Date.now()
+                    }
+                );
+            } catch (behavioralError) {
+                logger.error(`Failed to report game result to behavioral analyzer: ${behavioralError.message}`);
+            }
             
             return {
                 success: true,
