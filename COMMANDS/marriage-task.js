@@ -1544,13 +1544,13 @@ module.exports = {
                 .setTitle('❓ Couple Compatibility Quiz!')
                 .setDescription(`**${interaction.user.displayName}** and **${marriage.partnerName}** are taking a compatibility quiz!\n\n**📋 Phase 1:** ${interaction.user.displayName} answers about themselves\n**📋 Phase 2:** ${marriage.partnerName} answers about themselves\n**📋 Phase 3:** ${interaction.user.displayName} guesses ${marriage.partnerName}'s answers\n**📋 Phase 4:** ${marriage.partnerName} guesses ${interaction.user.displayName}'s answers\n**📋 Phase 5:** See results!\n\n🎯 **Goal:** Score 80% or higher together`)
                 .addFields({
-                    name: `❓ ${interaction.user.displayName}, Question 1/${quiz.questions.length}`,
-                    value: currentQuestion.question,
+                    name: `🔥 **YOUR TURN:** <@${interaction.user.id}>`,
+                    value: `**Question 1/${quiz.questions.length}**`,
                     inline: false
                 },
                 {
-                    name: '🎯 Instructions',
-                    value: `**${interaction.user.displayName}**, please answer this question about **yourself**. Only you can answer right now.`,
+                    name: `❓ **${currentQuestion.question}**`,
+                    value: `<@${interaction.user.id}>, please answer this question about **yourself**. Only you can answer right now.`,
                     inline: false
                 })
                 .setColor(0x9B59B6)
@@ -1760,10 +1760,10 @@ module.exports = {
         const isPartner1 = interaction.user.id === partner1.id;
         const currentPhase = quiz.phase;
         
-        // Phase validation
+        // Phase validation - show who needs to answer instead of ephemeral error
         if (currentPhase === 'partner1_about_self' && !isPartner1) {
             await this.safeInteractionReply(interaction, {
-                content: `❌ It's ${partner1.name}'s turn to answer about themselves!`,
+                content: `❌ It's <@${partner1.id}>'s turn to answer about themselves!`,
                 ephemeral: true
             });
             return;
@@ -1771,7 +1771,7 @@ module.exports = {
         
         if (currentPhase === 'partner2_about_self' && isPartner1) {
             await this.safeInteractionReply(interaction, {
-                content: `❌ It's ${partner2.name}'s turn to answer about themselves!`,
+                content: `❌ It's <@${partner2.id}>'s turn to answer about themselves!`,
                 ephemeral: true
             });
             return;
@@ -1779,7 +1779,7 @@ module.exports = {
         
         if (currentPhase === 'partner1_guessing' && !isPartner1) {
             await this.safeInteractionReply(interaction, {
-                content: `❌ It's ${partner1.name}'s turn to guess about ${partner2.name}!`,
+                content: `❌ It's <@${partner1.id}>'s turn to guess about ${partner2.name}!`,
                 ephemeral: true
             });
             return;
@@ -1787,7 +1787,7 @@ module.exports = {
         
         if (currentPhase === 'partner2_guessing' && isPartner1) {
             await this.safeInteractionReply(interaction, {
-                content: `❌ It's ${partner2.name}'s turn to guess about ${partner1.name}!`,
+                content: `❌ It's <@${partner2.id}>'s turn to guess about ${partner1.name}!`,
                 ephemeral: true
             });
             return;
@@ -1846,32 +1846,32 @@ module.exports = {
             
             if (currentPhase === 'partner1_about_self') {
                 phaseDescription = `**📋 Phase 1:** ${partner1.name} answers about themselves`;
-                instructions = `**${partner1.name}**, please answer this question about **yourself**.`;
-                activePlayer = partner1.name;
+                instructions = `<@${partner1.id}>, please answer this question about **yourself**.`;
+                activePlayer = `<@${partner1.id}>`;
             } else if (currentPhase === 'partner2_about_self') {
                 phaseDescription = `**📋 Phase 2:** ${partner2.name} answers about themselves`;
-                instructions = `**${partner2.name}**, please answer this question about **yourself**.`;
-                activePlayer = partner2.name;
+                instructions = `<@${partner2.id}>, please answer this question about **yourself**.`;
+                activePlayer = `<@${partner2.id}>`;
             } else if (currentPhase === 'partner1_guessing') {
                 phaseDescription = `**📋 Phase 3:** ${partner1.name} guesses ${partner2.name}'s answers`;
-                instructions = `**${partner1.name}**, what do you think **${partner2.name}** answered for this question?`;
-                activePlayer = partner1.name;
+                instructions = `<@${partner1.id}>, what do you think **${partner2.name}** answered for this question?`;
+                activePlayer = `<@${partner1.id}>`;
             } else if (currentPhase === 'partner2_guessing') {
                 phaseDescription = `**📋 Phase 4:** ${partner2.name} guesses ${partner1.name}'s answers`;
-                instructions = `**${partner2.name}**, what do you think **${partner1.name}** answered for this question?`;
-                activePlayer = partner2.name;
+                instructions = `<@${partner2.id}>, what do you think **${partner1.name}** answered for this question?`;
+                activePlayer = `<@${partner2.id}>`;
             }
             
             const embed = new EmbedBuilder()
                 .setTitle('❓ Couple Compatibility Quiz!')
                 .setDescription(`**${partner1.name}** and **${partner2.name}** are taking a compatibility quiz!\n\n${phaseDescription}\n\n🎯 **Goal:** Score 80% or higher together`)
                 .addFields({
-                    name: `❓ ${activePlayer}, Question ${quiz.currentQuestionIndex + 1}/${quiz.questions.length}`,
-                    value: nextQuestion.question,
+                    name: `🔥 **YOUR TURN:** ${activePlayer}`,
+                    value: `**Question ${quiz.currentQuestionIndex + 1}/${quiz.questions.length}**`,
                     inline: false
                 },
                 {
-                    name: '🎯 Instructions',
+                    name: `❓ **${nextQuestion.question}**`,
                     value: instructions,
                     inline: false
                 })
@@ -1940,28 +1940,28 @@ module.exports = {
         
         if (nextPhase === 'partner2_about_self') {
             phaseDescription = `**📋 Phase 2:** ${partner2.name} answers about themselves`;
-            instructions = `**${partner2.name}**, now it's your turn! Please answer this question about **yourself**.`;
-            activePlayer = partner2.name;
+            instructions = `<@${partner2.id}>, now it's your turn! Please answer this question about **yourself**.`;
+            activePlayer = `<@${partner2.id}>`;
         } else if (nextPhase === 'partner1_guessing') {
             phaseDescription = `**📋 Phase 3:** ${partner1.name} guesses ${partner2.name}'s answers`;
-            instructions = `**${partner1.name}**, now try to guess what **${partner2.name}** answered for this question!`;
-            activePlayer = partner1.name;
+            instructions = `<@${partner1.id}>, now try to guess what **${partner2.name}** answered for this question!`;
+            activePlayer = `<@${partner1.id}>`;
         } else if (nextPhase === 'partner2_guessing') {
             phaseDescription = `**📋 Phase 4:** ${partner2.name} guesses ${partner1.name}'s answers`;
-            instructions = `**${partner2.name}**, now try to guess what **${partner1.name}** answered for this question!`;
-            activePlayer = partner2.name;
+            instructions = `<@${partner2.id}>, now try to guess what **${partner1.name}** answered for this question!`;
+            activePlayer = `<@${partner2.id}>`;
         }
         
         const embed = new EmbedBuilder()
             .setTitle('❓ Couple Compatibility Quiz!')
             .setDescription(`**${partner1.name}** and **${partner2.name}** are taking a compatibility quiz!\n\n${phaseDescription}\n\n🎯 **Goal:** Score 80% or higher together`)
             .addFields({
-                name: `❓ ${activePlayer}, Question 1/${quiz.questions.length}`,
-                value: firstQuestion.question,
+                name: `🔥 **YOUR TURN:** ${activePlayer}`,
+                value: `**Question 1/${quiz.questions.length}**`,
                 inline: false
             },
             {
-                name: '🎯 Instructions',
+                name: `❓ **${firstQuestion.question}**`,
                 value: instructions,
                 inline: false
             })
