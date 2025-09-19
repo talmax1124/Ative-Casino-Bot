@@ -265,7 +265,7 @@ module.exports = {
         
         if (!global.marriageQuizzes?.has(quizId)) {
             await interaction.reply({
-                content: '❌ This quiz has expired or is invalid.',
+                content: '❌ Quiz session not found. Please start a new quiz with `/marriage-quiz`.',
                 ephemeral: true
             });
             return;
@@ -303,7 +303,7 @@ module.exports = {
         
         if (!quizId || !global.marriageQuizzes?.has(quizId)) {
             await interaction.reply({
-                content: '❌ This quiz has expired or is invalid.',
+                content: '❌ Quiz session not found. Please start a new quiz with `/marriage-quiz`.',
                 ephemeral: true
             });
             return;

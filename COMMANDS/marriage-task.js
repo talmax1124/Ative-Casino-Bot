@@ -1521,7 +1521,7 @@ module.exports = {
             // Store quiz in memory
             global.marriageQuizzes = global.marriageQuizzes || new Map();
             const quizId = `quiz_${marriage.id}_${Date.now()}`;
-            global.marriageQuizzes.set(quizId, {
+            const quizData = {
                 quiz,
                 marriageId: marriage.id,
                 partner1: { id: interaction.user.id, name: interaction.user.displayName },
@@ -1533,8 +1533,9 @@ module.exports = {
                 partner1AboutPartner2: {}, // Partner 1's guesses about Partner 2
                 partner2AboutPartner1: {}, // Partner 2's guesses about Partner 1
                 completed: false,
-                expiresAt: Date.now() + (30 * 60 * 1000) // 30 minutes instead of 5
-            });
+                expiresAt: Date.now() + (60 * 60 * 1000) // 60 minutes for quiz completion
+            };
+            global.marriageQuizzes.set(quizId, quizData);
 
             // Start with first question
             const currentQuestion = quiz.questions[0];
@@ -1704,14 +1705,21 @@ module.exports = {
 
     // Handle quiz answer buttons
     async handleQuizAnswer(interaction) {
-        const parts = interaction.customId.split('_');
-        const quizId = parts[2];
-        const questionIndex = parseInt(parts[3]);
-        const answerIndex = parseInt(parts[4]);
+        // Parse: quiz_answer_quiz_123_1634567890_0_2
+        // Extract quizId, questionIndex, and answerIndex properly
+        const customId = interaction.customId;
+        const parts = customId.split('_');
+        
+        // The format is: quiz_answer_quiz_marriageId_timestamp_questionIndex_answerIndex
+        // So we need to reconstruct the quizId from parts 2, 3, and 4
+        const quizId = `${parts[2]}_${parts[3]}_${parts[4]}`;
+        const questionIndex = parseInt(parts[5]);
+        const answerIndex = parseInt(parts[6]);
+        
 
         if (!global.marriageQuizzes?.has(quizId)) {
             await this.safeInteractionReply(interaction, {
-                content: '❌ This quiz has expired or is invalid.',
+                content: '❌ Quiz session not found. Please start a new quiz with `/marriage-task task4`.',
                 ephemeral: true
             });
             return;
@@ -1719,11 +1727,11 @@ module.exports = {
 
         const quizData = global.marriageQuizzes.get(quizId);
         
-        // Check expiration
+        // Check expiration - give more time and better error message
         if (Date.now() > quizData.expiresAt) {
             global.marriageQuizzes.delete(quizId);
             await this.safeInteractionReply(interaction, {
-                content: '❌ This quiz has expired (30 minute limit).',
+                content: '❌ This quiz session has timed out. Please start a new quiz with `/marriage-task task4`.',
                 ephemeral: true
             });
             return;
