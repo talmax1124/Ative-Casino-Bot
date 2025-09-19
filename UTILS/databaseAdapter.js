@@ -116,6 +116,9 @@ class DatabaseAdapter {
                 last_beg_ts BIGINT NOT NULL DEFAULT 0,
                 last_crime_ts BIGINT NOT NULL DEFAULT 0,
                 last_heist_ts BIGINT NOT NULL DEFAULT 0,
+                last_earnmoney_ts BIGINT NOT NULL DEFAULT 0,
+                last_dailytask_ts BIGINT NOT NULL DEFAULT 0,
+                last_quiz_ts BIGINT NOT NULL DEFAULT 0,
                 daily_sent DECIMAL(20,2) NOT NULL DEFAULT 0.00,
                 last_send_reset BIGINT NOT NULL DEFAULT 0,
                 username VARCHAR(100) DEFAULT NULL,
@@ -523,6 +526,10 @@ class DatabaseAdapter {
                 // Add daily send limit tracking columns to user_balances table
                 `ALTER TABLE user_balances ADD COLUMN daily_sent DECIMAL(20,2) NOT NULL DEFAULT 0.00`,
                 `ALTER TABLE user_balances ADD COLUMN last_send_reset BIGINT NOT NULL DEFAULT 0`,
+                // Add missing cooldown columns to user_balances table
+                `ALTER TABLE user_balances ADD COLUMN last_earnmoney_ts BIGINT NOT NULL DEFAULT 0`,
+                `ALTER TABLE user_balances ADD COLUMN last_dailytask_ts BIGINT NOT NULL DEFAULT 0`,
+                `ALTER TABLE user_balances ADD COLUMN last_quiz_ts BIGINT NOT NULL DEFAULT 0`,
                 // Add tier column to lottery tables for multi-tier lottery support
                 `ALTER TABLE lottery_tickets ADD COLUMN tier TINYINT DEFAULT 1`,
                 `ALTER TABLE lottery_info ADD COLUMN tier TINYINT DEFAULT 1`,

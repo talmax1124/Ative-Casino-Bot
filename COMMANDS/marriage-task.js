@@ -487,7 +487,7 @@ module.exports = {
                 await this.handleQuiz(interaction, marriage);
                 break;
             default:
-                await interaction.update({
+                await this.safeReply(interaction, {
                     content: '❌ Unknown task action.',
                     embeds: [],
                     components: []
@@ -542,14 +542,14 @@ module.exports = {
                 .setColor(0xFF69B4)
                 .setFooter({ text: `Game ID: ${gameId}` });
 
-            await interaction.update({
+            await this.safeReply(interaction, {
                 embeds: [embed],
                 components: game.createButtons()
             });
 
         } catch (error) {
             logger.error(`Error starting tic tac toe: ${error.message}`);
-            await interaction.update({
+            await this.safeReply(interaction, {
                 content: '❌ Error starting tic tac toe game. Please try again.',
                 embeds: [],
                 components: []
@@ -869,7 +869,7 @@ module.exports = {
 
         const careButtons = this.createTreeCareButtons(treeId, tree);
 
-        await interaction.update({
+        await this.safeReply(interaction, {
             embeds: [embed],
             components: careButtons
         });
@@ -1159,7 +1159,7 @@ module.exports = {
             );
 
         // Send to channel for public voting
-        await interaction.update({
+        await this.safeReply(interaction, {
             content: `🎉 **${partner1.name}** and **${partner2.name}** have published their poem for voting!`,
             embeds: [publishEmbed],
             components: [voteButtons]
@@ -1218,7 +1218,7 @@ module.exports = {
 
         const actionButtons = this.createPoemButtons(poemId, poem, poemData.currentTurn);
 
-        await interaction.update({
+        await this.safeReply(interaction, {
             embeds: [embed],
             components: actionButtons
         });
@@ -1403,7 +1403,7 @@ module.exports = {
             .setColor(game.gameOver ? (game.winner === 'tie' ? 0xFFFF00 : 0x00FF00) : 0xFF69B4)
             .setFooter({ text: game.gameOver ? 'Game Over' : `Game ID: ${gameId}` });
 
-        await interaction.update({
+        await this.safeReply(interaction, {
             embeds: [embed],
             components: game.createButtons()
         });
@@ -1445,14 +1445,14 @@ module.exports = {
 
             const careButtons = this.createTreeCareButtons(treeId, tree);
 
-            await interaction.update({
+            await this.safeReply(interaction, {
                 embeds: [embed],
                 components: careButtons
             });
 
         } catch (error) {
             logger.error(`Error starting tree game: ${error.message}`);
-            await interaction.update({
+            await this.safeReply(interaction, {
                 content: '❌ Error starting tree planting game. Please try again.',
                 embeds: [],
                 components: []
@@ -1494,14 +1494,14 @@ module.exports = {
 
             const actionButtons = this.createPoemButtons(poemId, poem, interaction.user.id);
 
-            await interaction.update({
+            await this.safeReply(interaction, {
                 embeds: [embed],
                 components: actionButtons
             });
 
         } catch (error) {
             logger.error(`Error starting poem game: ${error.message}`);
-            await interaction.update({
+            await this.safeReply(interaction, {
                 content: '❌ Error starting poem writing. Please try again.',
                 embeds: [],
                 components: []
@@ -1528,8 +1528,12 @@ module.exports = {
                 partner2: { id: marriage.partnerId, name: marriage.partnerName },
                 startTime: Date.now(),
                 currentQuestionIndex: 0,
-                responses: {},
-                completed: false
+                partner1AboutSelf: {}, // Partner 1's answers about themselves
+                partner2AboutSelf: {}, // Partner 2's answers about themselves
+                partner1AboutPartner2: {}, // Partner 1's guesses about Partner 2
+                partner2AboutPartner1: {}, // Partner 2's guesses about Partner 1
+                completed: false,
+                expiresAt: Date.now() + (30 * 60 * 1000) // 30 minutes instead of 5
             });
 
             // Start with first question
@@ -1537,30 +1541,30 @@ module.exports = {
             
             const embed = new EmbedBuilder()
                 .setTitle('❓ Couple Compatibility Quiz!')
-                .setDescription(`**${interaction.user.displayName}** and **${marriage.partnerName}** are taking a compatibility quiz!\n\n🧠 **Goal:** Score 80% or higher together\n📊 **Questions:** ${quiz.questions.length} total\n🎯 **Current:** Question 1/${quiz.questions.length}`)
+                .setDescription(`**${interaction.user.displayName}** and **${marriage.partnerName}** are taking a compatibility quiz!\n\n**📋 Phase 1:** ${interaction.user.displayName} answers about themselves\n**📋 Phase 2:** ${marriage.partnerName} answers about themselves\n**📋 Phase 3:** ${interaction.user.displayName} guesses ${marriage.partnerName}'s answers\n**📋 Phase 4:** ${marriage.partnerName} guesses ${interaction.user.displayName}'s answers\n**📋 Phase 5:** See results!\n\n🎯 **Goal:** Score 80% or higher together`)
                 .addFields({
-                    name: '❓ Question 1',
+                    name: `❓ ${interaction.user.displayName}, Question 1/${quiz.questions.length}`,
                     value: currentQuestion.question,
                     inline: false
                 },
                 {
-                    name: '🎯 How It Works',
-                    value: 'Both partners answer each question privately, then see if your answers match! Get 80% compatibility to complete the task.',
+                    name: '🎯 Instructions',
+                    value: `**${interaction.user.displayName}**, please answer this question about **yourself**. Only you can answer right now.`,
                     inline: false
                 })
                 .setColor(0x9B59B6)
-                .setFooter({ text: `Quiz ID: ${quizId} • Question 1/${quiz.questions.length}` });
+                .setFooter({ text: `Quiz ID: ${quizId} • Phase 1: ${interaction.user.displayName} about self` });
 
             const answerButtons = this.createQuizButtons(quizId, currentQuestion, 0);
 
-            await interaction.update({
+            await this.safeReply(interaction, {
                 embeds: [embed],
                 components: answerButtons
             });
 
         } catch (error) {
             logger.error(`Error starting quiz game: ${error.message}`);
-            await interaction.update({
+            await this.safeReply(interaction, {
                 content: '❌ Error starting compatibility quiz. Please try again.',
                 embeds: [],
                 components: []
@@ -1571,43 +1575,43 @@ module.exports = {
     createQuizGame() {
         const questions = [
             {
-                question: "What is your partner's favorite color?",
+                question: "What is your favorite color?",
                 options: ["Red", "Blue", "Green", "Purple", "Pink", "Black"]
             },
             {
-                question: "What time does your partner usually go to bed?",
+                question: "What time do you usually go to bed?",
                 options: ["Before 9 PM", "9-10 PM", "10-11 PM", "11-12 AM", "After 12 AM", "It varies"]
             },
             {
-                question: "What's your partner's favorite type of music?",
+                question: "What's your favorite type of music?",
                 options: ["Pop", "Rock", "Hip Hop", "Classical", "Electronic", "Country"]
             },
             {
-                question: "What's your partner's ideal vacation?",
+                question: "What's your ideal vacation?",
                 options: ["Beach Resort", "Mountain Cabin", "City Adventure", "Theme Park", "Camping", "Staycation"]
             },
             {
-                question: "What's your partner's biggest fear?",
+                question: "What's your biggest fear?",
                 options: ["Heights", "Spiders", "Public Speaking", "Dark", "Failure", "Being Alone"]
             },
             {
-                question: "What's your partner's favorite season?",
+                question: "What's your favorite season?",
                 options: ["Spring", "Summer", "Fall", "Winter", "No Preference", "Depends on Mood"]
             },
             {
-                question: "How does your partner handle stress?",
+                question: "How do you handle stress?",
                 options: ["Talk It Out", "Exercise", "Sleep", "Eat", "Watch TV", "Listen to Music"]
             },
             {
-                question: "What's your partner's dream job?",
+                question: "What's your dream job?",
                 options: ["Entrepreneur", "Artist", "Teacher", "Doctor", "Tech Worker", "Content Creator"]
             },
             {
-                question: "What's your partner's love language?",
+                question: "What's your love language?",
                 options: ["Words of Affirmation", "Physical Touch", "Acts of Service", "Quality Time", "Gifts", "All of Them"]
             },
             {
-                question: "What's your partner's favorite way to spend a free day?",
+                question: "What's your favorite way to spend a free day?",
                 options: ["Gaming", "Reading", "Outdoor Activities", "Socializing", "Sleeping In", "Learning Something New"]
             }
         ];
@@ -1620,36 +1624,53 @@ module.exports = {
             questions: selectedQuestions,
             totalQuestions: selectedQuestions.length,
             requiredScore: 0.8, // 80% compatibility required
+            phase: 'partner1_about_self', // partner1_about_self, partner2_about_self, partner1_guessing, partner2_guessing, results
+            currentQuestionIndex: 0,
 
-            calculateScore(responses) {
-                let matches = 0;
+            calculateScore(p1About1, p2About2, p1About2, p2About1) {
+                let p1Matches = 0; // How well partner1 knows partner2
+                let p2Matches = 0; // How well partner2 knows partner1
                 const totalQuestions = this.questions.length;
                 
                 for (let i = 0; i < totalQuestions; i++) {
                     const questionKey = `q${i}`;
-                    if (responses.partner1 && responses.partner2 && 
-                        responses.partner1[questionKey] && responses.partner2[questionKey] &&
-                        responses.partner1[questionKey] === responses.partner2[questionKey]) {
-                        matches++;
+                    
+                    // Check if partner1's guess about partner2 matches partner2's self-answer
+                    if (p1About2[questionKey] && p2About2[questionKey] && 
+                        p1About2[questionKey] === p2About2[questionKey]) {
+                        p1Matches++;
+                    }
+                    
+                    // Check if partner2's guess about partner1 matches partner1's self-answer
+                    if (p2About1[questionKey] && p1About1[questionKey] && 
+                        p2About1[questionKey] === p1About1[questionKey]) {
+                        p2Matches++;
                     }
                 }
                 
+                const p1Percentage = Math.round((p1Matches / totalQuestions) * 100);
+                const p2Percentage = Math.round((p2Matches / totalQuestions) * 100);
+                const averagePercentage = Math.round((p1Percentage + p2Percentage) / 2);
+                
                 return {
-                    matches,
+                    p1Matches,
+                    p2Matches,
                     total: totalQuestions,
-                    percentage: Math.round((matches / totalQuestions) * 100),
-                    passed: (matches / totalQuestions) >= this.requiredScore
+                    p1Percentage,
+                    p2Percentage,
+                    averagePercentage,
+                    passed: averagePercentage >= (this.requiredScore * 100)
                 };
             },
 
             getResultMessage(score) {
-                if (score.percentage >= 90) {
+                if (score.averagePercentage >= 90) {
                     return "🎉 **Amazing Compatibility!** You two know each other incredibly well!";
-                } else if (score.percentage >= 80) {
+                } else if (score.averagePercentage >= 80) {
                     return "💖 **Great Compatibility!** You have a wonderful understanding of each other!";
-                } else if (score.percentage >= 60) {
+                } else if (score.averagePercentage >= 60) {
                     return "😊 **Good Compatibility!** You know each other well, but there's room to learn more!";
-                } else if (score.percentage >= 40) {
+                } else if (score.averagePercentage >= 40) {
                     return "🤔 **Moderate Compatibility.** Time to spend more quality time getting to know each other!";
                 } else {
                     return "😅 **Learning Opportunity!** This is a chance to discover new things about each other!";
@@ -1697,7 +1718,18 @@ module.exports = {
         }
 
         const quizData = global.marriageQuizzes.get(quizId);
-        const { quiz, partner1, partner2, responses, completed } = quizData;
+        
+        // Check expiration
+        if (Date.now() > quizData.expiresAt) {
+            global.marriageQuizzes.delete(quizId);
+            await this.safeInteractionReply(interaction, {
+                content: '❌ This quiz has expired (30 minute limit).',
+                ephemeral: true
+            });
+            return;
+        }
+
+        const { quiz, partner1, partner2, completed } = quizData;
 
         // Check if user is one of the partners
         if (interaction.user.id !== partner1.id && interaction.user.id !== partner2.id) {
@@ -1716,18 +1748,61 @@ module.exports = {
             return;
         }
 
-        const currentQuestion = quiz.questions[questionIndex];
-        const selectedAnswer = currentQuestion.options[answerIndex];
-        const partnerId = interaction.user.id === partner1.id ? 'partner1' : 'partner2';
-        const questionKey = `q${questionIndex}`;
-
-        // Initialize responses for this user if needed
-        if (!responses[partnerId]) {
-            responses[partnerId] = {};
+        // Determine current phase and validate who can answer
+        const isPartner1 = interaction.user.id === partner1.id;
+        const currentPhase = quiz.phase;
+        
+        // Phase validation
+        if (currentPhase === 'partner1_about_self' && !isPartner1) {
+            await this.safeInteractionReply(interaction, {
+                content: `❌ It's ${partner1.name}'s turn to answer about themselves!`,
+                ephemeral: true
+            });
+            return;
+        }
+        
+        if (currentPhase === 'partner2_about_self' && isPartner1) {
+            await this.safeInteractionReply(interaction, {
+                content: `❌ It's ${partner2.name}'s turn to answer about themselves!`,
+                ephemeral: true
+            });
+            return;
+        }
+        
+        if (currentPhase === 'partner1_guessing' && !isPartner1) {
+            await this.safeInteractionReply(interaction, {
+                content: `❌ It's ${partner1.name}'s turn to guess about ${partner2.name}!`,
+                ephemeral: true
+            });
+            return;
+        }
+        
+        if (currentPhase === 'partner2_guessing' && isPartner1) {
+            await this.safeInteractionReply(interaction, {
+                content: `❌ It's ${partner2.name}'s turn to guess about ${partner1.name}!`,
+                ephemeral: true
+            });
+            return;
         }
 
-        // Check if user already answered this question
-        if (responses[partnerId][questionKey]) {
+        const currentQuestion = quiz.questions[questionIndex];
+        const selectedAnswer = currentQuestion.options[answerIndex];
+        const questionKey = `q${questionIndex}`;
+
+        // Store answer in appropriate category
+        let answerCategory;
+        if (currentPhase === 'partner1_about_self') {
+            answerCategory = quizData.partner1AboutSelf;
+        } else if (currentPhase === 'partner2_about_self') {
+            answerCategory = quizData.partner2AboutSelf;
+        } else if (currentPhase === 'partner1_guessing') {
+            answerCategory = quizData.partner1AboutPartner2;
+        } else if (currentPhase === 'partner2_guessing') {
+            answerCategory = quizData.partner2AboutPartner1;
+        }
+
+        // Check if already answered this question in current phase
+        if (answerCategory[questionKey]) {
             await this.safeInteractionReply(interaction, {
                 content: '❌ You have already answered this question!',
                 ephemeral: true
@@ -1736,145 +1811,292 @@ module.exports = {
         }
 
         // Record the answer
-        responses[partnerId][questionKey] = selectedAnswer;
+        answerCategory[questionKey] = selectedAnswer;
 
         await this.safeInteractionReply(interaction, {
             content: `✅ Your answer "${selectedAnswer}" has been recorded!`,
             ephemeral: true
         });
 
-        // Check if both partners have answered this question
-        const bothAnswered = responses.partner1?.[questionKey] && responses.partner2?.[questionKey];
-        
-        if (bothAnswered) {
-            // Show the answers and move to next question or results
-            await this.handleQuizQuestionComplete(interaction, quizData, quizId, questionIndex);
-        }
+        // Move to next question or next phase
+        await this.progressQuiz(interaction, quizData, quizId);
     },
 
-    async handleQuizQuestionComplete(interaction, quizData, quizId, questionIndex) {
-        const { quiz, partner1, partner2, responses } = quizData;
-        const currentQuestion = quiz.questions[questionIndex];
-        const questionKey = `q${questionIndex}`;
+    async progressQuiz(interaction, quizData, quizId) {
+        const { quiz, partner1, partner2 } = quizData;
+        const currentPhase = quiz.phase;
         
-        const answer1 = responses.partner1[questionKey];
-        const answer2 = responses.partner2[questionKey];
-        const isMatch = answer1 === answer2;
-
-        // Update question index
-        quizData.currentQuestionIndex = questionIndex + 1;
-        const isLastQuestion = quizData.currentQuestionIndex >= quiz.questions.length;
-
-        let embed;
-        let components = [];
-
-        if (isLastQuestion) {
-            // Quiz completed - show final results
-            quizData.completed = true;
-            const score = quiz.calculateScore(responses);
+        // Check if current phase is complete
+        const questionsComplete = this.isPhaseComplete(quizData, currentPhase);
+        
+        if (!questionsComplete) {
+            // Show next question in current phase
+            quiz.currentQuestionIndex++;
+            const nextQuestion = quiz.questions[quiz.currentQuestionIndex];
             
-            embed = new EmbedBuilder()
-                .setTitle('🏆 Quiz Complete!')
-                .setDescription(`**${partner1.name}** and **${partner2.name}** have completed their compatibility quiz!\n\n📊 **Final Score:** ${score.matches}/${score.total} (${score.percentage}%)\n🎯 **Required:** 80% to pass\n\n${quiz.getResultMessage(score)}`)
-                .addFields({
-                    name: `❓ Question ${questionIndex + 1}: ${currentQuestion.question}`,
-                    value: `**${partner1.name}:** ${answer1}\n**${partner2.name}:** ${answer2}\n**Result:** ${isMatch ? '✅ Match!' : '❌ Different answers'}`,
-                    inline: false
-                })
-                .setColor(score.passed ? 0x00FF00 : 0xFF0000)
-                .setFooter({ text: score.passed ? '🎉 Task 4 Completed!' : 'Better luck next time!' });
-
-            if (score.passed) {
-                // Mark task as completed in database and award XP
-                try {
-                    await dbManager.completeMarriageTask(quizData.marriageId, 4, interaction.user.id, {
-                        gameType: 'quiz',
-                        score: score.percentage,
-                        matches: score.matches,
-                        total: score.total
-                    });
-
-                    // Award Marriage XP for completing the quiz task
-                    const xpResult = await dbManager.awardMarriageXP(
-                        quizData.marriageId, 
-                        40, 
-                        'task_completion', 
-                        `Quiz task completed - ${score.percentage}% compatibility score`
-                    );
-
-                    // Send level up notification if it happened
-                    if (xpResult.leveledUp) {
-                        logger.info(`Marriage ${quizData.marriageId} leveled up! ${xpResult.oldLevel} -> ${xpResult.newLevel}`);
-                        await this.sendLevelUpNotification(interaction, xpResult, quizData.partner1, quizData.partner2);
-                    }
-
-                } catch (error) {
-                    logger.error(`Error marking quiz task as completed: ${error.message}`);
-                }
-                
-                embed.addFields({
-                    name: '🎉 Congratulations!',
-                    value: '**Task 4 Completed!** You\'ve successfully demonstrated your compatibility! 🏆',
-                    inline: false
-                });
+            let phaseDescription, instructions, activePlayer;
+            
+            if (currentPhase === 'partner1_about_self') {
+                phaseDescription = `**📋 Phase 1:** ${partner1.name} answers about themselves`;
+                instructions = `**${partner1.name}**, please answer this question about **yourself**.`;
+                activePlayer = partner1.name;
+            } else if (currentPhase === 'partner2_about_self') {
+                phaseDescription = `**📋 Phase 2:** ${partner2.name} answers about themselves`;
+                instructions = `**${partner2.name}**, please answer this question about **yourself**.`;
+                activePlayer = partner2.name;
+            } else if (currentPhase === 'partner1_guessing') {
+                phaseDescription = `**📋 Phase 3:** ${partner1.name} guesses ${partner2.name}'s answers`;
+                instructions = `**${partner1.name}**, what do you think **${partner2.name}** answered for this question?`;
+                activePlayer = partner1.name;
+            } else if (currentPhase === 'partner2_guessing') {
+                phaseDescription = `**📋 Phase 4:** ${partner2.name} guesses ${partner1.name}'s answers`;
+                instructions = `**${partner2.name}**, what do you think **${partner1.name}** answered for this question?`;
+                activePlayer = partner2.name;
             }
-
-            // Clean up after 5 minutes
-            setTimeout(() => {
-                global.marriageQuizzes.delete(quizId);
-            }, 5 * 60 * 1000);
-
-        } else {
-            // Show current result and next question
-            const nextQuestion = quiz.questions[quizData.currentQuestionIndex];
             
-            embed = new EmbedBuilder()
+            const embed = new EmbedBuilder()
                 .setTitle('❓ Couple Compatibility Quiz!')
-                .setDescription(`**${partner1.name}** and **${partner2.name}** are taking a compatibility quiz!\n\n🧠 **Goal:** Score 80% or higher together\n📊 **Progress:** Question ${quizData.currentQuestionIndex + 1}/${quiz.questions.length}`)
+                .setDescription(`**${partner1.name}** and **${partner2.name}** are taking a compatibility quiz!\n\n${phaseDescription}\n\n🎯 **Goal:** Score 80% or higher together`)
                 .addFields({
-                    name: `📝 Previous Question: ${currentQuestion.question}`,
-                    value: `**${partner1.name}:** ${answer1}\n**${partner2.name}:** ${answer2}\n**Result:** ${isMatch ? '✅ Match!' : '❌ Different answers'}`,
+                    name: `❓ ${activePlayer}, Question ${quiz.currentQuestionIndex + 1}/${quiz.questions.length}`,
+                    value: nextQuestion.question,
                     inline: false
                 },
                 {
-                    name: `❓ Question ${quizData.currentQuestionIndex + 1}`,
-                    value: nextQuestion.question,
+                    name: '🎯 Instructions',
+                    value: instructions,
                     inline: false
                 })
                 .setColor(0x9B59B6)
-                .setFooter({ text: `Quiz ID: ${quizId} • Question ${quizData.currentQuestionIndex + 1}/${quiz.questions.length}` });
+                .setFooter({ text: `Quiz ID: ${quizId} • ${phaseDescription}` });
 
-            components = this.createQuizButtons(quizId, nextQuestion, quizData.currentQuestionIndex);
+            const answerButtons = this.createQuizButtons(quizId, nextQuestion, quiz.currentQuestionIndex);
+            
+            await this.safeReply(interaction, {
+                embeds: [embed],
+                components: answerButtons
+            });
+            
+        } else {
+            // Current phase complete, move to next phase
+            await this.moveToNextPhase(interaction, quizData, quizId);
         }
+    },
 
-        await interaction.followUp({
+    isPhaseComplete(quizData, phase) {
+        const { quiz } = quizData;
+        const totalQuestions = quiz.questions.length;
+        
+        let responseCategory;
+        if (phase === 'partner1_about_self') {
+            responseCategory = quizData.partner1AboutSelf;
+        } else if (phase === 'partner2_about_self') {
+            responseCategory = quizData.partner2AboutSelf;
+        } else if (phase === 'partner1_guessing') {
+            responseCategory = quizData.partner1AboutPartner2;
+        } else if (phase === 'partner2_guessing') {
+            responseCategory = quizData.partner2AboutPartner1;
+        }
+        
+        return Object.keys(responseCategory).length >= totalQuestions;
+    },
+
+    async moveToNextPhase(interaction, quizData, quizId) {
+        const { quiz, partner1, partner2 } = quizData;
+        const currentPhase = quiz.phase;
+        
+        // Determine next phase
+        let nextPhase;
+        if (currentPhase === 'partner1_about_self') {
+            nextPhase = 'partner2_about_self';
+        } else if (currentPhase === 'partner2_about_self') {
+            nextPhase = 'partner1_guessing';
+        } else if (currentPhase === 'partner1_guessing') {
+            nextPhase = 'partner2_guessing';
+        } else if (currentPhase === 'partner2_guessing') {
+            nextPhase = 'results';
+        }
+        
+        if (nextPhase === 'results') {
+            // Show final results
+            await this.showQuizResults(interaction, quizData, quizId);
+            return;
+        }
+        
+        // Update phase and reset question index
+        quiz.phase = nextPhase;
+        quiz.currentQuestionIndex = 0;
+        
+        const firstQuestion = quiz.questions[0];
+        let phaseDescription, instructions, activePlayer;
+        
+        if (nextPhase === 'partner2_about_self') {
+            phaseDescription = `**📋 Phase 2:** ${partner2.name} answers about themselves`;
+            instructions = `**${partner2.name}**, now it's your turn! Please answer this question about **yourself**.`;
+            activePlayer = partner2.name;
+        } else if (nextPhase === 'partner1_guessing') {
+            phaseDescription = `**📋 Phase 3:** ${partner1.name} guesses ${partner2.name}'s answers`;
+            instructions = `**${partner1.name}**, now try to guess what **${partner2.name}** answered for this question!`;
+            activePlayer = partner1.name;
+        } else if (nextPhase === 'partner2_guessing') {
+            phaseDescription = `**📋 Phase 4:** ${partner2.name} guesses ${partner1.name}'s answers`;
+            instructions = `**${partner2.name}**, now try to guess what **${partner1.name}** answered for this question!`;
+            activePlayer = partner2.name;
+        }
+        
+        const embed = new EmbedBuilder()
+            .setTitle('❓ Couple Compatibility Quiz!')
+            .setDescription(`**${partner1.name}** and **${partner2.name}** are taking a compatibility quiz!\n\n${phaseDescription}\n\n🎯 **Goal:** Score 80% or higher together`)
+            .addFields({
+                name: `❓ ${activePlayer}, Question 1/${quiz.questions.length}`,
+                value: firstQuestion.question,
+                inline: false
+            },
+            {
+                name: '🎯 Instructions',
+                value: instructions,
+                inline: false
+            })
+            .setColor(0x9B59B6)
+            .setFooter({ text: `Quiz ID: ${quizId} • ${phaseDescription}` });
+
+        const answerButtons = this.createQuizButtons(quizId, firstQuestion, 0);
+        
+        await this.safeReply(interaction, {
             embeds: [embed],
-            components: components
+            components: answerButtons
         });
     },
+
+    async showQuizResults(interaction, quizData, quizId) {
+        const { quiz, partner1, partner2, marriageId } = quizData;
+        
+        // Calculate final scores
+        const score = quiz.calculateScore(
+            quizData.partner1AboutSelf,
+            quizData.partner2AboutSelf,
+            quizData.partner1AboutPartner2,
+            quizData.partner2AboutPartner1
+        );
+        
+        // Create detailed results
+        let resultsDetails = '';
+        for (let i = 0; i < quiz.questions.length; i++) {
+            const questionKey = `q${i}`;
+            const question = quiz.questions[i];
+            
+            const p1SelfAnswer = quizData.partner1AboutSelf[questionKey];
+            const p2SelfAnswer = quizData.partner2AboutSelf[questionKey];
+            const p1GuessAboutP2 = quizData.partner1AboutPartner2[questionKey];
+            const p2GuessAboutP1 = quizData.partner2AboutPartner1[questionKey];
+            
+            const p1Correct = p1GuessAboutP2 === p2SelfAnswer ? '✅' : '❌';
+            const p2Correct = p2GuessAboutP1 === p1SelfAnswer ? '✅' : '❌';
+            
+            resultsDetails += `**Q${i+1}:** ${question.question}\n`;
+            resultsDetails += `${partner1.name}'s answer: ${p1SelfAnswer}\n`;
+            resultsDetails += `${partner2.name}'s answer: ${p2SelfAnswer}\n`;
+            resultsDetails += `${partner1.name} guessed ${partner2.name} said: ${p1GuessAboutP2} ${p1Correct}\n`;
+            resultsDetails += `${partner2.name} guessed ${partner1.name} said: ${p2GuessAboutP1} ${p2Correct}\n\n`;
+        }
+        
+        quizData.completed = true;
+        
+        const embed = new EmbedBuilder()
+            .setTitle('🏆 Quiz Complete!')
+            .setDescription(`**${partner1.name}** and **${partner2.name}** have completed their compatibility quiz!\n\n${quiz.getResultMessage(score)}`)
+            .addFields({
+                name: '📊 Final Scores',
+                value: `**${partner1.name}** knows ${partner2.name}: ${score.p1Matches}/${score.total} (${score.p1Percentage}%)\n**${partner2.name}** knows ${partner1.name}: ${score.p2Matches}/${score.total} (${score.p2Percentage}%)\n**Average Score:** ${score.averagePercentage}%\n**Required:** 80% to pass`,
+                inline: false
+            },
+            {
+                name: '📝 Detailed Results',
+                value: resultsDetails.length > 1024 ? resultsDetails.substring(0, 1020) + '...' : resultsDetails,
+                inline: false
+            })
+            .setColor(score.passed ? 0x00FF00 : 0xFF0000)
+            .setFooter({ text: score.passed ? '🎉 Task 4 Completed!' : 'Better luck next time!' });
+
+        if (score.passed) {
+            // Mark task as completed in database and award XP
+            try {
+                await dbManager.completeMarriageTask(marriageId, 4, interaction.user.id, {
+                    gameType: 'quiz',
+                    score: score.averagePercentage,
+                    p1Score: score.p1Percentage,
+                    p2Score: score.p2Percentage,
+                    totalQuestions: score.total
+                });
+
+                // Award Marriage XP for completing the quiz task
+                const xpResult = await dbManager.awardMarriageXP(
+                    marriageId, 
+                    40, 
+                    'task_completion', 
+                    `Quiz task completed - ${score.averagePercentage}% average compatibility score`
+                );
+
+                // Send level up notification if it happened
+                if (xpResult.leveledUp) {
+                    logger.info(`Marriage ${marriageId} leveled up! ${xpResult.oldLevel} -> ${xpResult.newLevel}`);
+                    await this.sendLevelUpNotification(interaction, xpResult, partner1, partner2);
+                }
+
+            } catch (error) {
+                logger.error(`Error marking quiz task as completed: ${error.message}`);
+            }
+            
+            embed.addFields({
+                name: '🎉 Congratulations!',
+                value: '**Task 4 Completed!** You\'ve successfully demonstrated your compatibility! 🏆',
+                inline: false
+            });
+        }
+
+        // Clean up after 5 minutes
+        setTimeout(() => {
+            global.marriageQuizzes.delete(quizId);
+        }, 5 * 60 * 1000);
+
+        await this.safeReply(interaction, {
+            embeds: [embed],
+            components: []
+        });
+    },
+
 
     // Helper method to handle both button and slash command interactions
     async safeReply(interaction, options) {
         try {
             // Check if this is a button interaction
             if (interaction.isButton && interaction.isButton()) {
-                await interaction.update(options);
+                if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply(options);
+                } else {
+                    await interaction.update(options);
+                }
                 return;
             }
             
             // Check if this is a modal submission
             if (interaction.isModalSubmit && interaction.isModalSubmit()) {
-                await interaction.update(options);
+                if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply(options);
+                } else {
+                    await interaction.update(options);
+                }
                 return;
             }
             
             // For slash commands and other interactions
             if (interaction.deferred || interaction.replied) {
-                // If already deferred or replied, use followUp
-                await interaction.followUp(options);
-            } else if (interaction.editReply) {
-                // Try editReply first for deferred interactions
-                await interaction.editReply(options);
+                // If already deferred or replied, use followUp or editReply
+                if (interaction.editReply) {
+                    await interaction.editReply(options);
+                } else {
+                    await interaction.followUp(options);
+                }
             } else if (interaction.reply) {
                 // Fallback to reply
                 await interaction.reply(options);

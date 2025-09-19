@@ -2216,11 +2216,19 @@ client.on('interactionCreate', async interaction => {
                     await marriageTaskCommand.handleTicTacToeMove(interaction);
                 }
             }
-            // Handle tree care buttons
-            else if (customId.startsWith('tree_care_') || customId.startsWith('tree_refresh_')) {
-                const marriageTaskCommand = client.commands.get('marriage-task');
-                if (marriageTaskCommand && marriageTaskCommand.handleTreeCare) {
-                    await marriageTaskCommand.handleTreeCare(interaction);
+            // Handle tree planting and care buttons
+            else if (customId.startsWith('select_tree_') || customId.startsWith('tree_care_') || customId.startsWith('tree_refresh_')) {
+                // Check if it's the standalone tree planting game
+                const plantTreeCommand = client.commands.get('marriage-plant-tree');
+                if (plantTreeCommand && plantTreeCommand.handleButtonInteraction) {
+                    await plantTreeCommand.handleButtonInteraction(interaction);
+                }
+                // Also check if it's from the marriage task system
+                else if (customId.startsWith('tree_care_') || customId.startsWith('tree_refresh_')) {
+                    const marriageTaskCommand = client.commands.get('marriage-task');
+                    if (marriageTaskCommand && marriageTaskCommand.handleTreeCare) {
+                        await marriageTaskCommand.handleTreeCare(interaction);
+                    }
                 }
             }
             // Handle poem interaction buttons

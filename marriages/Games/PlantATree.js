@@ -21,10 +21,10 @@ const TREE_STAGES = [
 ];
 
 const CARE_ACTIONS = [
-    { action: 'water', emoji: '=§', description: 'Give your tree some water', effect: 'Prevents wilting and promotes growth' },
-    { action: 'fertilize', emoji: '>´', description: 'Add nutrients to the soil', effect: 'Speeds up growth significantly' },
+    { action: 'water', emoji: '=ï¿½', description: 'Give your tree some water', effect: 'Prevents wilting and promotes growth' },
+    { action: 'fertilize', emoji: '>ï¿½', description: 'Add nutrients to the soil', effect: 'Speeds up growth significantly' },
     { action: 'prune', emoji: '', description: 'Trim dead branches', effect: 'Improves health and appearance' },
-    { action: 'sing', emoji: '<µ', description: 'Sing to your tree', effect: 'Mysterious growth benefits!' }
+    { action: 'sing', emoji: '<ï¿½', description: 'Sing to your tree', effect: 'Mysterious growth benefits!' }
 ];
 
 class TreeGrowthGame {
@@ -116,11 +116,11 @@ class TreeGrowthGame {
     }
 
     getHealthStatus() {
-        if (this.health > 80) return { status: 'Excellent', color: 0x00FF00, emoji: '=š' };
-        if (this.health > 60) return { status: 'Good', color: 0xFFFF00, emoji: '=›' };
-        if (this.health > 40) return { status: 'Fair', color: 0xFFA500, emoji: '>á' };
+        if (this.health > 80) return { status: 'Excellent', color: 0x00FF00, emoji: '=ï¿½' };
+        if (this.health > 60) return { status: 'Good', color: 0xFFFF00, emoji: '=ï¿½' };
+        if (this.health > 40) return { status: 'Fair', color: 0xFFA500, emoji: '>ï¿½' };
         if (this.health > 20) return { status: 'Poor', color: 0xFF4500, emoji: 'd' };
-        return { status: 'Critical', color: 0xFF0000, emoji: '=”' };
+        return { status: 'Critical', color: 0xFF0000, emoji: '=ï¿½' };
     }
 
     createStatusEmbed() {
@@ -129,10 +129,10 @@ class TreeGrowthGame {
         
         const embed = new EmbedBuilder()
             .setTitle(`${this.treeType.emoji} ${this.couple.player1.name} & ${this.couple.player2.name}'s ${this.treeType.name}`)
-            .setDescription(`${stage.emoji} **${stage.description}**\n\n${this.isAlive ? 'Your tree is growing!' : '=€ Your tree has died...'}`)
+            .setDescription(`${stage.emoji} **${stage.description}**\n\n${this.isAlive ? 'Your tree is growing!' : '=ï¿½ Your tree has died...'}`)
             .addFields(
                 {
-                    name: '=Ê Tree Stats',
+                    name: '=ï¿½ Tree Stats',
                     value: `**Health:** ${this.health}/100 ${healthStatus.emoji}\n**Growth:** ${this.growth}/125\n**Age:** ${this.daysAlive} days\n**Stage:** ${stage.stage}`,
                     inline: true
                 },
@@ -151,8 +151,8 @@ class TreeGrowthGame {
 
         if (this.daysAlive >= 7 && this.isAlive) {
             embed.addFields({
-                name: '<Æ Achievement Unlocked!',
-                value: 'Tree survived for 7 days! Challenge complete! <‰',
+                name: '<ï¿½ Achievement Unlocked!',
+                value: 'Tree survived for 7 days! Challenge complete! <ï¿½',
                 inline: false
             });
         }
@@ -232,7 +232,7 @@ module.exports = {
                 .setTitle('<1 Plant a Tree Together')
                 .setDescription(`**${interaction.user.displayName}** wants to plant a tree with **${partnerName}**!\n\nChoose what type of tree you want to plant together. You'll need to care for it daily to keep it alive for 7 days.`)
                 .addFields({
-                    name: '<¯ Challenge Goal',
+                    name: '<ï¿½ Challenge Goal',
                     value: 'Keep your tree alive for 7 days to complete the weekly challenge!',
                     inline: false
                 })
@@ -311,11 +311,28 @@ module.exports = {
             const embed = tree.createStatusEmbed();
             const buttons = tree.createCareButtons();
 
-            await interaction.update({
-                content: `<1 ${selectedTree.emoji} **${selectedTree.name}** planted! Take care of it together!`,
-                embeds: [embed],
-                components: buttons
-            });
+            try {
+                if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply({
+                        content: `<1 ${selectedTree.emoji} **${selectedTree.name}** planted! Take care of it together!`,
+                        embeds: [embed],
+                        components: buttons
+                    });
+                } else {
+                    await interaction.update({
+                        content: `<1 ${selectedTree.emoji} **${selectedTree.name}** planted! Take care of it together!`,
+                        embeds: [embed],
+                        components: buttons
+                    });
+                }
+            } catch (updateError) {
+                logger.error(`Error updating tree planting interaction: ${updateError.message}`);
+                await interaction.followUp({
+                    content: `<1 ${selectedTree.emoji} **${selectedTree.name}** planted! Take care of it together!`,
+                    embeds: [embed],
+                    components: buttons
+                });
+            }
 
         } else if (interaction.customId.startsWith('tree_care_')) {
             const action = interaction.customId.split('_')[2];
@@ -359,11 +376,28 @@ module.exports = {
             const buttons = tree.createCareButtons();
             const careAction = CARE_ACTIONS.find(a => a.action === action);
 
-            await interaction.update({
-                content: `${careAction.emoji} **${interaction.user.displayName}** ${careAction.description.toLowerCase()}!`,
-                embeds: [embed],
-                components: buttons
-            });
+            try {
+                if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply({
+                        content: `${careAction.emoji} **${interaction.user.displayName}** ${careAction.description.toLowerCase()}!`,
+                        embeds: [embed],
+                        components: buttons
+                    });
+                } else {
+                    await interaction.update({
+                        content: `${careAction.emoji} **${interaction.user.displayName}** ${careAction.description.toLowerCase()}!`,
+                        embeds: [embed],
+                        components: buttons
+                    });
+                }
+            } catch (updateError) {
+                logger.error(`Error updating tree care interaction: ${updateError.message}`);
+                await interaction.followUp({
+                    content: `${careAction.emoji} **${interaction.user.displayName}** ${careAction.description.toLowerCase()}!`,
+                    embeds: [embed],
+                    components: buttons
+                });
+            }
         }
     }
 };
