@@ -100,12 +100,107 @@ class GameTrendAnalyzer {
                 stopPatterns: new Map(),
                 progressiveBetting: new Map()
             },
+            'matrix_slots': {
+                betPatterns: new Map(),
+                stopPatterns: new Map(),
+                progressiveBetting: new Map()
+            },
+            'multi_slots': {
+                betPatterns: new Map(),
+                stopPatterns: new Map(),
+                progressiveBetting: new Map()
+            },
+            'plinko': {
+                dropPatterns: new Map(),
+                riskChoices: new Map(),
+                betProgression: new Map()
+            },
+            'poker': {
+                handChoices: new Map(),
+                bettingPatterns: new Map(),
+                bluffIndicators: new Map()
+            },
+            'uno': {
+                cardChoices: new Map(),
+                colorPreferences: new Map(),
+                strategyPatterns: new Map()
+            },
+            'war': {
+                choices: ['play', 'surrender'],
+                riskTolerance: new Map(),
+                patterns: new Map()
+            },
+            'fishing': {
+                choices: ['cast', 'wait', 'reel'],
+                patiencePatterns: new Map(),
+                locationChoices: new Map()
+            },
+            'keno': {
+                numberChoices: new Map(),
+                betSizePatterns: new Map(),
+                riskStrategies: new Map()
+            },
+            'heist': {
+                choices: ['join', 'start', 'abandon'],
+                riskTolerance: new Map(),
+                timingPatterns: new Map()
+            },
+            'bingo': {
+                cardChoices: new Map(),
+                patternPreferences: new Map(),
+                playStyle: new Map()
+            },
+            'spades': {
+                bidPatterns: new Map(),
+                cardPlay: new Map(),
+                partnership: new Map()
+            },
+            '31': {
+                choices: ['hit', 'stand', 'knock'],
+                riskPatterns: new Map(),
+                cardStrategy: new Map()
+            },
             'rps': {
                 choices: ['rock', 'paper', 'scissors'],
                 sequencePatterns: new Map(),
                 antiPatterns: new Map()
             },
+            'battleship': {
+                attackPatterns: new Map(),
+                placementStrategies: new Map(),
+                huntingBehavior: new Map()
+            },
+            'wordchain': {
+                wordChoices: new Map(),
+                strategyPatterns: new Map(),
+                difficultyPreference: new Map()
+            },
+            'yahtzee': {
+                diceChoices: new Map(),
+                scoringStrategy: new Map(),
+                riskPatterns: new Map()
+            },
+            'lottery': {
+                numberChoices: new Map(),
+                ticketQuantity: new Map(),
+                strategyPatterns: new Map()
+            },
+            'russianroulette': {
+                choices: ['play', 'pass'],
+                riskTolerance: new Map(),
+                patterns: new Map()
+            },
+            'ceelo': {
+                betPatterns: new Map(),
+                riskChoices: new Map(),
+                strategyPatterns: new Map()
+            },
             'duck': {
+                riskTaking: new Map(),
+                cashoutTiming: new Map(),
+                positionStrategies: new Map()
+            },
+            'duck_game': {
                 riskTaking: new Map(),
                 cashoutTiming: new Map(),
                 positionStrategies: new Map()
@@ -206,6 +301,7 @@ class GameTrendAnalyzer {
                 break;
                 
             case 'duck':
+            case 'duck_game':
                 await this.recordDuckChoice(gameData, choiceRecord);
                 break;
                 

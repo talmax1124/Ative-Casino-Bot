@@ -158,7 +158,8 @@ const GameType = Object.freeze({
     LOTTERY: 'lottery',
     TREASUREVAULT: 'treasurevault',
     ROULETTE: 'roulette',
-    RUSSIAN_ROULETTE: 'russianroulette'
+    RUSSIAN_ROULETTE: 'russianroulette',
+    CEELO: 'ceelo'
 });
 
 /**

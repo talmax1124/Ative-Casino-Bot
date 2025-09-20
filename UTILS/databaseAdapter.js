@@ -1008,11 +1008,12 @@ class DatabaseAdapter {
             const [existingRows] = await this.pool.execute(statsQuery, [userId, gameType]);
             
             if (existingRows.length === 0) {
-                // Create new stats record
+                // Create new stats record with generated composite ID
+                const statsId = `${userId}_${gameType}`;
                 const insertQuery = `
                     INSERT INTO user_stats 
-                    (user_id, game_type, wins, losses, total_wagered, total_won, total_games_played, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                    (id, user_id, game_type, wins, losses, total_wagered, total_won, total_games_played, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                 `;
                 
                 const wins = win === true ? 1 : 0;
@@ -1020,6 +1021,7 @@ class DatabaseAdapter {
                 const gamesPlayed = 1;
                 
                 await this.pool.execute(insertQuery, [
+                    statsId,
                     userId, 
                     gameType, 
                     wins, 

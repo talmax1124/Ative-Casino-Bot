@@ -65,6 +65,9 @@ const GameType = {
     MULTI_SLOTS: 'multi_slots',
     BATTLESHIP: 'battleship',
     WORDCHAIN: 'wordchain',
+    YAHTZEE: 'yahtzee',
+    LOTTERY: 'lottery',
+    ROULETTE: 'roulette',
     RUSSIAN_ROULETTE: 'russianroulette',
     CEELO: 'ceelo',
     TREASURE_VAULT: 'treasurevault'
@@ -368,7 +371,8 @@ class PayoutManager {
         const modernGames = [
             'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
             'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
-            'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette'
+            'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
+            'roulette','heist'
         ];
         if (!modernGames.includes(gameType.toLowerCase())) {
             setActiveGame(userId, gameType);
@@ -552,7 +556,8 @@ class PayoutManager {
             const modernGames = [
                 'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
                 'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
-                'war','keno','spades','31','thirtyone','poker','lottery'
+                'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
+                'roulette','heist'
             ];
             if (!modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);
@@ -609,7 +614,8 @@ class PayoutManager {
             const modernGames = [
                 'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
                 'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
-                'war','keno','spades','31','thirtyone','poker','lottery'
+                'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
+                'roulette','heist'
             ];
             if (!modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);
@@ -644,7 +650,12 @@ class PayoutManager {
             
             if (success) {
                 // Clear active game (only for legacy games, modern games use GameSessionIntegrator)
-                const modernGames = ['blackjack', 'slots', 'crash', 'plinko', 'uno', 'wordchain', 'fishing', 'battleship'];
+                const modernGames = [
+                    'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
+                    'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
+                    'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
+                    'roulette','heist'
+                ];
                 const gameType = reason.includes('blackjack') ? 'blackjack' : 
                                 reason.includes('slots') ? 'slots' : 
                                 reason.includes('crash') ? 'crash' : 
