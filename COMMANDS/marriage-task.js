@@ -19,7 +19,8 @@ module.exports = {
                     { name: 'Task 1: Tic Tac Toe', value: 'task1' },
                     { name: 'Task 2: Plant a Tree', value: 'task2' },
                     { name: 'Task 3: Write a Poem', value: 'task3' },
-                    { name: 'Task 4: Quiz Each Other', value: 'task4' }
+                    { name: 'Task 4: Quiz Each Other', value: 'task4' },
+                    { name: 'Migrate Poems (Admin)', value: 'migrate_poems' }
                 )
         ),
 
@@ -57,6 +58,17 @@ module.exports = {
                     break;
                 case 'task4':
                     await this.handleQuiz(interaction, marriage);
+                    break;
+                case 'migrate_poems':
+                    // Admin-only migration function
+                    if (!interaction.member.permissions.has('Administrator')) {
+                        await interaction.reply({
+                            content: '❌ This command is only available to administrators.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+                    await this.migrateExistingPoems(interaction);
                     break;
             }
 
@@ -1319,12 +1331,288 @@ module.exports = {
                 components: actionButtons
             });
 
+            // Auto-post completed poems to the designated channel
+            if (poem.isComplete) {
+                await this.postPoemToVotingChannel(poemData, poemId, message.client);
+            }
+
             return true;
             
         } catch (error) {
             logger.error(`Error in handlePoemChatInput: ${error.message}`, error);
             await message.reply('❌ Something went wrong while adding your line. Please try again.');
             return true;
+        }
+    },
+
+    // Post completed poem to voting channel
+    async postPoemToVotingChannel(poemData, poemId, client) {
+        try {
+            const { poem, partner1, partner2, marriageId } = poemData;
+            const votingChannelId = '1419057346952564978';
+            
+            if (!client) {
+                logger.error('Client not provided to postPoemToVotingChannel');
+                return;
+            }
+
+            // Get the voting channel
+            const votingChannel = await client.channels.fetch(votingChannelId).catch(() => null);
+            if (!votingChannel) {
+                logger.error(`Could not find voting channel: ${votingChannelId}`);
+                return;
+            }
+
+            // Create the poem embed (without author names, just the poem)
+            const poemEmbed = new EmbedBuilder()
+                .setTitle('📜 New Poem')
+                .setDescription(`**Theme:** ${poem.theme}\n\n${poem.getDisplayText()}`)
+                .setColor(0x9B59B6)
+                .setFooter({ text: `Poem ID: ${poemId}` })
+                .setTimestamp();
+
+            // Create vote buttons with current vote counts
+            const voteButtons = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`poem_vote_up_${poemId}`)
+                        .setLabel('0')
+                        .setEmoji('👍')
+                        .setStyle(ButtonStyle.Success),
+                    new ButtonBuilder()
+                        .setCustomId(`poem_vote_down_${poemId}`)
+                        .setLabel('0')
+                        .setEmoji('👎')
+                        .setStyle(ButtonStyle.Danger)
+                );
+
+            // Post to voting channel
+            const votingMessage = await votingChannel.send({
+                embeds: [poemEmbed],
+                components: [voteButtons]
+            });
+
+            // Store voting data
+            if (!global.poemVotes) {
+                global.poemVotes = new Map();
+            }
+            
+            global.poemVotes.set(poemId, {
+                messageId: votingMessage.id,
+                channelId: votingChannelId,
+                upvotes: 0,
+                downvotes: 0,
+                voters: new Set(),
+                poem: {
+                    theme: poem.theme,
+                    content: poem.getDisplayText(),
+                    marriageId: marriageId
+                }
+            });
+
+            // Mark task as completed and award XP
+            try {
+                await dbManager.completeMarriageTask(marriageId, 3, partner1.id, {
+                    gameType: 'poem',
+                    lines: poem.lines.length,
+                    theme: poem.theme
+                });
+
+                // Award Marriage XP for completing the poem task
+                const xpResult = await dbManager.awardMarriageXP(
+                    marriageId, 
+                    30, 
+                    'task_completion', 
+                    `Poem task completed - ${poem.lines.length} lines written`
+                );
+
+                // Send level up notification if it happened (we don't have interaction here, so skip)
+                if (xpResult.leveledUp) {
+                    logger.info(`Marriage ${marriageId} leveled up! ${xpResult.oldLevel} -> ${xpResult.newLevel}`);
+                }
+
+            } catch (error) {
+                logger.error(`Error marking poem task as completed: ${error.message}`);
+            }
+
+            logger.info(`Posted completed poem ${poemId} to voting channel ${votingChannelId}`);
+            
+        } catch (error) {
+            logger.error(`Error posting poem to voting channel: ${error.message}`, error);
+        }
+    },
+
+    // Migrate existing poems to new voting system
+    async migrateExistingPoems(interaction) {
+        try {
+            const oldChannelId = '1417279987043532971';
+            const newChannelId = '1419057346952564978';
+            
+            // Get both channels
+            const oldChannel = await interaction.client.channels.fetch(oldChannelId).catch(() => null);
+            const newChannel = await interaction.client.channels.fetch(newChannelId).catch(() => null);
+            
+            if (!oldChannel || !newChannel) {
+                await interaction.reply({
+                    content: `❌ Could not access channels. Old: ${oldChannel ? '✅' : '❌'}, New: ${newChannel ? '✅' : '❌'}`,
+                    ephemeral: true
+                });
+                return;
+            }
+
+            await interaction.reply({
+                content: '🔄 Starting poem migration... This may take a moment.',
+                ephemeral: true
+            });
+
+            let migratedCount = 0;
+            let messages = [];
+            
+            // Fetch messages from old channel
+            let lastMessageId;
+            while (true) {
+                const fetchedMessages = await oldChannel.messages.fetch({
+                    limit: 100,
+                    before: lastMessageId
+                });
+                
+                if (fetchedMessages.size === 0) break;
+                
+                messages.push(...fetchedMessages.values());
+                lastMessageId = fetchedMessages.last().id;
+                
+                // Prevent infinite loop
+                if (messages.length > 1000) break;
+            }
+
+            logger.info(`Found ${messages.length} messages in old poem channel`);
+
+            // Process messages to find poems
+            for (const message of messages) {
+                try {
+                    // Look for poem embeds
+                    if (message.embeds.length > 0) {
+                        const embed = message.embeds[0];
+                        
+                        // Check if this looks like a poem (has theme and content)
+                        if (embed.description && 
+                            (embed.description.includes('**Theme:**') || 
+                             embed.title?.includes('Poem') ||
+                             embed.title?.includes('📜'))) {
+                            
+                            // Extract poem data
+                            const description = embed.description;
+                            let theme = 'Unknown';
+                            let poemContent = description;
+                            
+                            // Try to extract theme
+                            const themeMatch = description.match(/\*\*Theme:\*\*\s*([^\n]+)/);
+                            if (themeMatch) {
+                                theme = themeMatch[1];
+                                poemContent = description.replace(/\*\*Theme:\*\*\s*[^\n]+\n*/g, '');
+                            }
+                            
+                            // Remove author info if present
+                            poemContent = poemContent
+                                .replace(/\*\*Authors?:\*\*[^\n]+\n*/g, '')
+                                .replace(/\*\*Author:\*\*[^\n]+\n*/g, '')
+                                .trim();
+                            
+                            // Skip if content is too short or empty
+                            if (poemContent.length < 20) continue;
+                            
+                            // Create new poem post
+                            const poemId = `migrated_${message.id}`;
+                            
+                            // Check if already migrated
+                            if (global.poemVotes?.has(poemId)) continue;
+                            
+                            const poemEmbed = new EmbedBuilder()
+                                .setTitle('📜 New Poem')
+                                .setDescription(`**Theme:** ${theme}\n\n${poemContent}`)
+                                .setColor(0x9B59B6)
+                                .setFooter({ text: `Poem ID: ${poemId}` })
+                                .setTimestamp(message.createdAt);
+
+                            const voteButtons = new ActionRowBuilder()
+                                .addComponents(
+                                    new ButtonBuilder()
+                                        .setCustomId(`poem_vote_up_${poemId}`)
+                                        .setLabel('0')
+                                        .setEmoji('👍')
+                                        .setStyle(ButtonStyle.Success),
+                                    new ButtonBuilder()
+                                        .setCustomId(`poem_vote_down_${poemId}`)
+                                        .setLabel('0')
+                                        .setEmoji('👎')
+                                        .setStyle(ButtonStyle.Danger)
+                                );
+
+                            // Post to new channel
+                            const newMessage = await newChannel.send({
+                                embeds: [poemEmbed],
+                                components: [voteButtons]
+                            });
+
+                            // Store voting data
+                            if (!global.poemVotes) {
+                                global.poemVotes = new Map();
+                            }
+                            
+                            global.poemVotes.set(poemId, {
+                                messageId: newMessage.id,
+                                channelId: newChannelId,
+                                upvotes: 0,
+                                downvotes: 0,
+                                voters: new Set(),
+                                poem: {
+                                    theme: theme,
+                                    content: poemContent,
+                                    originalMessageId: message.id
+                                }
+                            });
+
+                            migratedCount++;
+                            
+                            // Rate limit to avoid hitting Discord limits
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    }
+                } catch (error) {
+                    logger.error(`Error processing message ${message.id}: ${error.message}`);
+                }
+            }
+
+            // Also check database for poem completion records
+            try {
+                // Query database directly for poem task completions
+                const query = `
+                    SELECT * FROM marriage_task_completions 
+                    WHERE task_number = 3 
+                    AND task_data LIKE '%"gameType":"poem"%'
+                    ORDER BY completed_at DESC
+                `;
+                const poemCompletions = await dbManager.query(query);
+                
+                logger.info(`Found ${poemCompletions.length} poem task completions in database`);
+                
+            } catch (dbError) {
+                logger.error(`Error checking database for poems: ${dbError.message}`);
+            }
+
+            await interaction.followUp({
+                content: `✅ Migration complete! Migrated ${migratedCount} poems from <#${oldChannelId}> to <#${newChannelId}> with new voting buttons.`,
+                ephemeral: true
+            });
+
+            logger.info(`Successfully migrated ${migratedCount} poems to new voting system`);
+
+        } catch (error) {
+            logger.error(`Error migrating existing poems: ${error.message}`, error);
+            await interaction.followUp({
+                content: '❌ Error occurred during migration. Check logs for details.',
+                ephemeral: true
+            });
         }
     },
 
@@ -1725,7 +2013,8 @@ module.exports = {
         const voteType = parts[2]; // 'up' or 'down'
         const poemId = parts.slice(3).join('_');
 
-        if (!global.marriagePoems?.has(poemId)) {
+        // Check if this is from the new voting system
+        if (!global.poemVotes?.has(poemId)) {
             await interaction.reply({
                 content: '❌ This poem voting has expired.',
                 ephemeral: true
@@ -1733,13 +2022,50 @@ module.exports = {
             return;
         }
 
-        const poemData = global.marriagePoems.get(poemId);
-        const { poem, partner1, partner2 } = poemData;
+        const voteData = global.poemVotes.get(poemId);
+        const userId = interaction.user.id;
 
-        // Prevent authors from voting on their own poem
-        if (interaction.user.id === partner1.id || interaction.user.id === partner2.id) {
-            await this.safeInteractionReply(interaction, {
-                content: '❌ You cannot vote on your own poem!',
+        // Check if user already voted
+        if (voteData.voters.has(userId)) {
+            await interaction.reply({
+                content: '❌ You have already voted on this poem!',
+                ephemeral: true
+            });
+            return;
+        }
+
+        // Add vote
+        voteData.voters.add(userId);
+        if (voteType === 'up') {
+            voteData.upvotes++;
+        } else if (voteType === 'down') {
+            voteData.downvotes++;
+        }
+
+        // Update button labels with new vote counts
+        const updatedButtons = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`poem_vote_up_${poemId}`)
+                    .setLabel(voteData.upvotes.toString())
+                    .setEmoji('👍')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId(`poem_vote_down_${poemId}`)
+                    .setLabel(voteData.downvotes.toString())
+                    .setEmoji('👎')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+        // Update the message with new vote counts
+        try {
+            await interaction.update({
+                components: [updatedButtons]
+            });
+        } catch (error) {
+            logger.error(`Error updating poem vote buttons: ${error.message}`);
+            await interaction.reply({
+                content: `✅ Vote recorded! 👍 ${voteData.upvotes} | 👎 ${voteData.downvotes}`,
                 ephemeral: true
             });
             return;
@@ -2856,8 +3182,8 @@ module.exports = {
                 // Fallback to reply
                 await interaction.reply(options);
             } else {
-                // If no standard methods available, log error
-                logger.error('No available method to send interaction response');
+                // If no standard methods available, log error with more details
+                logger.error(`No available method to send interaction response. Type: ${interaction.type}, replied: ${interaction.replied}, deferred: ${interaction.deferred}, customId: ${interaction.customId || 'none'}`);
                 return;
             }
         } catch (error) {
