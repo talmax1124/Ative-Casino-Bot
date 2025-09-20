@@ -1214,26 +1214,118 @@ module.exports = {
             return;
         }
 
-        // Show modal for line input
-        const { ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+        // Set waiting state for this poem
+        if (!global.poemWaitingForInput) {
+            global.poemWaitingForInput = new Map();
+        }
         
-        const modal = new ModalBuilder()
-            .setCustomId(`poem_line_input_${poemId}`)
-            .setTitle('Add a Line to Your Poem');
+        global.poemWaitingForInput.set(interaction.user.id, {
+            poemId: poemId,
+            channelId: interaction.channel.id,
+            startTime: Date.now(),
+            expiresAt: Date.now() + (5 * 60 * 1000) // 5 minutes
+        });
 
-        const lineInput = new TextInputBuilder()
-            .setCustomId('poem_line')
-            .setLabel(`Line ${poem.lines.length + 1} - Theme: ${poem.theme}`)
-            .setStyle(TextInputStyle.Short)
-            .setMinLength(5)
-            .setMaxLength(100)
-            .setPlaceholder('Write a beautiful line about the theme...')
-            .setRequired(true);
+        await interaction.update({
+            content: `📝 <@${interaction.user.id}>, please type your line for the poem in this channel!\n\n**Theme:** ${poem.theme}\n**Line ${poem.lines.length + 1}/8** - Write a beautiful line about the theme (5-100 characters)\n\n*You have 5 minutes to respond, or type "cancel" to cancel.*`,
+            embeds: interaction.message.embeds,
+            components: interaction.message.components
+        });
+    },
 
-        const firstActionRow = new ActionRowBuilder().addComponents(lineInput);
-        modal.addComponents(firstActionRow);
+    // Handle chat-based poem line input
+    async handlePoemChatInput(message) {
+        try {
+            // Check if user is waiting for poem input
+            if (!global.poemWaitingForInput?.has(message.author.id)) {
+                return false; // Not handling poem input
+            }
 
-        await interaction.showModal(modal);
+            const waitingData = global.poemWaitingForInput.get(message.author.id);
+            
+            // Check if expired
+            if (Date.now() > waitingData.expiresAt) {
+                global.poemWaitingForInput.delete(message.author.id);
+                await message.reply('⏰ Poem input timed out. Please click "Add Line" again to continue.');
+                return true;
+            }
+
+            // Check if in correct channel
+            if (message.channel.id !== waitingData.channelId) {
+                return false;
+            }
+
+            const poemId = waitingData.poemId;
+            const poemLine = message.content.trim();
+
+            // Handle cancel
+            if (poemLine.toLowerCase() === 'cancel') {
+                global.poemWaitingForInput.delete(message.author.id);
+                await message.reply('❌ Poem line input cancelled.');
+                return true;
+            }
+
+            // Get poem data
+            if (!global.marriagePoems?.has(poemId)) {
+                global.poemWaitingForInput.delete(message.author.id);
+                await message.reply('❌ This poem session has expired.');
+                return true;
+            }
+
+            const poemData = global.marriagePoems.get(poemId);
+            const { poem, partner1, partner2, currentTurn } = poemData;
+
+            // Verify it's still their turn
+            if (message.author.id !== currentTurn) {
+                global.poemWaitingForInput.delete(message.author.id);
+                await message.reply('❌ It\'s no longer your turn to add a line.');
+                return true;
+            }
+
+            // Add the line
+            const result = poem.addLine(poemLine, message.author.id, message.author.displayName);
+            
+            if (!result.success) {
+                await message.reply(`❌ ${result.message}`);
+                return true;
+            }
+
+            // Clear waiting state
+            global.poemWaitingForInput.delete(message.author.id);
+
+            // Switch turns
+            poemData.currentTurn = poem.getNextTurn(currentTurn, partner1.id, partner2.id);
+
+            // Update the embed with new line
+            const embed = new EmbedBuilder()
+                .setTitle('📝 Collaborative Poem Writing!')
+                .setDescription(`**${partner1.name}** and **${partner2.name}** are writing a poem together!\n\n📖 **Theme:** ${poem.theme}\n✍️ **Current Turn:** ${poem.isComplete ? 'Complete!' : `<@${poemData.currentTurn}>`}\n📏 **Lines Written:** ${poem.lines.length}/8\n\n**Current Poem:**\n${poem.getDisplayText()}`)
+                .setColor(poem.isComplete ? 0x00FF00 : 0xFF1493)
+                .setFooter({ text: `Poem ID: ${poemId} • Theme: ${poem.theme}` });
+
+            if (poem.isComplete) {
+                embed.addFields({
+                    name: '🎉 Poem Complete!',
+                    value: 'Your collaborative poem is finished! Click "Publish for Voting" to share it with the community and complete your task.',
+                    inline: false
+                });
+            }
+
+            const actionButtons = this.createPoemButtons(poemId, poem, poemData.currentTurn);
+
+            await message.reply({
+                content: `✅ Line added successfully! ${poem.isComplete ? '🎉 **Poem completed!**' : `Now it's <@${poemData.currentTurn}>'s turn.`}`,
+                embeds: [embed],
+                components: actionButtons
+            });
+
+            return true;
+            
+        } catch (error) {
+            logger.error(`Error in handlePoemChatInput: ${error.message}`, error);
+            await message.reply('❌ Something went wrong while adding your line. Please try again.');
+            return true;
+        }
     },
 
     // Handle new format poem buttons (add_verse, finish_poem)

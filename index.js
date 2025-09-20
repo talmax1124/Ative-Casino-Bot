@@ -2341,6 +2341,12 @@ client.on('messageCreate', async message => {
         // Check if this message is a follow-up to a panel action
         await panelManager.processFollowUpAction(message);
 
+        // Check if this message is a poem line input
+        const marriageTaskCommand = client.commands.get('marriage-task');
+        if (marriageTaskCommand && marriageTaskCommand.handlePoemChatInput) {
+            const handled = await marriageTaskCommand.handlePoemChatInput(message);
+            if (handled) return; // Stop processing if poem input was handled
+        }
 
         // Guild-specific message reward system (3K-15K every 15-30 messages)
         const { messageRewardSystem } = require('./UTILS/messageRewardSystem');
