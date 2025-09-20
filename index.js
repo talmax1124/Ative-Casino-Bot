@@ -2249,6 +2249,13 @@ client.on('interactionCreate', async interaction => {
                     await marriageTaskCommand.handleQuizAnswer(interaction);
                 }
             }
+            // Handle quiz history button
+            else if (customId === 'quiz_history') {
+                const marriageTaskCommand = client.commands.get('marriage-task');
+                if (marriageTaskCommand && marriageTaskCommand.handleQuizHistory) {
+                    await marriageTaskCommand.handleQuizHistory(interaction);
+                }
+            }
 
         } catch (error) {
             // Handle "Unknown interaction" errors gracefully (interaction expired)

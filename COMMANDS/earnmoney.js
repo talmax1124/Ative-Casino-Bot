@@ -99,11 +99,7 @@ module.exports = {
             const totalEarned = boostedEarnings + boosterBonus;
             
             if (baseEarnings === 0) {
-                // Update earnmoney timestamp even when no earnings to prevent spam
-                await dbManager.setUserBalance(userId, guildId, balance.wallet, balance.bank, {
-                    last_earnmoney_ts: now
-                });
-
+                // DO NOT update earnmoney timestamp when no earnings to prevent cooldown bypass
                 const cooldowns = Object.entries(results)
                     .filter(([_, result]) => result.cooldownRemaining > 0)
                     .map(([command, result]) => {
@@ -116,11 +112,11 @@ module.exports = {
                     title: '⏰ All Commands on Cooldown',
                     topFields: [
                         { name: '🕐 Active Cooldowns', value: cooldowns.join('\n') || 'No active cooldowns' },
-                        { name: '⚠️ Note', value: 'You can check this again in **5 minutes** due to /earnmoney cooldown.' }
+                        { name: '💡 Tip', value: 'Come back when your cooldowns expire to claim multiple commands at once!' }
                     ],
                     stageText: 'WAIT FOR COOLDOWNS',
                     color: 0xFFAA00,
-                    footer: 'Come back when cooldowns expire!'
+                    footer: 'Individual command cooldowns must expire first'
                 });
 
                 return await interaction.editReply({ embeds: [cooldownEmbed] });

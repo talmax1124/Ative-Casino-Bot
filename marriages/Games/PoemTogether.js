@@ -5,11 +5,11 @@ const logger = require('../../UTILS/logger');
 
 const POEM_THEMES = [
     { theme: 'nature', emoji: '<?', title: 'Nature\'s Beauty', description: 'Write about the wonders of the natural world' },
-    { theme: 'love', emoji: '=ï', title: 'Eternal Love', description: 'Express your love for each other' },
+    { theme: 'love', emoji: '=ÔøΩ', title: 'Eternal Love', description: 'Express your love for each other' },
     { theme: 'seasons', emoji: '<B', title: 'Changing Seasons', description: 'Capture the beauty of seasonal changes' },
-    { theme: 'journey', emoji: '=‰', title: 'Life\'s Journey', description: 'Write about your journey together' },
+    { theme: 'journey', emoji: '=ÔøΩ', title: 'Life\'s Journey', description: 'Write about your journey together' },
     { theme: 'dreams', emoji: '(', title: 'Dreams & Hopes', description: 'Share your dreams and aspirations' },
-    { theme: 'memories', emoji: '=¯', title: 'Precious Memories', description: 'Reminisce about special moments' }
+    { theme: 'memories', emoji: '=ÔøΩ', title: 'Precious Memories', description: 'Reminisce about special moments' }
 ];
 
 const POEM_FORMATS = [
@@ -106,12 +106,12 @@ class PoemCreation {
                     inline: true
                 },
                 {
-                    name: '=› Format',
+                    name: '=ÔøΩ Format',
                     value: this.format.name,
                     inline: true
                 },
                 {
-                    name: '<≠ Theme',
+                    name: '<ÔøΩ Theme',
                     value: this.theme.title,
                     inline: true
                 }
@@ -120,7 +120,7 @@ class PoemCreation {
 
         if (showVoting && this.isComplete) {
             embed.addFields({
-                name: '=Û Votes',
+                name: '=ÔøΩ Votes',
                 value: this.votes.length > 0 
                     ? `${this.votes.length} votes:\n${this.votes.map(v => `" ${v.voterName}`).join('\n')}`
                     : 'No votes yet - be the first to vote!',
@@ -235,10 +235,10 @@ module.exports = {
 
             // Theme selection embed
             const embed = new EmbedBuilder()
-                .setTitle('=› Write a Poem Together')
+                .setTitle('=ÔøΩ Write a Poem Together')
                 .setDescription(`**${interaction.user.displayName}** wants to write a poem with **${partnerName}**!\n\nFirst, choose a theme for your poem:`)
                 .addFields({
-                    name: '<Ø Challenge Goal',
+                    name: '<ÔøΩ Challenge Goal',
                     value: 'Write a poem together and get at least 1 vote from the community!',
                     inline: false
                 })
@@ -262,7 +262,7 @@ module.exports = {
             }
 
             await interaction.editReply({
-                content: `<@${partnerId}> Choose a theme for your poem together! =›`,
+                content: `<@${partnerId}> Choose a theme for your poem together! =ÔøΩ`,
                 embeds: [embed],
                 components: rows
             });
@@ -342,7 +342,7 @@ module.exports = {
             const buttons = poem.createActionButtons(userId);
 
             await interaction.update({
-                content: `=› Poem started! **${poem.format.name}** about **${poem.theme.title}**`,
+                content: `=ÔøΩ Poem started! **${poem.format.name}** about **${poem.theme.title}**`,
                 embeds: [embed],
                 components: buttons
             });
@@ -351,15 +351,40 @@ module.exports = {
             // Show modal for adding verse
             const poemId = this.findPoemIdForUser(interaction.user.id);
             if (!poemId) {
+                // Try to find based on marriage
+                const userId = interaction.user.id;
+                const guildId = await getGuildId(interaction);
+                const marriageData = await dbManager.getUserMarriage(userId, guildId);
+                
+                if (marriageData.married) {
+                    poemId = await this.findOrCreatePoemSession(marriageData.marriage.id, userId);
+                    
+                    if (!poemId) {
+                        await interaction.reply({
+                            content: '‚ùå No active poem session found. Start a new poem with `/marriage-task task3`.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+                } else {
+                    await interaction.reply({
+                        content: '‚ùå No active poem found.',
+                        ephemeral: true
+                    });
+                    return;
+                }
+            }
+
+            const poemData = global.marriagePoems.get(poemId);
+            if (!poemData || !poemData.poem) {
                 await interaction.reply({
-                    content: 'L No active poem found.',
+                    content: '‚ùå Poem session is invalid. Please start a new poem.',
                     ephemeral: true
                 });
                 return;
             }
 
-            const poem = global.marriagePoems.get(poemId);
-            const modal = poem.createWritingModal(interaction.user.id);
+            const modal = poemData.poem.createWritingModal(interaction.user.id);
             
             await interaction.showModal(modal);
 
@@ -380,7 +405,7 @@ module.exports = {
             const buttons = poem.createActionButtons(interaction.user.id);
 
             await interaction.update({
-                content: '<â Poem completed! Others can now vote for it!',
+                content: '<ÔøΩ Poem completed! Others can now vote for it!',
                 embeds: [embed],
                 components: buttons
             });
@@ -465,8 +490,37 @@ module.exports = {
     },
 
     findPoemIdInChannel(message) {
-        // This would need to be implemented based on how you store poem IDs
-        // For now, return null - in production you'd store this differently
+        // Try to extract poem ID from footer text
+        if (message.embeds && message.embeds[0] && message.embeds[0].footer && message.embeds[0].footer.text) {
+            const footerText = message.embeds[0].footer.text;
+            const match = footerText.match(/Poem by .+ & .+/);
+            if (match) {
+                // Look for active poems and return the first one found
+                if (global.marriagePoems) {
+                    for (const [poemId, poem] of global.marriagePoems) {
+                        if (poem.isComplete && poem.published) {
+                            return poemId;
+                        }
+                    }
+                }
+            }
+        }
         return null;
+    },
+
+    // Helper method to find or create poem session for marriage
+    async findOrCreatePoemSession(marriageId, userId) {
+        if (!global.marriagePoems) {
+            global.marriagePoems = new Map();
+        }
+        
+        // Look for existing poem session for this marriage
+        for (const [poemId, poemData] of global.marriagePoems) {
+            if (poemData.marriageId === marriageId && !poemData.poem.isComplete) {
+                return poemId;
+            }
+        }
+        
+        return null; // No active session found
     }
 };

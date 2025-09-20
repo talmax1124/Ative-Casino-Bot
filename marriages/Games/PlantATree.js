@@ -39,6 +39,9 @@ class TreeGrowthGame {
         this.careHistory = [];
         this.plantedAt = new Date();
         this.isAlive = true;
+        this.skipCount = 0; // Track number of full process skips (allows up to 2)
+        this.maxSkips = 2; // Maximum allowed skips before penalties
+        this.lastSkipDay = -1; // Track which day the last skip occurred
     }
 
     careForTree(action, caregiver) {
@@ -69,9 +72,12 @@ class TreeGrowthGame {
                 break;
         }
 
+        // Check day progression first to ensure accurate day tracking
+        this.checkDayProgression();
+        
         this.health = Math.min(100, this.health + healthGain);
         this.growth += growthGain;
-        this.lastCare = { action, caregiver, timestamp: new Date() };
+        this.lastCare = { action, caregiver, timestamp: new Date(), dayGiven: this.daysAlive };
         this.careHistory.push(this.lastCare);
 
         // Check for stage progression
@@ -83,13 +89,66 @@ class TreeGrowthGame {
         return true;
     }
 
+    checkDayProgression() {
+        if (!this.isAlive) return;
+
+        const now = Date.now();
+        const startTime = this.plantedAt.getTime();
+        const daysPassed = Math.floor((now - startTime) / (24 * 60 * 60 * 1000));
+        
+        if (daysPassed > this.daysAlive) {
+            const previousDay = this.daysAlive;
+            this.daysAlive = daysPassed;
+            
+            // Check for skipped days and update skip count
+            for (let day = previousDay; day < daysPassed; day++) {
+                // Check if this day was skipped (no care given on that day)
+                const hadCareThisDay = this.careHistory.some(care => {
+                    const careDay = Math.floor((care.timestamp.getTime() - startTime) / (24 * 60 * 60 * 1000));
+                    return careDay === day;
+                });
+                
+                if (!hadCareThisDay && day >= 0 && this.lastSkipDay !== day) {
+                    this.skipCount++;
+                    this.lastSkipDay = day;
+                }
+            }
+        }
+    }
+
     simulateDay() {
         if (!this.isAlive) return;
 
+        const previousDay = this.daysAlive;
         this.daysAlive++;
         
-        // Natural health decay
-        this.health -= 5;
+        // Check if previous day was skipped (no care given on that day)
+        const hadCareYesterday = this.careHistory.some(care => care.dayGiven === previousDay);
+        
+        if (!hadCareYesterday && previousDay > 0 && this.lastSkipDay !== previousDay) {
+            this.skipCount++;
+            this.lastSkipDay = previousDay;
+        }
+        
+        // Apply health decay based on skip count
+        let healthDecay = 5; // Base decay
+        
+        if (this.skipCount <= this.maxSkips) {
+            // Within allowed skips - much more forgiving
+            if (this.skipCount === 0) {
+                healthDecay = 3; // Gentle decay when well cared for
+            } else if (this.skipCount <= 1) {
+                healthDecay = 4; // Still very manageable
+            } else {
+                healthDecay = 5; // Normal decay
+            }
+        } else {
+            // Exceeded allowed skips - harsh penalty
+            const excessSkips = this.skipCount - this.maxSkips;
+            healthDecay = 8 + (excessSkips * 5); // Harsh but not immediately fatal
+        }
+        
+        this.health -= healthDecay;
         
         // Check if tree dies from neglect
         if (this.health <= 0) {
@@ -129,15 +188,15 @@ class TreeGrowthGame {
         
         const embed = new EmbedBuilder()
             .setTitle(`${this.treeType.emoji} ${this.couple.player1.name} & ${this.couple.player2.name}'s ${this.treeType.name}`)
-            .setDescription(`${stage.emoji} **${stage.description}**\n\n${this.isAlive ? 'Your tree is growing!' : '=� Your tree has died...'}`)
+            .setDescription(`${stage.emoji} **${stage.description}**\n\n${this.isAlive ? 'Your tree is growing!' : '💀 Your tree has died...'}`)
             .addFields(
                 {
-                    name: '=� Tree Stats',
+                    name: '🌿 Tree Stats',
                     value: `**Health:** ${this.health}/100 ${healthStatus.emoji}\n**Growth:** ${this.growth}/125\n**Age:** ${this.daysAlive} days\n**Stage:** ${stage.stage}`,
                     inline: true
                 },
                 {
-                    name: '<1 Care History',
+                    name: '📅 Care History',
                     value: this.careHistory.length > 0 
                         ? this.careHistory.slice(-3).map(care => 
                             `${CARE_ACTIONS.find(a => a.action === care.action)?.emoji} by ${care.caregiver}`
@@ -149,10 +208,23 @@ class TreeGrowthGame {
             .setColor(this.isAlive ? healthStatus.color : 0x000000)
             .setTimestamp();
 
+        // Add skip information
+        if (this.skipCount > 0) {
+            const skipInfo = this.skipCount <= this.maxSkips 
+                ? `${this.skipCount}/${this.maxSkips} skips used 💛`
+                : `${this.skipCount}/${this.maxSkips} skips used ⚠️ PENALTY ACTIVE!`;
+            
+            embed.addFields({
+                name: '⏭️ Skip Status',
+                value: skipInfo,
+                inline: true
+            });
+        }
+
         if (this.daysAlive >= 7 && this.isAlive) {
             embed.addFields({
-                name: '<� Achievement Unlocked!',
-                value: 'Tree survived for 7 days! Challenge complete! <�',
+                name: '🏆 Achievement Unlocked!',
+                value: 'Tree survived for 7 days! Challenge complete! 🎉',
                 inline: false
             });
         }

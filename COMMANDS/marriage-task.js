@@ -633,6 +633,10 @@ module.exports = {
             lastFertilized: 0,
             lastPestCheck: 0,
             careCount: 0,
+            skipCount: 0, // Track number of full process skips (allows up to 2)
+            maxSkips: 2, // Maximum allowed skips before penalties
+            lastSkipDay: -1, // Track which day the last skip occurred
+            careHistory: [], // Track care history with days
 
             getStatusEmoji() {
                 if (this.health >= 80) return '🌱';
@@ -708,11 +712,19 @@ module.exports = {
                         break;
                 }
 
+                // Check if a day has passed and update accordingly FIRST
+                this.checkDayProgress();
+                
                 this.health = Math.min(100, this.health + healthGain);
                 this.careCount++;
 
-                // Check if a day has passed and update accordingly
-                this.checkDayProgress();
+                // Track care history with day information (use current day after progression check)
+                this.careHistory.push({
+                    action: careType,
+                    caregiver: userId,
+                    dayGiven: this.daysAlive,
+                    timestamp: now
+                });
 
                 return { success: true, message, healthGain };
             },
@@ -723,22 +735,42 @@ module.exports = {
                 const daysPassed = Math.floor((now - startTime) / (24 * 60 * 60 * 1000));
                 
                 if (daysPassed > this.daysAlive) {
+                    const previousDay = this.daysAlive;
                     this.daysAlive = daysPassed;
                     this.updateStage();
                     
-                    // Lose health over time if not cared for
-                    const timeSinceLastCare = Math.min(
-                        now - this.lastWatered,
-                        now - this.lastSunlight,
-                        now - this.lastFertilized,
-                        now - this.lastPestCheck
-                    );
-                    
-                    if (timeSinceLastCare > 48 * 60 * 60 * 1000) { // 48 hours
-                        this.health = Math.max(0, this.health - 30); // Significant decay
-                    } else if (timeSinceLastCare > 24 * 60 * 60 * 1000) { // 24 hours
-                        this.health = Math.max(0, this.health - 10); // Minor decay
+                    // Check for skipped days and apply skip logic
+                    for (let day = previousDay; day < daysPassed; day++) {
+                        // Check if this day was skipped (no care given on that day)
+                        const hadCareThisDay = this.careHistory.some(care => care.dayGiven === day);
+                        
+                        if (!hadCareThisDay && day >= 0 && this.lastSkipDay !== day) {
+                            this.skipCount++;
+                            this.lastSkipDay = day;
+                        }
                     }
+                    
+                    // Apply health decay based on skip count
+                    let healthDecay = 5; // Base decay per day
+                    
+                    if (this.skipCount <= this.maxSkips) {
+                        // Within allowed skips - more forgiving
+                        if (this.skipCount === 0) {
+                            healthDecay = 3; // Gentle decay when well cared for
+                        } else if (this.skipCount <= 1) {
+                            healthDecay = 4; // Still manageable
+                        } else {
+                            healthDecay = 5; // Normal decay
+                        }
+                    } else {
+                        // Exceeded allowed skips - harsh penalty
+                        const excessSkips = this.skipCount - this.maxSkips;
+                        healthDecay = 8 + (excessSkips * 5); // Harsh but not immediately fatal
+                    }
+                    
+                    // Apply decay for the day(s) that passed
+                    const daysToDecay = daysPassed - previousDay;
+                    this.health = Math.max(0, this.health - (healthDecay * daysToDecay));
                 }
             },
 
@@ -755,9 +787,24 @@ module.exports = {
                     return '🎉 **Task 2 Completed!** Your tree survived 7 days! 🌳';
                 }
                 if (!this.isAlive()) {
-                    return '💀 **Task Failed!** Your tree has died. Better luck next time! 🥀';
+                    const reason = this.skipCount > this.maxSkips 
+                        ? `(${this.skipCount} skips used, max ${this.maxSkips} allowed)`
+                        : '';
+                    return `💀 **Task Failed!** Your tree has died. ${reason} Better luck next time! 🥀`;
                 }
-                return `Keep caring for your tree! ${this.targetDays - this.daysAlive} days remaining.`;
+                
+                let skipInfo = '';
+                if (this.skipCount > 0) {
+                    if (this.skipCount <= this.maxSkips) {
+                        skipInfo = ` | 💛 ${this.skipCount}/${this.maxSkips} skips used`;
+                    } else {
+                        skipInfo = ` | ⚠️ ${this.skipCount}/${this.maxSkips} skips used - PENALTY ACTIVE!`;
+                    }
+                } else {
+                    skipInfo = ` | 💚 Perfect care so far!`;
+                }
+                
+                return `Keep caring for your tree! ${this.targetDays - this.daysAlive} days remaining.${skipInfo}`;
             }
         };
     },
@@ -813,11 +860,59 @@ module.exports = {
         const treeId = parts.slice(3).join('_');
 
         if (!global.marriageTrees?.has(treeId)) {
-            await this.safeInteractionReply(interaction, {
-                content: '❌ This tree has expired or is invalid.',
-                ephemeral: true
-            });
-            return;
+            // Try to find an active tree for this user's marriage
+            const userId = interaction.user.id;
+            const guildId = await getGuildId(interaction);
+            const marriageData = await dbManager.getUserMarriage(userId, guildId);
+            
+            if (marriageData.married) {
+                const marriageId = marriageData.marriage.id;
+                
+                // Look for any active tree for this marriage
+                let foundTreeId = null;
+                if (global.marriageTrees) {
+                    for (const [id, treeData] of global.marriageTrees) {
+                        if (treeData.marriageId === marriageId) {
+                            foundTreeId = id;
+                            break;
+                        }
+                    }
+                }
+                
+                if (foundTreeId) {
+                    // Redirect to the correct tree
+                    const treeData = global.marriageTrees.get(foundTreeId);
+                    const { tree, partner1, partner2 } = treeData;
+                    
+                    if (careType === 'refresh') {
+                        tree.checkDayProgress();
+                    } else {
+                        const result = tree.care(careType, interaction.user.id);
+                        if (!result.success) {
+                            await this.safeInteractionReply(interaction, {
+                                content: `❌ ${result.message}`,
+                                ephemeral: true
+                            });
+                            return;
+                        }
+                    }
+                    
+                    // Continue with updated tree display
+                    treeId = foundTreeId;
+                } else {
+                    await this.safeInteractionReply(interaction, {
+                        content: '❌ No active tree found. Start a new tree with `/marriage-task task2`.',
+                        ephemeral: true
+                    });
+                    return;
+                }
+            } else {
+                await this.safeInteractionReply(interaction, {
+                    content: '❌ You must be married to care for a tree!',
+                    ephemeral: true
+                });
+                return;
+            }
         }
 
         const treeData = global.marriageTrees.get(treeId);
@@ -2067,9 +2162,19 @@ module.exports = {
             global.marriageQuizzes.delete(quizId);
         }, 5 * 60 * 1000);
 
+        // Create quiz history button
+        const historyButton = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('quiz_history')
+                    .setLabel('View Quiz History')
+                    .setEmoji('📚')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
         await this.safeReply(interaction, {
             embeds: [embed],
-            components: []
+            components: [historyButton]
         });
     },
 
@@ -2153,6 +2258,55 @@ module.exports = {
             } catch (fallbackError) {
                 logger.error(`Failed final fallback reply: ${fallbackError.message}`);
             }
+        }
+    },
+
+    // Handle quiz history button
+    async handleQuizHistory(interaction) {
+        try {
+            const userId = interaction.user.id;
+            const guildId = await getGuildId(interaction);
+            
+            // Check if user is married
+            const marriageData = await dbManager.getUserMarriage(userId, guildId);
+            if (!marriageData.married) {
+                await this.safeInteractionReply(interaction, {
+                    content: '❌ You must be married to view quiz history!',
+                    ephemeral: true
+                });
+                return;
+            }
+
+            // Get quiz history from database (placeholder for now)
+            const historyEmbed = new EmbedBuilder()
+                .setTitle('📚 Quiz History')
+                .setDescription(`**${marriageData.marriage.partner1_name}** & **${marriageData.marriage.partner2_name}**`)
+                .addFields(
+                    {
+                        name: '🔍 Recent Quizzes',
+                        value: 'No quiz history available yet.\nComplete some quizzes to see your history here!',
+                        inline: false
+                    },
+                    {
+                        name: '📊 Statistics',
+                        value: 'Total Quizzes: 0\nAverage Score: N/A\nBest Score: N/A',
+                        inline: false
+                    }
+                )
+                .setColor(0x9B59B6)
+                .setTimestamp();
+
+            await this.safeInteractionReply(interaction, {
+                embeds: [historyEmbed],
+                ephemeral: true
+            });
+
+        } catch (error) {
+            logger.error(`Error showing quiz history: ${error.message}`);
+            await this.safeInteractionReply(interaction, {
+                content: '❌ Error loading quiz history. Please try again.',
+                ephemeral: true
+            });
         }
     },
 

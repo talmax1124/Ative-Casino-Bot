@@ -175,9 +175,21 @@ class KnowEachOtherQuiz {
                     inline: true
                 }
             )
-            .setColor(averageScore >= 80 ? 0x00FF00 : averageScore >= 60 ? 0xFFFF00 : 0xFF0000);
+            .setColor(averageScore >= 80 ? 0x00FF00 : averageScore >= 60 ? 0xFFFF00 : 0xFF0000)
+            .setTimestamp();
 
         return embed;
+    }
+
+    createQuizHistoryButton() {
+        return new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('quiz_history')
+                    .setLabel('View Quiz History')
+                    .setEmoji('📚')
+                    .setStyle(ButtonStyle.Secondary)
+            );
     }
 }
 
