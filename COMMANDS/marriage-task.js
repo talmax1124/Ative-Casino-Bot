@@ -1550,55 +1550,81 @@ module.exports = {
 
     // Handle poem modal submission
     async handlePoemLineSubmission(interaction) {
-        const poemId = interaction.customId.split('_').slice(3).join('_');
-        const poemLine = interaction.fields.getTextInputValue('poem_line');
+        try {
+            logger.info(`Poem line submission received from user ${interaction.user.id}, customId: ${interaction.customId}`);
+            
+            const poemId = interaction.customId.split('_').slice(3).join('_');
+            const poemLine = interaction.fields.getTextInputValue('poem_line');
+            
+            logger.info(`Parsed poemId: ${poemId}, line: "${poemLine}"`);
 
-        if (!global.marriagePoems?.has(poemId)) {
-            await interaction.reply({
-                content: '❌ This poem session has expired.',
-                ephemeral: true
+            if (!global.marriagePoems?.has(poemId)) {
+                logger.warn(`Poem session not found for poemId: ${poemId}`);
+                await interaction.reply({
+                    content: '❌ This poem session has expired.',
+                    ephemeral: true
+                });
+                return;
+            }
+
+            const poemData = global.marriagePoems.get(poemId);
+            const { poem, partner1, partner2, currentTurn } = poemData;
+            
+            logger.info(`Found poem data, current turn: ${currentTurn}, user: ${interaction.user.id}`);
+
+            // Add the line
+            const result = poem.addLine(poemLine, interaction.user.id, interaction.user.displayName);
+            
+            logger.info(`addLine result:`, result);
+            
+            if (!result.success) {
+                await this.safeInteractionReply(interaction, {
+                    content: `❌ ${result.message}`,
+                    ephemeral: true
+                });
+                return;
+            }
+
+            // Switch turns
+            poemData.currentTurn = poem.getNextTurn(currentTurn, partner1.id, partner2.id);
+            
+                logger.info(`Line added successfully, new turn: ${poemData.currentTurn}`);
+
+            // Update the embed
+            const embed = new EmbedBuilder()
+                .setTitle('📝 Collaborative Poem Writing!')
+                .setDescription(`**${partner1.name}** and **${partner2.name}** are writing a poem together!\n\n📖 **Theme:** ${poem.theme}\n✍️ **Current Turn:** ${poem.isComplete ? 'Complete!' : `<@${poemData.currentTurn}>`}\n📏 **Lines Written:** ${poem.lines.length}/8\n\n**Current Poem:**\n${poem.getDisplayText()}`)
+                .setColor(poem.isComplete ? 0x00FF00 : 0xFF1493)
+                .setFooter({ text: `Poem ID: ${poemId} • Theme: ${poem.theme}` });
+
+            if (poem.isComplete) {
+                embed.addFields({
+                    name: '🎉 Poem Complete!',
+                    value: 'Your collaborative poem is finished! Click "Publish for Voting" to share it with the community and complete your task.',
+                    inline: false
+                });
+            }
+
+            const actionButtons = this.createPoemButtons(poemId, poem, poemData.currentTurn);
+
+            await this.safeReply(interaction, {
+                embeds: [embed],
+                components: actionButtons
             });
-            return;
+            
+            logger.info(`Poem submission completed successfully for user ${interaction.user.id}`);
+            
+        } catch (error) {
+            logger.error(`Error in handlePoemLineSubmission: ${error.message}`, error);
+            try {
+                await interaction.reply({
+                    content: '❌ Something went wrong while adding your line. Please try again.',
+                    ephemeral: true
+                });
+            } catch (replyError) {
+                logger.error(`Failed to send error reply: ${replyError.message}`);
+            }
         }
-
-        const poemData = global.marriagePoems.get(poemId);
-        const { poem, partner1, partner2, currentTurn } = poemData;
-
-        // Add the line
-        const result = poem.addLine(poemLine, interaction.user.id, interaction.user.displayName);
-        
-        if (!result.success) {
-            await this.safeInteractionReply(interaction, {
-                content: `❌ ${result.message}`,
-                ephemeral: true
-            });
-            return;
-        }
-
-        // Switch turns
-        poemData.currentTurn = poem.getNextTurn(currentTurn, partner1.id, partner2.id);
-
-        // Update the embed
-        const embed = new EmbedBuilder()
-            .setTitle('📝 Collaborative Poem Writing!')
-            .setDescription(`**${partner1.name}** and **${partner2.name}** are writing a poem together!\n\n📖 **Theme:** ${poem.theme}\n✍️ **Current Turn:** ${poem.isComplete ? 'Complete!' : `<@${poemData.currentTurn}>`}\n📏 **Lines Written:** ${poem.lines.length}/8\n\n**Current Poem:**\n${poem.getDisplayText()}`)
-            .setColor(poem.isComplete ? 0x00FF00 : 0xFF1493)
-            .setFooter({ text: `Poem ID: ${poemId} • Theme: ${poem.theme}` });
-
-        if (poem.isComplete) {
-            embed.addFields({
-                name: '🎉 Poem Complete!',
-                value: 'Your collaborative poem is finished! Click "Publish for Voting" to share it with the community and complete your task.',
-                inline: false
-            });
-        }
-
-        const actionButtons = this.createPoemButtons(poemId, poem, poemData.currentTurn);
-
-        await this.safeReply(interaction, {
-            embeds: [embed],
-            components: actionButtons
-        });
     },
 
     // Handle poem voting
