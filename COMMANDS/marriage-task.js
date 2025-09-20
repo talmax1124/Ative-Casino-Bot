@@ -1427,6 +1427,13 @@ module.exports = {
         try {
             const { upvotes, downvotes, poem } = voteData;
             const totalVotes = upvotes + downvotes;
+            
+            // Skip task completion for migrated poems (they don't have marriageId)
+            if (!poem.marriageId) {
+                logger.debug(`Poem ${poemId} is migrated - no task completion check needed`);
+                return;
+            }
+            
             const marriageId = poem.marriageId;
             
             // Require at least 3 total votes and net positive score (more upvotes than downvotes)
@@ -1530,11 +1537,8 @@ module.exports = {
                     if (message.embeds.length > 0) {
                         const embed = message.embeds[0];
                         
-                        // Check if this looks like a poem (has theme and content)
-                        if (embed.description && 
-                            (embed.description.includes('**Theme:**') || 
-                             embed.title?.includes('Poem') ||
-                             embed.title?.includes('📜'))) {
+                        // Check if this is specifically a "New Marriage Poem!" message
+                        if (embed.title === '📝 New Marriage Poem!' && embed.description) {
                             
                             // Extract poem data
                             const description = embed.description;
