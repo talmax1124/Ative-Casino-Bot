@@ -70,7 +70,8 @@ const GameType = {
     ROULETTE: 'roulette',
     RUSSIAN_ROULETTE: 'russianroulette',
     CEELO: 'ceelo',
-    TREASURE_VAULT: 'treasurevault'
+    TREASURE_VAULT: 'treasurevault',
+    QUIZ: 'quiz'
 };
 
 // ========================= DATA CLASSES =========================
@@ -372,7 +373,7 @@ class PayoutManager {
             'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
             'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
             'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
-            'roulette','heist'
+            'roulette','heist','quiz'
         ];
         if (!modernGames.includes(gameType.toLowerCase())) {
             setActiveGame(userId, gameType);
@@ -799,6 +800,26 @@ class TimeoutManager {
     }
 }
 
+// ========================= GAME TRACKING =========================
+
+/**
+ * Record a game choice for trend analysis
+ * @param {string} gameType - Type of game
+ * @param {string} userId - Discord user ID  
+ * @param {string} choice - Player's choice
+ * @param {Object} metadata - Additional metadata
+ */
+async function recordGameChoice(gameType, userId, choice, metadata = {}) {
+    try {
+        // Get global trend analyzer instance if available
+        if (global.trendAnalyzer) {
+            await global.trendAnalyzer.recordChoice(gameType, userId, choice, metadata);
+        }
+    } catch (error) {
+        logger.error(`Failed to record game choice for ${gameType}: ${error.message}`);
+    }
+}
+
 // ========================= EXPORTS =========================
 
 module.exports = {
@@ -807,5 +828,6 @@ module.exports = {
     ValidationResult,
     PayoutManager,
     GameValidator,
-    TimeoutManager
+    TimeoutManager,
+    recordGameChoice
 };

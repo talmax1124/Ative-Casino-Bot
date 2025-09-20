@@ -1107,7 +1107,15 @@ module.exports = {
 
     // Handle poem interaction buttons
     async handlePoemInteraction(interaction) {
-        const parts = interaction.customId.split('_');
+        const customId = interaction.customId;
+        
+        // Handle new format buttons (add_verse, finish_poem)
+        if (customId === 'add_verse' || customId === 'finish_poem') {
+            return await this.handleNewPoemButtons(interaction);
+        }
+        
+        // Handle old format buttons (poem_action_poemId)
+        const parts = customId.split('_');
         const action = parts[1];
         const poemId = parts.slice(2).join('_');
 
@@ -1185,6 +1193,239 @@ module.exports = {
         modal.addComponents(firstActionRow);
 
         await interaction.showModal(modal);
+    },
+
+    // Handle new format poem buttons (add_verse, finish_poem)
+    async handleNewPoemButtons(interaction) {
+        const customId = interaction.customId;
+        const userId = interaction.user.id;
+        
+        try {
+            // Find active poem session for this user
+            let poemId = null;
+            let poemData = null;
+            
+            // First try to find by user ID
+            if (global.marriagePoems) {
+                for (const [id, data] of global.marriagePoems) {
+                    if (data.partner1?.id === userId || data.partner2?.id === userId) {
+                        poemId = id;
+                        poemData = data;
+                        break;
+                    }
+                }
+            }
+            
+            // If not found, try to find by marriage
+            if (!poemId) {
+                const guildId = await getGuildId(interaction);
+                const marriageData = await dbManager.getUserMarriage(userId, guildId);
+                
+                if (marriageData.married) {
+                    const marriageId = marriageData.marriage.id;
+                    
+                    // Look for any active poem for this marriage
+                    if (global.marriagePoems) {
+                        for (const [id, data] of global.marriagePoems) {
+                            if (data.marriageId === marriageId) {
+                                poemId = id;
+                                poemData = data;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (!poemId || !poemData) {
+                await interaction.update({
+                    content: '❌ No active poem session found. Start a new poem with `/marriage-task task3`.',
+                    embeds: [],
+                    components: []
+                });
+                return;
+            }
+            
+            // Route to appropriate handler
+            if (customId === 'add_verse') {
+                await this.handleAddVerse(interaction, poemData, poemId);
+            } else if (customId === 'finish_poem') {
+                await this.handleFinishPoem(interaction, poemData, poemId);
+            }
+            
+        } catch (error) {
+            logger.error(`Error handling poem button ${customId}: ${error.message}`);
+            await interaction.update({
+                content: '❌ Error processing poem action. Please try again.',
+                embeds: [],
+                components: []
+            });
+        }
+    },
+
+    async handleAddVerse(interaction, poemData, poemId) {
+        const { poem, partner1, partner2 } = poemData;
+        const userId = interaction.user.id;
+        
+        // Check if it's the user's turn
+        const currentPlayer = poemData.currentTurn % 2 === 0 ? partner1 : partner2;
+        if (userId !== currentPlayer.id) {
+            await interaction.update({
+                content: `⚠️ It's ${currentPlayer.name}'s turn to add a verse!`,
+                embeds: interaction.message.embeds,
+                components: interaction.message.components
+            });
+            return;
+        }
+        
+        // Create modal for verse input
+        const modal = new ModalBuilder()
+            .setCustomId(`poem_line_input_${poemId}`)
+            .setTitle('✍️ Add Your Verse');
+
+        const lineInput = new TextInputBuilder()
+            .setCustomId('poem_line')
+            .setLabel('Your verse line')
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(100)
+            .setRequired(true);
+
+        const firstActionRow = new ActionRowBuilder().addComponents(lineInput);
+        modal.addComponents(firstActionRow);
+
+        await interaction.showModal(modal);
+    },
+
+    async handleFinishPoem(interaction, poemData, poemId) {
+        const { poem, partner1, partner2 } = poemData;
+        
+        if (poem.verses.length < 2) {
+            await interaction.update({
+                content: '❌ Need at least 2 verses to finish the poem!',
+                embeds: interaction.message.embeds,
+                components: interaction.message.components
+            });
+            return;
+        }
+        
+        // Mark poem as complete and show final result
+        poem.isComplete = true;
+        poemData.completed = true;
+        
+        const embed = new EmbedBuilder()
+            .setTitle('🎉 Poem Complete!')
+            .setDescription(`**${partner1.name}** and **${partner2.name}** have finished their poem!\n\n**Theme:** ${poem.theme?.title || 'Custom'}\n\n${poem.getDisplayText()}`)
+            .addFields({
+                name: '📊 Statistics',
+                value: `**Total Verses:** ${poem.verses.length}\n**Authors:** ${partner1.name} & ${partner2.name}`,
+                inline: false
+            })
+            .setColor(0x9B59B6)
+            .setFooter({ text: '🎉 Task 3 Completed!' });
+
+        // Create quiz history button
+        const historyButton = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('poem_history')
+                    .setLabel('View Poem History')
+                    .setEmoji('📚')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        await interaction.update({
+            content: '🎉 Poem completed successfully!',
+            embeds: [embed],
+            components: [historyButton]
+        });
+        
+        // Mark task as completed and award XP
+        try {
+            const guildId = await getGuildId(interaction);
+            const marriageData = await dbManager.getUserMarriage(interaction.user.id, guildId);
+            const marriageId = marriageData.marriage.id;
+            
+            await dbManager.completeMarriageTask(marriageId, 3, interaction.user.id, {
+                gameType: 'poem',
+                verses: poem.verses.length,
+                theme: poem.theme?.title || 'Custom'
+            });
+
+            // Award Marriage XP for completing the poem task
+            const xpResult = await dbManager.awardMarriageXP(
+                marriageId, 
+                30, 
+                'task_completion', 
+                `Poem task completed - ${poem.verses.length} verses written`
+            );
+
+            // Send level up notification if it happened
+            if (xpResult.leveledUp) {
+                logger.info(`Marriage ${marriageId} leveled up! ${xpResult.oldLevel} -> ${xpResult.newLevel}`);
+                await this.sendLevelUpNotification(interaction, xpResult, partner1, partner2);
+            }
+
+        } catch (error) {
+            logger.error(`Error marking poem task as completed: ${error.message}`);
+        }
+        
+        // Post poem to upvote channel
+        try {
+            const upvoteChannelId = '1419057346952564978';
+            const upvoteChannel = interaction.client.channels.cache.get(upvoteChannelId);
+            
+            if (upvoteChannel) {
+                const upvoteEmbed = new EmbedBuilder()
+                    .setTitle('📜 New Poem Completed!')
+                    .setDescription(`**Authors:** ${partner1.name} & ${partner2.name}\n**Theme:** ${poem.theme?.title || 'Custom'}\n\n${poem.getDisplayText()}`)
+                    .addFields({
+                        name: '📊 Stats',
+                        value: `**Verses:** ${poem.verses.length}\n**Created:** <t:${Math.floor(Date.now() / 1000)}:R>`,
+                        inline: true
+                    })
+                    .setColor(0x9B59B6)
+                    .setFooter({ text: `Poem ID: ${poemId}` });
+
+                const upvoteButton = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId(`poem_upvote_${poemId}`)
+                            .setLabel('0')
+                            .setEmoji('👍')
+                            .setStyle(ButtonStyle.Secondary)
+                    );
+
+                const upvoteMessage = await upvoteChannel.send({
+                    embeds: [upvoteEmbed],
+                    components: [upvoteButton]
+                });
+
+                // Store upvote data
+                if (!global.poemUpvotes) {
+                    global.poemUpvotes = new Map();
+                }
+                
+                global.poemUpvotes.set(poemId, {
+                    messageId: upvoteMessage.id,
+                    channelId: upvoteChannelId,
+                    upvotes: 0,
+                    voters: new Set(),
+                    poem: {
+                        text: poem.getDisplayText(),
+                        authors: [partner1.name, partner2.name],
+                        theme: poem.theme?.title || 'Custom',
+                        verses: poem.verses.length
+                    }
+                });
+
+                logger.info(`Posted poem ${poemId} to upvote channel ${upvoteChannelId}`);
+            }
+        } catch (error) {
+            logger.error(`Error posting poem to upvote channel: ${error.message}`);
+        }
+        
+        // Clean up the session
+        global.marriagePoems.delete(poemId);
     },
 
     async handlePoemPreview(interaction, poemData) {
@@ -1405,6 +1646,111 @@ module.exports = {
         } else {
             await this.safeInteractionReply(interaction, {
                 content: voteMessage,
+                ephemeral: true
+            });
+        }
+    },
+
+    async handlePoemUpvote(interaction) {
+        const parts = interaction.customId.split('_');
+        const poemId = parts.slice(2).join('_');
+        const userId = interaction.user.id;
+
+        if (!global.poemUpvotes?.has(poemId)) {
+            await interaction.reply({
+                content: '❌ This poem upvote has expired.',
+                ephemeral: true
+            });
+            return;
+        }
+
+        const upvoteData = global.poemUpvotes.get(poemId);
+
+        // Check if user already voted
+        if (upvoteData.voters.has(userId)) {
+            await interaction.reply({
+                content: '❌ You have already upvoted this poem!',
+                ephemeral: true
+            });
+            return;
+        }
+
+        // Add vote
+        upvoteData.voters.add(userId);
+        upvoteData.upvotes++;
+
+        // Update the button with new count
+        const updatedButton = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`poem_upvote_${poemId}`)
+                    .setLabel(upvoteData.upvotes.toString())
+                    .setEmoji('👍')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+
+        try {
+            await interaction.update({
+                components: [updatedButton]
+            });
+            
+            // Send confirmation to user
+            await interaction.followUp({
+                content: `👍 You upvoted the poem by **${upvoteData.poem.authors.join(' & ')}**! (Total: ${upvoteData.upvotes} upvotes)`,
+                ephemeral: true
+            });
+        } catch (error) {
+            logger.error(`Error updating poem upvote: ${error.message}`);
+            await interaction.reply({
+                content: '✅ Your upvote has been recorded!',
+                ephemeral: true
+            });
+        }
+    },
+
+    async handlePoemHistory(interaction) {
+        try {
+            const userId = interaction.user.id;
+            const guildId = await getGuildId(interaction);
+            
+            // Check if user is married
+            const marriageData = await dbManager.getUserMarriage(userId, guildId);
+            if (!marriageData.married) {
+                await this.safeInteractionReply(interaction, {
+                    content: '❌ You must be married to view poem history!',
+                    ephemeral: true
+                });
+                return;
+            }
+
+            // Get poem history from upvotes (placeholder for now)
+            const historyEmbed = new EmbedBuilder()
+                .setTitle('📚 Poem History')
+                .setDescription(`**${marriageData.marriage.partner1_name}** & **${marriageData.marriage.partner2_name}**`)
+                .addFields(
+                    {
+                        name: '📜 Recent Poems',
+                        value: 'No poem history available yet.\nComplete some poems to see your history here!',
+                        inline: false
+                    },
+                    {
+                        name: '📊 Statistics',
+                        value: 'Total Poems: 0\nTotal Upvotes: 0\nBest Poem: N/A',
+                        inline: false
+                    }
+                )
+                .setColor(0x9B59B6)
+                .setTimestamp();
+
+            await this.safeInteractionReply(interaction, {
+                embeds: [historyEmbed],
+                ephemeral: true
+            });
+
+        } catch (error) {
+            logger.error(`Error showing poem history: ${error.message}`);
+            await this.safeInteractionReply(interaction, {
+                content: '❌ Error loading poem history. Please try again.',
                 ephemeral: true
             });
         }
@@ -1813,9 +2159,10 @@ module.exports = {
         
 
         if (!global.marriageQuizzes?.has(quizId)) {
-            await this.safeInteractionReply(interaction, {
+            await interaction.update({
                 content: '❌ Quiz session not found. Please start a new quiz with `/marriage-task task4`.',
-                ephemeral: true
+                embeds: [],
+                components: []
             });
             return;
         }
@@ -1825,28 +2172,31 @@ module.exports = {
         // Check expiration - give more time and better error message
         if (Date.now() > quizData.expiresAt) {
             global.marriageQuizzes.delete(quizId);
-            await this.safeInteractionReply(interaction, {
+            await interaction.update({
                 content: '❌ This quiz session has timed out. Please start a new quiz with `/marriage-task task4`.',
-                ephemeral: true
+                embeds: [],
+                components: []
             });
             return;
         }
 
         const { quiz, partner1, partner2, completed } = quizData;
 
-        // Check if user is one of the partners
+        // Check if user is one of the partners - show publicly who can participate
         if (interaction.user.id !== partner1.id && interaction.user.id !== partner2.id) {
-            await this.safeInteractionReply(interaction, {
-                content: '❌ Only the married couple can take their quiz!',
-                ephemeral: true
+            await interaction.update({
+                content: `❌ <@${interaction.user.id}> cannot participate! Only <@${partner1.id}> and <@${partner2.id}> can take this quiz.`,
+                embeds: [],
+                components: []
             });
             return;
         }
 
         if (completed) {
-            await this.safeInteractionReply(interaction, {
+            await interaction.update({
                 content: '❌ This quiz has already been completed!',
-                ephemeral: true
+                embeds: [],
+                components: []
             });
             return;
         }
@@ -1855,35 +2205,116 @@ module.exports = {
         const isPartner1 = interaction.user.id === partner1.id;
         const currentPhase = quiz.phase;
         
-        // Phase validation - show who needs to answer instead of ephemeral error
+        // Phase validation - show publicly who needs to answer
         if (currentPhase === 'partner1_about_self' && !isPartner1) {
-            await this.safeInteractionReply(interaction, {
-                content: `❌ It's <@${partner1.id}>'s turn to answer about themselves!`,
-                ephemeral: true
+            // Don't update the message, just indicate who should answer
+            const currentQuestion = quiz.questions[quizData.currentQuestionIndex];
+            const embed = new EmbedBuilder()
+                .setTitle('❓ Couple Compatibility Quiz!')
+                .setDescription(`**${partner1.name}** and **${partner2.name}** are taking a compatibility quiz!`)
+                .addFields({
+                    name: `🔥 **WAITING FOR:** <@${partner1.id}>`,
+                    value: `**Question ${quizData.currentQuestionIndex + 1}/${quiz.questions.length}**`,
+                    inline: false
+                },
+                {
+                    name: `❓ **${currentQuestion.question}**`,
+                    value: `<@${partner1.id}>, please answer this question about **yourself**. Only you can answer right now.`,
+                    inline: false
+                })
+                .setColor(0x9B59B6)
+                .setFooter({ text: `Quiz ID: ${quizId} • Phase 1: ${partner1.name} about self` });
+            
+            const answerButtons = this.createQuizButtons(quizId, currentQuestion, quizData.currentQuestionIndex);
+            
+            await interaction.update({
+                content: `⚠️ <@${partner2.id}> tried to answer, but it's <@${partner1.id}>'s turn!`,
+                embeds: [embed],
+                components: answerButtons
             });
             return;
         }
         
         if (currentPhase === 'partner2_about_self' && isPartner1) {
-            await this.safeInteractionReply(interaction, {
-                content: `❌ It's <@${partner2.id}>'s turn to answer about themselves!`,
-                ephemeral: true
+            const currentQuestion = quiz.questions[quizData.currentQuestionIndex];
+            const embed = new EmbedBuilder()
+                .setTitle('❓ Couple Compatibility Quiz!')
+                .setDescription(`**${partner1.name}** and **${partner2.name}** are taking a compatibility quiz!`)
+                .addFields({
+                    name: `🔥 **WAITING FOR:** <@${partner2.id}>`,
+                    value: `**Question ${quizData.currentQuestionIndex + 1}/${quiz.questions.length}**`,
+                    inline: false
+                },
+                {
+                    name: `❓ **${currentQuestion.question}**`,
+                    value: `<@${partner2.id}>, please answer this question about **yourself**. Only you can answer right now.`,
+                    inline: false
+                })
+                .setColor(0x9B59B6)
+                .setFooter({ text: `Quiz ID: ${quizId} • Phase 2: ${partner2.name} about self` });
+            
+            const answerButtons = this.createQuizButtons(quizId, currentQuestion, quizData.currentQuestionIndex);
+            
+            await interaction.update({
+                content: `⚠️ <@${partner1.id}> tried to answer, but it's <@${partner2.id}>'s turn!`,
+                embeds: [embed],
+                components: answerButtons
             });
             return;
         }
         
         if (currentPhase === 'partner1_guessing' && !isPartner1) {
-            await this.safeInteractionReply(interaction, {
-                content: `❌ It's <@${partner1.id}>'s turn to guess about ${partner2.name}!`,
-                ephemeral: true
+            const currentQuestion = quiz.questions[quizData.currentQuestionIndex];
+            const embed = new EmbedBuilder()
+                .setTitle('❓ Couple Compatibility Quiz!')
+                .setDescription(`**${partner1.name}** and **${partner2.name}** are taking a compatibility quiz!`)
+                .addFields({
+                    name: `🔥 **WAITING FOR:** <@${partner1.id}>`,
+                    value: `**Question ${quizData.currentQuestionIndex + 1}/${quiz.questions.length}**`,
+                    inline: false
+                },
+                {
+                    name: `❓ **${currentQuestion.question}**`,
+                    value: `<@${partner1.id}>, what do you think **${partner2.name}** answered for this question?`,
+                    inline: false
+                })
+                .setColor(0x9B59B6)
+                .setFooter({ text: `Quiz ID: ${quizId} • Phase 3: ${partner1.name} guessing about ${partner2.name}` });
+            
+            const answerButtons = this.createQuizButtons(quizId, currentQuestion, quizData.currentQuestionIndex);
+            
+            await interaction.update({
+                content: `⚠️ <@${partner2.id}> tried to answer, but it's <@${partner1.id}>'s turn to guess!`,
+                embeds: [embed],
+                components: answerButtons
             });
             return;
         }
         
         if (currentPhase === 'partner2_guessing' && isPartner1) {
-            await this.safeInteractionReply(interaction, {
-                content: `❌ It's <@${partner2.id}>'s turn to guess about ${partner1.name}!`,
-                ephemeral: true
+            const currentQuestion = quiz.questions[quizData.currentQuestionIndex];
+            const embed = new EmbedBuilder()
+                .setTitle('❓ Couple Compatibility Quiz!')
+                .setDescription(`**${partner1.name}** and **${partner2.name}** are taking a compatibility quiz!`)
+                .addFields({
+                    name: `🔥 **WAITING FOR:** <@${partner2.id}>`,
+                    value: `**Question ${quizData.currentQuestionIndex + 1}/${quiz.questions.length}**`,
+                    inline: false
+                },
+                {
+                    name: `❓ **${currentQuestion.question}**`,
+                    value: `<@${partner2.id}>, what do you think **${partner1.name}** answered for this question?`,
+                    inline: false
+                })
+                .setColor(0x9B59B6)
+                .setFooter({ text: `Quiz ID: ${quizId} • Phase 4: ${partner2.name} guessing about ${partner1.name}` });
+            
+            const answerButtons = this.createQuizButtons(quizId, currentQuestion, quizData.currentQuestionIndex);
+            
+            await interaction.update({
+                content: `⚠️ <@${partner1.id}> tried to answer, but it's <@${partner2.id}>'s turn to guess!`,
+                embeds: [embed],
+                components: answerButtons
             });
             return;
         }
@@ -1916,10 +2347,19 @@ module.exports = {
         // Record the answer
         answerCategory[questionKey] = selectedAnswer;
 
-        await this.safeInteractionReply(interaction, {
-            content: `✅ Your answer "${selectedAnswer}" has been recorded!`,
-            ephemeral: true
-        });
+        // Track the choice in game analytics
+        try {
+            const gameUtils = require('../UTILS/gameUtils');
+            await gameUtils.recordGameChoice('quiz', interaction.user.id, selectedAnswer, {
+                questionIndex: questionIndex,
+                phase: currentPhase,
+                questionText: currentQuestion.question,
+                optionIndex: answerIndex,
+                responseTime: Date.now() - (quizData.questionStartTime || Date.now())
+            });
+        } catch (trackingError) {
+            logger.error(`Failed to track quiz choice: ${trackingError.message}`);
+        }
 
         // Move to next question or next phase
         await this.progressQuiz(interaction, quizData, quizId);
@@ -2144,6 +2584,41 @@ module.exports = {
                 if (xpResult.leveledUp) {
                     logger.info(`Marriage ${marriageId} leveled up! ${xpResult.oldLevel} -> ${xpResult.newLevel}`);
                     await this.sendLevelUpNotification(interaction, xpResult, partner1, partner2);
+                }
+
+                // Record quiz game results for both players
+                try {
+                    const gameUtils = require('../UTILS/gameUtils');
+                    
+                    // Record for partner 1
+                    await gameUtils.recordGameChoice('quiz', partner1.id, 'completed', {
+                        won: score.passed,
+                        score: score.p1Percentage,
+                        averageScore: score.averagePercentage,
+                        questionsCorrect: score.p1Matches,
+                        totalQuestions: score.total,
+                        gameResult: score.passed
+                    });
+                    
+                    // Record for partner 2  
+                    await gameUtils.recordGameChoice('quiz', partner2.id, 'completed', {
+                        won: score.passed,
+                        score: score.p2Percentage,
+                        averageScore: score.averagePercentage,
+                        questionsCorrect: score.p2Matches,
+                        totalQuestions: score.total,
+                        gameResult: score.passed
+                    });
+                    
+                    // Record game result in database for both players
+                    const gameResult = require('../UTILS/gameUtils').GameResult;
+                    const guildId = await getGuildId(interaction);
+                    
+                    await dbManager.updateUserStats(partner1.id, guildId, 'quiz', score.passed, 0, 0);
+                    await dbManager.updateUserStats(partner2.id, guildId, 'quiz', score.passed, 0, 0);
+                    
+                } catch (trackingError) {
+                    logger.error(`Failed to track quiz completion: ${trackingError.message}`);
                 }
 
             } catch (error) {

@@ -159,7 +159,8 @@ const GameType = Object.freeze({
     TREASUREVAULT: 'treasurevault',
     ROULETTE: 'roulette',
     RUSSIAN_ROULETTE: 'russianroulette',
-    CEELO: 'ceelo'
+    CEELO: 'ceelo',
+    QUIZ: 'quiz'
 });
 
 /**

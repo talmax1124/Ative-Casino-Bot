@@ -209,6 +209,12 @@ class GameTrendAnalyzer {
                 doorChoices: new Map(),
                 riskProgression: new Map(),
                 roundStrategies: new Map()
+            },
+            'quiz': {
+                choices: ['A', 'B', 'C', 'D'],
+                answerPatterns: new Map(),
+                accuracyRates: new Map(),
+                responseTime: new Map()
             }
         };
         
@@ -307,6 +313,10 @@ class GameTrendAnalyzer {
                 
             case 'treasurevault':
                 await this.recordTreasureChoice(gameData, choiceRecord);
+                break;
+                
+            case 'quiz':
+                await this.recordQuizChoice(gameData, choiceRecord);
                 break;
                 
             default:
@@ -452,6 +462,58 @@ class GameTrendAnalyzer {
             const count = roundChoices.get(doorNum) || 0;
             roundChoices.set(doorNum, count + 1);
             gameData.roundStrategies.set(metadata.round, roundChoices);
+        }
+    }
+    
+    /**
+     * Record quiz patterns
+     */
+    async recordQuizChoice(gameData, { userId, choice, metadata }) {
+        // Track answer patterns (A, B, C, D)
+        if (!gameData.answerPatterns.has(userId)) {
+            gameData.answerPatterns.set(userId, []);
+        }
+        
+        const userPatterns = gameData.answerPatterns.get(userId);
+        userPatterns.push({
+            choice,
+            questionIndex: metadata.questionIndex || 0,
+            phase: metadata.phase || 'unknown',
+            timestamp: Date.now(),
+            correct: metadata.correct || false
+        });
+        
+        // Keep only last 50 responses per user
+        if (userPatterns.length > 50) {
+            userPatterns.splice(0, 1);
+        }
+        
+        // Track accuracy rates
+        if (metadata.correct !== undefined) {
+            if (!gameData.accuracyRates.has(userId)) {
+                gameData.accuracyRates.set(userId, { correct: 0, total: 0 });
+            }
+            
+            const accuracy = gameData.accuracyRates.get(userId);
+            accuracy.total++;
+            if (metadata.correct) {
+                accuracy.correct++;
+            }
+        }
+        
+        // Track response time if provided
+        if (metadata.responseTime) {
+            if (!gameData.responseTime.has(userId)) {
+                gameData.responseTime.set(userId, []);
+            }
+            
+            const responseTimes = gameData.responseTime.get(userId);
+            responseTimes.push(metadata.responseTime);
+            
+            // Keep only last 30 response times
+            if (responseTimes.length > 30) {
+                responseTimes.splice(0, 1);
+            }
         }
     }
     

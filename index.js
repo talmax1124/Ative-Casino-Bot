@@ -2232,11 +2232,15 @@ client.on('interactionCreate', async interaction => {
                 }
             }
             // Handle poem interaction buttons
-            else if (customId.startsWith('poem_add_') || customId.startsWith('poem_preview_') || customId.startsWith('poem_publish_') || customId.startsWith('poem_vote_')) {
+            else if (customId.startsWith('poem_add_') || customId.startsWith('poem_preview_') || customId.startsWith('poem_publish_') || customId.startsWith('poem_vote_') || customId.startsWith('poem_upvote_') || customId === 'add_verse' || customId === 'finish_poem' || customId === 'poem_history') {
                 const marriageTaskCommand = client.commands.get('marriage-task');
                 if (marriageTaskCommand) {
                     if (customId.startsWith('poem_vote_')) {
                         await marriageTaskCommand.handlePoemVote(interaction);
+                    } else if (customId.startsWith('poem_upvote_')) {
+                        await marriageTaskCommand.handlePoemUpvote(interaction);
+                    } else if (customId === 'poem_history') {
+                        await marriageTaskCommand.handlePoemHistory(interaction);
                     } else {
                         await marriageTaskCommand.handlePoemInteraction(interaction);
                     }
