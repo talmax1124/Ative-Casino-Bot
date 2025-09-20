@@ -844,6 +844,12 @@ module.exports = {
                     .setStyle(ButtonStyle.Primary)
                     .setDisabled((now - tree.lastPestCheck) < oneDayMs || !tree.isAlive()),
                 new ButtonBuilder()
+                    .setCustomId(`tree_care_skip_${treeId}`)
+                    .setLabel('Skip Day')
+                    .setEmoji('⏭️')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(!tree.isAlive() || tree.skipCount >= tree.maxSkips),
+                new ButtonBuilder()
                     .setCustomId(`tree_refresh_${treeId}`)
                     .setLabel('Check Status')
                     .setEmoji('🔄')
@@ -930,6 +936,23 @@ module.exports = {
         if (careType === 'refresh') {
             // Just refresh the status
             tree.checkDayProgress();
+        } else if (careType === 'skip') {
+            // Handle skip day
+            if (tree.skipCount >= tree.maxSkips) {
+                await this.safeInteractionReply(interaction, {
+                    content: `❌ You've already used ${tree.maxSkips} skips! No more skips allowed.`,
+                    ephemeral: true
+                });
+                return;
+            }
+            
+            tree.skipCount++;
+            tree.lastSkipDay = tree.daysAlive;
+            
+            await this.safeInteractionReply(interaction, {
+                content: `⏭️ Skipped care for today. Skips used: ${tree.skipCount}/${tree.maxSkips}`,
+                ephemeral: true
+            });
         } else {
             // Perform care action
             const result = tree.care(careType, interaction.user.id);
@@ -942,6 +965,9 @@ module.exports = {
                 return;
             }
         }
+        
+        // Always check day progress before updating display
+        tree.checkDayProgress();
 
         // Update the embed
         const lastCareTime = Math.max(tree.lastWatered, tree.lastSunlight, tree.lastFertilized, tree.lastPestCheck);
@@ -1114,10 +1140,24 @@ module.exports = {
             return await this.handleNewPoemButtons(interaction);
         }
         
-        // Handle old format buttons (poem_action_poemId)
+        // Handle poem buttons: poem_add_line_poemId, poem_preview_poemId, poem_publish_poemId
         const parts = customId.split('_');
-        const action = parts[1];
-        const poemId = parts.slice(2).join('_');
+        let action, poemId;
+        
+        if (customId.startsWith('poem_add_line_')) {
+            action = 'add_line';
+            poemId = parts.slice(3).join('_'); // Skip 'poem', 'add', 'line'
+        } else if (customId.startsWith('poem_preview_')) {
+            action = 'preview';
+            poemId = parts.slice(2).join('_'); // Skip 'poem', 'preview'
+        } else if (customId.startsWith('poem_publish_')) {
+            action = 'publish';
+            poemId = parts.slice(2).join('_'); // Skip 'poem', 'publish'
+        } else {
+            // Fallback for old format
+            action = parts[1];
+            poemId = parts.slice(2).join('_');
+        }
 
         if (!global.marriagePoems?.has(poemId)) {
             await this.safeInteractionReply(interaction, {
@@ -1140,6 +1180,7 @@ module.exports = {
         }
 
         switch (action) {
+            case 'add_line':
             case 'add':
                 await this.handleAddPoemLine(interaction, poemData, poemId);
                 break;
@@ -1299,9 +1340,9 @@ module.exports = {
     async handleFinishPoem(interaction, poemData, poemId) {
         const { poem, partner1, partner2 } = poemData;
         
-        if (poem.verses.length < 2) {
+        if (poem.lines.length < 2) {
             await interaction.update({
-                content: '❌ Need at least 2 verses to finish the poem!',
+                content: '❌ Need at least 2 lines to finish the poem!',
                 embeds: interaction.message.embeds,
                 components: interaction.message.components
             });
@@ -1314,10 +1355,10 @@ module.exports = {
         
         const embed = new EmbedBuilder()
             .setTitle('🎉 Poem Complete!')
-            .setDescription(`**${partner1.name}** and **${partner2.name}** have finished their poem!\n\n**Theme:** ${poem.theme?.title || 'Custom'}\n\n${poem.getDisplayText()}`)
+            .setDescription(`**${partner1.name}** and **${partner2.name}** have finished their poem!\n\n**Theme:** ${poem.theme}\n\n${poem.getDisplayText()}`)
             .addFields({
                 name: '📊 Statistics',
-                value: `**Total Verses:** ${poem.verses.length}\n**Authors:** ${partner1.name} & ${partner2.name}`,
+                value: `**Total Lines:** ${poem.lines.length}\n**Authors:** ${partner1.name} & ${partner2.name}`,
                 inline: false
             })
             .setColor(0x9B59B6)
@@ -1347,8 +1388,8 @@ module.exports = {
             
             await dbManager.completeMarriageTask(marriageId, 3, interaction.user.id, {
                 gameType: 'poem',
-                verses: poem.verses.length,
-                theme: poem.theme?.title || 'Custom'
+                lines: poem.lines.length,
+                theme: poem.theme
             });
 
             // Award Marriage XP for completing the poem task
@@ -1356,7 +1397,7 @@ module.exports = {
                 marriageId, 
                 30, 
                 'task_completion', 
-                `Poem task completed - ${poem.verses.length} verses written`
+                `Poem task completed - ${poem.lines.length} lines written`
             );
 
             // Send level up notification if it happened
@@ -1377,10 +1418,10 @@ module.exports = {
             if (upvoteChannel) {
                 const upvoteEmbed = new EmbedBuilder()
                     .setTitle('📜 New Poem Completed!')
-                    .setDescription(`**Authors:** ${partner1.name} & ${partner2.name}\n**Theme:** ${poem.theme?.title || 'Custom'}\n\n${poem.getDisplayText()}`)
+                    .setDescription(`**Authors:** ${partner1.name} & ${partner2.name}\n**Theme:** ${poem.theme}\n\n${poem.getDisplayText()}`)
                     .addFields({
                         name: '📊 Stats',
-                        value: `**Verses:** ${poem.verses.length}\n**Created:** <t:${Math.floor(Date.now() / 1000)}:R>`,
+                        value: `**Lines:** ${poem.lines.length}\n**Created:** <t:${Math.floor(Date.now() / 1000)}:R>`,
                         inline: true
                     })
                     .setColor(0x9B59B6)
@@ -1859,6 +1900,7 @@ module.exports = {
             // Create new tree care game
             const tree = this.createTreeGame();
             tree.startTime = Date.now(); // Set the start time on the tree object
+            tree.checkDayProgress(); // Initialize day progress
             
             // Store tree in memory
             global.marriageTrees = global.marriageTrees || new Map();
@@ -2522,6 +2564,9 @@ module.exports = {
             quizData.partner2AboutPartner1
         );
         
+        logger.info(`Quiz results for marriage ${marriageId}: Average score: ${score.averagePercentage}%, Passed: ${score.passed} (required: 80%)`);
+        logger.info(`Individual scores: ${partner1.name}: ${score.p1Percentage}%, ${partner2.name}: ${score.p2Percentage}%`);
+        
         // Create detailed results
         let resultsDetails = '';
         for (let i = 0; i < quiz.questions.length; i++) {
@@ -2564,6 +2609,8 @@ module.exports = {
         if (score.passed) {
             // Mark task as completed in database and award XP
             try {
+                logger.info(`Quiz passed! Attempting to save task completion for marriage ${marriageId}, user ${interaction.user.id}, score: ${score.averagePercentage}%`);
+                
                 await dbManager.completeMarriageTask(marriageId, 4, interaction.user.id, {
                     gameType: 'quiz',
                     score: score.averagePercentage,
@@ -2571,6 +2618,8 @@ module.exports = {
                     p2Score: score.p2Percentage,
                     totalQuestions: score.total
                 });
+
+                logger.info(`Quiz task completion saved successfully for marriage ${marriageId}`);
 
                 // Award Marriage XP for completing the quiz task
                 const xpResult = await dbManager.awardMarriageXP(
