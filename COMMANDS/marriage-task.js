@@ -29,6 +29,19 @@ module.exports = {
         const guildId = await getGuildId(interaction);
         const action = interaction.options.getString('action');
 
+        // Handle migration separately (admin-only, no marriage required)
+        if (action === 'migrate_poems') {
+            if (!interaction.member.permissions.has('Administrator')) {
+                await interaction.reply({
+                    content: '❌ This command is only available to administrators.',
+                    ephemeral: true
+                });
+                return;
+            }
+            await this.migrateExistingPoems(interaction);
+            return;
+        }
+
         await interaction.deferReply();
 
         try {
@@ -58,17 +71,6 @@ module.exports = {
                     break;
                 case 'task4':
                     await this.handleQuiz(interaction, marriage);
-                    break;
-                case 'migrate_poems':
-                    // Admin-only migration function
-                    if (!interaction.member.permissions.has('Administrator')) {
-                        await interaction.reply({
-                            content: '❌ This command is only available to administrators.',
-                            ephemeral: true
-                        });
-                        return;
-                    }
-                    await this.migrateExistingPoems(interaction);
                     break;
             }
 
@@ -1410,12 +1412,44 @@ module.exports = {
                 }
             });
 
-            // Mark task as completed and award XP
-            try {
-                await dbManager.completeMarriageTask(marriageId, 3, partner1.id, {
+            // Task will be completed when poem gets enough votes
+            logger.info(`Poem ${poemId} posted to voting channel, waiting for votes to complete task`);
+
+            logger.info(`Posted completed poem ${poemId} to voting channel ${votingChannelId}`);
+            
+        } catch (error) {
+            logger.error(`Error posting poem to voting channel: ${error.message}`, error);
+        }
+    },
+
+    // Check if poem has enough votes to complete the marriage task
+    async checkPoemTaskCompletion(poemId, voteData) {
+        try {
+            const { upvotes, downvotes, poem } = voteData;
+            const totalVotes = upvotes + downvotes;
+            const marriageId = poem.marriageId;
+            
+            // Require at least 3 total votes and net positive score (more upvotes than downvotes)
+            const minVotes = 3;
+            const netScore = upvotes - downvotes;
+            
+            if (totalVotes >= minVotes && netScore > 0) {
+                // Check if task is already completed to avoid duplicate completion
+                const existingTaskCompletion = await dbManager.getMarriageTaskStatus(marriageId);
+                if (existingTaskCompletion.task3) {
+                    logger.info(`Poem task already completed for marriage ${marriageId}`);
+                    return;
+                }
+                
+                logger.info(`Poem ${poemId} reached completion criteria: ${upvotes} upvotes, ${downvotes} downvotes (net: ${netScore})`);
+                
+                // Mark task as completed and award XP
+                await dbManager.completeMarriageTask(marriageId, 3, null, {
                     gameType: 'poem',
-                    lines: poem.lines.length,
-                    theme: poem.theme
+                    finalUpvotes: upvotes,
+                    finalDownvotes: downvotes,
+                    netScore: netScore,
+                    poemId: poemId
                 });
 
                 // Award Marriage XP for completing the poem task
@@ -1423,22 +1457,24 @@ module.exports = {
                     marriageId, 
                     30, 
                     'task_completion', 
-                    `Poem task completed - ${poem.lines.length} lines written`
+                    `Poem task completed - ${upvotes} upvotes, ${downvotes} downvotes`
                 );
 
-                // Send level up notification if it happened (we don't have interaction here, so skip)
+                logger.info(`Marriage ${marriageId} completed poem task with ${upvotes} upvotes and ${downvotes} downvotes`);
+                
                 if (xpResult.leveledUp) {
                     logger.info(`Marriage ${marriageId} leveled up! ${xpResult.oldLevel} -> ${xpResult.newLevel}`);
                 }
-
-            } catch (error) {
-                logger.error(`Error marking poem task as completed: ${error.message}`);
+                
+                // Mark this vote data as task completed to avoid rechecking
+                voteData.taskCompleted = true;
+                
+            } else {
+                logger.debug(`Poem ${poemId} needs more votes: ${totalVotes}/${minVotes} total, net score: ${netScore} (needs > 0)`);
             }
-
-            logger.info(`Posted completed poem ${poemId} to voting channel ${votingChannelId}`);
             
         } catch (error) {
-            logger.error(`Error posting poem to voting channel: ${error.message}`, error);
+            logger.error(`Error checking poem task completion: ${error.message}`, error);
         }
     },
 
@@ -1600,19 +1636,28 @@ module.exports = {
                 logger.error(`Error checking database for poems: ${dbError.message}`);
             }
 
-            await interaction.followUp({
-                content: `✅ Migration complete! Migrated ${migratedCount} poems from <#${oldChannelId}> to <#${newChannelId}> with new voting buttons.`,
-                ephemeral: true
+            await interaction.editReply({
+                content: `✅ Migration complete! Migrated ${migratedCount} poems from <#${oldChannelId}> to <#${newChannelId}> with new voting buttons.`
             });
 
             logger.info(`Successfully migrated ${migratedCount} poems to new voting system`);
 
         } catch (error) {
             logger.error(`Error migrating existing poems: ${error.message}`, error);
-            await interaction.followUp({
-                content: '❌ Error occurred during migration. Check logs for details.',
-                ephemeral: true
-            });
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.editReply({
+                        content: '❌ Error occurred during migration. Check logs for details.'
+                    });
+                } else {
+                    await interaction.reply({
+                        content: '❌ Error occurred during migration. Check logs for details.',
+                        ephemeral: true
+                    });
+                }
+            } catch (replyError) {
+                logger.error(`Failed to send error message: ${replyError.message}`);
+            }
         }
     },
 
@@ -2069,6 +2114,11 @@ module.exports = {
                 ephemeral: true
             });
             return;
+        }
+
+        // Check if poem has enough votes to complete the task (only if not already completed)
+        if (!voteData.taskCompleted) {
+            await this.checkPoemTaskCompletion(poemId, voteData);
         }
 
         // Initialize voters if not exists
