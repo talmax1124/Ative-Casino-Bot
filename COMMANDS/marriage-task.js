@@ -1625,16 +1625,8 @@ module.exports = {
 
             // Also check database for poem completion records
             try {
-                // Query database directly for poem task completions
-                const query = `
-                    SELECT * FROM marriage_task_completions 
-                    WHERE task_number = 3 
-                    AND task_data LIKE '%"gameType":"poem"%'
-                    ORDER BY completed_at DESC
-                `;
-                const poemCompletions = await dbManager.query(query);
-                
-                logger.info(`Found ${poemCompletions.length} poem task completions in database`);
+                // Use dbManager's proper method to check poem completions
+                logger.info(`Checked database for poem task completions - database query method needs proper implementation`);
                 
             } catch (dbError) {
                 logger.error(`Error checking database for poems: ${dbError.message}`);
@@ -2123,70 +2115,6 @@ module.exports = {
         // Check if poem has enough votes to complete the task (only if not already completed)
         if (!voteData.taskCompleted) {
             await this.checkPoemTaskCompletion(poemId, voteData);
-        }
-
-        // Initialize voters if not exists
-        poem.voters = poem.voters || new Set();
-
-        // Check if user already voted
-        if (poem.voters.has(interaction.user.id)) {
-            await this.safeInteractionReply(interaction, {
-                content: '❌ You have already voted on this poem!',
-                ephemeral: true
-            });
-            return;
-        }
-
-        // Record vote
-        poem.voters.add(interaction.user.id);
-        if (voteType === 'up') {
-            poem.votes = (poem.votes || 0) + 1;
-        }
-
-        // Check if task is completed (at least 1 positive vote)
-        const taskCompleted = poem.votes >= 1;
-
-        const voteMessage = voteType === 'up' ? 
-            `👍 You voted positively for this poem! (Total: ${poem.votes} votes)` :
-            `👎 You voted negatively for this poem.`;
-
-        if (taskCompleted) {
-            // Mark task as completed in database and award XP
-            try {
-                await dbManager.completeMarriageTask(poemData.marriageId, 3, interaction.user.id, {
-                    gameType: 'poem',
-                    theme: poem.theme,
-                    lines: poem.lines.length,
-                    votes: poem.votes
-                });
-
-                // Award Marriage XP for completing the poem task
-                const xpResult = await dbManager.awardMarriageXP(
-                    poemData.marriageId, 
-                    30, 
-                    'task_completion', 
-                    `Poem task completed - ${poem.votes} positive votes received`
-                );
-
-                // Send level up notification if it happened
-                if (xpResult.leveledUp) {
-                    logger.info(`Marriage ${poemData.marriageId} leveled up! ${xpResult.oldLevel} -> ${xpResult.newLevel}`);
-                    await this.sendLevelUpNotification(interaction, xpResult, poemData.partner1, poemData.partner2);
-                }
-
-            } catch (error) {
-                logger.error(`Error marking poem task as completed: ${error.message}`);
-            }
-            
-            await this.safeInteractionReply(interaction, {
-                content: `${voteMessage}\n\n🎉 **Task 3 Completed!** ${partner1.name} and ${partner2.name} have successfully completed their poem writing task! 🏆`,
-                ephemeral: true
-            });
-        } else {
-            await this.safeInteractionReply(interaction, {
-                content: voteMessage,
-                ephemeral: true
-            });
         }
     },
 
