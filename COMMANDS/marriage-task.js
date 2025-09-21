@@ -1394,22 +1394,11 @@ module.exports = {
                 components: [voteButtons]
             });
 
-            // Store voting data
-            if (!global.poemVotes) {
-                global.poemVotes = new Map();
-            }
-            
-            global.poemVotes.set(poemId, {
-                messageId: votingMessage.id,
-                channelId: votingChannelId,
-                upvotes: 0,
-                downvotes: 0,
-                voters: new Set(),
-                poem: {
-                    theme: poem.theme,
-                    content: poem.getDisplayText(),
-                    marriageId: marriageId
-                }
+            // Store voting data in database
+            await dbManager.savePoemVote(poemId, votingMessage.id, votingChannelId, guildId, {
+                theme: poem.theme,
+                content: poem.getDisplayText(),
+                marriageId: marriageId
             });
 
             // Task will be completed when poem gets enough votes
@@ -1565,7 +1554,8 @@ module.exports = {
                             const poemId = `migrated_${message.id}`;
                             
                             // Check if already migrated
-                            if (global.poemVotes?.has(poemId)) continue;
+                            const existingPoem = await dbManager.getPoemVote(poemId);
+                            if (existingPoem) continue;
                             
                             const poemEmbed = new EmbedBuilder()
                                 .setTitle('📜 New Poem')
@@ -1594,22 +1584,11 @@ module.exports = {
                                 components: [voteButtons]
                             });
 
-                            // Store voting data
-                            if (!global.poemVotes) {
-                                global.poemVotes = new Map();
-                            }
-                            
-                            global.poemVotes.set(poemId, {
-                                messageId: newMessage.id,
-                                channelId: newChannelId,
-                                upvotes: 0,
-                                downvotes: 0,
-                                voters: new Set(),
-                                poem: {
-                                    theme: theme,
-                                    content: poemContent,
-                                    originalMessageId: message.id
-                                }
+                            // Store voting data in database
+                            await dbManager.savePoemVote(poemId, newMessage.id, newChannelId, oldChannel.guild.id, {
+                                theme: theme,
+                                content: poemContent,
+                                originalMessageId: message.id
                             });
 
                             migratedCount++;
@@ -2054,8 +2033,9 @@ module.exports = {
         const voteType = parts[2]; // 'up' or 'down'
         const poemId = parts.slice(3).join('_');
 
-        // Check if this is from the new voting system
-        if (!global.poemVotes?.has(poemId)) {
+        // Check if this is from the database voting system
+        const voteData = await dbManager.getPoemVote(poemId);
+        if (!voteData) {
             await interaction.reply({
                 content: '❌ This poem voting has expired.',
                 ephemeral: true
@@ -2063,11 +2043,10 @@ module.exports = {
             return;
         }
 
-        const voteData = global.poemVotes.get(poemId);
         const userId = interaction.user.id;
 
         // Check if user already voted
-        if (voteData.voters.has(userId)) {
+        if (voteData.voters.includes(userId)) {
             await interaction.reply({
                 content: '❌ You have already voted on this poem!',
                 ephemeral: true
@@ -2075,12 +2054,16 @@ module.exports = {
             return;
         }
 
-        // Add vote
-        voteData.voters.add(userId);
-        if (voteType === 'up') {
-            voteData.upvotes++;
-        } else if (voteType === 'down') {
-            voteData.downvotes++;
+        // Update vote in database
+        const updateResult = await dbManager.updatePoemVote(poemId, voteType, userId);
+        if (!updateResult.success) {
+            await interaction.reply({
+                content: updateResult.reason === 'already_voted' ? 
+                    '❌ You have already voted on this poem!' : 
+                    '❌ Failed to record your vote. Please try again.',
+                ephemeral: true
+            });
+            return;
         }
 
         // Update button labels with new vote counts
@@ -2088,12 +2071,12 @@ module.exports = {
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId(`poem_vote_up_${poemId}`)
-                    .setLabel(voteData.upvotes.toString())
+                    .setLabel(updateResult.upvotes.toString())
                     .setEmoji('👍')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
                     .setCustomId(`poem_vote_down_${poemId}`)
-                    .setLabel(voteData.downvotes.toString())
+                    .setLabel(updateResult.downvotes.toString())
                     .setEmoji('👎')
                     .setStyle(ButtonStyle.Danger)
             );

@@ -371,7 +371,7 @@ class LotteryGame {
     }
 
     /**
-     * Conduct the bi-weekly lottery drawing (Tuesday and Saturday)
+     * Conduct the bi-weekly lottery drawing (Tuesday and Saturday) for BOTH tiers
      */
     async conductWeeklyDrawing() {
         // Note: Lottery system is enabled in all environments
@@ -382,24 +382,35 @@ class LotteryGame {
         }
 
         this.isDrawingInProgress = true;
-        logger.info('Starting weekly lottery drawing');
+        logger.info('Starting weekly lottery drawing for BOTH tiers');
 
         try {
             const guildId = DESIGNATED_SERVER_ID;
-            const results = await dbManager.conductLotteryDrawing(guildId);
+            
+            // Conduct drawing for BOTH tiers
+            const tier1Results = await dbManager.conductLotteryDrawing(guildId, 1);
+            const tier2Results = await dbManager.conductLotteryDrawing(guildId, 2);
 
-            if (results.success) {
-                // Save to history
-                await dbManager.saveLotteryHistory(guildId, results);
+            // Check if at least one tier had a successful drawing
+            const overallSuccess = tier1Results.success || tier2Results.success;
+
+            if (overallSuccess) {
+                // Save to history for both tiers
+                if (tier1Results.success) {
+                    await dbManager.saveLotteryHistory(guildId, tier1Results, 1);
+                }
+                if (tier2Results.success) {
+                    await dbManager.saveLotteryHistory(guildId, tier2Results, 2);
+                }
                 
-                // Announce winners
-                await this.announceWinners(results);
+                // Announce winners for both tiers
+                await this.announceWinners({ tier1: tier1Results, tier2: tier2Results });
                 
-                logger.info('Weekly lottery drawing completed successfully');
+                logger.info('Weekly lottery drawing completed successfully for both tiers');
                 return true;
             } else {
-                // Handle cases where drawing couldn't be conducted
-                await this.handleDrawingFailure(results);
+                // Handle cases where both drawings couldn't be conducted
+                await this.handleDrawingFailure({ tier1: tier1Results, tier2: tier2Results });
                 return false;
             }
 
@@ -413,7 +424,7 @@ class LotteryGame {
     }
 
     /**
-     * Announce lottery winners in the lottery channel
+     * Announce lottery winners in the lottery channel for BOTH tiers
      */
     async announceWinners(results) {
         try {
@@ -425,23 +436,77 @@ class LotteryGame {
                 return;
             }
 
-            // No image generation needed
+            const tier1 = results.tier1;
+            const tier2 = results.tier2;
+
+            // Calculate combined statistics
+            const totalPrizePool = (tier1.success ? tier1.total_prize : 0) + (tier2.success ? tier2.total_prize : 0);
+            const totalParticipants = (tier1.success ? tier1.totalParticipants : 0) + (tier2.success ? tier2.totalParticipants : 0);
+            const totalTickets = (tier1.success ? tier1.total_tickets : 0) + (tier2.success ? tier2.total_tickets : 0);
 
             const embed = new EmbedBuilder()
-                .setTitle('🎊 LOTTERY DRAWING RESULTS! 🎊')
+                .setTitle('🎊 DUAL-TIER LOTTERY DRAWING RESULTS! 🎊')
                 .setColor(0xFFD700)
-                .setDescription(`**Bi-weekly lottery drawing has been completed!**\n\nTotal Prize Pool: **${fmt(results.total_prize)}**\nParticipants: **${results.totalParticipants}** players\nTickets Sold: **${results.total_tickets}**`);
+                .setDescription(`**Bi-weekly lottery drawing has been completed for BOTH tiers!**\n\n💰 **Combined Prize Pool:** ${fmt(totalPrizePool)}\n👥 **Total Participants:** ${totalParticipants} players\n🎫 **Total Tickets Sold:** ${totalTickets}`);
 
-            // Add winner fields dynamically based on number of winners
-            const winnerEmojis = ['🥇', '🥈', '🥉'];
-            const placeNames = ['1st Place Winner', '2nd Place Winner', '3rd Place Winner'];
-            
-            for (let i = 0; i < results.winners.length && i < 3; i++) {
-                const winner = results.winners[i];
+            // Add Tier 1 results
+            if (tier1.success && tier1.winners && tier1.winners.length > 0) {
                 embed.addFields({
-                    name: `${winnerEmojis[i]} ${placeNames[i]}`,
-                    value: `<@${winner.userId}>\n**Prize: ${fmt(winner.prize)}**`,
-                    inline: true
+                    name: '🥇 **═══════ TIER 1 STANDARD WINNERS ═══════**',
+                    value: `💰 **Prize Pool:** ${fmt(tier1.total_prize)} • 🎫 **Tickets:** ${tier1.total_tickets}`,
+                    inline: false
+                });
+
+                const winnerEmojis = ['🥇', '🥈', '🥉'];
+                const placeNames = ['1st Place', '2nd Place', '3rd Place'];
+                
+                for (let i = 0; i < tier1.winners.length && i < 3; i++) {
+                    const winner = tier1.winners[i];
+                    embed.addFields({
+                        name: `${winnerEmojis[i]} ${placeNames[i]}`,
+                        value: `<@${winner.userId}>\n**Prize: ${fmt(winner.prize)}**`,
+                        inline: true
+                    });
+                }
+            } else {
+                embed.addFields({
+                    name: '🥇 **═══════ TIER 1 STANDARD ═══════**',
+                    value: '❌ **No participants** - Prize pool rolls over to next drawing!',
+                    inline: false
+                });
+            }
+
+            // Add spacing
+            embed.addFields({
+                name: '\u200B',
+                value: '\u200B',
+                inline: false
+            });
+
+            // Add Tier 2 results
+            if (tier2.success && tier2.winners && tier2.winners.length > 0) {
+                embed.addFields({
+                    name: '💎 **═══════ TIER 2 HIGH STAKES WINNERS ═══════**',
+                    value: `💰 **Prize Pool:** ${fmt(tier2.total_prize)} • 🎫 **Tickets:** ${tier2.total_tickets}`,
+                    inline: false
+                });
+
+                const winnerEmojis = ['🥇', '🥈', '🥉'];
+                const placeNames = ['1st Place', '2nd Place', '3rd Place'];
+                
+                for (let i = 0; i < tier2.winners.length && i < 3; i++) {
+                    const winner = tier2.winners[i];
+                    embed.addFields({
+                        name: `${winnerEmojis[i]} ${placeNames[i]}`,
+                        value: `<@${winner.userId}>\n**Prize: ${fmt(winner.prize)}**`,
+                        inline: true
+                    });
+                }
+            } else {
+                embed.addFields({
+                    name: '💎 **═══════ TIER 2 HIGH STAKES ═══════**',
+                    value: '❌ **No participants** - Prize pool rolls over to next drawing!',
+                    inline: false
                 });
             }
             
@@ -468,7 +533,7 @@ class LotteryGame {
 
             // Send winner announcement (no buttons, no images)
             await channel.send({
-                content: `🎊 **LOTTERY WINNERS ANNOUNCED!** 🎊\n@everyone <@&${LOTTERY_ROLE_ID}>`,
+                content: `🎊 **DUAL-TIER LOTTERY WINNERS ANNOUNCED!** 🎊\n@everyone <@&${LOTTERY_ROLE_ID}>`,
                 embeds: [embed]
             });
             
@@ -478,16 +543,30 @@ class LotteryGame {
                 logger.info('Created new lottery panel after drawing completion');
             }, 5000); // Wait 5 seconds before creating new panel
 
-            // Log to admin channel - dynamically build winners message
-            const winnersText = results.winners.map((winner, index) => {
-                const places = ['1st', '2nd', '3rd'];
-                return `${places[index]}: <@${winner.userId}> (${fmt(winner.prize)})`;
-            }).join(', ');
+            // Log to admin channel - build winners message for both tiers
+            let winnersText = '';
+            if (tier1.success && tier1.winners && tier1.winners.length > 0) {
+                const tier1Winners = tier1.winners.map((winner, index) => {
+                    const places = ['1st', '2nd', '3rd'];
+                    return `T1 ${places[index]}: <@${winner.userId}> (${fmt(winner.prize)})`;
+                }).join(', ');
+                winnersText += tier1Winners;
+            }
+            if (tier2.success && tier2.winners && tier2.winners.length > 0) {
+                const tier2Winners = tier2.winners.map((winner, index) => {
+                    const places = ['1st', '2nd', '3rd'];
+                    return `T2 ${places[index]}: <@${winner.userId}> (${fmt(winner.prize)})`;
+                }).join(', ');
+                if (winnersText) winnersText += ', ';
+                winnersText += tier2Winners;
+            }
+            
+            if (!winnersText) winnersText = 'No participants in either tier';
             
             await sendLogMessage(
                 this.bot,
                 'game',
-                `Lottery drawing completed! Winners: ${winnersText}`,
+                `Dual-tier lottery drawing completed! Winners: ${winnersText}`,
                 null,
                 DESIGNATED_SERVER_ID
             );
@@ -498,7 +577,7 @@ class LotteryGame {
     }
 
     /**
-     * Handle drawing failure (not enough participants, etc.)
+     * Handle drawing failure (not enough participants, etc.) for both tiers
      */
     async handleDrawingFailure(results) {
         try {
@@ -508,32 +587,62 @@ class LotteryGame {
                 return;
             }
 
-            let description;
-            if (results.reason === 'No participants in lottery') {
-                description = `**No participants for this week's drawing!**\n\nNo one purchased tickets for this drawing period.\n\n💰 **Good news:** The current prize pool will roll over to next week, making it even bigger!`;
+            const tier1 = results.tier1;
+            const tier2 = results.tier2;
+
+            let description = `**This week's dual-tier lottery drawing results:**\n\n`;
+            
+            // Check Tier 1 status
+            if (!tier1.success) {
+                if (tier1.reason === 'No participants in lottery') {
+                    description += `🥇 **Tier 1 Standard:** No participants - Prize pool rolls over!\n`;
+                } else {
+                    description += `🥇 **Tier 1 Standard:** ${tier1.reason} - Prize pool rolls over!\n`;
+                }
             } else {
-                description = `**This week's lottery drawing could not be completed.**\n\nReason: ${results.reason}\n\n💰 The prize pool will roll over to next week.`;
+                description += `🥇 **Tier 1 Standard:** Drawing completed successfully!\n`;
             }
 
+            // Check Tier 2 status  
+            if (!tier2.success) {
+                if (tier2.reason === 'No participants in lottery') {
+                    description += `💎 **Tier 2 High Stakes:** No participants - Prize pool rolls over!\n`;
+                } else {
+                    description += `💎 **Tier 2 High Stakes:** ${tier2.reason} - Prize pool rolls over!\n`;
+                }
+            } else {
+                description += `💎 **Tier 2 High Stakes:** Drawing completed successfully!\n`;
+            }
+
+            description += `\n💰 **Good news:** All rolled-over prize pools will make next week's drawings even bigger!`;
+
             const embed = new EmbedBuilder()
-                .setTitle('🎟️ Lottery Drawing Update')
+                .setTitle('🎟️ Dual-Tier Lottery Drawing Update')
                 .setColor(0xFFA500)
                 .setDescription(description)
                 .addFields({
-                    name: '📅 Next Week',
-                    value: 'The lottery continues next Tuesday & Saturday at 10 AM EST!\nBuy your tickets now for a chance to win the rolled-over prize pool!',
+                    name: '📅 Next Drawing',
+                    value: 'The lottery continues next Tuesday & Saturday at 10 AM EST!\nBuy your tickets now for a chance to win the rolled-over prize pools!',
                     inline: false
                 })
-                .setFooter({ text: '🎟️ Use /lottery buy to purchase tickets for next week!' })
+                .addFields({
+                    name: '🎯 How to Participate',
+                    value: '**Tier 1:** `/purchaselottery` ($50K per ticket)\n**Tier 2:** `/purchaselottery2` ($200K per ticket)',
+                    inline: false
+                })
+                .setFooter({ text: '🎟️ Bigger prize pools await next drawing!' })
                 .setTimestamp();
 
             await channel.send({ embeds: [embed] });
 
             // Log the failure
+            const tier1Status = tier1.success ? 'success' : tier1.reason;
+            const tier2Status = tier2.success ? 'success' : tier2.reason;
+            
             await sendLogMessage(
                 this.bot,
                 'game',
-                `Lottery drawing failed: ${results.reason}. Prize pool rolled over.`,
+                `Dual-tier lottery drawing: Tier 1: ${tier1Status}, Tier 2: ${tier2Status}. Pools rolled over.`,
                 null,
                 DESIGNATED_SERVER_ID
             );

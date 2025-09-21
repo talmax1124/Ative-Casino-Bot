@@ -403,6 +403,24 @@ class DatabaseAdapter {
                 UNIQUE KEY unique_partner2_active (partner2_id, status)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
+            // Poem voting system table
+            `CREATE TABLE IF NOT EXISTS poem_votes (
+                poem_id VARCHAR(100) PRIMARY KEY,
+                message_id VARCHAR(20) NOT NULL,
+                channel_id VARCHAR(20) NOT NULL,
+                guild_id VARCHAR(20) NOT NULL,
+                upvotes INT NOT NULL DEFAULT 0,
+                downvotes INT NOT NULL DEFAULT 0,
+                voters TEXT, -- JSON array of user IDs who voted
+                poem_data JSON, -- Stores poem theme, content, marriage_id, etc.
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP NULL,
+                INDEX idx_message (message_id),
+                INDEX idx_channel (channel_id),
+                INDEX idx_guild (guild_id),
+                INDEX idx_created (created_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
             `CREATE TABLE IF NOT EXISTS rob_stats (
                 id VARCHAR(100) PRIMARY KEY,
                 robber_id VARCHAR(20) NOT NULL,
@@ -2024,73 +2042,73 @@ class DatabaseAdapter {
     }
 
     /**
-     * Conduct lottery drawing with MariaDB integration
+     * Conduct lottery drawing with MariaDB integration for specific tier
      */
-    async conductLotteryDrawing(guildId) {
+    async conductLotteryDrawing(guildId, tier = 1) {
         const connection = await this.pool.getConnection();
         
         try {
             await connection.beginTransaction();
-            logger.info(`Conducting lottery drawing for guild ${guildId || 'global'}`);
+            logger.info(`Conducting lottery drawing for guild ${guildId || 'global'} tier ${tier}`);
             
-            // Get lottery info
+            // Get lottery info for specific tier
             const [lotteryInfo] = await connection.execute(
-                'SELECT * FROM lottery_info WHERE guild_id = ?',
-                [guildId]
+                'SELECT * FROM lottery_info WHERE guild_id = ? AND tier = ?',
+                [guildId, tier]
             );
             
             if (!lotteryInfo.length) {
                 await connection.rollback();
                 return {
                     success: false,
-                    reason: 'No lottery info found for this server'
+                    reason: `No lottery info found for this server tier ${tier}`
                 };
             }
             
             const lottery = lotteryInfo[0];
             const currentWeekStart = lottery.current_week_start;
             
-            // Get all participants - if week_start mismatch, get most recent week's tickets
+            // Get all participants for this tier - if week_start mismatch, get most recent week's tickets
             let [participants] = await connection.execute(
                 `SELECT user_id, SUM(ticket_count) as ticket_count 
                  FROM lottery_tickets 
-                 WHERE guild_id = ? AND week_start = ? 
+                 WHERE guild_id = ? AND week_start = ? AND tier = ?
                  GROUP BY user_id
                  ORDER BY user_id`,
-                [guildId, currentWeekStart]
+                [guildId, currentWeekStart, tier]
             );
             
             // Track which week we're actually using for tickets
             let actualWeekStart = currentWeekStart;
             
-            // If no participants found with current week, try to find most recent tickets
+            // If no participants found with current week, try to find most recent tickets for this tier
             if (participants.length === 0) {
-                // First get the most recent week with tickets
+                // First get the most recent week with tickets for this tier
                 const [recentWeeks] = await connection.execute(
                     `SELECT DISTINCT week_start 
                      FROM lottery_tickets 
-                     WHERE guild_id = ? 
+                     WHERE guild_id = ? AND tier = ?
                      ORDER BY week_start DESC 
                      LIMIT 1`,
-                    [guildId]
+                    [guildId, tier]
                 );
                 
                 if (recentWeeks.length > 0) {
                     const mostRecentWeek = recentWeeks[0].week_start;
                     
-                    // Now get participants for that week, grouped by user
+                    // Now get participants for that week and tier, grouped by user
                     const [recentParticipants] = await connection.execute(
                         `SELECT user_id, SUM(ticket_count) as ticket_count 
                          FROM lottery_tickets 
-                         WHERE guild_id = ? AND week_start = ? 
+                         WHERE guild_id = ? AND week_start = ? AND tier = ?
                          GROUP BY user_id
                          ORDER BY user_id`,
-                        [guildId, mostRecentWeek]
+                        [guildId, mostRecentWeek, tier]
                     );
                     
                     participants = recentParticipants;
                     actualWeekStart = mostRecentWeek;
-                    logger.info(`Using tickets from week ${mostRecentWeek} (${participants.length} unique participants)`);
+                    logger.info(`Tier ${tier}: Using tickets from week ${mostRecentWeek} (${participants.length} unique participants)`);
                 }
             }
             
@@ -2098,9 +2116,10 @@ class DatabaseAdapter {
                 await connection.rollback();
                 return {
                     success: false,
-                    reason: 'No participants in lottery',
+                    reason: `No participants in lottery tier ${tier}`,
                     participants: participants.length,
-                    total_prize: lottery.total_prize
+                    total_prize: lottery.total_prize,
+                    tier: tier
                 };
             }
             
@@ -2173,22 +2192,25 @@ class DatabaseAdapter {
                 );
             }
             
-            // Reset lottery for next week
+            // Reset lottery for next week for this specific tier
             const nextWeekStart = new Date();
             nextWeekStart.setDate(nextWeekStart.getDate() + 7);
             nextWeekStart.setUTCHours(0, 0, 0, 0);
             
+            // Set appropriate default prize pools for each tier
+            const defaultPrizePool = tier === 1 ? 400000.00 : 3000000.00;
+            
             await connection.execute(
                 `UPDATE lottery_info 
-                 SET total_tickets = 0, total_prize = 400000.00, current_week_start = ?, updated_at = CURRENT_TIMESTAMP
-                 WHERE guild_id = ?`,
-                [nextWeekStart.toISOString().slice(0, 10), guildId]
+                 SET total_tickets = 0, total_prize = ?, current_week_start = ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE guild_id = ? AND tier = ?`,
+                [defaultPrizePool, nextWeekStart.toISOString().slice(0, 10), guildId, tier]
             );
             
-            // Clear tickets for next week (use the actual week we drew from)
+            // Clear tickets for next week for this tier (use the actual week we drew from)
             await connection.execute(
-                'DELETE FROM lottery_tickets WHERE guild_id = ? AND week_start = ?',
-                [guildId, actualWeekStart]
+                'DELETE FROM lottery_tickets WHERE guild_id = ? AND week_start = ? AND tier = ?',
+                [guildId, actualWeekStart, tier]
             );
             
             await connection.commit();
@@ -2200,6 +2222,7 @@ class DatabaseAdapter {
                 totalParticipants: participants.length,
                 total_tickets: totalTickets,
                 drawingDate: new Date(),
+                tier: tier,
                 prizeBreakdown: {
                     first: firstPrize,
                     second: secondPrize,
@@ -2672,6 +2695,7 @@ class DatabaseAdapter {
 
             return {
                 leveledUp,
+                levelUp: leveledUp, // Add alias for compatibility
                 oldLevel: currentData.level,
                 newLevel,
                 xpGained: xpAmount,
@@ -4443,6 +4467,154 @@ class DatabaseAdapter {
         } catch (error) {
             logger.error(`Error getting marriage XP history: ${error.message}`);
             throw error;
+        }
+    }
+
+    // ======================= POEM VOTING SYSTEM =======================
+
+    /**
+     * Save poem voting data to database
+     */
+    async savePoemVote(poemId, messageId, channelId, guildId, poemData, expiresAt = null) {
+        try {
+            const query = `
+                INSERT INTO poem_votes (poem_id, message_id, channel_id, guild_id, poem_data, expires_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                message_id = VALUES(message_id),
+                channel_id = VALUES(channel_id),
+                poem_data = VALUES(poem_data),
+                expires_at = VALUES(expires_at)
+            `;
+            
+            const [result] = await this.pool.execute(query, [
+                poemId, messageId, channelId, guildId, 
+                JSON.stringify(poemData), expiresAt
+            ]);
+            
+            logger.info(`Saved poem voting data for poem ${poemId}`);
+            return { success: true, result };
+            
+        } catch (error) {
+            logger.error(`Error saving poem vote: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Get poem voting data by poem ID
+     */
+    async getPoemVote(poemId) {
+        try {
+            const query = `
+                SELECT poem_id, message_id, channel_id, guild_id, upvotes, downvotes, 
+                       voters, poem_data, created_at, expires_at
+                FROM poem_votes 
+                WHERE poem_id = ?
+            `;
+            
+            const [rows] = await this.pool.execute(query, [poemId]);
+            
+            if (rows.length === 0) {
+                return null;
+            }
+            
+            const row = rows[0];
+            return {
+                poemId: row.poem_id,
+                messageId: row.message_id,
+                channelId: row.channel_id,
+                guildId: row.guild_id,
+                upvotes: row.upvotes,
+                downvotes: row.downvotes,
+                voters: row.voters ? JSON.parse(row.voters) : [],
+                poemData: row.poem_data ? JSON.parse(row.poem_data) : {},
+                createdAt: row.created_at,
+                expiresAt: row.expires_at
+            };
+            
+        } catch (error) {
+            logger.error(`Error getting poem vote: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Update poem vote count and voter list
+     */
+    async updatePoemVote(poemId, voteType, userId) {
+        try {
+            // First get current data
+            const currentData = await this.getPoemVote(poemId);
+            if (!currentData) {
+                throw new Error(`Poem ${poemId} not found`);
+            }
+
+            // Check if user already voted
+            if (currentData.voters.includes(userId)) {
+                return { success: false, reason: 'already_voted' };
+            }
+
+            // Update vote counts and voter list
+            const newVoters = [...currentData.voters, userId];
+            const newUpvotes = voteType === 'up' ? currentData.upvotes + 1 : currentData.upvotes;
+            const newDownvotes = voteType === 'down' ? currentData.downvotes + 1 : currentData.downvotes;
+
+            const query = `
+                UPDATE poem_votes 
+                SET upvotes = ?, downvotes = ?, voters = ?
+                WHERE poem_id = ?
+            `;
+            
+            const [result] = await this.pool.execute(query, [
+                newUpvotes, newDownvotes, JSON.stringify(newVoters), poemId
+            ]);
+            
+            logger.info(`Updated vote for poem ${poemId}: ${voteType} vote by ${userId}`);
+            
+            return { 
+                success: true, 
+                upvotes: newUpvotes, 
+                downvotes: newDownvotes,
+                voters: newVoters
+            };
+            
+        } catch (error) {
+            logger.error(`Error updating poem vote: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Get all active poem votes for a guild
+     */
+    async getActivePoemVotes(guildId) {
+        try {
+            const query = `
+                SELECT poem_id, message_id, channel_id, upvotes, downvotes, 
+                       voters, poem_data, created_at, expires_at
+                FROM poem_votes 
+                WHERE guild_id = ? AND (expires_at IS NULL OR expires_at > NOW())
+                ORDER BY created_at DESC
+            `;
+            
+            const [rows] = await this.pool.execute(query, [guildId]);
+            
+            return rows.map(row => ({
+                poemId: row.poem_id,
+                messageId: row.message_id,
+                channelId: row.channel_id,
+                upvotes: row.upvotes,
+                downvotes: row.downvotes,
+                voters: row.voters ? JSON.parse(row.voters) : [],
+                poemData: row.poem_data ? JSON.parse(row.poem_data) : {},
+                createdAt: row.created_at,
+                expiresAt: row.expires_at
+            }));
+            
+        } catch (error) {
+            logger.error(`Error getting active poem votes: ${error.message}`);
+            return [];
         }
     }
 

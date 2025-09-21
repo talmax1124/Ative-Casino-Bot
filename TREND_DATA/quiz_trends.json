@@ -1,0 +1,18 @@
+{
+  "choices": [
+    "A",
+    "B",
+    "C",
+    "D"
+  ],
+  "answerPatterns": {},
+  "accuracyRates": {},
+  "responseTime": {},
+  "totalChoices": 0,
+  "lastAnalysis": 1758421293251,
+  "currentAdjustment": 0,
+  "timestamp": 1758423093269,
+  "reason": null,
+  "confidence": null,
+  "dominantStrategy": null
+}

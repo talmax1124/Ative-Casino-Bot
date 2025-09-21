@@ -687,11 +687,12 @@ class DatabaseManager {
     /**
      * Conduct lottery drawing and select winners
      * @param {string} guildId - Guild ID
+     * @param {number} tier - Lottery tier (1 or 2)
      * @returns {Object} Drawing results
      */
-    async conductLotteryDrawing(guildId) {
+    async conductLotteryDrawing(guildId, tier = 1) {
         if (this.usingAdapter) {
-            return await this.databaseAdapter.conductLotteryDrawing(guildId);
+            return await this.databaseAdapter.conductLotteryDrawing(guildId, tier);
         }
         return { success: false, reason: 'no_database' };
     }
@@ -1780,6 +1781,48 @@ class DatabaseManager {
     async getMarriageXPHistory(marriageId, limit = 10) {
         if (this.usingAdapter) {
             return await this.databaseAdapter.getMarriageXPHistory(marriageId, limit);
+        }
+        return [];
+    }
+
+    // ======================= POEM VOTING SYSTEM =======================
+
+    /**
+     * Save poem voting data
+     */
+    async savePoemVote(poemId, messageId, channelId, guildId, poemData, expiresAt = null) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.savePoemVote(poemId, messageId, channelId, guildId, poemData, expiresAt);
+        }
+        throw new Error('Database adapter not available');
+    }
+
+    /**
+     * Get poem voting data by poem ID
+     */
+    async getPoemVote(poemId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getPoemVote(poemId);
+        }
+        return null;
+    }
+
+    /**
+     * Update poem vote count and voter list
+     */
+    async updatePoemVote(poemId, voteType, userId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updatePoemVote(poemId, voteType, userId);
+        }
+        return { success: false, error: 'Database adapter not available' };
+    }
+
+    /**
+     * Get all active poem votes for a guild
+     */
+    async getActivePoemVotes(guildId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getActivePoemVotes(guildId);
         }
         return [];
     }

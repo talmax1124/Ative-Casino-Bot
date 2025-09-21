@@ -5,9 +5,9 @@
  * Tests the leveling and XP system functionality
  */
 
-const dbManager = require('./UTILS/database');
-const levelingSystem = require('./UTILS/levelingSystem');
-const logger = require('./UTILS/logger');
+const dbManager = require('../UTILS/database');
+const levelingSystem = require('../UTILS/levelingSystem');
+const logger = require('../UTILS/logger');
 
 // Test configuration
 const TEST_USER_ID = 'test_user_123456789';
