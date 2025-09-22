@@ -221,7 +221,19 @@ module.exports = {
 
         try {
             if (action.startsWith('buy_')) {
-                const ticketCount = parseInt(action.split('_')[1]);
+                const ticketCountStr = action.split('_')[1];
+                const ticketCount = parseInt(ticketCountStr);
+                
+                // Validate ticket count is a valid number
+                if (isNaN(ticketCount) || ticketCount < 1 || ticketCount > 10) {
+                    logger.error(`Invalid ticket count parsed from action: ${action}, parsed as: ${ticketCount}`);
+                    const errorEmbed = UITemplates.createErrorEmbed('Tier 2 Lottery Purchase', {
+                        description: 'Invalid ticket quantity specified. Please try again.',
+                        error: `Received invalid ticket count: ${ticketCountStr}`
+                    });
+                    return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                }
+                
                 await this.purchaseTickets(interaction, userId, guildId, ticketCount);
             } else if (action === 'view_tickets') {
                 await this.showUserTickets(interaction, userId, guildId);
@@ -252,8 +264,28 @@ module.exports = {
     },
 
     async purchaseTickets(interaction, userId, guildId, ticketCount) {
+        // Additional validation at function entry
+        if (isNaN(ticketCount) || ticketCount < 1 || ticketCount > 10) {
+            logger.error(`Invalid ticket count in purchaseTickets: ${ticketCount}`);
+            const embed = UITemplates.createErrorEmbed('Tier 2 Lottery Purchase', {
+                description: 'Invalid ticket quantity. Please select a valid number of tickets (1-10).',
+                isLoss: false
+            });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
+        }
+        
         const ticketPrice = 200000; // $200K per ticket
         const totalCost = ticketCount * ticketPrice;
+        
+        // Validate totalCost is not NaN
+        if (isNaN(totalCost)) {
+            logger.error(`Total cost calculation resulted in NaN: ticketCount=${ticketCount}, ticketPrice=${ticketPrice}`);
+            const embed = UITemplates.createErrorEmbed('Tier 2 Lottery Purchase', {
+                description: 'Error calculating ticket cost. Please try again.',
+                isLoss: false
+            });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
+        }
 
         // Get current user data
         const balance = await dbManager.getUserBalance(userId, guildId);
