@@ -301,14 +301,8 @@ async function sendStartupNotification() {
             logger.error(`Failed to initialize Max Bet Removal Monitor: ${error.message}`);
         }
 
-        // Initialize Marriage Anniversary Manager
-        try {
-            const marriageAnniversaryManager = require('./UTILS/marriageAnniversaryManager');
-            await marriageAnniversaryManager.initialize(client);
-            logger.info('💒 Marriage Anniversary Manager initialized successfully');
-        } catch (error) {
-            logger.error(`Failed to initialize Marriage Anniversary Manager: ${error.message}`);
-        }
+        // Marriage Anniversary Manager moved to UAS bot
+        logger.info('💒 Marriage Anniversary Manager functionality moved to UAS bot');
     } catch (error) {
         logger.error(`Failed to send startup notification: ${error.message}`);
     }
@@ -501,6 +495,18 @@ client.once('clientReady', async () => {
         client.logSummaryManager = new LogSummaryManager(client);
         client.logSummaryManager.start();
         logger.info('✅ Log Summary Manager initialized and started');
+
+        // Run ML table migration (now that database is ready)
+        setTimeout(async () => {
+            try {
+                const { MLTableMigration } = require('./UTILS/mlTableMigration');
+                const migration = new MLTableMigration();
+                await migration.migrate();
+                logger.info('✅ ML table migration completed');
+            } catch (error) {
+                logger.warn(`ML table migration failed: ${error.message}`);
+            }
+        }, 1000); // Run before other startup tasks
 
         // Create startup economic summary (now that database is ready)
         setTimeout(async () => {

@@ -183,17 +183,21 @@ module.exports = {
             
             // Add weekly tasks section
             try {
+                // Get actual task completion status from database
+                const taskStatus = await dbManager.getMarriageTaskStatus(marriage.id);
+                
                 const tasksPath = path.join(__dirname, '..', 'marriages', 'Tasks-For-This-Week.md');
                 const tasksContent = fs.readFileSync(tasksPath, 'utf8');
                 const taskLines = tasksContent.split('\n').filter(line => line.startsWith('- [ ]'));
                 
-                // Get task completion status (placeholder - would be stored in database)
-                const taskStatus = { task1: false, task2: false, task3: false, task4: false };
-                const completedCount = Object.values(taskStatus).filter(Boolean).length;
+                // Calculate completed count from actual database data
+                const completedCount = taskStatus ? 
+                    [taskStatus.task1_completed, taskStatus.task2_completed, taskStatus.task3_completed, taskStatus.task4_completed]
+                        .filter(Boolean).length : 0;
                 
                 const tasksText = taskLines.map((line, index) => {
                     const taskText = line.replace('- [ ]', '').trim();
-                    const isCompleted = taskStatus[`task${index + 1}`];
+                    const isCompleted = taskStatus && taskStatus[`task${index + 1}_completed`];
                     return `${isCompleted ? '✅' : '📋'} ${taskText}`;
                 }).join('\n');
 
@@ -210,7 +214,8 @@ module.exports = {
                     }
                 );
             } catch (taskError) {
-                // If tasks file can't be read, show default tasks
+                logger.warn(`Failed to load marriage task status: ${taskError.message}`);
+                // If tasks can't be loaded, show default tasks
                 profileEmbed.addFields(
                     {
                         name: '\u200b',
@@ -219,7 +224,7 @@ module.exports = {
                     },
                     {
                         name: '📋 Weekly Tasks',
-                        value: '📋 Win a game of tic tac toe\n📋 Plant a tree. Keep it alive for a week\n📋 Write a poem about nature together\n📋 How well do you know each other? Take a quiz\n\n**Progress:** 0/4 tasks completed',
+                        value: '📋 Win a game of tic tac toe\n📋 Plant a tree. Keep it alive for a week\n📋 Write a poem about nature together\n📋 How well do you know each other? Take a quiz\n\n**Progress:** Unable to load task status',
                         inline: false
                     }
                 );
