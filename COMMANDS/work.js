@@ -71,8 +71,8 @@ module.exports = {
             const boostResult = await shopManager.applyEconomyBoosts(userId, baseEarning, 'work');
             const boostedEarning = boostResult.amount;
 
-            // Calculate server booster bonus (5% on boosted earnings)
-            const boosterInfo = calculateBoosterBonus(boostedEarning, interaction.member);
+            // Calculate server booster bonus (5% on boosted earnings) - guild-specific
+            const boosterInfo = await calculateBoosterBonus(boostedEarning, interaction.user.id, interaction.guildId, interaction.guild);
             const boosterBonus = boosterInfo.amount;
             const totalEarning = boostedEarning + boosterBonus;
 

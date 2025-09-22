@@ -70,7 +70,7 @@ module.exports = {
             const boostedEarning = boostResult.amount;
 
             // Calculate server booster bonus (5% on boosted earnings)
-            const boosterInfo = calculateBoosterBonus(boostedEarning, interaction.member);
+            const boosterInfo = await calculateBoosterBonus(boostedEarning, interaction.user.id, interaction.guildId, interaction.guild);
             const boosterBonus = boosterInfo.amount;
             const totalEarning = boostedEarning + boosterBonus;
 

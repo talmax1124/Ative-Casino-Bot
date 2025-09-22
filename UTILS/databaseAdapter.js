@@ -4700,6 +4700,12 @@ class DatabaseAdapter {
      */
     async cacheGuildMember(memberData) {
         try {
+            // Validate memberData
+            if (!memberData || !memberData.userId || !memberData.guildId) {
+                logger.debug(`Invalid memberData for cacheGuildMember:`, memberData);
+                return { success: false, error: 'Invalid memberData, missing userId or guildId' };
+            }
+
             const memberId = `${memberData.userId}_${memberData.guildId}`;
             
             const query = `
@@ -4754,6 +4760,12 @@ class DatabaseAdapter {
      */
     async getCachedGuildMember(userId, guildId) {
         try {
+            // Validate parameters
+            if (!userId || !guildId) {
+                logger.debug(`Invalid parameters for getCachedGuildMember: userId=${userId}, guildId=${guildId}`);
+                return { success: false, member: null, error: 'Invalid userId or guildId' };
+            }
+
             const query = `
                 SELECT * FROM guild_members 
                 WHERE user_id = ? AND guild_id = ?
@@ -4789,6 +4801,12 @@ class DatabaseAdapter {
      */
     async userHasRole(userId, guildId, roleId) {
         try {
+            // Validate parameters
+            if (!userId || !guildId || !roleId) {
+                logger.debug(`Invalid parameters for userHasRole: userId=${userId}, guildId=${guildId}, roleId=${roleId}`);
+                return { success: false, hasRole: false, error: 'Invalid parameters' };
+            }
+
             const { success, member } = await this.getCachedGuildMember(userId, guildId);
             
             if (!success || !member) {
@@ -4809,6 +4827,12 @@ class DatabaseAdapter {
      */
     async isUserAdmin(userId, guildId) {
         try {
+            // Validate parameters
+            if (!userId || !guildId) {
+                logger.debug(`Invalid parameters for isUserAdmin: userId=${userId}, guildId=${guildId}`);
+                return { success: false, isAdmin: false, error: 'Invalid parameters' };
+            }
+
             const { success, member } = await this.getCachedGuildMember(userId, guildId);
             
             if (!success || !member) {
@@ -4828,6 +4852,12 @@ class DatabaseAdapter {
      */
     async isUserModerator(userId, guildId) {
         try {
+            // Validate parameters
+            if (!userId || !guildId) {
+                logger.debug(`Invalid parameters for isUserModerator: userId=${userId}, guildId=${guildId}`);
+                return { success: false, isModerator: false, error: 'Invalid parameters' };
+            }
+
             const { success, member } = await this.getCachedGuildMember(userId, guildId);
             
             if (!success || !member) {
@@ -4847,6 +4877,12 @@ class DatabaseAdapter {
      */
     async isUserBooster(userId, guildId) {
         try {
+            // Validate parameters
+            if (!userId || !guildId) {
+                logger.debug(`Invalid parameters for isUserBooster: userId=${userId}, guildId=${guildId}`);
+                return { success: false, isBooster: false, error: 'Invalid parameters' };
+            }
+
             const { success, member } = await this.getCachedGuildMember(userId, guildId);
             
             if (!success || !member) {

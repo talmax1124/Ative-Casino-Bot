@@ -159,6 +159,12 @@ async function getGuildId(interaction) {
  * @returns {boolean} True if user has admin role
  */
 async function hasAdminRole(userId, guildId, guild = null) {
+    // Validate parameters to prevent undefined errors
+    if (!userId || !guildId) {
+        logger.debug(`hasAdminRole called with invalid params: userId=${userId}, guildId=${guildId}`);
+        return false;
+    }
+    
     const memberCacheManager = require('./memberCacheManager');
     const { success, isAdmin } = await memberCacheManager.isUserAdmin(userId, guildId, guild);
     return success ? isAdmin : false;
@@ -182,6 +188,12 @@ async function hasAdminRoleLegacy(member) {
  * @returns {boolean} True if user has mod role
  */
 async function hasModRole(userId, guildId, guild = null) {
+    // Validate parameters to prevent undefined errors
+    if (!userId || !guildId) {
+        logger.debug(`hasModRole called with invalid params: userId=${userId}, guildId=${guildId}`);
+        return false;
+    }
+    
     const memberCacheManager = require('./memberCacheManager');
     const { success, isModerator } = await memberCacheManager.isUserModerator(userId, guildId, guild);
     return success ? isModerator : false;
@@ -700,7 +712,8 @@ module.exports = {
     
     // Boost utilities
     isServerBooster,
-    calculateBoosterBonus
+    calculateBoosterBonus,
+    calculateBoosterBonusLegacy
 };
 
 /**
@@ -712,6 +725,12 @@ module.exports = {
  */
 async function isServerBooster(userId, guildId, guild = null) {
     try {
+        // Validate parameters to prevent undefined errors
+        if (!userId || !guildId) {
+            logger.debug(`isServerBooster called with invalid params: userId=${userId}, guildId=${guildId}`);
+            return false;
+        }
+        
         const memberCacheManager = require('./memberCacheManager');
         const { success, isBooster } = await memberCacheManager.isUserBooster(userId, guildId, guild);
         return success ? isBooster : false;
@@ -732,14 +751,21 @@ async function isServerBoosterLegacy(member) {
 }
 
 /**
- * Calculate 5% server booster bonus
+ * Calculate 5% server booster bonus (guild-specific)
  * @param {number} amount - Base amount to calculate bonus from
- * @param {Object} member - Discord guild member object
- * @returns {Object} Object containing bonus amount and whether user is booster
+ * @param {string} userId - User ID
+ * @param {string} guildId - Guild ID (only applies bonus for guild 1403244656845787167)
+ * @param {Object} guild - Discord guild object (optional)
+ * @returns {Promise<Object>} Object containing bonus amount and whether user is booster
  */
-function calculateBoosterBonus(amount, member) {
+async function calculateBoosterBonus(amount, userId, guildId, guild = null) {
     try {
-        const isBooster = isServerBooster(member);
+        // Only apply booster bonus for the specific guild
+        if (guildId !== '1403244656845787167') {
+            return { amount: 0, isBooster: false, reason: 'Booster benefits only available in specific guild' };
+        }
+
+        const isBooster = await isServerBooster(userId, guildId, guild);
         if (isBooster && amount > 0) {
             const bonusAmount = Math.floor(amount * 0.05);
             return { amount: bonusAmount, isBooster: true };
@@ -747,6 +773,30 @@ function calculateBoosterBonus(amount, member) {
         return { amount: 0, isBooster: false };
     } catch (error) {
         logger.error(`Error calculating booster bonus: ${error.message}`);
+        return { amount: 0, isBooster: false };
+    }
+}
+
+/**
+ * Legacy calculateBoosterBonus for backward compatibility
+ * @param {number} amount - Base amount to calculate bonus from
+ * @param {Object} member - Discord guild member object
+ * @returns {Object} Object containing bonus amount and whether user is booster
+ */
+async function calculateBoosterBonusLegacy(amount, member) {
+    try {
+        if (!member || !member.guild) {
+            return { amount: 0, isBooster: false };
+        }
+        
+        return await calculateBoosterBonus(
+            amount, 
+            member.user?.id || member.id, 
+            member.guild.id, 
+            member.guild
+        );
+    } catch (error) {
+        logger.error(`Error calculating booster bonus (legacy): ${error.message}`);
         return { amount: 0, isBooster: false };
     }
 }

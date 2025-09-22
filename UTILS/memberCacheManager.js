@@ -70,6 +70,12 @@ class MemberCacheManager {
      */
     async getMemberData(userId, guildId, guild = null) {
         try {
+            // Validate parameters
+            if (!userId || !guildId) {
+                logger.debug(`Invalid parameters for getMemberData: userId=${userId}, guildId=${guildId}`);
+                return { success: false, member: null, error: 'Invalid userId or guildId' };
+            }
+
             // Try to get from cache first
             const { success, member } = await db.getCachedGuildMember(userId, guildId);
             

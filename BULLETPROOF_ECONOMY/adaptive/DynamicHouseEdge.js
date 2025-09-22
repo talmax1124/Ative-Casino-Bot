@@ -242,19 +242,19 @@ class DynamicHouseEdgeSystem {
      * Setup continuous monitoring and adjustment
      */
     setupMonitoring() {
-        // Rapid response monitoring (every 30 seconds)
-        setInterval(() => {
-            this.performRapidAdjustments();
+        // Rapid response monitoring (every 30 seconds) - non-blocking
+        setInterval(async () => {
+            await this.performRapidAdjustments();
         }, 30000);
         
-        // Deep analysis monitoring (every 5 minutes)
-        setInterval(() => {
-            this.performDeepAnalysis();
+        // Deep analysis monitoring (every 5 minutes) - non-blocking
+        setInterval(async () => {
+            await this.performDeepAnalysis();
         }, 300000);
         
-        // Economic rebalancing (every hour)
-        setInterval(() => {
-            this.performEconomicRebalancing();
+        // Economic rebalancing (every hour) - non-blocking
+        setInterval(async () => {
+            await this.performEconomicRebalancing();
         }, 3600000);
     }
 
@@ -588,35 +588,63 @@ class DynamicHouseEdgeSystem {
     }
 
     /**
-     * Perform rapid adjustments based on real-time metrics
+     * Perform rapid adjustments based on real-time metrics (non-blocking)
      */
-    performRapidAdjustments() {
-        for (const [gameType, baseEdge] of this.baseEdges) {
-            const recentMetrics = this.getRecentGameMetrics(gameType, 1800); // Last 30 minutes
+    async performRapidAdjustments() {
+        const gameTypes = Array.from(this.baseEdges.keys());
+        
+        for (let i = 0; i < gameTypes.length; i++) {
+            const gameType = gameTypes[i];
             
-            if (recentMetrics.gameCount > 10) {
-                const winRate = recentMetrics.playerWinRate;
+            try {
+                const recentMetrics = this.getRecentGameMetrics(gameType, 1800); // Last 30 minutes
                 
-                // Rapid response to unusual win rates
-                if (winRate > 0.6) {
-                    this.adjustEdgeRapidly(gameType, 0.005); // Increase edge by 0.5%
-                } else if (winRate < 0.35) {
-                    this.adjustEdgeRapidly(gameType, -0.002); // Decrease edge by 0.2%
+                if (recentMetrics.gameCount > 10) {
+                    const winRate = recentMetrics.playerWinRate;
+                    
+                    // Rapid response to unusual win rates
+                    if (winRate > 0.6) {
+                        this.adjustEdgeRapidly(gameType, 0.005); // Increase edge by 0.5%
+                    } else if (winRate < 0.35) {
+                        this.adjustEdgeRapidly(gameType, -0.002); // Decrease edge by 0.2%
+                    }
                 }
+                
+                // Yield control to event loop between each game
+                if (i < gameTypes.length - 1) {
+                    await new Promise(resolve => setImmediate(resolve));
+                }
+            } catch (error) {
+                console.error(`Error during rapid adjustment for ${gameType}: ${error.message}`);
             }
         }
     }
 
     /**
-     * Perform deep mathematical analysis
+     * Perform deep mathematical analysis (non-blocking)
      */
-    performDeepAnalysis() {
+    async performDeepAnalysis() {
         console.log('🔍 Performing deep house edge analysis...');
         
-        for (const [gameType] of this.baseEdges) {
-            const analysis = this.performGameAnalysis(gameType);
-            this.updateAdjustmentFactors(gameType, analysis);
+        const gameTypes = Array.from(this.baseEdges.keys());
+        
+        for (let i = 0; i < gameTypes.length; i++) {
+            const gameType = gameTypes[i];
+            
+            try {
+                const analysis = this.performGameAnalysis(gameType);
+                this.updateAdjustmentFactors(gameType, analysis);
+                
+                // Yield control to event loop between each game analysis
+                if (i < gameTypes.length - 1) {
+                    await new Promise(resolve => setImmediate(resolve));
+                }
+            } catch (error) {
+                console.error(`Error analyzing ${gameType}: ${error.message}`);
+            }
         }
+        
+        console.log('✅ Deep house edge analysis completed');
     }
 
     /**
@@ -726,17 +754,29 @@ class DynamicHouseEdgeSystem {
     /**
      * Perform economic rebalancing
      */
-    performEconomicRebalancing() {
+    async performEconomicRebalancing() {
         console.log('⚖️ Performing economic rebalancing...');
         
-        // Update global metrics
-        this.updateGlobalMetrics();
-        
-        // Rebalance house edges across all games
-        this.rebalanceHouseEdges();
-        
-        // Optimize for long-term stability
-        this.optimizeForStability();
+        try {
+            // Update global metrics
+            this.updateGlobalMetrics();
+            
+            // Yield control to event loop
+            await new Promise(resolve => setImmediate(resolve));
+            
+            // Rebalance house edges across all games
+            this.rebalanceHouseEdges();
+            
+            // Yield control to event loop
+            await new Promise(resolve => setImmediate(resolve));
+            
+            // Optimize for long-term stability
+            this.optimizeForStability();
+            
+            console.log('✅ Economic rebalancing completed');
+        } catch (error) {
+            console.error(`Error during economic rebalancing: ${error.message}`);
+        }
     }
 
     /**

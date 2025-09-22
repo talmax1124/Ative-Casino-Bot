@@ -65,7 +65,7 @@ module.exports = {
             const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
 
             // Calculate server booster bonus (5%)
-            const boosterInfo = calculateBoosterBonus(baseEarning, interaction.member);
+            const boosterInfo = await calculateBoosterBonus(baseEarning, interaction.user.id, interaction.guildId, interaction.guild);
             const boosterBonus = boosterInfo.amount;
             const totalEarning = baseEarning + boosterBonus;
 

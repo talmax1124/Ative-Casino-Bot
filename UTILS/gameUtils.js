@@ -688,6 +688,11 @@ class PayoutManager {
      */
     static async _calculateBoosterBonus(userId, guildId, payout, interaction = null, won = false) {
         try {
+            // Only apply booster bonus for the specific guild
+            if (guildId !== '1403244656845787167') {
+                return { amount: 0, isBooster: false, reason: 'Booster benefits only available in specific guild' };
+            }
+
             // Check if we have the interaction and member data
             if (interaction && interaction.member) {
                 // Check if user has booster role
