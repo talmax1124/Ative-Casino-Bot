@@ -478,7 +478,8 @@ module.exports = {
             // Create action buttons row 1 - Main actions
             const customizeButtons1 = new ActionRowBuilder();
             
-            if (roleItems.length > 0) {
+            // Only show role color button in specific guild
+            if (roleItems.length > 0 && interaction.guildId === '1403244656845787167') {
                 customizeButtons1.addComponents(
                     new ButtonBuilder()
                         .setCustomId('customize_role_color')
@@ -508,7 +509,8 @@ module.exports = {
             // Create action buttons row 2 - Toggle controls
             const customizeButtons2 = new ActionRowBuilder();
             
-            if (roleItems.length > 0) {
+            // Only show role color toggle in specific guild
+            if (roleItems.length > 0 && interaction.guildId === '1403244656845787167') {
                 customizeButtons2.addComponents(
                     new ButtonBuilder()
                         .setCustomId('toggle_role_color')
@@ -543,10 +545,26 @@ module.exports = {
             
             collector.on('collect', async (i) => {
                 if (i.customId === 'customize_role_color') {
+                    // Restrict role color customization to specific guild
+                    if (i.guildId !== '1403244656845787167') {
+                        await i.reply({
+                            content: '❌ Role color customization is not available in this server.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
                     await this.showRoleColorOptions(i, userId, roleItems);
                 } else if (i.customId === 'customize_decoration') {
                     await this.showDecorationOptions(i, userId, decorationItems);
                 } else if (i.customId === 'toggle_role_color') {
+                    // Restrict role color toggle to specific guild
+                    if (i.guildId !== '1403244656845787167') {
+                        await i.reply({
+                            content: '❌ Role color features are not available in this server.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
                     await this.toggleRoleColor(i, userId, purchases);
                 } else if (i.customId === 'toggle_decorations') {
                     await this.toggleDecorations(i, userId, purchases);

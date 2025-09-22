@@ -31,7 +31,8 @@ module.exports = {
 
         // Handle migration separately (admin-only, no marriage required)
         if (action === 'migrate_poems') {
-            if (!interaction.member.permissions.has('Administrator')) {
+            const { hasAdminRole } = require('../UTILS/common');
+            if (!(await hasAdminRole(interaction.user.id, interaction.guildId, interaction.guild))) {
                 await interaction.reply({
                     content: '❌ This command is only available to administrators.',
                     ephemeral: true

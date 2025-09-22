@@ -16,8 +16,8 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,           // Standard Intent
         GatewayIntentBits.GuildMessages,    // Standard Intent  
-        GatewayIntentBits.MessageContent,   // 🔴 PRIVILEGED INTENT
-        GatewayIntentBits.GuildMembers      // 🔴 PRIVILEGED INTENT
+        GatewayIntentBits.MessageContent    // 🔴 PRIVILEGED INTENT
+        // GatewayIntentBits.GuildMembers   // REMOVED - Using database caching instead
     ]
 });
 ```

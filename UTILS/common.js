@@ -152,55 +152,49 @@ async function getGuildId(interaction) {
 }
 
 /**
- * Check if user has admin role
- * @param {GuildMember} member - Guild member
+ * Check if user has admin role (database-first approach)
+ * @param {string} userId - User ID
  * @param {string} guildId - Guild ID
+ * @param {Guild} guild - Guild object (optional, for fallback)
  * @returns {boolean} True if user has admin role
  */
-async function hasAdminRole(member) {
-    // Check if user is server owner
-    if (member.guild.ownerId === member.id) {
-        return true;
-    }
-    
-    // Check for Administrator permission
-    if (member.permissions.has('Administrator')) {
-        return true;
-    }
-    
-    // Check for admin roles (you can add guild-specific logic here)
-    const adminRoles = ['admin', 'administrator', 'owner'];
-    return member.roles.cache.some(role => 
-        adminRoles.some(adminRole => 
-            role.name.toLowerCase().includes(adminRole)
-        )
-    );
+async function hasAdminRole(userId, guildId, guild = null) {
+    const memberCacheManager = require('./memberCacheManager');
+    const { success, isAdmin } = await memberCacheManager.isUserAdmin(userId, guildId, guild);
+    return success ? isAdmin : false;
 }
 
 /**
- * Check if user has mod role
- * @param {GuildMember} member - Guild member
+ * Legacy function for backward compatibility - converts member object to database check
+ * @param {GuildMember} member - Guild member  
+ * @returns {boolean} True if user has admin role
+ */
+async function hasAdminRoleLegacy(member) {
+    if (!member || !member.guild) return false;
+    return await hasAdminRole(member.user?.id || member.id, member.guild.id, member.guild);
+}
+
+/**
+ * Check if user has mod role (database-first approach)
+ * @param {string} userId - User ID
  * @param {string} guildId - Guild ID
+ * @param {Guild} guild - Guild object (optional, for fallback)
  * @returns {boolean} True if user has mod role
  */
-async function hasModRole(member) {
-    // Admin users are also mods
-    if (await hasAdminRole(member)) {
-        return true;
-    }
-    
-    // Check for Moderate Members permission
-    if (member.permissions.has('ModerateMembers')) {
-        return true;
-    }
-    
-    // Check for mod roles
-    const modRoles = ['mod', 'moderator'];
-    return member.roles.cache.some(role => 
-        modRoles.some(modRole => 
-            role.name.toLowerCase().includes(modRole)
-        )
-    );
+async function hasModRole(userId, guildId, guild = null) {
+    const memberCacheManager = require('./memberCacheManager');
+    const { success, isModerator } = await memberCacheManager.isUserModerator(userId, guildId, guild);
+    return success ? isModerator : false;
+}
+
+/**
+ * Legacy function for backward compatibility - converts member object to database check
+ * @param {GuildMember} member - Guild member
+ * @returns {boolean} True if user has mod role
+ */
+async function hasModRoleLegacy(member) {
+    if (!member || !member.guild) return false;
+    return await hasModRole(member.user?.id || member.id, member.guild.id, member.guild);
 }
 
 // ========================= EMBED BUILDERS =========================
@@ -669,6 +663,9 @@ module.exports = {
     getGuildId,
     hasAdminRole,
     hasModRole,
+    hasAdminRoleLegacy,
+    hasModRoleLegacy,
+    isServerBoosterLegacy,
     
     // Embed builders
     buildStoppedRefundEmbed,
@@ -707,18 +704,31 @@ module.exports = {
 };
 
 /**
- * Check if a user is a server booster
- * @param {Object} member - Discord guild member object
+ * Check if a user is a server booster (database-first approach)
+ * @param {string} userId - User ID
+ * @param {string} guildId - Guild ID
+ * @param {Guild} guild - Guild object (optional, for fallback)
  * @returns {boolean} Whether the user is a server booster
  */
-function isServerBooster(member) {
+async function isServerBooster(userId, guildId, guild = null) {
     try {
-        if (!member) return false;
-        return member.premiumSinceTimestamp !== null && member.premiumSinceTimestamp > 0;
+        const memberCacheManager = require('./memberCacheManager');
+        const { success, isBooster } = await memberCacheManager.isUserBooster(userId, guildId, guild);
+        return success ? isBooster : false;
     } catch (error) {
         logger.error(`Error checking booster status: ${error.message}`);
         return false;
     }
+}
+
+/**
+ * Legacy function for backward compatibility - converts member object to database check
+ * @param {Object} member - Discord guild member object
+ * @returns {boolean} Whether the user is a server booster
+ */
+async function isServerBoosterLegacy(member) {
+    if (!member || !member.guild) return false;
+    return await isServerBooster(member.user?.id || member.id, member.guild.id, member.guild);
 }
 
 /**

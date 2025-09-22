@@ -74,8 +74,8 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
+        GatewayIntentBits.MessageContent
+        // GatewayIntentBits.GuildMembers - Removed to reduce privileged intent requirements
     ]
 });
 
@@ -652,6 +652,14 @@ async function handlePremiumRoleAssignment(userId) {
 }
 
 client.on('interactionCreate', async interaction => {
+    // Cache member data when user interacts (reduces need for Server Members Intent)
+    if (interaction.member && interaction.guildId) {
+        const memberCacheManager = require('./UTILS/memberCacheManager');
+        memberCacheManager.cacheMemberFromInteraction(interaction).catch(err => {
+            logger.debug(`Failed to cache member data: ${err.message}`);
+        });
+    }
+
     // Handle slash commands
     if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
@@ -1870,6 +1878,11 @@ client.on('interactionCreate', async interaction => {
                         const guild = interaction.guild;
                         
                         if (guild) {
+                            // Try to get from cache first, but still need Discord member for role operations
+                            const memberCacheManager = require('./UTILS/memberCacheManager');
+                            await memberCacheManager.getMemberData(userId, guild.id, guild).catch(() => null);
+                            await memberCacheManager.getMemberData(marriage.partnerId, guild.id, guild).catch(() => null);
+                            
                             const partner1Member = await guild.members.fetch(userId).catch(() => null);
                             const partner2Member = await guild.members.fetch(marriage.partnerId).catch(() => null);
                             
@@ -2447,6 +2460,10 @@ app.post('/role-assignment', async (req, res) => {
             });
         }
 
+        // Try cache first, then fetch from Discord
+        const memberCacheManager = require('./UTILS/memberCacheManager');
+        const { success: cacheSuccess } = await memberCacheManager.getMemberData(userId, guildId, guild).catch(() => ({ success: false }));
+        
         const member = await guild.members.fetch(userId).catch(() => null);
         if (!member) {
             return res.status(404).json({

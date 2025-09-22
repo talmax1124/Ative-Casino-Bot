@@ -36,3 +36,6 @@ yarn-error.log*
 # Temporary files
 tmp/
 temp/
+
+# Trend data files (auto-generated)
+TREND_DATA/

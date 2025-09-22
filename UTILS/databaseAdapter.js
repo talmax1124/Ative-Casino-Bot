@@ -514,6 +514,33 @@ class DatabaseAdapter {
                 UNIQUE KEY unique_marriage_task_week (marriage_id, task_number, week_start),
                 INDEX idx_marriage_week (marriage_id, week_start),
                 INDEX idx_completed_at (completed_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS guild_members (
+                id VARCHAR(50) PRIMARY KEY,
+                user_id VARCHAR(20) NOT NULL,
+                guild_id VARCHAR(20) NOT NULL,
+                username VARCHAR(100) DEFAULT NULL,
+                display_name VARCHAR(100) DEFAULT NULL,
+                nickname VARCHAR(100) DEFAULT NULL,
+                roles JSON DEFAULT NULL,
+                permissions VARCHAR(20) DEFAULT NULL,
+                is_owner BOOLEAN DEFAULT FALSE,
+                is_administrator BOOLEAN DEFAULT FALSE,
+                is_moderator BOOLEAN DEFAULT FALSE,
+                is_booster BOOLEAN DEFAULT FALSE,
+                premium_since TIMESTAMP NULL,
+                joined_at TIMESTAMP NULL,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                
+                UNIQUE KEY unique_user_guild (user_id, guild_id),
+                INDEX idx_user_id (user_id),
+                INDEX idx_guild_id (guild_id),
+                INDEX idx_is_owner (is_owner),
+                INDEX idx_is_administrator (is_administrator),
+                INDEX idx_is_moderator (is_moderator),
+                INDEX idx_last_updated (last_updated)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -4653,6 +4680,192 @@ class DatabaseAdapter {
         } catch (error) {
             logger.error(`Error initializing marriage XP tables: ${error.message}`);
             throw error;
+        }
+    }
+
+    /**
+     * Cache or update guild member data
+     */
+    async cacheGuildMember(memberData) {
+        try {
+            const memberId = `${memberData.userId}_${memberData.guildId}`;
+            
+            const query = `
+                INSERT INTO guild_members (
+                    id, user_id, guild_id, username, display_name, nickname,
+                    roles, permissions, is_owner, is_administrator, is_moderator,
+                    is_booster, premium_since, joined_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    username = VALUES(username),
+                    display_name = VALUES(display_name),
+                    nickname = VALUES(nickname),
+                    roles = VALUES(roles),
+                    permissions = VALUES(permissions),
+                    is_owner = VALUES(is_owner),
+                    is_administrator = VALUES(is_administrator),
+                    is_moderator = VALUES(is_moderator),
+                    is_booster = VALUES(is_booster),
+                    premium_since = VALUES(premium_since),
+                    joined_at = VALUES(joined_at),
+                    last_updated = CURRENT_TIMESTAMP
+            `;
+
+            const values = [
+                memberId,
+                memberData.userId,
+                memberData.guildId,
+                memberData.username || null,
+                memberData.displayName || null,
+                memberData.nickname || null,
+                JSON.stringify(memberData.roles || []),
+                memberData.permissions || null,
+                memberData.isOwner || false,
+                memberData.isAdministrator || false,
+                memberData.isModerator || false,
+                memberData.isBooster || false,
+                memberData.premiumSince || null,
+                memberData.joinedAt || null
+            ];
+
+            await this.pool.execute(query, values);
+            return { success: true };
+
+        } catch (error) {
+            logger.error(`Error caching guild member: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Get cached guild member data
+     */
+    async getCachedGuildMember(userId, guildId) {
+        try {
+            const query = `
+                SELECT * FROM guild_members 
+                WHERE user_id = ? AND guild_id = ?
+            `;
+            
+            const [rows] = await this.pool.execute(query, [userId, guildId]);
+            
+            if (rows.length === 0) {
+                return { success: false, member: null };
+            }
+
+            const member = rows[0];
+            
+            // Parse JSON roles
+            if (member.roles) {
+                try {
+                    member.roles = JSON.parse(member.roles);
+                } catch (e) {
+                    member.roles = [];
+                }
+            }
+
+            return { success: true, member };
+
+        } catch (error) {
+            logger.error(`Error getting cached guild member: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Check if user has specific role (using cached data)
+     */
+    async userHasRole(userId, guildId, roleId) {
+        try {
+            const { success, member } = await this.getCachedGuildMember(userId, guildId);
+            
+            if (!success || !member) {
+                return { success: false, hasRole: false };
+            }
+
+            const hasRole = member.roles && member.roles.includes(roleId);
+            return { success: true, hasRole };
+
+        } catch (error) {
+            logger.error(`Error checking user role: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Check if user is administrator (using cached data)
+     */
+    async isUserAdmin(userId, guildId) {
+        try {
+            const { success, member } = await this.getCachedGuildMember(userId, guildId);
+            
+            if (!success || !member) {
+                return { success: false, isAdmin: false };
+            }
+
+            return { success: true, isAdmin: member.is_administrator || member.is_owner };
+
+        } catch (error) {
+            logger.error(`Error checking admin status: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Check if user is moderator (using cached data)
+     */
+    async isUserModerator(userId, guildId) {
+        try {
+            const { success, member } = await this.getCachedGuildMember(userId, guildId);
+            
+            if (!success || !member) {
+                return { success: false, isModerator: false };
+            }
+
+            return { success: true, isModerator: member.is_moderator || member.is_administrator || member.is_owner };
+
+        } catch (error) {
+            logger.error(`Error checking moderator status: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Check if user is server booster (using cached data)
+     */
+    async isUserBooster(userId, guildId) {
+        try {
+            const { success, member } = await this.getCachedGuildMember(userId, guildId);
+            
+            if (!success || !member) {
+                return { success: false, isBooster: false };
+            }
+
+            return { success: true, isBooster: member.is_booster };
+
+        } catch (error) {
+            logger.error(`Error checking booster status: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Update user roles in cache
+     */
+    async updateUserRoles(userId, guildId, roles) {
+        try {
+            const query = `
+                UPDATE guild_members 
+                SET roles = ?, last_updated = CURRENT_TIMESTAMP
+                WHERE user_id = ? AND guild_id = ?
+            `;
+            
+            await this.pool.execute(query, [JSON.stringify(roles), userId, guildId]);
+            return { success: true };
+
+        } catch (error) {
+            logger.error(`Error updating user roles: ${error.message}`);
+            return { success: false, error: error.message };
         }
     }
 }

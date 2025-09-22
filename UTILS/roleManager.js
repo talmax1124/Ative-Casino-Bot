@@ -75,7 +75,11 @@ async function awardPurchaseRole(guild, user, skuId) {
             }
         }
 
-        // Get the guild member
+        // Get member data from cache/database first
+        const memberCacheManager = require('./memberCacheManager');
+        const { success: memberSuccess, member: memberData } = await memberCacheManager.getMemberData(user.id, guild.id, guild);
+        
+        // For role operations, we still need the Discord member object
         const member = await guild.members.fetch(user.id).catch(() => null);
         if (!member) {
             logger.error(`User ${user.id} not found in guild ${guild.id}`);

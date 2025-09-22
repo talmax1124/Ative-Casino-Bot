@@ -23,7 +23,7 @@ module.exports = {
 
     async execute(interaction) {
         // Check admin permissions
-        if (!hasAdminRole(interaction.member)) {
+        if (!(await hasAdminRole(interaction.user.id, interaction.guildId, interaction.guild))) {
             return interaction.reply({
                 content: '❌ This command requires administrator permissions.',
                 ephemeral: true

@@ -79,41 +79,47 @@ module.exports = {
         });
 
         // Create category selection dropdown
+        const options = [
+            {
+                label: '⚡ Boosts',
+                description: 'Temporary multipliers and bonuses',
+                value: 'boosts',
+                emoji: '⚡'
+            },
+            {
+                label: '🔓 Unlocks',
+                description: 'Permanent feature unlocks and bypasses',
+                value: 'unlocks',
+                emoji: '🔓'
+            },
+            {
+                label: '🎨 Decorations',
+                description: 'Profile frames and cosmetic items',
+                value: 'decorations',
+                emoji: '🎨'
+            },
+            {
+                label: '⚒️ Utilities',
+                description: 'Helpful tools and improvements',
+                value: 'utilities',
+                emoji: '⚒️'
+            }
+        ];
+
+        // Only add Role Colors option for specific guild
+        if (interaction.guildId === '1403244656845787167') {
+            options.splice(3, 0, {
+                label: '🌈 Role Colors',
+                description: 'Custom colored usernames',
+                value: 'roles',
+                emoji: '🌈'
+            });
+        }
+
         const categorySelect = new StringSelectMenuBuilder()
             .setCustomId('shop_category_select')
             .setPlaceholder('Choose a shop category')
-            .addOptions([
-                {
-                    label: '⚡ Boosts',
-                    description: 'Temporary multipliers and bonuses',
-                    value: 'boosts',
-                    emoji: '⚡'
-                },
-                {
-                    label: '🔓 Unlocks',
-                    description: 'Permanent feature unlocks and bypasses',
-                    value: 'unlocks',
-                    emoji: '🔓'
-                },
-                {
-                    label: '🎨 Decorations',
-                    description: 'Profile frames and cosmetic items',
-                    value: 'decorations',
-                    emoji: '🎨'
-                },
-                {
-                    label: '🌈 Role Colors',
-                    description: 'Custom colored usernames',
-                    value: 'roles',
-                    emoji: '🌈'
-                },
-                {
-                    label: '⚒️ Utilities',
-                    description: 'Helpful tools and improvements',
-                    value: 'utilities',
-                    emoji: '⚒️'
-                }
-            ]);
+            .addOptions(options);
 
         const categoryRow = new ActionRowBuilder().addComponents(categorySelect);
         
@@ -189,6 +195,15 @@ module.exports = {
      * Show items in selected category
      */
     async showCategoryItems(interaction, userId, guildId, category) {
+        // Restrict role colors category to specific guild only
+        if (category === 'roles' && guildId !== '1403244656845787167') {
+            await interaction.reply({
+                content: '❌ Role colors are not available in this server.',
+                ephemeral: true
+            });
+            return;
+        }
+
         const items = await dbManager.getShopItems(category);
         const balance = await dbManager.getUserBalance(userId, guildId);
 
@@ -752,9 +767,29 @@ module.exports = {
      * Handle role purchase - create and assign Discord role
      */
     async handleRolePurchase(interaction, userId, metadata) {
+        // Restrict role purchases to specific guild only
+        if (interaction.guildId !== '1403244656845787167') {
+            await interaction.reply({
+                content: '❌ Role color purchases are not available in this server.',
+                ephemeral: true
+            });
+            return;
+        }
+
         try {
             const guild = interaction.guild;
-            const member = await guild.members.fetch(userId);
+            const memberCacheManager = require('../UTILS/memberCacheManager');
+            const { success: memberSuccess, member: memberData } = await memberCacheManager.getMemberData(userId, guild.id, guild);
+            
+            if (!memberSuccess || !memberData) {
+                throw new Error('Could not get member data');
+            }
+            
+            // For role operations, we still need the Discord member object
+            const member = interaction.member || await guild.members.fetch(userId).catch(() => null);
+            if (!member) {
+                throw new Error('Could not fetch Discord member for role assignment');
+            }
             const roleName = metadata.role_name;
             const roleColor = metadata.role_color;
 

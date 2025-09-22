@@ -25,7 +25,7 @@ module.exports = {
 
     async execute(interaction) {
         const period = interaction.options.getString('period') || 'day';
-        const isAdmin = hasAdminRole(interaction.member);
+        const isAdmin = await hasAdminRole(interaction.user.id, interaction.guildId, interaction.guild);
 
         await interaction.deferReply({ ephemeral: !isAdmin });
 

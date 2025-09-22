@@ -144,7 +144,8 @@ module.exports = {
 
     async handleManualCheck(interaction) {
         // Check if user has admin permissions
-        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        const { hasAdminRole } = require('../UTILS/common');
+        if (!(await hasAdminRole(interaction.user.id, interaction.guildId, interaction.guild))) {
             await interaction.editReply({
                 content: '❌ You need Administrator permissions to manually trigger anniversary checks.'
             });
