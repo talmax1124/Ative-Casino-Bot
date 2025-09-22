@@ -12,11 +12,21 @@ class BalanceIntegrityMigration {
         this.adapter = databaseAdapter;
         this.migrationVersion = '1.0.0';
     }
+    
+    static migrationRunning = false;
 
     /**
      * Apply balance integrity constraints to the database
      */
     async applyBalanceIntegrityConstraints() {
+        // Prevent concurrent executions
+        if (BalanceIntegrityMigration.migrationRunning) {
+            logger.debug('Balance integrity migration already running, skipping...');
+            return { success: true, message: 'Migration already running' };
+        }
+        
+        BalanceIntegrityMigration.migrationRunning = true;
+        
         try {
             logger.info('Applying balance integrity constraints...');
 
@@ -56,6 +66,9 @@ class BalanceIntegrityMigration {
         } catch (error) {
             logger.error(`Failed to apply balance integrity constraints: ${error.message}`);
             return { success: false, error: error.message };
+        } finally {
+            // Always reset the migration flag
+            BalanceIntegrityMigration.migrationRunning = false;
         }
     }
 
@@ -265,15 +278,39 @@ class BalanceIntegrityMigration {
             END`;
 
         try {
-            await connection.execute(beforeTrigger);
-            logger.info('✅ Created before_balance_update trigger');
+            // Check if trigger exists first
+            const [rows] = await connection.execute(`
+                SELECT TRIGGER_NAME 
+                FROM INFORMATION_SCHEMA.TRIGGERS 
+                WHERE TRIGGER_SCHEMA = DATABASE() 
+                AND TRIGGER_NAME = 'before_balance_update'
+            `);
+            
+            if (rows.length === 0) {
+                await connection.execute(beforeTrigger);
+                logger.info('✅ Created before_balance_update trigger');
+            } else {
+                logger.debug('before_balance_update trigger already exists');
+            }
         } catch (error) {
             logger.error(`Failed to create before trigger: ${error.message}`);
         }
 
         try {
-            await connection.execute(afterTrigger);
-            logger.info('✅ Created after_balance_update trigger');
+            // Check if trigger exists first
+            const [rows] = await connection.execute(`
+                SELECT TRIGGER_NAME 
+                FROM INFORMATION_SCHEMA.TRIGGERS 
+                WHERE TRIGGER_SCHEMA = DATABASE() 
+                AND TRIGGER_NAME = 'after_balance_update'
+            `);
+            
+            if (rows.length === 0) {
+                await connection.execute(afterTrigger);
+                logger.info('✅ Created after_balance_update trigger');
+            } else {
+                logger.debug('after_balance_update trigger already exists');
+            }
         } catch (error) {
             logger.error(`Failed to create after trigger: ${error.message}`);
         }
@@ -386,15 +423,41 @@ class BalanceIntegrityMigration {
             END`;
 
         try {
-            await connection.execute(reconcileProcedure);
-            logger.info('✅ Created ReconcileUserBalance procedure');
+            // Check if procedure exists first
+            const [rows] = await connection.execute(`
+                SELECT ROUTINE_NAME 
+                FROM INFORMATION_SCHEMA.ROUTINES 
+                WHERE ROUTINE_SCHEMA = DATABASE() 
+                AND ROUTINE_NAME = 'ReconcileUserBalance'
+                AND ROUTINE_TYPE = 'PROCEDURE'
+            `);
+            
+            if (rows.length === 0) {
+                await connection.execute(reconcileProcedure);
+                logger.info('✅ Created ReconcileUserBalance procedure');
+            } else {
+                logger.debug('ReconcileUserBalance procedure already exists');
+            }
         } catch (error) {
             logger.error(`Failed to create reconcile procedure: ${error.message}`);
         }
 
         try {
-            await connection.execute(validateProcedure);
-            logger.info('✅ Created ValidateAllBalances procedure');
+            // Check if procedure exists first
+            const [rows] = await connection.execute(`
+                SELECT ROUTINE_NAME 
+                FROM INFORMATION_SCHEMA.ROUTINES 
+                WHERE ROUTINE_SCHEMA = DATABASE() 
+                AND ROUTINE_NAME = 'ValidateAllBalances'
+                AND ROUTINE_TYPE = 'PROCEDURE'
+            `);
+            
+            if (rows.length === 0) {
+                await connection.execute(validateProcedure);
+                logger.info('✅ Created ValidateAllBalances procedure');
+            } else {
+                logger.debug('ValidateAllBalances procedure already exists');
+            }
         } catch (error) {
             logger.error(`Failed to create validate procedure: ${error.message}`);
         }

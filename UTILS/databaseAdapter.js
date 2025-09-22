@@ -16,6 +16,9 @@ class DatabaseAdapter {
         
         // Connection pool for MariaDB
         this.pool = null;
+        
+        // Migration flags to prevent duplicate executions
+        this.balanceIntegrityApplied = false;
     }
 
     // Helper function to calculate consistent week start (Thursday at 00:00:00 UTC)
@@ -3771,6 +3774,12 @@ class DatabaseAdapter {
      * Apply balance integrity constraints to prevent negative balances and fraud
      */
     async applyBalanceIntegrityConstraints() {
+        // Prevent multiple applications of the same migration
+        if (this.balanceIntegrityApplied) {
+            logger.debug('Balance integrity constraints already applied, skipping');
+            return;
+        }
+
         try {
             const BalanceIntegrityMigration = require('./balanceIntegrityMigration');
             const migration = new BalanceIntegrityMigration(this);
@@ -3779,6 +3788,9 @@ class DatabaseAdapter {
             
             if (result.success) {
                 logger.info('✅ Balance integrity constraints applied successfully');
+                
+                // Mark as applied to prevent duplicate runs
+                this.balanceIntegrityApplied = true;
                 
                 // Test the constraints
                 await migration.testConstraints();
