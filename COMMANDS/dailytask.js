@@ -9,6 +9,7 @@ const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const { checkEarningsCooldown, createCooldownBlockEmbed } = require('../UTILS/earningsCooldown');
 const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
 
@@ -28,7 +29,14 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // Check cooldown (24 hours)
+            // Check if any other earning command is on cooldown
+            const cooldownBlock = checkEarningsCooldown(balance, 'dailytask');
+            if (cooldownBlock) {
+                const embed = createCooldownBlockEmbed(username, 'dailytask', cooldownBlock);
+                return await interaction.editReply({ embeds: [embed] });
+            }
+
+            // Check dailytask-specific cooldown (24 hours)
             const now = Date.now() / 1000;
             const lastTask = balance.last_dailytask_ts || 0;
             const cooldown = 86400; // 24 hours
@@ -121,8 +129,51 @@ module.exports = {
 
             const reply = await interaction.editReply({ embeds: [taskEmbed] });
             
-            // Add the required reaction
-            await reply.react(scenario.emoji);
+            // Add the required reaction with error handling
+            try {
+                await reply.react(scenario.emoji);
+            } catch (reactionError) {
+                logger.error(`Failed to add reaction: ${reactionError.message}`);
+                // If we can't add reactions, show alternative completion method
+                const altEmbed = buildSessionEmbed({
+                    title: `📋 ${username}'s Daily Task`,
+                    topFields: [
+                        { 
+                            name: '🎯 Today\'s Task', 
+                            value: `**${scenario.task}**\n\nType "complete" to finish this task\n\n*Reward: ${fmt(scenario.reward.min)} - ${fmt(scenario.reward.max)}*`
+                        }
+                    ],
+                    stageText: 'TASK ASSIGNED',
+                    color: 0x4169E1,
+                    footer: '📋 Daily Task • Type "complete" to earn your reward!'
+                });
+                
+                await interaction.editReply({ embeds: [altEmbed] });
+                
+                // Wait for message instead of reaction
+                const messageFilter = (message) => {
+                    return message.author.id === userId && message.content.toLowerCase() === 'complete';
+                };
+                
+                try {
+                    const messageCollected = await interaction.channel.awaitMessages({ 
+                        filter: messageFilter, 
+                        max: 1, 
+                        time: 30000, 
+                        errors: ['time'] 
+                    });
+                    
+                    if (messageCollected.size > 0) {
+                        // Continue with task completion logic
+                        await handleTaskCompletion();
+                        return;
+                    }
+                } catch (messageError) {
+                    logger.error(`Failed to collect completion message: ${messageError.message}`);
+                    throw new Error('Task interaction failed');
+                }
+                return;
+            }
 
             // Wait for user reaction (30 seconds timeout)
             const filter = (reaction, user) => {
@@ -133,121 +184,126 @@ module.exports = {
                 return emojiMatch && user.id === userId && !user.bot;
             };
             
+            // Function to handle task completion
+            async function handleTaskCompletion() {
+                // Task completed! Calculate reward
+                const baseEarning = secureRandomInt(scenario.reward.min, scenario.reward.max + 1);
+
+                // Apply shop economy boosts
+                const boostResult = await shopManager.applyEconomyBoosts(userId, baseEarning, 'dailytask');
+                const boostedEarning = boostResult.amount;
+
+                // Calculate server booster bonus (5% on boosted earnings)
+                const boosterInfo = await calculateBoosterBonus(boostedEarning, interaction.user.id, interaction.guildId, interaction.guild);
+                const boosterBonus = boosterInfo.amount;
+                const totalEarning = boostedEarning + boosterBonus;
+
+                // Update balance and timestamp
+                const currentWallet = parseFloat(balance.wallet) || 0;
+                const currentBank = parseFloat(balance.bank) || 0;
+                const newWallet = currentWallet + totalEarning;
+                
+                await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
+                    last_dailytask_ts: now
+                });
+
+                // Build success display
+                const hasShopBoosts = boostResult.boosted;
+                const hasServerBoost = boosterInfo.isBooster && boosterBonus > 0;
+                const boostDisplay = shopManager.formatBoostInfo(boostResult.boosts);
+
+                let earningsDisplay = `+ Base Reward: ${fmt(baseEarning)}`;
+                
+                if (hasShopBoosts) {
+                    earningsDisplay += `\n+ Shop Boost: ${fmt(boostedEarning - baseEarning)}${boostDisplay}`;
+                }
+                
+                if (hasServerBoost) {
+                    earningsDisplay += `\n+ Server Boost (5%): ${fmt(boosterBonus)}`;
+                }
+                
+                earningsDisplay += `\n= Total Earned: ${fmt(totalEarning)}`;
+
+                // Determine title and stage text based on active boosts
+                let titleSuffix = '';
+                let stageText = 'TASK COMPLETED';
+                
+                if (hasShopBoosts && hasServerBoost) {
+                    titleSuffix = ' (🚀 SUPER BOOSTED)';
+                    stageText = 'TASK COMPLETED + BOOSTS';
+                } else if (hasShopBoosts || hasServerBoost) {
+                    titleSuffix = ' (🚀 BOOSTED)';
+                    stageText = 'TASK COMPLETED + BOOST';
+                }
+
+                const successEmbed = buildSessionEmbed({
+                    title: `📋 ${username}'s Task Completed!${titleSuffix}`,
+                    topFields: [{
+                        name: `✅ TASK COMPLETE${titleSuffix}`,
+                        value: `**${scenario.task}**\n\n` +
+                               `\`\`\`diff\n${earningsDisplay}\n  Previous: ${fmt(currentWallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
+                        inline: false
+                    }],
+                    bankFields: [
+                        { name: '💎 Task Reward', value: fmt(totalEarning), inline: true },
+                        { name: '💵 New Balance', value: fmt(newWallet), inline: true },
+                        { name: '📅 Next Task', value: 'In 24 hours', inline: true }
+                    ],
+                    stageText,
+                    color: 0x00FF00,
+                    footer: '📋 Daily Task Complete • Come back tomorrow for a new task!'
+                });
+
+                await interaction.editReply({ embeds: [successEmbed] });
+
+                // Record game result for ML analysis
+                try {
+                    await dbManager.recordGameResult(
+                        userId,
+                        guildId,
+                        'dailytask',
+                        0, // No bet amount for tasks
+                        totalEarning,
+                        true, // Always a "win" when completed
+                        {
+                            task: scenario.task,
+                            baseEarning: baseEarning,
+                            shopBoosts: hasShopBoosts,
+                            serverBoost: hasServerBoost,
+                            boosterBonus: boosterBonus
+                        }
+                    );
+                } catch (error) {
+                    logger.error(`Failed to record daily task result: ${error.message}`);
+                }
+
+                // Log the task completion
+                let logMessage = `Daily task completed: ${username} ${scenario.task.toLowerCase()} and earned ${fmt(totalEarning)}`;
+                
+                if (hasShopBoosts) {
+                    logMessage += ` (Shop boost: ${fmt(baseEarning)} -> ${fmt(boostedEarning)})`;
+                }
+                
+                if (hasServerBoost) {
+                    logMessage += ` (Server boost: +${fmt(boosterBonus)})`;
+                }
+                
+                logMessage += ` - Balance: ${fmt(newWallet)}`;
+                
+                await sendLogMessage(
+                    interaction.client,
+                    'economy',
+                    logMessage,
+                    userId,
+                    guildId
+                );
+            }
+            
             try {
                 const collected = await reply.awaitReactions({ filter, max: 1, time: 30000, errors: ['time'] });
                 
                 if (collected.size > 0) {
-                    // Task completed! Calculate reward
-                    const baseEarning = secureRandomInt(scenario.reward.min, scenario.reward.max + 1);
-
-                    // Apply shop economy boosts
-                    const boostResult = await shopManager.applyEconomyBoosts(userId, baseEarning, 'dailytask');
-                    const boostedEarning = boostResult.amount;
-
-                    // Calculate server booster bonus (5% on boosted earnings)
-                    const boosterInfo = await calculateBoosterBonus(boostedEarning, interaction.user.id, interaction.guildId, interaction.guild);
-                    const boosterBonus = boosterInfo.amount;
-                    const totalEarning = boostedEarning + boosterBonus;
-
-                    // Update balance and timestamp
-                    const currentWallet = parseFloat(balance.wallet) || 0;
-                    const currentBank = parseFloat(balance.bank) || 0;
-                    const newWallet = currentWallet + totalEarning;
-                    
-                    await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
-                        last_dailytask_ts: now
-                    });
-
-                    // Build success display
-                    const hasShopBoosts = boostResult.boosted;
-                    const hasServerBoost = boosterInfo.isBooster && boosterBonus > 0;
-                    const boostDisplay = shopManager.formatBoostInfo(boostResult.boosts);
-
-                    let earningsDisplay = `+ Base Reward: ${fmt(baseEarning)}`;
-                    
-                    if (hasShopBoosts) {
-                        earningsDisplay += `\n+ Shop Boost: ${fmt(boostedEarning - baseEarning)}${boostDisplay}`;
-                    }
-                    
-                    if (hasServerBoost) {
-                        earningsDisplay += `\n+ Server Boost (5%): ${fmt(boosterBonus)}`;
-                    }
-                    
-                    earningsDisplay += `\n= Total Earned: ${fmt(totalEarning)}`;
-
-                    // Determine title and stage text based on active boosts
-                    let titleSuffix = '';
-                    let stageText = 'TASK COMPLETED';
-                    
-                    if (hasShopBoosts && hasServerBoost) {
-                        titleSuffix = ' (🚀 SUPER BOOSTED)';
-                        stageText = 'TASK COMPLETED + BOOSTS';
-                    } else if (hasShopBoosts || hasServerBoost) {
-                        titleSuffix = ' (🚀 BOOSTED)';
-                        stageText = 'TASK COMPLETED + BOOST';
-                    }
-
-                    const successEmbed = buildSessionEmbed({
-                        title: `📋 ${username}'s Task Completed!${titleSuffix}`,
-                        topFields: [{
-                            name: `✅ TASK COMPLETE${titleSuffix}`,
-                            value: `**${scenario.task}**\n\n` +
-                                   `\`\`\`diff\n${earningsDisplay}\n  Previous: ${fmt(currentWallet)}\n+ New Balance: ${fmt(newWallet)}\`\`\``,
-                            inline: false
-                        }],
-                        bankFields: [
-                            { name: '💎 Task Reward', value: fmt(totalEarning), inline: true },
-                            { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                            { name: '📅 Next Task', value: 'In 24 hours', inline: true }
-                        ],
-                        stageText,
-                        color: 0x00FF00,
-                        footer: '📋 Daily Task Complete • Come back tomorrow for a new task!'
-                    });
-
-                    await interaction.editReply({ embeds: [successEmbed] });
-
-                    // Record game result for ML analysis
-                    try {
-                        await dbManager.recordGameResult(
-                            userId,
-                            guildId,
-                            'dailytask',
-                            0, // No bet amount for tasks
-                            totalEarning,
-                            true, // Always a "win" when completed
-                            {
-                                task: scenario.task,
-                                baseEarning: baseEarning,
-                                shopBoosts: hasShopBoosts,
-                                serverBoost: hasServerBoost,
-                                boosterBonus: boosterBonus
-                            }
-                        );
-                    } catch (error) {
-                        logger.error(`Failed to record daily task result: ${error.message}`);
-                    }
-
-                    // Log the task completion
-                    let logMessage = `Daily task completed: ${username} ${scenario.task.toLowerCase()} and earned ${fmt(totalEarning)}`;
-                    
-                    if (hasShopBoosts) {
-                        logMessage += ` (Shop boost: ${fmt(baseEarning)} -> ${fmt(boostedEarning)})`;
-                    }
-                    
-                    if (hasServerBoost) {
-                        logMessage += ` (Server boost: +${fmt(boosterBonus)})`;
-                    }
-                    
-                    logMessage += ` - Balance: ${fmt(newWallet)}`;
-                    
-                    await sendLogMessage(
-                        interaction.client,
-                        'economy',
-                        logMessage,
-                        userId,
-                        guildId
-                    );
+                    await handleTaskCompletion();
                 }
                 
             } catch (error) {

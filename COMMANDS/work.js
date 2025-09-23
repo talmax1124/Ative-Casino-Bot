@@ -8,6 +8,7 @@ const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const { checkEarningsCooldown, createCooldownBlockEmbed } = require('../UTILS/earningsCooldown');
 const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
 
@@ -27,7 +28,14 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // Check cooldown (1 hour)
+            // Check if any other earning command is on cooldown
+            const cooldownBlock = checkEarningsCooldown(balance, 'work');
+            if (cooldownBlock) {
+                const embed = createCooldownBlockEmbed(username, 'work', cooldownBlock);
+                return await interaction.editReply({ embeds: [embed] });
+            }
+
+            // Check work-specific cooldown (1 hour)
             const now = Date.now() / 1000;
             const lastWork = balance.last_work_ts || 0;
             const cooldown = 3600; // 1 hour

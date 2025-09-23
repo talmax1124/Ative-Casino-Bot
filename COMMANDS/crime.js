@@ -8,6 +8,7 @@ const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+const { checkEarningsCooldown, createCooldownBlockEmbed } = require('../UTILS/earningsCooldown');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -26,7 +27,14 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // Check cooldown (30 minutes)
+            // Check if any other earning command is on cooldown
+            const cooldownBlock = checkEarningsCooldown(balance, 'crime');
+            if (cooldownBlock) {
+                const embed = createCooldownBlockEmbed(username, 'crime', cooldownBlock);
+                return await interaction.editReply({ embeds: [embed] });
+            }
+
+            // Check crime-specific cooldown (30 minutes)
             const now = Date.now() / 1000;
             const lastCrime = balance.last_crime_ts || 0;
             const cooldown = 1800; // 30 minutes
