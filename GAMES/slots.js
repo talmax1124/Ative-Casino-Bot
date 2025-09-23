@@ -47,18 +47,18 @@ async function getAdaptedSlotSymbols(userId, currentWealth, betAmount) {
     return symbols;
 }
 
-// Matrix mode symbols - Max 2.2x multipliers, economically balanced
+// Matrix mode symbols - Max 2.2x multipliers, economically balanced (slightly increased win rates)
 const MATRIX_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 30, payout: 1.1 },
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 25, payout: 1.2 },
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 20, payout: 1.3 },
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 15, payout: 1.5 },
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 6, payout: 1.7 },
-    'bar': { name: 'Bar', emoji: '📊', rarity: 2.5, payout: 1.9 },
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1, payout: 2.2 },       // Max payout
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.4, payout: 2.2 },       // Max payout
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.08, payout: 2.2 },      // Max payout + triggers bonus
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.02, payout: 2.2 }       // Max payout - rare
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 32, payout: 1.1 },
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 27, payout: 1.2 },
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 22, payout: 1.3 },
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 16, payout: 1.5 },
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 6.5, payout: 1.7 },
+    'bar': { name: 'Bar', emoji: '📊', rarity: 2.8, payout: 1.9 },
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1.1, payout: 2.2 },       // Max payout
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.45, payout: 2.2 },       // Max payout
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.09, payout: 2.2 },      // Max payout + triggers bonus
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.025, payout: 2.2 }       // Max payout - rare
 };
 
 // Special combinations
@@ -222,8 +222,38 @@ function calculatePayout(symbols, betAmount, personalizedPayouts = null, modeCon
         };
     }
 
-    // REMOVED TWO-MATCH WINS - Now only 3 of a kind wins!
-    // This creates a proper house edge as most spins will lose
+    // Check for two of a kind (partial win)
+    const counts = {};
+    symbols.forEach(symbol => {
+        counts[symbol] = (counts[symbol] || 0) + 1;
+    });
+    
+    // Find if we have exactly 2 of the same symbol
+    for (const symbol in counts) {
+        if (counts[symbol] === 2) {
+            const symbolData = SLOT_SYMBOLS[symbol];
+            
+            // Two of a kind pays at reduced rate
+            let multiplier = symbolData.payout * TWO_MATCH_MULTIPLIER;
+            if (personalizedPayouts && personalizedPayouts[symbol]) {
+                multiplier = personalizedPayouts[symbol] * TWO_MATCH_MULTIPLIER;
+            }
+            
+            // Apply mode-specific maximum multiplier cap
+            if (modeConfig && modeConfig.maxMatrixMultiplier) {
+                multiplier = Math.min(multiplier, modeConfig.maxMatrixMultiplier);
+            }
+            
+            const payout = betAmount * multiplier;
+            
+            return {
+                won: true,
+                payout: payout,
+                multiplier: multiplier,
+                type: `🎯 Two ${symbolData.name}s!`
+            };
+        }
+    }
 
     // No matches
     return {

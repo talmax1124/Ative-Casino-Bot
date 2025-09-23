@@ -3701,8 +3701,8 @@ class DatabaseAdapter {
         try {
             // Get additional context for ML analysis
             const userBalance = await this.getUserBalance(userId, guildId);
-            const userWealthBefore = (userBalance.wallet || 0) + (userBalance.bank || 0) + betAmount; // Add back bet amount for before-game wealth
-            const userWealthAfter = (userBalance.wallet || 0) + (userBalance.bank || 0);
+            const userWealthBefore = parseFloat(userBalance.wallet || 0) + parseFloat(userBalance.bank || 0) + parseFloat(betAmount || 0); // Add back bet amount for before-game wealth
+            const userWealthAfter = parseFloat(userBalance.wallet || 0) + parseFloat(userBalance.bank || 0);
             
             // Get user's recent game activity for behavioral patterns
             const recentGames = await this.getGameHistory(userId, gameType, 10);
@@ -3840,15 +3840,16 @@ class DatabaseAdapter {
     /**
      * Get pending marriage proposals for a user
      */
-    async getPendingMarriageProposals(userId, guildId) {
+    async getPendingMarriageProposals(userId, guildId = null) {
         try {
+            // Make proposals global - don't filter by guild_id
             const query = `
                 SELECT * FROM marriage_proposals 
-                WHERE recipient_id = ? AND guild_id = ? AND status = 'pending' AND expires_at > NOW()
+                WHERE recipient_id = ? AND status = 'pending' AND expires_at > NOW()
                 ORDER BY created_at DESC
             `;
             
-            const [rows] = await this.pool.execute(query, [userId, guildId]);
+            const [rows] = await this.pool.execute(query, [userId]);
             return { success: true, proposals: rows };
             
         } catch (error) {
@@ -3860,15 +3861,16 @@ class DatabaseAdapter {
     /**
      * Get sent marriage proposals for a user
      */
-    async getSentMarriageProposals(userId, guildId, status = 'accepted') {
+    async getSentMarriageProposals(userId, guildId = null, status = 'accepted') {
         try {
+            // Make proposals global - don't filter by guild_id
             const query = `
                 SELECT * FROM marriage_proposals 
-                WHERE proposer_id = ? AND guild_id = ? AND status = ?
+                WHERE proposer_id = ? AND status = ?
                 ORDER BY created_at DESC
             `;
             
-            const [rows] = await this.pool.execute(query, [userId, guildId, status]);
+            const [rows] = await this.pool.execute(query, [userId, status]);
             return { success: true, proposals: rows };
             
         } catch (error) {
@@ -3929,14 +3931,15 @@ class DatabaseAdapter {
     /**
      * Get marriage status for a user
      */
-    async getUserMarriage(userId, guildId) {
+    async getUserMarriage(userId, guildId = null) {
         try {
+            // Make marriage data global - don't filter by guild_id
             const query = `
                 SELECT * FROM marriages 
-                WHERE (partner1_id = ? OR partner2_id = ?) AND guild_id = ? AND status = 'active'
+                WHERE (partner1_id = ? OR partner2_id = ?) AND status = 'active'
             `;
             
-            const [rows] = await this.pool.execute(query, [userId, userId, guildId]);
+            const [rows] = await this.pool.execute(query, [userId, userId]);
             
             if (rows.length === 0) {
                 return { success: true, married: false, marriage: null };
@@ -4017,15 +4020,16 @@ class DatabaseAdapter {
     /**
      * Check if two users are married
      */
-    async areUsersMarried(userId1, userId2, guildId) {
+    async areUsersMarried(userId1, userId2, guildId = null) {
         try {
+            // Make marriage check global - don't filter by guild_id
             const query = `
                 SELECT id FROM marriages 
                 WHERE ((partner1_id = ? AND partner2_id = ?) OR (partner1_id = ? AND partner2_id = ?)) 
-                AND guild_id = ? AND status = 'active'
+                AND status = 'active'
             `;
             
-            const [rows] = await this.pool.execute(query, [userId1, userId2, userId2, userId1, guildId]);
+            const [rows] = await this.pool.execute(query, [userId1, userId2, userId2, userId1]);
             return { success: true, married: rows.length > 0, marriageId: rows[0]?.id || null };
             
         } catch (error) {

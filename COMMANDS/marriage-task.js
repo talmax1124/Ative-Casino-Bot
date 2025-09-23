@@ -1426,11 +1426,10 @@ module.exports = {
             
             const marriageId = poem.marriageId;
             
-            // Require at least 3 total votes and net positive score (more upvotes than downvotes)
-            const minVotes = 3;
-            const netScore = upvotes - downvotes;
+            // Require at least 1 upvote to complete the task (more reasonable threshold)
+            const minUpvotes = 1;
             
-            if (totalVotes >= minVotes && netScore > 0) {
+            if (upvotes >= minUpvotes) {
                 // Check if task is already completed to avoid duplicate completion
                 const existingTaskCompletion = await dbManager.getMarriageTaskStatus(marriageId);
                 if (existingTaskCompletion.task3) {
@@ -1438,7 +1437,8 @@ module.exports = {
                     return;
                 }
                 
-                logger.info(`Poem ${poemId} reached completion criteria: ${upvotes} upvotes, ${downvotes} downvotes (net: ${netScore})`);
+                const netScore = upvotes - downvotes;
+                logger.info(`Poem ${poemId} reached completion criteria: ${upvotes} upvotes (minimum 1 needed)`);
                 
                 // Mark task as completed and award XP
                 await dbManager.completeMarriageTask(marriageId, 3, null, {
@@ -1467,7 +1467,7 @@ module.exports = {
                 voteData.taskCompleted = true;
                 
             } else {
-                logger.debug(`Poem ${poemId} needs more votes: ${totalVotes}/${minVotes} total, net score: ${netScore} (needs > 0)`);
+                logger.debug(`Poem ${poemId} needs more upvotes: ${upvotes}/${minUpvotes} upvotes needed`);
             }
             
         } catch (error) {

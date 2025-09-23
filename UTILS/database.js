@@ -1583,7 +1583,7 @@ class DatabaseManager {
     /**
      * Get pending marriage proposals for a user
      */
-    async getPendingMarriageProposals(userId, guildId) {
+    async getPendingMarriageProposals(userId, guildId = null) {
         if (this.usingAdapter) {
             return await this.databaseAdapter.getPendingMarriageProposals(userId, guildId);
         }
@@ -1593,7 +1593,7 @@ class DatabaseManager {
     /**
      * Get sent marriage proposals for a user
      */
-    async getSentMarriageProposals(userId, guildId, status = 'accepted') {
+    async getSentMarriageProposals(userId, guildId = null, status = 'accepted') {
         if (this.usingAdapter) {
             return await this.databaseAdapter.getSentMarriageProposals(userId, guildId, status);
         }
@@ -1630,7 +1630,7 @@ class DatabaseManager {
     /**
      * Get user's marriage status
      */
-    async getUserMarriage(userId, guildId) {
+    async getUserMarriage(userId, guildId = null) {
         if (this.usingAdapter) {
             return await this.databaseAdapter.getUserMarriage(userId, guildId);
         }
@@ -1640,7 +1640,7 @@ class DatabaseManager {
     /**
      * Check if two users are married to each other
      */
-    async areUsersMarried(userId1, userId2, guildId) {
+    async areUsersMarried(userId1, userId2, guildId = null) {
         if (this.usingAdapter) {
             return await this.databaseAdapter.areUsersMarried(userId1, userId2, guildId);
         }

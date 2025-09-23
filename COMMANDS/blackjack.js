@@ -905,12 +905,29 @@ module.exports = {
             
             const originalWon = totalPayout > 0;
             
-            // 🎰 APPLY AI TUNING SYSTEM - ECONOMIC REGULATION
-            const tuningAdjustment = await tuningManager.getAdjustedPayout('blackjack', totalPayout, totalBetAmount);
-            let regulatedPayout = originalWon ? tuningAdjustment.adjustedPayout : 0;
+            // Check if this is a push (bet should be returned, not profit)
+            const isPush = results.some(r => r.outcome === 'PUSH') && results.every(r => r.outcome === 'PUSH' || r.outcome === 'BUSTED');
             
-            // 🎯 APPLY ALL-IN SYSTEM - DYNAMIC HOUSE EDGE
-            if (originalWon && regulatedPayout > 0) {
+            let regulatedPayout;
+            let tuningAdjustment;
+            
+            if (isPush) {
+                // For pushes, return exactly the bet amount (no tuning applied)
+                regulatedPayout = totalBetAmount;
+                tuningAdjustment = { 
+                    originalPayout: totalBetAmount, 
+                    adjustedPayout: totalBetAmount, 
+                    payoutDelta: 0, 
+                    feeApplied: false 
+                };
+            } else {
+                // 🎰 APPLY AI TUNING SYSTEM - ECONOMIC REGULATION (only for non-push outcomes)
+                tuningAdjustment = await tuningManager.getAdjustedPayout('blackjack', totalPayout, totalBetAmount);
+                regulatedPayout = originalWon ? tuningAdjustment.adjustedPayout : 0;
+            }
+            
+            // 🎯 APPLY ALL-IN SYSTEM - DYNAMIC HOUSE EDGE (but not for pushes)
+            if (originalWon && regulatedPayout > 0 && !isPush) {
                 const allInAdjustment = await allInManager.adjustGameResult(userId, totalBetAmount, regulatedPayout, true, 'blackjack');
                 regulatedPayout = allInAdjustment.adjustedPayout;
                 

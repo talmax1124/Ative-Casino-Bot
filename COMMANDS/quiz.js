@@ -233,7 +233,7 @@ module.exports = {
 
                     // Apply tuning manager adjustments for fair gameplay
                     const tuningAdjustment = await tuningManager.getAdjustedPayout('quiz', baseEarning, 0);
-                    const adjustedEarning = Math.round(baseEarning * tuningAdjustment.multiplier);
+                    const adjustedEarning = tuningAdjustment.adjustedPayout;
 
                     // Apply shop economy boosts on adjusted amount
                     const boostResult = await shopManager.applyEconomyBoosts(userId, adjustedEarning, 'quiz');
@@ -257,7 +257,7 @@ module.exports = {
                         shopBoosts: boostResult.boosts,
                         boosterBonus: boosterBonus,
                         isBooster: boosterInfo.isBooster,
-                        tuningMultiplier: tuningAdjustment.multiplier
+                        tuningMultiplier: (1 + tuningAdjustment.payoutDelta)
                     };
 
                     // Process payout through modern payout manager
@@ -278,10 +278,11 @@ module.exports = {
                     const hasServerBoost = boosterInfo.isBooster && boosterBonus > 0;
                     const boostDisplay = shopManager.formatBoostInfo(boostResult.boosts);
 
-                    let earningsDisplay = `+ Base Answer Bonus: ${fmt(adjustedEarning)}`;
+                    let earningsDisplay = `+ Base Answer Bonus: ${fmt(tuningAdjustment.originalPayout)}`;
                     
-                    if (tuningAdjustment.multiplier !== 1.0) {
-                        earningsDisplay += `\n+ Tuning Adjustment: ${(tuningAdjustment.multiplier * 100).toFixed(1)}%`;
+                    if (tuningAdjustment.payoutDelta !== 0) {
+                        const adjustmentPercent = (tuningAdjustment.payoutDelta * 100).toFixed(1);
+                        earningsDisplay += `\n+ Tuning Adjustment: ${adjustmentPercent > 0 ? '+' : ''}${adjustmentPercent}%`;
                     }
                     
                     if (hasShopBoosts) {
@@ -365,7 +366,7 @@ module.exports = {
 
                     // Apply tuning manager adjustments for fair gameplay
                     const tuningAdjustment = await tuningManager.getAdjustedPayout('quiz_consolation', baseConsolationPrize, 0);
-                    const consolationPrize = Math.round(baseConsolationPrize * tuningAdjustment.multiplier);
+                    const consolationPrize = tuningAdjustment.adjustedPayout;
 
                     // Create game result object for consolation payout
                     const gameResult = {
@@ -377,7 +378,7 @@ module.exports = {
                         won: false,
                         question: selectedQuestion.question,
                         baseEarning: consolationPrize,
-                        tuningMultiplier: tuningAdjustment.multiplier
+                        tuningMultiplier: (1 + tuningAdjustment.payoutDelta)
                     };
 
                     // Process consolation payout

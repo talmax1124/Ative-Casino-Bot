@@ -77,7 +77,7 @@ module.exports = {
 
             // Apply tuning manager adjustments for fair gameplay
             const tuningAdjustment = await tuningManager.getAdjustedPayout('beg', baseEarning, 0);
-            const adjustedEarning = Math.round(baseEarning * tuningAdjustment.multiplier);
+            const adjustedEarning = tuningAdjustment.adjustedPayout;
 
             // Calculate server booster bonus (5%) on adjusted amount
             const boosterInfo = await calculateBoosterBonus(adjustedEarning, interaction.user.id, interaction.guildId, interaction.guild);
@@ -96,7 +96,7 @@ module.exports = {
                 baseEarning: adjustedEarning,
                 boosterBonus: boosterBonus,
                 isBooster: boosterInfo.isBooster,
-                tuningMultiplier: tuningAdjustment.multiplier
+                tuningMultiplier: (1 + tuningAdjustment.payoutDelta)
             };
 
             // Process payout through modern payout manager
@@ -110,9 +110,10 @@ module.exports = {
 
 
             // Build earnings display with tuning and booster bonus if applicable
-            let earningsDisplay = `+ Base Received: ${fmt(adjustedEarning)}`;
-            if (tuningAdjustment.multiplier !== 1.0) {
-                earningsDisplay += `\n+ Tuning Adjustment: ${(tuningAdjustment.multiplier * 100).toFixed(1)}%`;
+            let earningsDisplay = `+ Base Received: ${fmt(tuningAdjustment.originalPayout)}`;
+            if (tuningAdjustment.payoutDelta !== 0) {
+                const adjustmentPercent = (tuningAdjustment.payoutDelta * 100).toFixed(1);
+                earningsDisplay += `\n+ Tuning Adjustment: ${adjustmentPercent > 0 ? '+' : ''}${adjustmentPercent}%`;
             }
             if (boosterInfo.isBooster && boosterBonus > 0) {
                 earningsDisplay += `\n+ Booster Bonus (5%): ${fmt(boosterBonus)}`;

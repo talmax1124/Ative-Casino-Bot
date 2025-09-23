@@ -487,8 +487,8 @@ module.exports = {
                 try {
                     if (dbManager.databaseAdapter && dbManager.databaseAdapter.pool) {
                         await dbManager.databaseAdapter.pool.execute(
-                            'UPDATE marriage_proposals SET status = ? WHERE (proposer_id = ? AND recipient_id = ?) OR (proposer_id = ? AND recipient_id = ?) AND guild_id = ? AND status = ?',
-                            ['expired', partner1Id, partner2Id, partner2Id, partner1Id, guildId, 'accepted']
+                            'UPDATE marriage_proposals SET status = ? WHERE ((proposer_id = ? AND recipient_id = ?) OR (proposer_id = ? AND recipient_id = ?)) AND status = ?',
+                            ['expired', partner1Id, partner2Id, partner2Id, partner1Id, 'accepted']
                         );
                     }
                 } catch (updateError) {
