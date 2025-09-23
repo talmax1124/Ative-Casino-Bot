@@ -32,7 +32,7 @@ const BLACKJACK_MODES = {
         description: 'Conservative mode with standard payouts',
         minBet: 500,
         blackjackMultiplier: 1.25,   // 1.25x for blackjack (reduced from 1.45x)
-        winMultiplier: 0.85,         // 0.85x for regular wins (increased house edge)
+        winMultiplier: 0.86,         // 0.86x for regular wins (increased by 1%)
         houseEdge: 0.08,             // 8% house edge (increased)
         emoji: '🛡️',
         color: '#4CAF50'
@@ -42,7 +42,7 @@ const BLACKJACK_MODES = {
         description: 'Standard mode with traditional payouts',
         minBet: 1000,
         blackjackMultiplier: 1.35,   // 1.35x for blackjack (reduced from 1.5x)
-        winMultiplier: 0.9,          // 0.9x for regular wins (increased house edge)
+        winMultiplier: 0.91,         // 0.91x for regular wins (increased by 1%)
         houseEdge: 0.12,             // 12% house edge (increased)
         emoji: '⚖️',
         color: '#FF9800'
@@ -52,7 +52,7 @@ const BLACKJACK_MODES = {
         description: 'High risk with enhanced payouts',
         minBet: 2500,
         blackjackMultiplier: 1.4,    // 1.4x for blackjack (reduced from 1.55x)
-        winMultiplier: 0.95,         // 0.95x for regular wins (reduced from 1.02x)
+        winMultiplier: 0.96,         // 0.96x for regular wins (increased by 1%)
         houseEdge: 0.15,             // 15% house edge (increased)
         emoji: '⚡',
         color: '#FF8800'
@@ -62,7 +62,7 @@ const BLACKJACK_MODES = {
         description: 'Maximum risk with premium payouts',
         minBet: 5000,
         blackjackMultiplier: 1.45,   // 1.45x for blackjack (reduced from 1.6x)
-        winMultiplier: 1.0,          // 1.0x for regular wins (reduced from 1.05x)
+        winMultiplier: 1.01,         // 1.01x for regular wins (increased by 1%)
         houseEdge: 0.18,             // 18% house edge (increased)
         emoji: '🔥',
         color: '#FF0000'
@@ -586,17 +586,11 @@ module.exports = {
                     // Hit
                     game.hit();
 
-                    // Check for bust or completion
-                    if (game.isCurrentHandComplete()) {
-                        if (game.splitHands.length > 0 && !game.allHandsComplete()) {
-                            // Move to next split hand
-                            game.currentHandIndex++;
-                        } else {
-                            // All hands complete, dealer plays
-                            game.dealerPlay();
-                            await module.exports.endGame(interaction, game, userId, guildId);
-                            return;
-                        }
+                    // Check if all hands are complete (hit() method already advances to next hand if current hand is complete)
+                    if (game.allHandsComplete() || game.gameEnded) {
+                        // All hands complete, game should be over
+                        await module.exports.endGame(interaction, game, userId, guildId);
+                        return;
                     }
 
                     // Update embed
@@ -629,10 +623,12 @@ module.exports = {
                 // Stand
                 game.stand();
 
-                if (game.splitHands.length > 0 && !game.allHandsComplete()) {
-                    // Move to next split hand
-                    game.currentHandIndex++;
-                    
+                // Check if all hands are complete (stand() method already advances to next hand)
+                if (game.allHandsComplete() || game.gameEnded) {
+                    // Game complete
+                    await module.exports.endGame(interaction, game, userId, guildId);
+                } else {
+                    // Update display for next hand
                     const standEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
                     const standActionRows = createGameButtons(userId, game);
                     const tableImage = await createGameTableImage(game, false);
@@ -648,10 +644,6 @@ module.exports = {
                     }
 
                     await interaction.update(updateData);
-                } else {
-                    // Game complete, dealer plays
-                    game.dealerPlay();
-                    await module.exports.endGame(interaction, game, userId, guildId);
                 }
                 break;
             }
@@ -673,12 +665,31 @@ module.exports = {
                 // Deduct additional bet
                 await dbManager.updateUserBalance(userId, guildId, -game.betAmount, 0);
 
-                // Double down
+                // Double down (this automatically advances to next hand)
                 game.doubleDown();
                 
-                // Complete game
-                game.dealerPlay();
-                await module.exports.endGame(interaction, game, userId, guildId);
+                // Check if all hands are complete (doubleDown() method already advances to next hand)
+                if (game.allHandsComplete() || game.gameEnded) {
+                    // All hands complete, game should be over
+                    await module.exports.endGame(interaction, game, userId, guildId);
+                } else {
+                    // Update display for next hand
+                    const doubleEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
+                    const doubleActionRows = createGameButtons(userId, game);
+                    const tableImage = await createGameTableImage(game, false);
+
+                    const updateData = {
+                        embeds: [doubleEmbed], 
+                        components: doubleActionRows
+                    };
+                    
+                    if (tableImage) {
+                        updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                        doubleEmbed.setImage('attachment://blackjack-table.png');
+                    }
+
+                    await interaction.update(updateData);
+                }
                 break;
 
             case 'split': {

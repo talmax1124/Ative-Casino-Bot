@@ -165,7 +165,7 @@ class BlackjackGame {
         this.modeConfig = modeConfig || {
             name: 'Balanced',
             blackjackMultiplier: 1.5,
-            winMultiplier: 1.0,
+            winMultiplier: 1.01,
             houseEdge: 0.07
         };
         this.deck = new Deck();
@@ -437,7 +437,9 @@ class BlackjackGame {
      */
     isCurrentHandComplete() {
         if (this.splitHands.length > 0) {
-            const currentHand = this.splitHands[this.currentHandIndex];
+            // Use getCurrentHand() which has proper safety checks
+            const currentHand = this.getCurrentHand();
+            if (!currentHand) return true; // If no valid hand, consider it complete
             return currentHand.isBusted() || currentHand.isStood();
         } else {
             return this.playerHand.isBusted() || this.gameEnded;
