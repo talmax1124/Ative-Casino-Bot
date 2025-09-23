@@ -10,11 +10,17 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('restorestreak')
-        .setDescription('Restore a user\'s voting streak to their highest recorded value (Admin only)')
+        .setDescription('Restore a user\'s voting streak to a specified count (Admin only)')
         .addUserOption(option =>
             option.setName('user')
                 .setDescription('The user whose streak to restore')
                 .setRequired(true)
+        )
+        .addIntegerOption(option =>
+            option.setName('streakcount')
+                .setDescription('The streak count to set (must be positive)')
+                .setRequired(true)
+                .setMinValue(1)
         )
         .addStringOption(option =>
             option.setName('reason')
@@ -41,55 +47,39 @@ module.exports = {
             await interaction.deferReply();
 
             const targetUser = interaction.options.getUser('user');
+            const streakCount = interaction.options.getInteger('streakcount');
             const reason = interaction.options.getString('reason') || 'No reason provided';
 
-            // Get current vote data
-            const currentVoteData = await dbManager.getUserVoteData(targetUser.id);
+            // Get current vote data or create new if doesn't exist
+            let currentVoteData = await dbManager.getUserVoteData(targetUser.id);
             
             if (!currentVoteData) {
-                const noDataEmbed = new EmbedBuilder()
-                    .setTitle('❌ No Vote Data')
-                    .setDescription(`${targetUser.username} has no voting data. They need to vote at least once before their streak can be restored.`)
-                    .setColor(0xFF0000);
-
-                return await interaction.editReply({ embeds: [noDataEmbed] });
+                // Create new vote data if user has never voted
+                currentVoteData = {
+                    user_id: targetUser.id,
+                    last_vote_time: null,
+                    vote_streak: 0,
+                    total_votes: 0,
+                    last_claim_time: null,
+                    votes_today: 0,
+                    daily_reset_time: null
+                };
             }
 
-            // Calculate the user's voting status to get their highest streak
+            // Calculate the user's voting status
             const { calculateVotingStatus } = require('./vote');
             const votingStatus = calculateVotingStatus(currentVoteData);
+
+            // Set the current time as the last vote time to start the 16-hour countdown
+            const currentTime = Date.now();
             
-            // Use the stored streak (highest recorded) as the restore value
-            const highestStreak = currentVoteData.vote_streak || 0;
-            
-            if (highestStreak === 0) {
-                const noStreakEmbed = new EmbedBuilder()
-                    .setTitle('❌ No Streak to Restore')
-                    .setDescription(`${targetUser.username} has no recorded voting streak to restore.`)
-                    .setColor(0xFF0000);
-
-                return await interaction.editReply({ embeds: [noStreakEmbed] });
-            }
-
-            // Check if streak is already active
-            if (votingStatus.isStreakValid && votingStatus.currentStreak > 0) {
-                const alreadyActiveEmbed = new EmbedBuilder()
-                    .setTitle('ℹ️ Streak Already Active')
-                    .setDescription(`${targetUser.username} already has an active streak of ${votingStatus.currentStreak} days.`)
-                    .addFields({
-                        name: '🔥 Current Status',
-                        value: `Active streak: ${votingStatus.currentStreak} days\nHighest recorded: ${highestStreak} days`,
-                        inline: false
-                    })
-                    .setColor(0xFFD700);
-
-                return await interaction.editReply({ embeds: [alreadyActiveEmbed] });
-            }
-
-            // Prepare updated vote data - restore to highest streak
+            // Prepare updated vote data - set to specified streak count and reset timer
             const updatedVoteData = {
                 ...currentVoteData,
-                vote_streak: highestStreak
+                vote_streak: streakCount,
+                last_vote_time: currentTime,
+                total_votes: Math.max(currentVoteData.total_votes || 0, streakCount),
+                votes_today: Math.max(currentVoteData.votes_today || 0, 1)
             };
 
             // Update the vote data
@@ -97,12 +87,15 @@ module.exports = {
 
             if (success) {
                 // Log the action
-                logger.info(`Streak restored: ${interaction.user.username} (${interaction.user.id}) restored ${targetUser.username} (${targetUser.id}) streak to ${highestStreak} (highest recorded). Reason: ${reason}`);
+                logger.info(`Streak restored: ${interaction.user.username} (${interaction.user.id}) restored ${targetUser.username} (${targetUser.id}) streak to ${streakCount} days. Reason: ${reason}`);
+
+                // Calculate next voting deadline (16 hours from now)
+                const nextVoteDeadline = Math.floor((currentTime + (16 * 60 * 60 * 1000)) / 1000);
 
                 // Create success embed
                 const successEmbed = new EmbedBuilder()
                     .setTitle('✅ Streak Restored Successfully')
-                    .setDescription(`Successfully restored voting streak for ${targetUser.username} to their highest recorded value!`)
+                    .setDescription(`Successfully restored voting streak for ${targetUser.username} to ${streakCount} days!`)
                     .addFields(
                         {
                             name: '👤 User',
@@ -110,13 +103,23 @@ module.exports = {
                             inline: true
                         },
                         {
-                            name: '🔥 Previous Status',
-                            value: `${votingStatus.currentStreak} days (${votingStatus.isStreakValid ? 'Active' : 'Broken'})`,
+                            name: '🔥 Previous Streak',
+                            value: `${votingStatus.currentStreak || 0} days (${votingStatus.isStreakValid ? 'Active' : 'Broken'})`,
                             inline: true
                         },
                         {
-                            name: '🔥 Restored Streak',
-                            value: `${highestStreak} days`,
+                            name: '🔥 New Streak',
+                            value: `${streakCount} days`,
+                            inline: true
+                        },
+                        {
+                            name: '⏰ Next Vote Deadline',
+                            value: `<t:${nextVoteDeadline}:R>`,
+                            inline: true
+                        },
+                        {
+                            name: '🎯 Status',
+                            value: '16-hour countdown started',
                             inline: true
                         },
                         {
@@ -131,7 +134,7 @@ module.exports = {
                         },
                         {
                             name: '⏰ Timestamp',
-                            value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+                            value: `<t:${Math.floor(currentTime / 1000)}:F>`,
                             inline: true
                         }
                     )
@@ -149,26 +152,31 @@ module.exports = {
                 try {
                     const dmEmbed = new EmbedBuilder()
                         .setTitle('🔥 Voting Streak Restored!')
-                        .setDescription(`Good news! Your voting streak has been restored to your highest recorded value by an administrator.`)
+                        .setDescription(`Good news! Your voting streak has been restored to ${streakCount} days by an administrator.`)
                         .addFields(
                             {
-                                name: '🔥 Your Restored Streak',
-                                value: `${highestStreak} days`,
+                                name: '🔥 Your New Streak',
+                                value: `${streakCount} days`,
+                                inline: true
+                            },
+                            {
+                                name: '⏰ Next Vote Due',
+                                value: `<t:${nextVoteDeadline}:R>`,
                                 inline: true
                             },
                             {
                                 name: '📝 Reason',
                                 value: reason,
-                                inline: true
+                                inline: false
                             },
                             {
                                 name: '⚠️ Important',
-                                value: 'This is a one-time restoration to your highest recorded streak. If you lose it again, you\'ll need to rebuild it naturally.',
+                                value: 'Your 16-hour countdown has started from now. You must vote within 16 hours to maintain your streak!',
                                 inline: false
                             },
                             {
                                 name: '🗳️ Keep Voting!',
-                                value: 'Remember to vote every 12 hours to maintain your streak!',
+                                value: 'Remember to vote every 16 hours to maintain your streak!',
                                 inline: false
                             }
                         )

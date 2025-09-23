@@ -64,15 +64,15 @@ module.exports = {
 async function showUserRank(interaction, targetUser, guildId) {
     const levelData = await levelingSystem.getUserLevel(targetUser.id, guildId);
     
-    // Use the correct database fields - xp is current level progress, total_xp is total accumulated
+    // Use the correct database calculation methods
     const nextLevel = levelData.level + 1;
-    const xpForNextLevel = Math.pow(nextLevel - 1, 2) * 50; // XP needed for next level
-    const xpForCurrentLevel = Math.pow(levelData.level - 1, 2) * 50; // XP needed for current level
+    const xpForNextLevel = Math.pow(nextLevel - 1, 2) * 50; // Total XP needed to reach next level
+    const xpForCurrentLevel = Math.pow(levelData.level - 1, 2) * 50; // Total XP needed to reach current level
     const currentLevelXp = levelData.xp; // Progress within current level (from database)
-    const xpNeeded = xpForNextLevel - xpForCurrentLevel; // Total XP needed to get to next level
-    const xpRemaining = xpForNextLevel - levelData.total_xp; // XP still needed
+    const xpNeeded = xpForNextLevel - xpForCurrentLevel; // XP needed within this level
+    const xpRemaining = xpForNextLevel - levelData.total_xp; // Total XP still needed for next level
     
-    // Create progress bar
+    // Create progress bar - use the current level XP progress
     const progressTotal = 20;
     const progressFilled = Math.floor((currentLevelXp / xpNeeded) * progressTotal);
     const progressBar = '█'.repeat(Math.max(0, progressFilled)) + '░'.repeat(progressTotal - Math.max(0, progressFilled));
