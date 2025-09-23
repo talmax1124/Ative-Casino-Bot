@@ -92,7 +92,7 @@ class FairnessOverride {
             // This handles edge cases where a win has extremely low payout but still within house edge
             {
                 // Only apply emergency payout logic to games where the player actually won
-                const isLottery = gameType.includes('lottery') || gameType.includes('scratch');
+                const isLottery = gameType && (gameType.includes('lottery') || gameType.includes('scratch'));
                 const minWinPayout = isLottery ? betAmount : betAmount * 1.2; // Winners should get at least 120% (20% profit minimum)
                 
                 if (calculatedPayout < minWinPayout) {

@@ -214,9 +214,9 @@ module.exports = {
                     userId,
                     guildId,
                     'earnmoney',
+                    true, // Always a "win" when successful
                     0, // No bet amount for earnmoney
                     totalEarned,
-                    true, // Always a "win" when successful
                     {
                         commandsClaimed: earnedFields.length,
                         shopUnlock: hasShopUnlock,

@@ -6,7 +6,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getGuildId } = require('../UTILS/common');
 const levelingSystem = require('../UTILS/levelingSystem');
-const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -65,11 +64,11 @@ module.exports = {
 async function showUserRank(interaction, targetUser, guildId) {
     const levelData = await levelingSystem.getUserLevel(targetUser.id, guildId);
     
-    // Calculate progress to next level using the correct formula
+    // Use the correct database fields - xp is current level progress, total_xp is total accumulated
     const nextLevel = levelData.level + 1;
     const xpForNextLevel = Math.pow(nextLevel - 1, 2) * 50; // XP needed for next level
     const xpForCurrentLevel = Math.pow(levelData.level - 1, 2) * 50; // XP needed for current level
-    const currentLevelXp = levelData.total_xp - xpForCurrentLevel; // Progress within current level
+    const currentLevelXp = levelData.xp; // Progress within current level (from database)
     const xpNeeded = xpForNextLevel - xpForCurrentLevel; // Total XP needed to get to next level
     const xpRemaining = xpForNextLevel - levelData.total_xp; // XP still needed
     

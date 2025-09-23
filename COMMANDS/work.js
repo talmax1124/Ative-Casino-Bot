@@ -182,9 +182,9 @@ module.exports = {
                     userId,
                     guildId,
                     'work',
+                    true, // Always a "win" when successful
                     0, // No bet amount for work
                     totalEarning,
-                    true, // Always a "win" when successful
                     {
                         job: scenario.job,
                         baseEarning: baseEarning,

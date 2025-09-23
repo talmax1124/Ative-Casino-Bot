@@ -50,13 +50,13 @@ class GameDataCollector {
                 betAmount: gameData.betAmount,
                 payout: gameData.payout,
                 won: gameData.won,
-                netResult: gameData.payout - gameData.betAmount,
-                multiplierHit: gameData.payout / gameData.betAmount,
+                netResult: (gameData.payout ?? 0) - (gameData.betAmount ?? 0),
+                multiplierHit: (gameData.betAmount ?? 0) > 0 ? (gameData.payout ?? 0) / gameData.betAmount : 0,
                 
                 // User Context
                 userWealthBefore: gameData.userWealthBefore || 0,
                 userWealthAfter: gameData.userWealthAfter || 0,
-                betToWealthRatio: gameData.betAmount / (gameData.userWealthBefore || 1),
+                betToWealthRatio: (gameData.betAmount ?? 0) / ((gameData.userWealthBefore ?? 0) || 1),
                 
                 // Game-Specific Data
                 gameSpecificData: gameData.gameSpecificData || {},
@@ -137,30 +137,30 @@ class GameDataCollector {
             `;
 
             const values = [
-                data.timestamp,
-                data.gameType,
-                data.userId,
-                data.guildId,
-                data.betAmount,
-                data.payout,
-                data.won,
-                data.netResult,
-                data.multiplierHit,
-                data.userWealthBefore,
-                data.userWealthAfter,
-                JSON.stringify(data.gameSpecificData),
+                data.timestamp ?? null,
+                data.gameType ?? null,
+                data.userId ?? null,
+                data.guildId ?? null,
+                data.betAmount ?? 0,
+                data.payout ?? 0,
+                data.won ?? false,
+                data.netResult ?? 0,
+                data.multiplierHit ?? 0,
+                data.userWealthBefore ?? 0,
+                data.userWealthAfter ?? 0,
+                JSON.stringify(data.gameSpecificData || {}),
                 JSON.stringify({
-                    houseEdgeApplied: data.houseEdgeApplied,
-                    multiplierReduction: data.multiplierReduction,
-                    serverEconomicHealth: data.serverEconomicHealth
+                    houseEdgeApplied: data.houseEdgeApplied ?? 0,
+                    multiplierReduction: data.multiplierReduction ?? 0,
+                    serverEconomicHealth: data.serverEconomicHealth ?? 100
                 }),
                 JSON.stringify({
-                    betPattern: data.betPattern,
-                    winStreak: data.winStreak,
-                    lossStreak: data.lossStreak,
-                    riskLevel: data.riskLevel
+                    betPattern: data.betPattern ?? 'NORMAL',
+                    winStreak: data.winStreak ?? 0,
+                    lossStreak: data.lossStreak ?? 0,
+                    riskLevel: data.riskLevel ?? 'MEDIUM'
                 }),
-                JSON.stringify(data.features)
+                JSON.stringify(data.features || {})
             ];
 
             // Check if database adapter is available

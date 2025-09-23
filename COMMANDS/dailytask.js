@@ -305,9 +305,9 @@ module.exports = {
                         userId,
                         guildId,
                         'dailytask',
+                        true, // Always a "win" when completed
                         0, // No bet amount for tasks
                         totalEarning,
-                        true, // Always a "win" when completed
                         {
                             task: scenario.task,
                             baseEarning: baseEarning,

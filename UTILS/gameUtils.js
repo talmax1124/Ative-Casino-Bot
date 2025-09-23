@@ -615,7 +615,7 @@ class PayoutManager {
                 'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
                 'roulette','heist','mines'
             ];
-            if (!modernGames.includes(gameType.toLowerCase())) {
+            if (gameType && !modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);
             }
             
@@ -673,7 +673,7 @@ class PayoutManager {
                 'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
                 'roulette','heist','mines'
             ];
-            if (!modernGames.includes(gameType.toLowerCase())) {
+            if (gameType && !modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);
             }
             return {

@@ -332,9 +332,9 @@ module.exports = {
                             userId,
                             guildId,
                             'quiz',
+                            true, // Correct answer = win
                             0, // No bet amount for quiz
                             totalEarning,
-                            true, // Correct answer = win
                             {
                                 question: question.question,
                                 category: question.category,
@@ -430,9 +430,9 @@ module.exports = {
                             userId,
                             guildId,
                             'quiz',
+                            false, // Wrong answer = loss (but still get consolation)
                             0,
                             consolationPrize,
-                            false, // Wrong answer = loss (but still get consolation)
                             {
                                 question: question.question,
                                 category: question.category,

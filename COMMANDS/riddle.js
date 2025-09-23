@@ -257,9 +257,9 @@ module.exports = {
                         userId,
                         guildId,
                         'riddle',
+                        true, // Correct answer = win
                         0, // No bet amount for riddle
                         totalEarning,
-                        true, // Correct answer = win
                         {
                             riddle: activeRiddle.riddle,
                             difficulty: activeRiddle.difficulty,
@@ -322,9 +322,9 @@ module.exports = {
                         userId,
                         guildId,
                         'riddle',
+                        false, // Wrong answer = loss (but still get consolation)
                         0,
                         consolationPrize,
-                        false, // Wrong answer = loss (but still get consolation)
                         {
                             riddle: activeRiddle.riddle,
                             difficulty: activeRiddle.difficulty,

@@ -172,9 +172,9 @@ module.exports = {
                     userId,
                     guildId,
                     'earn',
+                    true, // Always a "win" when successful
                     0, // No bet amount for earn
                     totalEarning,
-                    true, // Always a "win" when successful
                     {
                         source: scenario.source,
                         baseEarning: baseEarning,
