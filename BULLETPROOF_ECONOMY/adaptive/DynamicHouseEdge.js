@@ -127,6 +127,14 @@ class DynamicHouseEdgeSystem {
             strictMode: false
         });
         
+        this.baseEdges.set('mines', {
+            minimum: 0.08,     // 8%
+            base: 0.12,        // 12% - strategic skill-based game
+            maximum: 0.18,     // 18%
+            current: 0.12,
+            strictMode: false
+        });
+        
         // Add all missing game types with appropriate house edges
         this.baseEdges.set('poker', {
             minimum: 0.02,     // 2%
@@ -260,39 +268,55 @@ class DynamicHouseEdgeSystem {
 
     /**
      * Calculate dynamic house edge for a specific game and player
+     * SIMPLIFIED FOR FAIRNESS - Prevents excessive edge stacking
      */
     calculateDynamicEdge(gameType, userId, betAmount, playerProfile = null) {
         const baseEdge = this.baseEdges.get(gameType);
         if (!baseEdge) {
-            throw new Error(`Unknown game type: ${gameType}`);
+            // Return a fair default edge for unknown games
+            console.log(`⚠️ Unknown game type: ${gameType}, using default 2% edge`);
+            return 0.02;
         }
         
-        // Get adjustment factors
-        const factors = this.adjustmentFactors.get(gameType);
-        let dynamicEdge = baseEdge.current;
+        // FAIRNESS OVERRIDE: Use base edge with minimal adjustments only
+        let dynamicEdge = baseEdge.base;
         
-        // No additional base increase - use configured base edges only
+        // Apply VERY SMALL adjustments only (max ±0.5% total)
+        const maxAdjustment = 0.005; // 0.5%
+        let totalAdjustment = 0;
         
-        // Apply player-specific adjustments
+        // Only apply slight adjustments for extreme cases
         if (playerProfile) {
-            dynamicEdge = this.applyPlayerAdjustments(dynamicEdge, playerProfile, factors);
+            // Tiny adjustment for exceptionally high win rates only
+            const winRate = playerProfile.historicalWinRate || 0.5;
+            if (winRate > 0.8) {
+                totalAdjustment += Math.min(0.002, (winRate - 0.8) * 0.01); // Max 0.2% penalty
+            }
         }
         
-        // Apply bet size adjustments
-        dynamicEdge = this.applyBetSizeAdjustments(dynamicEdge, betAmount, gameType, factors);
+        // Tiny bet size adjustment for very large bets only
+        if (betAmount > 100000) {
+            totalAdjustment += Math.min(0.003, Math.log(betAmount / 100000) * 0.001); // Max 0.3% penalty
+        }
         
-        // Apply global economic adjustments
-        dynamicEdge = this.applyEconomicAdjustments(dynamicEdge, factors);
+        // Cap total adjustment
+        totalAdjustment = Math.min(maxAdjustment, totalAdjustment);
         
-        // Apply mathematical smoothing
-        dynamicEdge = this.applySmoothingFunction(dynamicEdge, gameType);
+        // Apply adjustment
+        dynamicEdge += totalAdjustment;
         
-        // Ensure edge stays within bounds
+        // Ensure edge stays within strict bounds for fairness
         dynamicEdge = Math.max(baseEdge.minimum, Math.min(baseEdge.maximum, dynamicEdge));
         
-        // Log significant adjustments
-        if (Math.abs(dynamicEdge - baseEdge.base) > 0.005) {
-            console.log(`🎯 Dynamic edge adjustment: ${gameType} ${(dynamicEdge * 100).toFixed(2)}% (base: ${(baseEdge.base * 100).toFixed(2)}%)`);
+        // FORCE REASONABLE LIMITS regardless of configuration
+        if (dynamicEdge > 0.1) {  // Never more than 10% edge
+            dynamicEdge = 0.1;
+            console.log(`🚨 FAIRNESS PROTECTION: Capped ${gameType} edge to 10%`);
+        }
+        
+        // Log ANY adjustment for transparency
+        if (Math.abs(dynamicEdge - baseEdge.base) > 0.001) {
+            console.log(`📊 Fair edge adjustment: ${gameType} ${(dynamicEdge * 100).toFixed(2)}% (base: ${(baseEdge.base * 100).toFixed(2)}%, change: ${totalAdjustment > 0 ? '+' : ''}${(totalAdjustment * 100).toFixed(2)}%)`);
         }
         
         return dynamicEdge;

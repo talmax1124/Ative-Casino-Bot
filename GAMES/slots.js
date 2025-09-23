@@ -9,19 +9,43 @@ const path = require('path');
 const logger = require('../UTILS/logger');
 const { secureRandomFloat, secureRandomInt, secureRandomChoice } = require('../UTILS/rng');
 
-// BALANCED slot symbols - Max 2.0x multipliers, economically balanced
-const SLOT_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 35, payout: 1.05 },    // Common small win
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 30, payout: 1.1 },           // Common small win
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 20, payout: 1.2 },         // Decent payout
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, payout: 1.4 },         // Good payout
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 3, payout: 1.6 },   // Great payout
-    'bar': { name: 'Bar', emoji: '📊', rarity: 1.5, payout: 1.8 },              // Excellent payout
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 0.4, payout: 2.0 },    // Max payout - exciting!
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.08, payout: 2.0 },      // Max payout - rare
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.02, payout: 2.0 },      // Max payout - very rare
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.001, payout: 2.0 }      // Max payout - ultra rare
+// BASE slot symbols - These get automatically adapted based on player wealth
+// Players always see honest multipliers - the symbols adapt behind the scenes
+const BASE_SLOT_SYMBOLS = {
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 35, basePayout: 1.05 },
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 30, basePayout: 1.1 },
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 20, basePayout: 1.2 },
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, basePayout: 1.4 },
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 3, basePayout: 1.6 },
+    'bar': { name: 'Bar', emoji: '📊', rarity: 1.5, basePayout: 1.8 },
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 0.4, basePayout: 2.0 },
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.08, basePayout: 2.0 },
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.02, basePayout: 2.0 },
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.001, basePayout: 2.0 }
 };
+
+// Default slot symbols (for backward compatibility)
+const SLOT_SYMBOLS = BASE_SLOT_SYMBOLS;
+
+/**
+ * Get adapted slot symbols for a specific player
+ * Automatically adjusts multipliers based on wealth while keeping them honest
+ */
+async function getAdaptedSlotSymbols(userId, currentWealth, betAmount) {
+    const adaptiveGameMechanics = require('../UTILS/adaptiveGameMechanics');
+    const adaptedSymbols = await adaptiveGameMechanics.getAdaptedSlotSymbols(userId, currentWealth, betAmount);
+    
+    // Convert to the format expected by the slots game
+    const symbols = {};
+    Object.entries(BASE_SLOT_SYMBOLS).forEach(([key, baseSymbol]) => {
+        symbols[key] = {
+            ...baseSymbol,
+            payout: adaptedSymbols[key]?.payout || baseSymbol.basePayout
+        };
+    });
+    
+    return symbols;
+}
 
 // Matrix mode symbols - Max 2.2x multipliers, economically balanced
 const MATRIX_SYMBOLS = {
@@ -102,8 +126,8 @@ async function loadSymbolImage(symbol) {
 /**
  * Get weighted random symbol with entropy seeding
  */
-function getWeightedSymbol(matrixMode = false, entropy = 0) {
-    const symbolDict = matrixMode ? MATRIX_SYMBOLS : SLOT_SYMBOLS;
+function getWeightedSymbol(matrixMode = false, entropy = 0, adaptedSymbols = null) {
+    const symbolDict = matrixMode ? MATRIX_SYMBOLS : (adaptedSymbols || SLOT_SYMBOLS);
     const symbols = Object.keys(symbolDict);
     
     // Add entropy-based weight adjustment to reduce patterns
@@ -736,6 +760,7 @@ module.exports = {
     SLOT_SYMBOLS,
     MATRIX_SYMBOLS,
     MATRIX_MIN_BET,
+    getAdaptedSlotSymbols,
     spinSlots,
     spinMatrixSlots,
     calculatePayout,

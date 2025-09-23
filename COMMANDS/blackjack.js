@@ -143,7 +143,7 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
     let color = 0x00ff00; // Bright green like reference
 
     if (game.gameEnded) {
-        const results = game.getResults();
+        const results = await game.getResults();
         
         // Use regulated payout if available, otherwise fall back to original game result
         if (regulatedPayout !== null) {
@@ -860,7 +860,7 @@ module.exports = {
             // Personalized game helper removed - using bulletproof economy
             const personalizedConfig = { blackjackPayout: 1.5, winPayout: 1.0 }; // Default values
             
-            const results = game.getResults({ 
+            const results = await game.getResults({ 
                 economicMultiplier,
                 personalizedPayouts: {
                     blackjack: personalizedConfig.blackjackPayout,
@@ -1104,10 +1104,17 @@ module.exports = {
 
             // Complete session if game has one
             if (game.sessionId) {
+                // Determine actual game outcome: win (profit), push (break even), or loss
+                const netResult = totalPayout - totalBetAmount;
+                const actuallyWon = netResult > 0;
+                const isPush = netResult === 0 && totalPayout > 0;
+                
                 await sessionManager.endSession(game.sessionId, {
                     outcome: 'COMPLETED',
                     payout: totalPayout,
-                    won: totalPayout > 0,
+                    won: actuallyWon,
+                    isPush: isPush,
+                    netResult: netResult,
                     results: results
                 });
             }
@@ -1122,11 +1129,21 @@ module.exports = {
             // Clean up after interaction update (success or failure)
             activeGames.delete(game.sessionId);
 
-            // Log game end
+            // Log game end with proper outcome detection
+            const netResult = totalPayout - totalBetAmount;
+            let outcomeText = '';
+            if (netResult > 0) {
+                outcomeText = 'won';
+            } else if (netResult === 0 && totalPayout > 0) {
+                outcomeText = 'pushed for';
+            } else {
+                outcomeText = 'lost';
+            }
+            
             await sendLogMessage(
                 interaction.client,
                 'game',
-                `Blackjack game ended: ${interaction.user.displayName} ${totalPayout > 0 ? 'won' : 'lost'} ${fmt(Math.abs(totalPayout - game.betAmount * (game.splitHands.length || 1)))}`,
+                `Blackjack game ended: ${interaction.user.displayName} ${outcomeText} ${fmt(Math.abs(netResult))}`,
                 userId,
                 guildId
             );

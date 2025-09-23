@@ -73,14 +73,16 @@ module.exports = {
                     { name: '💰 Wealth Rankings - Top Players', value: 'server' },
                     { name: '🌍 All Players - Full Network', value: 'global' },
                     { name: '🏆 Wins/Losses - Game Performance', value: 'winloss' },
-                    { name: '🔴 Off-Economy - Separate Rankings', value: 'offeco' }
+                    { name: '🔴 Off-Economy - Separate Rankings', value: 'offeco' },
+                    { name: '💕 Marriage Leaderboard - Top Couples', value: 'marriage' },
+                    { name: '⭐ XP Leaderboard - Level Rankings', value: 'xp' }
                 )
         )
         .addIntegerOption(option =>
             option.setName('limit')
-                .setDescription('Number of users to show (5-25)')
+                .setDescription('Number of users to show (5-50)')
                 .setMinValue(5)
-                .setMaxValue(25)
+                .setMaxValue(50)
                 .setRequired(false)
         ),
 
@@ -107,6 +109,12 @@ module.exports = {
                 case 'offeco':
                     await this.showOffEconomyLeaderboard(interaction, guildId, limit);
                     break;
+                case 'marriage':
+                    await this.showMarriageLeaderboard(interaction, guildId, limit);
+                    break;
+                case 'xp':
+                    await this.showXPLeaderboard(interaction, guildId, limit);
+                    break;
                 default:
                     await this.showServerLeaderboard(interaction, guildId, limit);
             }
@@ -132,7 +140,7 @@ module.exports = {
 
     // Helper method to create navigation buttons
     createNavigationButtons(activeCategory) {
-        return new ActionRowBuilder()
+        const row1 = new ActionRowBuilder()
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId('leaderboard_server')
@@ -155,6 +163,22 @@ module.exports = {
                     .setStyle(ButtonStyle.Danger)
                     .setDisabled(activeCategory === 'offeco')
             );
+        
+        const row2 = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('leaderboard_marriage')
+                    .setLabel('💕 Marriages')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(activeCategory === 'marriage'),
+                new ButtonBuilder()
+                    .setCustomId('leaderboard_xp')
+                    .setLabel('⭐ XP/Levels')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(activeCategory === 'xp')
+            );
+        
+        return [row1, row2];
     },
 
     // Helper method to remove duplicate users from results
@@ -250,7 +274,7 @@ module.exports = {
                 FROM user_balances ub
                 LEFT JOIN user_stats us ON ub.user_id = us.user_id
                 WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL)
-                    AND (ub.wallet + ub.bank) > 0
+                    AND (ub.wallet + ub.bank) > 1000
                     AND ub.user_id != '466050111680544798'
                 ORDER BY total_balance DESC
                 LIMIT ?
@@ -262,7 +286,7 @@ module.exports = {
                 SELECT COUNT(DISTINCT user_id) as count
                 FROM user_balances 
                 WHERE (off_economy = FALSE OR off_economy IS NULL)
-                    AND (wallet + bank) > 0
+                    AND (wallet + bank) > 1000
                     AND user_id != '466050111680544798'
             `);
 
@@ -275,7 +299,7 @@ module.exports = {
                 'server'
             );
 
-            const components = [this.createNavigationButtons('server')];
+            const components = this.createNavigationButtons('server');
             
             if (isUpdate) {
                 await interaction.editReply({ embeds: [embed], components });
@@ -307,7 +331,7 @@ module.exports = {
                 FROM user_balances ub
                 LEFT JOIN user_stats us ON ub.user_id = us.user_id
                 WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL)
-                    AND (ub.wallet + ub.bank) > 0
+                    AND (ub.wallet + ub.bank) > 1000
                     AND ub.user_id != '466050111680544798'
                 ORDER BY total_balance DESC
                 LIMIT ?
@@ -319,7 +343,7 @@ module.exports = {
                 SELECT COUNT(DISTINCT user_id) as count
                 FROM user_balances 
                 WHERE (off_economy = FALSE OR off_economy IS NULL)
-                    AND (wallet + bank) > 0
+                    AND (wallet + bank) > 1000
                     AND user_id != '466050111680544798'
             `);
 
@@ -332,7 +356,7 @@ module.exports = {
                 'global'
             );
 
-            const components = [this.createNavigationButtons('global')];
+            const components = this.createNavigationButtons('global');
             
             if (isUpdate) {
                 await interaction.editReply({ embeds: [embed], components });
@@ -426,7 +450,7 @@ module.exports = {
                 });
             }
 
-            const components = [this.createNavigationButtons('winloss')];
+            const components = this.createNavigationButtons('winloss');
             
             if (isUpdate) {
                 await interaction.editReply({ embeds: [embed], components });
@@ -533,7 +557,7 @@ module.exports = {
                 });
             }
 
-            const components = [this.createNavigationButtons('offeco')];
+            const components = this.createNavigationButtons('offeco');
             
             if (isUpdate) {
                 await interaction.editReply({ embeds: [embed], components });
@@ -544,6 +568,227 @@ module.exports = {
 
         } catch (error) {
             logger.error('Error in off-economy leaderboard:', error.message);
+            throw error;
+        }
+    },
+
+    async showMarriageLeaderboard(interaction, guildId, limit, isUpdate = false) {
+        logger.info(`Starting marriage leaderboard query: guildId=${guildId}, limit=${limit}`);
+        
+        try {
+            const marriages = await dbManager.databaseAdapter.executeQuery(`
+                SELECT 
+                    m.id as marriage_id,
+                    m.partner1_name,
+                    m.partner2_name,
+                    m.married_at,
+                    COALESCE(mx.level, ml.current_level, 1) as level,
+                    COALESCE(mx.total_xp, ml.current_xp, 0) as total_xp,
+                    DATEDIFF(NOW(), m.married_at) as days_married,
+                    COALESCE(
+                        (
+                            SELECT SUM(
+                                CASE WHEN mcp.challenge_1_completed = TRUE THEN 1 ELSE 0 END +
+                                CASE WHEN mcp.challenge_2_completed = TRUE THEN 1 ELSE 0 END +
+                                CASE WHEN mcp.challenge_3_completed = TRUE THEN 1 ELSE 0 END +
+                                CASE WHEN mcp.challenge_4_completed = TRUE THEN 1 ELSE 0 END +
+                                CASE WHEN mcp.bonus_challenge_completed = TRUE THEN 1 ELSE 0 END
+                            ) FROM marriage_challenge_progress mcp 
+                            WHERE mcp.marriage_id = m.id
+                        ), 
+                        COALESCE(ml.total_challenges_completed, 0)
+                    ) as challenges_completed
+                FROM marriages m
+                LEFT JOIN marriage_xp mx ON m.id = mx.marriage_id
+                LEFT JOIN marriage_levels ml ON m.id = ml.marriage_id
+                WHERE m.status = 'active'
+                ORDER BY total_xp DESC, level DESC, days_married DESC
+                LIMIT ?
+            `, [limit]);
+
+            const totalMarriages = await dbManager.databaseAdapter.executeQuery(`
+                SELECT COUNT(*) as count
+                FROM marriages 
+                WHERE status = 'active'
+            `);
+
+            const embed = new EmbedBuilder()
+                .setTitle('💕 Marriage Leaderboard - Top Couples')
+                .setDescription(`Most successful marriages ranked by XP and level (${totalMarriages[0]?.count || 0} active marriages)`)
+                .setColor(0xFF69B4)
+                .setTimestamp();
+
+            if (marriages.length === 0) {
+                embed.addFields({
+                    name: '💔 No Active Marriages',
+                    value: 'No active marriages found yet!\n\nUse `/propose @user` to start a marriage!',
+                    inline: false
+                });
+            } else {
+                let leaderboardText = '';
+                for (let i = 0; i < marriages.length; i++) {
+                    const marriage = marriages[i];
+                    const rank = i + 1;
+                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
+                    
+                    const level = parseInt(marriage.level) || 1;
+                    const totalXp = parseInt(marriage.total_xp) || 0;
+                    const daysMarried = parseInt(marriage.days_married) || 0;
+                    const challenges = parseInt(marriage.challenges_completed) || 0;
+                    
+                    leaderboardText += `${medal} **${marriage.partner1_name}** 💕 **${marriage.partner2_name}**\n`;
+                    leaderboardText += `\`\`\`⭐ Level ${level} \u2022 ${totalXp.toLocaleString()} XP\n`;
+                    leaderboardText += `📅 ${daysMarried} days together \u2022 🏆 ${challenges} challenges\`\`\`\n`;
+                }
+
+                const chunks = chunkText(leaderboardText);
+                chunks.forEach((chunk, idx) => {
+                    embed.addFields({
+                        name: idx === 0 ? '👑 Top Couples' : '👑 Top Couples (cont.)',
+                        value: chunk,
+                        inline: false
+                    });
+                });
+
+                // Add marriage statistics
+                if (marriages.length > 0) {
+                    const totalXp = marriages.reduce((sum, m) => sum + (parseInt(m.total_xp) || 0), 0);
+                    const avgXp = totalXp / marriages.length;
+                    const totalDays = marriages.reduce((sum, m) => sum + (parseInt(m.days_married) || 0), 0);
+                    const avgDays = totalDays / marriages.length;
+                    const totalChallenges = marriages.reduce((sum, m) => sum + (parseInt(m.challenges_completed) || 0), 0);
+                    
+                    embed.addFields({
+                        name: '📊 Marriage Statistics',
+                        value: `**XP:** ${totalXp.toLocaleString()} total \u2022 ${Math.round(avgXp).toLocaleString()} avg\n**Duration:** ${Math.round(avgDays)} avg days \u2022 ${totalChallenges} total challenges`,
+                        inline: false
+                    });
+                }
+            }
+
+            const components = this.createNavigationButtons('marriage');
+            
+            if (isUpdate) {
+                await interaction.editReply({ embeds: [embed], components });
+            } else {
+                await interaction.editReply({ embeds: [embed], components });
+                this.setupButtonCollector(interaction, guildId, limit);
+            }
+
+        } catch (error) {
+            logger.error('Error in marriage leaderboard:', error.message);
+            throw error;
+        }
+    },
+
+    async showXPLeaderboard(interaction, guildId, limit, isUpdate = false) {
+        logger.info(`Starting XP leaderboard query: guildId=${guildId}, limit=${limit}`);
+        
+        try {
+            const users = await dbManager.databaseAdapter.executeQuery(`
+                SELECT DISTINCT
+                    ul.user_id,
+                    ub.username,
+                    ul.level,
+                    ul.xp,
+                    ul.total_xp,
+                    ul.games_played,
+                    ul.games_won,
+                    ul.last_level_up,
+                    ul.created_at,
+                    (ub.wallet + ub.bank) as total_balance
+                FROM user_levels ul
+                LEFT JOIN user_balances ub ON ul.user_id COLLATE utf8mb4_unicode_ci = ub.user_id COLLATE utf8mb4_unicode_ci
+                WHERE ub.user_id != '466050111680544798'
+                    AND (ub.off_economy = FALSE OR ub.off_economy IS NULL)
+                    AND ul.total_xp > 0
+                ORDER BY ul.total_xp DESC, ul.level DESC
+                LIMIT ?
+            `, [limit]);
+
+            const totalUsers = await dbManager.databaseAdapter.executeQuery(`
+                SELECT COUNT(DISTINCT ul.user_id) as count
+                FROM user_levels ul
+                LEFT JOIN user_balances ub ON ul.user_id COLLATE utf8mb4_unicode_ci = ub.user_id COLLATE utf8mb4_unicode_ci
+                WHERE ub.user_id != '466050111680544798'
+                    AND (ub.off_economy = FALSE OR ub.off_economy IS NULL)
+                    AND ul.total_xp > 0
+            `);
+
+            const embed = new EmbedBuilder()
+                .setTitle('⭐ XP Leaderboard - Level Rankings')
+                .setDescription(`Top players by experience points and level (${totalUsers[0]?.count || 0} total users)`)
+                .setColor(0xFFD700)
+                .setTimestamp();
+
+            if (users.length === 0) {
+                embed.addFields({
+                    name: '🎮 No XP Data',
+                    value: 'No users with XP data found yet!\n\nStart playing games to earn XP and level up!',
+                    inline: false
+                });
+            } else {
+                let leaderboardText = '';
+                for (let i = 0; i < users.length; i++) {
+                    const user = users[i];
+                    const rank = i + 1;
+                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `**${rank}.**`;
+                    const username = user.username || `User ${user.user_id}`;
+                    
+                    const level = parseInt(user.level) || 1;
+                    const currentXp = parseInt(user.xp) || 0;
+                    const totalXp = parseInt(user.total_xp) || 0;
+                    const gamesPlayed = parseInt(user.games_played) || 0;
+                    const gamesWon = parseInt(user.games_won) || 0;
+                    const winRate = gamesPlayed > 0 ? ((gamesWon / gamesPlayed) * 100).toFixed(1) : '0.0';
+                    
+                    // Calculate XP needed for next level (simple formula: level * 1000)
+                    const xpForNext = level * 1000;
+                    const xpProgress = Math.min(currentXp, xpForNext);
+                    const progressPercent = xpForNext > 0 ? ((xpProgress / xpForNext) * 100).toFixed(1) : '100.0';
+                    
+                    leaderboardText += `${medal} **${username}** - Level ${level}\n`;
+                    leaderboardText += `\`\`\`⭐ ${totalXp.toLocaleString()} Total XP \u2022 ${currentXp}/${xpForNext} (${progressPercent}%)\n`;
+                    leaderboardText += `🎮 ${gamesPlayed} games \u2022 ${winRate}% win rate\`\`\`\n`;
+                }
+
+                const chunks = chunkText(leaderboardText);
+                chunks.forEach((chunk, idx) => {
+                    embed.addFields({
+                        name: idx === 0 ? '🏆 XP Champions' : '🏆 XP Champions (cont.)',
+                        value: chunk,
+                        inline: false
+                    });
+                });
+
+                // Add XP statistics
+                if (users.length > 0) {
+                    const totalXp = users.reduce((sum, u) => sum + (parseInt(u.total_xp) || 0), 0);
+                    const avgXp = totalXp / users.length;
+                    const totalGames = users.reduce((sum, u) => sum + (parseInt(u.games_played) || 0), 0);
+                    const totalWins = users.reduce((sum, u) => sum + (parseInt(u.games_won) || 0), 0);
+                    const overallWinRate = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : '0.0';
+                    const avgLevel = users.reduce((sum, u) => sum + (parseInt(u.level) || 1), 0) / users.length;
+                    
+                    embed.addFields({
+                        name: '📊 XP Statistics',
+                        value: `**XP:** ${totalXp.toLocaleString()} total \u2022 ${Math.round(avgXp).toLocaleString()} avg\n**Levels:** ${avgLevel.toFixed(1)} avg level \u2022 **Gaming:** ${overallWinRate}% win rate`,
+                        inline: false
+                    });
+                }
+            }
+
+            const components = this.createNavigationButtons('xp');
+            
+            if (isUpdate) {
+                await interaction.editReply({ embeds: [embed], components });
+            } else {
+                await interaction.editReply({ embeds: [embed], components });
+                this.setupButtonCollector(interaction, guildId, limit);
+            }
+
+        } catch (error) {
+            logger.error('Error in XP leaderboard:', error.message);
             throw error;
         }
     },
@@ -575,6 +820,12 @@ module.exports = {
                     case 'leaderboard_offeco':
                         await this.showOffEconomyLeaderboard(i, guildId, limit, true);
                         break;
+                    case 'leaderboard_marriage':
+                        await this.showMarriageLeaderboard(i, guildId, limit, true);
+                        break;
+                    case 'leaderboard_xp':
+                        await this.showXPLeaderboard(i, guildId, limit, true);
+                        break;
                 }
             } catch (error) {
                 logger.error(`Leaderboard button error (${i.customId}): ${error.message}`);
@@ -583,16 +834,16 @@ module.exports = {
 
         collector.on('end', () => {
             // Disable all buttons after collector ends
-            const disabledRow = new ActionRowBuilder()
+            const disabledRow1 = new ActionRowBuilder()
                 .addComponents(
                     new ButtonBuilder()
                         .setCustomId('disabled_server')
-                        .setLabel('🏠 Server')
+                        .setLabel('💰 Top Players')
                         .setStyle(ButtonStyle.Primary)
                         .setDisabled(true),
                     new ButtonBuilder()
                         .setCustomId('disabled_global')
-                        .setLabel('🌍 Global')
+                        .setLabel('🌍 All Players')
                         .setStyle(ButtonStyle.Success)
                         .setDisabled(true),
                     new ButtonBuilder()
@@ -606,8 +857,22 @@ module.exports = {
                         .setStyle(ButtonStyle.Danger)
                         .setDisabled(true)
                 );
+            
+            const disabledRow2 = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('disabled_marriage')
+                        .setLabel('💕 Marriages')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId('disabled_xp')
+                        .setLabel('⭐ XP/Levels')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true)
+                );
 
-            interaction.editReply({ components: [disabledRow] }).catch(() => {
+            interaction.editReply({ components: [disabledRow1, disabledRow2] }).catch(() => {
                 // Ignore errors if message was deleted
             });
         });

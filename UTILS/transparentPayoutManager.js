@@ -16,11 +16,31 @@ class HonestPayoutManager {
             
             // House Edge Configuration (applied transparently upfront)
             houseEdges: {
-                slots: 0.03,        // 3% house edge (97% RTP) - reduced from 5%
-                plinko: 0.02,       // 2% house edge (98% RTP) - reduced from 3%
-                crash: 0.025,       // 2.5% house edge (97.5% RTP) - reduced from 4%
+                slots: 0.02,        // 2% house edge (98% RTP) - REDUCED FOR FAIRNESS
+                plinko: 0.015,      // 1.5% house edge (98.5% RTP) - REDUCED FOR FAIRNESS  
+                crash: 0.02,        // 2% house edge (98% RTP) - REDUCED FOR FAIRNESS
                 blackjack: 0.005,   // 0.5% house edge (99.5% RTP) - kept same
-                roulette: 0.027     // 2.7% house edge (97.3% RTP) - kept same (standard)
+                roulette: 0.027,    // 2.7% house edge (97.3% RTP) - kept same (standard)
+                keno: 0.08,         // 8% house edge (92% RTP) - REDUCED FOR FAIRNESS
+                mines: 0.05,        // 5% house edge (95% RTP) - REDUCED FOR FAIRNESS
+                bingo: 0.05,        // 5% house edge (95% RTP) - REDUCED FOR FAIRNESS
+                fishing: 0.02,      // 2% house edge (98% RTP) - REDUCED FOR FAIRNESS
+                ceelo: 0.02,        // 2% house edge (98% RTP) - REDUCED FOR FAIRNESS
+                treasurevault: 0.025, // 2.5% house edge (97.5% RTP) - REDUCED FOR FAIRNESS
+                multi_slots: 0.02,  // 2% house edge (98% RTP) - REDUCED FOR FAIRNESS
+                yahtzee: 0.03,      // 3% house edge (97% RTP) - REDUCED FOR FAIRNESS
+                battleship: 0.01,   // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS
+                wordchain: 0.01,    // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS
+                rps: 0.01,          // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS
+                duck: 0.01,         // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS
+                uno: 0.01,          // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS
+                war: 0.01,          // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS
+                spades: 0.01,       // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS
+                '31': 0.01,         // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS
+                russianroulette: 0.015, // 1.5% house edge (98.5% RTP) - REDUCED FOR FAIRNESS
+                heist: 0.03,        // 3% house edge (97% RTP) - REDUCED FOR FAIRNESS
+                lottery: 0.25,      // 25% house edge (75% RTP) - REDUCED FOR FAIRNESS
+                scratch: 0.1        // 10% house edge (90% RTP) - REDUCED FOR FAIRNESS
             },
             
             // Audit Trail

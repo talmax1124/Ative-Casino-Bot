@@ -24,6 +24,7 @@ const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { secureRandomFloat } = require('../UTILS/rng');
 const tuningManager = require('../UTILS/tuningManager');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
+const adaptiveGameMechanics = require('../UTILS/adaptiveGameMechanics');
 
 // ECONOMIC SYSTEM COMPLIANT - Progressive difficulty modes with incremental multipliers to 3x max
 const CRASH_MODES = {
@@ -71,6 +72,22 @@ const CRASH_CONFIG = {
   max_duration: 30,           // Max 30 seconds per game
   betting_duration: 60        // 60 seconds to place bets
 };
+
+// Adaptive crash point generation using wealth-based mechanics
+async function generateAdaptiveCrashPoint(userId, currentWealth, betAmount, mode = 'balanced') {
+  try {
+    const adaptedCrashPoint = await adaptiveGameMechanics.getAdaptedCrashPoint(userId, currentWealth, betAmount);
+    if (adaptedCrashPoint) {
+      logger.info(`Adaptive crash point for user ${userId}: ${adaptedCrashPoint.toFixed(2)}x`);
+      return adaptedCrashPoint;
+    }
+  } catch (error) {
+    logger.error(`Failed to get adaptive crash point: ${error.message}`);
+  }
+  
+  // Fallback to standard generation
+  return generateCrashPoint(mode);
+}
 
 // Advanced crash point generation with CSPRNG and mode-specific maximums
 function generateCrashPoint(mode = 'balanced') {

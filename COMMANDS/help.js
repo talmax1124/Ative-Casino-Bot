@@ -128,59 +128,32 @@ async function handleHelpError(interaction, error) {
  */
 async function showMainHelp(interaction) {
     const embed = new EmbedBuilder()
-        .setTitle('🎰 ATIVE Casino Bot - Command Center')
-        .setDescription(`**Welcome to the ultimate Discord casino experience!**\n\n🎯 **Quick Navigation:** Use the dropdown below or quick action buttons\n📊 **Live Stats:** ${interaction.guild.memberCount} members | Uptime: ${formatUptime()}\n\n*Select a category to explore detailed help and tutorials.*`)
+        .setTitle('🎰 ATIVE Casino Bot - Help Center')
+        .setDescription('**Welcome to ATIVE Casino!** The premier Discord gambling experience.\n\n🚀 **Quick Start Guide:**\n1. Use `/work` to earn your first coins\n2. Try `/slots 100` to test your luck\n3. Use `/balance` to check your money\n4. Bank funds with the deposit button for safety\n\n💡 **Need more info?** Select a category below for detailed help!')
         .addFields(
             {
-                name: '🎰 **Casino Games Hub**',
-                value: '```\n🎲 Slots & Multi-Slots  🃏 Blackjack & Poker\n🎣 Fishing & Plinko    🎯 Crash & RPS\n🦆 Duck Hunt & Bingo   🎮 UNO & Battleship\n🔗 Word Chain & More!\n```',
-                inline: true
+                name: '📋 Basic Commands Overview',
+                value: '```yaml\n🎰 Games:     /slots, /blackjack, /roulette, /crash\n💰 Earning:   /work, /vote, /crime, /beg, /dailytask\n🏦 Banking:   /balance, /sendmoney, /deposit, /withdraw\n🎟️ Lottery:   Every Tuesday & Saturday at 10AM EST\n💕 Marriage:  /propose, /start-marriage, /shared-bank\n🎖️ Progress:  /rank, /leaderboard, /stats\n```',
+                inline: false
             },
             {
-                name: '💰 **Economy & Finance**',
-                value: '```\n💼 Work & Business     🏦 Banking System\n🦹 Rob & Heist        💸 Send Money\n📈 Investments        🎖️ Tier Progression\n💎 Interest & Rewards\n```',
-                inline: true
-            },
-            {
-                name: '🎟️ **Lottery & Prizes**',
-                value: '```\n🎫 Bi-Weekly Drawings  🏆 Massive Prizes\n📊 Prize Pool Growth   🎯 Ticket Strategy\n📅 Tue & Sat 10AM EST 💰 Community Pool\n```',
-                inline: true
-            },
-            {
-                name: '👑 **Admin & Management**',
-                value: '```\n🛠️ Server Setup       📊 User Management\n💰 Economy Control    🎮 Game Oversight\n📈 Statistics Panel   🔐 Security Tools\n```',
-                inline: true
-            },
-            {
-                name: '🎖️ **Tier System**',
-                value: '```\n🥉 Bronze → ⚡ Mythic  💸 Interest Rates\n🎁 Exclusive Benefits  🔝 Higher Limits\n🛡️ Robbery Protection 📊 Progress Track\n```',
-                inline: true
-            },
-            {
-                name: '🛡️ **Security & Fair Play**',
-                value: '```\n🔐 Anti-Cheat System  ⚖️ Fair Odds\n📋 Community Rules    🚫 Abuse Prevention\n📊 Transparency Logs  🤝 Player Safety\n```',
-                inline: true
-            }
-        )
-        .addFields(
-            {
-                name: '🚀 **Quick Start Guide**',
-                value: '`1.` Check balance with `/balance` → `2.` Earn with `/work` or visit portal → `3.` Play `/slots 100` → `4.` Bank money for safety → `5.` Buy lottery tickets (Tue/Sat) → `6.` Ask `/askative` for help!',
+                name: '🌐 Web Portal Access',
+                value: '**No Cooldowns • Instant Earnings • 24/7 Access**\n🔗 https://ative-casino-bot-production.up.railway.app/',
                 inline: false
             }
         )
-        .setColor(0xFFD700)
+        .setColor(0x3498DB) // Clean blue color
         .setThumbnail(interaction.client.user.displayAvatarURL({ size: 256 }))
         .setFooter({ 
-            text: `🎰 Help Center • Page 1/6 • ATIVE Casino Bot`, 
+            text: `ATIVE Casino Help Center • Use the dropdown menu to explore categories`, 
             iconURL: interaction.client.user.displayAvatarURL() 
         })
         .setTimestamp();
 
-    // Advanced category selection dropdown
+    // Simple category selection dropdown
     const categorySelect = new StringSelectMenuBuilder()
         .setCustomId('help_category_select')
-        .setPlaceholder('📂 Select a help category to explore...')
+        .setPlaceholder('📂 Select a category for detailed information...')
         .setMinValues(1)
         .setMaxValues(1)
         .addOptions(
@@ -194,61 +167,16 @@ async function showMainHelp(interaction) {
 
     const selectRow = new ActionRowBuilder().addComponents(categorySelect);
 
-    // Modern button layout
-    const quickButtons = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('help_all_commands')
-                .setLabel('📋 All Commands')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📋'),
-            new ButtonBuilder()
-                .setCustomId('help_quick_start')
-                .setLabel('🚀 Quick Start')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('🚀'),
-            new ButtonBuilder()
-                .setCustomId('help_tutorials')
-                .setLabel('📚 Tutorials')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('📚'),
-            new ButtonBuilder()
-                .setCustomId('help_support')
-                .setLabel('💬 Support')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('💬')
-        );
-
-    // Navigation buttons
-    const navButtons = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('help_stats')
-                .setLabel('📊 Bot Stats')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📊'),
-            new ButtonBuilder()
-                .setCustomId('help_changelog')
-                .setLabel('📰 What\'s New')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📰'),
-            new ButtonBuilder()
-                .setCustomId('help_close')
-                .setLabel('❌ Close Help')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('❌')
-        );
-
     try {
         if (interaction.deferred) {
             await interaction.editReply({ 
                 embeds: [embed], 
-                components: [selectRow, quickButtons, navButtons] 
+                components: [selectRow] 
             });
         } else {
             await interaction.reply({ 
                 embeds: [embed], 
-                components: [selectRow, quickButtons, navButtons] 
+                components: [selectRow] 
             });
         }
     } catch (error) {
@@ -294,52 +222,17 @@ async function showCategoryHelp(interaction, category) {
             return;
     }
 
-    // Navigation controls
+    // Simple navigation back to main help
     const navControls = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
                 .setCustomId('help_back_main')
-                .setLabel('🏠 Main Help')
+                .setLabel('🏠 Back to Main Help')
                 .setStyle(ButtonStyle.Primary)
-                .setEmoji('🏠'),
-            new ButtonBuilder()
-                .setCustomId('help_refresh_category')
-                .setLabel('🔄 Refresh')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('🔄'),
-            new ButtonBuilder()
-                .setCustomId(`help_tutorial_${category}`)
-                .setLabel('📖 Tutorial')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('📖'),
-            new ButtonBuilder()
-                .setCustomId('help_close')
-                .setLabel('❌ Close')
-                .setStyle(ButtonStyle.Danger)
-                .setEmoji('❌')
+                .setEmoji('🏠')
         );
 
-    // Category-specific quick actions
-    const quickActions = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId(`help_examples_${category}`)
-                .setLabel('💡 Examples')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('💡'),
-            new ButtonBuilder()
-                .setCustomId(`help_tips_${category}`)
-                .setLabel('🎯 Pro Tips')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('🎯'),
-            new ButtonBuilder()
-                .setCustomId(`help_faq_${category}`)
-                .setLabel('❓ FAQ')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('❓')
-        );
-
-    const components = [navControls, quickActions, ...extraComponents];
+    const components = [navControls, ...extraComponents];
 
     try {
         if (interaction.deferred) {
@@ -354,303 +247,246 @@ async function showCategoryHelp(interaction, category) {
 }
 
 /**
- * Create modern games help with rich formatting
+ * Create modern games help with accurate, up-to-date information
  */
 function createGamesHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Complete Guide`)
-        .setDescription('**🎰 Experience Las Vegas right in Discord! 🎰**\n\n*All games feature provably fair odds, cryptographic RNG, and real-time results.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        .setTitle(`🎰 ${categoryInfo.name}`)
+        .setDescription('**23 games available • Provably fair • Real-time results**')
         .addFields(
             {
-                name: '🎰 **Slot Machines** 🎰',
-                value: '```yaml\nClassic Slots: /slots <amount>\nMulti-Line:   /multi-slots <amount> [lines]\nPayouts:      🍒 2x → 💎 50x → 7️⃣ JACKPOT!\nMin Bet:      $100 | Max Bet: No Limit*\n```\n🎯 **Features:** Auto-spin, bonus rounds, progressive jackpots\n❓ *Click the ? button in-game for detailed paytable*',
+                name: '🎰 Slot Machine Games',
+                value: '```yaml\n/slots <amount> [mode]     - Classic slots with 4 difficulty modes\n/multi-slots <amount>     - Multi-line slot machine\n\n• Modes: Safe, Balanced, Risky, Extreme\n• Payouts: 🍒 2x → 💎 50x → 7️⃣ JACKPOT!\n• Features: Auto-spin, progressive jackpots\n```',
                 inline: false
             },
             {
-                name: '🃏 **Card Games** 🃏',
-                value: '```yaml\nBlackjack:    /blackjack <amount>\nActions:      Hit, Stand, Double Down, Split\nPayouts:      21 = 3:2 | Blackjack = 2:1 | Insurance Available\nStrategy:     Basic strategy charts available\n```\n🎯 **Pro Tips:** Learn basic strategy, manage bankroll, use insurance wisely',
+                name: '🃏 Card & Table Games',
+                value: '```apache\n/blackjack <amount> [mode] - Professional blackjack\n/roulette <amount> [mode]  - European roulette\n/uno <amount>              - Classic UNO with friends\n\n• Actions: Hit, Stand, Double Down, Split, Insurance\n• Modes affect payout multipliers\n• Strategy charts available in-game\n```',
                 inline: false
             },
             {
-                name: '🎣 **Skill & Strategy Games** 🎣',
-                value: '```yaml\nFishing:      /fishing <amount> - Risk vs Reward\nPlinko:       /plinko <amount> - Drop & Multiply  \nCrash:        /crash <amount> [auto] - Cash Out Game\nRPS:          /rps <amount> - Rock Paper Scissors\n```\n🎯 **Winning Strategy:** Balance risk/reward, timing is everything',
+                name: '🎯 Strategy & Risk Games',
+                value: '```diff\n+ /mines <amount> [mode]   - NEW! Minesweeper gambling\n+ /plinko <amount> [mode] - Physics ball drop game\n+ /crash <amount> [mode]  - Real-time cash out timing\n+ /fishing <amount>       - Risk vs reward adventure\n\n• Mines: 4x4 to 7x7 grids, 3-10 mines\n• Progressive multipliers\n• Strategic timing required\n```',
                 inline: false
             },
             {
-                name: '🎮 **Social & Party Games** 🎮',
-                value: '```yaml\nUNO:          /uno - Classic card game with friends\nBingo:        /bingo - Community bingo sessions\nDuck Hunt:    /duck [mode] - Survival adventure\nBattleship:   /battleship - Strategic naval combat\n```\n🎯 **Community Features:** Tournaments, leaderboards, achievements',
+                name: '🎲 Dice & Number Games',
+                value: '```css\n/ceelo <amount> [mode]          - Traditional Chinese dice\n/yahtzee <amount>               - Five dice combinations\n/keno <amount> <spots> [mode]   - Number lottery (1-10 spots)\n/russianroulette <amount>       - High-stakes elimination\n\n• Multiple betting modes and difficulty levels\n• Strategic rerolls and number selection\n```',
                 inline: false
             },
             {
-                name: '⚔️ **PvP & Competitive** ⚔️',
-                value: '```yaml\nWord Chain:   /wordchain - Word association challenge\nBattleship:   /battleship - 1v1 naval strategy\nTournaments:  Coming Soon - Organized competitions\nRankings:     /leaderboard games - See top players\n```\n🎯 **Competitive Play:** Rankings, tournaments, seasonal rewards',
-                inline: false
-            },
-            {
-                name: '📊 **Game Statistics & Fair Play** 📊',
-                value: '• **🔍 Transparency:** All odds displayed clearly\n• **🎲 RNG:** Cryptographically secure randomization\n• **📈 Stats:** Track your wins, losses, and streaks\n• **🛡️ Fair Play:** Anti-cheat systems active\n• **❓ Help:** Every game has interactive tutorials\n• **💰 Responsible Gaming:** Set limits, play smart',
+                name: '🎪 Social & Party Games',
+                value: '```ini\n[Community] /bingo <amount>     - Social bingo sessions\n[PvP]       /battleship <amount> - Naval combat strategy\n[Chain]     /wordchain          - Word association challenge\n[Adventure] /duck <amount>      - Survival adventure game\n[Instant]   /scratch            - Virtual scratch tickets\n[Treasure]  /treasurevault      - Adventure-themed gambling\n```',
                 inline: false
             }
         )
         .setColor(categoryInfo.color)
-        .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ 
-            text: `🎰 ${categoryInfo.name} • Updated ${new Date().toLocaleDateString()} • ATIVE Casino Bot`, 
-            iconURL: interaction.client.user.displayAvatarURL() 
-        })
+        .setFooter({ text: `${categoryInfo.name} • Select from 23 different games • Fair play guaranteed` })
         .setTimestamp();
 }
 
 /**
- * Create modern economy help
+ * Create modern economy help with current accurate data
  */
 function createEconomyHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Financial Guide`)
-        .setDescription('**💰 Build Your Fortune & Climb the Ranks! 💰**\n\n*Master the economy system with smart investments, strategic gameplay, and calculated risks.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        .setTitle(`💰 ${categoryInfo.name}`)
+        .setDescription('**Build your fortune with 12 economy commands • Tier-based progression**')
         .addFields(
             {
-                name: '💼 **Income Generation** 💼',
-                value: '```yaml\nWork:         /work - Jobs paying $5K-30K (1hr cooldown)\nBeg:          /beg - Handouts $1K-10K (1hr cooldown)  \nCrime:        /crime - Quick $1K-5K (30min cooldown)\nHeist:        /heist - Big scores $10K-30K (2.5hr cooldown)\n```\n💰 **INSTANT MONEY:** Visit our portal for no-cooldown earnings!\n🔗 **Portal Link:** https://ative-casino-bot-production.up.railway.app/\n🎯 **Pro Strategy:** Rotate all income sources for maximum earnings',
+                name: '💼 Income Generation Commands',
+                value: '```fix\n/work             5K-30K    (1hr cooldown)\n/earn             15K-30K   (1hr cooldown) \n/beg              1K-10K    (1hr cooldown)\n/crime            1K-5K     (30min cooldown)\n/dailytask        5K-15K    (24hr cooldown)\n/quiz             3K-8K     (2hr cooldown)\n/earnmoney        ALL ABOVE (5min cooldown - PREMIUM)\n\n• Shop boosts apply to all earnings\n• Server boosters get +5% bonus\n```',
                 inline: false
             },
             {
-                name: '🏦 **Banking & Wealth Management** 🏦',
-                value: '```yaml\nBalance:      /balance [user] - Check wallet, bank, tier\nBanking:      Use balance panel to deposit/withdraw\nInterest:     Daily compound interest on bank balance\nTransfers:    /sendmoney <user> <amount> (5% fee)\n```\n🎯 **Wealth Tips:** Bank money ASAP for interest and robbery protection',
+                name: '🏦 Banking & Transfers',
+                value: '```ini\n[Check]    /balance [user]      - Wallet, bank, tier info\n[Store]    /deposit <amount>    - Bank money for interest\n[Access]   /withdraw <amount>   - Take from bank\n[Send]     /sendmoney <user>    - Transfer (5% fee to lottery)\n[Joint]    /shared-bank         - Marriage joint account\n\n• Bank money earns daily compound interest\n• Banked money protected from robbery\n```',
                 inline: false
             },
             {
-                name: '🦹 **Risk & Robbery System** 🦹',
-                value: '```yaml\nRobbery:      /rob <user> - Steal 8% of target money\nRisk:         4% penalty if caught + cooldown\nProtection:   Can\'t rob 3+ tiers higher than you\nDeveloper:    Protected from all robbery attempts\n```\n⚠️ **Risk Management:** Higher tiers = better protection',
+                name: '🛒 Shop & Premium Features',
+                value: '```diff\n+ /shop                   - Economy boosts & unlocks\n+ Economy Boost Items:    - Temporary earning multipliers\n+ EarnMoney Unlock:       - Bypass voting requirements\n+ Cosmetic Items:         - Profile decorations & colors\n+ Role Colors:            - Custom Discord role colors\n\n• Boost all earning commands simultaneously\n• Permanent and temporary upgrades available\n```',
                 inline: false
             },
             {
-                name: '🎖️ **Tier System Benefits** 🎖️',
-                value: '```yaml\nProgression:  🥉 Bronze → 🥈 Silver → 🥇 Gold → 💎 Diamond → ⚡ Mythic\nInterest:     0% → 2% → 5% → 8% → 10% annually\nProtection:   Higher tiers harder to rob\nPerks:        Exclusive games, higher limits, special badges\n```\n📊 **View Details:** Use `/leaderboard tiers` for complete breakdown',
+                name: '🦹 Risk & Competition',
+                value: '```apache\n# /rob <user>            - Steal 8% of wallet (1hr cooldown)\n# Success/Failure:       - Variable by tier difference\n# Failure Penalty:       - Lose 4% of your money\n# Protection Rules:       - Can\'t rob 3+ tiers higher\n# Developer Immunity:     - ID 466050111680544798 protected\n# /robstats              - View robbery statistics\n\n• Higher tiers = better protection from robbery\n```',
                 inline: false
             },
             {
-                name: '💡 **Advanced Economy Strategies** 💡',
-                value: '• **🏦 Banking Priority:** Always bank excess funds for interest\n• **⏰ Cooldown Management:** Use all income sources efficiently  \n• **🎯 Tier Climbing:** Focus on total balance growth\n• **🛡️ Defense:** Higher tiers = robbery protection\n• **💸 Smart Spending:** Invest in games with good odds\n• **📈 Long-term:** Compound interest beats gambling',
+                name: '🎖️ Economic Tier System',
+                value: '```yaml\n🥉 Bronze:    $0 - $99K        (0% interest)\n🥈 Silver:    $100K - $499K    (2% annual interest)\n🥇 Gold:      $500K - $999K    (5% annual interest)\n💎 Diamond:   $1M - $4.99M     (8% annual interest)\n⚡ Mythic:    $5M+             (10% annual interest)\n\n• Based on total balance (wallet + bank)\n• Interest compounds daily on bank balance only\n• Higher tiers get robbery protection\n```',
                 inline: false
             }
         )
         .setColor(categoryInfo.color)
-        .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ 
-            text: `💰 ${categoryInfo.name} • Your path to riches • ATIVE Casino Bot`, 
-            iconURL: interaction.client.user.displayAvatarURL() 
-        })
+        .setFooter({ text: `${categoryInfo.name} • 🌐 Portal: https://ative-casino-bot-production.up.railway.app/` })
         .setTimestamp();
 }
 
 /**
- * Create modern lottery help
+ * Create modern lottery help with accurate current information
  */
 function createLotteryHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Win Big Bi-Weekly!`)
-        .setDescription('**🎟️ Every Tuesday & Saturday at 10:00 AM EST - Life-Changing Prizes! 🎟️**\n\n*Community-funded lottery with guaranteed winners and massive prize pools - Now twice per week!*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        .setTitle(`🎟️ ${categoryInfo.name}`)
+        .setDescription('**Bi-weekly drawings • Every Tuesday & Saturday 10AM EST • Life-changing prizes**')
         .addFields(
             {
-                name: '🎫 **How to Play & Win** 🎫',
-                value: '```yaml\nCheck Status: /lottery - View current lottery info\nBuy Tickets:  /purchaselottery <1-7> - Max 7 per person\nTicket Cost:  $12,000 each (investment in your future)\nDrawing:      Every Tuesday & Saturday 10:00 AM EST\n```\n🎯 **Strategy:** Buy max tickets early for best odds - twice the chances!',
+                name: '🎫 How to Play',
+                value: '```yaml\n/lottery              - Check current status & prize pool\n/purchaselottery      - Buy tickets for main lottery\n/lottery2             - Check secondary lottery\n/purchaselottery2     - Buy tickets for secondary lottery\n\n• Ticket Price: $12,000 each\n• Maximum: 7 tickets per person per lottery\n• Drawings: Every Tuesday & Saturday at 10:00 AM EST\n```',
                 inline: false
             },
             {
-                name: '🏆 **Prize Structure & Payouts** 🏆',
-                value: '```yaml\n🥇 1st Place:  45% of total prize pool\n🥈 2nd Place:  45% of total prize pool  \n🥉 3rd Place:  10% of total prize pool\nGuarantee:    3 winners EVERY week\nMin Pool:     $500K+ typical pools\n```\n💰 **Recent Winners:** Check announcements for latest prizes',
+                name: '🏆 Prize Structure',
+                value: '```apache\n# 1st Place:  45% of total prize pool\n# 2nd Place:  45% of total prize pool\n# 3rd Place:  10% of total prize pool\n# Guarantee:  3 winners every drawing\n# Typical:    $500K+ prize pools\n\n• Two separate lotteries running simultaneously\n• Community-funded with guaranteed winners\n• Fair random selection for all participants\n```',
                 inline: false
             },
             {
-                name: '📈 **Prize Pool Growth System** 📈',
-                value: '```yaml\nTicket Sales:     Every ticket adds to the pool\nTransaction Fees: 5% from /sendmoney transfers\nRobbery Penalties: Failed robbery attempts add fees\nCommunity Growth: Bigger community = bigger prizes\n```\n📊 **Pool Tracking:** Watch it grow throughout the week',
+                name: '📈 Prize Pool Sources',
+                value: '```diff\n+ Ticket Sales:       Every ticket purchased adds to pool\n+ Transfer Fees:      5% from /sendmoney transactions\n+ Robbery Penalties:  Failed robbery attempt fees\n+ Community Growth:   More players = bigger prizes\n\n• Real-time pool tracking and updates\n• Transparent funding system\n• No hidden fees or deductions\n```',
                 inline: false
             },
             {
-                name: '🎯 **Winning Strategies & Tips** 🎯',
-                value: '```yaml\nMax Purchase:     Buy all 7 tickets for best odds\nEarly Bird:       No advantage, but more excitement!\nConsistent Play:  Play every week to maximize chances\nCommunity:        Bigger server = bigger prize pools\n```\n🍀 **Remember:** Every ticket has an equal chance to win',
-                inline: false
-            },
-            {
-                name: '📢 **Lottery Features & Updates** 📢',
-                value: '• **⏰ Automatic Drawings:** No delays, precise timing\n• **📢 Winner Announcements:** Public celebration of winners\n• **🎫 Ticket Tracking:** See exactly how many tickets you own\n• **📊 Live Updates:** Prize pool updates in real-time\n• **🔍 Transparency:** All draws are logged and verifiable\n• **🎉 Community Events:** Special lottery bonus weeks',
+                name: '⚙️ Admin Controls',
+                value: '```fix\n/drawlottery CONFIRM  - Manual lottery drawing (admin only)\n\n• Emergency drawing capabilities\n• Automatic scheduled drawings\n• All draws logged and verifiable\n• Winner announcements in server\n```',
                 inline: false
             }
         )
         .setColor(categoryInfo.color)
-        .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ 
-            text: `🎟️ ${categoryInfo.name} • Next Drawing: Tue/Sat 10AM EST • ATIVE Casino Bot`, 
-            iconURL: interaction.client.user.displayAvatarURL() 
-        })
+        .setFooter({ text: `${categoryInfo.name} • Next Drawing: Tuesday/Saturday 10AM EST • Max 7 tickets each` })
         .setTimestamp();
 }
 
 /**
- * Create modern admin help
+ * Create modern admin help with current command information
  */
 function createAdminHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Server Management`)
-        .setDescription('**👑 Powerful Administration Tools 👑**\n\n*Complete server management with advanced controls and monitoring.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        .setTitle(`👑 ${categoryInfo.name}`)
+        .setDescription('**Server management & administration • 10 admin commands available**')
         .addFields(
             {
-                name: '💰 **Economy Administration** 💰',
-                value: '```yaml\nEdit Money:   /editmoney <user> <amount> [account]\nTransparency: All actions logged to admin channel\nSafeguards:   Multiple confirmation steps\n```\n🔒 **Permissions:** Administrator role or higher required',
+                name: '🛠️ Server Setup & Configuration',
+                value: '```yaml\n/setup                - Initial server configuration\n/admin or /portal     - Access admin web portal\n\n• Configure roles (ADMIN, MODS)\n• Setup logging channels\n• Bot permissions and features\n• Master control dashboard access\n```',
                 inline: false
             },
             {
-                name: '🛠️ **Server Setup & Management** 🛠️',
-                value: '```yaml\nInitial Setup: /setup - Configure bot for your server\nAdmin Panel:   /panel - Master control dashboard\nRole Config:   Setup ADMIN and MODS roles\nChannel Setup: Configure logging channels\n```\n📊 **Dashboard:** Centralized control for all functions',
+                name: '🎮 Game Control & Emergency Tools',
+                value: '```apache\n# /stopgame [user]      - Emergency game termination\n# /stopmysession        - User self-service session end\n# /sessionstatus [user] - Check/debug user sessions\n# /release <user>       - Free stuck user sessions\n\n• Automatic refunds for stopped games\n• Real-time session monitoring\n• Emergency intervention capabilities\n```',
                 inline: false
             },
             {
-                name: '🎮 **Game Control & Oversight** 🎮',
-                value: '```yaml\nStop Games:   /stopgame - Emergency game termination\nCrash Control: /stopcrash - Stop crash games instantly\nLottery Draw: /drawlottery CONFIRM - Manual lottery drawing\nRefunds:      Automatic refunds for stopped games\nMonitoring:   Real-time game activity tracking\n```\n🛡️ **Anti-Abuse:** Prevent and resolve gaming issues',
+                name: '📊 Monitoring & Fairness Systems',
+                value: '```fix\n/fairness              - NEW! Casino fairness monitoring\n  ├─ report            - Generate fairness reports\n  ├─ stats             - View house edge statistics\n  ├─ enable/disable    - Toggle fairness monitoring\n  └─ test/check        - Verify system integrity\n\n/wealth-protection     - NEW! Anti-billionaire monitoring\n  ├─ status/analyze    - Wealth distribution analysis\n  ├─ leaderboard       - Wealth rankings\n  └─ simulate          - Test protection scenarios\n```',
                 inline: false
             },
             {
-                name: '📊 **Statistics & Monitoring** 📊',
-                value: '```yaml\nBot Status:   /status - Uptime, performance metrics\nLeaderboards: /leaderboard - User rankings and stats\nPolls:        /polls create - Server community polls\nLogs:         Comprehensive activity logging\n```\n📈 **Analytics:** Track server engagement and bot performance',
+                name: '🏦 Economy & User Management',
+                value: '```ini\n[Cooldowns]  /cooldown [user]      - Check user cooldown status\n[Lottery]    /drawlottery CONFIRM  - Manual lottery drawing\n[System]     /maintenance <action> - Enable/disable maintenance\n\n• View all user earning command cooldowns\n• Emergency lottery drawing capabilities\n• System-wide maintenance mode control\n```',
                 inline: false
             },
             {
-                name: '🤖 **Assistant Features** 🤖',
-                value: '```yaml\nSession Mgmt: "release @user" - Free stuck sessions  \nMoney Help:   "check @user balance" - View user finances\nStuck Users:  Natural language: "I\'m stuck" for help\nPortal Promo: Auto-suggests portal for money questions\nSupport Hub:  Auto-redirects non-main server users\n```\n🧠 **Smart Help:** Built-in assistance system',
-                inline: false
-            },
-            {
-                name: '🔐 **Permission & Security System** 🔐',
-                value: '```yaml\nAdmin Roles:      ADMIN role or Discord Administrator\nModerator Roles:  MODS role (limited permissions)\nServer Owner:     Automatic full access\nDeveloper:        Ultimate access (ID: 466050111680544798)\n```\n⚙️ **Setup Guide:** Use `/setup` to configure roles properly',
-                inline: false
-            },
-            {
-                name: '📋 **Best Practices & Guidelines** 📋',
-                value: '• **📊 Monitor Logs:** Check admin channel regularly\n• **🎛️ Use Panels:** Bulk operations via control panels\n• **📈 Check Stats:** Monitor unusual activity patterns\n• **🛡️ Security First:** Verify before major actions\n• **📚 Documentation:** Keep records of admin actions\n• **👥 Team Work:** Coordinate with other administrators',
+                name: '🔐 Permission Requirements',
+                value: '```apache\n# Admin Commands:  ADMIN role OR Discord Administrator\n# Mod Commands:    MODS role (limited permissions)\n# Server Owner:    Automatic full access\n# Developer:       Ultimate access (ID: 466050111680544798)\n\n• Use /setup to configure roles properly\n• All admin actions logged to admin channel\n• Multiple confirmation steps for major actions\n```',
                 inline: false
             }
         )
         .setColor(categoryInfo.color)
-        .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ 
-            text: `👑 ${categoryInfo.name} • Server Management Tools • ATIVE Casino Bot`, 
-            iconURL: interaction.client.user.displayAvatarURL() 
-        })
+        .setFooter({ text: `${categoryInfo.name} • All actions logged • Use /setup for initial configuration` })
         .setTimestamp();
 }
 
 /**
- * Create modern tiers help
+ * Create modern tiers help with accurate current information
  */
 function createTiersHelp(interaction, categoryInfo) {
-    const tiers = getAllTiers().reverse();
-    
-    const embed = new EmbedBuilder()
-        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Progression System`)
-        .setDescription('**🎖️ Climb the Ranks & Unlock Exclusive Benefits! 🎖️**\n\n*Advance through tiers by building wealth and unlock powerful perks and protections.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+    return new EmbedBuilder()
+        .setTitle(`🎖️ ${categoryInfo.name}`)
+        .setDescription('**5-tier progression system • Based on total balance (wallet + bank)**')
+        .addFields(
+            {
+                name: '📊 Tier System Overview',
+                value: '```yaml\nCalculation: Wallet + Bank = Total Balance\nUpdates:     Real-time tier changes\nBenefits:    Interest rates + robbery protection\nInterest:    Compounds daily on bank balance only\nProtection:  Cannot rob 3+ tiers higher\n```',
+                inline: false
+            },
+            {
+                name: '🥉 Bronze Tier',
+                value: '```apache\n# Range:      $0 - $99,999\n# Interest:   0% annually\n# Status:     Starting tier\n# Features:   Basic access to all commands\n# Protection: None (vulnerable to all robbery)\n```',
+                inline: false
+            },
+            {
+                name: '🥈 Silver Tier',
+                value: '```diff\n+ Range:      $100,000 - $499,999\n+ Interest:   2% annually (0.005% daily)\n+ Status:     Regular player\n+ Features:   Basic banking benefits\n+ Protection: Protected from Bronze robberies\n```',
+                inline: false
+            },
+            {
+                name: '🥇 Gold Tier',
+                value: '```css\nRange:      $500,000 - $999,999\nInterest:   5% annually (0.014% daily)\nStatus:     Advanced player\nFeatures:   Higher betting limits\nProtection: Protected from Bronze + Silver robberies\n```',
+                inline: false
+            },
+            {
+                name: '💎 Diamond Tier',
+                value: '```fix\nRange:      $1,000,000 - $4,999,999\nInterest:   8% annually (0.022% daily)\nStatus:     High roller\nFeatures:   VIP status, exclusive perks\nProtection: Protected from Bronze/Silver/Gold robberies\n```',
+                inline: false
+            },
+            {
+                name: '⚡ Mythic Tier',
+                value: '```ini\n[Range]      $5,000,000+\n[Interest]   10% annually (0.027% daily)\n[Status]     Elite status\n[Features]   All perks, ultimate tier benefits\n[Protection] Protected from all lower tier robberies\n```',
+                inline: false
+            },
+            {
+                name: '💡 Important Notes',
+                value: '• **Interest compounds daily** on bank balance only\n• **Robbery protection** prevents attacks from 3+ tiers below\n• **Tier changes instantly** when balance changes\n• **Bank money for safety** - earn interest + robbery protection\n• **Total balance calculation** includes both wallet and bank',
+                inline: false
+            }
+        )
         .setColor(categoryInfo.color)
-        .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ 
-            text: `🎖️ ${categoryInfo.name} • Your Path to Prestige • ATIVE Casino Bot`, 
-            iconURL: interaction.client.user.displayAvatarURL() 
-        })
+        .setFooter({ text: `${categoryInfo.name} • Higher tiers = better interest + protection • Bank money safely` })
         .setTimestamp();
-
-    // Add tier progression visual
-    embed.addFields({
-        name: '📊 **Tier Progression Overview** 📊',
-        value: '```yaml\nProgression: Based on TOTAL BALANCE (wallet + bank)\nRequirement: Must maintain minimum for benefits\nBenefits:    Interest, protection, exclusive features\nCalculation: Updated in real-time with balance changes\n```\n🎯 **Pro Tip:** Bank money to boost total balance safely',
-        inline: false
-    });
-
-    // Add each tier with enhanced formatting
-    for (const tier of tiers) {
-        const rangeText = tier.max === Infinity ? `${tier.min.toLocaleString()}+` : `${tier.min.toLocaleString()} - ${tier.max.toLocaleString()}`;
-        let benefitsText = `💰 **Range:** $${rangeText}\n`;
-        
-        if (tier.interest > 0) {
-            benefitsText += `💸 **Interest:** ${(tier.interest * 100).toFixed(0)}% annually (${(tier.interest/365*100).toFixed(3)}% daily)\n`;
-        } else {
-            benefitsText += `💸 **Interest:** None\n`;
-        }
-
-        // Add tier-specific perks
-        let perks = [];
-        if (tier.key === 'BRONZE') perks.push('🎯 Starting tier', '📚 Learning phase');
-        if (tier.key === 'SILVER') perks.push('🏦 Basic banking', '💼 Regular jobs');
-        if (tier.key === 'GOLD') perks.push('🎮 Advanced games', '🔒 Robbery protection');
-        if (tier.key === 'PLATINUM') perks.push('🎮 Exclusive games', '💎 Premium features');
-        if (tier.key === 'DIAMOND') perks.push('🔝 Higher betting limits', '🖼️ GIF permissions', '👑 VIP status');
-        if (tier.key === 'LEGENDARY') perks.push('🏷️ Custom bot badge', '⚡ Priority support', '🎯 Special events');
-        if (tier.key === 'MYTHIC') perks.push('⚡ Ultimate tier', '🌟 All perks', '👑 Elite status');
-
-        if (perks.length > 0) {
-            benefitsText += `🎁 **Perks:** ${perks.join(', ')}`;
-        }
-
-        embed.addFields({
-            name: `${tier.emoji} **${tier.name.toUpperCase()} TIER** ${tier.emoji}`,
-            value: benefitsText,
-            inline: true
-        });
-    }
-
-    // Add important rules
-    embed.addFields({
-        name: '📋 **Important Tier Rules & Mechanics** 📋',
-        value: '• **💰 Total Balance:** Tier based on wallet + bank combined\n• **⏰ Real-time Updates:** Tier changes instantly with balance\n• **💸 Interest Calculation:** Compound daily on bank balance only\n• **🛡️ Robbery Protection:** 3+ tier difference prevents robbery\n• **📉 Tier Maintenance:** Must maintain minimum balance for benefits\n• **⚠️ Inactivity:** 10+ days inactive may affect tier status',
-        inline: false
-    });
-
-    return embed;
 }
 
 /**
- * Create modern security help
+ * Create modern security help with current systems
  */
 function createSecurityHelp(interaction, categoryInfo) {
     return new EmbedBuilder()
-        .setTitle(`${categoryInfo.emoji} ${categoryInfo.name} - Fair Play Guarantee`)
-        .setDescription('**🛡️ Security, Fairness & Community Standards 🛡️**\n\n*Built with security-first principles and transparent, fair gameplay for everyone.*\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+        .setTitle(`🛡️ ${categoryInfo.name}`)
+        .setDescription('**Military-grade security • Provably fair • Transparent operations**')
         .addFields(
             {
-                name: '🔐 **Advanced Security Features** 🔐',
-                value: '```yaml\nCryptographic RNG:  Provably fair randomization\nAnti-Exploit:       Advanced abuse detection systems\nAudit Logging:      Every action recorded and timestamped\nRate Limiting:      Prevents spam and automation\n```\n🛡️ **Industry Standard:** Military-grade security protocols',
+                name: '🔐 Advanced Security Systems',
+                value: '```yaml\nCryptographic RNG:    Military-grade randomization\nBulletproof Economy:  Anti-exploitation protection\nIntelligent Scaling:  AI-powered economic balancing\nReal-time Monitoring: 24/7 abuse detection\nAudit Logging:        Every action timestamped\n```',
                 inline: false
             },
             {
-                name: '⚖️ **Fair Play Guarantees** ⚖️',
-                value: '```yaml\nTransparent Odds:    All game odds clearly displayed\nNo Hidden Systems:   What you see is exactly what you get\nEqual Opportunity:   Same rules apply to everyone\nPublic Statistics:   Leaderboards show real, unmanipulated data\n```\n📊 **Verification:** All systems are auditable and transparent',
+                name: '⚖️ Fairness Monitoring (NEW!)',
+                value: '```apache\n# /fairness report     - Generate fairness analysis\n# /fairness stats      - View house edge statistics\n# /fairness test       - Verify system integrity\n# House Edge Tracking: - Real-time RTP monitoring\n# Transparent Odds:    - All game odds clearly displayed\n\n• Automatic fairness adjustments\n• Public statistical reporting\n• Provably fair algorithms\n```',
                 inline: false
             },
             {
-                name: '🚫 **Strictly Prohibited Activities** 🚫',
-                value: '```yaml\nAutomation/Botting:   Using scripts, bots, or automated tools\nBug Exploitation:     Abusing glitches or system vulnerabilities\nMultiple Accounts:    Using alt accounts to circumvent limits\nReal Money Trading:   Selling virtual currency for real money\n```\n⚠️ **Consequences:** Immediate suspension and potential ban',
+                name: '🛡️ Wealth Protection (NEW!)',
+                value: '```diff\n+ /wealth-protection status   - Monitor wealth distribution\n+ Anti-billionaire System:    - Prevents extreme accumulation\n+ Progressive Scaling:         - Mathematical wealth balancing\n+ Economic Zones:              - Automatic tier adjustments\n+ Real-time Analysis:          - Continuous wealth monitoring\n\n• Protects server economy health\n• Ensures fair competition\n• Prevents economic exploitation\n```',
                 inline: false
             },
             {
-                name: '⚡ **Automated Abuse Prevention** ⚡',
-                value: '```yaml\nPattern Detection:    AI identifies suspicious behavior\nCooldown Systems:     Prevents rapid-fire command abuse\nEconomic Penalties:   Fines and restrictions for violations\nAdmin Monitoring:     All actions logged and tracked\n```\n🤖 **Smart Detection:** Advanced algorithms protect fair play',
+                name: '🚫 Prohibited Activities',
+                value: '```ini\n[Automation]     Using bots, scripts, or automated tools\n[Exploitation]   Abusing bugs or system vulnerabilities\n[Multi-Account]  Using alt accounts to bypass limits\n[Real Trading]   Selling virtual currency for real money\n[Abuse]          Harassment, spam, or disruptive behavior\n\n⚠️ Violations result in immediate suspension\n```',
                 inline: false
             },
             {
-                name: '📊 **Reporting & Transparency System** 📊',
-                value: '```yaml\nMonitoring Channel:  <#1409016191049142434> - All activity logged\nTransparency Logs:   Public record of major actions\nAdmin Reports:       Contact server administrators directly\nCommunity Oversight: Player reports and community moderation\n```\n🔍 **Open System:** All activity is monitored and logged',
+                name: '🤖 AI Protection Systems',
+                value: '```fix\nBehavioral Analysis:  Pattern detection for suspicious activity\nTrend Analysis:       Game result and economic monitoring\nML Protection:        Machine learning abuse prevention\nAutomatic Scaling:    Dynamic difficulty adjustments\nEconomic Oversight:   Intelligent payout management\n```',
                 inline: false
             },
             {
-                name: '🤝 **Community Guidelines & Ethics** 🤝',
-                value: '• **💬 Respect Others:** Treat all players with courtesy and respect\n• **⚖️ Play Fair:** Don\'t seek exploits or unfair advantages\n• **🐛 Report Issues:** Help maintain system integrity\n• **🎮 Have Fun:** Remember this is entertainment first\n• **📜 Follow Discord TOS:** All Discord rules apply here\n• **🛡️ Protect Community:** Help maintain a safe environment',
+                name: '📊 Transparency & Reporting',
+                value: '• **🔍 Open Source Logic:** All odds and mechanics transparent\n• **📈 Public Statistics:** Real-time leaderboards and statistics\n• **🛡️ Admin Logging:** All admin actions logged publicly\n• **📊 Fairness Reports:** Regular system integrity reports\n• **💬 Community Oversight:** Player reporting and moderation\n• **🔒 Developer Protection:** ID 466050111680544798 immune',
                 inline: false
             }
         )
         .setColor(categoryInfo.color)
-        .setThumbnail(interaction.client.user.displayAvatarURL())
-        .setFooter({ 
-            text: `🛡️ ${categoryInfo.name} • Fair Play for All • ATIVE Casino Bot`, 
-            iconURL: interaction.client.user.displayAvatarURL() 
-        })
+        .setFooter({ text: `${categoryInfo.name} • Advanced AI protection • Transparent operations • Fair play guaranteed` })
         .setTimestamp();
 }
 

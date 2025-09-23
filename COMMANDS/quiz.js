@@ -10,6 +10,9 @@ const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = req
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { checkEarningsCooldown, createCooldownBlockEmbed } = require('../UTILS/earningsCooldown');
+const { PayoutManager } = require('../UTILS/gameUtils');
+const sessionManager = require('../UTILS/sessionManager');
+const tuningManager = require('../UTILS/tuningManager');
 const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
 
@@ -228,14 +231,37 @@ module.exports = {
                     // Correct answer! Calculate reward
                     const baseEarning = secureRandomInt(5000, 8001); // Higher reward for correct answers
 
-                    // Apply shop economy boosts
-                    const boostResult = await shopManager.applyEconomyBoosts(userId, baseEarning, 'quiz');
+                    // Apply tuning manager adjustments for fair gameplay
+                    const tuningAdjustment = await tuningManager.getAdjustedPayout('quiz', baseEarning, 0);
+                    const adjustedEarning = Math.round(baseEarning * tuningAdjustment.multiplier);
+
+                    // Apply shop economy boosts on adjusted amount
+                    const boostResult = await shopManager.applyEconomyBoosts(userId, adjustedEarning, 'quiz');
                     const boostedEarning = boostResult.amount;
 
                     // Calculate server booster bonus (5% on boosted earnings)
                     const boosterInfo = await calculateBoosterBonus(boostedEarning, interaction.user.id, interaction.guildId, interaction.guild);
                     const boosterBonus = boosterInfo.amount;
                     const totalEarning = boostedEarning + boosterBonus;
+
+                    // Create game result object for payout processing
+                    const gameResult = {
+                        type: 'quiz',
+                        userId: userId,
+                        guildId: guildId,
+                        betAmount: 0, // No bet for quiz
+                        payout: totalEarning,
+                        won: true,
+                        question: selectedQuestion.question,
+                        baseEarning: adjustedEarning,
+                        shopBoosts: boostResult.boosts,
+                        boosterBonus: boosterBonus,
+                        isBooster: boosterInfo.isBooster,
+                        tuningMultiplier: tuningAdjustment.multiplier
+                    };
+
+                    // Process payout through modern payout manager
+                    const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
 
                     // Update balance and timestamp
                     const currentWallet = parseFloat(balance.wallet) || 0;
@@ -246,15 +272,20 @@ module.exports = {
                         last_quiz_ts: now
                     });
 
+
                     // Build success display
                     const hasShopBoosts = boostResult.boosted;
                     const hasServerBoost = boosterInfo.isBooster && boosterBonus > 0;
                     const boostDisplay = shopManager.formatBoostInfo(boostResult.boosts);
 
-                    let earningsDisplay = `+ Correct Answer Bonus: ${fmt(baseEarning)}`;
+                    let earningsDisplay = `+ Base Answer Bonus: ${fmt(adjustedEarning)}`;
+                    
+                    if (tuningAdjustment.multiplier !== 1.0) {
+                        earningsDisplay += `\n+ Tuning Adjustment: ${(tuningAdjustment.multiplier * 100).toFixed(1)}%`;
+                    }
                     
                     if (hasShopBoosts) {
-                        earningsDisplay += `\n+ Shop Boost: ${fmt(boostedEarning - baseEarning)}${boostDisplay}`;
+                        earningsDisplay += `\n+ Shop Boost: ${fmt(boostedEarning - adjustedEarning)}${boostDisplay}`;
                     }
                     
                     if (hasServerBoost) {
@@ -282,6 +313,18 @@ module.exports = {
                     });
 
                     await interaction.editReply({ embeds: [successEmbed], components: [] });
+
+                    // End session with success result
+                    try {
+                        await sessionManager.endSession(interaction.user.id, {
+                            type: 'quiz',
+                            result: 'success',
+                            earning: totalEarning,
+                            question: selectedQuestion.question
+                        });
+                    } catch (error) {
+                        logger.error(`Failed to end quiz session: ${error.message}`);
+                    }
 
                     // Record game result for ML analysis
                     try {
@@ -318,7 +361,27 @@ module.exports = {
 
                 } else {
                     // Wrong answer - small consolation prize
-                    const consolationPrize = secureRandomInt(1000, 3001);
+                    const baseConsolationPrize = secureRandomInt(1000, 3001);
+
+                    // Apply tuning manager adjustments for fair gameplay
+                    const tuningAdjustment = await tuningManager.getAdjustedPayout('quiz_consolation', baseConsolationPrize, 0);
+                    const consolationPrize = Math.round(baseConsolationPrize * tuningAdjustment.multiplier);
+
+                    // Create game result object for consolation payout
+                    const gameResult = {
+                        type: 'quiz_consolation',
+                        userId: userId,
+                        guildId: guildId,
+                        betAmount: 0,
+                        payout: consolationPrize,
+                        won: false,
+                        question: selectedQuestion.question,
+                        baseEarning: consolationPrize,
+                        tuningMultiplier: tuningAdjustment.multiplier
+                    };
+
+                    // Process consolation payout
+                    const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
                     
                     const currentWallet = parseFloat(balance.wallet) || 0;
                     const currentBank = parseFloat(balance.bank) || 0;
@@ -327,6 +390,7 @@ module.exports = {
                     await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
                         last_quiz_ts: now
                     });
+
 
                     const wrongEmbed = buildSessionEmbed({
                         title: `🧠 ${username}'s Quiz Attempt`,
@@ -347,6 +411,18 @@ module.exports = {
                     });
 
                     await interaction.editReply({ embeds: [wrongEmbed], components: [] });
+
+                    // End session with consolation result
+                    try {
+                        await sessionManager.endSession(interaction.user.id, {
+                            type: 'quiz',
+                            result: 'consolation',
+                            earning: consolationPrize,
+                            question: selectedQuestion.question
+                        });
+                    } catch (error) {
+                        logger.error(`Failed to end quiz consolation session: ${error.message}`);
+                    }
 
                     // Record the attempt
                     try {

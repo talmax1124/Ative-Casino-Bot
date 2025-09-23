@@ -85,9 +85,9 @@ module.exports = {
         const canVoteNow = (lastVoteTime === 0) || (currentTime >= nextVoteTime);
         const storedStreak = voteData.vote_streak || 0;
         
-        // Streak is broken if more than 12 hours since last vote (same as voting window)
+        // Streak is broken if more than 16 hours since last vote (same as voting window)
         // This ensures streaks don't persist beyond when voting becomes available again
-        const isStreakValid = hoursSinceLastVote <= 12 || lastVoteTime === 0;
+        const isStreakValid = hoursSinceLastVote <= 16 || lastVoteTime === 0;
         const currentStreak = isStreakValid ? storedStreak : 0;
 
         return {
@@ -396,7 +396,7 @@ module.exports = {
                 },
                 {
                     name: '⚠️ Important Notes',
-                    value: '• Streak resets after 12 hours\n• Must vote every 12 hours to maintain\n• Rewards delivered automatically',
+                    value: '• Streak resets after 16 hours\n• Must vote every 12 hours to maintain\n• Rewards delivered automatically',
                     inline: true
                 },
                 {

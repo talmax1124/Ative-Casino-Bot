@@ -10,6 +10,9 @@ const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = req
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { checkEarningsCooldown, createCooldownBlockEmbed } = require('../UTILS/earningsCooldown');
+const { PayoutManager } = require('../UTILS/gameUtils');
+const sessionManager = require('../UTILS/sessionManager');
+const tuningManager = require('../UTILS/tuningManager');
 const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
 
@@ -189,14 +192,37 @@ module.exports = {
                 // Task completed! Calculate reward
                 const baseEarning = secureRandomInt(scenario.reward.min, scenario.reward.max + 1);
 
-                // Apply shop economy boosts
-                const boostResult = await shopManager.applyEconomyBoosts(userId, baseEarning, 'dailytask');
+                // Apply tuning manager adjustments for fair gameplay
+                const tuningAdjustment = await tuningManager.getAdjustedPayout('dailytask', baseEarning, 0);
+                const adjustedEarning = Math.round(baseEarning * tuningAdjustment.multiplier);
+
+                // Apply shop economy boosts on adjusted amount
+                const boostResult = await shopManager.applyEconomyBoosts(userId, adjustedEarning, 'dailytask');
                 const boostedEarning = boostResult.amount;
 
                 // Calculate server booster bonus (5% on boosted earnings)
                 const boosterInfo = await calculateBoosterBonus(boostedEarning, interaction.user.id, interaction.guildId, interaction.guild);
                 const boosterBonus = boosterInfo.amount;
                 const totalEarning = boostedEarning + boosterBonus;
+
+                // Create game result object for payout processing
+                const gameResult = {
+                    type: 'dailytask',
+                    userId: userId,
+                    guildId: guildId,
+                    betAmount: 0, // No bet for daily task
+                    payout: totalEarning,
+                    won: true,
+                    task: scenario.task,
+                    baseEarning: adjustedEarning,
+                    shopBoosts: boostResult.boosts,
+                    boosterBonus: boosterBonus,
+                    isBooster: boosterInfo.isBooster,
+                    tuningMultiplier: tuningAdjustment.multiplier
+                };
+
+                // Process payout through modern payout manager
+                const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
 
                 // Update balance and timestamp
                 const currentWallet = parseFloat(balance.wallet) || 0;
@@ -207,15 +233,20 @@ module.exports = {
                     last_dailytask_ts: now
                 });
 
+
                 // Build success display
                 const hasShopBoosts = boostResult.boosted;
                 const hasServerBoost = boosterInfo.isBooster && boosterBonus > 0;
                 const boostDisplay = shopManager.formatBoostInfo(boostResult.boosts);
 
-                let earningsDisplay = `+ Base Reward: ${fmt(baseEarning)}`;
+                let earningsDisplay = `+ Base Reward: ${fmt(adjustedEarning)}`;
+                
+                if (tuningAdjustment.multiplier !== 1.0) {
+                    earningsDisplay += `\n+ Tuning Adjustment: ${(tuningAdjustment.multiplier * 100).toFixed(1)}%`;
+                }
                 
                 if (hasShopBoosts) {
-                    earningsDisplay += `\n+ Shop Boost: ${fmt(boostedEarning - baseEarning)}${boostDisplay}`;
+                    earningsDisplay += `\n+ Shop Boost: ${fmt(boostedEarning - adjustedEarning)}${boostDisplay}`;
                 }
                 
                 if (hasServerBoost) {
@@ -255,6 +286,18 @@ module.exports = {
                 });
 
                 await interaction.editReply({ embeds: [successEmbed] });
+
+                // End session with success result
+                try {
+                    await sessionManager.endSession(interaction.user.id, {
+                        type: 'dailytask',
+                        result: 'success',
+                        earning: totalEarning,
+                        task: scenario.task
+                    });
+                } catch (error) {
+                    logger.error(`Failed to end dailytask session: ${error.message}`);
+                }
 
                 // Record game result for ML analysis
                 try {

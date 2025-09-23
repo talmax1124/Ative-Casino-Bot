@@ -53,7 +53,8 @@ class GameTrendAnalyzer {
                 'rps': 1.8,              // Increased sensitivity
                 'duck': 1.6,             // Increased sensitivity
                 'treasurevault': 1.8,    // Increased sensitivity
-                'ceelo': 2.0             // Added ceelo with high sensitivity
+                'ceelo': 2.0,            // Added ceelo with high sensitivity
+                'mines': 2.2             // High sensitivity for strategic grid games
             }
         };
         
@@ -215,6 +216,12 @@ class GameTrendAnalyzer {
                 answerPatterns: new Map(),
                 accuracyRates: new Map(),
                 responseTime: new Map()
+            },
+            'mines': {
+                gridChoices: new Map(),
+                riskProgression: new Map(),
+                cashoutTiming: new Map(),
+                minePatterns: new Map()
             }
         };
         
@@ -317,6 +324,10 @@ class GameTrendAnalyzer {
                 
             case 'quiz':
                 await this.recordQuizChoice(gameData, choiceRecord);
+                break;
+                
+            case 'mines':
+                await this.recordMinesChoice(gameData, choiceRecord);
                 break;
                 
             default:
@@ -462,6 +473,72 @@ class GameTrendAnalyzer {
             const count = roundChoices.get(doorNum) || 0;
             roundChoices.set(doorNum, count + 1);
             gameData.roundStrategies.set(metadata.round, roundChoices);
+        }
+    }
+    
+    /**
+     * Record mines game patterns
+     */
+    async recordMinesChoice(gameData, { userId, choice, metadata }) {
+        // Track grid click patterns and risk progression
+        if (choice === 'reveal' && metadata.position !== undefined) {
+            // Track grid position choices
+            const position = `${metadata.row || 0}_${metadata.col || 0}`;
+            const positionCount = gameData.gridChoices.get(position) || 0;
+            gameData.gridChoices.set(position, positionCount + 1);
+            
+            // Track risk progression patterns
+            if (!gameData.riskProgression.has(userId)) {
+                gameData.riskProgression.set(userId, []);
+            }
+            
+            const userRisk = gameData.riskProgression.get(userId);
+            userRisk.push({
+                position: metadata.position,
+                round: metadata.round || 1,
+                minesFound: metadata.minesFound || 0,
+                timestamp: Date.now()
+            });
+            
+            // Keep only recent progression
+            if (userRisk.length > 50) {
+                userRisk.splice(0, 1);
+            }
+        }
+        
+        // Track cashout timing patterns
+        if (choice === 'cashout' && metadata.multiplier) {
+            const cashoutData = gameData.cashoutTiming.get(userId) || [];
+            cashoutData.push({
+                multiplier: metadata.multiplier,
+                revealedCells: metadata.revealedCells || 0,
+                minesAvailable: metadata.minesAvailable || 0,
+                timestamp: Date.now()
+            });
+            
+            // Keep only recent cashouts
+            if (cashoutData.length > 30) {
+                cashoutData.splice(0, 1);
+            }
+            gameData.cashoutTiming.set(userId, cashoutData);
+        }
+        
+        // Track mine patterns for analysis
+        if (metadata.gameResult && metadata.totalMines) {
+            const patternKey = `${metadata.totalMines}_mines`;
+            const patterns = gameData.minePatterns.get(patternKey) || [];
+            patterns.push({
+                won: metadata.won || false,
+                revealedCells: metadata.revealedCells || 0,
+                multiplier: metadata.multiplier || 0,
+                timestamp: Date.now()
+            });
+            
+            // Keep only recent patterns per mine count
+            if (patterns.length > 100) {
+                patterns.splice(0, 10);
+            }
+            gameData.minePatterns.set(patternKey, patterns);
         }
     }
     
@@ -677,6 +754,9 @@ class GameTrendAnalyzer {
             case 'rps':
                 primaryAnalysis = this.analyzeRPSTrends(gameData);
                 break;
+            case 'mines':
+                primaryAnalysis = this.analyzeMinesTrends(gameData);
+                break;
             default:
                 primaryAnalysis = this.analyzeGenericTrends(gameData);
         }
@@ -834,6 +914,92 @@ class GameTrendAnalyzer {
             predictablePlayers,
             pattern: 'behavioral_predictability'
         };
+    }
+    
+    /**
+     * Analyze mines game trends
+     */
+    analyzeMinesTrends(gameData) {
+        // Analyze grid position preferences
+        const totalGridClicks = Array.from(gameData.gridChoices.values()).reduce((sum, count) => sum + count, 0);
+        if (totalGridClicks < 20) {
+            return { exploitation: 0, dominantStrategy: null, confidence: 0 };
+        }
+        
+        // Check for position bias
+        const dominantPosition = Array.from(gameData.gridChoices.entries())
+            .reduce((max, [pos, count]) => count > max.count ? { pos, count } : max, { pos: null, count: 0 });
+        
+        const positionBias = dominantPosition.count / totalGridClicks;
+        
+        // Analyze cashout timing patterns
+        let cashoutExploitation = 0;
+        const allCashouts = Array.from(gameData.cashoutTiming.values()).flat();
+        if (allCashouts.length >= 10) {
+            // Check for clustering around safe multipliers
+            const safeMultipliers = allCashouts.filter(c => c.multiplier <= 2).length;
+            const safeCashoutRate = safeMultipliers / allCashouts.length;
+            
+            // High safe cashout rate indicates predictable behavior
+            if (safeCashoutRate > 0.8) {
+                cashoutExploitation = safeCashoutRate - 0.5;
+            }
+        }
+        
+        // Analyze mine count patterns
+        let minePatternExploitation = 0;
+        for (const [mineCount, patterns] of gameData.minePatterns) {
+            if (patterns.length >= 20) {
+                const winRate = patterns.filter(p => p.won).length / patterns.length;
+                // If win rate is too high for given mine count, indicates exploitation
+                const expectedWinRate = this.getExpectedMinesWinRate(mineCount);
+                if (winRate > expectedWinRate + 0.1) {
+                    minePatternExploitation = Math.max(minePatternExploitation, winRate - expectedWinRate);
+                }
+            }
+        }
+        
+        // Combine exploitations
+        const overallExploitation = Math.max(
+            positionBias > 0.3 ? positionBias - 0.2 : 0,
+            cashoutExploitation,
+            minePatternExploitation
+        );
+        
+        let dominantStrategy = null;
+        if (positionBias > 0.3) {
+            dominantStrategy = `position_bias_${dominantPosition.pos}`;
+        } else if (cashoutExploitation > 0) {
+            dominantStrategy = 'safe_cashout_bias';
+        } else if (minePatternExploitation > 0) {
+            dominantStrategy = 'mine_pattern_exploitation';
+        }
+        
+        return {
+            exploitation: overallExploitation,
+            dominantStrategy,
+            confidence: Math.min(1, overallExploitation * 2),
+            positionBias,
+            cashoutPatterns: allCashouts.length,
+            pattern: 'mines_behavioral_analysis'
+        };
+    }
+    
+    /**
+     * Get expected win rate for given mine configuration
+     */
+    getExpectedMinesWinRate(mineCountStr) {
+        const mineCount = parseInt(mineCountStr.split('_')[0]);
+        // Simplified expected win rates based on mine count
+        // These would be calculated based on actual game mechanics
+        const expectedRates = {
+            1: 0.85,  // 1 mine
+            3: 0.65,  // 3 mines  
+            5: 0.45,  // 5 mines
+            10: 0.25, // 10 mines
+            24: 0.05  // 24 mines
+        };
+        return expectedRates[mineCount] || 0.5;
     }
     
     /**

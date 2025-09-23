@@ -71,7 +71,8 @@ const GameType = {
     RUSSIAN_ROULETTE: 'russianroulette',
     CEELO: 'ceelo',
     TREASURE_VAULT: 'treasurevault',
-    QUIZ: 'quiz'
+    QUIZ: 'quiz',
+    MINES: 'mines'
 };
 
 // ========================= DATA CLASSES =========================
@@ -373,7 +374,7 @@ class PayoutManager {
             'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
             'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
             'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
-            'roulette','heist','quiz'
+            'roulette','heist','quiz','mines'
         ];
         if (!modernGames.includes(gameType.toLowerCase())) {
             setActiveGame(userId, gameType);
@@ -429,6 +430,60 @@ class PayoutManager {
                 // Continue with original payout if economy system fails
             }
         }
+        
+        // Apply fairness override to ensure reasonable house edges
+        const fairnessOverride = require('./fairnessOverride');
+        const fairnessResult = fairnessOverride.ensureFairPayout(gameType, betAmount, finalPayout, gameResult);
+        
+        if (fairnessResult.override) {
+            logger.info(`🛡️ Fairness override applied: ${gameType} - ${fairnessResult.reason} - Payout: ${fmt(finalPayout)} → ${fmt(fairnessResult.payout)}`);
+            finalPayout = fairnessResult.payout;
+        }
+
+        // Apply advanced mathematical protections for wealth control
+        try {
+            const userBalance = await dbManager.getUserBalance(userId, guildId);
+            const currentWealth = userBalance.wallet + userBalance.bank;
+            
+            // Only apply advanced protections to players with significant wealth (10M+)
+            if (currentWealth > 10_000_000) {
+                const antiBillionaireSystem = require('./antiBillionaireSystem');
+                
+                // Calculate mathematical difficulty adjustments
+                const difficultyResult = await antiBillionaireSystem.calculateAntiBillionaireDifficulty(
+                    userId, currentWealth, betAmount, gameType
+                );
+                
+                // Apply difficulty adjustments to payout (if won)
+                if (won && difficultyResult.totalMultiplier > 1.01) {
+                    const adjustedPayout = finalPayout / difficultyResult.totalMultiplier;
+                    logger.info(`🎯 Wealth protection: ${userId} - Difficulty: ${(difficultyResult.totalMultiplier * 100 - 100).toFixed(1)}% - Payout: ${fmt(finalPayout)} → ${fmt(adjustedPayout)}`);
+                    finalPayout = adjustedPayout;
+                }
+                
+                // Apply win size limitations for very large wins
+                if (won && finalPayout > betAmount * 2) { // Only for wins larger than 2x bet
+                    const winLimitations = antiBillionaireSystem.applyWinLimitations(
+                        finalPayout - betAmount, // Only the profit portion
+                        currentWealth,
+                        { gameType, betAmount }
+                    );
+                    
+                    if (winLimitations.totalReduction > 0) {
+                        const limitedPayout = betAmount + winLimitations.adjustedWin;
+                        logger.warn(`💰 Win limitation applied: ${userId} - Reduction: ${fmt(winLimitations.totalReduction)} (${winLimitations.reductionPercent.toFixed(1)}%) - Payout: ${fmt(finalPayout)} → ${fmt(limitedPayout)}`);
+                        finalPayout = limitedPayout;
+                    }
+                }
+            }
+        } catch (protectionError) {
+            logger.error(`Advanced protection system error: ${protectionError.message}`);
+            // Continue with existing payout if protection system fails
+        }
+
+        // Protection systems work invisibly - players only see their adjusted results
+        // All multipliers, odds, and payouts are automatically calculated to reflect their actual chances
+        // No UI indicators are shown - the game simply becomes harder mathematically
         
         // Log all game results for anti-abuse monitoring and trend analysis
         const resultMultiplier = betAmount > 0 ? (finalPayout / betAmount) : 0;
@@ -558,7 +613,7 @@ class PayoutManager {
                 'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
                 'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
                 'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
-                'roulette','heist'
+                'roulette','heist','mines'
             ];
             if (!modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);
@@ -616,7 +671,7 @@ class PayoutManager {
                 'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
                 'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
                 'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
-                'roulette','heist'
+                'roulette','heist','mines'
             ];
             if (!modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);

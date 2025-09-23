@@ -5,6 +5,7 @@
 
 const { secureRandomShuffle } = require('../UTILS/rng');
 const logger = require('../UTILS/logger');
+const adaptiveGameMechanics = require('../UTILS/adaptiveGameMechanics');
 
 // Card definitions
 const SUITS = ['♠️', '♥️', '♦️', '♣️'];
@@ -157,9 +158,10 @@ class BlackjackHand {
 }
 
 class BlackjackGame {
-    constructor(userId, betAmount, modeConfig = null) {
+    constructor(userId, betAmount, modeConfig = null, currentWealth = 0) {
         this.userId = userId;
         this.betAmount = betAmount;
+        this.currentWealth = currentWealth;
         this.modeConfig = modeConfig || {
             name: 'Balanced',
             blackjackMultiplier: 1.5,
@@ -312,14 +314,14 @@ class BlackjackGame {
         this.gameEnded = true;
     }
 
-    getResults(options = {}) {
+    async getResults(options = {}) {
         const results = [];
         
         if (this.splitHands.length > 0) {
             // Handle split hands
             for (let i = 0; i < this.splitHands.length; i++) {
                 const hand = this.splitHands[i];
-                const result = this.calculateHandResult(hand, options);
+                const result = await this.calculateHandResult(hand, options);
                 results.push({
                     hand: i + 1,
                     ...result
@@ -327,14 +329,14 @@ class BlackjackGame {
             }
         } else {
             // Handle single hand
-            const result = this.calculateHandResult(this.playerHand, options);
+            const result = await this.calculateHandResult(this.playerHand, options);
             results.push(result);
         }
 
         return results;
     }
 
-    calculateHandResult(playerHand, options = {}) {
+    async calculateHandResult(playerHand, options = {}) {
         const playerValue = playerHand.getValue();
         const dealerValue = this.dealerHand.getValue();
         
@@ -342,25 +344,28 @@ class BlackjackGame {
         let baseMultiplier = 0;
         let outcome = '';
 
-        if (playerHand.isBusted()) {
-            baseMultiplier = 0;
-            outcome = 'BUSTED';
-        } else if (playerHand.isBlackjack() && this.dealerHand.isBlackjack()) {
+        if (playerHand.isBlackjack() && this.dealerHand.isBlackjack()) {
             // Both have blackjack - it's a PUSH (return bet)
             baseMultiplier = 1;
             outcome = 'PUSH';
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
             baseMultiplier = options.personalizedPayouts?.blackjack || this.modeConfig?.blackjackMultiplier || 2.0;
             outcome = 'BLACKJACK';
+        } else if (playerValue === dealerValue) {
+            // Equal values are ALWAYS a push, even if both are over 21
+            baseMultiplier = 1;  // Push returns bet (1x multiplier)
+            outcome = 'PUSH';
+        } else if (playerHand.isBusted()) {
+            // Player busted and dealer didn't have same value
+            baseMultiplier = 0;
+            outcome = 'BUSTED';
         } else if (this.dealerHand.isBusted()) {
+            // Dealer busted and player didn't
             baseMultiplier = options.personalizedPayouts?.win || this.modeConfig?.winMultiplier || 1.2;
             outcome = 'DEALER BUSTED';
         } else if (playerValue > dealerValue) {
             baseMultiplier = options.personalizedPayouts?.win || this.modeConfig?.winMultiplier || 1.2;
             outcome = 'WIN';
-        } else if (playerValue === dealerValue) {
-            baseMultiplier = 1;  // Push returns bet (1x multiplier)
-            outcome = 'PUSH';
         } else {
             baseMultiplier = 0;
             outcome = 'LOSE';
@@ -368,13 +373,31 @@ class BlackjackGame {
 
         // Apply dynamic economic adjustments if winning
         let finalMultiplier = baseMultiplier;
-        if (baseMultiplier > 1 && options.economicMultiplier) {
-            // Only reduce winning payouts, never pushes or losses
-            const adjustedMultiplier = (baseMultiplier - 1) * options.economicMultiplier + 1;
-            finalMultiplier = Math.max(1, adjustedMultiplier); // Never go below returning the bet
-            
-            if (finalMultiplier !== baseMultiplier) {
-                logger.info(`Blackjack multiplier adjusted: ${baseMultiplier.toFixed(2)}x → ${finalMultiplier.toFixed(2)}x (${((1 - options.economicMultiplier) * 100).toFixed(1)}% reduction)`);
+        if (baseMultiplier > 1) {
+            if (options.economicMultiplier) {
+                // Legacy economic multiplier (for backward compatibility)
+                const adjustedMultiplier = (baseMultiplier - 1) * options.economicMultiplier + 1;
+                finalMultiplier = Math.max(1, adjustedMultiplier);
+                
+                if (finalMultiplier !== baseMultiplier) {
+                    logger.info(`Blackjack multiplier adjusted: ${baseMultiplier.toFixed(2)}x → ${finalMultiplier.toFixed(2)}x (${((1 - options.economicMultiplier) * 100).toFixed(1)}% reduction)`);
+                }
+            } else if (this.currentWealth && this.currentWealth > 10_000_000) {
+                // Use adaptive mechanics for wealthy players
+                try {
+                    const adaptedConfig = await adaptiveGameMechanics.getAdaptedGameConfig('blackjack', this.userId, this.currentWealth, this.betAmount);
+                    if (adaptedConfig && adaptedConfig.adaptedWinChance) {
+                        // Apply adaptive difficulty by reducing win chance (making the game harder)
+                        const adaptedMultiplier = baseMultiplier * adaptedConfig.adaptedWinChance / adaptedConfig.baseWinChance;
+                        finalMultiplier = Math.max(1, adaptedMultiplier);
+                        
+                        if (finalMultiplier !== baseMultiplier) {
+                            logger.info(`Blackjack adaptive adjustment: ${baseMultiplier.toFixed(2)}x → ${finalMultiplier.toFixed(2)}x (wealth-based adaptation)`);
+                        }
+                    }
+                } catch (error) {
+                    logger.error(`Blackjack adaptive mechanics error: ${error.message}`);
+                }
             }
         }
 

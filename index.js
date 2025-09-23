@@ -909,6 +909,14 @@ client.on('interactionCreate', async interaction => {
                     await rouletteCommand.startNewGame(interaction, betAmount);
                 }
             }
+            // Handle mines bet selection dropdown (for play again)
+            else if (interaction.customId === 'mines_bet_select') {
+                const minesCommand = client.commands.get('mines');
+                if (minesCommand) {
+                    const betAmount = parseInt(interaction.values[0].replace('play_again_', ''));
+                    await minesCommand.startNewGame(interaction, betAmount);
+                }
+            }
             // Handle roulette number selection dropdown
             else if (interaction.customId.startsWith('roulette-') && interaction.customId.includes('-number-select')) {
                 const parts = interaction.customId.split('-');
@@ -1191,6 +1199,27 @@ client.on('interactionCreate', async interaction => {
                         const blackjackCommand = client.commands.get('blackjack');
                         if (blackjackCommand && blackjackCommand.handleBlackjackAction) {
                             await blackjackCommand.handleBlackjackAction(interaction, actionId);
+                        }
+                    } else {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: 'This is not your game!',
+                            flags: MessageFlags.Ephemeral
+                        });
+                    }
+                }
+            }
+            // Handle mines game buttons (format: mines-{userId}-{action})
+            else if (customId.startsWith('mines-')) {
+                const parts = customId.split('-');
+                if (parts.length >= 3) {
+                    const userId = parts[1];
+                    const actionId = parts.slice(2).join('-'); // Handle multi-part action names
+
+                    // Verify the user is the game owner
+                    if (userId === interaction.user.id) {
+                        const minesCommand = client.commands.get('mines');
+                        if (minesCommand && minesCommand.handleMinesAction) {
+                            await minesCommand.handleMinesAction(interaction, actionId);
                         }
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
@@ -2000,6 +2029,8 @@ client.on('interactionCreate', async interaction => {
                             gameType = 'slots';
                         } else if (embed.title.includes('Crash') || embed.title.includes('🚁')) {
                             gameType = 'crash';
+                        } else if (embed.title.includes('Mines') || embed.title.includes('💣')) {
+                            gameType = 'mines';
                         }
                     }
 
@@ -2053,6 +2084,30 @@ client.on('interactionCreate', async interaction => {
                                 flags: MessageFlags.Ephemeral
                             });
                         }
+                    } else if (gameType === 'mines' && betAmount > 0) {
+                        // Start a new mines game directly with the specified bet
+                        const minesCommand = require('./COMMANDS/mines');
+                        // Create a fake interaction with the bet amount
+                        const fakeInteraction = {
+                            ...interaction,
+                            commandName: 'mines',
+                            options: {
+                                getString: (name) => name === 'amount' ? betAmount.toString() : null
+                            },
+                            deferReply: async () => await interaction.deferUpdate(),
+                            editReply: async (data) => await interaction.editReply(data),
+                            reply: async (data) => await interaction.editReply(data),
+                            replied: false,
+                            deferred: true
+                        };
+                        try {
+                            await minesCommand.execute(fakeInteraction);
+                        } catch (error) {
+                            await interaction.reply({
+                                content: `❌ Error starting new game. Please use \`/mines amount:${betAmount}\` directly.`,
+                                flags: MessageFlags.Ephemeral
+                            });
+                        }
                     } else {
                         await interaction.reply({
                             content: `🎮 To play ${gameType || 'again'} with bet $${betAmount}, please use the command directly.`,
@@ -2073,6 +2128,8 @@ client.on('interactionCreate', async interaction => {
                             gameType = 'slots';
                         } else if (embed.title.includes('Crash') || embed.title.includes('🚁')) {
                             gameType = 'crash';
+                        } else if (embed.title.includes('Mines') || embed.title.includes('💣')) {
+                            gameType = 'mines';
                         }
                     }
 
@@ -2117,6 +2174,50 @@ client.on('interactionCreate', async interaction => {
                         } catch (error) {
                             await interaction.reply({
                                 content: '❌ Error loading bet selection. Please try using `/blackjack` directly.',
+                                ephemeral: true
+                            });
+                        }
+                    } else if (gameType === 'mines') {
+                        // For mines, show bet selection interface
+                        const { EmbedBuilder } = require('discord.js');
+                        const GamePanel = require('./UTILS/gamePanel');
+                        const dbManager = require('./UTILS/database');
+                        const { getGuildId } = require('./UTILS/common');
+
+                        try {
+                            const guildId = await getGuildId(interaction);
+                            const userBalance = await dbManager.getUserBalance(interaction.user.id, guildId);
+
+                            const betEmbed = new EmbedBuilder()
+                                .setTitle('💣 Play Mines Again')
+                                .setDescription(`Select your bet amount to start a new game of Mines.`)
+                                .addFields([
+                                    { name: '💵 Wallet', value: `$${userBalance.wallet.toLocaleString()}`, inline: true },
+                                    { name: '🏦 Bank', value: `$${userBalance.bank.toLocaleString()}`, inline: true }
+                                ])
+                                .setColor(0xff8800)
+                                .setTimestamp();
+
+                            const betSelector = GamePanel.createBetSelector({
+                                balance: userBalance.wallet,
+                                minBet: 500,
+                                customId: 'mines_bet_select'
+                            });
+
+                            if (betSelector) {
+                                await interaction.update({
+                                    embeds: [betEmbed],
+                                    components: [betSelector]
+                                });
+                            } else {
+                                await interaction.reply({
+                                    content: '❌ Insufficient balance to play Mines. You need at least $500.',
+                                    ephemeral: true
+                                });
+                            }
+                        } catch (error) {
+                            await interaction.reply({
+                                content: '❌ Error loading bet selection. Please try using `/mines` directly.',
                                 ephemeral: true
                             });
                         }

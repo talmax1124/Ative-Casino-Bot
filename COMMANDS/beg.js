@@ -9,6 +9,9 @@ const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = req
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { checkEarningsCooldown, createCooldownBlockEmbed } = require('../UTILS/earningsCooldown');
+const { PayoutManager } = require('../UTILS/gameUtils');
+const sessionManager = require('../UTILS/sessionManager');
+const tuningManager = require('../UTILS/tuningManager');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -72,19 +75,45 @@ module.exports = {
             const scenario = secureRandomChoice(begScenarios);
             const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
 
-            // Calculate server booster bonus (5%)
-            const boosterInfo = await calculateBoosterBonus(baseEarning, interaction.user.id, interaction.guildId, interaction.guild);
-            const boosterBonus = boosterInfo.amount;
-            const totalEarning = baseEarning + boosterBonus;
+            // Apply tuning manager adjustments for fair gameplay
+            const tuningAdjustment = await tuningManager.getAdjustedPayout('beg', baseEarning, 0);
+            const adjustedEarning = Math.round(baseEarning * tuningAdjustment.multiplier);
 
+            // Calculate server booster bonus (5%) on adjusted amount
+            const boosterInfo = await calculateBoosterBonus(adjustedEarning, interaction.user.id, interaction.guildId, interaction.guild);
+            const boosterBonus = boosterInfo.amount;
+            const totalEarning = adjustedEarning + boosterBonus;
+
+            // Create game result object for payout processing
+            const gameResult = {
+                type: 'beg',
+                userId: userId,
+                guildId: guildId,
+                betAmount: 0, // No bet for begging
+                payout: totalEarning,
+                won: true,
+                scenario: scenario.person,
+                baseEarning: adjustedEarning,
+                boosterBonus: boosterBonus,
+                isBooster: boosterInfo.isBooster,
+                tuningMultiplier: tuningAdjustment.multiplier
+            };
+
+            // Process payout through modern payout manager
+            const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
+            
             // Update balance and timestamp
             const newWallet = balance.wallet + totalEarning;
             await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank, {
                 last_beg_ts: now
             });
 
-            // Build earnings display with booster bonus if applicable
-            let earningsDisplay = `+ Received: ${fmt(baseEarning)}`;
+
+            // Build earnings display with tuning and booster bonus if applicable
+            let earningsDisplay = `+ Base Received: ${fmt(adjustedEarning)}`;
+            if (tuningAdjustment.multiplier !== 1.0) {
+                earningsDisplay += `\n+ Tuning Adjustment: ${(tuningAdjustment.multiplier * 100).toFixed(1)}%`;
+            }
             if (boosterInfo.isBooster && boosterBonus > 0) {
                 earningsDisplay += `\n+ Booster Bonus (5%): ${fmt(boosterBonus)}`;
                 earningsDisplay += `\n= Total Received: ${fmt(totalEarning)}`;
@@ -119,6 +148,18 @@ module.exports = {
             });
 
             await interaction.editReply({ embeds: [embed] });
+
+            // End session with success result
+            try {
+                await sessionManager.endSession(interaction.user.id, {
+                    type: 'beg',
+                    result: 'success',
+                    earning: totalEarning,
+                    scenario: scenario.person
+                });
+            } catch (error) {
+                logger.error(`Failed to end beg session: ${error.message}`);
+            }
 
             // Record game result for ML analysis
             try {

@@ -101,6 +101,8 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
         // EconomyGuardianInterface removed - using bulletproof economy
     }
 
+    // Protection systems are invisible to players - they just see their actual odds/results
+
     return buildSessionEmbed({
         title: `🎰 ${user.displayName}'s Slots`,
         topFields,

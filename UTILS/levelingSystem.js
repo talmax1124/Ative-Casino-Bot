@@ -27,7 +27,14 @@ const XP_REWARDS = {
         'heist': { base: 35, win_bonus: 30 },
         'crime': { base: 8, win_bonus: 5 },
         'wordchain': { base: 12, win_bonus: 8 },
-        'multi-slots': { base: 15, win_bonus: 12 }
+        'multi-slots': { base: 15, win_bonus: 12 },
+        'mines': { base: 18, win_bonus: 15 },
+        'ceelo': { base: 10, win_bonus: 7 },
+        'keno': { base: 12, win_bonus: 8 },
+        'lottery': { base: 5, win_bonus: 15 },
+        'lottery2': { base: 5, win_bonus: 15 },
+        'quiz': { base: 20, win_bonus: 10 },
+        'russianroulette': { base: 15, win_bonus: 20 }
     },
     
     // Special achievements
@@ -63,13 +70,16 @@ class LevelingSystem {
 
     /**
      * Handle game completion and award XP
-     * RESTRICTED TO GUILD 1403244656845787167 ONLY
+     * WORKS FOR ALL GUILDS
      */
     async handleGameComplete(userId, guildId, gameType, won, specialResult = null) {
         try {
-            // GUILD RESTRICTION: Only process XP for the target guild
-            if (guildId !== '1403244656845787167') {
-                logger.debug(`Game XP system skipped - guild ${guildId} not in target guild, handled by UAS bot`);
+            // XP system now works for all guilds
+            logger.debug(`Processing XP for game ${gameType} in guild ${guildId}`);
+            
+            // Early validation
+            if (!userId || !guildId || !gameType) {
+                logger.warn(`Invalid parameters for XP: userId=${userId}, guildId=${guildId}, gameType=${gameType}`);
                 return null;
             }
             const config = XP_REWARDS.GAME_COMPLETION[gameType];
@@ -132,13 +142,13 @@ class LevelingSystem {
 
     /**
      * Handle chat message and award XP (rate-limited)
-     * RESTRICTED TO GUILD 1403244656845787167 ONLY
+     * WORKS FOR ALL GUILDS
      */
     async handleChatMessage(userId, guildId, channelId) {
         try {
-            // GUILD RESTRICTION: Only process XP for the target guild
-            if (guildId !== '1403244656845787167') {
-                logger.debug(`XP system skipped - guild ${guildId} not in target guild, handled by UAS bot`);
+            // XP system now works for all guilds
+            if (!userId || !guildId) {
+                logger.warn(`Invalid parameters for chat XP: userId=${userId}, guildId=${guildId}`);
                 return null;
             }
             

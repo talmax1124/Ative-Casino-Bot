@@ -7,9 +7,10 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const { secureRandomInt } = require('../UTILS/rng');
 const { fmt, sendLogMessage } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
+const adaptiveGameMechanics = require('../UTILS/adaptiveGameMechanics');
 
 class PlinkoGameSession {
-    constructor(userId, username, betAmount, channelId, mode = 'easy') {
+    constructor(userId, username, betAmount, channelId, mode = 'easy', currentWealth = 0) {
         this.userId = userId;
         this.username = username;
         this.betAmount = betAmount;
@@ -20,6 +21,7 @@ class PlinkoGameSession {
         this.dropPosition = null;
         this.result = null;
         this.winAmount = 0;
+        this.currentWealth = currentWealth;
         
         // UPDATED BALANCED MULTIPLIERS - ECONOMICALLY BALANCED
         // Most slots should result in losses to maintain house edge
@@ -53,19 +55,31 @@ class PlinkoGameSession {
         // Use fixed modes (no more dynamic multipliers)
         this.modes = this.baseModes;
         
-        this.board = this.generateBoard();
+        // Board will be generated when needed
     }
 
     /**
-     * Get final multipliers with house edge applied
-     * NO MORE DYNAMIC ADJUSTMENTS - Fixed multipliers only
+     * Get final multipliers with adaptive adjustment for player wealth
+     * Automatically adjusts multipliers based on wealth while keeping them honest
      */
-    getFinalMultipliers() {
-        // Return the fixed multipliers for the selected mode
+    async getFinalMultipliers() {
+        // Get adaptive multipliers based on player wealth
+        const adaptedMultipliers = await adaptiveGameMechanics.getAdaptedPlinkoMultipliers(
+            this.userId, 
+            this.currentWealth, 
+            this.betAmount
+        );
+        
+        // Apply to the selected mode if we got adapted multipliers
+        if (adaptedMultipliers && adaptedMultipliers.length > 0) {
+            return adaptedMultipliers;
+        }
+        
+        // Fallback to fixed multipliers for the selected mode
         return this.modes[this.mode].multipliers;
     }
 
-    generateBoard() {
+    async generateBoard() {
         // Generate a text-based Plinko board representation
         const rows = 10;
         const board = [];
@@ -86,8 +100,8 @@ class PlinkoGameSession {
             board.push(line.trim());
         }
         
-        // Add the bottom slots with multipliers
-        const multipliers = this.modes[this.mode].multipliers;
+        // Add the bottom slots with adaptive multipliers
+        const multipliers = await this.getFinalMultipliers();
         let bottomLine = '';
         for (let i = 0; i < multipliers.length; i++) {
             bottomLine += `${multipliers[i]}x `;
@@ -97,11 +111,11 @@ class PlinkoGameSession {
         return board;
     }
 
-    simulateDrop(dropPosition) {
+    async simulateDrop(dropPosition) {
         // Simulate ball drop physics with PROPER RANDOMIZATION
         let position = dropPosition;
         const path = [position];
-        const multipliers = this.modes[this.mode].multipliers;
+        const multipliers = await this.getFinalMultipliers();
         
         // Simulate bounces down the board - PURE RANDOM, NO MANIPULATION
         for (let row = 1; row < 10; row++) {
@@ -164,7 +178,7 @@ class PlinkoGameSession {
         return embed;
     }
 
-    getDropSelectionEmbed() {
+    async getDropSelectionEmbed() {
         const mode = this.modes[this.mode];
         const embed = new EmbedBuilder()
             .setTitle(`<� Plinko - ${mode.name}`)
@@ -172,16 +186,18 @@ class PlinkoGameSession {
             .setColor(this.getModeColor())
             .setThumbnail('https://i.imgur.com/plinko.png');
 
-        // Show the board
-        const boardText = '```\n' + this.board.join('\n') + '\n```';
+        // Show the board with adaptive multipliers
+        const board = await this.generateBoard();
+        const boardText = '```\n' + board.join('\n') + '\n```';
         embed.addFields({
             name: '<� Plinko Board',
             value: boardText,
             inline: false
         });
 
-        // Show multipliers
-        const multiplierText = this.modes[this.mode].multipliers.map((m, i) => `${i + 1}: ${m}x`).join(' | ');
+        // Show adaptive multipliers (honest display)
+        const multipliers = await this.getFinalMultipliers();
+        const multiplierText = multipliers.map((m, i) => `${i + 1}: ${m}x`).join(' | ');
         embed.addFields({
             name: '=� Slot Multipliers',
             value: `\`${multiplierText}\``,
@@ -325,14 +341,14 @@ class PlinkoGameSession {
         return [row1, row2];
     }
 
-    setMode(mode) {
+    async setMode(mode) {
         this.mode = mode;
-        this.board = this.generateBoard();
+        this.board = await this.generateBoard();
     }
 
-    setDropPosition(position) {
+    async setDropPosition(position) {
         this.dropPosition = position;
-        this.result = this.simulateDrop(position - 1); // Convert to 0-based index
+        this.result = await this.simulateDrop(position - 1); // Convert to 0-based index
         this.winAmount = this.result.winnings;
     }
 
@@ -420,7 +436,7 @@ function endPlinkoGame(channelId) {
     return activePlinkoGames.delete(channelId);
 }
 
-function handlePlinkoAction(interaction, action, value = null) {
+async function handlePlinkoAction(interaction, action, value = null) {
     const channelId = interaction.channelId;
     const userId = interaction.user.id;
     const game = getPlinkoGame(channelId);
@@ -436,7 +452,7 @@ function handlePlinkoAction(interaction, action, value = null) {
     try {
         switch (action) {
             case 'mode':
-                game.setMode(value);
+                await game.setMode(value);
                 return { success: true, action: 'mode_selected' };
                 
             case 'drop':
@@ -444,7 +460,7 @@ function handlePlinkoAction(interaction, action, value = null) {
                 if (position < 1 || position > 9) {
                     return { success: false, error: 'Invalid drop position' };
                 }
-                game.setDropPosition(position);
+                await game.setDropPosition(position);
                 return { success: true, action: 'ball_dropped', result: game.result };
                 
             default:

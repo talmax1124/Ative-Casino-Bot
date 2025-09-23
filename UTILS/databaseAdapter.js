@@ -2759,17 +2759,19 @@ class DatabaseAdapter {
      * Calculate level from total XP
      */
     calculateLevel(totalXp) {
-        // Level formula: Level = floor(sqrt(totalXP / 100)) + 1
-        // This gives a nice progression curve where higher levels require more XP
-        return Math.floor(Math.sqrt(totalXp / 100)) + 1;
+        // Improved level formula: Level = floor(sqrt(totalXP / 50)) + 1
+        // This gives a more reasonable progression curve:
+        // Level 2: 50 XP, Level 3: 200 XP, Level 4: 450 XP, Level 5: 800 XP
+        // Much more achievable with 15-30 XP per game
+        return Math.floor(Math.sqrt(totalXp / 50)) + 1;
     }
 
     /**
      * Calculate XP needed for a specific level
      */
     calculateXpForLevel(level) {
-        // XP needed = (level - 1)^2 * 100
-        return Math.pow(level - 1, 2) * 100;
+        // XP needed = (level - 1)^2 * 50
+        return Math.pow(level - 1, 2) * 50;
     }
 
     /**

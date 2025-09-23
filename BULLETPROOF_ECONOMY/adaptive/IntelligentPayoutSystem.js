@@ -83,13 +83,33 @@ class IntelligentPayoutSystem {
      * Initialize advanced payout models
      */
     async initializePayoutModels() {
-        // Base payout multipliers for each game
+        // FAIR BASE PAYOUT MULTIPLIERS - Much higher for player fairness
         this.basePayouts = new Map([
-            ['slots', { min: 0.85, base: 1.95, max: 2.2, variance: 0.15 }],
-            ['blackjack', { min: 0.9, base: 1.95, max: 2.1, variance: 0.1 }],
-            ['roulette', { min: 0.88, base: 1.97, max: 2.15, variance: 0.12 }],
-            ['plinko', { min: 0.87, base: 1.98, max: 2.25, variance: 0.18 }],
-            ['crash', { min: 0.89, base: 1.99, max: 2.3, variance: 0.2 }]
+            ['slots', { min: 0.95, base: 0.98, max: 1.0, variance: 0.02 }],          // 98% base RTP
+            ['blackjack', { min: 0.98, base: 0.995, max: 1.0, variance: 0.005 }],    // 99.5% base RTP
+            ['roulette', { min: 0.95, base: 0.973, max: 1.0, variance: 0.01 }],      // 97.3% base RTP
+            ['plinko', { min: 0.97, base: 0.985, max: 1.0, variance: 0.01 }],        // 98.5% base RTP
+            ['crash', { min: 0.96, base: 0.98, max: 1.0, variance: 0.015 }],         // 98% base RTP
+            ['keno', { min: 0.85, base: 0.92, max: 0.95, variance: 0.03 }],          // 92% base RTP
+            ['mines', { min: 0.90, base: 0.95, max: 0.98, variance: 0.02 }],         // 95% base RTP
+            ['bingo', { min: 0.90, base: 0.95, max: 0.98, variance: 0.02 }],         // 95% base RTP
+            ['fishing', { min: 0.96, base: 0.98, max: 1.0, variance: 0.015 }],       // 98% base RTP
+            ['ceelo', { min: 0.96, base: 0.98, max: 1.0, variance: 0.015 }],         // 98% base RTP
+            ['treasurevault', { min: 0.95, base: 0.975, max: 1.0, variance: 0.02 }], // 97.5% base RTP
+            ['multi_slots', { min: 0.96, base: 0.98, max: 1.0, variance: 0.015 }],   // 98% base RTP
+            ['yahtzee', { min: 0.94, base: 0.97, max: 1.0, variance: 0.02 }],        // 97% base RTP
+            ['battleship', { min: 0.98, base: 0.99, max: 1.0, variance: 0.005 }],    // 99% base RTP
+            ['wordchain', { min: 0.98, base: 0.99, max: 1.0, variance: 0.005 }],     // 99% base RTP
+            ['rps', { min: 0.98, base: 0.99, max: 1.0, variance: 0.005 }],           // 99% base RTP
+            ['duck', { min: 0.98, base: 0.99, max: 1.0, variance: 0.005 }],          // 99% base RTP
+            ['uno', { min: 0.98, base: 0.99, max: 1.0, variance: 0.005 }],           // 99% base RTP
+            ['war', { min: 0.98, base: 0.99, max: 1.0, variance: 0.005 }],           // 99% base RTP
+            ['spades', { min: 0.98, base: 0.99, max: 1.0, variance: 0.005 }],        // 99% base RTP
+            ['31', { min: 0.98, base: 0.99, max: 1.0, variance: 0.005 }],            // 99% base RTP
+            ['russianroulette', { min: 0.97, base: 0.985, max: 1.0, variance: 0.01 }], // 98.5% base RTP
+            ['heist', { min: 0.94, base: 0.97, max: 1.0, variance: 0.02 }],          // 97% base RTP
+            ['lottery', { min: 0.65, base: 0.75, max: 0.85, variance: 0.05 }],       // 75% base RTP (lottery style)
+            ['scratch', { min: 0.85, base: 0.90, max: 0.95, variance: 0.03 }]        // 90% base RTP (lottery style)
         ]);
         
         // Initialize game-specific optimization parameters
@@ -457,37 +477,44 @@ class IntelligentPayoutSystem {
 
     /**
      * Calculate skill-based adjustment using logarithmic scaling
+     * HEAVILY REDUCED FOR FAIRNESS
      */
     calculateSkillAdjustment(skillLevel) {
-        // Skilled players get slightly reduced payouts
-        const skillPenalty = Math.log(1 + skillLevel * this.EULER_GAMMA) / Math.log(1 + this.EULER_GAMMA);
-        return 1 - (skillPenalty * 0.08); // Up to 8% reduction for highest skill
+        // FAIRNESS: Minimal skill penalty - players should be rewarded for skill, not penalized
+        if (skillLevel > 0.9) {
+            // Only tiny penalty for exceptionally skilled players
+            const skillPenalty = (skillLevel - 0.9) * 0.01; // Max 1% reduction
+            return 1 - skillPenalty;
+        }
+        return 1.0; // No penalty for normal skill levels
     }
 
     /**
      * Calculate risk-based adjustment using exponential scaling
+     * HEAVILY REDUCED FOR FAIRNESS
      */
     calculateRiskAdjustment(riskLevel) {
-        // High-risk players get reduced payouts
-        const riskPenalty = Math.pow(riskLevel, this.GOLDEN_RATIO);
-        return 1 - (riskPenalty * 0.12); // Up to 12% reduction for highest risk
+        // FAIRNESS: Minimal risk penalty - focus on fun, not punishment
+        if (riskLevel > 0.95) {
+            // Only tiny penalty for extremely high risk players
+            const riskPenalty = (riskLevel - 0.95) * 0.02; // Max 1% reduction
+            return 1 - riskPenalty;
+        }
+        return 1.0; // No penalty for normal risk levels
     }
 
     /**
      * Calculate bet size adjustment using power law
+     * HEAVILY REDUCED FOR FAIRNESS
      */
     calculateBetSizeAdjustment(betAmount, gameType) {
-        const basePayout = this.basePayouts.get(gameType);
-        const maxBet = this.getMaxBetForGame(gameType);
-        const betRatio = betAmount / maxBet;
-        
-        // Large bets get reduced payouts (power law scaling)
-        if (betRatio > 0.01) {
-            const reduction = Math.pow(betRatio, 1 / this.GOLDEN_RATIO) * 0.1;
-            return 1 - Math.min(0.15, reduction); // Cap at 15% reduction
+        // FAIRNESS: Minimal bet size penalty - high rollers should be welcomed
+        if (betAmount > 1000000) { // Only penalize extremely large bets (1M+)
+            const reduction = Math.min(0.02, Math.log(betAmount / 1000000) * 0.005); // Max 2% reduction
+            return 1 - reduction;
         }
         
-        return 1.0;
+        return 1.0; // No penalty for normal bet sizes
     }
 
     /**

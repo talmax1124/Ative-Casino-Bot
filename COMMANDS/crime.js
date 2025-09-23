@@ -9,6 +9,9 @@ const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = req
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { checkEarningsCooldown, createCooldownBlockEmbed } = require('../UTILS/earningsCooldown');
+const { PayoutManager } = require('../UTILS/gameUtils');
+const sessionManager = require('../UTILS/sessionManager');
+const tuningManager = require('../UTILS/tuningManager');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -71,10 +74,32 @@ module.exports = {
             const scenario = secureRandomChoice(crimeScenarios);
             const baseEarning = secureRandomInt(scenario.min, scenario.max + 1);
 
-            // Calculate server booster bonus (5%)
-            const boosterInfo = await calculateBoosterBonus(baseEarning, interaction.user.id, interaction.guildId, interaction.guild);
+            // Apply tuning manager adjustments for fair gameplay
+            const tuningAdjustment = await tuningManager.getAdjustedPayout('crime', baseEarning, 0);
+            const adjustedEarning = Math.round(baseEarning * tuningAdjustment.multiplier);
+
+            // Calculate server booster bonus (5%) on adjusted amount
+            const boosterInfo = await calculateBoosterBonus(adjustedEarning, interaction.user.id, interaction.guildId, interaction.guild);
             const boosterBonus = boosterInfo.amount;
-            const totalEarning = baseEarning + boosterBonus;
+            const totalEarning = adjustedEarning + boosterBonus;
+
+            // Create game result object for payout processing
+            const gameResult = {
+                type: 'crime',
+                userId: userId,
+                guildId: guildId,
+                betAmount: 0, // No bet for crime
+                payout: totalEarning,
+                won: true,
+                scenario: scenario.crime,
+                baseEarning: adjustedEarning,
+                boosterBonus: boosterBonus,
+                isBooster: boosterInfo.isBooster,
+                tuningMultiplier: tuningAdjustment.multiplier
+            };
+
+            // Process payout through modern payout manager
+            const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
 
             // Validate and sanitize balance values
             const currentWallet = parseFloat(balance.wallet) || 0;
@@ -86,8 +111,12 @@ module.exports = {
                 last_crime_ts: now
             });
 
-            // Build earnings display with booster bonus if applicable
-            let earningsDisplay = `+ Earnings: ${fmt(baseEarning)}`;
+
+            // Build earnings display with tuning and booster bonus if applicable
+            let earningsDisplay = `+ Base Earnings: ${fmt(adjustedEarning)}`;
+            if (tuningAdjustment.multiplier !== 1.0) {
+                earningsDisplay += `\n+ Tuning Adjustment: ${(tuningAdjustment.multiplier * 100).toFixed(1)}%`;
+            }
             if (boosterInfo.isBooster && boosterBonus > 0) {
                 earningsDisplay += `\n+ Booster Bonus (5%): ${fmt(boosterBonus)}`;
                 earningsDisplay += `\n= Total Earned: ${fmt(totalEarning)}`;
@@ -122,6 +151,18 @@ module.exports = {
             });
 
             await interaction.editReply({ embeds: [embed] });
+
+            // End session with success result
+            try {
+                await sessionManager.endSession(interaction.user.id, {
+                    type: 'crime',
+                    result: 'success',
+                    earning: totalEarning,
+                    scenario: scenario.crime
+                });
+            } catch (error) {
+                logger.error(`Failed to end crime session: ${error.message}`);
+            }
 
             // Record game result for ML analysis
             try {
