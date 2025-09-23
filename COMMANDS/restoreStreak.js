@@ -57,12 +57,11 @@ module.exports = {
                 // Create new vote data if user has never voted
                 currentVoteData = {
                     user_id: targetUser.id,
-                    last_vote_time: null,
+                    last_vote_ts: 0,
                     vote_streak: 0,
                     total_votes: 0,
-                    last_claim_time: null,
-                    votes_today: 0,
-                    daily_reset_time: null
+                    total_earned: 0,
+                    can_use_earnmoney: 0
                 };
             }
 
@@ -77,13 +76,14 @@ module.exports = {
             const updatedVoteData = {
                 ...currentVoteData,
                 vote_streak: streakCount,
-                last_vote_time: currentTime,
+                last_vote_ts: currentTime,
                 total_votes: Math.max(currentVoteData.total_votes || 0, streakCount),
-                votes_today: Math.max(currentVoteData.votes_today || 0, 1)
+                total_earned: currentVoteData.total_earned || 0,
+                can_use_earnmoney: currentVoteData.can_use_earnmoney || 0
             };
 
             // Update the vote data
-            const success = await dbManager.updateUserVoteData(targetUser.id, updatedVoteData);
+            const success = await dbManager.updateUserVoteData(targetUser.id, null, updatedVoteData);
 
             if (success) {
                 // Log the action
