@@ -7,6 +7,130 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getGuildId } = require('../UTILS/common');
 const levelingSystem = require('../UTILS/levelingSystem');
 const logger = require('../UTILS/logger');
+const dbManager = require('../UTILS/database');
+
+/**
+ * Get aggregated user level data across all guilds
+ */
+async function getAggregatedUserLevel(userId) {
+    try {
+        // Get all user level records across guilds and aggregate them
+        const records = await dbManager.databaseAdapter.executeQuery(`
+            SELECT 
+                user_id,
+                SUM(total_xp) as total_xp,
+                SUM(games_played) as games_played,
+                SUM(games_won) as games_won,
+                MAX(last_level_up) as last_level_up,
+                MIN(created_at) as created_at
+            FROM user_levels 
+            WHERE user_id = ?
+            GROUP BY user_id
+        `, [userId]);
+        
+        if (records.length > 0) {
+            const data = records[0];
+            // Calculate level from total aggregated XP
+            const level = Math.floor(Math.sqrt(data.total_xp / 100)) + 1;
+            const currentLevelXp = data.total_xp - Math.pow(level - 1, 2) * 100;
+            
+            return {
+                user_id: userId,
+                level: level,
+                xp: currentLevelXp,
+                total_xp: parseInt(data.total_xp) || 0,
+                games_played: parseInt(data.games_played) || 0,
+                games_won: parseInt(data.games_won) || 0,
+                last_level_up: data.last_level_up,
+                created_at: data.created_at || new Date()
+            };
+        }
+        
+        // If no records found, return default values
+        return {
+            user_id: userId,
+            level: 1,
+            xp: 0,
+            total_xp: 0,
+            games_played: 0,
+            games_won: 0,
+            last_level_up: null,
+            created_at: new Date()
+        };
+    } catch (error) {
+        logger.error(`Error getting aggregated user level: ${error.message}`);
+        // Return default values on error
+        return {
+            user_id: userId,
+            level: 1,
+            xp: 0,
+            total_xp: 0,
+            games_played: 0,
+            games_won: 0,
+            last_level_up: null,
+            created_at: new Date()
+        };
+    }
+}
+
+/**
+ * Get aggregated leaderboard across all guilds
+ */
+async function getAggregatedLeaderboard(limit = 8) {
+    try {
+        // Get aggregated XP data first
+        const xpRecords = await dbManager.databaseAdapter.executeQuery(`
+            SELECT 
+                user_id,
+                SUM(total_xp) as total_xp,
+                SUM(games_played) as games_played,
+                SUM(games_won) as games_won,
+                MAX(last_level_up) as last_level_up
+            FROM user_levels
+            WHERE total_xp > 0
+            GROUP BY user_id
+            ORDER BY total_xp DESC
+            LIMIT ?
+        `, [limit]);
+        
+        // Get usernames separately to avoid collation issues
+        const userIds = xpRecords.map(r => r.user_id);
+        if (userIds.length === 0) return [];
+        
+        const usernameRecords = await dbManager.databaseAdapter.executeQuery(`
+            SELECT user_id, username 
+            FROM user_balances 
+            WHERE user_id IN (${userIds.map(() => '?').join(',')})
+        `, userIds);
+        
+        // Create username lookup
+        const usernameMap = {};
+        usernameRecords.forEach(r => {
+            usernameMap[r.user_id] = r.username;
+        });
+        
+        // Combine data
+        const records = xpRecords.map(record => ({
+            ...record,
+            username: usernameMap[record.user_id] || `User ${record.user_id}`
+        }));
+        
+        // Calculate levels for each user
+        return records.map(record => {
+            const level = Math.floor(Math.sqrt(record.total_xp / 100)) + 1;
+            return {
+                ...record,
+                level: level,
+                total_xp: parseInt(record.total_xp) || 0,
+                games_played: parseInt(record.games_played) || 0,
+                games_won: parseInt(record.games_won) || 0
+            };
+        });
+    } catch (error) {
+        logger.error(`Error getting aggregated leaderboard: ${error.message}`);
+        return [];
+    }
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -62,7 +186,8 @@ module.exports = {
 };
 
 async function showUserRank(interaction, targetUser, guildId) {
-    const levelData = await levelingSystem.getUserLevel(targetUser.id, guildId);
+    // Get aggregated user data across all guilds for better user experience
+    const levelData = await getAggregatedUserLevel(targetUser.id);
     
     // Use the correct database calculation methods
     const nextLevel = levelData.level + 1;
@@ -119,7 +244,8 @@ async function showUserRank(interaction, targetUser, guildId) {
 }
 
 async function showLeaderboard(interaction, guildId) {
-    const leaderboard = await levelingSystem.getLevelLeaderboard(guildId, 10);
+    // Get aggregated leaderboard across all guilds
+    const leaderboard = await getAggregatedLeaderboard(8);
     
     if (leaderboard.length === 0) {
         const embed = new EmbedBuilder()

@@ -351,8 +351,8 @@ class BlackjackGame {
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
             baseMultiplier = options.personalizedPayouts?.blackjack || this.modeConfig?.blackjackMultiplier || 2.0;
             outcome = 'BLACKJACK';
-        } else if (playerValue === dealerValue) {
-            // Equal values are ALWAYS a push, even if both are over 21
+        } else if (playerValue === dealerValue && !playerHand.isBusted()) {
+            // Equal values are a push ONLY if neither player is busted
             baseMultiplier = 1;  // Push returns bet (1x multiplier)
             outcome = 'PUSH';
         } else if (playerHand.isBusted()) {

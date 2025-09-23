@@ -347,35 +347,61 @@ class UnoGameSession {
     }
 
     /**
+     * Safely send a message to the game channel with error handling
+     */
+    async safeSendMessage(content) {
+        if (!this.gameChannel || !this.gameActive) return null;
+        
+        try {
+            // Validate channel still exists and is accessible
+            if (!this.gameChannel.guild || this.gameChannel.deleted) {
+                console.warn('UNO: Game channel no longer exists, ending game');
+                this.endGame();
+                return null;
+            }
+            
+            return await this.gameChannel.send(content);
+        } catch (error) {
+            if (error.code === 10003) {
+                // Unknown Channel error
+                console.warn('UNO: Channel no longer exists (Unknown Channel), ending game');
+                this.endGame();
+            } else if (error.code === 50013) {
+                // Missing Permissions error
+                console.warn('UNO: Missing permissions to send message, ending game');
+                this.endGame();
+            } else {
+                console.error('UNO: Error sending message to channel:', error.message);
+            }
+            return null;
+        }
+    }
+
+    /**
      * Send turn notification to current player
      */
     async sendTurnNotification() {
-        if (!this.gameChannel || !this.gameActive) return;
+        const currentPlayer = this.getCurrentPlayer();
+        if (!currentPlayer) return;
         
-        try {
-            const currentPlayer = this.getCurrentPlayer();
-            if (!currentPlayer) return;
-            
-            let message = `<@${currentPlayer.userId}>, it's your turn!`;
-            
-            // Add special messages for draw stack situations
-            if (this.drawStack > 0 && this.mustHandleDrawStack) {
-                message += `\n🎯 **You must draw ${this.drawStack} cards OR play a stackable card!**`;
-            }
-            
-            const sentMessage = await this.gameChannel.send(message);
-            
-            // Delete the message after 10 seconds
+        let message = `<@${currentPlayer.userId}>, it's your turn!`;
+        
+        // Add special messages for draw stack situations
+        if (this.drawStack > 0 && this.mustHandleDrawStack) {
+            message += `\n🎯 **You must draw ${this.drawStack} cards OR play a stackable card!**`;
+        }
+        
+        const sentMessage = await this.safeSendMessage(message);
+        
+        // Delete the message after 10 seconds
+        if (sentMessage) {
             setTimeout(() => {
-                if (sentMessage && sentMessage.deletable) {
+                if (sentMessage.deletable) {
                     sentMessage.delete().catch(err => {
-                        console.error('Error deleting turn notification:', err.message);
+                        console.error('UNO: Error deleting turn notification:', err.message);
                     });
                 }
             }, 10000);
-            
-        } catch (error) {
-            console.error('Error sending turn notification:', error.message);
         }
     }
 

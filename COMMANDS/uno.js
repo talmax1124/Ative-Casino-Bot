@@ -880,8 +880,18 @@ module.exports = {
 
                 // Notify other players
                 let channelMessage = null;
-                if (game.gameChannel) {
-                    channelMessage = await game.gameChannel.send(`🔥 **${player.username}** called UNO!`);
+                if (game.gameChannel && typeof game.safeSendMessage === 'function') {
+                    channelMessage = await game.safeSendMessage(`🔥 **${player.username}** called UNO!`);
+                } else if (game.gameChannel) {
+                    try {
+                        channelMessage = await game.gameChannel.send(`🔥 **${player.username}** called UNO!`);
+                    } catch (error) {
+                        if (error.code === 10003) {
+                            console.warn('UNO: Channel no longer exists (Unknown Channel)');
+                        } else {
+                            console.error('UNO: Error sending UNO notification:', error.message);
+                        }
+                    }
                 }
                 
                 // Delete UNO messages after 5 seconds
@@ -975,7 +985,17 @@ module.exports = {
                 await game.mainGameInteraction.editReply(messageData);
             } catch (editError) {
                 // If we can't edit the original message, send a new one
-                await game.gameChannel.send(messageData);
+                if (game.gameChannel && typeof game.safeSendMessage === 'function') {
+                    await game.safeSendMessage(messageData);
+                } else if (game.gameChannel) {
+                    try {
+                        await game.gameChannel.send(messageData);
+                    } catch (sendError) {
+                        if (sendError.code === 10003) {
+                            console.warn('UNO: Channel no longer exists (Unknown Channel)');
+                        }
+                    }
+                }
             }
 
         } catch (error) {
@@ -1044,7 +1064,17 @@ module.exports = {
                     inline: true
                 });
 
-            await game.gameChannel.send({ embeds: [embed] });
+            if (game.gameChannel && typeof game.safeSendMessage === 'function') {
+                await game.safeSendMessage({ embeds: [embed] });
+            } else if (game.gameChannel) {
+                try {
+                    await game.gameChannel.send({ embeds: [embed] });
+                } catch (error) {
+                    if (error.code === 10003) {
+                        console.warn('UNO: Channel no longer exists (Unknown Channel)');
+                    }
+                }
+            }
 
             // Update main game message
             if (game.mainGameInteraction) {
