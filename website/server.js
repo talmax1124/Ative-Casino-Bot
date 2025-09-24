@@ -152,30 +152,30 @@ const client = new paypal.core.PayPalHttpClient(environment());
 // Product configuration
 const PRODUCTS = {
   coins_200k: {
-    name: '💎 200K Coins Pack',
-    price: '9.99',
-    coins: 200000,
-    description: '200,000 casino coins for gaming',
+    name: '💎 5M Coins Pack',
+    price: '3.99',
+    coins: 5000000,
+    description: '5,000,000 casino coins for gaming',
     type: 'one_time'
   },
   coins_500k: {
-    name: '👑 500K Coins Pack',
-    price: '19.99',
-    coins: 500000,
-    description: '500,000 casino coins for gaming',
+    name: '👑 25M Coins Pack',
+    price: '24.99',
+    coins: 25000000,
+    description: '25,000,000 casino coins for gaming',
     type: 'one_time'
   },
   coins_1m: {
-    name: '🚀 1M Coins Pack',
+    name: '🚀 100M Coins Pack',
     price: '39.99',
-    coins: 1000000,
-    description: '1,000,000 casino coins for gaming',
+    coins: 100000000,
+    description: '100,000,000 casino coins for gaming',
     type: 'one_time'
   },
   diamond_subscription: {
     name: '💎 Diamond Subscription',
     price: '4.99',
-    coins: 50000,
+    coins: 1000000,
     description: 'Monthly Diamond VIP subscription with 5% purchase bonus',
     roleId: '1411582691073196155',
     type: 'subscription',
@@ -184,7 +184,7 @@ const PRODUCTS = {
   ruby_subscription: {
     name: '🔴 Ruby Subscription',
     price: '9.99',
-    coins: 100000,
+    coins: 5000000,
     description: 'Monthly Ruby VIP subscription with 10% purchase bonus',
     roleId: '1411582733813158001',
     type: 'subscription',

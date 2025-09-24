@@ -635,13 +635,15 @@ footer::before {
 }
 
 .product-card.popular {
-  border-color: var(--accent-color);
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(54, 57, 63, 0.9) 100%);
+  border-color: var(--gold-accent);
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 255, 255, 1) 100%);
+  box-shadow: 0 5px 25px rgba(251, 191, 36, 0.2);
 }
 
 .product-card.premium {
-  border-color: var(--danger-color);
-  background: linear-gradient(135deg, rgba(240, 71, 71, 0.1) 0%, rgba(54, 57, 63, 0.9) 100%);
+  border-color: var(--purple-accent);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(255, 255, 255, 1) 100%);
+  box-shadow: 0 5px 25px rgba(139, 92, 246, 0.2);
 }
 
 .popular-badge, .premium-badge {
@@ -657,7 +659,7 @@ footer::before {
 }
 
 .premium-badge {
-  background: var(--danger-color);
+  background: var(--purple-accent);
   color: white;
 }
 
