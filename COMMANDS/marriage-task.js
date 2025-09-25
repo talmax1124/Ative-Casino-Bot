@@ -5,6 +5,14 @@ const { getMarriageLevelByXP } = require('../UTILS/marriageLevels');
 const logger = require('../UTILS/logger');
 const fs = require('fs');
 const path = require('path');
+const marriageTaskRotation = require('../UTILS/marriageTaskRotation');
+const marriageTaskStatus = require('../UTILS/marriageTaskStatus');
+
+// Import game classes for different weeks
+const { MentionTaskGame } = require('../marriages/Games/MentionTask');
+const { CoupleTriviaGame } = require('../marriages/Games/CoupleTrivia');  
+const { DateNightRPGGame } = require('../marriages/Games/DateNightRPG');
+const { GuessTheWordEmojiGame } = require('../marriages/Games/GuessTheWordEmoji');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -16,11 +24,13 @@ module.exports = {
                 .setRequired(true)
                 .addChoices(
                     { name: 'View Tasks', value: 'view' },
-                    { name: 'Task 1: Tic Tac Toe', value: 'task1' },
-                    { name: 'Task 2: Plant a Tree', value: 'task2' },
-                    { name: 'Task 3: Write a Poem', value: 'task3' },
-                    { name: 'Task 4: Quiz Each Other', value: 'task4' },
-                    { name: 'Migrate Poems (Admin)', value: 'migrate_poems' }
+                    { name: 'Task 1', value: 'task1' },
+                    { name: 'Task 2', value: 'task2' },
+                    { name: 'Task 3', value: 'task3' },
+                    { name: 'Task 4', value: 'task4' },
+                    { name: 'Migrate Poems (Admin)', value: 'migrate_poems' },
+                    { name: 'Check Task Rotation (Admin)', value: 'check_rotation' },
+                    { name: 'Force Task Rotation (Admin)', value: 'force_rotation' }
                 )
         ),
 
@@ -29,8 +39,9 @@ module.exports = {
         const guildId = await getGuildId(interaction);
         const action = interaction.options.getString('action');
 
-        // Handle migration separately (admin-only, no marriage required)
-        if (action === 'migrate_poems') {
+        // Handle admin commands separately (admin-only, no marriage required)
+        const adminCommands = ['migrate_poems', 'check_rotation', 'force_rotation'];
+        if (adminCommands.includes(action)) {
             const { hasAdminRole } = require('../UTILS/common');
             if (!(await hasAdminRole(interaction.user.id, interaction.guildId, interaction.guild))) {
                 await interaction.reply({
@@ -39,8 +50,17 @@ module.exports = {
                 });
                 return;
             }
-            await this.migrateExistingPoems(interaction);
-            return;
+            
+            if (action === 'migrate_poems') {
+                await this.migrateExistingPoems(interaction);
+                return;
+            } else if (action === 'check_rotation') {
+                await this.handleCheckRotation(interaction);
+                return;
+            } else if (action === 'force_rotation') {
+                await this.handleForceRotation(interaction);
+                return;
+            }
         }
 
         await interaction.deferReply();
@@ -57,21 +77,31 @@ module.exports = {
 
             const marriage = marriageData.marriage;
 
+            // Check and rotate tasks if needed (automatic rotation)
+            try {
+                const rotated = await marriageTaskRotation.checkAndRotateTasks();
+                if (rotated) {
+                    logger.info('Marriage tasks automatically rotated to new set');
+                }
+            } catch (error) {
+                logger.error(`Failed to check task rotation: ${error.message}`);
+            }
+
             switch (action) {
                 case 'view':
                     await this.handleViewTasks(interaction, marriage);
                     break;
                 case 'task1':
-                    await this.handleTicTacToe(interaction, marriage);
+                    await this.handleTask(interaction, marriage, 1);
                     break;
                 case 'task2':
-                    await this.handlePlantTree(interaction, marriage);
+                    await this.handleTask(interaction, marriage, 2);
                     break;
                 case 'task3':
-                    await this.handlePoem(interaction, marriage);
+                    await this.handleTask(interaction, marriage, 3);
                     break;
                 case 'task4':
-                    await this.handleQuiz(interaction, marriage);
+                    await this.handleTask(interaction, marriage, 4);
                     break;
             }
 
@@ -85,15 +115,18 @@ module.exports = {
 
     async handleViewTasks(interaction, marriage) {
         try {
-            // Read tasks from markdown file
-            const tasksPath = path.join(__dirname, '..', 'marriages', 'Tasks-For-This-Week.md');
-            const tasksContent = fs.readFileSync(tasksPath, 'utf8');
-            
-            // Parse the markdown to extract tasks
-            const taskLines = tasksContent.split('\n').filter(line => line.startsWith('- [ ]'));
-            const tasks = taskLines.map((line, index) => {
-                const taskText = line.replace('- [ ]', '').trim();
-                return `**Task ${index + 1}:** ${taskText}`;
+            // Get current task set from rotation system
+            const currentTaskSet = marriageTaskRotation.getCurrentTaskSet();
+            if (!currentTaskSet) {
+                await interaction.editReply({
+                    content: '❌ Unable to load current tasks. Please try again later.',
+                });
+                return;
+            }
+
+            // Create generic task display with current rotation's tasks
+            const tasks = currentTaskSet.tasks.map((taskDescription, index) => {
+                return `**Task ${index + 1}:** ${taskDescription}`;
             });
 
             // Get marriage level data (placeholder for now)
@@ -107,8 +140,8 @@ module.exports = {
                 logger.info(`Fixed ${fixResult.updated} task completion dates for marriage ${marriage.id}`);
             }
             
-            // Get task completion status from database
-            const taskStatusData = await dbManager.getMarriageTaskStatus(marriage.id);
+            // Get task completion status from rotation-aware system
+            const taskStatusData = await marriageTaskStatus.getTaskStatus(marriage.id);
             
             const taskStatus = {
                 task1: !!taskStatusData.tasks.task1?.completed,
@@ -122,9 +155,12 @@ module.exports = {
                 logger.info(`Found completed tasks for marriage ${marriage.id}:`, Object.entries(taskStatus).filter(([key, value]) => value).map(([key]) => key));
             }
 
+            // Build rotation info display from already loaded task set
+            const rotationInfo = `\n🔄 **${currentTaskSet.name}** (${currentTaskSet.rotation + 1}/${currentTaskSet.totalSets})`;
+
             const embed = new EmbedBuilder()
                 .setTitle('💕 Weekly Marriage Tasks')
-                .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**\n${currentLevel.emoji} Level ${currentLevel.level}: ${currentLevel.name}`)
+                .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**\n${currentLevel.emoji} Level ${currentLevel.level}: ${currentLevel.name}${rotationInfo}`)
                 .setColor(currentLevel.color)
                 .setTimestamp();
 
@@ -154,20 +190,20 @@ module.exports = {
                 .addComponents(
                     new ButtonBuilder()
                         .setCustomId('marriage_task_task1')
-                        .setLabel('Task 1: Tic Tac Toe')
-                        .setEmoji('🎯')
+                        .setLabel('Task 1')
+                        .setEmoji('📋')
                         .setStyle(taskStatus.task1 ? ButtonStyle.Success : ButtonStyle.Primary)
                         .setDisabled(taskStatus.task1),
                     new ButtonBuilder()
                         .setCustomId('marriage_task_task2')
-                        .setLabel('Task 2: Plant Tree')
-                        .setEmoji('🌱')
+                        .setLabel('Task 2')
+                        .setEmoji('📋')
                         .setStyle(taskStatus.task2 ? ButtonStyle.Success : ButtonStyle.Primary)
                         .setDisabled(taskStatus.task2),
                     new ButtonBuilder()
                         .setCustomId('marriage_task_task3')
-                        .setLabel('Task 3: Poem')
-                        .setEmoji('📝')
+                        .setLabel('Task 3')
+                        .setEmoji('📋')
                         .setStyle(taskStatus.task3 ? ButtonStyle.Success : ButtonStyle.Primary)
                         .setDisabled(taskStatus.task3)
                 );
@@ -176,8 +212,8 @@ module.exports = {
                 .addComponents(
                     new ButtonBuilder()
                         .setCustomId('marriage_task_task4')
-                        .setLabel('Task 4: Quiz')
-                        .setEmoji('❓')
+                        .setLabel('Task 4')
+                        .setEmoji('📋')
                         .setStyle(taskStatus.task4 ? ButtonStyle.Success : ButtonStyle.Primary)
                         .setDisabled(taskStatus.task4),
                     new ButtonBuilder()
@@ -468,45 +504,80 @@ module.exports = {
 
     // Handle button interactions for this command
     async handleButtonInteraction(interaction) {
-        if (!interaction.customId.startsWith('marriage_task_')) return;
-
-        const taskAction = interaction.customId.replace('marriage_task_', '');
-        const guildId = await getGuildId(interaction);
-        const marriageData = await dbManager.getUserMarriage(interaction.user.id, guildId);
-
-        if (!marriageData.married) {
-            await this.safeInteractionReply(interaction, {
-                content: '❌ You must be married to complete tasks!',
-                ephemeral: true
-            });
+        
+        if (!interaction.customId.startsWith('marriage_task_')) {
+            console.log('❌ Not a marriage task button, returning');
             return;
         }
 
-        const marriage = marriageData.marriage;
+        // Don't defer - button interactions should use update()
+        console.log('ℹ️ Using button interaction update approach (like TicTacToe)');
 
-        // Directly call the appropriate handler based on task action
-        switch (taskAction) {
-            case 'view':
-                await this.handleViewTasks(interaction, marriage);
-                break;
-            case 'task1':
-                await this.handleTicTacToe(interaction, marriage);
-                break;
-            case 'task2':
-                await this.handlePlantTree(interaction, marriage);
-                break;
-            case 'task3':
-                await this.handlePoem(interaction, marriage);
-                break;
-            case 'task4':
-                await this.handleQuiz(interaction, marriage);
-                break;
-            default:
-                await this.safeReply(interaction, {
-                    content: '❌ Unknown task action.',
-                    embeds: [],
-                    components: []
+        const taskAction = interaction.customId.replace('marriage_task_', '');
+        console.log('Task action:', taskAction);
+        
+        try {
+            const guildId = await getGuildId(interaction);
+            console.log('Guild ID:', guildId);
+            
+            const marriageData = await dbManager.getUserMarriage(interaction.user.id, guildId);
+            console.log('Marriage data:', marriageData.married ? 'Married' : 'Not married');
+
+            if (!marriageData.married) {
+                console.log('❌ User not married, sending error message');
+                await interaction.reply({
+                    content: '❌ You must be married to complete tasks!',
+                    ephemeral: true
                 });
+                return;
+            }
+
+            const marriage = marriageData.marriage;
+            console.log('Marriage ID:', marriage.id);
+            console.log('Partners:', marriage.partner1_name, '&', marriage.partner2_name);
+
+            // Route to appropriate handler based on current rotation
+            console.log('✅ Routing to task handler for:', taskAction);
+            switch (taskAction) {
+                case 'view':
+                    console.log('→ Calling handleViewTasks');
+                    await this.handleViewTasks(interaction, marriage);
+                    break;
+                case 'task1':
+                    console.log('→ Calling handleTask for task 1');
+                    await this.handleTask(interaction, marriage, 1);
+                    break;
+                case 'task2':
+                    console.log('→ Calling handleTask for task 2');
+                    await this.handleTask(interaction, marriage, 2);
+                    break;
+                case 'task3':
+                    console.log('→ Calling handleTask for task 3');
+                    await this.handleTask(interaction, marriage, 3);
+                    break;
+                case 'task4':
+                    console.log('→ Calling handleTask for task 4');
+                    await this.handleTask(interaction, marriage, 4);
+                    break;
+                default:
+                    console.log('❌ Unknown task action:', taskAction);
+                    await interaction.reply({
+                        content: '❌ Unknown task action.',
+                        ephemeral: true
+                    });
+            }
+            console.log('✅ Task handler completed successfully');
+            
+        } catch (error) {
+            console.log('❌ Stack trace:', error.stack);
+            
+            try {
+                await interaction.editReply({
+                    content: '❌ An error occurred while processing your request. Please try again later.'
+                });
+            } catch (replyError) {
+                console.log('❌ Failed to send error reply:', replyError.message);
+            }
         }
     },
 
@@ -3277,6 +3348,788 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error sending level up notification: ${error.message}`);
+        }
+    },
+
+    /**
+     * Handle checking current task rotation status (Admin only)
+     */
+    async handleCheckRotation(interaction) {
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            const currentTaskSet = marriageTaskRotation.getCurrentTaskSet();
+            const allTaskSets = marriageTaskRotation.getAllTaskSets();
+            
+            if (!currentTaskSet) {
+                await interaction.editReply({
+                    content: '❌ Failed to get task rotation information.',
+                });
+                return;
+            }
+
+            const nextRotationDate = currentTaskSet.nextRotationDate;
+            const nextRotationFormatted = `<t:${Math.floor(nextRotationDate.getTime() / 1000)}:F>`;
+
+            const embed = new EmbedBuilder()
+                .setTitle('🔄 Marriage Task Rotation Status')
+                .setDescription('Current task rotation configuration and status')
+                .addFields(
+                    {
+                        name: '📍 Current Task Set',
+                        value: `**${currentTaskSet.name}** (${currentTaskSet.id})\nRotation ${currentTaskSet.rotation + 1} of ${currentTaskSet.totalSets}`,
+                        inline: false
+                    },
+                    {
+                        name: '📅 Next Rotation',
+                        value: nextRotationFormatted,
+                        inline: false
+                    },
+                    {
+                        name: '📋 Current Tasks',
+                        value: currentTaskSet.tasks.map((task, i) => `**${i + 1}.** ${task}`).join('\n'),
+                        inline: false
+                    },
+                    {
+                        name: '🔢 All Available Sets',
+                        value: allTaskSets.map((set, i) => 
+                            `${i === currentTaskSet.rotation ? '**➤ ' : ''}${i + 1}. ${set.name}${i === currentTaskSet.rotation ? '**' : ''}`
+                        ).join('\n'),
+                        inline: false
+                    }
+                )
+                .setColor(0x00AE86)
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embed] });
+
+        } catch (error) {
+            logger.error(`Error checking task rotation: ${error.message}`);
+            await interaction.editReply({
+                content: '❌ An error occurred while checking task rotation status.',
+            });
+        }
+    },
+
+    /**
+     * Handle forcing task rotation to a specific set (Admin only)
+     */
+    async handleForceRotation(interaction) {
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            const allTaskSets = marriageTaskRotation.getAllTaskSets();
+            const currentTaskSet = marriageTaskRotation.getCurrentTaskSet();
+            
+            if (!allTaskSets || allTaskSets.length === 0) {
+                await interaction.editReply({
+                    content: '❌ No task sets available for rotation.',
+                });
+                return;
+            }
+
+            // Create buttons for each task set
+            const buttons = [];
+            for (let i = 0; i < Math.min(allTaskSets.length, 5); i++) { // Discord limits to 5 buttons per row
+                const taskSet = allTaskSets[i];
+                const isActive = currentTaskSet && currentTaskSet.rotation === i;
+                
+                buttons.push(
+                    new ButtonBuilder()
+                        .setCustomId(`force_rotation_${i}`)
+                        .setLabel(`${i + 1}. ${taskSet.name}`)
+                        .setStyle(isActive ? ButtonStyle.Success : ButtonStyle.Secondary)
+                        .setDisabled(isActive)
+                );
+            }
+
+            const row = new ActionRowBuilder().addComponents(buttons);
+
+            const embed = new EmbedBuilder()
+                .setTitle('🔄 Force Task Rotation')
+                .setDescription('Select which task set to switch to immediately:')
+                .addFields(
+                    allTaskSets.map((set, i) => ({
+                        name: `${i + 1}. ${set.name} ${currentTaskSet && currentTaskSet.rotation === i ? '(Current)' : ''}`,
+                        value: set.tasks.map((task, j) => `• ${task}`).join('\n'),
+                        inline: false
+                    }))
+                )
+                .setColor(0xFFA500)
+                .setFooter({ text: 'Click a button to force rotation to that task set' });
+
+            await interaction.editReply({ 
+                embeds: [embed], 
+                components: [row] 
+            });
+
+            // Handle button interactions
+            const filter = (buttonInteraction) => {
+                return buttonInteraction.user.id === interaction.user.id && 
+                       buttonInteraction.customId.startsWith('force_rotation_');
+            };
+
+            const collector = interaction.channel.createMessageComponentCollector({ 
+                filter, 
+                time: 60000 
+            });
+
+            collector.on('collect', async (buttonInteraction) => {
+                await buttonInteraction.deferUpdate();
+                
+                const rotationIndex = parseInt(buttonInteraction.customId.split('_')[2]);
+                const result = await marriageTaskRotation.forceRotation(rotationIndex);
+                
+                if (result.success) {
+                    const successEmbed = new EmbedBuilder()
+                        .setTitle('✅ Task Rotation Successful')
+                        .setDescription(`Successfully rotated to: **${result.taskSet.name}**`)
+                        .addFields({
+                            name: '📋 New Tasks',
+                            value: result.taskSet.tasks.map((task, i) => `**${i + 1}.** ${task}`).join('\n'),
+                            inline: false
+                        })
+                        .setColor(0x00FF00)
+                        .setTimestamp();
+
+                    await interaction.editReply({ 
+                        embeds: [successEmbed], 
+                        components: [] 
+                    });
+
+                    logger.info(`Admin ${interaction.user.id} forced task rotation to: ${result.taskSet.name}`);
+                } else {
+                    await interaction.editReply({
+                        content: `❌ ${result.message}`,
+                        components: []
+                    });
+                }
+
+                collector.stop();
+            });
+
+            collector.on('end', async (collected, reason) => {
+                if (reason === 'time') {
+                    const timeoutEmbed = new EmbedBuilder()
+                        .setTitle('⏰ Selection Timeout')
+                        .setDescription('No selection made within 60 seconds.')
+                        .setColor(0xFF6B6B);
+
+                    try {
+                        await interaction.editReply({ 
+                            embeds: [timeoutEmbed], 
+                            components: [] 
+                        });
+                    } catch (error) {
+                        // Interaction might have been deleted
+                        logger.error(`Failed to update timeout message: ${error.message}`);
+                    }
+                }
+            });
+
+        } catch (error) {
+            logger.error(`Error in force rotation handler: ${error.message}`);
+            await interaction.editReply({
+                content: '❌ An error occurred while setting up task rotation.',
+            });
+        }
+    },
+
+    async handleTask(interaction, marriage, taskNumber) {
+        console.log('Task number:', taskNumber);
+        console.log('Marriage ID:', marriage.id);
+        
+        try {
+            // Get current rotation information
+            console.log('→ Getting current task set...');
+            const currentTaskSet = marriageTaskRotation.getCurrentTaskSet();
+            console.log('Current task set:', currentTaskSet ? currentTaskSet.id : 'null');
+            
+            if (!currentTaskSet) {
+                console.log('❌ No current task set found');
+                await interaction.reply({
+                    content: '❌ Unable to determine current task set. Please try again later.',
+                    ephemeral: true
+                });
+                return;
+            }
+
+            console.log('Current rotation:', currentTaskSet.name);
+            console.log('→ Routing to week handler for:', currentTaskSet.id);
+            
+            // Route to appropriate week handler based on current rotation
+            switch (currentTaskSet.id) {
+                case 'week1':
+                    await this.handleWeek1Task(interaction, marriage, taskNumber);
+                    break;
+                case 'week2':
+                    console.log('→ Routing to handleWeek2Task');
+                    await this.handleWeek2Task(interaction, marriage, taskNumber);
+                    console.log('✅ handleWeek2Task completed');
+                    break;
+                case 'week3':
+                    await this.handleWeek3Task(interaction, marriage, taskNumber);
+                    break;
+                case 'week4':
+                    await this.handleWeek4Task(interaction, marriage, taskNumber);
+                    break;
+                default:
+                    console.log('❌ Unknown task set ID:', currentTaskSet.id);
+                    await interaction.reply({
+                        content: '❌ Unknown task set. Please contact an administrator.',
+                        ephemeral: true
+                    });
+                    break;
+            }
+            console.log('✅ handleTask switch completed successfully');
+            
+        } catch (error) {
+            console.log('❌ Error in handleTask:', error.message);
+            console.log('❌ Error stack:', error.stack);
+            logger.error(`Error in handleTask: ${error.message}`);
+            
+            try {
+                await interaction.editReply({
+                    content: '❌ An error occurred while handling the task. Please try again later.',
+                    components: []
+                });
+            } catch (replyError) {
+                console.log('❌ Failed to send error reply:', replyError.message);
+            }
+        }
+        
+        console.log('✅ handleTask method completed successfully');
+    },
+
+    async handleWeek1Task(interaction, marriage, taskNumber) {
+        // Keep existing Week 1 logic (tic-tac-toe, tree planting, etc.)
+        // This would contain the original task handling code
+        switch (taskNumber) {
+            case 1:
+                // Tic-tac-toe game logic (existing)
+                await this.safeReply(interaction, {
+                    content: '🎮 Week 1 Task 1: Tic-tac-toe game coming soon!',
+                });
+                break;
+            case 2:
+                // Tree planting logic (existing)
+                await this.safeReply(interaction, {
+                    content: '🌱 Week 1 Task 2: Tree planting coming soon!',
+                });
+                break;
+            case 3:
+                // Nature poem logic (existing)
+                await this.safeReply(interaction, {
+                    content: '📝 Week 1 Task 3: Nature poem coming soon!',
+                });
+                break;
+            case 4:
+                // Partner quiz logic (existing)
+                await this.safeReply(interaction, {
+                    content: '🤔 Week 1 Task 4: Partner quiz coming soon!',
+                });
+                break;
+            default:
+                await this.safeReply(interaction, {
+                    content: '❌ Invalid task number.',
+                });
+        }
+    },
+
+    async handleWeek2Task(interaction, marriage, taskNumber) {
+        console.log('Task number:', taskNumber);
+        
+        const userId = interaction.user.id;
+        
+        switch (taskNumber) {
+            case 1:
+                console.log('→ Calling handleMentionTask');
+                await this.handleMentionTask(interaction, marriage);
+                console.log('✅ handleMentionTask completed');
+                break;
+            case 2:
+                await this.handleCoupleTrivia(interaction, marriage);
+                break;
+            case 3:
+                await this.handleDateNightRPG(interaction, marriage);
+                break;
+            case 4:
+                await this.handleGuessTheWordEmoji(interaction, marriage);
+                break;
+            default:
+                await interaction.editReply({
+                    content: '❌ Invalid task number.',
+                });
+        }
+    },
+
+    async handleWeek3Task(interaction, marriage, taskNumber) {
+        // Placeholder for Week 3 tasks
+        switch (taskNumber) {
+            case 1:
+                await this.safeReply(interaction, {
+                    content: '🏠 Week 3 Task 1: Dream house description coming soon!',
+                });
+                break;
+            case 2:
+                await this.safeReply(interaction, {
+                    content: '📖 Week 3 Task 2: Memory book creation coming soon!',
+                });
+                break;
+            case 3:
+                await this.safeReply(interaction, {
+                    content: '🎭 Week 3 Task 3: Mini play performance coming soon!',
+                });
+                break;
+            case 4:
+                await this.safeReply(interaction, {
+                    content: '🛡️ Week 3 Task 4: Couple\'s coat of arms coming soon!',
+                });
+                break;
+            default:
+                await this.safeReply(interaction, {
+                    content: '❌ Invalid task number.',
+                });
+        }
+    },
+
+    async handleWeek4Task(interaction, marriage, taskNumber) {
+        // Placeholder for Week 4 tasks
+        switch (taskNumber) {
+            case 1:
+                await this.safeReply(interaction, {
+                    content: '💭 Week 4 Task 1: Sharing dreams coming soon!',
+                });
+                break;
+            case 2:
+                await this.safeReply(interaction, {
+                    content: '🎉 Week 4 Task 2: Surprise virtual event coming soon!',
+                });
+                break;
+            case 3:
+                await this.safeReply(interaction, {
+                    content: '📋 Week 4 Task 3: Mission statement creation coming soon!',
+                });
+                break;
+            case 4:
+                await this.safeReply(interaction, {
+                    content: '💌 Week 4 Task 4: Letters to future selves coming soon!',
+                });
+                break;
+            default:
+                await this.safeReply(interaction, {
+                    content: '❌ Invalid task number.',
+                });
+        }
+    },
+
+    async handleMentionTask(interaction, marriage) {
+        try {
+            // Get current progress for both partners
+            const progressData = await this.getMentionTaskProgress(marriage.id);
+            
+            const embed = new EmbedBuilder()
+                .setTitle('💖 Week 2 - Task 1: Mention Task')
+                .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**\n\n📝 **Your Mission:**\n• Mention your spouse and say something nice about them\n• We'll track your mentions automatically throughout the week!\n• Use positive words like: amazing, wonderful, kind, talented, caring`)
+                .setColor(0xFF69B4);
+
+            // Add progress fields for both partners
+            const partner1Progress = progressData.partner1 || { mentions: 0, completed: false };
+            const partner2Progress = progressData.partner2 || { mentions: 0, completed: false };
+
+            embed.addFields(
+                { 
+                    name: `📊 ${marriage.partner1_name}'s Progress`, 
+                    value: partner1Progress.completed ? 
+                        '✅ **Completed!** Nice mention detected!' : 
+                        `⏳ **In Progress** (${partner1Progress.mentions} nice mentions found)`,
+                    inline: true 
+                },
+                { 
+                    name: `📊 ${marriage.partner2_name}'s Progress`, 
+                    value: partner2Progress.completed ? 
+                        '✅ **Completed!** Nice mention detected!' : 
+                        `⏳ **In Progress** (${partner2Progress.mentions} nice mentions found)`,
+                    inline: true 
+                }
+            );
+
+            const bothCompleted = partner1Progress.completed && partner2Progress.completed;
+            if (bothCompleted) {
+                embed.setColor(0x00FF00);
+                embed.addFields({
+                    name: '🎉 Task Status',
+                    value: '**COMPLETED!** Both partners have mentioned each other with nice messages!',
+                    inline: false
+                });
+            } else {
+                embed.addFields({
+                    name: '📝 Task Status',
+                    value: 'Automatic tracking active - just mention your spouse with nice words in any channel!',
+                    inline: false
+                });
+            }
+
+            await interaction.update({
+                embeds: [embed],
+                components: []
+            });
+            
+        } catch (error) {
+            console.log('❌ Error in handleMentionTask:', error.message);
+            console.log('❌ Stack trace:', error.stack);
+            
+            try {
+                await interaction.update({
+                    content: '❌ Error loading Mention Task. Please try again.',
+                    embeds: [],
+                    components: []
+                });
+            } catch (updateError) {
+                console.log('❌ Failed to send error message:', updateError.message);
+            }
+        }
+    },
+
+    async clearGameData() {
+        try {
+            // Clear game statistics to reset house edge calculations
+            await dbManager.databaseAdapter.executeQuery('DELETE FROM user_stats');
+            await dbManager.databaseAdapter.executeQuery('DELETE FROM game_results');
+            
+            logger.info('Game data cleared successfully');
+            return true;
+        } catch (error) {
+            logger.error(`Error clearing game data: ${error.message}`);
+            return false;
+        }
+    },
+
+    async ensureMentionTaskTable() {
+        try {
+            const createTableQuery = `
+                CREATE TABLE IF NOT EXISTS mention_task_progress (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    marriage_id INT NOT NULL,
+                    task_rotation VARCHAR(10) NOT NULL DEFAULT 'week2',
+                    partner1_mentions INT DEFAULT 0,
+                    partner2_mentions INT DEFAULT 0,
+                    partner1_completed BOOLEAN DEFAULT FALSE,
+                    partner2_completed BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY unique_marriage_rotation (marriage_id, task_rotation)
+                )
+            `;
+            
+            await dbManager.databaseAdapter.executeQuery(createTableQuery);
+            return true;
+        } catch (error) {
+            logger.error(`Error creating mention_task_progress table: ${error.message}`);
+            return false;
+        }
+    },
+
+    async getMentionTaskProgress(marriageId) {
+        try {
+            // Ensure table exists
+            await this.ensureMentionTaskTable();
+            
+            const query = `
+                SELECT partner1_mentions, partner2_mentions, 
+                       partner1_completed, partner2_completed 
+                FROM mention_task_progress 
+                WHERE marriage_id = ? AND task_rotation = 'week2'
+            `;
+            
+            const rows = await dbManager.databaseAdapter.executeQuery(query, [marriageId]);
+            
+            if (!rows || rows.length === 0) {
+                // Create initial record
+                const insertQuery = `
+                    INSERT INTO mention_task_progress 
+                    (marriage_id, task_rotation, partner1_mentions, partner2_mentions, 
+                     partner1_completed, partner2_completed) 
+                    VALUES (?, 'week2', 0, 0, FALSE, FALSE)
+                `;
+                await dbManager.databaseAdapter.executeQuery(insertQuery, [marriageId]);
+                
+                return {
+                    partner1: { mentions: 0, completed: false },
+                    partner2: { mentions: 0, completed: false }
+                };
+            }
+            
+            const progress = rows[0];
+            return {
+                partner1: { mentions: progress.partner1_mentions, completed: !!progress.partner1_completed },
+                partner2: { mentions: progress.partner2_mentions, completed: !!progress.partner2_completed }
+            };
+            
+        } catch (error) {
+            logger.error(`Error getting mention task progress: ${error.message}`);
+            return {
+                partner1: { mentions: 0, completed: false },
+                partner2: { mentions: 0, completed: false }
+            };
+        }
+    },
+
+    async updateMentionTaskProgress(marriageId, partnerId, isCompleted = false) {
+        try {
+            // First get marriage info to determine which partner
+            const marriageQuery = 'SELECT partner1_id, partner2_id FROM marriages WHERE id = ?';
+            const marriages = await dbManager.databaseAdapter.executeQuery(marriageQuery, [marriageId]);
+            
+            if (!marriages || marriages.length === 0) {
+                throw new Error('Marriage not found');
+            }
+            
+            const marriage = marriages[0];
+            const isPartner1 = partnerId === marriage.partner1_id;
+            const partnerColumn = isPartner1 ? 'partner1_mentions' : 'partner2_mentions';
+            const completedColumn = isPartner1 ? 'partner1_completed' : 'partner2_completed';
+            
+            if (isCompleted) {
+                // Mark as completed
+                const updateQuery = `
+                    UPDATE mention_task_progress 
+                    SET ${completedColumn} = TRUE, ${partnerColumn} = ${partnerColumn} + 1
+                    WHERE marriage_id = ? AND task_rotation = 'week2'
+                `;
+                await dbManager.databaseAdapter.executeQuery(updateQuery, [marriageId]);
+            } else {
+                // Just increment mentions
+                const updateQuery = `
+                    UPDATE mention_task_progress 
+                    SET ${partnerColumn} = ${partnerColumn} + 1
+                    WHERE marriage_id = ? AND task_rotation = 'week2'
+                `;
+                await dbManager.databaseAdapter.executeQuery(updateQuery, [marriageId]);
+            }
+            
+            return true;
+        } catch (error) {
+            logger.error(`Error updating mention task progress: ${error.message}`);
+            return false;
+        }
+    },
+
+    async checkMentionForTask(message) {
+        try {
+            // Only check during Week 2 rotation
+            const currentTaskSet = marriageTaskRotation.getCurrentTaskSet();
+            if (!currentTaskSet || currentTaskSet.id !== 'week2') {
+                return;
+            }
+
+            // Check if message has mentions
+            if (message.mentions.users.size === 0) {
+                return;
+            }
+
+            // Get user's marriage
+            const marriageData = await dbManager.getUserMarriage(message.author.id, message.guildId);
+            if (!marriageData || !marriageData.married) {
+                return;
+            }
+
+            const marriage = marriageData.marriage; // Extract the actual marriage object
+
+            // Check if user already completed the task
+            const progress = await this.getMentionTaskProgress(marriage.id);
+            const isPartner1 = message.author.id === marriage.partner1_id;
+            const userProgress = isPartner1 ? progress.partner1 : progress.partner2;
+            
+            if (userProgress.completed) {
+                return; // Already completed
+            }
+
+            // Check if they mentioned their spouse
+            const spouseId = isPartner1 ? marriage.partner2_id : marriage.partner1_id;
+            const mentionedSpouse = message.mentions.users.has(spouseId);
+            
+            if (!mentionedSpouse) {
+                return; // Didn't mention spouse
+            }
+
+            // Check for nice words using the same logic as MentionTask.js
+            const niceWords = [
+                'amazing', 'wonderful', 'awesome', 'incredible', 'fantastic', 'brilliant', 'outstanding',
+                'remarkable', 'exceptional', 'magnificent', 'marvelous', 'spectacular', 'superb',
+                'excellent', 'perfect', 'beautiful', 'lovely', 'adorable', 'charming', 'delightful',
+                'sweet', 'kind', 'caring', 'thoughtful', 'generous', 'supportive', 'inspiring',
+                'talented', 'smart', 'clever', 'funny', 'hilarious', 'entertaining', 'fun',
+                'cool', 'rad', 'neat', 'great', 'good', 'nice', 'pleasant', 'friendly',
+                'special', 'unique', 'precious', 'valuable', 'important', 'loved', 'cherished',
+                'handsome', 'gorgeous', 'pretty', 'attractive', 'stunning', 'cute', 'hot',
+                'perfect', 'flawless', 'divine', 'angelic', 'breathtaking', 'mesmerizing'
+            ];
+
+            const messageText = message.content.toLowerCase();
+            const foundWords = niceWords.filter(word => messageText.includes(word.toLowerCase()));
+
+            if (foundWords.length === 0) {
+                return; // No nice words found
+            }
+
+            const marriageId = marriage.id;
+            
+            // Update progress - mark as completed since they mentioned spouse with nice words
+            await this.updateMentionTaskProgress(marriageId, message.author.id, true);
+
+            // Send a reaction to acknowledge the mention
+            try {
+                await message.react('💖');
+            } catch (reactionError) {
+                // Ignore reaction errors
+            }
+
+            // Check if both partners completed the task and mark overall task as done
+            const updatedProgress = await this.getMentionTaskProgress(marriageId);
+            if (updatedProgress.partner1.completed && updatedProgress.partner2.completed) {
+                // Both completed - mark task as done in marriageTaskStatus
+                const marriageTaskStatus = require('../UTILS/marriageTaskStatus');
+                await marriageTaskStatus.completeTask(marriageId, 1); // Task 1
+            }
+
+        } catch (error) {
+            logger.error(`Error checking mention for task: ${error.message}`);
+        }
+    },
+
+    async handleCoupleTrivia(interaction, marriage) {
+        const embed = new EmbedBuilder()
+            .setTitle('❓ Week 2 - Task 2: Couple Trivia')
+            .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**\n\nAnswer questions about each other!\n\n**Instructions:**\n1. One partner creates 3 questions\n2. The other partner answers them\n3. Switch roles and repeat!`)
+            .setColor('#FF69B4');
+
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('trivia_task_start')
+                    .setLabel('Start Trivia')
+                    .setEmoji('🤔')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+        await interaction.update({
+            embeds: [embed],
+            components: [row]
+        });
+    },
+
+    async handleDateNightRPG(interaction, marriage) {
+        const embed = new EmbedBuilder()
+            .setTitle('🌙 Week 2 - Task 3: Date Night RPG')
+            .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**\n\nGo on a virtual adventure together!\n\n**What to expect:**\n• Choose-your-own adventure scenarios\n• Romantic storylines\n• Multiple paths and endings`)
+            .setColor('#9932CC');
+
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('datenight_task_start')
+                    .setLabel('Start Adventure')
+                    .setEmoji('🎭')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+        await interaction.update({
+            embeds: [embed],
+            components: [row]
+        });
+    },
+
+    async handleGuessTheWordEmoji(interaction, marriage) {
+        const embed = new EmbedBuilder()
+            .setTitle('😀 Week 2 - Task 4: Emoji Guessing Game')
+            .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**\n\nSolve emoji puzzles together!\n\n**How it works:**\n• 6 emoji puzzles to solve\n• 3 hints available per puzzle\n• Work together to guess the answers`)
+            .setColor('#FFD700');
+
+        const row = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('emoji_task_start')
+                    .setLabel('Start Game')
+                    .setEmoji('🎯')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+        await interaction.update({
+            embeds: [embed],
+            components: [row]
+        });
+    },
+
+    async handleDateNightStart(interaction) {
+        try {
+            // Get the DateNightRPG game class
+            const { DateNightRPGGame } = require('../marriages/Games/DateNightRPG');
+            const game = new DateNightRPGGame();
+            
+            // Start the game
+            const gameEmbed = await game.createStartEmbed(interaction.user);
+            
+            await interaction.update({
+                embeds: [gameEmbed.embed],
+                components: gameEmbed.components
+            });
+            
+        } catch (error) {
+            logger.error(`Error starting Date Night RPG: ${error.message}`);
+            await interaction.update({
+                content: '❌ Error starting Date Night RPG. Please try again.',
+                embeds: [],
+                components: []
+            });
+        }
+    },
+
+    async handleTriviaStart(interaction) {
+        try {
+            // Get the CoupleTrivia game class
+            const { CoupleTriviaGame } = require('../marriages/Games/CoupleTrivia');
+            const game = new CoupleTriviaGame();
+            
+            // Start the game
+            const gameEmbed = await game.createStartEmbed(interaction.user);
+            
+            await interaction.update({
+                embeds: [gameEmbed.embed],
+                components: gameEmbed.components
+            });
+            
+        } catch (error) {
+            logger.error(`Error starting Couple Trivia: ${error.message}`);
+            await interaction.update({
+                content: '❌ Error starting Couple Trivia. Please try again.',
+                embeds: [],
+                components: []
+            });
+        }
+    },
+
+    async handleEmojiStart(interaction) {
+        try {
+            // Get the GuessTheWordEmoji game class
+            const { GuessTheWordEmojiGame } = require('../marriages/Games/GuessTheWordEmoji');
+            const game = new GuessTheWordEmojiGame();
+            
+            // Start the game
+            const gameEmbed = await game.createStartEmbed(interaction.user);
+            
+            await interaction.update({
+                embeds: [gameEmbed.embed],
+                components: gameEmbed.components
+            });
+            
+        } catch (error) {
+            logger.error(`Error starting Emoji Guessing Game: ${error.message}`);
+            await interaction.update({
+                content: '❌ Error starting Emoji Guessing Game. Please try again.',
+                embeds: [],
+                components: []
+            });
         }
     }
 };

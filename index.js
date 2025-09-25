@@ -406,6 +406,63 @@ async function handleLotteryButtons(interaction, customId) {
 }
 
 /**
+ * Initialize marriage task rotation scheduler
+ */
+function initializeMarriageTaskScheduler() {
+    const marriageTaskRotation = require('./UTILS/marriageTaskRotation');
+    
+    // Calculate milliseconds until next midnight EST (12:01 AM EST)
+    function getNextMidnightEST() {
+        const now = new Date();
+        const nextMidnight = new Date();
+        
+        // Convert to EST (UTC-5) or EDT (UTC-4) depending on daylight saving
+        const estOffset = -5 * 60; // EST is UTC-5
+        const estTime = new Date(now.getTime() + (estOffset * 60 * 1000));
+        
+        // Set to next day at 12:01 AM EST
+        nextMidnight.setTime(estTime.getTime());
+        nextMidnight.setUTCHours(5, 1, 0, 0); // 12:01 AM EST = 5:01 AM UTC
+        
+        // If we're past midnight today, move to tomorrow
+        if (now >= nextMidnight) {
+            nextMidnight.setUTCDate(nextMidnight.getUTCDate() + 1);
+        }
+        
+        return nextMidnight.getTime() - now.getTime();
+    }
+    
+    // Check and rotate tasks
+    async function checkTaskRotation() {
+        try {
+            logger.info('🔄 Checking marriage task rotation...');
+            const rotated = await marriageTaskRotation.checkAndRotateTasks();
+            if (rotated) {
+                logger.info('✅ Marriage tasks rotated successfully');
+            } else {
+                logger.info('ℹ️ No task rotation needed');
+            }
+        } catch (error) {
+            logger.error(`Error checking task rotation: ${error.message}`);
+        }
+    }
+    
+    // Schedule the first check for next midnight EST
+    const timeUntilMidnight = getNextMidnightEST();
+    
+    setTimeout(() => {
+        // Run the initial check
+        checkTaskRotation();
+        
+        // Then set up daily checks at midnight EST (24 hours = 24 * 60 * 60 * 1000 ms)
+        setInterval(checkTaskRotation, 24 * 60 * 60 * 1000);
+        
+    }, timeUntilMidnight);
+    
+    logger.info(`🕛 Marriage task scheduler initialized - next check in ${Math.round(timeUntilMidnight / (1000 * 60 * 60))} hours`);
+}
+
+/**
  * Create startup economic summary
  */
 async function createStartupEconomicSummary(client) {
@@ -619,6 +676,9 @@ client.once('clientReady', async () => {
 
     // Send startup notification
     setTimeout(sendStartupNotification, 1000);
+
+    // Initialize marriage task rotation scheduler
+    initializeMarriageTaskScheduler();
 
     // Send online announcement to logs channel (ONLY in development)
     if (IS_DEVELOPMENT) {
@@ -2322,6 +2382,19 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
             }
+            // Handle Week 2 marriage task game start buttons
+            else if (customId === 'datenight_task_start' || customId === 'trivia_task_start' || customId === 'emoji_task_start') {
+                const marriageTaskCommand = client.commands.get('marriage-task');
+                if (marriageTaskCommand) {
+                    if (customId === 'datenight_task_start' && marriageTaskCommand.handleDateNightStart) {
+                        await marriageTaskCommand.handleDateNightStart(interaction);
+                    } else if (customId === 'trivia_task_start' && marriageTaskCommand.handleTriviaStart) {
+                        await marriageTaskCommand.handleTriviaStart(interaction);
+                    } else if (customId === 'emoji_task_start' && marriageTaskCommand.handleEmojiStart) {
+                        await marriageTaskCommand.handleEmojiStart(interaction);
+                    }
+                }
+            }
             // Handle confirmed task start buttons
             else if (customId.startsWith('confirmed_start_')) {
                 const marriageTaskCommand = client.commands.get('marriage-task');
@@ -2466,6 +2539,11 @@ client.on('messageCreate', async message => {
         if (marriageTaskCommand && marriageTaskCommand.handlePoemChatInput) {
             const handled = await marriageTaskCommand.handlePoemChatInput(message);
             if (handled) return; // Stop processing if poem input was handled
+        }
+
+        // Check for mention task progress (Week 2 Task 1)
+        if (marriageTaskCommand && marriageTaskCommand.checkMentionForTask) {
+            await marriageTaskCommand.checkMentionForTask(message);
         }
 
         // Guild-specific message reward system (3K-15K every 15-30 messages)
@@ -3154,45 +3232,8 @@ client.once('clientReady', async () => {
         }
     }
 
-    // Initialize automatic inactivity tax checking every 12 hours
-    const inactivityTax = require('./UTILS/inactivityTax');
-    
-    // Run tax check immediately on startup (delayed by 5 minutes to ensure everything is ready)
-    setTimeout(async () => {
-        try {
-            logger.info('🏛️ Running initial inactivity tax check...');
-            const result = await inactivityTax.processInactivityTaxes(client.guilds.cache.first()?.id, client);
-            if (result.success && result.usersTaxed > 0) {
-                logger.info(`Initial tax collection: ${result.usersTaxed} users taxed for ${result.totalTaxCollected}`);
-            }
-        } catch (error) {
-            logger.error(`Initial tax check failed: ${error.message}`);
-        }
-    }, 5 * 60 * 1000); // 5 minutes after startup
-
-    // Set up automatic tax checking every 12 hours
-    setInterval(async () => {
-        try {
-            logger.info('🏛️ Running scheduled inactivity tax check...');
-            const guildId = client.guilds.cache.first()?.id;
-            if (guildId) {
-                const result = await inactivityTax.processInactivityTaxes(guildId, client);
-                if (result.success) {
-                    if (result.usersTaxed > 0) {
-                        logger.info(`Scheduled tax collection: ${result.usersTaxed} users taxed for ${result.totalTaxCollected}`);
-                    } else {
-                        logger.info('Scheduled tax check completed - no users eligible for taxation');
-                    }
-                } else {
-                    logger.error(`Scheduled tax check failed: ${result.error}`);
-                }
-            }
-        } catch (error) {
-            logger.error(`Scheduled tax check error: ${error.message}`);
-        }
-    }, 12 * 60 * 60 * 1000); // 12 hours in milliseconds
-
-    logger.info('✅ Automatic inactivity tax system initialized - checks every 12 hours');
+    // Inactivity tax system has been disabled
+    logger.info('ℹ️ Inactivity tax system is disabled');
 
     // Initialize the global trend analyzer and behavioral analyzer for game integrations
     const trendAnalyzerIntegration = require('./UTILS/trendAnalyzerIntegration');

@@ -237,9 +237,21 @@ module.exports = {
             const symbols = spinSlots();
             const baseResult = calculatePayout(symbols, betAmount, personalizedConfig.payouts, modeConfig);
             
+            // Validate base result to prevent NaN propagation
+            if (isNaN(baseResult.payout) || isNaN(baseResult.multiplier) || !isFinite(baseResult.payout) || !isFinite(baseResult.multiplier)) {
+                logger.error(`Invalid base result from calculatePayout: payout=${baseResult.payout}, multiplier=${baseResult.multiplier}, symbols=${JSON.stringify(symbols)}, betAmount=${betAmount}`);
+                throw new Error('Invalid payout calculation - game cancelled');
+            }
+            
             // 🎰 APPLY AI TUNING SYSTEM - REAL ECONOMIC REGULATION
             const tuningAdjustment = await tuningManager.getAdjustedPayout('slots', baseResult.payout, betAmount);
             const regulatedPayout = baseResult.won ? tuningAdjustment.adjustedPayout : 0;
+            
+            // Validate tuning adjustment to prevent NaN propagation
+            if (isNaN(tuningAdjustment.adjustedPayout) || !isFinite(tuningAdjustment.adjustedPayout)) {
+                logger.error(`Invalid tuning adjustment: adjustedPayout=${tuningAdjustment.adjustedPayout}, originalPayout=${baseResult.payout}, betAmount=${betAmount}`);
+                throw new Error('Invalid tuning calculation - game cancelled');
+            }
             
             // Apply AI multiplier adjustment to tuning-regulated payout
             const aiMultiplier = aiResult?.multiplierAdjustment?.finalMultiplier || 1.0;
@@ -263,14 +275,27 @@ module.exports = {
                 { symbols, winType: baseResult.type }
             );
             
+            // Validate transparent payout result to prevent NaN propagation
+            if (isNaN(transparentResult.actualPayout) || !isFinite(transparentResult.actualPayout) || 
+                isNaN(transparentResult.displayedMultiplier) || !isFinite(transparentResult.displayedMultiplier)) {
+                logger.error(`Invalid transparent payout result: actualPayout=${transparentResult.actualPayout}, displayedMultiplier=${transparentResult.displayedMultiplier}, betAmount=${betAmount}`);
+                throw new Error('Invalid transparent payout calculation - game cancelled');
+            }
+            
             // Combine AI multiplier with transparent payout - AI takes precedence for actual payout
             const finalActualPayout = aiAdjustedResult.won ? Math.min(aiAdjustedPayout, transparentResult.actualPayout) : 0;
+            
+            // Final validation to prevent NaN values from reaching PayoutManager
+            if (isNaN(finalActualPayout) || !isFinite(finalActualPayout)) {
+                logger.error(`Invalid final payout calculation: finalActualPayout=${finalActualPayout}, aiAdjustedPayout=${aiAdjustedPayout}, transparentPayout=${transparentResult.actualPayout}`);
+                throw new Error('Invalid final payout calculation - game cancelled');
+            }
             
             // Use UI multiplier for display, AI-adjusted payout for winnings
             const result = {
                 ...baseResult,
                 multiplier: transparentResult.displayedMultiplier,  // Show transparent multiplier
-                payout: finalActualPayout,                    // AI and transparent system adjusted payout
+                payout: Math.max(0, Math.floor(finalActualPayout)), // Ensure non-negative integer
                 displayMultiplier: transparentResult.displayedMultiplier,
                 actualMultiplier: baseResult.multiplier,
                 aiMultiplier: aiMultiplier,                  // Track AI adjustment

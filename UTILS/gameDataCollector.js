@@ -37,6 +37,12 @@ class GameDataCollector {
      */
     async collectGameData(gameData) {
         try {
+            // Validate essential data before processing
+            if (!gameData.gameType) {
+                logger.warn(`ML data collection skipped - missing gameType in gameData: ${JSON.stringify(gameData)}`);
+                return;
+            }
+            
             const timestamp = Date.now();
             const enrichedData = {
                 // Core Game Data
@@ -128,6 +134,12 @@ class GameDataCollector {
      */
     async storeInDatabase(data) {
         try {
+            // Skip database insertion if gameType is null/undefined
+            if (!data.gameType) {
+                logger.warn(`ML database storage skipped - missing gameType in data: ${JSON.stringify({userId: data.userId, timestamp: data.timestamp})}`);
+                return;
+            }
+            
             const query = `
                 INSERT INTO ml_game_data (
                     timestamp, game_type, user_id, guild_id, bet_amount, payout, won,

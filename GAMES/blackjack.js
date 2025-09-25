@@ -307,8 +307,8 @@ class BlackjackGame {
     }
 
     dealerPlay() {
-        // More house-favorable rules: dealer hits on soft 17
-        while (this.dealerHand.getValue() < 17 || (this.dealerHand.getValue() === 17 && this.dealerHand.isSoft())) {
+        // Player-favorable rules: dealer stands on all 17s (including soft 17)
+        while (this.dealerHand.getValue() < 17) {
             this.dealerHand.addCard(this.deck.dealCard());
         }
         this.gameEnded = true;

@@ -1040,7 +1040,8 @@ class DatabaseAdapter {
     async updateUserStats(userId, guildId = null, gameType = null, win = null, wagered = 0, result = 0, userProfile = null) {
         try {
             if (!userId || !gameType) {
-                logger.warn('updateUserStats called with missing userId or gameType');
+                logger.warn(`updateUserStats called with missing userId or gameType - userId: ${userId}, gameType: ${gameType}`);
+                logger.warn('Stack trace:', new Error().stack);
                 return false;
             }
 
@@ -1558,6 +1559,14 @@ class DatabaseAdapter {
             const safePayout = payout ?? 0;
             const safeWon = won ?? false;
             const safeMetadata = metadata ?? {};
+            
+            // Log when gameType is null/undefined to track the issue
+            if (!gameType) {
+                logger.warn(`recordGameResult called with null/undefined gameType - userId: ${userId}, guildId: ${guildId}, gameType: ${gameType}`);
+                logger.warn('Stack trace:', new Error().stack);
+                // Skip recording to prevent database constraint errors
+                return false;
+            }
             
             // Exclude developers and admins from ML data collection
             const DEVELOPER_ID = '466050111680544798';

@@ -1303,69 +1303,22 @@ class PanelManager {
     }
 
     /**
-     * Handle Tax Status Check Action
+     * Handle Tax Status Check Action (DISABLED)
      */
     async handleTaxStatus(interaction) {
         try {
-            const inactivityTax = require('./inactivityTax');
-            const guildId = interaction.guildId;
+            // Inactivity tax system has been disabled
+            const disabledEmbed = new EmbedBuilder()
+                .setTitle('💸 Inactivity Tax System')
+                .setDescription('The inactivity tax system has been disabled.\n\nUsers will no longer be taxed for inactivity.')
+                .setColor('#00FF00')
+                .addFields({
+                    name: '📋 Status',
+                    value: '**DISABLED** - No taxes will be collected',
+                    inline: false
+                });
             
-            // Show loading message
-            const loadingEmbed = new EmbedBuilder()
-                .setTitle('💸 Checking Inactivity Tax Status...')
-                .setDescription('Analyzing user activity and calculating potential taxes...')
-                .setColor('#FFA500');
-            
-            await interaction.editReply({ embeds: [loadingEmbed] });
-
-            const taxSummary = await inactivityTax.getTaxSummary(guildId, 15);
-
-            if (!taxSummary) {
-                throw new Error('Failed to generate tax summary');
-            }
-
-            const { summary, userStatuses } = taxSummary;
-
-            let description = `**📊 Tax Summary:**\n`;
-            description += `• Total Users: ${summary.totalUsers}\n`;
-            description += `• Inactive Users: ${summary.inactiveUsers}\n`;
-            description += `• Taxable Users: ${summary.taxableUsers}\n`;
-            description += `• Exempt Users: ${summary.exemptUsers}\n`;
-            description += `• Potential Revenue: ${fmt(summary.potentialTaxRevenue)}\n\n`;
-
-            // Add tier breakdown
-            if (Object.keys(summary.tierBreakdown).length > 0) {
-                description += `**🎖️ By Tier:**\n`;
-                for (const [tier, data] of Object.entries(summary.tierBreakdown)) {
-                    if (data.inactive > 0) {
-                        description += `• ${tier}: ${data.inactive}/${data.count} inactive (${fmt(data.taxRevenue)})\n`;
-                    }
-                }
-                description += '\n';
-            }
-
-            // Show top inactive users
-            const inactiveUsers = userStatuses.filter(u => u.isInactive && u.isTaxable && !u.isDeveloper);
-            if (inactiveUsers.length > 0) {
-                description += `**⚠️ Top Inactive Users:**\n`;
-                for (const user of inactiveUsers.slice(0, 8)) {
-                    description += `• ${user.username}: ${user.tierEmoji} ${fmt(user.totalBalance)} → ${fmt(user.taxAmount)} tax (${user.daysSinceLastGame}d)\n`;
-                }
-            }
-
-            const embed = new EmbedBuilder()
-                .setTitle('💸 Inactivity Tax Status')
-                .setDescription(description)
-                .addFields([
-                    { name: 'Tax Threshold', value: '3+ days inactive', inline: true },
-                    { name: 'Min Balance', value: '$1,000', inline: true },
-                    { name: 'Max Tax Rate', value: '6% (Mythic)', inline: true }
-                ])
-                .setColor(summary.inactiveUsers > 0 ? '#FF6600' : '#00FF00')
-                .setFooter({ text: 'Higher tiers = higher tax rates' })
-                .setTimestamp();
-
-            await interaction.editReply({ embeds: [embed] });
+            await interaction.editReply({ embeds: [disabledEmbed] });
 
         } catch (error) {
             const errorEmbed = new EmbedBuilder()
@@ -1378,13 +1331,25 @@ class PanelManager {
     }
 
     /**
-     * Handle Run Taxes Action
+     * Handle Run Taxes Action (DISABLED)
      */
     async handleRunTaxes(interaction) {
         try {
-            const inactivityTax = require('./inactivityTax');
-            const guildId = interaction.guildId;
+            // Inactivity tax system has been disabled
+            const disabledEmbed = new EmbedBuilder()
+                .setTitle('💸 Inactivity Tax System')
+                .setDescription('The inactivity tax system has been disabled.\n\nNo taxes can be run or collected.')
+                .setColor('#00FF00')
+                .addFields({
+                    name: '📋 Status',
+                    value: '**DISABLED** - Tax collection is not available',
+                    inline: false
+                });
+            
+            await interaction.editReply({ embeds: [disabledEmbed] });
+            return; // Tax system disabled - exit function
 
+            // OLD CODE - Tax system disabled
             // Show confirmation message
             const confirmEmbed = new EmbedBuilder()
                 .setTitle('🏛️ Run Inactivity Taxes')

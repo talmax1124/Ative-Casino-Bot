@@ -201,9 +201,15 @@ function calculatePayout(symbols, betAmount, personalizedPayouts = null, modeCon
         const symbolData = SLOT_SYMBOLS[symbol];
         
         // Use personalized payout if available, otherwise use default
-        let multiplier = symbolData.payout;
-        if (personalizedPayouts && personalizedPayouts[symbol]) {
+        let multiplier = symbolData.payout || symbolData.basePayout || 1.0;
+        if (personalizedPayouts && personalizedPayouts[symbol] && !isNaN(personalizedPayouts[symbol])) {
             multiplier = personalizedPayouts[symbol];
+        }
+        
+        // Validate multiplier to prevent NaN propagation
+        if (isNaN(multiplier) || !isFinite(multiplier) || multiplier < 0) {
+            logger.warn(`Invalid multiplier for symbol ${symbol}: ${multiplier}, using fallback 1.0`);
+            multiplier = 1.0;
         }
         
         // Apply mode-specific maximum multiplier cap
@@ -213,6 +219,17 @@ function calculatePayout(symbols, betAmount, personalizedPayouts = null, modeCon
         
         const originalMultiplier = symbolData.payout;
         const payout = betAmount * multiplier;
+        
+        // Final validation to prevent NaN payout
+        if (isNaN(payout) || !isFinite(payout)) {
+            logger.error(`Invalid payout calculation in three-of-a-kind: betAmount=${betAmount}, multiplier=${multiplier}, result=${payout}`);
+            return {
+                won: false,
+                payout: 0,
+                multiplier: 0,
+                type: '💥 Calculation error - Try again!'
+            };
+        }
         
         return {
             won: true,
@@ -234,9 +251,17 @@ function calculatePayout(symbols, betAmount, personalizedPayouts = null, modeCon
             const symbolData = SLOT_SYMBOLS[symbol];
             
             // Two of a kind pays at reduced rate
-            let multiplier = symbolData.payout * TWO_MATCH_MULTIPLIER;
-            if (personalizedPayouts && personalizedPayouts[symbol]) {
-                multiplier = personalizedPayouts[symbol] * TWO_MATCH_MULTIPLIER;
+            let baseMultiplier = symbolData.payout || symbolData.basePayout || 1.0;
+            if (personalizedPayouts && personalizedPayouts[symbol] && !isNaN(personalizedPayouts[symbol])) {
+                baseMultiplier = personalizedPayouts[symbol];
+            }
+            
+            let multiplier = baseMultiplier * TWO_MATCH_MULTIPLIER;
+            
+            // Validate multiplier to prevent NaN propagation
+            if (isNaN(multiplier) || !isFinite(multiplier) || multiplier < 0) {
+                logger.warn(`Invalid two-match multiplier for symbol ${symbol}: ${multiplier}, using fallback 0.75`);
+                multiplier = 0.75;
             }
             
             // Apply mode-specific maximum multiplier cap
@@ -245,6 +270,17 @@ function calculatePayout(symbols, betAmount, personalizedPayouts = null, modeCon
             }
             
             const payout = betAmount * multiplier;
+            
+            // Final validation to prevent NaN payout
+            if (isNaN(payout) || !isFinite(payout)) {
+                logger.error(`Invalid payout calculation in two-of-a-kind: betAmount=${betAmount}, multiplier=${multiplier}, result=${payout}`);
+                return {
+                    won: false,
+                    payout: 0,
+                    multiplier: 0,
+                    type: '💥 Calculation error - Try again!'
+                };
+            }
             
             return {
                 won: true,

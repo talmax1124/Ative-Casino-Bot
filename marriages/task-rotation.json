@@ -1,0 +1,51 @@
+{
+  "currentRotation": 0,
+  "rotationStartDate": "2025-09-25T01:19:30.000Z",
+  "rotationIntervalDays": 7,
+  "taskSets": [
+    {
+      "id": "week1",
+      "name": "Week 1 - Getting to Know Each Other",
+      "startDate": "2025-09-25T01:19:30.584Z",
+      "tasks": [
+        "Win a game of tic tac toe.",
+        "Plant a tree. Keep it alive for a week.",
+        "Write a poem about nature together. Let others vote on it!",
+        "How well do you know each other? Take a quiz about your partner."
+      ]
+    },
+    {
+      "id": "week2",
+      "name": "Week 2 - Adventures Together",
+      "startDate": "2025-09-25T01:19:35.427Z",
+      "tasks": [
+        "Mention spouse & Say something nice!",
+        "Couple Trivia: Answer questions about each other.",
+        "Date Night RPG",
+        "Emoji Guessing Game"
+      ]
+    },
+    {
+      "id": "week3",
+      "name": "Week 3 - Creative Challenges",
+      "startDate": null,
+      "tasks": [
+        "Draw or describe your dream house together.",
+        "Create a memory book of your favorite moments.",
+        "Write and perform a mini play together.",
+        "Design a couple's coat of arms or logo."
+      ]
+    },
+    {
+      "id": "week4",
+      "name": "Week 4 - Building Deeper Bonds",
+      "startDate": null,
+      "tasks": [
+        "Share your biggest dreams and support each other.",
+        "Plan a surprise virtual event for your partner.",
+        "Create a couple's mission statement or goals.",
+        "Write letters to your future selves to read next year."
+      ]
+    }
+  ]
+}
