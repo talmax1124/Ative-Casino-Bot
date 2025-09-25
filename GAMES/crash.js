@@ -936,7 +936,20 @@ async function handleModalSubmit(interaction, client, game) {
     });
   }
   
-  const betAmount = parseAmount(betAmountStr);
+  const parsedAmount = parseAmount(betAmountStr);
+  
+  // Get user balance to resolve 'all' and 'half' amounts
+  const userBalance = await dbManager.getUserBalance(userId, interaction.guildId);
+  if (!userBalance) {
+    return await interaction.reply({
+      content: '❌ Unable to fetch your balance. Please try again.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+  
+  // Resolve the actual bet amount using the common function
+  const { resolveAmount } = require('../UTILS/common');
+  const betAmount = await resolveAmount(parsedAmount, userBalance.wallet);
   
   // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
   try {

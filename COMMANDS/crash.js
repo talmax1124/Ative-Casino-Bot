@@ -116,9 +116,9 @@ module.exports = {
         return await interaction.editReply({ embeds: [embed] });
       }
 
-      // Start crash game with selected mode and bet amount
+      // Start crash game with selected mode - don't pre-deduct money
       const { startCrashGame } = require('../GAMES/crash');
-      await startCrashGame(interaction, selectedMode, betAmount);
+      await startCrashGame(interaction, selectedMode, 0); // Pass 0 to prevent auto-betting
 
     } catch (error) {
       logger.error(`crash command failed: ${error?.stack || error}`);
