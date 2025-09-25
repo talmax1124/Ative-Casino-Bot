@@ -3770,7 +3770,7 @@ module.exports = {
                 });
             }
 
-            await interaction.update({
+            await this.safeInteractionReply(interaction, {
                 embeds: [embed],
                 components: []
             });
@@ -3780,7 +3780,7 @@ module.exports = {
             console.log('❌ Stack trace:', error.stack);
             
             try {
-                await interaction.update({
+                await this.safeInteractionReply(interaction, {
                     content: '❌ Error loading Mention Task. Please try again.',
                     embeds: [],
                     components: []
@@ -4013,7 +4013,7 @@ module.exports = {
                     .setStyle(ButtonStyle.Primary)
             );
 
-        await interaction.update({
+        await this.safeInteractionReply(interaction, {
             embeds: [embed],
             components: [row]
         });
@@ -4034,7 +4034,7 @@ module.exports = {
                     .setStyle(ButtonStyle.Primary)
             );
 
-        await interaction.update({
+        await this.safeInteractionReply(interaction, {
             embeds: [embed],
             components: [row]
         });
@@ -4055,7 +4055,7 @@ module.exports = {
                     .setStyle(ButtonStyle.Primary)
             );
 
-        await interaction.update({
+        await this.safeInteractionReply(interaction, {
             embeds: [embed],
             components: [row]
         });
