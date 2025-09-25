@@ -31,7 +31,7 @@ All tests passed with 100% success rate! The marriage system has been thoroughly
 - ✅ Partner notifications
 - ✅ Marriage status updates
 
-### 5. **💰 Shared Bank Account (`/shared-bank`)**
+### 5. **💰 Shared Bank Account (`/marriage-bank`)**
 - ✅ Joint deposit/withdrawal system
 - ✅ Balance checking
 - ✅ Partner notifications
@@ -76,7 +76,7 @@ All wedding images are in place:
 2. `/start-marriage [role] [wedding party]` - Begin ceremony
 3. `/marriage-profile [@user]` - View marriage info
 4. `/divorce [reason]` - End marriage
-5. `/shared-bank balance|deposit|withdraw` - Manage shared account
+5. `/marriage-bank balance|deposit|withdraw` - Manage shared account
 
 ### Key Features:
 - **3-minute proposal timeout** with Discord timestamp formatting
@@ -104,7 +104,7 @@ All wedding images are in place:
 2. **Response**: User B has 3 minutes to type "yes" or "no"
 3. **Ceremony**: Either user can `/start-marriage` with wedding party
 4. **Benefits**: Reduced taxes, shared bank, marriage profile
-5. **Management**: Use `/shared-bank` and `/marriage-profile`
+5. **Management**: Use `/marriage-bank` and `/marriage-profile`
 6. **Divorce**: Use `/divorce` if needed (equal asset split)
 
 ## 💡 Special Features

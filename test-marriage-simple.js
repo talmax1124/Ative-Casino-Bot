@@ -30,7 +30,7 @@ class SimpleMarriageTest {
             'start-marriage.js', 
             'marriage-profile.js',
             'divorce.js',
-            'shared-bank.js'
+            'marriage-bank.js'
         ];
 
         for (const file of commandFiles) {

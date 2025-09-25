@@ -1681,15 +1681,173 @@ class DatabaseAdapter {
     }
 
     async storePoll(pollId, pollData) {
-        return false;
+        try {
+            // First ensure polls table exists
+            await this.ensurePollsTable();
+            
+            const query = `
+                INSERT INTO polls (
+                    poll_id, question, description, options, votes, voters,
+                    creator_id, creator_name, guild_id, channel_id,
+                    expires_at, active, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+
+            await this.executeQuery(query, [
+                pollId,
+                pollData.question,
+                pollData.description || null,
+                JSON.stringify(pollData.options),
+                JSON.stringify(pollData.votes || {}),
+                JSON.stringify(pollData.voters || []),
+                pollData.creator_id,
+                pollData.creator_name,
+                pollData.guild_id,
+                pollData.channel_id,
+                pollData.expires_at ? new Date(pollData.expires_at) : null,
+                pollData.active ? 1 : 0,
+                pollData.created_at ? new Date(pollData.created_at) : new Date()
+            ]);
+
+            logger.info(`Poll stored successfully: ${pollId}`);
+            return true;
+        } catch (error) {
+            logger.error(`Error storing poll ${pollId}: ${error.message}`);
+            return false;
+        }
     }
 
     async updatePollVotes(pollId, votes) {
-        return false;
+        try {
+            await this.ensurePollsTable();
+            
+            const query = `
+                UPDATE polls 
+                SET votes = ?, updated_at = NOW()
+                WHERE poll_id = ?
+            `;
+
+            const result = await this.executeQuery(query, [
+                JSON.stringify(votes),
+                pollId
+            ]);
+
+            logger.info(`Poll votes updated successfully: ${pollId}`);
+            return result.affectedRows > 0;
+        } catch (error) {
+            logger.error(`Error updating poll votes ${pollId}: ${error.message}`);
+            return false;
+        }
     }
 
     async endPoll(pollId) {
-        return false;
+        try {
+            await this.ensurePollsTable();
+            
+            const query = `
+                UPDATE polls 
+                SET active = 0, ended_at = NOW(), updated_at = NOW()
+                WHERE poll_id = ?
+            `;
+
+            const result = await this.executeQuery(query, [pollId]);
+            
+            logger.info(`Poll ended successfully: ${pollId}`);
+            return result.affectedRows > 0;
+        } catch (error) {
+            logger.error(`Error ending poll ${pollId}: ${error.message}`);
+            return false;
+        }
+    }
+
+    async getPoll(pollId) {
+        try {
+            await this.ensurePollsTable();
+            
+            const query = `
+                SELECT * FROM polls 
+                WHERE poll_id = ?
+            `;
+
+            const result = await this.executeQuery(query, [pollId]);
+            
+            if (result.length > 0) {
+                const poll = result[0];
+                // Parse JSON fields
+                poll.options = JSON.parse(poll.options || '[]');
+                poll.votes = JSON.parse(poll.votes || '{}');
+                poll.voters = JSON.parse(poll.voters || '[]');
+                return poll;
+            }
+            
+            return null;
+        } catch (error) {
+            logger.error(`Error getting poll ${pollId}: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Update poll voters list (when someone votes)
+     */
+    async updatePollVoters(pollId, voters) {
+        try {
+            await this.ensurePollsTable();
+            
+            const query = `
+                UPDATE polls 
+                SET voters = ?, updated_at = NOW()
+                WHERE poll_id = ?
+            `;
+
+            const result = await this.executeQuery(query, [
+                JSON.stringify(voters),
+                pollId
+            ]);
+
+            return result.affectedRows > 0;
+        } catch (error) {
+            logger.error(`Error updating poll voters ${pollId}: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Ensure polls table exists
+     */
+    async ensurePollsTable() {
+        try {
+            const createTableQuery = `
+                CREATE TABLE IF NOT EXISTS polls (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    poll_id VARCHAR(100) UNIQUE NOT NULL,
+                    question TEXT NOT NULL,
+                    description TEXT DEFAULT NULL,
+                    options JSON NOT NULL,
+                    votes JSON DEFAULT NULL,
+                    voters JSON DEFAULT NULL,
+                    creator_id VARCHAR(20) NOT NULL,
+                    creator_name VARCHAR(255) NOT NULL,
+                    guild_id VARCHAR(20) NOT NULL,
+                    channel_id VARCHAR(20) NOT NULL,
+                    expires_at TIMESTAMP NULL,
+                    ended_at TIMESTAMP NULL,
+                    active BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_polls_guild_active (guild_id, active),
+                    INDEX idx_polls_creator (creator_id),
+                    INDEX idx_polls_expires (expires_at)
+                ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            `;
+
+            await this.executeQuery(createTableQuery);
+            logger.debug('Polls table ensured');
+            return true;
+        } catch (error) {
+            logger.error(`Error ensuring polls table: ${error.message}`);
+            throw error;
+        }
     }
 
     /**

@@ -6,7 +6,7 @@ const logger = require('../UTILS/logger');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('shared-bank')
+        .setName('marriage-bank')
         .setDescription('Manage your marriage shared bank account')
         .addSubcommand(subcommand =>
             subcommand
@@ -67,7 +67,7 @@ module.exports = {
             }
 
         } catch (error) {
-            logger.error(`Error in shared-bank command: ${error.message}`);
+            logger.error(`Error in marriage-bank command: ${error.message}`);
             
             await interaction.editReply({
                 content: '❌ An error occurred while managing your shared bank. Please try again later.'
@@ -77,7 +77,7 @@ module.exports = {
 
     async handleBalance(interaction, marriage) {
         const balanceEmbed = new EmbedBuilder()
-            .setTitle('💰 Shared Bank Account')
+            .setTitle('💰 Marriage Shared Bank Account')
             .setDescription(`<@${marriage.partner1_id}> & <@${marriage.partner2_id}>`)
             .addFields(
                 {
@@ -97,7 +97,7 @@ module.exports = {
                 },
                 {
                     name: '💡 Tips',
-                    value: '• Both partners can deposit and withdraw\n• Use `/shared-bank deposit` to add funds\n• Use `/shared-bank withdraw` to take funds\n• No transaction fees between spouses',
+                    value: '• Both partners can deposit and withdraw\n• Use `/marriage-bank deposit` to add funds\n• Use `/marriage-bank withdraw` to take funds\n• No transaction fees between spouses',
                     inline: false
                 }
             )
@@ -141,7 +141,7 @@ module.exports = {
             const nodeCache = require('../UTILS/nodeCache');
             const cacheKey = `casino:balance:${userId}:${guildId}`;
             await nodeCache.del(cacheKey);
-            logger.debug(`🔄 Forced cache refresh for shared bank deposit display`);
+            logger.debug(`🔄 Forced cache refresh for marriage bank deposit display`);
         } catch (cacheError) {
             logger.debug(`Cache refresh failed: ${cacheError.message}`);
         }
@@ -152,7 +152,7 @@ module.exports = {
         // Success embed
         const depositEmbed = new EmbedBuilder()
             .setTitle('💰 Deposit Successful')
-            .setDescription(`**${interaction.user.displayName}** deposited ${fmt(amount)} into the shared bank!`)
+            .setDescription(`**${interaction.user.displayName}** deposited ${fmt(amount)} into the marriage shared bank!`)
             .addFields(
                 {
                     name: '💳 New Shared Balance',
@@ -180,15 +180,16 @@ module.exports = {
         await sendLogMessage(
             interaction.client,
             'economy',
-            `Shared bank deposit: ${interaction.user.displayName} deposited ${fmt(amount)}`,
+            `Marriage bank deposit: ${interaction.user.displayName} deposited ${fmt(amount)}`,
             userId,
             guildId
         );
 
         // Notify partner
         try {
-            const partner = await interaction.client.users.fetch(marriage.partnerId);
-            await partner.send(`💰 Your spouse **${interaction.user.displayName}** deposited ${fmt(amount)} into your shared bank account!\n\nNew balance: ${fmt(result.newSharedBalance)}`);
+            const partnerId = marriage.partner1_id === userId ? marriage.partner2_id : marriage.partner1_id;
+            const partner = await interaction.client.users.fetch(partnerId);
+            await partner.send(`💰 Your spouse **${interaction.user.displayName}** deposited ${fmt(amount)} into your shared marriage bank account!\n\nNew balance: ${fmt(result.newSharedBalance)}`);
         } catch (dmError) {
             logger.info(`Could not notify partner of deposit: ${dmError.message}`);
         }
@@ -224,7 +225,7 @@ module.exports = {
             const nodeCache = require('../UTILS/nodeCache');
             const cacheKey = `casino:balance:${userId}:${guildId}`;
             await nodeCache.del(cacheKey);
-            logger.debug(`🔄 Forced cache refresh for shared bank withdrawal display`);
+            logger.debug(`🔄 Forced cache refresh for marriage bank withdrawal display`);
         } catch (cacheError) {
             logger.debug(`Cache refresh failed: ${cacheError.message}`);
         }
@@ -235,7 +236,7 @@ module.exports = {
         // Success embed
         const withdrawEmbed = new EmbedBuilder()
             .setTitle('💰 Withdrawal Successful')
-            .setDescription(`**${interaction.user.displayName}** withdrew ${fmt(amount)} from the shared bank!`)
+            .setDescription(`**${interaction.user.displayName}** withdrew ${fmt(amount)} from the marriage shared bank!`)
             .addFields(
                 {
                     name: '💳 New Shared Balance',
@@ -263,15 +264,16 @@ module.exports = {
         await sendLogMessage(
             interaction.client,
             'economy',
-            `Shared bank withdrawal: ${interaction.user.displayName} withdrew ${fmt(amount)}`,
+            `Marriage bank withdrawal: ${interaction.user.displayName} withdrew ${fmt(amount)}`,
             userId,
             guildId
         );
 
         // Notify partner
         try {
-            const partner = await interaction.client.users.fetch(marriage.partnerId);
-            await partner.send(`💸 Your spouse **${interaction.user.displayName}** withdrew ${fmt(amount)} from your shared bank account.\n\nRemaining balance: ${fmt(result.newSharedBalance)}`);
+            const partnerId = marriage.partner1_id === userId ? marriage.partner2_id : marriage.partner1_id;
+            const partner = await interaction.client.users.fetch(partnerId);
+            await partner.send(`💸 Your spouse **${interaction.user.displayName}** withdrew ${fmt(amount)} from your shared marriage bank account.\n\nRemaining balance: ${fmt(result.newSharedBalance)}`);
         } catch (dmError) {
             logger.info(`Could not notify partner of withdrawal: ${dmError.message}`);
         }

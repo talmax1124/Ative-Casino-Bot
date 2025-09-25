@@ -803,6 +803,18 @@ class DatabaseManager {
     }
 
     /**
+     * Get a poll by ID
+     * @param {string} pollId - Poll ID
+     * @returns {Object|null} Poll data
+     */
+    async getPoll(pollId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getPoll(pollId);
+        }
+        return null;
+    }
+
+    /**
      * Update poll votes
      * @param {string} pollId - Poll ID
      * @param {Object} votes - Votes map
@@ -811,6 +823,19 @@ class DatabaseManager {
     async updatePollVotes(pollId, votes) {
         if (this.usingAdapter) {
             return await this.databaseAdapter.updatePollVotes(pollId, votes);
+        }
+        return false;
+    }
+
+    /**
+     * Update poll voters list
+     * @param {string} pollId - Poll ID
+     * @param {Array} voters - Voters array
+     * @returns {boolean} Success status
+     */
+    async updatePollVoters(pollId, voters) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.updatePollVoters(pollId, voters);
         }
         return false;
     }

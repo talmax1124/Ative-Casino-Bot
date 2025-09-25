@@ -19,7 +19,7 @@ The marriage system has been successfully implemented, tested, and verified to b
   - ✅ `/start-marriage` - Wedding ceremony system
   - ✅ `/marriage-profile` - View marriage information
   - ✅ `/divorce` - End marriage with asset splitting
-  - ✅ `/shared-bank` - Manage joint bank account
+  - ✅ `/marriage-bank` - Manage joint bank account
 
 ### ✅ Features Verified
 - **Text Responses**: ✅ Working (removed buttons, uses "yes"/"no")
@@ -48,7 +48,7 @@ The marriage system is now **fully operational** and ready for users:
 2. **Respond**: User B types "yes" or "no" within 3 minutes
 3. **Ceremony**: Either user can use `/start-marriage` with wedding party
 4. **Benefits**: Reduced taxes (2%), shared bank access, marriage profile
-5. **Management**: `/shared-bank` and `/marriage-profile` commands
+5. **Management**: `/marriage-bank` and `/marriage-profile` commands
 6. **Divorce**: `/divorce` with equal asset distribution
 
 ### 🔧 Technical Specifications:

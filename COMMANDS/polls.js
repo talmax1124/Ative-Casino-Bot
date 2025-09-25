@@ -274,7 +274,15 @@ module.exports.buttonHandlers = {
     // Handle poll voting
     poll_vote: async (interaction, pollId, optionIndex) => {
         const userId = interaction.user.id;
-        const pollData = activePolls.get(pollId);
+        let pollData = activePolls.get(pollId);
+
+        // If not in memory, try to get from database
+        if (!pollData) {
+            pollData = await dbManager.getPoll(pollId);
+            if (pollData) {
+                activePolls.set(pollId, pollData);
+            }
+        }
 
         if (!pollData || !pollData.active) {
             return await interaction.reply({ 
@@ -298,8 +306,9 @@ module.exports.buttonHandlers = {
         pollData.votes[optionIndex]++;
         pollData.voters.push(userId);
 
-        // Update in database
+        // Update in database - update both votes and voters
         await dbManager.updatePollVotes(pollId, pollData.votes);
+        await dbManager.updatePollVoters(pollId, pollData.voters);
 
         // Update the poll message
         const embed = createPollEmbed(pollData);
@@ -324,7 +333,16 @@ module.exports.buttonHandlers = {
             });
         }
 
-        const pollData = activePolls.get(pollId);
+        let pollData = activePolls.get(pollId);
+        
+        // If not in memory, try to get from database
+        if (!pollData) {
+            pollData = await dbManager.getPoll(pollId);
+            if (pollData) {
+                activePolls.set(pollId, pollData);
+            }
+        }
+
         if (!pollData || !pollData.active) {
             return await interaction.reply({ 
                 content: 'This poll is already ended.', 
