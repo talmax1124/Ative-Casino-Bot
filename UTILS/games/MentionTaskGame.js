@@ -136,8 +136,8 @@ class MentionTaskGame {
                        u1.username as partner1_name, 
                        u2.username as partner2_name 
                 FROM marriages m 
-                LEFT JOIN users u1 ON m.partner1_id = u1.user_id 
-                LEFT JOIN users u2 ON m.partner2_id = u2.user_id 
+                LEFT JOIN users u1 ON m.partner1_id COLLATE utf8mb4_unicode_ci = u1.user_id COLLATE utf8mb4_unicode_ci
+                LEFT JOIN users u2 ON m.partner2_id COLLATE utf8mb4_unicode_ci = u2.user_id COLLATE utf8mb4_unicode_ci
                 WHERE (m.partner1_id = ? OR m.partner2_id = ?) AND m.status = 'active'
             `;
             
