@@ -7,6 +7,8 @@ const fs = require('fs');
 const path = require('path');
 const marriageTaskRotation = require('../UTILS/marriageTaskRotation');
 const marriageTaskStatus = require('../UTILS/marriageTaskStatus');
+const marriageTaskUtil = require('../UTILS/MarriageTaskUtil');
+const gameManager = require('../UTILS/games/');
 
 // Import game classes for different weeks
 const { MentionTaskGame } = require('../marriages/Games/MentionTask');
@@ -92,16 +94,16 @@ module.exports = {
                     await this.handleViewTasks(interaction, marriage);
                     break;
                 case 'task1':
-                    await this.handleTask(interaction, marriage, 1);
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 1);
                     break;
                 case 'task2':
-                    await this.handleTask(interaction, marriage, 2);
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 2);
                     break;
                 case 'task3':
-                    await this.handleTask(interaction, marriage, 3);
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 3);
                     break;
                 case 'task4':
-                    await this.handleTask(interaction, marriage, 4);
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 4);
                     break;
             }
 
@@ -143,8 +145,28 @@ module.exports = {
             // Get task completion status from rotation-aware system
             const taskStatusData = await marriageTaskStatus.getTaskStatus(marriage.id);
             
+            // Also check mention task completion directly (Task 1)
+            let task1Completed = !!taskStatusData.tasks.task1?.completed;
+            if (!task1Completed) {
+                try {
+                    const mentionProgress = await this.getMentionTaskProgress(marriage.id);
+                    task1Completed = mentionProgress.partner1.completed && mentionProgress.partner2.completed;
+                    
+                    // If mention task is completed but not marked in main system, mark it now
+                    if (task1Completed && !taskStatusData.tasks.task1?.completed) {
+                        await marriageTaskStatus.markTaskComplete(marriage.id, 1, 'system', {
+                            completedBy: 'both_partners',
+                            completionType: 'mention_task_retroactive'
+                        });
+                        logger.info(`Retroactively marked Task 1 as complete for marriage ${marriage.id}`);
+                    }
+                } catch (error) {
+                    logger.error(`Error checking mention task progress: ${error.message}`);
+                }
+            }
+            
             const taskStatus = {
-                task1: !!taskStatusData.tasks.task1?.completed,
+                task1: task1Completed,
                 task2: !!taskStatusData.tasks.task2?.completed,
                 task3: !!taskStatusData.tasks.task3?.completed,
                 task4: !!taskStatusData.tasks.task4?.completed
@@ -544,20 +566,20 @@ module.exports = {
                     await this.handleViewTasks(interaction, marriage);
                     break;
                 case 'task1':
-                    console.log('→ Calling handleTask for task 1');
-                    await this.handleTask(interaction, marriage, 1);
+                    console.log('→ Calling marriageTaskUtil.handleTaskDisplay for task 1');
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 1);
                     break;
                 case 'task2':
-                    console.log('→ Calling handleTask for task 2');
-                    await this.handleTask(interaction, marriage, 2);
+                    console.log('→ Calling marriageTaskUtil.handleTaskDisplay for task 2');
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 2);
                     break;
                 case 'task3':
-                    console.log('→ Calling handleTask for task 3');
-                    await this.handleTask(interaction, marriage, 3);
+                    console.log('→ Calling marriageTaskUtil.handleTaskDisplay for task 3');
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 3);
                     break;
                 case 'task4':
-                    console.log('→ Calling handleTask for task 4');
-                    await this.handleTask(interaction, marriage, 4);
+                    console.log('→ Calling marriageTaskUtil.handleTaskDisplay for task 4');
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 4);
                     break;
                 default:
                     console.log('❌ Unknown task action:', taskAction);
@@ -3186,84 +3208,11 @@ module.exports = {
 
     // Helper method to handle both button and slash command interactions
     async safeReply(interaction, options) {
-        try {
-            // Check if this is a button interaction
-            if (interaction.isButton && interaction.isButton()) {
-                if (interaction.deferred || interaction.replied) {
-                    await interaction.editReply(options);
-                } else {
-                    await interaction.update(options);
-                }
-                return;
-            }
-            
-            // Check if this is a modal submission
-            if (interaction.isModalSubmit && interaction.isModalSubmit()) {
-                if (interaction.deferred || interaction.replied) {
-                    await interaction.editReply(options);
-                } else {
-                    await interaction.update(options);
-                }
-                return;
-            }
-            
-            // For slash commands and other interactions
-            if (interaction.deferred || interaction.replied) {
-                // If already deferred or replied, use followUp or editReply
-                if (interaction.editReply) {
-                    await interaction.editReply(options);
-                } else {
-                    await interaction.followUp(options);
-                }
-            } else if (interaction.reply) {
-                // Fallback to reply
-                await interaction.reply(options);
-            } else {
-                // If no standard methods available, log error with more details
-                logger.error(`No available method to send interaction response. Type: ${interaction.type}, replied: ${interaction.replied}, deferred: ${interaction.deferred}, customId: ${interaction.customId || 'none'}`);
-                return;
-            }
-        } catch (error) {
-            // Additional fallback handling
-            try {
-                if (interaction.followUp && (interaction.replied || interaction.deferred)) {
-                    await interaction.followUp(options);
-                } else if (interaction.reply && !interaction.replied) {
-                    await interaction.reply(options);
-                } else {
-                    logger.error(`Unable to send interaction response: ${error.message}`);
-                }
-            } catch (fallbackError) {
-                logger.error(`Failed to send interaction response: ${fallbackError.message}`);
-            }
-        }
+        return await marriageTaskUtil.safeReply(interaction, options);
     },
 
-    // Helper method specifically for replying to interactions (not updating)
     async safeInteractionReply(interaction, options) {
-        try {
-            // For voting buttons and other interactions that need replies
-            if (interaction.replied) {
-                // If already replied, use followUp
-                await interaction.followUp(options);
-            } else if (interaction.deferred) {
-                // If deferred, use editReply
-                await interaction.editReply(options);
-            } else {
-                // Otherwise use reply
-                await interaction.reply(options);
-            }
-        } catch (error) {
-            logger.error(`Error in safeInteractionReply: ${error.message}`);
-            // Final fallback - try followUp if available
-            try {
-                if (interaction.followUp && !interaction.replied) {
-                    await interaction.followUp(options);
-                }
-            } catch (fallbackError) {
-                logger.error(`Failed final fallback reply: ${fallbackError.message}`);
-            }
-        }
+        return await marriageTaskUtil.safeReply(interaction, options);
     },
 
     // Handle quiz history button
@@ -4061,6 +4010,14 @@ module.exports = {
         });
     },
 
+    async handleTriviaStart(interaction) {
+        await marriageTaskUtil.startGameSession(interaction, 'trivia');
+    },
+
+    async handleEmojiStart(interaction) {
+        await marriageTaskUtil.startGameSession(interaction, 'emoji');
+    },
+
     async handleDateNightStart(interaction) {
         try {
             // Get the DateNightRPG game class
@@ -4070,14 +4027,14 @@ module.exports = {
             // Start the game
             const gameEmbed = await game.createStartEmbed(interaction.user);
             
-            await interaction.update({
+            await this.safeInteractionReply(interaction, {
                 embeds: [gameEmbed.embed],
                 components: gameEmbed.components
             });
             
         } catch (error) {
             logger.error(`Error starting Date Night RPG: ${error.message}`);
-            await interaction.update({
+            await this.safeInteractionReply(interaction, {
                 content: '❌ Error starting Date Night RPG. Please try again.',
                 embeds: [],
                 components: []

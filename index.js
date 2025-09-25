@@ -2544,9 +2544,11 @@ client.on('messageCreate', async message => {
             if (handled) return; // Stop processing if poem input was handled
         }
 
-        // Check for mention task progress (Week 2 Task 1)
-        if (marriageTaskCommand && marriageTaskCommand.checkMentionForTask) {
-            await marriageTaskCommand.checkMentionForTask(message);
+        // Check for mention task progress (Week 2 Task 1) - now using new game system
+        const gameManager = require('./UTILS/games/');
+        const mentionGame = gameManager.getMentionGame();
+        if (mentionGame) {
+            await mentionGame.checkMention(message);
         }
 
         // Guild-specific message reward system (3K-15K every 15-30 messages)

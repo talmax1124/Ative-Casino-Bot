@@ -56,6 +56,8 @@ class MarriageTaskStatusManager {
 
             // Check if using database adapter
             if (dbManager.usingAdapter && dbManager.databaseAdapter.pool) {
+                // Ensure table exists
+                await this.initializeTable();
                 const query = `
                     SELECT task_number, completed_by, completed_at, completion_data, 
                            rotation_id, rotation_period
@@ -108,6 +110,8 @@ class MarriageTaskStatusManager {
 
             // Check if using database adapter
             if (dbManager.usingAdapter && dbManager.databaseAdapter.pool) {
+                // Ensure table exists
+                await this.initializeTable();
                 const query = `
                     INSERT INTO ${this.tableName} 
                     (marriage_id, task_number, completed_by, rotation_id, rotation_name, 

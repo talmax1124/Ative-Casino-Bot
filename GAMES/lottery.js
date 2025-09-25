@@ -388,31 +388,30 @@ class LotteryGame {
             const guildId = DESIGNATED_SERVER_ID;
             
             // Conduct drawing for BOTH tiers
+            logger.info('🎲 Conducting Tier 1 (Standard) lottery drawing...');
             const tier1Results = await dbManager.conductLotteryDrawing(guildId, 1);
+            logger.info(`🎲 Tier 1 results: Success=${tier1Results.success}, Winners=${tier1Results.winners?.length || 0}, Prize=${tier1Results.total_prize || 0}`);
+            
+            logger.info('🎲 Conducting Tier 2 (High Stakes) lottery drawing...');
             const tier2Results = await dbManager.conductLotteryDrawing(guildId, 2);
+            logger.info(`🎲 Tier 2 results: Success=${tier2Results.success}, Winners=${tier2Results.winners?.length || 0}, Prize=${tier2Results.total_prize || 0}`);
 
-            // Check if at least one tier had a successful drawing
-            const overallSuccess = tier1Results.success || tier2Results.success;
-
-            if (overallSuccess) {
-                // Save to history for both tiers
-                if (tier1Results.success) {
-                    await dbManager.saveLotteryHistory(guildId, tier1Results, 1);
-                }
-                if (tier2Results.success) {
-                    await dbManager.saveLotteryHistory(guildId, tier2Results, 2);
-                }
-                
-                // Announce winners for both tiers
-                await this.announceWinners({ tier1: tier1Results, tier2: tier2Results });
-                
-                logger.info('Weekly lottery drawing completed successfully for both tiers');
-                return true;
-            } else {
-                // Handle cases where both drawings couldn't be conducted
-                await this.handleDrawingFailure({ tier1: tier1Results, tier2: tier2Results });
-                return false;
+            // Always save successful tier results to history and always announce both tiers
+            // This ensures both tiers are always displayed regardless of individual success/failure
+            if (tier1Results.success) {
+                await dbManager.saveLotteryHistory(guildId, tier1Results, 1);
             }
+            if (tier2Results.success) {
+                await dbManager.saveLotteryHistory(guildId, tier2Results, 2);
+            }
+            
+            // Always announce results for both tiers - this will handle success/failure display for each tier
+            await this.announceWinners({ tier1: tier1Results, tier2: tier2Results });
+            
+            const overallSuccess = tier1Results.success || tier2Results.success;
+            logger.info(`🎲 Overall drawing completed: ${overallSuccess} (Tier1: ${tier1Results.success}, Tier2: ${tier2Results.success})`);
+            logger.info('Weekly lottery drawing completed - both tiers processed and announced');
+            return overallSuccess;
 
         } catch (error) {
             logger.error(`Error during weekly lottery drawing: ${error.message}`);
@@ -439,6 +438,9 @@ class LotteryGame {
             const tier1 = results.tier1;
             const tier2 = results.tier2;
 
+            logger.info(`🎊 Announcing winners - Tier1 Success: ${tier1.success}, Tier2 Success: ${tier2.success}`);
+            logger.info(`🎊 Tier1 Winners: ${tier1.winners?.length || 0}, Tier2 Winners: ${tier2.winners?.length || 0}`);
+
             // Calculate combined statistics
             const totalPrizePool = (tier1.success ? tier1.total_prize : 0) + (tier2.success ? tier2.total_prize : 0);
             const totalParticipants = (tier1.success ? tier1.totalParticipants : 0) + (tier2.success ? tier2.totalParticipants : 0);
@@ -450,6 +452,7 @@ class LotteryGame {
                 .setDescription(`**Bi-weekly lottery drawing has been completed for BOTH tiers!**\n\n💰 **Combined Prize Pool:** ${fmt(totalPrizePool)}\n👥 **Total Participants:** ${totalParticipants} players\n🎫 **Total Tickets Sold:** ${totalTickets}`);
 
             // Add Tier 1 results
+            logger.info(`🥇 Processing Tier 1 announcement: success=${tier1.success}, winners=${tier1.winners?.length || 0}`);
             if (tier1.success && tier1.winners && tier1.winners.length > 0) {
                 embed.addFields({
                     name: '🥇 **═══════ TIER 1 STANDARD WINNERS ═══════**',
@@ -484,6 +487,7 @@ class LotteryGame {
             });
 
             // Add Tier 2 results
+            logger.info(`💎 Processing Tier 2 announcement: success=${tier2.success}, winners=${tier2.winners?.length || 0}`);
             if (tier2.success && tier2.winners && tier2.winners.length > 0) {
                 embed.addFields({
                     name: '💎 **═══════ TIER 2 HIGH STAKES WINNERS ═══════**',
