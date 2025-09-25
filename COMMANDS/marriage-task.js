@@ -3990,7 +3990,7 @@ module.exports = {
             if (updatedProgress.partner1.completed && updatedProgress.partner2.completed) {
                 // Both completed - mark task as done in marriageTaskStatus
                 const marriageTaskStatus = require('../UTILS/marriageTaskStatus');
-                await marriageTaskStatus.completeTask(marriageId, 1); // Task 1
+                await marriageTaskStatus.markTaskComplete(marriageId, 1, 'system'); // Task 1
             }
 
         } catch (error) {
