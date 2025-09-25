@@ -254,9 +254,9 @@ module.exports = {
                     userId,
                     guildId,
                     'rob',
+                    success, // True if successful robbery
                     0, // No bet amount for robbery
                     success ? robAmount : -penaltyAmount, // Positive if successful, negative if failed
-                    success, // True if successful robbery
                     {
                         targetUser: targetUser.displayName,
                         targetWallet: targetBalance.wallet,

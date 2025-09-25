@@ -45,6 +45,11 @@ class TuningManager {
      */
     async refreshCache() {
         try {
+            if (!this.db) {
+                logger.warn('Database not initialized, skipping tuning cache refresh');
+                return;
+            }
+            
             const [rows] = await this.db.execute(`
                 SELECT scope, key_name, value, updated_at 
                 FROM tuning 
