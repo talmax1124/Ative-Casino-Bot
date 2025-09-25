@@ -411,25 +411,28 @@ async function handleLotteryButtons(interaction, customId) {
 function initializeMarriageTaskScheduler() {
     const marriageTaskRotation = require('./UTILS/marriageTaskRotation');
     
-    // Calculate milliseconds until next midnight EST (12:01 AM EST)
-    function getNextMidnightEST() {
+    // Calculate milliseconds until next Thursday at 12:01 AM EST
+    function getNextThursdayEST() {
         const now = new Date();
-        const nextMidnight = new Date();
+        const nextThursday = new Date();
         
-        // Convert to EST (UTC-5) or EDT (UTC-4) depending on daylight saving
-        const estOffset = -5 * 60; // EST is UTC-5
-        const estTime = new Date(now.getTime() + (estOffset * 60 * 1000));
+        // Get current day (0 = Sunday, 1 = Monday, ..., 4 = Thursday)
+        const currentDay = now.getDay();
+        const thursdayDay = 4; // Thursday
         
-        // Set to next day at 12:01 AM EST
-        nextMidnight.setTime(estTime.getTime());
-        nextMidnight.setUTCHours(5, 1, 0, 0); // 12:01 AM EST = 5:01 AM UTC
-        
-        // If we're past midnight today, move to tomorrow
-        if (now >= nextMidnight) {
-            nextMidnight.setUTCDate(nextMidnight.getUTCDate() + 1);
+        // Calculate days until next Thursday
+        let daysUntilThursday = thursdayDay - currentDay;
+        if (daysUntilThursday <= 0 || (daysUntilThursday === 0 && now.getHours() >= 5)) {
+            // If today is Thursday and it's already past 12:01 AM EST (5:01 AM UTC), 
+            // or if we're past Thursday, go to next Thursday
+            daysUntilThursday += 7;
         }
         
-        return nextMidnight.getTime() - now.getTime();
+        // Set to next Thursday at 12:01 AM EST (5:01 AM UTC)
+        nextThursday.setDate(now.getDate() + daysUntilThursday);
+        nextThursday.setUTCHours(5, 1, 0, 0); // 12:01 AM EST = 5:01 AM UTC
+        
+        return nextThursday.getTime() - now.getTime();
     }
     
     // Check and rotate tasks
@@ -447,19 +450,19 @@ function initializeMarriageTaskScheduler() {
         }
     }
     
-    // Schedule the first check for next midnight EST
-    const timeUntilMidnight = getNextMidnightEST();
+    // Schedule the first check for next Thursday at 12:01 AM EST
+    const timeUntilThursday = getNextThursdayEST();
     
     setTimeout(() => {
         // Run the initial check
         checkTaskRotation();
         
-        // Then set up daily checks at midnight EST (24 hours = 24 * 60 * 60 * 1000 ms)
-        setInterval(checkTaskRotation, 24 * 60 * 60 * 1000);
+        // Then set up weekly checks every Thursday (7 days = 7 * 24 * 60 * 60 * 1000 ms)
+        setInterval(checkTaskRotation, 7 * 24 * 60 * 60 * 1000);
         
-    }, timeUntilMidnight);
+    }, timeUntilThursday);
     
-    logger.info(`🕛 Marriage task scheduler initialized - next check in ${Math.round(timeUntilMidnight / (1000 * 60 * 60))} hours`);
+    logger.info(`🕛 Marriage task scheduler initialized - next Thursday rotation in ${Math.round(timeUntilThursday / (1000 * 60 * 60))} hours`);
 }
 
 /**

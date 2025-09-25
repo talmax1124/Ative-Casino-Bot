@@ -1,4 +1,4 @@
-# Week of September 24, 2025 - Week 2 - Adventures Together
+# Week of September 25, 2025 - Week 2 - Adventures Together
 
 ## Tasks
 - [ ] Task 1: Mention spouse & Say something nice!

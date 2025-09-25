@@ -116,6 +116,7 @@ class MarriageTaskRotation {
 
     /**
      * Check if tasks need to be rotated and perform rotation if needed
+     * Now uses Thursday-based weekly rotations
      */
     async checkAndRotateTasks() {
         const config = this.getRotationConfig();
@@ -123,16 +124,20 @@ class MarriageTaskRotation {
 
         const now = new Date();
         const rotationStart = new Date(config.rotationStartDate);
-        const daysSinceStart = Math.floor((now - rotationStart) / (1000 * 60 * 60 * 24));
         
-        // Calculate which rotation we should be on
-        const expectedRotation = Math.floor(daysSinceStart / config.rotationIntervalDays) % config.taskSets.length;
+        // Calculate weeks since start based on Thursdays
+        const weeksSinceStart = Math.floor((now - rotationStart) / (1000 * 60 * 60 * 24 * 7));
+        
+        // Calculate which rotation we should be on (cycles through all task sets)
+        const expectedRotation = weeksSinceStart % config.taskSets.length;
         
         // If we need to rotate to a different set
         if (expectedRotation !== config.currentRotation) {
+            logger.info(`Thursday rotation needed: current=${config.currentRotation}, expected=${expectedRotation}`);
             return await this.rotateTasks(expectedRotation);
         }
 
+        logger.info(`No Thursday rotation needed: current=${config.currentRotation}, expected=${expectedRotation}`);
         return false; // No rotation needed
     }
 
@@ -218,16 +223,29 @@ class MarriageTaskRotation {
     }
 
     /**
-     * Calculate the next rotation date
+     * Calculate the next rotation date (next Thursday at 12:01 AM EST)
      */
     getNextRotationDate(config) {
-        const rotationStart = new Date(config.rotationStartDate);
-        const daysSinceStart = Math.floor((Date.now() - rotationStart) / (1000 * 60 * 60 * 24));
-        const daysUntilNext = config.rotationIntervalDays - (daysSinceStart % config.rotationIntervalDays);
+        const now = new Date();
+        const nextThursday = new Date();
         
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + daysUntilNext);
-        return nextDate;
+        // Get current day (0 = Sunday, 1 = Monday, ..., 4 = Thursday)
+        const currentDay = now.getDay();
+        const thursdayDay = 4; // Thursday
+        
+        // Calculate days until next Thursday
+        let daysUntilThursday = thursdayDay - currentDay;
+        if (daysUntilThursday <= 0 || (daysUntilThursday === 0 && now.getUTCHours() >= 5)) {
+            // If today is Thursday and it's already past 12:01 AM EST (5:01 AM UTC), 
+            // or if we're past Thursday, go to next Thursday
+            daysUntilThursday += 7;
+        }
+        
+        // Set to next Thursday at 12:01 AM EST (5:01 AM UTC)
+        nextThursday.setDate(now.getDate() + daysUntilThursday);
+        nextThursday.setUTCHours(5, 1, 0, 0); // 12:01 AM EST = 5:01 AM UTC
+        
+        return nextThursday;
     }
 
     /**

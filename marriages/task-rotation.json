@@ -1,12 +1,12 @@
 {
-  "currentRotation": 0,
+  "currentRotation": 1,
   "rotationStartDate": "2025-09-25T01:19:30.000Z",
   "rotationIntervalDays": 7,
   "taskSets": [
     {
       "id": "week1",
       "name": "Week 1 - Getting to Know Each Other",
-      "startDate": "2025-09-25T01:19:30.584Z",
+      "startDate": "2025-09-25T06:10:31.121Z",
       "tasks": [
         "Win a game of tic tac toe.",
         "Plant a tree. Keep it alive for a week.",
@@ -17,7 +17,7 @@
     {
       "id": "week2",
       "name": "Week 2 - Adventures Together",
-      "startDate": "2025-09-25T01:19:35.427Z",
+      "startDate": "2025-09-25T06:10:43.292Z",
       "tasks": [
         "Mention spouse & Say something nice!",
         "Couple Trivia: Answer questions about each other.",
