@@ -112,9 +112,14 @@ module.exports = {
     createTicketSelectionButtons(currentTickets, remainingTickets, balance, ticketPrice) {
         const components = [];
         
+        // Debug logging for button creation
+        logger.debug(`Creating lottery buttons: currentTickets=${currentTickets}, remainingTickets=${remainingTickets}, balance=${balance}, ticketPrice=${ticketPrice}`);
+        
         if (remainingTickets > 0) {
             // Calculate what user can actually afford and is allowed to buy
             const maxBuyable = Math.min(remainingTickets, Math.floor(balance / ticketPrice));
+            
+            logger.debug(`Lottery maxBuyable calculated: ${maxBuyable}`);
             
             if (maxBuyable > 0) {
                 // First row: 1-5 tickets (or max buyable if less than 5)
@@ -123,13 +128,16 @@ module.exports = {
                 
                 for (let i = 1; i <= firstRowMax; i++) {
                     const cost = i * ticketPrice;
+                    const canAfford = balance >= cost;
+                    const withinLimit = (currentTickets + i) <= 10;
+                    
                     ticketRow1.addComponents(
                         new ButtonBuilder()
                             .setCustomId(`lottery_buy_${i}`)
                             .setLabel(`${i} Ticket${i > 1 ? 's' : ''} ($${cost.toLocaleString()})`)
                             .setStyle(ButtonStyle.Primary)
                             .setEmoji('🎫')
-                            .setDisabled(balance < cost || (currentTickets + i) > 10)
+                            .setDisabled(!canAfford || !withinLimit)
                     );
                 }
                 components.push(ticketRow1);
@@ -141,13 +149,16 @@ module.exports = {
                     for (let i = 6; i <= Math.min(maxBuyable, 10); i++) {
                         if (currentTickets + i <= 10) { // Only show if within total limit
                             const cost = i * ticketPrice;
+                            const canAfford = balance >= cost;
+                            const withinLimit = (currentTickets + i) <= 10;
+                            
                             ticketRow2.addComponents(
                                 new ButtonBuilder()
                                     .setCustomId(`lottery_buy_${i}`)
                                     .setLabel(`${i} Ticket${i > 1 ? 's' : ''} ($${cost.toLocaleString()})`)
                                     .setStyle(ButtonStyle.Primary)
                                     .setEmoji('🎫')
-                                    .setDisabled(balance < cost || (currentTickets + i) > 10)
+                                    .setDisabled(!canAfford || !withinLimit)
                             );
                         }
                     }
@@ -190,6 +201,30 @@ module.exports = {
                 );
 
             components.push(actionRow);
+        } else if (maxBuyable <= 0 && remainingTickets > 0) {
+            // User cannot afford any tickets but could still buy some - show info
+            logger.debug(`Lottery: User has remaining tickets (${remainingTickets}) but cannot afford any (maxBuyable=${maxBuyable})`);
+            
+            const cantAffordRow = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('lottery_view_tickets')
+                        .setLabel('View My Tickets')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('📋'),
+                    new ButtonBuilder()
+                        .setCustomId('lottery_rules')
+                        .setLabel('How to Play')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('📖'),
+                    new ButtonBuilder()
+                        .setCustomId('lottery_cancel')
+                        .setLabel('Close')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('❌')
+                );
+            
+            components.push(cantAffordRow);
         } else {
             // User has maximum tickets
             const maxRow = new ActionRowBuilder()
@@ -222,6 +257,17 @@ module.exports = {
         const guildId = await getGuildId(interaction);
 
         try {
+            // Handle interaction timeout/expiration
+            if (interaction.message && interaction.message.createdTimestamp) {
+                const messageAge = Date.now() - interaction.message.createdTimestamp;
+                if (messageAge > 15 * 60 * 1000) { // 15 minutes
+                    return await interaction.reply({ 
+                        content: '⏰ This lottery interface has expired. Please use `/purchaselottery` to open a new one.', 
+                        ephemeral: true 
+                    });
+                }
+            }
+
             if (action.startsWith('buy_')) {
                 const ticketCountStr = action.split('_')[1];
                 const ticketCount = parseInt(ticketCountStr);
@@ -256,12 +302,26 @@ module.exports = {
         } catch (error) {
             logger.error(`Error handling lottery button: ${error.message}`);
             
+            // Handle specific Discord interaction errors
+            if (error.code === 10062 || error.message.includes('Unknown interaction')) {
+                logger.debug('Lottery interaction expired or unknown, ignoring');
+                return;
+            }
+
             const errorEmbed = UITemplates.createErrorEmbed('Lottery', {
                 description: 'An error occurred while processing your request.',
                 error: error.message
             });
 
-            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                } else {
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                }
+            } catch (followUpError) {
+                logger.error(`Failed to send error response: ${followUpError.message}`);
+            }
         }
     },
 
