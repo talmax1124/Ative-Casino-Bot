@@ -12,11 +12,11 @@ if [[ -d .git ]] && [[ ${AUTO_UPDATE} == "1" ]]; then
     # Stash local changes to avoid conflicts
     git stash push -u -m "Auto-stash before update - $(date)" 2>/dev/null || true
     
-    # Reset and pull latest
-    git reset --hard HEAD 2>/dev/null || true
-    git pull origin main || {
-        echo "⚠️ Git pull failed, attempting force reset..."
-        git fetch origin
+    # Fetch and reset to latest remote
+    git fetch origin 2>/dev/null || true
+    git reset --hard origin/main || {
+        echo "⚠️ Git reset failed, attempting clean pull..."
+        git clean -fd
         git reset --hard origin/main
     }
     

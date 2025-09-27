@@ -19,7 +19,7 @@
     "node:20": "ghcr.io/parkervcp/yolks:nodejs_20"
   },
   "file_denylist": [],
-  "startup": "if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == \"1\" ]]; then git pull; fi; if [[ ! -z {{NODE_PACKAGES}} ]]; then /usr/local/bin/npm install {{NODE_PACKAGES}}; fi; if [[ ! -z {{UNNODE_PACKAGES}} ]]; then /usr/local/bin/npm uninstall {{UNNODE_PACKAGES}}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install --production; fi; /usr/local/bin/{{JS_FILE}}",
+  "startup": "if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == \"1\" ]]; then echo '🔄 Auto-updating...'; git fetch origin; git reset --hard origin/main; echo '✅ Updated to latest'; fi; if [[ ! -z {{NODE_PACKAGES}} ]]; then /usr/local/bin/npm install {{NODE_PACKAGES}}; fi; if [[ ! -z {{UNNODE_PACKAGES}} ]]; then /usr/local/bin/npm uninstall {{UNNODE_PACKAGES}}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install --production; fi; /usr/local/bin/{{JS_FILE}}",
   "config": {
     "files": "{\r\n    \"package.json\": {\r\n        \"parser\": \"json\",\r\n        \"find\": {\r\n            \"scripts.start\": \"{{START_CMD}}\"\r\n        }\r\n    }\r\n}",
     "startup": "{\r\n    \"done\": \"change this text\"\r\n}",
