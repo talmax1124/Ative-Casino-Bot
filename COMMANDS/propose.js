@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { getGuildId, sendLogMessage } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
@@ -120,25 +120,34 @@ module.exports = {
                 .setThumbnail(proposer.displayAvatarURL())
                 .setTimestamp();
 
+            // Create response buttons
+            const acceptButton = new ButtonBuilder()
+                .setCustomId(`proposal_accept:${proposalResult.proposalId}`)
+                .setLabel('Accept 💍')
+                .setStyle(ButtonStyle.Success);
+
+            const rejectButton = new ButtonBuilder()
+                .setCustomId(`proposal_reject:${proposalResult.proposalId}`)
+                .setLabel('Decline')
+                .setStyle(ButtonStyle.Danger);
+
+            const row = new ActionRowBuilder().addComponents(acceptButton, rejectButton);
+
             const sentMessage = await interaction.editReply({
-                content: `${recipient}, do you accept this marriage proposal? 💕 Type "yes" or "no" to respond!`,
-                embeds: [proposalEmbed]
+                content: `${recipient}, do you accept this marriage proposal? 💕`,
+                embeds: [proposalEmbed],
+                components: [row]
             });
 
-            // Create message collector for 1 minute
-            const filter = (m) => {
-                return m.author.id === recipient.id && 
-                       (m.content.toLowerCase() === 'yes' || m.content.toLowerCase() === 'no');
-            };
-
-            const collector = interaction.channel.createMessageCollector({ 
-                filter, 
+            // Create button collector for 3 minutes
+            const collector = sentMessage.createMessageComponentCollector({ 
+                filter: (i) => i.user.id === recipient.id && i.customId.startsWith('proposal_'),
                 time: 180000, // 3 minutes
                 max: 1 
             });
 
-            collector.on('collect', async (message) => {
-                const response = message.content.toLowerCase();
+            collector.on('collect', async (buttonInteraction) => {
+                const response = buttonInteraction.customId.includes('accept') ? 'yes' : 'no';
                 
                 // Update the proposal status in database
                 const dbResponse = await dbManager.respondToMarriageProposal(
@@ -167,9 +176,6 @@ module.exports = {
                         .setColor(0x00FF00)
                         .setTimestamp();
 
-                    await interaction.followUp({
-                        embeds: [acceptEmbed]
-                    });
 
                     // Notify the proposer via DM
                     try {
@@ -186,9 +192,6 @@ module.exports = {
                         .setColor(0xFF0000)
                         .setTimestamp();
 
-                    await interaction.followUp({
-                        embeds: [rejectEmbed]
-                    });
 
                     // Notify the proposer via DM
                     try {
@@ -198,17 +201,20 @@ module.exports = {
                     }
                 }
 
-                // Update the original proposal message
-                const finalEmbed = new EmbedBuilder()
-                    .setTitle(response === 'yes' ? '💍 Proposal Accepted!' : '💔 Proposal Rejected')
-                    .setDescription(`**${proposer.displayName}**'s proposal to **${recipient.displayName}** was ${response === 'yes' ? 'accepted' : 'rejected'}.`)
-                    .setColor(response === 'yes' ? 0x00FF00 : 0xFF0000)
-                    .setTimestamp();
-
-                await interaction.editReply({
-                    content: `💕 Proposal ${response === 'yes' ? 'accepted' : 'rejected'}!`,
-                    embeds: [finalEmbed]
-                });
+                // Update the button interaction
+                if (response === 'yes') {
+                    await buttonInteraction.update({
+                        content: `💍 ${recipient.displayName} accepted the proposal!`,
+                        embeds: [acceptEmbed],
+                        components: []
+                    });
+                } else {
+                    await buttonInteraction.update({
+                        content: `💔 ${recipient.displayName} declined the proposal.`,
+                        embeds: [rejectEmbed],
+                        components: []
+                    });
+                }
             });
 
             collector.on('end', async (collected) => {
@@ -222,14 +228,10 @@ module.exports = {
                         .setColor(0x808080)
                         .setTimestamp();
 
-                    await interaction.followUp({
-                        embeds: [expiredEmbed]
-                    });
-
-                    // Update the original message
                     await interaction.editReply({
-                        content: '⏰ This proposal has expired.',
-                        embeds: [expiredEmbed]
+                        content: '⏰ Proposal expired - no response received.',
+                        embeds: [expiredEmbed],
+                        components: []
                     });
 
                     // Notify the proposer

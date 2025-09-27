@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { getGuildId, sendLogMessage } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
@@ -266,27 +266,34 @@ module.exports = {
         // First vow - Partner 1
         const vow1Embed = new EmbedBuilder()
             .setTitle('💕 Exchange of Vows')
-            .setDescription(`**${officiantName}:** "Do you, **${partner1Name}**, take **${partner2Name}** to be your lawfully wedded ${partner2Role}, to have and to hold, in sickness and in health, for richer or poorer, for better or worse, until death do you part?"\n\n**${partner1Name}**, please type "I do" to continue the ceremony...`)
+            .setDescription(`**${officiantName}:** "Do you, **${partner1Name}**, take **${partner2Name}** to be your lawfully wedded ${partner2Role}, to have and to hold, in sickness and in health, for richer or poorer, for better or worse, until death do you part?"\n\n**${partner1Name}**, click the button to say your vows...`)
             .setColor(0xE74C3C)
             .setFooter({ text: 'Waiting for vows...' })
             .setTimestamp();
 
-        const vow1Message = await interaction.followUp({ embeds: [vow1Embed] });
+        // Create "I do" button for partner 1
+        const iDoButton1 = new ButtonBuilder()
+            .setCustomId(`wedding_ido_${partner1Id}`)
+            .setLabel('I do! 💍')
+            .setStyle(ButtonStyle.Primary);
 
-        // Wait for Partner 1 to say "I do"
+        const vowRow1 = new ActionRowBuilder().addComponents(iDoButton1);
+
+        const vow1Message = await interaction.followUp({ 
+            embeds: [vow1Embed],
+            components: [vowRow1]
+        });
+
+        // Wait for Partner 1 to click "I do"
         try {
-            const filter1 = (m) => {
-                return m.author.id === partner1Id && m.content.toLowerCase().trim() === 'i do';
-            };
-
-            const collector1 = interaction.channel.createMessageCollector({
-                filter: filter1,
+            const buttonCollector1 = vow1Message.createMessageComponentCollector({
+                filter: (i) => i.user.id === partner1Id && i.customId === `wedding_ido_${partner1Id}`,
                 time: 120000, // 2 minutes
                 max: 1
             });
 
             await new Promise((resolve, reject) => {
-                collector1.on('collect', async (collected) => {
+                buttonCollector1.on('collect', async (buttonInteraction) => {
                     // Update the vow1 message to show the response
                     const updatedVow1Embed = new EmbedBuilder()
                         .setTitle('💕 Exchange of Vows')
@@ -294,11 +301,14 @@ module.exports = {
                         .setColor(0xE74C3C)
                         .setTimestamp();
                     
-                    await vow1Message.edit({ embeds: [updatedVow1Embed] });
+                    await buttonInteraction.update({ 
+                        embeds: [updatedVow1Embed],
+                        components: []
+                    });
                     resolve();
                 });
 
-                collector1.on('end', (collected) => {
+                buttonCollector1.on('end', (collected) => {
                     if (collected.size === 0) {
                         reject(new Error(`${partner1Name} did not respond with "I do" in time`));
                     }
@@ -319,27 +329,34 @@ module.exports = {
         // Second vow - Partner 2
         const vow2Embed = new EmbedBuilder()
             .setTitle('💕 Exchange of Vows')
-            .setDescription(`**${officiantName}:** "And do you, **${partner2Name}**, take **${partner1Name}** to be your lawfully wedded ${partner1Role}, to have and to hold, in sickness and in health, for richer or poorer, for better or worse, until death do you part?"\n\n**${partner2Name}**, please type "I do" to continue the ceremony...`)
+            .setDescription(`**${officiantName}:** "And do you, **${partner2Name}**, take **${partner1Name}** to be your lawfully wedded ${partner1Role}, to have and to hold, in sickness and in health, for richer or poorer, for better or worse, until death do you part?"\n\n**${partner2Name}**, click the button to say your vows...`)
             .setColor(0xE74C3C)
             .setFooter({ text: 'Waiting for vows...' })
             .setTimestamp();
 
-        const vow2Message = await interaction.followUp({ embeds: [vow2Embed] });
+        // Create "I do" button for partner 2
+        const iDoButton2 = new ButtonBuilder()
+            .setCustomId(`wedding_ido_${partner2Id}`)
+            .setLabel('I do! 💍')
+            .setStyle(ButtonStyle.Primary);
 
-        // Wait for Partner 2 to say "I do"
+        const vowRow2 = new ActionRowBuilder().addComponents(iDoButton2);
+
+        const vow2Message = await interaction.followUp({ 
+            embeds: [vow2Embed],
+            components: [vowRow2]
+        });
+
+        // Wait for Partner 2 to click "I do"
         try {
-            const filter2 = (m) => {
-                return m.author.id === partner2Id && m.content.toLowerCase().trim() === 'i do';
-            };
-
-            const collector2 = interaction.channel.createMessageCollector({
-                filter: filter2,
+            const buttonCollector2 = vow2Message.createMessageComponentCollector({
+                filter: (i) => i.user.id === partner2Id && i.customId === `wedding_ido_${partner2Id}`,
                 time: 120000, // 2 minutes
                 max: 1
             });
 
             await new Promise((resolve, reject) => {
-                collector2.on('collect', async (collected) => {
+                buttonCollector2.on('collect', async (buttonInteraction) => {
                     // Update the vow2 message to show the response
                     const updatedVow2Embed = new EmbedBuilder()
                         .setTitle('💕 Exchange of Vows')
@@ -347,11 +364,14 @@ module.exports = {
                         .setColor(0xE74C3C)
                         .setTimestamp();
                     
-                    await vow2Message.edit({ embeds: [updatedVow2Embed] });
+                    await buttonInteraction.update({ 
+                        embeds: [updatedVow2Embed],
+                        components: []
+                    });
                     resolve();
                 });
 
-                collector2.on('end', (collected) => {
+                buttonCollector2.on('end', (collected) => {
                     if (collected.size === 0) {
                         reject(new Error(`${partner2Name} did not respond with "I do" in time`));
                     }

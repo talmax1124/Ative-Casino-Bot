@@ -74,7 +74,8 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.GuildMessageReactions
+        // GatewayIntentBits.MessageContent - REMOVED! Now using button/modal interactions
         // GatewayIntentBits.GuildMembers - Removed to reduce privileged intent requirements
     ]
 });
@@ -2456,6 +2457,27 @@ client.on('interactionCreate', async interaction => {
                     await marriageTaskCommand.handleQuizHistory(interaction);
                 }
             }
+            // Handle new button interactions for converted systems
+            else if (customId.startsWith('proposal_accept:') || customId.startsWith('proposal_reject:')) {
+                // Marriage proposal buttons are handled within the propose command's collector
+                // No additional handling needed here - the command's own collector handles these
+            }
+            else if (customId.startsWith('wedding_ido_')) {
+                // Wedding "I do" buttons are handled within the start-marriage command's collector
+                // No additional handling needed here - the command's own collector handles these
+            }
+            else if (customId.startsWith('dailytask_complete_')) {
+                // Daily task complete buttons are handled within the dailytask command's collector
+                // No additional handling needed here - the command's own collector handles these
+            }
+            else if (customId.startsWith('marriage_task1_start_') || customId.startsWith('marriage_task3_start_') || customId.startsWith('marriage_task4_start_')) {
+                // Marriage task start buttons are handled within the marriage-task command's collectors
+                // No additional handling needed here - the command's own collectors handle these
+            }
+            else if (customId.startsWith('wc-word:')) {
+                // Word chain input buttons are handled within the wordchain command's collector
+                // No additional handling needed here - the command's own collector handles these
+            }
 
         } catch (error) {
             // Handle "Unknown interaction" errors gracefully (interaction expired)
@@ -2534,22 +2556,15 @@ client.on('messageCreate', async message => {
     if (message.author.bot || message.system) return;
 
     try {
-        // Check if this message is a follow-up to a panel action
-        await panelManager.processFollowUpAction(message);
-
-        // Check if this message is a poem line input
-        const marriageTaskCommand = client.commands.get('marriage-task');
-        if (marriageTaskCommand && marriageTaskCommand.handlePoemChatInput) {
-            const handled = await marriageTaskCommand.handlePoemChatInput(message);
-            if (handled) return; // Stop processing if poem input was handled
-        }
-
-        // Check for mention task progress (Week 2 Task 1) - now using new game system
-        const gameManager = require('./UTILS/games/');
-        const mentionGame = gameManager.getMentionGame();
-        if (mentionGame) {
-            await mentionGame.checkMention(message);
-        }
+        // Panel manager and poem input disabled - converted to interactions
+        // Mention task disabled - requires message content reading
+        
+        // These features have been converted to button/modal interactions:
+        // - Marriage proposals (Accept/Decline buttons)
+        // - Wedding ceremonies ("I do" buttons)
+        // - Word Chain game (modal input)
+        // - Daily tasks (Complete button)
+        // - Marriage task confirmations (Start buttons)
 
         // Guild-specific message reward system (3K-15K every 15-30 messages)
         const { messageRewardSystem } = require('./UTILS/messageRewardSystem');

@@ -132,45 +132,8 @@ module.exports = {
                 await reply.react(scenario.emoji);
             } catch (reactionError) {
                 logger.error(`Failed to add reaction: ${reactionError.message}`);
-                // If we can't add reactions, show alternative completion method
-                const altEmbed = buildSessionEmbed({
-                    title: `📋 ${username}'s Daily Task`,
-                    topFields: [
-                        { 
-                            name: '🎯 Today\'s Task', 
-                            value: `**${scenario.task}**\n\nType "complete" to finish this task\n\n*Reward: ${fmt(scenario.reward.min)} - ${fmt(scenario.reward.max)}*`
-                        }
-                    ],
-                    stageText: 'TASK ASSIGNED',
-                    color: 0x4169E1,
-                    footer: '📋 Daily Task • Type "complete" to earn your reward!'
-                });
-                
-                await interaction.editReply({ embeds: [altEmbed] });
-                
-                // Wait for message instead of reaction
-                const messageFilter = (message) => {
-                    return message.author.id === userId && message.content.toLowerCase() === 'complete';
-                };
-                
-                try {
-                    const messageCollected = await interaction.channel.awaitMessages({ 
-                        filter: messageFilter, 
-                        max: 1, 
-                        time: 30000, 
-                        errors: ['time'] 
-                    });
-                    
-                    if (messageCollected.size > 0) {
-                        // Continue with task completion logic
-                        await handleTaskCompletion();
-                        return;
-                    }
-                } catch (messageError) {
-                    logger.error(`Failed to collect completion message: ${messageError.message}`);
-                    throw new Error('Task interaction failed');
-                }
-                return;
+                // Fall back to button completion if reactions don't work
+                return await this.handleButtonCompletion(interaction, scenario, userId, guildId, username, balance, now);
             }
 
             // Wait for user reaction (30 seconds timeout)
@@ -203,6 +166,7 @@ module.exports = {
                 // Create game result object for payout processing
                 const gameResult = {
                     type: 'dailytask',
+                    gameType: 'dailytask', // Add explicit gameType field
                     userId: userId,
                     guildId: guildId,
                     betAmount: 0, // No bet for daily task
@@ -283,17 +247,7 @@ module.exports = {
 
                 await interaction.editReply({ embeds: [successEmbed] });
 
-                // End session with success result
-                try {
-                    await sessionManager.endSession(interaction.user.id, {
-                        type: 'dailytask',
-                        result: 'success',
-                        earning: totalEarning,
-                        task: scenario.task
-                    });
-                } catch (error) {
-                    logger.error(`Failed to end dailytask session: ${error.message}`);
-                }
+                // Session handling removed - daily tasks don't need explicit session management
 
                 // Record game result for ML analysis
                 try {
@@ -382,6 +336,149 @@ module.exports = {
             } catch (replyError) {
                 logger.error(`Failed to send daily task error reply: ${replyError.message}`);
             }
+        }
+    },
+
+    // Handle button-based completion when reactions fail
+    async handleButtonCompletion(interaction, scenario, userId, guildId, username, balance, now) {
+
+        // Function to handle task completion
+        async function handleTaskCompletion() {
+            // Task completed! Calculate reward
+            const baseEarning = secureRandomInt(scenario.reward.min, scenario.reward.max + 1);
+
+            // Apply tuning manager adjustments for fair gameplay
+            const tuningAdjustment = await tuningManager.getAdjustedPayout('dailytask', baseEarning, 0);
+            const adjustedEarning = tuningAdjustment.adjustedPayout;
+
+            // Apply shop economy boosts on adjusted amount
+            const boostResult = await shopManager.applyEconomyBoosts(userId, adjustedEarning, 'dailytask');
+            const boostedEarning = boostResult.amount;
+
+            // Calculate server booster bonus (5% on boosted earnings)
+            const boosterInfo = await calculateBoosterBonus(boostedEarning, interaction.user.id, interaction.guildId, interaction.guild);
+            const boosterBonus = boosterInfo.amount;
+            const totalEarning = boostedEarning + boosterBonus;
+
+            // Create game result object for payout processing
+            const gameResult = {
+                type: 'dailytask',
+                gameType: 'dailytask', // Add explicit gameType field
+                userId: userId,
+                guildId: guildId,
+                betAmount: 0, // No bet for daily task
+                payout: totalEarning,
+                won: true,
+                task: scenario.task,
+                baseEarning: adjustedEarning,
+                shopBoosts: boostResult.boosts,
+                boosterBonus: boosterBonus,
+                isBooster: boosterInfo.isBooster,
+                tuningMultiplier: (1 + tuningAdjustment.payoutDelta)
+            };
+
+            // Process payout through modern payout manager
+            const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
+
+            // Update balance and timestamp
+            const currentWallet = parseFloat(balance.wallet) || 0;
+            const currentBank = parseFloat(balance.bank) || 0;
+            const newWallet = currentWallet + totalEarning;
+            
+            await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
+                last_dailytask_ts: now
+            });
+
+            // Update completion embed
+            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+            const completionEmbed = buildSessionEmbed({
+                title: `✅ ${username}'s Daily Task Complete!`,
+                topFields: [
+                    {
+                        name: '🎯 Completed Task',
+                        value: `**${scenario.task}**`,
+                        inline: false
+                    },
+                    {
+                        name: '💰 Reward Earned',
+                        value: `**${fmt(totalEarning)}**`,
+                        inline: true
+                    },
+                    {
+                        name: '💵 New Balance',
+                        value: `**${fmt(newWallet)}**`,
+                        inline: true
+                    }
+                ],
+                stageText: 'TASK COMPLETED',
+                color: 0x00FF00,
+                footer: '✅ Task completed successfully!'
+            });
+
+            // Show completion message
+            await interaction.editReply({ embeds: [completionEmbed], components: [] });
+            
+            // Log completion
+            logger.info(`Daily task completed by ${username} (${userId}): ${scenario.task} - earned ${totalEarning}`);
+        }
+
+        // Use button completion method
+        const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+        const altEmbed = buildSessionEmbed({
+            title: `📋 ${username}'s Daily Task`,
+            topFields: [
+                { 
+                    name: '🎯 Today\'s Task', 
+                    value: `**${scenario.task}**\n\nClick the button below to complete this task\n\n*Reward: ${fmt(scenario.reward.min)} - ${fmt(scenario.reward.max)}*`
+                }
+            ],
+            stageText: 'TASK ASSIGNED',
+            color: 0x4169E1,
+            footer: '📋 Daily Task • Click to complete!'
+        });
+
+        // Create complete button
+        const completeButton = new ButtonBuilder()
+            .setCustomId(`dailytask_complete_${userId}`)
+            .setLabel('Complete Task ✅')
+            .setStyle(ButtonStyle.Success);
+
+        const taskRow = new ActionRowBuilder().addComponents(completeButton);
+        
+        const taskMessage = await interaction.editReply({ 
+            embeds: [altEmbed],
+            components: [taskRow]
+        });
+        
+        // Wait for button click
+        try {
+            const buttonCollector = taskMessage.createMessageComponentCollector({
+                filter: (i) => i.user.id === userId && i.customId === `dailytask_complete_${userId}`,
+                time: 30000,
+                max: 1
+            });
+
+            const buttonInteraction = await new Promise((resolve, reject) => {
+                buttonCollector.on('collect', resolve);
+                buttonCollector.on('end', (collected) => {
+                    if (collected.size === 0) {
+                        reject(new Error('Task completion timed out'));
+                    }
+                });
+            });
+
+            // Update button to show completion
+            await buttonInteraction.update({
+                embeds: [altEmbed],
+                components: []
+            });
+
+            // Continue with task completion logic
+            await handleTaskCompletion();
+            
+        } catch (buttonError) {
+            logger.error(`Failed to collect completion button: ${buttonError.message}`);
+            throw new Error('Task interaction failed');
         }
     }
 };

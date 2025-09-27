@@ -142,26 +142,14 @@ class MentionTaskGame {
     }
 
     /**
-     * Process a mention message
+     * Process a mention message - DISABLED: requires message content
      */
     async processMention(message, marriage, currentUser) {
-        const messageText = message.content;
-        const mentions = this.extractMentions(messageText);
-        const niceWords = this.containsNiceWords(messageText);
-
-        if (mentions.length === 0) {
-            return { 
-                success: false, 
-                reason: 'No mentions found in message' 
-            };
-        }
-
-        if (niceWords.length === 0) {
-            return { 
-                success: false, 
-                reason: 'No nice words found in message. Try using words like: wonderful, amazing, kind, talented, funny, caring!' 
-            };
-        }
+        // Message content reading disabled - convert to interaction-based system
+        return { 
+            success: false, 
+            reason: 'Mention task disabled - convert to slash command with nice word selection' 
+        };
 
         // Get mentioned user info
         const mentionedUserId = mentions[0]; // Take first mention

@@ -2,7 +2,7 @@
  * Word Chain game command
  */
 
-const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { fmt, getGuildId, sendLogMessage, setActiveGame, clearActiveGame } = require('../UTILS/common');
 const dbManager = require('../UTILS/database');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
@@ -34,18 +34,46 @@ async function payoutWinner(game) {
 async function updateTurnNotice(interaction, game) {
     const cp = game.currentPlayer;
     if (!cp) return;
-    const text = `🔗 <@${cp.user.id}>, type a word starting with **${game.lastLetter.toUpperCase()}**. You have **${game.turnTimeout}s**! You have **${cp.lives}** lives left!`;
+    
+    // Create button for current player to input word
+    const wordButton = new ButtonBuilder()
+        .setCustomId(`wc-word:${game.channelId}:${cp.user.id}`)
+        .setLabel(`Type word starting with '${game.lastLetter.toUpperCase()}'`)
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📝');
+    
+    const row = new ActionRowBuilder().addComponents(wordButton);
+    
+    const text = `🔗 <@${cp.user.id}>, click the button below to type a word starting with **${game.lastLetter.toUpperCase()}**. You have **${game.turnTimeout}s**! You have **${cp.lives}** lives left!`;
+    
     try {
-        // Post a fresh message each turn
-        game.turnMessage = await interaction.channel.send({ content: text });
+        // Post a fresh message each turn with button
+        game.turnMessage = await interaction.channel.send({ 
+            content: text,
+            components: [row]
+        });
+        
+        // Set up button collector for turn input
+        const buttonCollector = game.turnMessage.createMessageComponentCollector({ 
+            filter: (i) => i.customId.startsWith(`wc-word:${game.channelId}`) && i.user.id === cp.user.id,
+            time: game.turnTimeout * 1000
+        });
+        
+        buttonCollector.on('collect', async (i) => {
+            await handleWordInputModal(i, game, interaction);
+        });
+        
+        game.turnButtonCollector = buttonCollector;
+        
     } catch (e) {
         logger.warn(`WordChain turn notice failed: ${e.message}`);
     }
 }
 
 function startTurnTimer(interaction, game, updatePanel) {
-    // Clear previous timers
+    // Clear previous timers and collectors
     if (game.turnTimer) clearTimeout(game.turnTimer);
+    if (game.turnButtonCollector) game.turnButtonCollector.stop();
     if (game.state !== 'playing') return;
 
     // Mark turn start
@@ -54,6 +82,17 @@ function startTurnTimer(interaction, game, updatePanel) {
 
     // Hard timeout
     game.turnTimer = setTimeout(async () => {
+        // Clean up turn message and collector
+        if (game.turnButtonCollector) game.turnButtonCollector.stop();
+        if (game.turnMessage) {
+            try {
+                await game.turnMessage.edit({ 
+                    content: `⏰ <@${game.currentPlayer.user.id}> timed out!`,
+                    components: [] 
+                });
+            } catch {}
+        }
+        
         // Timeout -> lose life -> next turn
         game.handleTimeout();
         await updatePanel();
@@ -65,10 +104,125 @@ function startTurnTimer(interaction, game, updatePanel) {
     }, game.turnTimeout * 1000);
 }
 
+async function handleWordInputModal(buttonInteraction, game, originalInteraction) {
+    try {
+        const modal = new ModalBuilder()
+            .setCustomId(`wc-modal:${game.channelId}:${buttonInteraction.user.id}`)
+            .setTitle(`Word starting with '${game.lastLetter.toUpperCase()}'`);
+
+        const wordInput = new TextInputBuilder()
+            .setCustomId('word_input')
+            .setLabel(`Enter a word starting with '${game.lastLetter.toUpperCase()}'`)
+            .setStyle(TextInputStyle.Short)
+            .setMinLength(2)
+            .setMaxLength(50)
+            .setRequired(true)
+            .setPlaceholder(`Word starting with '${game.lastLetter.toUpperCase()}'...`);
+
+        const row = new ActionRowBuilder().addComponents(wordInput);
+        modal.addComponents(row);
+
+        await buttonInteraction.showModal(modal);
+
+        // Set up modal submit handler
+        const filter = (i) => i.customId === `wc-modal:${game.channelId}:${buttonInteraction.user.id}`;
+        
+        try {
+            const modalInteraction = await buttonInteraction.awaitModalSubmit({ 
+                filter, 
+                time: (game.turnTimeout - 2) * 1000 // Give a bit less time than the turn timeout
+            });
+
+            const submittedWord = modalInteraction.fields.getTextInputValue('word_input').trim();
+            
+            logger.info(`WordChain: Received word "${submittedWord}" from ${modalInteraction.user.displayName} via modal`);
+
+            // Clear the turn timer since we got input
+            if (game.turnTimer) clearTimeout(game.turnTimer);
+            if (game.turnButtonCollector) game.turnButtonCollector.stop();
+
+            // Process the word
+            const { ok, msg, ended } = await game.submitWord(modalInteraction.user.id, submittedWord);
+            
+            if (ok) {
+                await modalInteraction.reply({ 
+                    content: `✅ "${submittedWord}" accepted!`, 
+                    ephemeral: true 
+                });
+                
+                // Update turn message to show what was submitted
+                if (game.turnMessage) {
+                    try {
+                        await game.turnMessage.edit({
+                            content: `✅ ${modalInteraction.user} said **${submittedWord}**. Next letter: **${game.lastLetter.toUpperCase()}**`,
+                            components: []
+                        });
+                    } catch {}
+                }
+                
+                logger.info(`WordChain: Word "${submittedWord}" accepted`);
+            } else {
+                await modalInteraction.reply({ 
+                    content: `❌ ${msg}`, 
+                    ephemeral: true 
+                });
+                
+                // Update turn message to show rejection
+                if (game.turnMessage) {
+                    try {
+                        await game.turnMessage.edit({
+                            content: `❌ ${modalInteraction.user} tried "${submittedWord}" but it was rejected: ${msg}`,
+                            components: []
+                        });
+                    } catch {}
+                }
+                
+                logger.info(`WordChain: Word "${submittedWord}" rejected: ${msg}`);
+            }
+
+            // Update the game panel
+            const updatePanel = async () => {
+                const embed = buildGameEmbed(game);
+                const row = game.state === 'waiting' ? buildLobbyButtons(game) : null;
+                if (game.message) {
+                    await game.message.edit({ embeds: [embed], components: row ? [row] : [] });
+                }
+            };
+            
+            await updatePanel();
+
+            if (ended || game.state === 'finished') {
+                await endGame(originalInteraction, game, updatePanel);
+                return;
+            }
+
+            // Start next turn if game continues
+            if (game.state === 'playing') {
+                startTurnTimer(originalInteraction, game, updatePanel);
+            }
+
+        } catch (timeoutError) {
+            // Modal submission timed out
+            logger.info(`WordChain: Modal submission timed out for ${buttonInteraction.user.displayName}`);
+            // The turn timer will handle the timeout
+        }
+
+    } catch (error) {
+        logger.error(`WordChain modal error: ${error.message}`);
+        try {
+            await buttonInteraction.reply({ 
+                content: '❌ Error processing word input. Please try again.', 
+                ephemeral: true 
+            });
+        } catch {}
+    }
+}
+
 async function endGame(interaction, game, updatePanel) {
     try {
         if (game.tickInterval) clearInterval(game.tickInterval);
         if (game.turnTimer) clearTimeout(game.turnTimer);
+        if (game.turnButtonCollector) game.turnButtonCollector.stop();
         if (game.collector) game.collector.stop('finished');
         await payoutWinner(game);
         await updatePanel();
@@ -104,9 +258,10 @@ async function endGame(interaction, game, updatePanel) {
                 });
             }
         }
-        // Mark turn notice as finished
+        // Clean up turn message and collector
+        if (game.turnButtonCollector) game.turnButtonCollector.stop();
         if (game.turnMessage) {
-            try { await game.turnMessage.edit({ content: '✅ Game ended.' }); } catch {}
+            try { await game.turnMessage.edit({ content: '✅ Game ended.', components: [] }); } catch {}
         }
         const winner = game.activePlayers[0];
         const totalPaid = game.potEnabled ? fmt(game.potAmount * [...game.players.values()].filter(p => p.paidPot).length) : null;
@@ -259,71 +414,23 @@ module.exports = {
                 if (!game.start()) {
                     return i.reply({ content: '❌ Need at least 2 players to start.', ephemeral: true });
                 }
-                await i.reply({ content: '🔗 Game started! Type your words in chat when it is your turn.', ephemeral: false });
+                await i.reply({ content: '🔗 Game started! Click the button when it\'s your turn to enter words.', ephemeral: false });
                 await updatePanel();
                 // Register active game for all participants
                 for (const p of game.players.values()) setActiveGame(p.user.id, 'wordchain');
 
-                // Start message collector for this channel
-                const filter = (m) => !m.author.bot && m.channel.id === game.channelId;
-                const msgCollector = interaction.channel.createMessageCollector({ filter, time: 30 * 60 * 1000 });
-                game.collector = msgCollector;
-
+                // Start the first turn
                 const processTurn = async () => {
                     clearTimeout(game.turnTimer);
                     startTurnTimer(interaction, game, updatePanel);
                 };
                 await processTurn();
-
-                msgCollector.on('collect', async (m) => {
-                    try {
-                        logger.info(`WordChain: Received message "${m.content}" from ${m.author.displayName} (${m.author.id})`);
-                        
-                        if (game.state !== 'playing') {
-                            logger.info(`WordChain: Ignoring message - game state is ${game.state}`);
-                            return;
-                        }
-                        
-                        // Only consider messages from the current player
-                        if (m.author.id !== game.currentPlayerId) {
-                            logger.info(`WordChain: Ignoring message - not current player (current: ${game.currentPlayerId}, sender: ${m.author.id})`);
-                            return;
-                        }
-                        
-                        logger.info(`WordChain: Processing word "${m.content}" from current player ${m.author.displayName}`);
-                        
-                        // Prevent race with timeout firing while processing
-                        if (game.turnTimer) clearTimeout(game.turnTimer);
-                        const { ok, msg, ended } = await game.submitWord(m.author.id, m.content);
-                        if (ok) {
-                            await m.react('✅');
-                            logger.info(`WordChain: Word "${m.content}" accepted`);
-                        } else {
-                            await m.react('❌');
-                            await m.reply({ content: msg, allowedMentions: { repliedUser: false } });
-                            logger.info(`WordChain: Word "${m.content}" rejected: ${msg}`);
-                        }
-                        await updatePanel();
-                        if (ended || game.state === 'finished') {
-                            await endGame(interaction, game, updatePanel);
-                            msgCollector.stop('finished');
-                            return;
-                        }
-                        // Restart timer for next player
-                        startTurnTimer(interaction, game, updatePanel);
-                    } catch (e) {
-                        logger.error(`WordChain message handler error: ${e.message}`);
-                    }
-                });
-
-                msgCollector.on('end', async () => {
-                    clearTimeout(game.turnTimer);
-                });
             } else if (action === 'help') {
                 const help = new EmbedBuilder()
                     .setTitle('🔗 How to Play Word Chain')
-                    .setDescription('Type valid English words in this channel that start with the last letter of the previous word. Only the current player can play their turn.')
+                    .setDescription('Click the button when it\'s your turn to enter a word that starts with the last letter of the previous word.')
                     .addFields(
+                        { name: 'How to Play', value: '• Wait for your turn\n• Click the button to open word input\n• Enter a valid English word\n• Submit before time runs out', inline: false },
                         { name: 'Rules', value: '• No repeats\n• Valid words only\n• Turn timer applies\n• Invalid/timeout = lose a life', inline: false },
                         { name: 'Start', value: `Game begins from WORD → required letter is 'D'`, inline: false }
                     )
@@ -347,6 +454,7 @@ module.exports = {
                 try {
                     if (game.tickInterval) clearInterval(game.tickInterval);
                     if (game.turnTimer) clearTimeout(game.turnTimer);
+                    if (game.turnButtonCollector) game.turnButtonCollector.stop();
                     if (game.collector) game.collector.stop('dev-stop');
                     
                     // Complete all active sessions before clearing

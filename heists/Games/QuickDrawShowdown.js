@@ -314,7 +314,7 @@ class QuickDrawShowdownGame {
 
         const messageFilter = (message) => {
             return message.channelId === this.channelId && 
-                   message.content.trim().toLowerCase() === 'hit' &&
+                   false && // DISABLED: message content reading
                    !message.author.bot;
         };
 

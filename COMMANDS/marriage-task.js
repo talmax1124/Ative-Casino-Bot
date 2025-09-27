@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { getGuildId } = require('../UTILS/common');
 const { getMarriageLevelByXP } = require('../UTILS/marriageLevels');
@@ -285,28 +285,29 @@ module.exports = {
             .setColor(0xFF69B4)
             .setFooter({ text: 'Waiting for partner confirmation...' });
 
-        await this.safeReply(interaction, {
-            content: `<@${partnerId}> **${requestingUser}** wants to start **Task 1**. Do you want to start? Say "start"`,
-            embeds: [embed]
+        // Create start button for partner
+        const startButton = new ButtonBuilder()
+            .setCustomId(`marriage_task1_start_${partnerId}`)
+            .setLabel('Start Task 1 🎮')
+            .setStyle(ButtonStyle.Primary);
+
+        const startRow = new ActionRowBuilder().addComponents(startButton);
+
+        const confirmMessage = await this.safeReply(interaction, {
+            content: `<@${partnerId}> **${requestingUser}** wants to start **Task 1**. Click the button to start!`,
+            embeds: [embed],
+            components: [startRow]
         });
 
-        // Wait for partner confirmation
+        // Wait for partner confirmation via button
         try {
-            if (!interaction.channel) {
-                throw new Error('Channel not available for message collection');
-            }
-
-            const filter = (m) => {
-                return m.author.id === partnerId && m.content.toLowerCase().trim() === 'start';
-            };
-
-            const collector = interaction.channel.createMessageCollector({
-                filter,
+            const buttonCollector = confirmMessage.createMessageComponentCollector({
+                filter: (i) => i.user.id === partnerId && i.customId === `marriage_task1_start_${partnerId}`,
                 time: 45000, // 45 seconds
                 max: 1
             });
 
-        collector.on('collect', async (message) => {
+        buttonCollector.on('collect', async (buttonInteraction) => {
             // Partner confirmed - start the game
             const gameEmbed = new EmbedBuilder()
                 .setTitle('🎯 Task 1: Tic Tac Toe - Starting!')
@@ -327,13 +328,14 @@ module.exports = {
                         .setStyle(ButtonStyle.Success)
                 );
 
-            await interaction.followUp({
+            await buttonInteraction.update({
+                content: `✅ ${partnerName} accepted! Starting tic tac toe...`,
                 embeds: [gameEmbed],
                 components: [startButton]
             });
         });
 
-            collector.on('end', async (collected) => {
+            buttonCollector.on('end', async (collected) => {
                 if (collected.size === 0) {
                     // Timeout - no response
                     const timeoutEmbed = new EmbedBuilder()
@@ -341,8 +343,10 @@ module.exports = {
                         .setDescription(`**${partnerName}** did not respond within 45 seconds.\n\nTask 1 request has expired.`)
                         .setColor(0xFF0000);
 
-                    await interaction.followUp({
-                        embeds: [timeoutEmbed]
+                    await confirmMessage.edit({
+                        content: '⏰ Task request timed out.',
+                        embeds: [timeoutEmbed],
+                        components: []
                     });
                 }
             });
@@ -392,23 +396,28 @@ module.exports = {
             .setColor(0xFF1493)
             .setFooter({ text: 'Waiting for partner confirmation...' });
 
-        await this.safeReply(interaction, {
-            content: `<@${partnerId}> **${requestingUser}** wants to start **Task 3**. Do you want to start? Say "start"`,
-            embeds: [embed]
+        // Create start button for partner
+        const startButton3 = new ButtonBuilder()
+            .setCustomId(`marriage_task3_start_${partnerId}`)
+            .setLabel('Start Task 3 📝')
+            .setStyle(ButtonStyle.Primary);
+
+        const startRow3 = new ActionRowBuilder().addComponents(startButton3);
+
+        const confirmMessage3 = await this.safeReply(interaction, {
+            content: `<@${partnerId}> **${requestingUser}** wants to start **Task 3**. Click the button to start!`,
+            embeds: [embed],
+            components: [startRow3]
         });
 
-        // Wait for partner confirmation
-        const filter = (m) => {
-            return m.author.id === partnerId && m.content.toLowerCase().trim() === 'start';
-        };
-
-        const collector = interaction.channel.createMessageCollector({
-            filter,
+        // Wait for partner confirmation via button
+        const buttonCollector3 = confirmMessage3.createMessageComponentCollector({
+            filter: (i) => i.user.id === partnerId && i.customId === `marriage_task3_start_${partnerId}`,
             time: 45000, // 45 seconds
             max: 1
         });
 
-        collector.on('collect', async (message) => {
+        buttonCollector3.on('collect', async (buttonInteraction) => {
             // Partner confirmed - start the game
             const gameEmbed = new EmbedBuilder()
                 .setTitle('📝 Task 3: Write a Poem - Starting!')
@@ -429,13 +438,14 @@ module.exports = {
                         .setStyle(ButtonStyle.Success)
                 );
 
-            await interaction.followUp({
+            await buttonInteraction.update({
+                content: `✅ ${partnerName} accepted! Starting poem writing...`,
                 embeds: [gameEmbed],
                 components: [startButton]
             });
         });
 
-        collector.on('end', async (collected) => {
+        buttonCollector3.on('end', async (collected) => {
             if (collected.size === 0) {
                 // Timeout - no response
                 const timeoutEmbed = new EmbedBuilder()
@@ -443,8 +453,10 @@ module.exports = {
                     .setDescription(`**${partnerName}** did not respond within 45 seconds.\n\nTask 3 request has expired.`)
                     .setColor(0xFF0000);
 
-                await interaction.followUp({
-                    embeds: [timeoutEmbed]
+                await confirmMessage3.edit({
+                    content: '⏰ Task request timed out.',
+                    embeds: [timeoutEmbed],
+                    components: []
                 });
             }
         });
@@ -457,7 +469,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setTitle('❓ Task 4: Know Each Other Quiz')
-            .setDescription(`**${requestingUser}** wants to start **Task 4: Know Each Other Quiz**\n\n<@${partnerId}>, do you want to start? Type "start" to begin!\n\n⏰ **Timeout:** 45 seconds`)
+            .setDescription(`**${requestingUser}** wants to start **Task 4: Know Each Other Quiz**\n\n<@${partnerId}>, click the button to start!\n\n⏰ **Timeout:** 45 seconds`)
             .addFields({
                 name: '🧠 Task Details',
                 value: 'How well do you know each other? Take a quiz about your partner.',
@@ -466,23 +478,28 @@ module.exports = {
             .setColor(0x9B59B6)
             .setFooter({ text: 'Waiting for partner confirmation...' });
 
-        await this.safeReply(interaction, {
-            content: `<@${partnerId}> **${requestingUser}** wants to start **Task 4**. Do you want to start? Say "start"`,
-            embeds: [embed]
+        // Create start button for partner
+        const startButton4 = new ButtonBuilder()
+            .setCustomId(`marriage_task4_start_${partnerId}`)
+            .setLabel('Start Task 4 🧠')
+            .setStyle(ButtonStyle.Primary);
+
+        const startRow4 = new ActionRowBuilder().addComponents(startButton4);
+
+        const confirmMessage4 = await this.safeReply(interaction, {
+            content: `<@${partnerId}> **${requestingUser}** wants to start **Task 4**. Click the button to start!`,
+            embeds: [embed],
+            components: [startRow4]
         });
 
-        // Wait for partner confirmation
-        const filter = (m) => {
-            return m.author.id === partnerId && m.content.toLowerCase().trim() === 'start';
-        };
-
-        const collector = interaction.channel.createMessageCollector({
-            filter,
+        // Wait for partner confirmation via button
+        const buttonCollector4 = confirmMessage4.createMessageComponentCollector({
+            filter: (i) => i.user.id === partnerId && i.customId === `marriage_task4_start_${partnerId}`,
             time: 45000, // 45 seconds
             max: 1
         });
 
-        collector.on('collect', async (message) => {
+        buttonCollector4.on('collect', async (buttonInteraction) => {
             // Partner confirmed - start the game
             const gameEmbed = new EmbedBuilder()
                 .setTitle('❓ Task 4: Know Each Other Quiz - Starting!')
@@ -503,13 +520,14 @@ module.exports = {
                         .setStyle(ButtonStyle.Success)
                 );
 
-            await interaction.followUp({
+            await buttonInteraction.update({
+                content: `✅ ${partnerName} accepted! Starting quiz...`,
                 embeds: [gameEmbed],
                 components: [startButton]
             });
         });
 
-        collector.on('end', async (collected) => {
+        buttonCollector4.on('end', async (collected) => {
             if (collected.size === 0) {
                 // Timeout - no response
                 const timeoutEmbed = new EmbedBuilder()
@@ -517,8 +535,10 @@ module.exports = {
                     .setDescription(`**${partnerName}** did not respond within 45 seconds.\n\nTask 4 request has expired.`)
                     .setColor(0xFF0000);
 
-                await interaction.followUp({
-                    embeds: [timeoutEmbed]
+                await confirmMessage4.edit({
+                    content: '⏰ Task request timed out.',
+                    embeds: [timeoutEmbed],
+                    components: []
                 });
             }
         });
@@ -1341,105 +1361,7 @@ module.exports = {
         });
     },
 
-    // Handle chat-based poem line input
-    async handlePoemChatInput(message) {
-        try {
-            // Check if user is waiting for poem input
-            if (!global.poemWaitingForInput?.has(message.author.id)) {
-                return false; // Not handling poem input
-            }
-
-            const waitingData = global.poemWaitingForInput.get(message.author.id);
-            
-            // Check if expired
-            if (Date.now() > waitingData.expiresAt) {
-                global.poemWaitingForInput.delete(message.author.id);
-                await message.reply('⏰ Poem input timed out. Please click "Add Line" again to continue.');
-                return true;
-            }
-
-            // Check if in correct channel
-            if (message.channel.id !== waitingData.channelId) {
-                return false;
-            }
-
-            const poemId = waitingData.poemId;
-            const poemLine = message.content.trim();
-
-            // Handle cancel
-            if (poemLine.toLowerCase() === 'cancel') {
-                global.poemWaitingForInput.delete(message.author.id);
-                await message.reply('❌ Poem line input cancelled.');
-                return true;
-            }
-
-            // Get poem data
-            if (!global.marriagePoems?.has(poemId)) {
-                global.poemWaitingForInput.delete(message.author.id);
-                await message.reply('❌ This poem session has expired.');
-                return true;
-            }
-
-            const poemData = global.marriagePoems.get(poemId);
-            const { poem, partner1, partner2, currentTurn } = poemData;
-
-            // Verify it's still their turn
-            if (message.author.id !== currentTurn) {
-                global.poemWaitingForInput.delete(message.author.id);
-                await message.reply('❌ It\'s no longer your turn to add a line.');
-                return true;
-            }
-
-            // Add the line
-            const result = poem.addLine(poemLine, message.author.id, message.author.displayName);
-            
-            if (!result.success) {
-                await message.reply(`❌ ${result.message}`);
-                return true;
-            }
-
-            // Clear waiting state
-            global.poemWaitingForInput.delete(message.author.id);
-
-            // Switch turns
-            poemData.currentTurn = poem.getNextTurn(currentTurn, partner1.id, partner2.id);
-
-            // Update the embed with new line
-            const embed = new EmbedBuilder()
-                .setTitle('📝 Collaborative Poem Writing!')
-                .setDescription(`**${partner1.name}** and **${partner2.name}** are writing a poem together!\n\n📖 **Theme:** ${poem.theme}\n✍️ **Current Turn:** ${poem.isComplete ? 'Complete!' : `<@${poemData.currentTurn}>`}\n📏 **Lines Written:** ${poem.lines.length}/8\n\n**Current Poem:**\n${poem.getDisplayText()}`)
-                .setColor(poem.isComplete ? 0x00FF00 : 0xFF1493)
-                .setFooter({ text: `Poem ID: ${poemId} • Theme: ${poem.theme}` });
-
-            if (poem.isComplete) {
-                embed.addFields({
-                    name: '🎉 Poem Complete!',
-                    value: 'Your collaborative poem is finished! Click "Publish for Voting" to share it with the community and complete your task.',
-                    inline: false
-                });
-            }
-
-            const actionButtons = this.createPoemButtons(poemId, poem, poemData.currentTurn);
-
-            await message.reply({
-                content: `✅ Line added successfully! ${poem.isComplete ? '🎉 **Poem completed!**' : `Now it's <@${poemData.currentTurn}>'s turn.`}`,
-                embeds: [embed],
-                components: actionButtons
-            });
-
-            // Auto-post completed poems to the designated channel
-            if (poem.isComplete) {
-                await this.postPoemToVotingChannel(poemData, poemId, message.client);
-            }
-
-            return true;
-            
-        } catch (error) {
-            logger.error(`Error in handlePoemChatInput: ${error.message}`, error);
-            await message.reply('❌ Something went wrong while adding your line. Please try again.');
-            return true;
-        }
-    },
+    // Note: Poem input now uses modals exclusively - chat-based input removed
 
     // Post completed poem to voting channel
     async postPoemToVotingChannel(poemData, poemId, client) {
@@ -3902,25 +3824,9 @@ module.exports = {
                 return; // Didn't mention spouse
             }
 
-            // Check for nice words using the same logic as MentionTask.js
-            const niceWords = [
-                'amazing', 'wonderful', 'awesome', 'incredible', 'fantastic', 'brilliant', 'outstanding',
-                'remarkable', 'exceptional', 'magnificent', 'marvelous', 'spectacular', 'superb',
-                'excellent', 'perfect', 'beautiful', 'lovely', 'adorable', 'charming', 'delightful',
-                'sweet', 'kind', 'caring', 'thoughtful', 'generous', 'supportive', 'inspiring',
-                'talented', 'smart', 'clever', 'funny', 'hilarious', 'entertaining', 'fun',
-                'cool', 'rad', 'neat', 'great', 'good', 'nice', 'pleasant', 'friendly',
-                'special', 'unique', 'precious', 'valuable', 'important', 'loved', 'cherished',
-                'handsome', 'gorgeous', 'pretty', 'attractive', 'stunning', 'cute', 'hot',
-                'perfect', 'flawless', 'divine', 'angelic', 'breathtaking', 'mesmerizing'
-            ];
-
-            const messageText = message.content.toLowerCase();
-            const foundWords = niceWords.filter(word => messageText.includes(word.toLowerCase()));
-
-            if (foundWords.length === 0) {
-                return; // No nice words found
-            }
+            // Mention task disabled - requires message content reading
+            // For now, just mentioning spouse completes the task
+            // TODO: Convert to interaction-based system for checking nice words
 
             const marriageId = marriage.id;
             

@@ -309,7 +309,7 @@ class MashTheKeyboardGame {
 
         const messageFilter = (message) => {
             return message.channelId === this.channelId && 
-                   message.content.trim() === '💪' &&
+                   false && // DISABLED: message content reading
                    !message.author.bot;
         };
 

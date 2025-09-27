@@ -876,30 +876,20 @@ class PanelManager {
         }
 
         try {
-            const args = message.content.trim().split(' ');
-
-            switch (action.action) {
-                case 'add_money':
-                    if (args.length !== 2) {
-                        return message.reply('Invalid format. Use: `userID amount`');
-                    }
-                    await this.executeAddMoney(message, args[0], parseInt(args[1]));
-                    break;
-
-                case 'refund':
-                    if (args.length !== 1) {
-                        return message.reply('Invalid format. Use: `userID`');
-                    }
-                    await this.executeRefund(message, args[0]);
-                    break;
-
-                case 'stop_game':
-                    if (args.length !== 1) {
-                        return message.reply('Invalid format. Use: `userID`');
-                    }
-                    await this.executeStopGame(message, args[0]);
-                    break;
-            }
+            // Panel manager message content disabled - use modal/button interactions instead
+            await message.reply('❌ Text-based panel commands disabled. Use `/panel` slash command with buttons and modals.');
+            return;
+            
+            // Original message content code disabled:
+            // const args = message.content.trim().split(' ');
+            // switch (action.action) {
+            //     case 'stop_game':
+            //         if (args.length !== 1) {
+            //             return message.reply('Invalid format. Use: `userID`');
+            //         }
+            //         await this.executeStopGame(message, args[0]);
+            //         break;
+            // }
 
             this.activeActions.delete(message.author.id);
         } catch (error) {

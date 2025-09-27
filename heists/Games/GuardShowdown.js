@@ -84,7 +84,7 @@ class GuardShowdownGame {
         let description = '';
         
         if (this.gamePhase === 'waiting') {
-            description = `**” GUARD SHOWDOWN**\n\n` +
+            description = `**ï¿½ GUARD SHOWDOWN**\n\n` +
                          `**ROUND ${this.currentRound}**\n\n` +
                          `Face off against the security guard in a quick draw duel!\n\n` +
                          `**INSTRUCTIONS:**\n` +
@@ -93,47 +93,47 @@ class GuardShowdownGame {
                          `" Type "HIT" as fast as possible when you see it\n` +
                          `" Only the FIRST person to type "HIT" wins!\n` +
                          `" Everyone else fails the round\n\n` +
-                         `¡ **Reaction Window:** ${this.reactionWindow / 1000}s\n\n` +
+                         `ï¿½ **Reaction Window:** ${this.reactionWindow / 1000}s\n\n` +
                          `Click the button below when ready:`;
         } else if (this.gamePhase === 'ready') {
-            description = `**” GUARD SHOWDOWN**\n\n` +
+            description = `**ï¿½ GUARD SHOWDOWN**\n\n` +
                          `**GET READY...**\n\n` +
-                         `<¯ The guard is watching...\n` +
-                         `¡ Stay alert and focused...\n` +
-                         `ð The draw command is coming soon...\n\n` +
+                         `<ï¿½ The guard is watching...\n` +
+                         `ï¿½ Stay alert and focused...\n` +
+                         `ï¿½ The draw command is coming soon...\n\n` +
                          `**First to type "HIT" after "DRAW!" wins!**`;
         } else if (this.gamePhase === 'draw') {
-            description = `**” GUARD SHOWDOWN**\n\n` +
+            description = `**ï¿½ GUARD SHOWDOWN**\n\n` +
                          `# =% DRAW! =%\n\n` +
                          `**TYPE "HIT" NOW!**\n\n` +
-                         `¡ Be the fastest!\n` +
-                         `<¯ Type it exactly: HIT\n` +
-                         `ð Only the first one wins!\n\n` +
+                         `ï¿½ Be the fastest!\n` +
+                         `<ï¿½ Type it exactly: HIT\n` +
+                         `ï¿½ Only the first one wins!\n\n` +
                          `**${this.reactionWindow / 1000} seconds remaining!**`;
         } else if (this.gamePhase === 'complete') {
-            description = `**<‰ GUARD SHOWDOWN COMPLETE!**\n\n` +
+            description = `**<ï¿½ GUARD SHOWDOWN COMPLETE!**\n\n` +
                          `You survived all encounters with the security guards!\n` +
                          `Your reflexes are razor-sharp!\n\n` +
                          `**Final Results:**\n${this.getRoundResultsText()}\n\n` +
                          `**Mission Status:** SUCCESS `;
         } else if (this.gamePhase === 'failed') {
-            description = `**=€ GUARD SHOWDOWN FAILED!**\n\n` +
+            description = `**=ï¿½ GUARD SHOWDOWN FAILED!**\n\n` +
                          `The security guard was faster than you!\n` +
                          `You were caught in the act!\n\n` +
                          `**Mission Status:** FAILED L`;
         }
 
         const embed = new EmbedBuilder()
-            .setTitle('” GUARD SHOWDOWN')
+            .setTitle('ï¿½ GUARD SHOWDOWN')
             .setDescription(description)
             .addFields(
                 {
-                    name: '=Ê Showdown Progress',
-                    value: `**Round:** ${this.currentRound}/${this.maxRounds}\n**Lives:** ${'d'.repeat(this.lives)} ${this.lives < 3 ? '=”'.repeat(3 - this.lives) : ''}\n**Type:** Single Elimination`,
+                    name: '=ï¿½ Showdown Progress',
+                    value: `**Round:** ${this.currentRound}/${this.maxRounds}\n**Lives:** ${'d'.repeat(this.lives)} ${this.lives < 3 ? '=ï¿½'.repeat(3 - this.lives) : ''}\n**Type:** Single Elimination`,
                     inline: true
                 },
                 {
-                    name: '<¯ Status',
+                    name: '<ï¿½ Status',
                     value: this.getStatusText(),
                     inline: true
                 }
@@ -144,7 +144,7 @@ class GuardShowdownGame {
         // Add current round result if available
         if (this.winner && this.gamePhase !== 'complete' && this.gamePhase !== 'failed') {
             embed.addFields({
-                name: '<Æ Round Result',
+                name: '<ï¿½ Round Result',
                 value: this.getCurrentRoundResult(),
                 inline: false
             });
@@ -159,7 +159,7 @@ class GuardShowdownGame {
         const reactionTime = this.winner.reactionTime;
         const participantCount = this.participants.size;
         
-        return `**Winner:** ${this.winner.username}\n**Reaction Time:** ${reactionTime}ms\n**Competitors:** ${participantCount} players\n**Result:** <¯ Victory!`;
+        return `**Winner:** ${this.winner.username}\n**Reaction Time:** ${reactionTime}ms\n**Competitors:** ${participantCount} players\n**Result:** <ï¿½ Victory!`;
     }
 
     getRoundResultsText() {
@@ -170,11 +170,11 @@ class GuardShowdownGame {
 
     getStatusText() {
         switch (this.gamePhase) {
-            case 'waiting': return 'ó Preparing for duel...';
-            case 'ready': return '<¯ GET READY...';
+            case 'waiting': return 'ï¿½ Preparing for duel...';
+            case 'ready': return '<ï¿½ GET READY...';
             case 'draw': return '=% DRAW!';
-            case 'complete': return '<‰ All Duels Won!';
-            case 'failed': return '=€ Outgunned!';
+            case 'complete': return '<ï¿½ All Duels Won!';
+            case 'failed': return '=ï¿½ Outgunned!';
             default: return 'In progress...';
         }
     }
@@ -193,7 +193,7 @@ class GuardShowdownGame {
     createActionButton() {
         const button = new ButtonBuilder()
             .setCustomId('join_guard_showdown')
-            .setLabel('” Join Showdown')
+            .setLabel('ï¿½ Join Showdown')
             .setStyle(ButtonStyle.Danger)
             .setDisabled(this.gamePhase !== 'waiting');
         
@@ -283,7 +283,7 @@ class GuardShowdownGame {
 
         const messageFilter = (message) => {
             return message.channelId === this.channelId && 
-                   message.content.trim().toLowerCase() === 'hit' &&
+                   false && // DISABLED: message content reading
                    !message.author.bot;
         };
 
@@ -363,7 +363,7 @@ class GuardShowdownGame {
         
         // Show round result
         const resultEmbed = new EmbedBuilder()
-            .setTitle('<Æ Duel Won!')
+            .setTitle('<ï¿½ Duel Won!')
             .setDescription(`**You were the fastest draw!**\n\n**Your Time:** ${this.winner.reactionTime}ms\n**Competitors:** ${this.participants.size - 1} other players\n**Result:** You outgunned the guard!\n\nNext round starting in 3 seconds...`)
             .setColor(0x00FF00);
         
@@ -462,7 +462,7 @@ class GuardShowdownGame {
             });
         } else {
             const timeoutEmbed = new EmbedBuilder()
-                .setTitle('ð Too Slow!')
+                .setTitle('ï¿½ Too Slow!')
                 .setDescription(`Nobody was fast enough! The guard caught you off guard.\n\n**Lives remaining:** ${'d'.repeat(this.lives)}\n\nTrying the same round again in 3 seconds...`)
                 .setColor(0xFFAA00);
             
