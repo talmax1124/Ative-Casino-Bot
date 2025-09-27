@@ -5,22 +5,32 @@
 
 echo "🎰 Starting ATIVE Casino Bot..."
 
-# Force update if git directory exists (auto-update enabled by default)
+# FORCE update regardless of AUTO_UPDATE setting (override Pterodactyl)
 if [[ -d .git ]]; then
-    echo "🔄 Auto-update enabled, forcing repository sync..."
+    echo "🔄 FORCING repository sync (bypassing Pterodactyl AUTO_UPDATE)..."
+    
+    # Show current status
+    echo "📍 Current branch: $(git branch --show-current 2>/dev/null || echo 'unknown')"
+    echo "📍 Current commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
     
     # Stash local changes to avoid conflicts
     git stash push -u -m "Auto-stash before update - $(date)" 2>/dev/null || true
     
     # Fetch and reset to latest remote
+    echo "🌐 Fetching from GitHub..."
     git fetch origin || true
+    echo "🔄 Resetting to latest main branch..."
     git reset --hard origin/main || {
-        echo "⚠️ Git reset failed, attempting clean pull..."
+        echo "⚠️ Git reset failed, attempting aggressive clean..."
         git clean -fd
         git reset --hard origin/main
     }
     
+    # Show new status
+    echo "📍 Updated to commit: $(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
     echo "✅ Repository updated successfully"
+else
+    echo "❌ No .git directory found - running from local files only"
 fi
 
 # Set up environment validation
