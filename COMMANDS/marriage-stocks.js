@@ -435,8 +435,21 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error processing stock purchase: ${error.message}`);
+            logger.error(`Purchase details: Symbol=${symbol}, Shares=${shares}, Price=${pricePerShare}, UserId=${userId}, MarriageId=${marriage.id}`);
+            logger.error(`Error stack: ${error.stack}`);
+            
+            // Provide more specific error message
+            let errorMsg = '❌ An error occurred during the purchase.';
+            if (error.message.includes('withdraw')) {
+                errorMsg = '❌ Failed to withdraw from shared bank. Please check your balance.';
+            } else if (error.message.includes('transaction') || error.message.includes('database')) {
+                errorMsg = '❌ Failed to record the transaction. Please try again.';
+            } else if (error.message.includes('interaction')) {
+                errorMsg = '❌ Failed to update the interaction. Please try the command again.';
+            }
+            
             await interaction.update({
-                content: '❌ An error occurred during the purchase. Please contact support.',
+                content: `${errorMsg}\n\n**Debug Info:** ${error.message}`,
                 embeds: [],
                 components: []
             });
@@ -1098,6 +1111,8 @@ module.exports = {
     async recordStockTransaction(marriageId, symbol, shares, pricePerShare, type, guildId, executedBy) {
         try {
             const totalAmount = shares * pricePerShare;
+            
+            logger.info(`Recording stock transaction: Marriage ${marriageId}, ${type} ${shares} shares of ${symbol} at $${pricePerShare}`);
 
             // Record the transaction in the transactions table
             await dbManager.databaseAdapter.executeQuery(`
@@ -1106,17 +1121,22 @@ module.exports = {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `, [marriageId, symbol, type, shares, pricePerShare, totalAmount, executedBy, guildId]);
 
+            logger.info(`Transaction recorded in marriage_stock_transactions table`);
+
             // Update or create holdings record
             if (type === 'buy') {
+                logger.info(`Updating holdings after buy...`);
                 await this.updateHoldingsAfterBuy(marriageId, symbol, shares, pricePerShare, totalAmount);
             } else if (type === 'sell') {
+                logger.info(`Updating holdings after sell...`);
                 await this.updateHoldingsAfterSell(marriageId, symbol, shares);
             }
 
-            logger.info(`Stock transaction recorded: Marriage ${marriageId} ${type} ${shares} shares of ${symbol} at $${pricePerShare}`);
+            logger.info(`Stock transaction completed successfully: Marriage ${marriageId} ${type} ${shares} shares of ${symbol} at $${pricePerShare}`);
             return true;
         } catch (error) {
             logger.error(`Error recording stock transaction: ${error.message}`);
+            logger.error(`Transaction params: marriageId=${marriageId}, symbol=${symbol}, shares=${shares}, price=${pricePerShare}, type=${type}`);
             throw error;
         }
     },
