@@ -13,7 +13,7 @@ if [[ -d .git ]]; then
     git stash push -u -m "Auto-stash before update - $(date)" 2>/dev/null || true
     
     # Fetch and reset to latest remote
-    git fetch origin 2>/dev/null || true
+    git fetch origin || true
     git reset --hard origin/main || {
         echo "⚠️ Git reset failed, attempting clean pull..."
         git clean -fd
