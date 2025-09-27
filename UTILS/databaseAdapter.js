@@ -63,6 +63,14 @@ class DatabaseAdapter {
         // Ensure dotenv is loaded
         require('dotenv').config();
         
+        // Debug environment variables to identify parsing issues
+        logger.info('🔍 Environment Variables Debug:');
+        logger.info(`   MARIADB_HOST: "${process.env.MARIADB_HOST}"`);
+        logger.info(`   MARIADB_PORT: "${process.env.MARIADB_PORT}"`);
+        logger.info(`   MARIADB_USER: "${process.env.MARIADB_USER}"`);
+        logger.info(`   MARIADB_DATABASE: "${process.env.MARIADB_DATABASE}"`);
+        logger.info(`   PASSWORD SET: ${process.env.MARIADB_PASSWORD ? 'Yes' : 'No'}`);
+        
         const config = {
             host: process.env.MARIADB_HOST || 'localhost',
             port: parseInt(process.env.MARIADB_PORT) || 3306,

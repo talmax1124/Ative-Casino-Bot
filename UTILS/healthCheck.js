@@ -137,6 +137,20 @@ class HealthCheckServer {
         
         this.server = http.createServer(this.createHandler());
         
+        // Handle port already in use
+        this.server.on('error', (err) => {
+            if (err.code === 'EADDRINUSE') {
+                logger.warn(`⚠️ Port ${PORT} is already in use, trying next available port...`);
+                // Try with a random port
+                const fallbackPort = PORT + Math.floor(Math.random() * 1000) + 1;
+                this.server.listen(fallbackPort, '0.0.0.0', () => {
+                    logger.info(`🏥 Health check server running on fallback port ${fallbackPort}`);
+                });
+            } else {
+                logger.error(`❌ Health check server error: ${err.message}`);
+            }
+        });
+        
         this.server.listen(PORT, '0.0.0.0', () => {
             logger.info(`🏥 Health check server running on port ${PORT}`);
         });
