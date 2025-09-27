@@ -23,6 +23,13 @@ class MaintenanceManager {
     async isMaintenanceMode(guildId) {
         try {
             await this.initialize();
+            
+            // Check if database adapter is properly initialized
+            if (!this.databaseAdapter || !this.databaseAdapter.initialized) {
+                logger.warn(`Database adapter not initialized when checking maintenance mode for guild ${guildId}`);
+                return false; // Default to allowing games if database isn't ready
+            }
+            
             const config = await this.databaseAdapter.getServerConfig(guildId);
             
             if (!config || !config.settings) {
@@ -32,6 +39,18 @@ class MaintenanceManager {
             return config.settings.maintenanceMode || false;
         } catch (error) {
             logger.error(`Error checking maintenance mode: ${error.message}`);
+            logger.error(`Error stack: ${error.stack}`);
+            logger.error(`Guild ID: ${guildId}`);
+            
+            // Check for specific database connection issues
+            if (error.message.includes('Database not initialized') || 
+                error.message.includes('pool is null') ||
+                error.message.includes('Connection') ||
+                error.message.includes('ECONNREFUSED') ||
+                error.message.includes('Received one or more errors')) {
+                logger.warn(`Database connection issue when checking maintenance mode - defaulting to allow games`);
+            }
+            
             return false; // Default to allowing games if there's an error
         }
     }

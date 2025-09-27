@@ -123,7 +123,7 @@ module.exports = {
             }
 
             // Update balance with total earnings
-            const newWallet = balance.wallet + totalEarned;
+            const newWallet = parseFloat(balance.wallet) + totalEarned;
             
             // Update all timestamps
             const updateFields = {};

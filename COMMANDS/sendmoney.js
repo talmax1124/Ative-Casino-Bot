@@ -91,7 +91,7 @@ module.exports = {
             const today = Math.floor(now / (1000 * 60 * 60 * 24)); // Days since epoch
             const lastResetDay = Math.floor((senderBalance.last_send_reset || 0) / (1000 * 60 * 60 * 24));
             
-            let dailySent = senderBalance.daily_sent || 0;
+            let dailySent = parseFloat(senderBalance.daily_sent) || 0;
             if (today > lastResetDay) {
                 // Reset daily limit in database immediately
                 dailySent = 0;
@@ -309,7 +309,7 @@ module.exports = {
 
             // Calculate new balances
             const newSenderWallet = senderBalance.wallet - grossAmount;
-            const newRecipientWallet = recipientBalance.wallet + netAmount;
+            const newRecipientWallet = parseFloat(recipientBalance.wallet) + netAmount;
 
             // Update sender balance with daily send tracking
             const senderUpdateSuccess = await dbManager.updateUserBalance(

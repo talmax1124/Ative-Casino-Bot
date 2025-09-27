@@ -1019,7 +1019,7 @@ class DatabaseAdapter {
      */
     async adjustWallet(userId, guildId, delta, floor = 0.0) {
         const balance = await this.getUserBalance(userId, guildId);
-        const newWallet = balance.wallet + delta;
+        const newWallet = parseFloat(balance.wallet) + delta;
         
         if (newWallet < floor) {
             return [false, balance.wallet];
@@ -4329,7 +4329,7 @@ class DatabaseAdapter {
                 }
                 
                 logger.info(`${amount} transferred to shared bank by user ${userId}`);
-                return { success: true, newSharedBalance: marriageData.marriage.shared_bank + amount };
+                return { success: true, newSharedBalance: parseFloat(marriageData.marriage.shared_bank) + amount };
 
             } catch (error) {
                 await connection.rollback();

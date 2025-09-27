@@ -46,7 +46,7 @@ module.exports = {
             
             // Get balance information
             const balance = await dbManager.getUserBalance(userId, guildId);
-            const totalBalance = balance.wallet + balance.bank;
+            const totalBalance = parseFloat(balance.wallet) + parseFloat(balance.bank);
             const tier = getEconomicTier(totalBalance);
             const dailyInterest = calculateDailyInterest(balance.bank, totalBalance);
             

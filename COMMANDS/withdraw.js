@@ -186,7 +186,7 @@ module.exports = {
                 bankFields: [
                     { name: '💵 Wallet Balance', value: fmt(newBalance.wallet), inline: true },
                     { name: '🏦 Bank Balance', value: fmt(newBalance.bank), inline: true },
-                    { name: '💎 Total Worth', value: fmt(newBalance.wallet + newBalance.bank), inline: true }
+                    { name: '💎 Total Worth', value: fmt(parseFloat(newBalance.wallet) + parseFloat(newBalance.bank)), inline: true }
                 ],
                 stageText: 'WITHDRAWAL SUCCESS',
                 color: 0x00FF00,

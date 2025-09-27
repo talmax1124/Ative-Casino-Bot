@@ -53,7 +53,19 @@ class MaintenanceGuard {
                 embed: null
             };
         } catch (error) {
+            // Provide more detailed error logging
             logger.error(`Maintenance guard error: ${error.message}`);
+            logger.error(`Error stack: ${error.stack}`);
+            logger.error(`Guild ID: ${guildId}, Game Type: ${gameType}`);
+            
+            // Check if it's a database connection issue
+            if (error.message.includes('Database not initialized') || 
+                error.message.includes('pool is null') ||
+                error.message.includes('Connection') ||
+                error.message.includes('ECONNREFUSED') ||
+                error.message.includes('Received one or more errors')) {
+                logger.warn(`Database connection issue in maintenance guard - allowing games to proceed`);
+            }
             
             // If there's an error checking maintenance status, allow the game to proceed
             // This prevents maintenance system issues from breaking all games
@@ -74,7 +86,20 @@ class MaintenanceGuard {
             const isMaintenanceMode = await maintenanceManager.isMaintenanceMode(guildId);
             return !isMaintenanceMode;
         } catch (error) {
+            // Provide more detailed error logging
             logger.error(`Maintenance guard quick check error: ${error.message}`);
+            logger.error(`Error stack: ${error.stack}`);
+            logger.error(`Guild ID: ${guildId}`);
+            
+            // Check if it's a database connection issue
+            if (error.message.includes('Database not initialized') || 
+                error.message.includes('pool is null') ||
+                error.message.includes('Connection') ||
+                error.message.includes('ECONNREFUSED') ||
+                error.message.includes('Received one or more errors')) {
+                logger.warn(`Database connection issue in maintenance guard quick check - allowing games to proceed`);
+            }
+            
             return true; // Default to allowing games if error occurs
         }
     }
