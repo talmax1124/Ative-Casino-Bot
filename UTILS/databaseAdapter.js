@@ -616,6 +616,75 @@ class DatabaseAdapter {
                     logger.debug(`Last XP gain column migration: ${addColumnError.message}`);
                 }
             }
+
+            // Stock trading tables for marriage system
+            try {
+                await connection.execute(`
+                    CREATE TABLE IF NOT EXISTS marriage_stock_holdings (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        marriage_id INT NOT NULL,
+                        symbol VARCHAR(10) NOT NULL,
+                        shares INT NOT NULL DEFAULT 0,
+                        avg_price DECIMAL(10,4) NOT NULL DEFAULT 0.0000,
+                        total_invested DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_marriage_symbol (marriage_id, symbol),
+                        INDEX idx_marriage_id (marriage_id),
+                        INDEX idx_symbol (symbol),
+                        FOREIGN KEY (marriage_id) REFERENCES marriages(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                `);
+                
+                await connection.execute(`
+                    CREATE TABLE IF NOT EXISTS marriage_stock_transactions (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        marriage_id INT NOT NULL,
+                        symbol VARCHAR(10) NOT NULL,
+                        transaction_type ENUM('buy', 'sell') NOT NULL,
+                        shares INT NOT NULL,
+                        price_per_share DECIMAL(10,4) NOT NULL,
+                        total_amount DECIMAL(20,2) NOT NULL,
+                        executed_by VARCHAR(20) NOT NULL,
+                        guild_id VARCHAR(20) NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_marriage_id (marriage_id),
+                        INDEX idx_symbol (symbol),
+                        INDEX idx_transaction_type (transaction_type),
+                        INDEX idx_executed_by (executed_by),
+                        INDEX idx_created_at (created_at),
+                        FOREIGN KEY (marriage_id) REFERENCES marriages(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                `);
+                
+                logger.info('Stock trading tables initialized successfully');
+            } catch (stockTableError) {
+                logger.error(`Failed to create stock tables: ${stockTableError.message}`);
+            }
+
+            // Premium claims tracking table
+            try {
+                await connection.execute(`
+                    CREATE TABLE IF NOT EXISTS premium_claims (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id VARCHAR(20) NOT NULL,
+                        guild_id VARCHAR(20) NOT NULL,
+                        claim_type ENUM('weekly', 'monthly') NOT NULL,
+                        amount DECIMAL(20,2) NOT NULL,
+                        subscription_type VARCHAR(50) NOT NULL,
+                        claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_guild_id (guild_id),
+                        INDEX idx_claim_type (claim_type),
+                        INDEX idx_claimed_at (claimed_at),
+                        INDEX idx_user_claim_type (user_id, guild_id, claim_type)
+                    ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                `);
+                
+                logger.info('Premium claims table initialized successfully');
+            } catch (premiumTableError) {
+                logger.error(`Failed to create premium claims table: ${premiumTableError.message}`);
+            }
             
             logger.info('MariaDB schema initialized successfully');
         } finally {
