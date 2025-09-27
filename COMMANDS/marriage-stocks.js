@@ -1131,8 +1131,8 @@ module.exports = {
 
             if (existing.length > 0) {
                 // Update existing holding with new average price
-                const currentShares = existing[0].shares;
-                const currentInvested = existing[0].total_invested;
+                const currentShares = parseInt(existing[0].shares);
+                const currentInvested = parseFloat(existing[0].total_invested);
                 const newTotalShares = currentShares + shares;
                 const newTotalInvested = currentInvested + totalAmount;
                 const newAvgPrice = newTotalInvested / newTotalShares;
@@ -1164,9 +1164,9 @@ module.exports = {
             `, [marriageId, symbol]);
 
             if (holding.length > 0) {
-                const currentShares = holding[0].shares;
-                const currentInvested = holding[0].total_invested;
-                const avgPrice = holding[0].avg_price;
+                const currentShares = parseInt(holding[0].shares);
+                const currentInvested = parseFloat(holding[0].total_invested);
+                const avgPrice = parseFloat(holding[0].avg_price);
                 
                 const newShares = currentShares - shares;
                 const soldValue = shares * avgPrice;
