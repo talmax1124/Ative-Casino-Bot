@@ -85,9 +85,9 @@ module.exports = {
         const canVoteNow = (lastVoteTime === 0) || (currentTime >= nextVoteTime);
         const storedStreak = voteData.vote_streak || 0;
         
-        // Streak is broken if more than 21 hours since last vote (12h wait + 9h grace period)
+        // Streak is broken if more than 18 hours since last vote (12h wait + 6h grace period)
         // This ensures streaks don't persist beyond when voting becomes available again
-        const isStreakValid = hoursSinceLastVote <= 21 || lastVoteTime === 0;
+        const isStreakValid = hoursSinceLastVote <= 18 || lastVoteTime === 0;
         const currentStreak = isStreakValid ? storedStreak : 0;
 
         return {

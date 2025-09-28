@@ -678,6 +678,16 @@ client.once('clientReady', async () => {
         logger.error('Failed to initialize storage monitor:', error);
     }
 
+    // Initialize Sports Betting System
+    try {
+        const SportsBettingMigration = require('./UTILS/sportsBettingMigration');
+        const sportsMigration = new SportsBettingMigration(dbManager);
+        await sportsMigration.runMigrations();
+        logger.info('🎯 Sports betting system initialized successfully');
+    } catch (error) {
+        logger.error('Failed to initialize sports betting system:', error);
+    }
+
     // Send startup notification
     setTimeout(sendStartupNotification, 1000);
 
@@ -713,7 +723,6 @@ client.once('clientReady', async () => {
     StartupBanner.showStartupComplete();
 
 });
-
 
 // Premium role assignment disabled (Firebase dependency removed)
 async function handlePremiumRoleAssignment(userId) {
@@ -1075,6 +1084,76 @@ client.on('interactionCreate', async interaction => {
                     await yahtzeeCommand.handleInteraction(interaction);
                 }
             }
+            // Handle sportbet select button
+            else if (interaction.customId.startsWith('sportbet_select_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleSelectButton) {
+                    await sportbetCommand.handleSelectButton(interaction);
+                }
+            }
+            // Handle sportbet team selection button
+            else if (interaction.customId.startsWith('sportbet_team_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleTeamSelection) {
+                    await sportbetCommand.handleTeamSelection(interaction);
+                }
+            }
+            // Handle sportbet country selection
+            else if (interaction.customId.startsWith('sportbet_country_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleCountrySelection) {
+                    await sportbetCommand.handleCountrySelection(interaction);
+                }
+            }
+            // Handle sportbet league selection
+            else if (interaction.customId.startsWith('sportbet_league_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleLeagueSelection) {
+                    await sportbetCommand.handleLeagueSelection(interaction);
+                }
+            }
+            // Handle sportbet back button
+            else if (interaction.customId.startsWith('sportbet_back_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleBackButton) {
+                    await sportbetCommand.handleBackButton(interaction);
+                }
+            }
+            // Handle sportbet refresh button
+            else if (interaction.customId.startsWith('sportbet_refresh_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleRefreshButton) {
+                    await sportbetCommand.handleRefreshButton(interaction);
+                }
+            }
+            // Handle sportbet markets button
+            else if (interaction.customId.startsWith('sportbet_markets_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleMarketsButton) {
+                    await sportbetCommand.handleMarketsButton(interaction);
+                }
+            }
+            // Handle sportbet market bet button
+            else if (interaction.customId.startsWith('sportbet_market_bet_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleMarketBetButton) {
+                    await sportbetCommand.handleMarketBetButton(interaction);
+                }
+            }
+            // Handle sportbet back to markets button
+            else if (interaction.customId.startsWith('sportbet_back_markets_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleBackToMarkets) {
+                    await sportbetCommand.handleBackToMarkets(interaction);
+                }
+            }
+            // Handle sportbet final bet button
+            else if (interaction.customId.startsWith('sportbet_final_bet_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleTeamSelection) {
+                    await sportbetCommand.handleTeamSelection(interaction);
+                }
+            }
             // Handle modern help category selection
             else if (interaction.customId === 'help_category_select') {
                 try {
@@ -1133,6 +1212,41 @@ client.on('interactionCreate', async interaction => {
                     await battleshipCommand.handleSelectMenu(interaction);
                 } else {
                     await interaction.reply({ content: '❌ Battleship handler not available.', ephemeral: true });
+                }
+            }
+            // Handle sportbet country selection
+            else if (interaction.customId.startsWith('sportbet_country_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleCountrySelection) {
+                    await sportbetCommand.handleCountrySelection(interaction);
+                }
+            }
+            // Handle sportbet league selection
+            else if (interaction.customId.startsWith('sportbet_league_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleLeagueSelection) {
+                    await sportbetCommand.handleLeagueSelection(interaction);
+                }
+            }
+            // Handle sportbet game selection
+            else if (interaction.customId.startsWith('sportbet_game_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleGameSelection) {
+                    await sportbetCommand.handleGameSelection(interaction);
+                }
+            }
+            // Handle sportbet market selection
+            else if (interaction.customId.startsWith('sportbet_market_') && !interaction.customId.includes('_bet_') && !interaction.customId.includes('_game_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleMarketSelection) {
+                    await sportbetCommand.handleMarketSelection(interaction);
+                }
+            }
+            // Handle sportbet market game selection
+            else if (interaction.customId.startsWith('sportbet_market_game_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleMarketGameSelection) {
+                    await sportbetCommand.handleMarketGameSelection(interaction);
                 }
             }
             // Handle blackjack bet selection for Play Again
@@ -2570,44 +2684,7 @@ client.on('messageCreate', async message => {
         const { messageRewardSystem } = require('./UTILS/messageRewardSystem');
         await messageRewardSystem.processMessage(message);
 
-        // Process XP for chat activity (rate-limited)
-        const levelingSystem = require('./UTILS/levelingSystem');
-        const levelResult = await levelingSystem.handleChatMessage(message.author.id, message.guildId, message.channelId);
-
-        // Handle level up if occurred
-        if (levelResult && levelResult.levelUp) {
-            const levelUpEmbed = levelingSystem.createLevelUpEmbed(message.author, levelResult.newLevel);
-
-            // Award level-up rewards
-            const levelReward = await levelingSystem.processLevelUpRewards(message.author.id, message.guildId, levelResult.newLevel);
-
-            // Send level up message in level up channel
-            try {
-                const levelUpChannel = message.client.channels.cache.get('1411018763008217208');
-                if (levelUpChannel) {
-                    await levelUpChannel.send({ embeds: [levelUpEmbed] });
-                }
-            } catch (levelError) {
-                logger.debug(`Could not send level up message: ${levelError.message}`);
-            }
-        }
-
-        logger.debug(`Message processed - rewards and XP handled for target guild`);
-    } catch (error) {
-        logger.error(`Error processing message: ${error.message}`);
-    }
-});
-
-// ========================= DISCORD SERVER PRODUCTS HANDLERS =========================
-
-// Removed Discord entitlement handlers - using web-based purchases now
-
-// ========================= ERROR HANDLERS =========================
-
-client.on('error', async error => {
-    logger.error('Discord client error:', error);
-    try { await sendLogMessage(client, 'error', `Discord client error: ${error.message}`); } catch (_) { }
-});
+                );
 
 client.on('warn', async warning => {
     logger.warn('Discord client warning:', warning);
@@ -2621,7 +2698,6 @@ process.on('unhandledRejection', async error => {
 });
 
 // ========================= VOTE REMINDER SYSTEM =========================
-
 
 // ========================= TOP.GG WEBHOOK SERVER =========================
 

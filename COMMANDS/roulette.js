@@ -13,7 +13,6 @@ const { SessionState } = sessionManager;
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-const levelingSystem = require('../UTILS/levelingSystem');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const gifAnimator = require('../UTILS/gifAnimator');
 // economicManager removed - using bulletproof economy
@@ -60,7 +59,7 @@ const ROULETTE_MODES = {
         maxMultiplier: 6.0,          // Increased to 6x max
         emoji: '🔥',
         color: '#FF0000'
-    }
+
 };
 
 // Active games storage (indexed by sessionId)
@@ -84,8 +83,6 @@ async function createRouletteWheelImage(game, showResult = false, frameIndex = 0
     } catch (error) {
         logger.error(`Error creating roulette wheel image: ${error.message}`);
         return null;
-    }
-}
 
 /**
  * Create payout information embed with current bet info and dynamic multipliers
@@ -124,7 +121,6 @@ async function createPayoutEmbed(user, balance, currentBet = null) {
             value: `**${currentBet.type}**: ${fmt(currentBet.amount)}${currentBet.numbers ? ` (${currentBet.numbers.join(', ')})` : ''}`,
             inline: false
         });
-    }
 
     // Add formatted payout table with personalized multipliers
     topFields.push(
@@ -147,7 +143,7 @@ async function createPayoutEmbed(user, balance, currentBet = null) {
                    `  Basket (0,00+)  ${basketPayout}x\n` +
                    '```', 
             inline: false 
-        }
+
     );
 
     embed.addFields(topFields);
@@ -160,14 +156,12 @@ async function createPayoutEmbed(user, balance, currentBet = null) {
             { name: '💰 Total', value: fmt(balance.wallet + balance.bank), inline: true }
         ];
         embed.addFields(bankFields);
-    }
 
     // Description based on whether bet is placed
     if (currentBet) {
         embed.setDescription('✅ **Bet placed!** You can change your bet or spin the wheel.');
     } else {
         embed.setDescription('📋 **Study the payouts above, then place your bet!**');
-    }
 
     embed.setFooter({ 
         text: currentBet ? '🎲 Ready to spin when you are!' : '💡 Choose your betting strategy wisely!',
@@ -175,7 +169,6 @@ async function createPayoutEmbed(user, balance, currentBet = null) {
     });
 
     return embed;
-}
 
 /**
  * Create game embed with consistent styling
@@ -190,8 +183,7 @@ function createGameEmbed(game, user, balance = null) {
             value: `${game.currentBet.type}: ${fmt(game.currentBet.amount)}${game.currentBet.numbers ? ` (${game.currentBet.numbers.join(', ')})` : ''}`,
             inline: false
         });
-    }
-    
+
     // Show last spin result if available
     if (game.lastResult !== null) {
         const number = game.lastResult;
@@ -203,7 +195,6 @@ function createGameEmbed(game, user, balance = null) {
             value: `${colorEmoji} **${number}** (${color.toUpperCase()})`,
             inline: true
         });
-    }
 
     // Banking fields
     const bankFields = [];
@@ -215,8 +206,6 @@ function createGameEmbed(game, user, balance = null) {
         
         if (game.currentBet) {
             bankFields.push({ name: '🎯 Bet', value: fmt(game.currentBet.amount), inline: true });
-        }
-    }
 
     // Determine game stage and embed color
     let stageText = '';
@@ -232,11 +221,10 @@ function createGameEmbed(game, user, balance = null) {
         } else {
             stageText = 'LOSS';
             embedColor = 0xff0000; // Red for loss
-        }
+
     } else {
         stageText = 'BETTING';
         embedColor = 0x00ff00; // Bright green for betting
-    }
 
     return buildSessionEmbed({
         title: `🎰 ${user.displayName}'s American Roulette`,
@@ -246,7 +234,6 @@ function createGameEmbed(game, user, balance = null) {
         embedColor,
         footer: game.gameEnded ? 'Game completed' : game.isSpinning ? 'Ball is spinning...' : 'Place your bets!'
     });
-}
 
 /**
  * Create betting buttons for roulette
@@ -364,7 +351,6 @@ function createBettingButtons(userId, game = null) {
     rows.push(row4);
 
     return rows;
-}
 
 /**
  * Create number selection dropdown
@@ -393,8 +379,7 @@ function createNumberSelector(userId, betAmount) {
             value: num.toString(),
             emoji: '🔴'
         });
-    }
-    
+
     // Add black numbers (first 12 to reach exactly 25 options)
     const blackNumbers = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24];
     for (const num of blackNumbers) {
@@ -403,7 +388,6 @@ function createNumberSelector(userId, betAmount) {
             value: num.toString(),
             emoji: '⚫'
         });
-    }
 
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId(`roulette-${userId}-number-select`)
@@ -411,7 +395,6 @@ function createNumberSelector(userId, betAmount) {
         .addOptions(options);
 
     return [{ type: 1, components: [selectMenu] }];
-}
 
 /**
  * Create dozen selection dropdown
@@ -432,7 +415,7 @@ function createDozenSelector(userId) {
             label: '3rd Dozen (25-36) - 2.5x',
             value: 'dozen3',
             emoji: '3️⃣'
-        }
+
     ];
 
     const selectMenu = new StringSelectMenuBuilder()
@@ -441,7 +424,6 @@ function createDozenSelector(userId) {
         .addOptions(options);
 
     return [{ type: 1, components: [selectMenu] }];
-}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -483,8 +465,7 @@ module.exports = {
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'roulette');
             if (!maintenanceCheck.allowed) {
                 return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
-            }
-            
+
             // Validate session using sessionGuard
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, SMGameType.ROULETTE, interaction.client);
@@ -497,7 +478,6 @@ module.exports = {
                     .setColor(0xFF0000)
                     .setTimestamp();
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
 
             // Ensure user exists and get balance
             await dbManager.ensureUser(userId, username);
@@ -515,7 +495,6 @@ module.exports = {
 
             if (!validation.isValid) {
                 return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
-            }
 
             const betAmount = validation.parsedAmount;
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
@@ -552,17 +531,14 @@ module.exports = {
                     errorMessage = 'Insufficient funds for this bet.';
                 } else {
                     errorMessage = sessionResult.error || 'Session creation failed. Please try again.';
-                }
-                
+
                 throw new Error(errorMessage);
-            }
 
             const sessionId = sessionResult.sessionId;
             if (!sessionId) {
                 logger.error(`Roulette session creation returned success but no sessionId for ${userId}`);
                 throw new Error('Session creation failed: No session ID returned.');
-            }
-            
+
             logger.info(`Roulette session created successfully: ${sessionId} for ${userId} with bet ${fmt(betAmount)}`);
 
             // Create new game and link to session
@@ -577,7 +553,6 @@ module.exports = {
                 // Clean up session
                 await sessionManager.endSession(sessionId, { reason: 'game_creation_failed', error: gameError.message });
                 throw new Error('Failed to create game. Please try again.');
-            }
 
             // Update session with initial game data
             try {
@@ -588,7 +563,7 @@ module.exports = {
                         lastResult: null,
                         mode: selectedMode,
                         modeConfig: modeConfig
-                    }
+
                 }, 'game_start');
                 logger.debug(`Session ${sessionId} updated with initial game data`);
             } catch (updateError) {
@@ -597,7 +572,6 @@ module.exports = {
                 activeGames.delete(sessionId);
                 await sessionManager.endSession(sessionId, { reason: 'session_update_failed', error: updateError.message });
                 throw new Error('Failed to initialize game session. Please try again.');
-            }
 
             // Create payout embed and betting buttons  
             const payoutEmbed = await createPayoutEmbed(interaction.user, userBalance);
@@ -644,22 +618,19 @@ module.exports = {
                     const parsedAmount = parseAmount(amount);
                     if (parsedAmount > 0) {
                         refundAmount = parsedAmount;
-                    }
-                }
+
             } catch (parseError) {
                 logger.warn(`Could not determine refund amount: ${parseError.message}`);
-            }
-            
+
             // Handle session cleanup
             try {
                 const userSession = sessionManager.getUserActiveSession(userId);
                 if (userSession) {
                     await sessionManager.cancelSession(userSession.sessionId, 'Roulette game initialization error', true);
-                }
+
             } catch (sessionError) {
                 logger.error(`Failed to handle session error: ${sessionError.message}`);
-            }
-            
+
             const { embed: errorEmbed } = GamePanel.createErrorEmbed({
                 title: '❌ Roulette Error',
                 description: 'An error occurred while starting roulette. Your bet has been refunded.',
@@ -674,11 +645,10 @@ module.exports = {
                     await interaction.editReply({ embeds: [errorEmbed] });
                 } else {
                     await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-                }
+
             } catch (replyError) {
                 logger.error(`Failed to send error reply: ${replyError.message}`);
-            }
-        }
+
     },
 
     // Roulette button handlers
@@ -697,11 +667,9 @@ module.exports = {
             if (activeSession && activeSession.gameType === SMGameType.ROULETTE) {
                 sessionId = activeSession.sessionId;
                 game = activeGames.get(sessionId);
-            }
-            
+
             if (!game || !sessionId) {
                 return await interaction.reply({ content: 'No active roulette game found.', flags: MessageFlags.Ephemeral });
-            }
 
             const userBalance = await dbManager.getUserBalance(userId, guildId);
 
@@ -777,7 +745,7 @@ module.exports = {
 
                     await interaction.reply({ embeds: [helpEmbed], components: helpComponents, flags: MessageFlags.Ephemeral });
                     break;
-            }
+
         } catch (actionError) {
             logger.error(`Roulette action error (${actionId}): ${actionError.message}`);
             try {
@@ -791,8 +759,7 @@ module.exports = {
             } catch (_) {}
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({ content: '❌ Error processing action.', flags: MessageFlags.Ephemeral });
-            }
-        }
+
     },
 
     async placeBet(interaction, game, userId, guildId, betType, userBalance) {
@@ -815,7 +782,7 @@ module.exports = {
                 content: '❌ Failed to place bet. Please try again.',
                 flags: MessageFlags.Ephemeral
             });
-        }
+
     },
 
     async spinRoulette(interaction, game, userId, guildId) {
@@ -825,7 +792,6 @@ module.exports = {
                     content: 'You must place a bet before spinning!',
                     flags: MessageFlags.Ephemeral
                 });
-            }
 
             // Check if already spinning or ended
             if (game.isSpinning || game.gameEnded) {
@@ -833,7 +799,6 @@ module.exports = {
                     content: 'Game already in progress or completed!',
                     flags: MessageFlags.Ephemeral
                 });
-            }
 
             // Set spinning state manually (don't use game.spin() yet)
             game.isSpinning = true;
@@ -852,8 +817,7 @@ module.exports = {
             if (spinningWheelImage) {
                 spinningData.files = [{ attachment: spinningWheelImage, name: 'roulette-wheel.png' }];
                 spinningEmbed.setImage('attachment://roulette-wheel.png');
-            }
-            
+
             await interaction.update(spinningData);
 
             // Use existing roulette-spin.gif asset
@@ -883,7 +847,6 @@ module.exports = {
             } catch (error) {
                 logger.warn(`Failed to load roulette-spin.gif: ${error.message}, using fallback`);
                 await new Promise(resolve => setTimeout(resolve, 3000));
-            }
 
             // Now spin the wheel (the game logic handles the result)
             // Reset spinning state before calling spin() to avoid the check error
@@ -901,8 +864,7 @@ module.exports = {
             if (game) {
                 game.isSpinning = false;
                 game.gameEnded = false;
-            }
-            
+
             try {
                 await interaction.followUp({
                     content: '❌ Error occurred during spin. Please try again.',
@@ -910,8 +872,7 @@ module.exports = {
                 });
             } catch (followUpError) {
                 logger.error(`Failed to send error follow-up: ${followUpError.message}`);
-            }
-        }
+
     },
 
     async endGame(interaction, game, userId, guildId, result, payout) {
@@ -957,8 +918,7 @@ module.exports = {
                     betType: game.currentBet.type,
                     gameType: 'roulette'
                 }).catch(err => logger.error('Logging error:', err));
-            }
-            
+
             // Use PayoutManager for consistent payout handling
             const gameResult = new GameResult({
                 userId,
@@ -971,7 +931,7 @@ module.exports = {
                     result: result,
                     betType: game.currentBet.type,
                     color: color
-                }
+
             });
 
             await PayoutManager.processGamePayout(gameResult);
@@ -989,38 +949,14 @@ module.exports = {
                         betType: game.currentBet.type,
                         color: game.getNumberColor(result),
                         betNumbers: game.currentBet.numbers || null
-                    }
+
                 );
             } catch (recordError) {
                 logger.warn(`Failed to record roulette game result: ${recordError.message}`);
-            }
 
-            // Add XP for game completion
-            const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'roulette', won);
-
-            // Check for level up
-            let levelUpMessage = null;
-            if (xpResult && xpResult.leveledUp) {
-                const levelReward = await levelingSystem.processLevelUpRewards(userId, guildId, xpResult.newLevel);
-                
-                levelUpMessage = `\n\n🎉 **LEVEL UP!** You are now level **${xpResult.newLevel}**!`;
                 if (levelReward) {
-                    levelUpMessage += `\n💰 **Level Reward:** +$${levelReward.money.toLocaleString()}`;
-                }
-                
-                try {
-                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
-                    if (levelUpChannel) {
-                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
-                        await levelUpChannel.send({ 
-                            content: `<@${userId}>, you are now level ${xpResult.newLevel}!`,
-                            embeds: [levelUpEmbed] 
-                        });
-                    }
-                } catch (levelError) {
+                } (levelError) {
                     logger.error(`Failed to send level up notification: ${levelError.message}`);
-                }
-            }
 
             // Create final embed
             game.gameEnded = true;
@@ -1041,11 +977,9 @@ module.exports = {
                 resultMessage += `🎉 **YOU WIN!** ${fmt(payout)}`;
             } else {
                 resultMessage += `💸 **YOU LOSE!** Better luck next time.`;
-            }
-            
+
             if (levelUpMessage) {
                 resultMessage += levelUpMessage;
-            }
 
             // Get updated balance for play again buttons
             const updatedBalance = await dbManager.getUserBalance(userId, guildId);
@@ -1059,8 +993,7 @@ module.exports = {
             if (resultWheelImage) {
                 finalData.files = [{ attachment: resultWheelImage, name: 'roulette-wheel.png' }];
                 finalEmbed.setImage('attachment://roulette-wheel.png');
-            }
-            
+
             await interaction.editReply(finalData);
 
             // Complete session
@@ -1071,7 +1004,6 @@ module.exports = {
                     won: won,
                     result: result
                 });
-            }
 
             // Clean up
             activeGames.delete(game.sessionId);
@@ -1087,7 +1019,7 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error ending roulette game: ${error.message}`);
-        }
+
     },
 
     // Handle number selection from dropdown
@@ -1100,12 +1032,10 @@ module.exports = {
             
             if (!activeSession || activeSession.gameType !== SMGameType.ROULETTE) {
                 return await interaction.reply({ content: 'No active roulette game found.', flags: MessageFlags.Ephemeral });
-            }
-            
+
             const game = activeGames.get(activeSession.sessionId);
             if (!game) {
                 return await interaction.reply({ content: 'Game not found.', flags: MessageFlags.Ephemeral });
-            }
 
             // Place number bet - handle both numeric and string values (for '00')
             const numberValue = selectedNumber === '00' ? '00' : parseInt(selectedNumber);
@@ -1129,7 +1059,7 @@ module.exports = {
                 content: '❌ Error placing number bet.',
                 flags: MessageFlags.Ephemeral
             });
-        }
+
     },
 
     // Handle dozen selection from dropdown
@@ -1142,12 +1072,10 @@ module.exports = {
             
             if (!activeSession || activeSession.gameType !== SMGameType.ROULETTE) {
                 return await interaction.reply({ content: 'No active roulette game found.', flags: MessageFlags.Ephemeral });
-            }
-            
+
             const game = activeGames.get(activeSession.sessionId);
             if (!game) {
                 return await interaction.reply({ content: 'Game not found.', flags: MessageFlags.Ephemeral });
-            }
 
             // Place dozen bet
             game.placeBet(selectedDozen, game.betAmount);
@@ -1170,7 +1098,7 @@ module.exports = {
                 content: '❌ Error placing dozen bet.',
                 flags: MessageFlags.Ephemeral
             });
-        }
+
     },
 
     /**
@@ -1203,10 +1131,8 @@ module.exports = {
                     await interaction.reply({ content: errorMessage, ephemeral: true });
                 } else {
                     await interaction.followUp({ content: errorMessage, ephemeral: true });
-                }
+
             } catch (replyError) {
                 logger.error(`Failed to send error message: ${replyError.message}`);
-            }
-        }
-    }
+
 };

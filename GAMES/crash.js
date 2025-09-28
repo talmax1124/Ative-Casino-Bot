@@ -63,7 +63,7 @@ const CRASH_MODES = {
     houseEdge: 0.15,           // 15% house edge
     emoji: '🔥',
     color: '#9C27B0'
-  }
+
 };
 
 // Global configuration
@@ -80,14 +80,12 @@ async function generateAdaptiveCrashPoint(userId, currentWealth, betAmount, mode
     if (adaptedCrashPoint) {
       logger.info(`Adaptive crash point for user ${userId}: ${adaptedCrashPoint.toFixed(2)}x`);
       return adaptedCrashPoint;
-    }
+
   } catch (error) {
     logger.error(`Failed to get adaptive crash point: ${error.message}`);
-  }
-  
+
   // Fallback to standard generation
   return generateCrashPoint(mode);
-}
 
 // Advanced crash point generation with CSPRNG and mode-specific maximums
 function generateCrashPoint(mode = 'balanced') {
@@ -112,7 +110,7 @@ function generateCrashPoint(mode = 'balanced') {
       crashPoint = 1.0 + (secureRandomFloat() * 0.3); // 1.0x - 1.3x (50%)
     } else {
       crashPoint = 1.3 + (secureRandomFloat() * 0.2); // 1.3x - 1.5x (50%)
-    }
+
   } else if (maxMultiplier <= 2.0) {
     // Balanced mode: 1.0x - 2.0x with moderate distribution
     if (combinedRand < 0.45) {
@@ -121,7 +119,7 @@ function generateCrashPoint(mode = 'balanced') {
       crashPoint = 1.5 + (secureRandomFloat() * 0.3); // 1.5x - 1.8x (35%)
     } else {
       crashPoint = 1.8 + (secureRandomFloat() * 0.2); // 1.8x - 2.0x (20%)
-    }
+
   } else if (maxMultiplier <= 2.5) {
     // Risky mode: 1.0x - 2.5x with aggressive distribution
     if (combinedRand < 0.40) {
@@ -132,7 +130,7 @@ function generateCrashPoint(mode = 'balanced') {
       crashPoint = 2.0 + (secureRandomFloat() * 0.3); // 2.0x - 2.3x (20%)
     } else {
       crashPoint = 2.3 + (secureRandomFloat() * 0.2); // 2.3x - 2.5x (10%)
-    }
+
   } else {
     // Extreme mode: 1.0x - 3.0x with maximum risk distribution
     if (combinedRand < 0.35) {
@@ -145,12 +143,9 @@ function generateCrashPoint(mode = 'balanced') {
       crashPoint = 2.7 + (secureRandomFloat() * 0.2); // 2.7x - 2.9x (10%)
     } else {
       crashPoint = 2.9 + (secureRandomFloat() * 0.1); // 2.9x - 3.0x (5%)
-    }
-  }
-  
+
   // Ensure we don't exceed mode-specific maximum
   return Math.min(maxMultiplier, Number(crashPoint.toFixed(2)));
-}
 
 // Improved multiplier calculation - starts at 1.00x with smaller increments
 function calculateMultiplier(startTime, crashPoint) {
@@ -171,10 +166,8 @@ function calculateMultiplier(startTime, crashPoint) {
     // Faster growth after 10 seconds: 2.00x toward max
     const fastPhase = elapsed - 10;
     multiplier = 2.00 + (fastPhase * 0.05) + (Math.pow(fastPhase, 1.2) * 0.02);
-  }
-  
+
   return Math.min(Number(multiplier.toFixed(2)), crashPoint);
-}
 
 // Lightweight game state management with mode support
 class OptimizedCrashGame {
@@ -195,7 +188,6 @@ class OptimizedCrashGame {
     this.createdAt = Date.now();
     
     logger.info(`Created optimized crash game for channel ${channelId} in ${mode} mode with crash point ${this.crashPoint.toFixed(2)}x (max: ${this.modeConfig.maxMultiplier}x)`);
-  }
 
   async addPlayer(userId, username, betAmount) {
     if (this.state !== 'betting') return { success: false, reason: 'BETTING_CLOSED' };
@@ -209,18 +201,16 @@ class OptimizedCrashGame {
       if (userBalance.wallet < betAmount) {
         logger.warn(`Crash: ${username} has insufficient funds (${userBalance.wallet} < ${betAmount})`);
         return { success: false, reason: 'INSUFFICIENT_FUNDS', currentBalance: userBalance.wallet };
-      }
-      
+
       const success = await dbManager.setUserBalance(userId, this.guildId, userBalance.wallet - betAmount, userBalance.bank);
       if (!success) {
         logger.error(`Crash: Failed to deduct bet for ${username}`);
         return { success: false, reason: 'DEDUCTION_FAILED' };
-      }
+
     } catch (error) {
       logger.error(`Crash: Balance error for ${userId}: ${error.message}`);
       return { success: false, reason: 'BALANCE_ERROR', error: error.message };
-    }
-    
+
     this.players.set(userId, {
       username,
       bet: betAmount,
@@ -231,7 +221,6 @@ class OptimizedCrashGame {
     
     logger.info(`Added ${username} to crash game with bet ${fmt(betAmount)}`);
     return { success: true };
-  }
 
   cashOut(userId) {
     if (this.state !== 'running') return null;
@@ -253,7 +242,6 @@ class OptimizedCrashGame {
     }).catch(err => logger.error('Logging error:', err));
     
     return player.winnings;
-  }
 
   // Create simple text-based visualization (no Canvas/images needed)
   createVisualization() {
@@ -280,7 +268,6 @@ class OptimizedCrashGame {
     lines.push(`👥 Players: ${activePlayers} active, ${cashedOutPlayers} cashed out`);
     
     return lines.join('\n');
-  }
 
   createEmbed() {
     let title, color, description;
@@ -314,7 +301,6 @@ class OptimizedCrashGame {
         title = `🎮 ${ownerInfo}Crash Game`;
         color = 0x999999;
         description = 'Game ended';
-    }
 
     const embed = new EmbedBuilder()
       .setTitle(title)
@@ -340,10 +326,8 @@ class OptimizedCrashGame {
         value: playerList || 'No players',
         inline: false
       }]);
-    }
 
     return embed;
-  }
 
   createButtons() {
     const buttons = [];
@@ -364,7 +348,7 @@ class OptimizedCrashGame {
             .setLabel(`🚀 Start Game (${this.players.size} players)`)
             .setStyle(ButtonStyle.Primary)
         );
-      }
+
     } else if (this.state === 'running') {
       buttons.push(
         new ButtonBuilder()
@@ -380,10 +364,8 @@ class OptimizedCrashGame {
           .setLabel('🎮 Play Again')
           .setStyle(ButtonStyle.Secondary)
       );
-    }
 
     return buttons.length > 0 ? [new ActionRowBuilder().addComponents(buttons)] : [];
-  }
 
   async startGame() {
     if (this.state !== 'betting' || this.players.size === 0) return false;
@@ -396,8 +378,7 @@ class OptimizedCrashGame {
     if (this.bettingTimeout) {
       clearTimeout(this.bettingTimeout);
       this.bettingTimeout = null;
-    }
-    
+
     // Start update loop (much slower and safer)
     this.updateInterval = setInterval(async () => {
       try {
@@ -405,12 +386,11 @@ class OptimizedCrashGame {
       } catch (error) {
         logger.error(`Crash game update error: ${error.message}`);
         await this.crashGame('System error');
-      }
+
     }, CRASH_CONFIG.update_interval);
     
     await this.updateMessage();
     return true;
-  }
 
   async updateGame() {
     if (this.state !== 'running') return;
@@ -421,18 +401,15 @@ class OptimizedCrashGame {
     if (this.currentMultiplier >= this.crashPoint) {
       await this.crashGame();
       return;
-    }
-    
+
     // Safety timeout - max game duration
     const elapsed = (Date.now() - this.startTime) / 1000;
     if (elapsed > CRASH_CONFIG.max_duration) {
       await this.crashGame('Game timeout');
       return;
-    }
-    
+
     // Update message (less frequently)
     await this.updateMessage();
-  }
 
   async crashGame(reason = 'Natural crash') {
     if (this.state === 'crashed') return;
@@ -456,8 +433,7 @@ class OptimizedCrashGame {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
-    }
-    
+
     // Process all players - bet was already deducted, so we only add winnings back
     for (const [userId, player] of this.players.entries()) {
       try {
@@ -506,8 +482,7 @@ class OptimizedCrashGame {
             crashPoint: this.crashPoint,
             gameType: 'crash'
           }).catch(err => logger.error('Logging error:', err));
-        }
-        
+
         // Record game result for economic analysis
         const gameResult = new GameResult({
           userId,
@@ -521,7 +496,7 @@ class OptimizedCrashGame {
             cashOutMultiplier: player.cashOutMultiplier || 0,
             cashedOut: player.cashedOut,
             houseEdge: CRASH_CONFIG.house_edge
-          }
+
         });
         
         await PayoutManager.processGamePayout(gameResult);
@@ -542,54 +517,12 @@ class OptimizedCrashGame {
               houseEdge: CRASH_CONFIG.house_edge,
               gameType: 'crash',
               multiplier: player.cashedOut ? player.cashOutMultiplier : 0
-            }
+
           );
         } catch (aiError) {
           logger.error(`Failed to record crash game result for AI: ${aiError.message}`);
-        }
 
-        // Add XP for game completion
-        try {
-          const levelingSystem = require('../UTILS/levelingSystem');
-          const specialResult = (player.cashedOut && player.cashOutMultiplier >= 5) ? 'big_win' : 
-                               (player.cashedOut && player.cashOutMultiplier >= 20) ? 'massive_win' : null;
-          
-          const xpResult = await levelingSystem.handleGameComplete(userId, this.guildId, 'crash', won, specialResult);
-          
-          // Handle level up if occurred
-          if (xpResult && xpResult.levelUp && this.client) {
-            const levelUpEmbed = levelingSystem.createLevelUpEmbed(
-              await this.client.users.fetch(userId), 
-              xpResult.newLevel
-            );
-            
-            // Award level-up rewards
-            await levelingSystem.processLevelUpRewards(userId, this.guildId, xpResult.newLevel);
-            
-            // Send level up message in level up channel
-            try {
-              const levelUpChannel = this.client.channels.cache.get('1411018763008217208');
-              if (levelUpChannel) {
-                await levelUpChannel.send({ embeds: [levelUpEmbed] });
-              }
-            } catch (levelError) {
-              logger.debug(`Could not send level up message: ${levelError.message}`);
-            }
-          }
-        } catch (xpError) {
-          logger.debug(`Could not award XP for crash: ${xpError.message}`);
-        }
-        
-      } catch (error) {
-        logger.error(`Failed to process crash payout for ${userId}: ${error.message}`);
-      }
-    }
-    
-    await this.updateMessage();
-    
-    // Complete session
-    if (this.sessionId) {
-      try {
+                try {
         const winners = Array.from(this.players.values()).filter(p => p.cashedOut);
         await sessionManager.endSession(this.sessionId, {
           outcome: winners.length > 0 ? 'SOME_WINNERS' : 'ALL_LOST',
@@ -600,9 +533,7 @@ class OptimizedCrashGame {
         });
       } catch (error) {
         logger.error(`Failed to complete crash session: ${error.message}`);
-      }
-    }
-    
+
     logger.info(`Crash game crashed at ${this.crashPoint.toFixed(2)}x (${reason})`);
     
     // Keep the game results visible for a while, then finish
@@ -610,7 +541,6 @@ class OptimizedCrashGame {
       this.state = 'finished';
       await this.updateMessage();
     }, 10000); // Show results for 10 seconds
-  }
 
   async updateMessage() {
     if (!this.gameMessage) return;
@@ -625,26 +555,20 @@ class OptimizedCrashGame {
       });
     } catch (error) {
       logger.error(`Failed to update crash message: ${error.message}`);
-    }
-  }
 
   cleanup() {
     if (this.updateInterval) {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
-    }
+
     if (this.bettingTimeout) {
       clearTimeout(this.bettingTimeout);
       this.bettingTimeout = null;
-    }
-  }
-}
 
 // Game manager
 class OptimizedCrashManager {
   constructor() {
     this.games = new Map();
-  }
 
   createGame(channelId, guildId, sessionId = null, userId = null, username = null, mode = 'balanced') {
     // Create unique game key: use sessionId if provided, otherwise channelId
@@ -656,21 +580,18 @@ class OptimizedCrashManager {
       gameKey = `${channelId}_${userId}`; // User-specific game fallback
     } else {
       gameKey = channelId; // Channel-wide game
-    }
-    
+
     // Clean up any existing game with this specific key
     const existing = this.games.get(gameKey);
     if (existing) {
       existing.cleanup();
-    }
-    
+
     const game = new OptimizedCrashGame(channelId, guildId, mode);
     game.gameKey = gameKey; // Store the key for later reference
     game.ownerId = userId; // Store who owns this game session
     game.ownerUsername = username; // Store the owner's username
     this.games.set(gameKey, game);
     return game;
-  }
 
   getGame(channelId, userId = null) {
     // If userId is provided, look for user-specific game first
@@ -678,8 +599,7 @@ class OptimizedCrashManager {
       const userGameKey = `${channelId}_${userId}`;
       const userGame = this.games.get(userGameKey);
       if (userGame) return userGame;
-    }
-    
+
     // First try to get by channelId (legacy)
     let game = this.games.get(channelId);
     if (game) return game;
@@ -693,27 +613,20 @@ class OptimizedCrashManager {
         if (!mostRecentGame || gameInstance.createdAt > mostRecentTime) {
           mostRecentGame = gameInstance;
           mostRecentTime = gameInstance.createdAt;
-        }
-      }
-    }
-    
+
     return mostRecentGame;
-  }
 
   getUserGame(channelId, userId) {
     const userGameKey = `${channelId}_${userId}`;
     return this.games.get(userGameKey);
-  }
 
   getAllChannelGames(channelId) {
     const channelGames = [];
     for (const [key, gameInstance] of this.games.entries()) {
       if (gameInstance.channelId === channelId) {
         channelGames.push(gameInstance);
-      }
-    }
+
     return channelGames;
-  }
 
   removeGame(channelId) {
     // First try to remove by channelId
@@ -722,25 +635,19 @@ class OptimizedCrashManager {
       game.cleanup();
       this.games.delete(channelId);
       return;
-    }
-    
+
     // If not found by channelId, find by sessionId and remove
     for (const [key, gameInstance] of this.games.entries()) {
       if (gameInstance.channelId === channelId) {
         gameInstance.cleanup();
         this.games.delete(key);
         return;
-      }
-    }
-  }
 
   cleanup() {
     for (const [channelId, game] of this.games.entries()) {
       game.cleanup();
-    }
+
     this.games.clear();
-  }
-}
 
 const crashManager = new OptimizedCrashManager();
 
@@ -764,7 +671,7 @@ async function handleButtonInteraction(interaction, client, game) {
         break;
       default:
         await interaction.reply({ content: '❌ Unknown action', flags: MessageFlags.Ephemeral });
-    }
+
   } catch (error) {
     logger.error(`Crash button interaction error: ${error.message}`);
     try {
@@ -778,9 +685,6 @@ async function handleButtonInteraction(interaction, client, game) {
     } catch (_) {}
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({ content: '❌ An error occurred', flags: MessageFlags.Ephemeral });
-    }
-  }
-}
 
 async function handleJoinGame(interaction, game) {
   logger.info(`handleJoinGame called - gameKey: ${game.gameKey}, state: ${game.state}, existing players: ${game.players.size}`);
@@ -788,8 +692,7 @@ async function handleJoinGame(interaction, game) {
   if (game.state !== 'betting') {
     logger.warn(`User ${interaction.user.displayName} tried to join crash game but state is '${game.state}' (not 'betting')`);
     return await interaction.reply({ content: '❌ Betting is closed!', flags: MessageFlags.Ephemeral });
-  }
-  
+
   const userId = interaction.user.id;
   
   // Check if user already has a bet placed
@@ -800,8 +703,7 @@ async function handleJoinGame(interaction, game) {
       content: `✅ You already have a bet of ${fmt(player.bet)} in this game! Wait for the game to start.`, 
       flags: MessageFlags.Ephemeral 
     });
-  }
-  
+
   // Show bet modal
   const modal = new ModalBuilder()
     .setCustomId('crash_bet_modal')
@@ -818,46 +720,39 @@ async function handleJoinGame(interaction, game) {
 
   modal.addComponents(new ActionRowBuilder().addComponents(betInput));
   await interaction.showModal(modal);
-}
 
 async function handleStartGame(interaction, game) {
   if (game.players.size === 0) {
     logger.warn(`Start game attempted but no players found in game state: ${game.state}, gameKey: ${game.gameKey}`);
     return await interaction.reply({ content: '❌ No players have joined!', flags: MessageFlags.Ephemeral });
-  }
-  
+
   logger.info(`Starting crash game with ${game.players.size} players`);
   const started = await game.startGame();
   if (!started) {
     logger.error(`Failed to start crash game - state: ${game.state}, players: ${game.players.size}`);
     return await interaction.reply({ content: '❌ Failed to start game. Please try again.', flags: MessageFlags.Ephemeral });
-  }
+
   await interaction.deferUpdate();
-}
 
 async function handleCashOut(interaction, game) {
   const userId = interaction.user.id;
   
   if (game.state !== 'running') {
     return await interaction.reply({ content: '❌ Game is not running!', flags: MessageFlags.Ephemeral });
-  }
-  
+
   const winnings = game.cashOut(userId);
   if (winnings === null) {
     return await interaction.reply({ content: '❌ You are not in this game or already cashed out!', flags: MessageFlags.Ephemeral });
-  }
-  
+
   await interaction.reply({
     content: `✅ Cashed out at **${game.currentMultiplier.toFixed(2)}x** → +${fmt(winnings)}!`,
     flags: MessageFlags.Ephemeral
   });
-}
 
 async function handlePlayAgain(interaction, game) {
   if (game.state !== 'crashed' && game.state !== 'finished') {
     return await interaction.reply({ content: '❌ The current game is still active!', flags: MessageFlags.Ephemeral });
-  }
-  
+
   const userId = interaction.user.id;
   const username = interaction.user.displayName;
   const channelId = interaction.channelId;
@@ -902,10 +797,9 @@ async function handlePlayAgain(interaction, game) {
               newGame.state = 'finished';
               await newGame.updateMessage();
               logger.info(`Crash game expired due to no players joining`);
-            }
+
           }, 300000); // 5 minutes total timeout
-        }
-      }
+
     }, CRASH_CONFIG.betting_duration * 1000);
     
     logger.info(`New crash game started by ${username} via Play Again button`);
@@ -916,8 +810,6 @@ async function handlePlayAgain(interaction, game) {
       content: '❌ Failed to start a new game. Please try using `/crash` instead.',
       flags: MessageFlags.Ephemeral
     });
-  }
-}
 
 // Modal submission handler
 async function handleModalSubmit(interaction, client, game) {
@@ -934,8 +826,7 @@ async function handleModalSubmit(interaction, client, game) {
       content: `❌ You already have a bet of ${fmt(player.bet)} in this game!`,
       flags: MessageFlags.Ephemeral
     });
-  }
-  
+
   const parsedAmount = parseAmount(betAmountStr);
   
   // Get user balance to resolve 'all' and 'half' amounts
@@ -945,8 +836,7 @@ async function handleModalSubmit(interaction, client, game) {
       content: '❌ Unable to fetch your balance. Please try again.',
       flags: MessageFlags.Ephemeral
     });
-  }
-  
+
   // Resolve the actual bet amount using the common function
   const { resolveAmount } = require('../UTILS/common');
   const betAmount = await resolveAmount(parsedAmount, userBalance.wallet);
@@ -979,7 +869,7 @@ async function handleModalSubmit(interaction, client, game) {
         content: `❌ Invalid bet amount! Must be between ${fmt(CRASH_CONFIG.min_bet)} and ${fmt(dynamicMaxBet)}${maxBetConfig.userCapped ? ' (user limit)' : ''}`,
         flags: MessageFlags.Ephemeral
       });
-    }
+
   } catch (tuningError) {
     // Fallback to original limits if tuning system fails
     await comprehensiveLogger.logError('CRASH_TUNING_SYSTEM', tuningError, { 
@@ -993,9 +883,7 @@ async function handleModalSubmit(interaction, client, game) {
         content: `❌ Invalid bet amount! Must be between ${fmt(CRASH_CONFIG.min_bet)} and ${fmt(CRASH_CONFIG.max_bet)}`,
         flags: MessageFlags.Ephemeral
       });
-    }
-  }
-  
+
   // Add to game (addPlayer now deducts bet upfront)
   logger.info(`Adding player ${username} to game ${game.gameKey} with bet ${betAmount}`);
   const addResult = await game.addPlayer(userId, username, betAmount);
@@ -1022,21 +910,18 @@ async function handleModalSubmit(interaction, client, game) {
         break;
       default:
         errorMessage += ` (${addResult.reason})`;
-    }
-    
+
     return await interaction.reply({
       content: errorMessage,
       flags: MessageFlags.Ephemeral
     });
-  }
-  
+
   await game.updateMessage();
   logger.info(`Player ${username} successfully added to game. Total players now: ${game.players.size}`);
   await interaction.reply({
     content: `✅ Bet placed: ${fmt(betAmount)}! Good luck! 🍀`,
     flags: MessageFlags.Ephemeral
   });
-}
 
 // Main game execution function
 async function handleGameExecution(interaction, client, sessionId = null, initialBetData = null) {
@@ -1052,15 +937,13 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
       const session = await sessionManager.getSession(sessionId);
       if (session && session.metadata && session.metadata.mode) {
         mode = session.metadata.mode;
-      }
+
     } catch (error) {
       logger.warn(`Failed to get session metadata for mode: ${error.message}`);
-    }
-  }
+
   if (initialBetData && initialBetData.mode) {
     mode = initialBetData.mode;
-  }
-  
+
   // Always create a new user-specific game - this allows multiple independent sessions
   // Each user gets their own crash game that doesn't interfere with others
   let game = crashManager.createGame(channelId, guildId, sessionId, userId, username, mode);
@@ -1077,12 +960,10 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
       const addResult = await game.addPlayer(betUserId, betUsername, initialBet);
       if (!addResult.success) {
         logger.warn(`Failed to add ${betUsername} to crash game with initial bet ${fmt(initialBet)}: ${addResult.reason}`);
-      }
+
     } catch (error) {
       logger.error(`Exception adding player with initial bet: ${error.message}`);
-    }
-  }
-  
+
   // Create initial message
   const embed = game.createEmbed();
   const components = game.createButtons();
@@ -1112,12 +993,10 @@ async function handleGameExecution(interaction, client, sessionId = null, initia
             game.state = 'finished';
             await game.updateMessage();
             logger.info(`Crash game expired due to no players joining`);
-          }
+
         }, 300000); // 5 minutes total timeout
-      }
-    }
+
   }, CRASH_CONFIG.betting_duration * 1000);
-}
 
 // NEW: Entry point function for crash command
 async function startCrashGame(interaction, selectedMode = 'balanced', betAmount = 0) {
@@ -1128,8 +1007,7 @@ async function startCrashGame(interaction, selectedMode = 'balanced', betAmount 
   // Validate mode
   if (!CRASH_MODES[selectedMode]) {
     selectedMode = 'balanced';
-  }
-  
+
   const mode = CRASH_MODES[selectedMode];
   
   // Create session for crash game with mode metadata
@@ -1147,12 +1025,11 @@ async function startCrashGame(interaction, selectedMode = 'balanced', betAmount 
       mode: selectedMode,
       minBet: mode.minBet,
       maxMultiplier: mode.maxMultiplier
-    }
+
   });
 
   if (!sessionResult.success) {
     throw new Error(`Session creation failed: ${sessionResult.error}`);
-  }
 
   const sessionId = sessionResult.sessionId;
 
@@ -1163,7 +1040,6 @@ async function startCrashGame(interaction, selectedMode = 'balanced', betAmount 
     username: interaction.user.displayName,
     mode: selectedMode
   });
-}
 
 module.exports = {
   OptimizedCrashGame,

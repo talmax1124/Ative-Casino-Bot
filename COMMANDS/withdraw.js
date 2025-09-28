@@ -18,7 +18,7 @@ module.exports = {
             option.setName('amount')
                 .setDescription('Amount to withdraw (supports K/M/B, "all", "half")')
                 .setRequired(true)
-        ),
+                    ),
 
     async execute(interaction) {
         const userId = interaction.user.id;

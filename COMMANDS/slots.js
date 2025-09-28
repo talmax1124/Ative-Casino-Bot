@@ -41,7 +41,7 @@ const SLOTS_MODES = {
         minBet: 5000,
         maxMultiplier: 2.2,
         description: 'Min: $5K, Max Multiplier: 2.2x'
-    }
+
 };
 
 /**
@@ -73,7 +73,6 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
             { name: '🎯 Multiplier', value: `x${result.multiplier.toFixed(2)}`, inline: true },
             { name: '💸 Payout', value: fmt(result.payout), inline: true }
         );
-    }
 
     // Determine game state and color
     let stageText = '';
@@ -89,17 +88,15 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
         } else {
             stageText = 'WINNER!';
             color = 0x00ff00; // Green
-        }
+
     } else {
         stageText = 'TRY AGAIN';
         color = 0xff0000; // Red
-    }
 
     // Get economic indicators if AI result is available
     let economicFooter = result.won ? result.type : 'Better luck next time!';
     if (aiResult) {
         // EconomyGuardianInterface removed - using bulletproof economy
-    }
 
     // Protection systems are invisible to players - they just see their actual odds/results
 
@@ -111,7 +108,6 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
         color,
         footer: economicFooter
     });
-}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -149,7 +145,6 @@ module.exports = {
                 .setDescription('Invalid game mode selected.')
                 .setColor(0xFF0000);
             return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-        }
 
         try {
             logger.debug(`Slots execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}' and mode '${mode}'`);
@@ -159,8 +154,7 @@ module.exports = {
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'slots');
             if (!maintenanceCheck.allowed) {
                 return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
-            }
-            
+
             // Validate session before proceeding (via sessionGuard)
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(userId, guildId, SMGameType.SLOTS, interaction.client);
@@ -172,7 +166,6 @@ module.exports = {
                     .setColor(0xFF0000)
                     .setTimestamp();
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
 
             // 🎛️ INITIALIZE AI TUNING SYSTEM
             await tuningManager.initialize();
@@ -193,7 +186,6 @@ module.exports = {
 
             if (!validation.isValid) {
                 return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
-            }
 
             const betAmount = validation.parsedAmount;
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
@@ -222,7 +214,6 @@ module.exports = {
 
             if (!sessionResult.success) {
                 throw new Error(`Session creation failed: ${sessionResult.error}`);
-            }
 
             const sessionId = sessionResult.sessionId;
             logger.debug(`Slots session created: ${sessionId} for ${userId}`);
@@ -241,8 +232,7 @@ module.exports = {
             if (isNaN(baseResult.payout) || isNaN(baseResult.multiplier) || !isFinite(baseResult.payout) || !isFinite(baseResult.multiplier)) {
                 logger.error(`Invalid base result from calculatePayout: payout=${baseResult.payout}, multiplier=${baseResult.multiplier}, symbols=${JSON.stringify(symbols)}, betAmount=${betAmount}`);
                 throw new Error('Invalid payout calculation - game cancelled');
-            }
-            
+
             // 🎰 APPLY AI TUNING SYSTEM - REAL ECONOMIC REGULATION
             const tuningAdjustment = await tuningManager.getAdjustedPayout('slots', baseResult.payout, betAmount);
             const regulatedPayout = baseResult.won ? tuningAdjustment.adjustedPayout : 0;
@@ -251,8 +241,7 @@ module.exports = {
             if (isNaN(tuningAdjustment.adjustedPayout) || !isFinite(tuningAdjustment.adjustedPayout)) {
                 logger.error(`Invalid tuning adjustment: adjustedPayout=${tuningAdjustment.adjustedPayout}, originalPayout=${baseResult.payout}, betAmount=${betAmount}`);
                 throw new Error('Invalid tuning calculation - game cancelled');
-            }
-            
+
             // Apply AI multiplier adjustment to tuning-regulated payout
             const aiMultiplier = aiResult?.multiplierAdjustment?.finalMultiplier || 1.0;
             const aiAdjustedPayout = regulatedPayout > 0 ? Math.floor(regulatedPayout * aiMultiplier) : 0;
@@ -264,8 +253,7 @@ module.exports = {
             // Log tuning application for monitoring
             if (tuningAdjustment.payoutDelta !== 0 || tuningAdjustment.feeApplied) {
                 logger.info(`🎛️ SLOTS TUNING: ${baseResult.payout} -> ${regulatedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
-            }
-            
+
             // Apply transparent payout system - show full multiplier in UI but adjust actual payout
             const transparentResult = await transparentPayoutManager.calculateHonestPayout(
                 userId,
@@ -280,8 +268,7 @@ module.exports = {
                 isNaN(transparentResult.displayedMultiplier) || !isFinite(transparentResult.displayedMultiplier)) {
                 logger.error(`Invalid transparent payout result: actualPayout=${transparentResult.actualPayout}, displayedMultiplier=${transparentResult.displayedMultiplier}, betAmount=${betAmount}`);
                 throw new Error('Invalid transparent payout calculation - game cancelled');
-            }
-            
+
             // Combine AI multiplier with transparent payout - AI takes precedence for actual payout
             const finalActualPayout = aiAdjustedResult.won ? Math.min(aiAdjustedPayout, transparentResult.actualPayout) : 0;
             
@@ -289,8 +276,7 @@ module.exports = {
             if (isNaN(finalActualPayout) || !isFinite(finalActualPayout)) {
                 logger.error(`Invalid final payout calculation: finalActualPayout=${finalActualPayout}, aiAdjustedPayout=${aiAdjustedPayout}, transparentPayout=${transparentResult.actualPayout}`);
                 throw new Error('Invalid final payout calculation - game cancelled');
-            }
-            
+
             // Use UI multiplier for display, AI-adjusted payout for winnings
             const result = {
                 ...baseResult,
@@ -309,7 +295,7 @@ module.exports = {
                     result,
                     gamePhase: 'completed',
                     gameStarted: true
-                }
+
             }, 'spin_complete');
 
             // Create game result
@@ -337,7 +323,6 @@ module.exports = {
                     .setColor(0xFF0000);
                 
                 return await interaction.editReply({ embeds: [errorEmbed] });
-            }
 
             // Record game result for statistics AND economy analyzer
             try {
@@ -353,7 +338,7 @@ module.exports = {
                         symbols: result.symbols,
                         type: result.type,
                         lines: result.winningLines?.length || 0
-                    }
+
                 );
                 
                 // 📊 RECORD FOR AI ECONOMY ANALYZER
@@ -361,68 +346,8 @@ module.exports = {
                 
             } catch (recordError) {
                 logger.warn(`Failed to record slots game result: ${recordError.message}`);
-            }
 
-            // Add XP for game completion
-            try {
-                const levelingSystem = require('../UTILS/levelingSystem');
-                const specialResult = result.multiplier >= 5 ? 'big_win' : 
-                                   result.multiplier >= 20 ? 'massive_win' : null;
-                
-                const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'slots', result.won, specialResult);
-                
-                // Handle level up if occurred
-                if (xpResult && xpResult.levelUp) {
-                    const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
-                    
-                    // Award level-up rewards
-                    await levelingSystem.processLevelUpRewards(userId, guildId, xpResult.newLevel);
-                    
-                    // Send level up message in level up channel
-                    try {
-                        const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
-                        if (levelUpChannel) {
-                            await levelUpChannel.send({ embeds: [levelUpEmbed] });
-                        }
-                    } catch (levelError) {
-                        logger.debug(`Could not send level up message: ${levelError.message}`);
-                    }
-                }
-            } catch (xpError) {
-                logger.debug(`Could not award XP for slots: ${xpError.message}`);
-            }
-
-            // Get updated balance
-            const finalBalance = await dbManager.getUserBalance(userId, guildId);
-
-            // PHASE 1: Show animated GIF first (no result/bet fields yet)
-            const animatedGIF = await createSpinningSlotGIF(symbols);
-
-            // Build a minimal "spinning" embed so users see the GIF first
-            const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-            const spinningEmbed = buildSessionEmbed({
-                title: `🎰 ${interaction.user.displayName}'s Slots`,
-                topFields: [
-                    { name: 'Spinning', value: 'Reels are spinning... 🎞️', inline: false },
-                ],
-                bankFields: [],
-                stageText: 'SPINNING...',
-                color: 0xFFD700,
-                footer: 'Good luck!'
-            });
-
-            const animationData = { embeds: [spinningEmbed] };
-            if (animatedGIF) {
-                animationData.files = [{ attachment: animatedGIF, name: 'slots-animation.gif' }];
-                spinningEmbed.setImage('attachment://slots-animation.gif');
-            }
-
-            await interaction.editReply(animationData);
-
-            // PHASE 2: After GIF finishes, show static result
-            // Wait for animation to complete (GIF has 25 frames * 60ms = 1.5 seconds)
-            setTimeout(async () => {
-                try {
+                        try {
                     // Check if interaction is still valid before proceeding
                     if (interaction.replied || interaction.deferred) {
                         const staticImage = await createSlotsImage(symbols, result.won);
@@ -455,8 +380,6 @@ module.exports = {
                                     (finalEmbed.data.description || '') + 
                                     `\n\n✨ **Server Booster Bonus Applied!** You earned an extra 2% on your win!`
                                 );
-                            }
-                        }
 
                         // Wealth tax notifications removed - using bulletproof economy
                         if (false) { // aiResult is now null
@@ -471,9 +394,6 @@ module.exports = {
                                     });
                                 } catch (followUpError) {
                                     logger.warn(`Failed to send wealth tax notification: ${followUpError.message}`);
-                                }
-                            }
-                        }
 
                         // Add help button
                         const helpButton = new ActionRowBuilder()
@@ -493,7 +413,6 @@ module.exports = {
                         if (staticImage) {
                             finalData.files = [{ attachment: staticImage, name: 'slots-result.png' }];
                             finalEmbed.setImage('attachment://slots-result.png');
-                        }
 
                         await interaction.editReply(finalData);
                         
@@ -508,12 +427,11 @@ module.exports = {
                         });
                     } else {
                         logger.warn(`Slots interaction expired for user ${userId}, cannot update to static result`);
-                    }
-                    
+
                 } catch (error) {
                     logger.error(`Error updating slots to static result: ${error.message}`);
                     // Don't throw here as it would crash the setTimeout callback
-                }
+
             }, 2000); // 2 second delay for fast animation (25 frames * 60ms = 1.5s + 0.5s buffer)
 
             // Log game result
@@ -528,14 +446,12 @@ module.exports = {
             // Log significant wins
             if (result.won && result.multiplier >= 50) {
                 logger.info(`Big slots win: ${interaction.user.tag} (${userId}) won ${fmt(result.payout)} with ${result.multiplier}x multiplier`);
-            }
 
             // Log AI transaction result for audit
             try {
                 // EconomyGuardianInterface logging removed - using bulletproof economy
             } catch (logError) {
                 logger.warn(`Failed to log AI transaction result: ${logError.message}`);
-            }
 
         } catch (error) {
             logger.error(`Error in slots command: ${error.message}`);
@@ -555,11 +471,10 @@ module.exports = {
                 const userSession = sessionManager.getUserActiveSession(userId);
                 if (userSession) {
                     await sessionManager.cancelSession(userSession.sessionId, 'Slots game error', true);
-                }
+
             } catch (sessionError) {
                 logger.error(`Failed to handle session error: ${sessionError.message}`);
-            }
-            
+
             const errorEmbed = new EmbedBuilder()
                 .setTitle('❌ Game Error')
                 .setDescription('An error occurred while playing slots. Your bet has been refunded.')
@@ -570,10 +485,8 @@ module.exports = {
                     await interaction.editReply({ embeds: [errorEmbed] });
                 } else {
                     await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-                }
+
             } catch (replyError) {
                 logger.error(`Failed to send slots error reply: ${replyError.message}`);
-            }
-        }
-    }
+
 };

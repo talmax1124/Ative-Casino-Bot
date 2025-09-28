@@ -15,8 +15,6 @@ const logger = require('../UTILS/logger');
 const diceRenderer = require('../UTILS/diceRenderer');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
-const levelingSystem = require('../UTILS/levelingSystem');
-
 // Active games storage
 const activeGames = new Map();
 
@@ -55,8 +53,7 @@ async function createGameEmbed(game, user, balance = null) {
         statusText = '🏁 Game Complete';
     } else {
         statusText = `🎲 Round ${gameState.currentRound}/13 • ${gameState.rollsLeft} rolls left`;
-    }
-    
+
     fields.push({
         name: '📊 Game Status',
         value: statusText,
@@ -89,7 +86,6 @@ async function createGameEmbed(game, user, balance = null) {
             { name: '🏦 Bank', value: fmt(balance.bank), inline: true },
             { name: '🎯 Bet', value: fmt(gameState.betAmount), inline: true }
         );
-    }
 
     // Upper section scores
     let upperDisplay = '';
@@ -105,13 +101,12 @@ async function createGameEmbed(game, user, balance = null) {
             upperDisplay += `${icon} (${potential})\n`;
         } else {
             upperDisplay += `${icon} —\n`;
-        }
+
     });
     
     upperDisplay += `\n📊 Subtotal: ${scorecard.upperSectionScore}`;
     if (scorecard.upperSectionBonus > 0) {
         upperDisplay += `\n🎁 Bonus: ${scorecard.upperSectionBonus}`;
-    }
 
     fields.push({
         name: '📈 Upper Section',
@@ -133,12 +128,11 @@ async function createGameEmbed(game, user, balance = null) {
             lowerDisplay += `${icon} (${potential})\n`;
         } else {
             lowerDisplay += `${icon} —\n`;
-        }
+
     });
 
     if (scorecard.bonusYahtzees.length > 0) {
         lowerDisplay += `\n🎊 Bonus Yahtzees: ${scorecard.bonusYahtzees.length}`;
-    }
 
     fields.push({
         name: '📉 Lower Section',
@@ -158,8 +152,6 @@ async function createGameEmbed(game, user, balance = null) {
         } else {
             color = 0xff0000; // Red for loss
             stageText = 'Game Over';
-        }
-    }
 
     // Use consistent embed builder from gameSessionKit
     const embed = buildSessionEmbed({
@@ -171,7 +163,6 @@ async function createGameEmbed(game, user, balance = null) {
     });
 
     return embed;
-}
 
 /**
  * Create dice interaction buttons
@@ -194,10 +185,8 @@ function createDiceButtons(game) {
             .setEmoji(isKept ? '🔒' : '🎲');
             
         row.addComponents(button);
-    }
 
     return [row];
-}
 
 /**
  * Create action buttons
@@ -236,7 +225,6 @@ function createActionButtons(game) {
                     .setEmoji('🎲')
             );
             rows.push(rollRow);
-        }
 
         // Scoring buttons - only if dice have been rolled
         if (gameState.rollsLeft < 3) {
@@ -260,8 +248,6 @@ function createActionButtons(game) {
                     
                 selectRow.addComponents(selectMenu);
                 rows.push(selectRow);
-            }
-        }
 
         // Help and quit buttons
         const utilRow = new ActionRowBuilder();
@@ -285,10 +271,8 @@ function createActionButtons(game) {
         );
         
         rows.push(utilRow);
-    }
 
     return rows;
-}
 
 /**
  * Update game display
@@ -312,8 +296,6 @@ async function updateGameDisplay(interaction, game, balance = null) {
                 embed.setImage('attachment://yahtzee_dice.png');
             } catch (error) {
                 logger.warn(`Failed to render dice image: ${error.message}`);
-            }
-        }
 
         const updateOptions = {
             embeds: [embed],
@@ -325,12 +307,10 @@ async function updateGameDisplay(interaction, game, balance = null) {
             return await interaction.editReply(updateOptions);
         } else {
             return await interaction.reply(updateOptions);
-        }
+
     } catch (error) {
         logger.error(`Error updating Yahtzee display: ${error.message}`);
         throw error;
-    }
-}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -354,7 +334,6 @@ module.exports = {
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'yahtzee');
             if (!maintenanceCheck.allowed) {
                 return await interaction.reply({ embeds: [maintenanceCheck.embed], ephemeral: true });
-            }
 
             // Check for existing game
             if (activeGames.has(userId)) {
@@ -362,7 +341,6 @@ module.exports = {
                     content: '❌ You already have an active Yahtzee game. Finish it or wait for it to expire.',
                     ephemeral: true
                 });
-            }
 
             // Validate bet and get balance
             let balance = null;
@@ -377,9 +355,8 @@ module.exports = {
                 );
                 if (!validation.isValid) {
                     return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
-                }
+
                 balance = await dbManager.getUserBalance(userId, guildId);
-            }
 
             // Start new game session
             const sessionResult = await sessionManager.createSession({
@@ -396,7 +373,7 @@ module.exports = {
             if (!sessionResult.success) {
                 const errorEmbed = new EmbedBuilder().setTitle('❌ Session Error').setDescription(`Failed to create game session: ${sessionResult.error}`).setColor(0xFF0000);
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
+
             const sessionId = sessionResult.sessionId;
             
             // Create new game
@@ -434,14 +411,12 @@ module.exports = {
             const replyOptions = { embeds: [embed], ephemeral: true };
             if (components.length > 0) {
                 replyOptions.components = components;
-            }
 
             if (interaction.replied || interaction.deferred) {
                 await interaction.followUp(replyOptions);
             } else {
                 await interaction.reply(replyOptions);
-            }
-        }
+
     },
 
     async handleInteraction(interaction) {
@@ -455,7 +430,6 @@ module.exports = {
                     content: '❌ No active Yahtzee game found. Use `/yahtzee` to start a new game.',
                     ephemeral: true
                 });
-            }
 
             const { game, sessionId } = gameData;
 
@@ -463,7 +437,6 @@ module.exports = {
                 await this.handleButtonInteraction(interaction, game, sessionId);
             } else if (interaction.isStringSelectMenu()) {
                 await this.handleSelectInteraction(interaction, game, sessionId);
-            }
 
         } catch (error) {
             logger.error(`Yahtzee interaction error: ${error.message}`);
@@ -478,12 +451,10 @@ module.exports = {
             const replyOptions = { embeds: [embed], ephemeral: true };
             if (components.length > 0) {
                 replyOptions.components = components;
-            }
-            
+
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply(replyOptions);
-            }
-        }
+
     },
 
     async handleButtonInteraction(interaction, game, sessionId) {
@@ -507,8 +478,7 @@ module.exports = {
             if (game.rollDice()) {
                 const balance = game.betAmount > 0 ? await dbManager.getUserBalance(userId, guildId) : null;
                 await updateGameDisplay(interaction, game, balance);
-            }
-            
+
         } else if (customId === 'yahtzee_help') {
             await this.showHelp(interaction);
             
@@ -523,7 +493,7 @@ module.exports = {
             
         } else if (customId === 'yahtzee_quit') {
             await this.quitGame(interaction, userId, guildId, sessionId);
-        }
+
     },
 
     async handleSelectInteraction(interaction, game, sessionId) {
@@ -544,9 +514,7 @@ module.exports = {
                 } else {
                 const balance = game.betAmount > 0 ? await dbManager.getUserBalance(userId, guildId) : null;
                     await updateGameDisplay(interaction, game, balance);
-                }
-            }
-        }
+
     },
 
     async endGame(interaction, userId, guildId, sessionId) {
@@ -563,7 +531,6 @@ module.exports = {
             if (game.betAmount > 0) {
                 payout = result.payout;
                 balanceChange = payout - game.betAmount;
-            }
 
             // Update display with final results
             const balance = game.betAmount > 0 ? await dbManager.getUserBalance(userId, guildId) : null;
@@ -571,18 +538,6 @@ module.exports = {
 
             // End session (process payout + clear flags)
             await sessionManager.endSession(sessionId, { payout, won: !!result.won, reason: 'completed' });
-
-            // Add XP
-            if (game.betAmount > 0) {
-                const xpGained = await levelingSystem.addGameXP(
-                    userId,
-                    guildId,
-                    result.won ? 'win' : 'loss',
-                    game.betAmount,
-                    'yahtzee'
-                );
-            }
-
             // Cleanup
             activeGames.delete(userId);
             TimeoutManager.clearTimeout(userId);
@@ -601,7 +556,7 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error ending Yahtzee game: ${error.message}`);
-        }
+
     },
 
     async quitGame(interaction, userId, guildId, sessionId) {
@@ -615,7 +570,6 @@ module.exports = {
             let refund = 0;
             if (game.rollsLeft === 3 && game.currentRound === 1) {
                 refund = game.betAmount;
-            }
 
             // End session
             await sessionManager.endSession(sessionId, { payout: refund, reason: 'cancelled' });
@@ -644,7 +598,7 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error quitting Yahtzee game: ${error.message}`);
-        }
+
     },
 
     async playAgain(interaction, userId, guildId) {
@@ -653,7 +607,6 @@ module.exports = {
             if (activeGames.has(userId)) {
                 activeGames.delete(userId);
                 TimeoutManager.clearTimeout(userId);
-            }
 
             // Start new game with same bet amount
             const gameData = activeGames.get(userId);
@@ -670,7 +623,7 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error starting new Yahtzee game: ${error.message}`);
-        }
+
     },
 
     async showHelp(interaction) {
@@ -702,7 +655,7 @@ module.exports = {
                     name: '🎊 Bonus Yahtzees',
                     value: 'Multiple Yahtzees earn 100 bonus points each and act as jokers!',
                     inline: false
-                }
+
             )
             .setColor(0x0099FF)
             .setTimestamp()
@@ -751,8 +704,7 @@ module.exports = {
             scorecardText += `\nSubtotal: ${scorecard.upperSectionScore}`;
             if (scorecard.upperSectionBonus > 0) {
                 scorecardText += ` (+${scorecard.upperSectionBonus} bonus)`;
-            }
-            
+
             scorecardText += '\n\n**LOWER SECTION**\n';
             const lowerCategories = ['three_of_a_kind', 'four_of_a_kind', 'full_house', 'small_straight', 'large_straight', 'yahtzee', 'chance'];
             lowerCategories.forEach(category => {
@@ -772,7 +724,7 @@ module.exports = {
                 embeds: [embed],
                 ephemeral: true
             });
-        }
+
     },
 
     async handleGameTimeout(userId, guildId) {
@@ -786,7 +738,6 @@ module.exports = {
             let refund = 0;
             if (game.rollsLeft === 3 && game.currentRound === 1) {
                 refund = game.betAmount;
-            }
 
             // End session
             await sessionManager.endSession(sessionId, { payout: refund, reason: 'timeout' });
@@ -798,6 +749,5 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error handling Yahtzee timeout: ${error.message}`);
-        }
-    }
+
 };

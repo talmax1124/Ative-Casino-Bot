@@ -14,7 +14,6 @@ const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
-const levelingSystem = require('../UTILS/levelingSystem');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 // LEGACY: economicManager replaced by EconomyGuardian AI
 // const economicManager = require('../UTILS/economicManager');
@@ -66,7 +65,7 @@ const BLACKJACK_MODES = {
         houseEdge: 0.18,             // 18% house edge (increased)
         emoji: '🔥',
         color: '#FF0000'
-    }
+
 };
 
 // Active games storage (indexed by sessionId for better session management)
@@ -74,7 +73,6 @@ const activeGames = new Map();
 
 // Initialize Game Panel Util
 const gamePanelUtil = new GamePanelUtil();
-
 
 /**
  * Create game embed with consistent styling using gameSessionKit
@@ -94,8 +92,7 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
         const visibleValue = visibleCard ? visibleCard.getValue() : 0;
         const hiddenCardDisplay = game.dealerHand.cards.length > 1 ? `${visibleCard.toString()} 🂠` : visibleCard.toString();
         dealerDisplay = `${hiddenCardDisplay} (${visibleValue})`;
-    }
-    
+
     topFields.push({
         name: '🏠 DEALER HAND',
         value: dealerDisplay,
@@ -112,7 +109,7 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
             const doubledStatus = hand.isDoubled() ? ' [DOUBLED]' : '';
             const indicator = isCurrentHand ? '→ ' : '  ';
             playerDisplay += `${indicator}Hand ${i + 1}: ${hand.toString()} (${hand.getValue()})${status}${doubledStatus}\n`;
-        }
+
         topFields.push({
             name: '🎲 YOUR HANDS',
             value: playerDisplay.trim(),
@@ -126,7 +123,6 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
             value: playerDisplay,
             inline: false
         });
-    }
 
     // Banking fields
     const bankFields = [];
@@ -136,7 +132,6 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
             { name: '🏦 Bank', value: fmt(balance.bank), inline: true },
             { name: '🎯 Bet', value: fmt(game.betAmount), inline: true }
         );
-    }
 
     // Determine game stage and color
     let stageText = '';
@@ -159,7 +154,7 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
                 } else {
                     stageText = results.length > 1 ? 'SPLIT WIN' : 'WIN';
                     color = 0x00ff00; // Green for win
-                }
+
             } else {
                 const result = results[0];
                 if (result && result.outcome === 'PUSH') {
@@ -168,8 +163,7 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
                 } else {
                     stageText = results.length > 1 ? 'SPLIT LOSS' : 'LOSS';
                     color = 0xff0000; // Red for loss
-                }
-            }
+
         } else {
             // Original logic for cases where regulated payout isn't available yet
             if (results.length > 1) {
@@ -191,20 +185,16 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
                 } else {
                     stageText = 'LOSS';
                     color = 0xff0000; // Red for loss
-                }
-            }
-        }
+
     } else {
         stageText = 'GAME';
         color = 0x00ff00; // Bright green for active game
-    }
 
     // 🤖 Add ATIVE AI economic analysis to embed if available
     let footer = game.gameEnded ? 'Game completed' : 'Choose your action';
     if (economicIndicators && !game.gameEnded) {
         footer += ` • AI Economy: ${economicIndicators.status} ${economicIndicators.healthScore}/100 (${economicIndicators.inequality} inequality)`;
-    }
-    
+
     return buildSessionEmbed({
         title: `🃏 ${user.displayName}'s Blackjack`,
         topFields,
@@ -213,7 +203,6 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
         color: economicIndicators?.color || color,
         footer
     });
-}
 
 /**
  * Create game table image with cards only
@@ -230,8 +219,6 @@ async function createGameTableImage(game, showDealerCard = false) {
         logger.error(`Error creating game table image: ${error.message}`);
         // Return null if image creation fails
         return null;
-    }
-}
 
 /**
  * Create action buttons for blackjack game
@@ -248,14 +235,10 @@ function createGameButtons(userId, game = null) {
             
             if (game.canDouble()) {
                 actions.splice(2, 0, 'double');
-            }
-            
+
             if (game.canSplit()) {
                 actions.splice(-1, 0, 'split');
-            }
-        }
-    }
-    
+
     const customButtons = actions.map(action => {
         const button = new ButtonBuilder()
             .setCustomId(`bj-${userId}-${action}`)
@@ -283,16 +266,13 @@ function createGameButtons(userId, game = null) {
             case 'help':
                 button.setLabel('Help').setEmoji('❓').setStyle(ButtonStyle.Secondary);
                 break;
-        }
-        
+
         return button;
     });
     
     return GamePanel.createGameButtons({
         customButtons
     });
-}
-
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -334,7 +314,6 @@ module.exports = {
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'blackjack');
             if (!maintenanceCheck.allowed) {
                 return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
-            }
 
             // Validate session before proceeding using modern session system (via sessionGuard)
             const sessionGuard = require('../UTILS/sessionGuard');
@@ -347,7 +326,6 @@ module.exports = {
                     .setColor(0xFF0000)
                     .setTimestamp();
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
 
             // Ensure user exists and get balance
             await dbManager.ensureUser(userId, username);
@@ -384,12 +362,10 @@ module.exports = {
                 const userBalance = await dbManager.getUserBalance(userId, guildId);
                 const totalWealth = userBalance.wallet + userBalance.bank;
                 logger.info(`🎯 BLACKJACK ALL-IN: ${userId} -> ${fmt(amount)} (${((amount / totalWealth) * 100).toFixed(1)}% of wealth)`);
-            }
 
             if (!validation.isValid) {
                 return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
-            }
-            
+
             // Balance validation is handled by PayoutManager.validateAndDeductBet
 
             const betAmount = validation.parsedAmount;
@@ -417,7 +393,6 @@ module.exports = {
             
             if (!sessionResult.success) {
                 throw new Error(`Session creation failed: ${sessionResult.error}`);
-            }
 
             const sessionId = sessionResult.sessionId;
             logger.debug(`Blackjack session created: ${sessionId} for ${userId}`);
@@ -445,7 +420,7 @@ module.exports = {
                     playerValue: game.playerHand.getValue(),
                     gamePhase: 'playing',
                     gameStarted: true
-                }
+
             }, 'initial_deal');
 
             // Create embed and table image with economic indicators
@@ -463,8 +438,7 @@ module.exports = {
             if (tableImage) {
                 messageData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
                 embed.setImage('attachment://blackjack-table.png');
-            }
-            
+
             await interaction.reply(messageData);
             logger.debug(`Initial blackjack message sent for session ${sessionId}`);
 
@@ -481,7 +455,6 @@ module.exports = {
                 await module.exports.endGame(interaction, game, userId, guildId);
                 
                 return;
-            }
 
             // Log game start
             await sendLogMessage(
@@ -516,22 +489,19 @@ module.exports = {
                     const parsedAmount = parseAmount(amount);
                     if (parsedAmount > 0) {
                         refundAmount = parsedAmount;
-                    }
-                }
+
             } catch (parseError) {
                 logger.warn(`Could not determine refund amount: ${parseError.message}`);
-            }
-            
+
             // Handle session error and cleanup
             try {
                 const userSession = sessionManager.getUserActiveSession(userId);
                 if (userSession) {
                     await sessionManager.cancelSession(userSession.sessionId, 'Blackjack game initialization error', true);
-                }
+
             } catch (sessionError) {
                 logger.error(`Failed to handle session error: ${sessionError.message}`);
-            }
-            
+
             const { embed: errorEmbed } = GamePanel.createErrorEmbed({
                 title: '❌ Blackjack Error',
                 description: 'An error occurred while starting blackjack. Your bet has been refunded.',
@@ -547,12 +517,11 @@ module.exports = {
                     await interaction.editReply({ embeds: [errorEmbed] });
                 } else {
                     await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-                }
+
             } catch (replyError) {
                 logger.error(`Failed to send error reply: ${replyError.message}`);
                 logger.error(`Interaction state - replied: ${interaction.replied}, deferred: ${interaction.deferred}`);
-            }
-        }
+
     },
 
     // Blackjack button handlers (to be handled by interaction handler in index.js)
@@ -572,11 +541,9 @@ module.exports = {
                 sessionId = activeSession.sessionId;
                 const sessionData = activeGames.get(sessionId);
                 game = sessionData?.game;
-            }
-            
+
             if (!game || !sessionId) {
                 return await interaction.reply({ content: 'No active blackjack game found.', flags: MessageFlags.Ephemeral });
-            }
 
             const userBalance = await dbManager.getUserBalance(userId, guildId);
 
@@ -591,7 +558,6 @@ module.exports = {
                         // All hands complete, game should be over
                         await module.exports.endGame(interaction, game, userId, guildId);
                         return;
-                    }
 
                     // Update embed
                     const hitEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
@@ -606,7 +572,6 @@ module.exports = {
                     if (tableImage) {
                         updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
                         hitEmbed.setImage('attachment://blackjack-table.png');
-                    }
 
                     await interaction.update(updateData);
                 } catch (hitError) {
@@ -615,9 +580,8 @@ module.exports = {
                         content: '❌ An error occurred while hitting. Please try again.', 
                         flags: MessageFlags.Ephemeral 
                     });
-                }
+
                 break;
-            }
 
             case 'stand': {
                 // Stand
@@ -641,18 +605,15 @@ module.exports = {
                     if (tableImage) {
                         updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
                         standEmbed.setImage('attachment://blackjack-table.png');
-                    }
 
                     await interaction.update(updateData);
-                }
+
                 break;
-            }
 
             case 'double':
                 // Check if can double
                 if (!game.canDouble()) {
                     return await interaction.reply({ content: 'Cannot double down now.', flags: MessageFlags.Ephemeral });
-                }
 
                 // Check funds
                 if (userBalance.wallet < game.betAmount) {
@@ -660,7 +621,6 @@ module.exports = {
                         content: `Insufficient funds to double down! You need ${fmt(game.betAmount)} more.`, 
                         flags: MessageFlags.Ephemeral 
                     });
-                }
 
                 // Deduct additional bet
                 await dbManager.updateUserBalance(userId, guildId, -game.betAmount, 0);
@@ -686,17 +646,15 @@ module.exports = {
                     if (tableImage) {
                         updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
                         doubleEmbed.setImage('attachment://blackjack-table.png');
-                    }
 
                     await interaction.update(updateData);
-                }
+
                 break;
 
             case 'split': {
                 // Check if can split
                 if (!game.canSplit()) {
                     return await interaction.reply({ content: 'Cannot split this hand.', flags: MessageFlags.Ephemeral });
-                }
 
                 // Check funds for split
                 if (userBalance.wallet < game.betAmount) {
@@ -704,7 +662,6 @@ module.exports = {
                         content: `Insufficient funds to split! You need ${fmt(game.betAmount)} more.`, 
                         flags: MessageFlags.Ephemeral 
                     });
-                }
 
                 // Deduct additional bet for split
                 await dbManager.updateUserBalance(userId, guildId, -game.betAmount, 0);
@@ -725,26 +682,22 @@ module.exports = {
                 if (tableImage) {
                     updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
                     splitEmbed.setImage('attachment://blackjack-table.png');
-                }
 
                 await interaction.update(updateData);
                 break;
-            }
 
             case 'insurance_yes': {
                 // Take insurance
                 if (!game.canOfferInsurance()) {
                     return await interaction.reply({ content: 'Insurance is not available.', flags: MessageFlags.Ephemeral });
-                }
-                
+
                 // Check if user has enough funds for insurance
                 if (userBalance.wallet < game.insuranceAmount) {
                     return await interaction.reply({ 
                         content: `Insufficient funds for insurance! You need ${fmt(game.insuranceAmount)} more.`, 
                         flags: MessageFlags.Ephemeral 
                     });
-                }
-                
+
                 // Deduct insurance amount
                 await dbManager.updateBalance(userId, guildId, -game.insuranceAmount, 0);
                 game.takeInsurance();
@@ -767,12 +720,10 @@ module.exports = {
                 if (tableImage) {
                     updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
                     insuranceEmbed.setImage('attachment://blackjack-table.png');
-                }
-                
+
                 await interaction.update(updateData);
                 break;
-            }
-                
+
             case 'insurance_no': {
                 // Decline insurance
                 game.declineInsurance();
@@ -789,11 +740,9 @@ module.exports = {
                 if (noInsuranceTableImage) {
                     noInsuranceUpdateData.files = [{ attachment: noInsuranceTableImage, name: 'blackjack-table.png' }];
                     noInsuranceEmbed.setImage('attachment://blackjack-table.png');
-                }
-                
+
                 await interaction.update(noInsuranceUpdateData);
                 break;
-            }
 
                 case 'help': {
                     const { embed: helpEmbed, components: helpComponents } = GamePanel.createHelpEmbed({
@@ -822,8 +771,7 @@ module.exports = {
 
                 await interaction.reply({ embeds: [helpEmbed], components: helpComponents, flags: MessageFlags.Ephemeral });
                 break;
-            }
-            }
+
         } catch (actionError) {
             logger.error(`Blackjack action error (${actionId}): ${actionError.message}`);
             try {
@@ -837,8 +785,7 @@ module.exports = {
             } catch (_) {}
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({ content: '❌ Error processing action.', flags: MessageFlags.Ephemeral });
-            }
-        }
+
     },
 
     endGame: async function(interaction, game, userId, guildId) {
@@ -848,8 +795,7 @@ module.exports = {
             if (!sessionData || sessionData.game !== game) {
                 logger.warn(`endGame called but game no longer exists or differs for session ${game.sessionId}`);
                 return;
-            }
-            
+
             // 🤖 Get AI-calculated dynamic multiplier from EconomyGuardian
             let economicMultiplier = 1.0;
             try {
@@ -861,13 +807,12 @@ module.exports = {
                 } else {
                     // Fallback: get fresh AI multiplier
                     economicMultiplier = 1.0; // Default multiplier - EconomyGuardianInterface removed
-                }
+
                 economicMultiplier = Math.max(0.5, Math.min(1.5, economicMultiplier)); // Cap between 0.5x - 1.5x
             } catch (error) {
                 logger.warn(`Failed to get AI economic multiplier for blackjack: ${error.message}`);
                 economicMultiplier = 1.0;
-            }
-            
+
             // Personalized game helper removed - using bulletproof economy
             const personalizedConfig = { blackjackPayout: 1.5, winPayout: 1.0 }; // Default values
             
@@ -877,15 +822,14 @@ module.exports = {
                     blackjack: personalizedConfig.blackjackPayout,
                     win: personalizedConfig.winPayout,
                     push: personalizedConfig.pushPayout
-                }
+
             });
             
             // Safety check - ensure we have results
             if (!results || results.length === 0) {
                 logger.error(`No results returned for blackjack game for user ${userId}`);
                 return;
-            }
-            
+
             let totalPayout = 0;
             let winnings = 0;
 
@@ -894,15 +838,12 @@ module.exports = {
                 totalPayout += result.payout || 0;
                 if (result.won) {
                     winnings += result.payout || 0;
-                }
-            }
 
             // Calculate total bet amount including double downs
             let totalBetAmount = 0;
             for (const result of results) {
                 totalBetAmount += result.betAmount || game.betAmount;
-            }
-            
+
             const originalWon = totalPayout > 0;
             
             // Check if this is a push (bet should be returned, not profit)
@@ -924,8 +865,7 @@ module.exports = {
                 // 🎰 APPLY AI TUNING SYSTEM - ECONOMIC REGULATION (only for non-push outcomes)
                 tuningAdjustment = await tuningManager.getAdjustedPayout('blackjack', totalPayout, totalBetAmount);
                 regulatedPayout = originalWon ? tuningAdjustment.adjustedPayout : 0;
-            }
-            
+
             // 🎯 APPLY ALL-IN SYSTEM - DYNAMIC HOUSE EDGE (but not for pushes)
             if (originalWon && regulatedPayout > 0 && !isPush) {
                 const allInAdjustment = await allInManager.adjustGameResult(userId, totalBetAmount, regulatedPayout, true, 'blackjack');
@@ -934,14 +874,11 @@ module.exports = {
                 // Log significant all-in adjustments
                 if (allInAdjustment.houseEdgeApplied > 0.05) {
                     logger.info(`🎯 BLACKJACK ALL-IN EDGE: ${fmt(tuningAdjustment.adjustedPayout)} -> ${fmt(regulatedPayout)} (+${(allInAdjustment.houseEdgeApplied * 100).toFixed(1)}% house edge, ${(allInAdjustment.betRatio * 100).toFixed(1)}% of wealth)`);
-                }
-            }
-            
+
             // Log tuning application for monitoring
             if (tuningAdjustment.payoutDelta !== 0 || tuningAdjustment.feeApplied) {
                 logger.info(`🎛️ BLACKJACK TUNING: ${totalPayout} -> ${tuningAdjustment.adjustedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
-            }
-            
+
             const won = regulatedPayout > 0;
             
             // Use PayoutManager for consistent payout handling
@@ -971,7 +908,7 @@ module.exports = {
                         playerValue: game.playerHand.getValue(),
                         outcome: results[0]?.outcome || 'unknown',
                         split: game.splitHands.length > 0
-                    }
+
                 );
                 
                 // 📊 RECORD FOR AI ECONOMY ANALYZER
@@ -979,37 +916,9 @@ module.exports = {
                 
             } catch (recordError) {
                 logger.warn(`Failed to record blackjack game result: ${recordError.message}`);
-            }
 
-            // Add XP for game completion
-            const specialResult = results.some(r => r.outcome === 'BLACKJACK') ? 'BLACKJACK' : null;
-            const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'blackjack', won, specialResult);
-
-            // Check for level up and prepare notification
-            let levelUpMessage = null;
-            if (xpResult && xpResult.leveledUp) {
-                // Process level-up rewards
-                const levelReward = await levelingSystem.processLevelUpRewards(userId, guildId, xpResult.newLevel);
-                
-                levelUpMessage = `\n\n🎉 **LEVEL UP!** You are now level **${xpResult.newLevel}**!`;
-                if (levelReward) {
-                    levelUpMessage += `\n💰 **Level Reward:** +$${levelReward.money.toLocaleString()}`;
-                }
-                
-                // Send level up notification to the specified channel
-                try {
-                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
-                    if (levelUpChannel) {
-                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
-                        await levelUpChannel.send({ 
-                            content: `<@${userId}>, you are now level ${xpResult.newLevel}!`,
-                            embeds: [levelUpEmbed] 
-                        });
-                    }
-                } catch (levelError) {
+                // Send level up notification to the specified channel (levelError) {
                     logger.error(`Failed to send level up notification: ${levelError.message}`);
-                }
-            }
 
             // Create final embed (before cleanup)
             const userBalance = await dbManager.getUserBalance(userId, guildId);
@@ -1030,7 +939,7 @@ module.exports = {
                         const status = handRegulatedPayout > 0 ? '🎉 WIN!' : '💸 LOSE';
                         const doubledText = result.doubled ? ' (DOUBLED)' : '';
                         handResults.push(`Hand ${i + 1}: ${status} ${fmt(handRegulatedPayout)}${doubledText}`);
-                    }
+
                     resultMessage = handResults.join('\n');
                     resultMessage += `\n\n**Total Payout: ${fmt(regulatedPayout)}**`;
                 } else {
@@ -1047,28 +956,24 @@ module.exports = {
                             resultMessage = `🤝 **PUSH** - Your bet is returned.`;
                         } else {
                             resultMessage = `🎉 **YOU WIN!** ${fmt(actualPayout)}`;
-                        }
+
                     } else if (result.outcome === 'PUSH') {
                         resultMessage = `🤝 **PUSH** - Your bet is returned.`;
                     } else {
                         resultMessage = `💸 **YOU LOSE!** Better luck next time.`;
-                    }
-                }
+
             } catch (messageError) {
                 logger.error(`Error creating result message for user ${userId}: ${messageError.message}`);
                 resultMessage = `🎰 **GAME COMPLETE** - Total Payout: ${fmt(regulatedPayout)}`;
-            }
-            
+
             // Add level up message if applicable
             if (levelUpMessage) {
                 resultMessage += levelUpMessage;
-            }
-            
+
             // Safety check - ensure resultMessage is not empty and has content
             if (!resultMessage || resultMessage.trim() === '' || resultMessage.length < 3) {
                 resultMessage = `🎰 **GAME COMPLETE** - Total Payout: ${fmt(regulatedPayout)}`;
                 logger.warn(`Empty or invalid result message for blackjack game, using fallback for user ${userId}`);
-            }
 
             // Get updated balance for play again buttons
             const updatedBalance = await dbManager.getUserBalance(userId, guildId);
@@ -1087,20 +992,17 @@ module.exports = {
             if (tableImage) {
                 finalData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
                 finalEmbed.setImage('attachment://blackjack-table.png');
-            }
 
             try {
                 // Validate finalData before sending
                 if (!finalData.content || finalData.content.trim() === '') {
                     finalData.content = `🎰 Game Complete - Payout: ${fmt(regulatedPayout)}`;
-                }
-                
+
                 if (interaction.deferred || interaction.replied) {
                     await interaction.editReply(finalData);
                 } else {
                     await interaction.update(finalData);
-                }
-                
+
                 logger.info(`Blackjack game successfully ended for user ${userId}`);
             } catch (interactionError) {
                 logger.error(`Failed to update interaction for blackjack endGame: ${interactionError.message}`);
@@ -1121,14 +1023,11 @@ module.exports = {
                         if (tableImage) {
                             fallbackData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
                             finalEmbed.setImage('attachment://blackjack-table.png');
-                        }
-                        
+
                         await interaction.reply(fallbackData);
-                    }
+
                 } catch (fallbackError) {
                     logger.error(`Failed fallback reply for blackjack endGame: ${fallbackError.message}`);
-                }
-            }
 
             // Complete session if game has one
             if (game.sessionId) {
@@ -1145,15 +1044,13 @@ module.exports = {
                     netResult: netResult,
                     results: results
                 });
-            }
 
             // 🤖 Log transaction result to EconomyGuardian for learning
             try {
                 // EconomyGuardianInterface logging removed - using bulletproof economy
             } catch (error) {
                 logger.error(`Transaction logging error: ${error.message}`);
-            }
-            
+
             // Clean up after interaction update (success or failure)
             activeGames.delete(game.sessionId);
 
@@ -1166,8 +1063,7 @@ module.exports = {
                 outcomeText = 'pushed for';
             } else {
                 outcomeText = 'lost';
-            }
-            
+
             await sendLogMessage(
                 interaction.client,
                 'game',
@@ -1178,7 +1074,7 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error ending blackjack game: ${error.message}`);
-        }
+
     },
 
     /**
@@ -1213,10 +1109,8 @@ module.exports = {
                     await interaction.reply({ content: errorMessage, ephemeral: true });
                 } else {
                     await interaction.followUp({ content: errorMessage, ephemeral: true });
-                }
+
             } catch (replyError) {
                 logger.error(`Failed to send error message: ${replyError.message}`);
-            }
-        }
-    }
+
 };

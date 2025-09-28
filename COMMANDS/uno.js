@@ -8,7 +8,6 @@ const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage, buildErrorEmbedWithSupport } = require('../UTILS/common');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const sessionManager = require('../UTILS/sessionManager');
-const levelingSystem = require('../UTILS/levelingSystem');
 const UITemplates = require('../UTILS/uiTemplates');
 const { 
     UnoGameSession,
@@ -1025,55 +1024,7 @@ module.exports = {
                     game.starterBet, 
                     won ? totalPot - game.starterBet : -game.starterBet
                 );
-                
-                // Add XP for game completion
-                const xpResult = await levelingSystem.handleGameComplete(player.userId, guildId, 'uno', won);
-                
-                // Check for level up
-                if (xpResult && xpResult.leveledUp) {
-                    try {
-                        const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
-                        if (levelUpChannel) {
-                            const levelUpEmbed = levelingSystem.createLevelUpEmbed(
-                                await interaction.client.users.fetch(player.userId), 
-                                xpResult.newLevel
-                            );
-                            await levelUpChannel.send({ 
-                                content: `<@${player.userId}>, you are now level ${xpResult.newLevel}!`,
-                                embeds: [levelUpEmbed] 
-                            });
-                        }
-                    } catch (levelError) {
-                        logger.error(`Failed to send level up notification: ${levelError.message}`);
-                    }
-                }
-            }
 
-            // Create winner announcement
-            const embed = new EmbedBuilder()
-                .setTitle('🏆 UNO Game Complete!')
-                .setDescription(`**${game.winner.username}** wins the game!`)
-                .setColor(0xFFD700)
-                .addFields({
-                    name: '💰 Prize',
-                    value: `${fmt(totalPot)} (${game.winner.points || 0} points earned)`,
-                    inline: true
-                }, {
-                    name: '📊 Final Stats',
-                    value: `Players: ${game.players.size}\nGame Duration: ${Math.round((Date.now() - game.gameStartTime) / 1000 / 60)} minutes`,
-                    inline: true
-                });
-
-            if (game.gameChannel && typeof game.safeSendMessage === 'function') {
-                await game.safeSendMessage({ embeds: [embed] });
-            } else if (game.gameChannel) {
-                try {
-                    await game.gameChannel.send({ embeds: [embed] });
-                } catch (error) {
-                    if (error.code === 10003) {
-                        console.warn('UNO: Channel no longer exists (Unknown Channel)');
-                    }
-                }
             }
 
             // Update main game message

@@ -23,7 +23,6 @@ try {
     trendAnalyzer = new GameTrendAnalyzer();
 } catch (error) {
     logger.warn('Trend analyzer not available:', error.message);
-}
 
 // Game session storage
 const activeGames = new Map();
@@ -59,8 +58,7 @@ const TREASURE_CONFIG = {
         6: { // Round 6 - 1 good, 2 traps - minimal max reward
             multipliers: [1.3],
             traps: ['lose_all', 'lose_all']
-        }
-    }
+
 };
 
 module.exports = {
@@ -84,7 +82,6 @@ module.exports = {
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'treasurevault');
             if (!maintenanceCheck.allowed) {
                 return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
-            }
 
             // Session guard (unified)
             const sessionGuard = require('../UTILS/sessionGuard');
@@ -94,7 +91,6 @@ module.exports = {
                     embeds: [new EmbedBuilder().setTitle('❌ Session Error').setDescription(check.message).setColor(0xFF0000)],
                     flags: MessageFlags.Ephemeral
                 });
-            }
 
             // Validate bet and deduct from balance
             const validation = await PayoutManager.validateAndDeductBet(
@@ -111,7 +107,6 @@ module.exports = {
                     embeds: [validation.errorEmbed],
                     flags: MessageFlags.Ephemeral
                 });
-            }
 
             const betAmount = validation.parsedAmount;
 
@@ -138,7 +133,6 @@ module.exports = {
                     embeds: [new EmbedBuilder().setTitle('❌ Session Error').setDescription(`Failed to create session: ${createRes.error}`).setColor(0xFF0000)],
                     flags: MessageFlags.Ephemeral
                 });
-            }
 
             // Initialize in-memory game data
             const gameSession = {
@@ -172,7 +166,7 @@ module.exports = {
                 const active = sessionManager.getUserActiveSession(userId);
                 if (active && active.gameType === 'treasurevault') {
                     await sessionManager.cancelSession(active.sessionId, 'TreasureVault init error', true);
-                }
+
             } catch {}
             
             const errorEmbed = new EmbedBuilder()
@@ -185,8 +179,7 @@ module.exports = {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
                 await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-            }
-        }
+
     },
 
     /**
@@ -204,7 +197,6 @@ module.exports = {
                 content: '🏛️ No active Treasure Vault adventure found. Start a new one with `/treasurevault`!',
                 flags: MessageFlags.Ephemeral
             });
-        }
 
         try {
             await interaction.deferUpdate();
@@ -229,13 +221,10 @@ module.exports = {
                         });
                     } catch (error) {
                         logger.debug('Trend analysis recording failed:', error.message);
-                    }
-                }
-                
+
                 await this.selectDoor(interaction, gameSession, doorNumber);
             } else {
                 logger.warn(`Unknown customId: ${customId}`);
-            }
 
         } catch (error) {
             logger.error(`Error handling treasurevault button: ${error.message}`, error);
@@ -250,8 +239,7 @@ module.exports = {
             } catch {
                 // If edit fails, clean up
                 activeGames.delete(userId);
-            }
-        }
+
     },
 
     /**
@@ -274,7 +262,7 @@ module.exports = {
                 {
                     name: '🚪 THE CHOICE AWAITS',
                     value: `Three doors stand before you...\nOne holds great **treasure** 💎\nOne holds moderate **treasure** 💰\nOne holds a **trap** ⚠️\n\n*Choose wisely! You have 10 seconds to decide.*`
-                }
+
             ];
 
             const bankFields = [
@@ -302,7 +290,6 @@ module.exports = {
             } catch (imageError) {
                 logger.error(`Failed to create door image: ${imageError.message}`);
                 attachment = null;
-            }
 
         // Create action buttons
         const buttons = new ActionRowBuilder()
@@ -335,8 +322,7 @@ module.exports = {
                 logger.info('Including door image in reply');
             } else {
                 logger.info('Sending reply without image');
-            }
-            
+
             await interaction.editReply(replyData);
 
             // Set timeout for decision
@@ -358,8 +344,7 @@ module.exports = {
                 });
             } catch (editError) {
                 logger.error(`Failed to send error embed: ${editError.message}`);
-            }
-        }
+
     },
 
     /**
@@ -383,12 +368,10 @@ module.exports = {
                     // Reduce multiplier based on trend analysis
                     finalOutcome = Math.max(1.01, doorOutcome * (1 - trendAdjustment));
                     logger.debug(`Trend adjustment applied: ${doorOutcome}x -> ${finalOutcome.toFixed(3)}x`);
-                }
+
             } catch (error) {
                 logger.debug('Trend adjustment failed:', error.message);
-            }
-        }
-        
+
         // Process the door outcome
         if (typeof finalOutcome === 'number') {
             // Multiplier
@@ -423,8 +406,6 @@ module.exports = {
                     outcomeColor = 0x8B0000;
                     continueGame = false;
                     break;
-            }
-        }
 
         gameSession.currentPayout = newPayout;
 
@@ -438,7 +419,7 @@ module.exports = {
                 name: `🚪 DOOR ${doorNumber} OPENED`,
                 value: outcomeText,
                 inline: false
-            }
+
         ];
 
         const bankFields = [
@@ -451,7 +432,6 @@ module.exports = {
             // Game over or completed
             await this.endAdventure(interaction, gameSession, continueGame ? 'completed' : 'trap');
             return;
-        }
 
         // Continue to next round
         gameSession.round += 1;
@@ -475,7 +455,7 @@ module.exports = {
         setTimeout(async () => {
             if (activeGames.has(gameSession.userId)) {
                 await this.startRound(interaction, gameSession);
-            }
+
         }, 3000);
     },
 
@@ -522,7 +502,6 @@ module.exports = {
                 footerText = `Net Profit: +${fmt(netChange)}`;
                 color = 0xFFD700;
                 break;
-        }
 
         // Note: Payout is handled by sessionManager.endSession() to avoid double crediting
 
@@ -537,72 +516,7 @@ module.exports = {
             { reason, rounds_completed: gameSession.round }
         );
 
-        // Add XP for game completion
-        try {
-            const levelingSystem = require('../UTILS/levelingSystem');
-            const multiplier = currentPayout / betAmount;
-            const specialResult = multiplier >= 2 ? 'big_win' : 
-                               multiplier >= 3 ? 'massive_win' : null;
-            
-            const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'treasurevault', won, specialResult);
-            
-            // Handle level up if occurred
-            if (xpResult && xpResult.levelUp) {
-                const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
-                
-                // Award level-up rewards
-                await levelingSystem.processLevelUpRewards(userId, guildId, xpResult.newLevel);
-                
-                // Send level up message in level up channel
                 try {
-                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
-                    if (levelUpChannel) {
-                        await levelUpChannel.send({ embeds: [levelUpEmbed] });
-                    }
-                } catch (levelError) {
-                    logger.debug(`Could not send level up message: ${levelError.message}`);
-                }
-            }
-        } catch (xpError) {
-            logger.debug(`Could not award XP for treasurevault: ${xpError.message}`);
-        }
-
-        // Create final embed
-        const topFields = [
-            {
-                name: '🏛️ TREASURE VAULT COMPLETE',
-                value: description,
-                inline: false
-            }
-        ];
-
-        const bankFields = [
-            { name: 'Original Bet', value: fmt(betAmount), inline: true },
-            { name: 'Final Treasure', value: fmt(currentPayout), inline: true },
-            { name: 'Rounds Completed', value: `${gameSession.round - 1}/${TREASURE_CONFIG.ROUNDS}`, inline: true }
-        ];
-
-        const finalEmbed = buildSessionEmbed({
-            title,
-            topFields,
-            bankFields,
-            stageText: 'COMPLETE',
-            color,
-            footer: footerText
-        });
-
-        // Create final door image (all closed for dramatic effect)
-        const attachment = await this.createDoorImage('all_closed');
-
-        await interaction.editReply({
-            embeds: [finalEmbed],
-            files: [attachment],
-            components: []
-        });
-
-        // Process payout with comprehensive bet size analysis using PayoutManager
-        if (currentPayout > 0) {
-            try {
                 const gameResult = new GameResult({
                     userId: userId,
                     guildId: guildId,
@@ -614,14 +528,12 @@ module.exports = {
                         rounds: gameSession.round,
                         reason: reason,
                         finalMultiplier: currentPayout / betAmount
-                    }
+
                 });
                 await PayoutManager.processGamePayout(gameResult);
                 logger.info(`Processed treasure vault payout for ${userId}: ${fmt(currentPayout)}`);
             } catch (payoutError) {
                 logger.error(`Failed to process treasure vault payout: ${payoutError.message}`);
-            }
-        }
 
         // End session without payout (PayoutManager handled the wallet update)
         if (gameSession.sessionId) {
@@ -633,8 +545,7 @@ module.exports = {
                 });
             } catch (e) {
                 logger.warn(`Failed to end TreasureVault session: ${e.message}`);
-            }
-        }
+
     },
 
     /**
@@ -649,8 +560,7 @@ module.exports = {
                 if (timeSinceLastInteraction >= TREASURE_CONFIG.DECISION_TIME - 1000) {
                     logger.info(`Game timeout for user ${gameSession.userId}`);
                     await this.endAdventure(interaction, gameSession, 'timeout');
-                }
-            }
+
         }, TREASURE_CONFIG.DECISION_TIME);
     },
 
@@ -675,7 +585,6 @@ module.exports = {
                 break;
             default:
                 imageName = 'All Doors Closed.jpg';
-        }
 
         const imagePath = path.join(__dirname, '..', 'assets', 'treasure_vault', imageName);
         
@@ -692,7 +601,7 @@ module.exports = {
             
             // Create a fallback text-based image
             return this.createFallbackImage(state);
-        }
+
     },
 
     /**
@@ -743,21 +652,19 @@ module.exports = {
                 ctx.beginPath();
                 ctx.arc(x + 30, 200, 8, 0, Math.PI * 2);
                 ctx.fill();
-            }
-            
+
             // Door label
             ctx.fillStyle = '#FFD700';
             ctx.font = 'bold 16px Arial';
             ctx.textAlign = 'center';
             ctx.fillText(doorLabels[i], x, 330);
-        }
 
         const buffer = canvas.toBuffer('image/png');
         return new AttachmentBuilder(buffer, { 
             name: 'treasure_vault.png',
             description: 'Treasure Vault Doors'
         });
-    }
+
 };
 
 /**
@@ -785,13 +692,10 @@ function generateRoundOutcomes() {
         for (let i = outcomes.length - 1; i > 0; i--) {
             const j = secureRandomInt(0, i + 1);
             [outcomes[i], outcomes[j]] = [outcomes[j], outcomes[i]];
-        }
-        
+
         allRoundOutcomes.push(outcomes);
-    }
-    
+
     return allRoundOutcomes;
-}
 
 /**
  * Get risk level description based on round
@@ -800,4 +704,3 @@ function getRiskLevel(round) {
     if (round <= 2) return '🟢 Low';
     if (round <= 4) return '🟡 Medium';
     return '🔴 High';
-}

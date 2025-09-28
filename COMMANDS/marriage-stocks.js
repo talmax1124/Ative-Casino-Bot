@@ -76,7 +76,7 @@ module.exports = {
                         .setDescription('Number of shares to buy')
                         .setRequired(true)
                         .setMinValue(1)
-                        .setMaxValue(1000)
+                        .setMaxValue(100000)
                 )
         )
         .addSubcommand(subcommand =>
@@ -93,7 +93,7 @@ module.exports = {
                         .setDescription('Number of shares to sell')
                         .setRequired(true)
                         .setMinValue(1)
-                        .setMaxValue(1000)
+                        .setMaxValue(100000)
                 )
         )
         .addSubcommand(subcommand =>

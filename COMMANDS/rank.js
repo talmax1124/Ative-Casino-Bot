@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getGuildId } = require('../UTILS/common');
-const levelingSystem = require('../UTILS/levelingSystem');
+const xpSystemManager = require('../UTILS/xpSystemManager');
 const logger = require('../UTILS/logger');
 const dbManager = require('../UTILS/database');
 
@@ -213,7 +213,7 @@ async function showUserRank(interaction, targetUser, guildId) {
         .addFields(
             { 
                 name: '📊 Level Progress', 
-                value: `**Level:** ${levelData.level} (${levelingSystem.getLevelStatus(levelData.level)})\n**XP:** ${currentLevelXp.toLocaleString()} / ${xpNeeded.toLocaleString()}\n**Total XP:** ${levelData.total_xp.toLocaleString()}\n\`${progressBar}\` ${((currentLevelXp / xpNeeded) * 100).toFixed(1)}%`, 
+                value: `**Level:** ${levelData.level}\n**XP:** ${currentLevelXp.toLocaleString()} / ${xpNeeded.toLocaleString()}\n**Total XP:** ${levelData.total_xp.toLocaleString()}\n\`${progressBar}\` ${((currentLevelXp / xpNeeded) * 100).toFixed(1)}%`, 
                 inline: false 
             },
             { 
