@@ -539,6 +539,75 @@ async function showLeagueSelection(interaction, sport, countryKey, tier) {
 }
 
 /**
+ * Show league selection for a country (for select menu updates)
+ */
+async function showLeagueSelectionUpdate(interaction, sport, countryKey, tier) {
+    const countries = getCountriesForSport(sport);
+    const countryData = countries[countryKey];
+    const sportData = SPORTS[sport];
+    
+    if (!countryData) {
+        return await interaction.update({
+            content: '❌ Invalid country selection.',
+            embeds: [],
+            components: []
+        });
+    }
+
+    // If only one league, skip to games
+    if (countryData.leagues.length === 1) {
+        await showGamesForLeagueUpdate(interaction, sport, countryKey, countryData.leagues[0].key, tier);
+        return;
+    }
+
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId(`sportbet_league_${sport}_${countryKey}_${interaction.user.id}_${Date.now()}`)
+        .setPlaceholder('🏆 Select a league')
+        .addOptions([
+            {
+                label: 'All Leagues',
+                description: `View all ${countryData.leagues.length} leagues`,
+                value: 'all',
+                emoji: '🌟'
+            },
+            ...countryData.leagues.map(league => ({
+                label: league.name,
+                description: league.priority === 1 ? 'Premier league' : 'Secondary league',
+                value: league.key,
+                emoji: league.priority === 1 ? '⭐' : '🏆'
+            }))
+        ]);
+
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+    
+    const embed = new EmbedBuilder()
+        .setTitle(`${sportData.name} - ${countryData.name}`)
+        .setDescription(`Select a league to view games:\n\n${tier === 'ruby' ? '🔴 **Ruby Tier**' : '💎 **Diamond Tier**'}`)
+        .setColor(tier === 'ruby' ? '#FF0000' : '#00FFFF')
+        .setFooter({ text: 'Select a league to view available games' })
+        .setTimestamp();
+
+    // Add league overview
+    let leagueList = '';
+    countryData.leagues.forEach(league => {
+        leagueList += `${league.priority === 1 ? '⭐' : '🏆'} **${league.name}**\n`;
+    });
+    
+    embed.addFields({
+        name: '🏆 Available Leagues',
+        value: leagueList,
+        inline: false
+    });
+
+    // Store data for interaction
+    const tempId = `${interaction.user.id}_${Date.now()}`;
+    pendingGames.set(`league_${tempId}`, { sport, countryKey, tier });
+    setTimeout(() => pendingGames.delete(`league_${tempId}`), 300000);
+
+    await interaction.update({ embeds: [embed], components: [row] });
+}
+
+/**
  * Show games for a specific league
  */
 async function showGamesForLeague(interaction, sport, countryKey, leagueKey, tier) {
@@ -630,6 +699,97 @@ async function showGamesForLeague(interaction, sport, countryKey, leagueKey, tie
 }
 
 /**
+ * Show games for a specific league (for select menu updates)
+ */
+async function showGamesForLeagueUpdate(interaction, sport, countryKey, leagueKey, tier) {
+    const countries = getCountriesForSport(sport);
+    const countryData = countries[countryKey];
+    const sportData = SPORTS[sport];
+    
+    // Fetch games for the specific league
+    const games = await fetchLiveGames(sport, countryKey, leagueKey === 'all' ? null : leagueKey);
+
+    if (games.length === 0) {
+        const backButton = new ButtonBuilder()
+            .setCustomId(`sportbet_back_league_${sport}_${countryKey}_${interaction.user.id}`)
+            .setLabel('← Back to Leagues')
+            .setStyle(ButtonStyle.Secondary);
+
+        const row = new ActionRowBuilder().addComponents(backButton);
+
+        const noGamesEmbed = new EmbedBuilder()
+            .setTitle(`${sportData.name} - No Games Available`)
+            .setDescription(`No upcoming games found in **${countryData.name}**.\n\nCheck back later or try a different league!`)
+            .setColor('#FFA500')
+            .setFooter({ text: 'Use the button below to go back' });
+        
+        return await interaction.update({ embeds: [noGamesEmbed], components: [row] });
+    }
+
+    // Create enhanced games display
+    const leagueName = leagueKey === 'all' ? 'All Leagues' : 
+                     countryData.leagues.find(l => l.key === leagueKey)?.name || leagueKey;
+
+    const gamesEmbed = new EmbedBuilder()
+        .setTitle(`${sportData.icon} ${leagueName}`)
+        .setDescription(`**${countryData.name}** • ${tier === 'ruby' ? '🔴 Ruby Tier' : '💎 Diamond Tier'}\n\n📊 Showing **${Math.min(games.length, 8)} of ${games.length}** upcoming games`)
+        .setColor(tier === 'ruby' ? '#FF0000' : '#00FFFF')
+        .setTimestamp();
+
+    // Add games in a more organized way
+    games.slice(0, 8).forEach((game, idx) => {
+        const gameTime = new Date(game.commence_time);
+        const timeUntil = Math.round((gameTime - new Date()) / (1000 * 60 * 60));
+        const odds = game.bookmakers[0]?.markets[0]?.outcomes || [];
+        const homeOdds = odds.find(o => o.name === game.home_team)?.price || 'N/A';
+        const awayOdds = odds.find(o => o.name === game.away_team)?.price || 'N/A';
+
+        const timeText = timeUntil < 1 ? '🔴 Starting soon' : 
+                        timeUntil < 24 ? `⏰ In ${timeUntil}h` : 
+                        `📅 ${gameTime.toLocaleDateString()}`;
+
+        gamesEmbed.addFields({
+            name: `${idx + 1}. ${game.home_team} vs ${game.away_team}`,
+            value: `${timeText}\n` +
+                   `🏠 **${homeOdds}** • 🆚 • **${awayOdds}** ✈️`,
+            inline: true
+        });
+    });
+
+    // Store games and create action buttons
+    const tempId = `${interaction.user.id}_${Date.now()}`;
+    pendingGames.set(tempId, { games, sport, countryKey, leagueKey, tier });
+    setTimeout(() => pendingGames.delete(tempId), 300000);
+
+    const betButton = new ButtonBuilder()
+        .setCustomId(`sportbet_select_${tempId}`)
+        .setLabel('Place Bet')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('💰');
+
+    const marketsButton = new ButtonBuilder()
+        .setCustomId(`sportbet_markets_${tempId}`)
+        .setLabel('Betting Markets')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📊');
+
+    const backButton = new ButtonBuilder()
+        .setCustomId(`sportbet_back_league_${sport}_${countryKey}_${interaction.user.id}`)
+        .setLabel('← Back')
+        .setStyle(ButtonStyle.Secondary);
+
+    const refreshButton = new ButtonBuilder()
+        .setCustomId(`sportbet_refresh_${sport}_${countryKey}_${leagueKey}_${interaction.user.id}`)
+        .setLabel('🔄 Refresh')
+        .setStyle(ButtonStyle.Primary);
+
+    const row1 = new ActionRowBuilder().addComponents(backButton, refreshButton, marketsButton);
+    const row2 = new ActionRowBuilder().addComponents(betButton);
+
+    await interaction.update({ embeds: [gamesEmbed], components: [row1, row2] });
+}
+
+/**
  * Show betting markets for a sport
  */
 async function showBettingMarkets(interaction, sport, tempId, tier) {
@@ -704,6 +864,101 @@ async function showMarketBets(interaction, sport, marketType, tempId, tier) {
         return await interaction.reply({
             content: '❌ No games available for this market.',
             ephemeral: true
+        });
+    }
+
+    const embed = new EmbedBuilder()
+        .setTitle(`${marketInfo.icon} ${marketInfo.name}`)
+        .setDescription(`**${sportData.name}** • ${marketInfo.description}\n\n${tier === 'ruby' ? '🔴 Ruby Tier' : '💎 Diamond Tier'}`)
+        .setColor(tier === 'ruby' ? '#FF0000' : '#00FFFF')
+        .setTimestamp();
+
+    // Generate market-specific betting options for each game
+    games.slice(0, 5).forEach((game, idx) => {
+        const gameTime = new Date(game.commence_time);
+        const timeUntil = Math.round((gameTime - new Date()) / (1000 * 60 * 60));
+        const timeText = timeUntil < 1 ? '🔴 Starting soon' : 
+                        timeUntil < 24 ? `⏰ In ${timeUntil}h` : 
+                        `📅 ${gameTime.toLocaleDateString()}`;
+
+        let marketOptions = '';
+        
+        // Generate different market options based on market type
+        switch (marketType) {
+            case 'h2h':
+                const odds = game.bookmakers[0]?.markets[0]?.outcomes || [];
+                const homeOdds = odds.find(o => o.name === game.home_team)?.price || 2.0;
+                const awayOdds = odds.find(o => o.name === game.away_team)?.price || 2.0;
+                if (sport === 'soccer') {
+                    marketOptions = `🏠 ${game.home_team}: **${homeOdds.toFixed(2)}**\n⚖️ Draw: **${(homeOdds + awayOdds > 4 ? 3.2 : 3.4).toFixed(2)}**\n✈️ ${game.away_team}: **${awayOdds.toFixed(2)}**`;
+                } else {
+                    marketOptions = `🏠 ${game.home_team}: **${homeOdds.toFixed(2)}**\n✈️ ${game.away_team}: **${awayOdds.toFixed(2)}**`;
+                }
+                break;
+            case 'spreads':
+                const spreadHome = Math.random() > 0.5 ? '+' : '-';
+                const spreadValue = (Math.random() * 3 + 0.5).toFixed(1);
+                marketOptions = `🏠 ${game.home_team} ${spreadHome}${spreadValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**\n✈️ ${game.away_team} ${spreadHome === '+' ? '-' : '+'}${spreadValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**`;
+                break;
+            case 'totals':
+                const totalValue = Math.floor(Math.random() * 4 + 2.5);
+                marketOptions = `📈 Over ${totalValue}: **${(1.85 + Math.random() * 0.3).toFixed(2)}**\n📉 Under ${totalValue}: **${(1.85 + Math.random() * 0.3).toFixed(2)}**`;
+                break;
+            case 'btts':
+                marketOptions = `✅ Yes: **${(1.7 + Math.random() * 0.5).toFixed(2)}**\n❌ No: **${(1.9 + Math.random() * 0.4).toFixed(2)}**`;
+                break;
+            default:
+                // Generate generic over/under for other markets
+                const overUnderValue = Math.floor(Math.random() * 6 + 8);
+                marketOptions = `📈 Over ${overUnderValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**\n📉 Under ${overUnderValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**`;
+        }
+
+        embed.addFields({
+            name: `${idx + 1}. ${game.home_team} vs ${game.away_team}`,
+            value: `${timeText}\n${marketOptions}`,
+            inline: true
+        });
+    });
+
+    // Create bet button for this market
+    const betButton = new ButtonBuilder()
+        .setCustomId(`sportbet_market_bet_${sport}_${marketType}_${tempId}`)
+        .setLabel(`Place ${marketInfo.name} Bet`)
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('💰');
+
+    const backButton = new ButtonBuilder()
+        .setCustomId(`sportbet_back_markets_${sport}_${tempId}`)
+        .setLabel('← Back to Markets')
+        .setStyle(ButtonStyle.Secondary);
+
+    const row = new ActionRowBuilder().addComponents(backButton, betButton);
+
+    await interaction.update({ embeds: [embed], components: [row] });
+}
+
+/**
+ * Show specific market betting options (for select menu updates)
+ */
+async function showMarketBetsUpdate(interaction, sport, marketType, tempId, tier) {
+    const pendingData = pendingGames.get(tempId);
+    if (!pendingData) {
+        return await interaction.update({
+            content: '❌ Session expired. Please start again.',
+            embeds: [],
+            components: []
+        });
+    }
+
+    const games = pendingData.games;
+    const marketInfo = BETTING_MARKETS[sport][marketType];
+    const sportData = SPORTS[sport];
+
+    if (games.length === 0) {
+        return await interaction.update({
+            content: '❌ No games available for this market.',
+            embeds: [],
+            components: []
         });
     }
 
@@ -1070,13 +1325,14 @@ module.exports.handleCountrySelection = async function(interaction) {
     
     const pendingData = pendingGames.get(`country_${userId}_${timestamp}`);
     if (!pendingData) {
-        return await interaction.reply({
+        return await interaction.update({
             content: '❌ Session expired. Please start again.',
-            ephemeral: true
+            embeds: [],
+            components: []
         });
     }
     
-    await showLeagueSelection(interaction, sport, countryKey, pendingData.tier);
+    await showLeagueSelectionUpdate(interaction, sport, countryKey, pendingData.tier);
 };
 
 module.exports.handleLeagueSelection = async function(interaction) {
@@ -1090,13 +1346,14 @@ module.exports.handleLeagueSelection = async function(interaction) {
     
     const pendingData = pendingGames.get(`league_${userId}_${timestamp}`);
     if (!pendingData) {
-        return await interaction.reply({
+        return await interaction.update({
             content: '❌ Session expired. Please start again.',
-            ephemeral: true
+            embeds: [],
+            components: []
         });
     }
     
-    await showGamesForLeague(interaction, sport, countryKey, leagueKey, pendingData.tier);
+    await showGamesForLeagueUpdate(interaction, sport, countryKey, leagueKey, pendingData.tier);
 };
 
 module.exports.handleBackButton = async function(interaction) {
@@ -1181,17 +1438,19 @@ async function handleGameSelection(interaction) {
         
         const pendingData = pendingGames.get(`${userId}_games`);
         if (!pendingData) {
-            return await interaction.reply({
+            return await interaction.update({
                 content: '❌ Session expired. Please start a new bet.',
-                ephemeral: true
+                embeds: [],
+                components: []
             });
         }
 
         const game = pendingData.games[parseInt(gameIdx)];
         if (!game) {
-            return await interaction.reply({
+            return await interaction.update({
                 content: '❌ Invalid game selection.',
-                ephemeral: true
+                embeds: [],
+                components: []
             });
         }
 
@@ -1408,13 +1667,14 @@ module.exports.handleMarketSelection = async function(interaction) {
     
     const pendingData = pendingGames.get(`market_${tempId}`);
     if (!pendingData) {
-        return await interaction.reply({
+        return await interaction.update({
             content: '❌ Session expired. Please start again.',
-            ephemeral: true
+            embeds: [],
+            components: []
         });
     }
     
-    await showMarketBets(interaction, sport, marketType, pendingData.tempId, pendingData.tier);
+    await showMarketBetsUpdate(interaction, sport, marketType, pendingData.tempId, pendingData.tier);
 };
 
 module.exports.handleMarketBetButton = async function(interaction) {
