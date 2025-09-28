@@ -720,6 +720,42 @@ client.once('clientReady', async () => {
     };
 
     StartupBanner.showSystemStatus(systemStatus);
+    
+    // Compact startup summary
+    try {
+        const GAME_COMMANDS = new Set([
+            'blackjack','slots','crash','plinko','duck','treasurevault','fishing','uno','rps',
+            'multi-slots','roulette','keno','bingo','ceelo','russianroulette','mines','yahtzee','wordchain','riddle','scratch'
+        ]);
+        const availableGames = Array.from(client.commands.keys()).filter(k => GAME_COMMANDS.has(k));
+        const cacheStats = nodeCache.getStats ? nodeCache.getStats() : { cacheSize: 0, metrics: { hitRate: '0%' } };
+        const dbStatus = dbManager.getFallbackStatus ? dbManager.getFallbackStatus() : { fallbackMode: false };
+
+        // Build uptime string
+        const upSec = Math.max(0, Math.round(process.uptime()));
+        const h = Math.floor(upSec / 3600);
+        const m = Math.floor((upSec % 3600) / 60);
+        const s = upSec % 60;
+        const uptimeStr = `${h}h ${m}m ${s}s`;
+
+        // Memory usage (RSS)
+        const rssMB = (process.memoryUsage().rss / 1024 / 1024).toFixed(1);
+
+        StartupBanner.showCompactSummary({
+            environment: (process.env.ENVIRONMENT || process.env.NODE_ENV || 'development').toUpperCase(),
+            version: process.env.npm_package_version || '3.x',
+            nodeVersion: process.version,
+            guilds: client.guilds?.cache?.size || 0,
+            commands: client.commands?.size || 0,
+            games: availableGames.length,
+            cache: cacheStats,
+            db: dbStatus,
+            uptime: uptimeStr,
+            memory: `${rssMB} MB`
+        });
+    } catch (e) {
+        logger.debug(`Startup summary skipped: ${e.message}`);
+    }
     StartupBanner.showStartupComplete();
 
 });

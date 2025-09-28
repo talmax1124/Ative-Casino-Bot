@@ -44,6 +44,47 @@ class StartupBanner {
         }
         console.log('─'.repeat(40) + '\n');
     }
+
+    static showCompactSummary(summary) {
+        try {
+            const lines = [];
+            const pad = (emoji, label, val) => {
+                const key = `${emoji} ${(label + ':').padEnd(16, ' ')}`;
+                return `${key} ${val}`;
+            };
+
+            lines.push('');
+            lines.push('📦 STARTUP SUMMARY');
+            lines.push('─'.repeat(40));
+
+            if (summary.environment) lines.push(pad('🧭', 'Environment', summary.environment));
+            if (summary.version) lines.push(pad('🏷️', 'Version', summary.version));
+            if (summary.nodeVersion) lines.push(pad('🧪', 'Node', summary.nodeVersion));
+            if (typeof summary.guilds === 'number') lines.push(pad('🏠', 'Guilds', summary.guilds));
+            if (typeof summary.commands === 'number') lines.push(pad('🧩', 'Commands Loaded', summary.commands));
+            if (typeof summary.games === 'number') lines.push(pad('🎮', 'Games Available', summary.games));
+
+            if (summary.cache) {
+                const cacheSize = summary.cache.cacheSize ?? summary.cache.size ?? 0;
+                const hitRate = summary.cache.metrics?.hitRate ?? '0%';
+                lines.push(pad('🗄️', 'Cache Keys', cacheSize));
+                lines.push(pad('📈', 'Cache Hit Rate', hitRate));
+            }
+
+            if (summary.db) {
+                const dbStatus = summary.db.fallbackMode ? 'FALLBACK' : 'ONLINE';
+                lines.push(pad('🛢️', 'Database', dbStatus));
+            }
+
+            if (summary.uptime) lines.push(pad('⏱️', 'Uptime', summary.uptime));
+            if (summary.memory) lines.push(pad('🧠', 'Memory', summary.memory));
+
+            lines.push('─'.repeat(40));
+            console.log(lines.join('\n'));
+        } catch (_) {
+            // Silent: summary is cosmetic
+        }
+    }
 }
 
 module.exports = StartupBanner;

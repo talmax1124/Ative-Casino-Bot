@@ -5,7 +5,6 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getGuildId } = require('../UTILS/common');
-const xpSystemManager = require('../UTILS/xpSystemManager');
 const logger = require('../UTILS/logger');
 const dbManager = require('../UTILS/database');
 

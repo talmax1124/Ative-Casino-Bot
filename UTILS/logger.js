@@ -35,42 +35,49 @@ const consoleFormat = winston.format.combine(
     winston.format.colorize(),
     winston.format.timestamp({ format: 'HH:mm:ss' }),
     winston.format.printf(({ timestamp, level, message }) => {
+        // If the message already contains its own emoji/category, avoid duplicating
+        const alreadyTagged = /^(\s*\[|✅|❌|🚀|ℹ️|⚠️|🤖|💰|📊|🎯|🎮|🛡️|📦|📈|📉)/.test(String(message || ''));
+
+        if (alreadyTagged) {
+            return `${timestamp} ${message}`;
+        }
+
         // Categorize messages for better organization
         let prefix = '';
         let icon = '';
-        
-        // System initialization messages
-        if (message.includes('initialized') || message.includes('starting') || message.includes('ready')) {
-            icon = '🚀';
-            prefix = '[SYSTEM]';
-        }
-        // Error messages
-        else if (message.includes('failed') || message.includes('error') || level.includes('error')) {
+
+        const msg = String(message || '').toLowerCase();
+
+        // Error/Warning first (based on level too)
+        if (level.includes('error') || msg.includes('failed') || msg.includes('error')) {
             icon = '❌';
             prefix = '[ERROR]';
-        }
-        // Warning messages  
-        else if (message.includes('warning') || level.includes('warn') || message.includes('disabled')) {
+        } else if (level.includes('warn') || msg.includes('warning') || msg.includes('disabled')) {
             icon = '⚠️';
             prefix = '[WARN]';
         }
-        // AI/ML system messages
-        else if (message.includes('AI') || message.includes('ML') || message.includes('autonomous') || message.includes('recommendations')) {
+        // System initialization
+        else if (msg.includes('initialized') || msg.includes('starting') || msg.includes('ready')) {
+            icon = '🚀';
+            prefix = '[SYSTEM]';
+        }
+        // AI/ML
+        else if (msg.includes('ai') || msg.includes('ml') || msg.includes('autonomous') || msg.includes('recommendations')) {
             icon = '🤖';
             prefix = '[AI/ML]';
         }
-        // Economy/Wealth system messages
-        else if (message.includes('economy') || message.includes('wealth') || message.includes('readiness') || message.includes('threshold')) {
+        // Economy
+        else if (msg.includes('economy') || msg.includes('wealth') || msg.includes('readiness') || msg.includes('threshold')) {
             icon = '💰';
             prefix = '[ECONOMY]';
         }
-        // Cache/Performance messages
-        else if (message.includes('cache') || message.includes('NodeCache') || message.includes('performance')) {
+        // Cache/Performance
+        else if (msg.includes('cache') || msg.includes('nodecache') || msg.includes('performance')) {
             icon = '🚀';
             prefix = '[CACHE]';
         }
-        // Success messages
-        else if (message.includes('✅') || message.includes('successfully') || message.includes('connected')) {
+        // Success
+        else if (msg.includes('successfully') || msg.includes('connected') || msg.includes('completed')) {
             icon = '✅';
             prefix = '[SUCCESS]';
         }
@@ -79,10 +86,26 @@ const consoleFormat = winston.format.combine(
             icon = 'ℹ️';
             prefix = '[INFO]';
         }
-        
-        return `${timestamp} ${icon} ${prefix} ${level}: ${message}`;
+
+        // Compact pretty output: drop repeating the level label (info/debug) text
+        return `${timestamp} ${icon} ${prefix} ${message}`;
     })
 );
+
+// Minimal mode filter: only allow error-level logs and select infos (default: minimal in all envs)
+const LOG_MODE = (process.env.LOG_MODE || 'minimal').toLowerCase();
+const minimalConsoleFilter = winston.format((info) => {
+    if (LOG_MODE !== 'minimal') return info;
+    const msg = String(info.message || '');
+    // Always show errors or anything indicating an error condition
+    if (info.level === 'error') return info;
+    if (/\b(error|failed|exception)\b/i.test(msg)) return info;
+    if (/^\s*❌/.test(msg)) return info;
+
+    // Show command load successes
+    if (msg.includes('Loaded command:')) return info;
+    return false; // hide everything else on console
+});
 
 // Create logger instance
 const logger = winston.createLogger({
@@ -92,7 +115,7 @@ const logger = winston.createLogger({
     transports: [
         // Console transport
         new winston.transports.Console({
-            format: consoleFormat
+            format: winston.format.combine(minimalConsoleFilter(), consoleFormat)
         }),
         
         // File transport for errors

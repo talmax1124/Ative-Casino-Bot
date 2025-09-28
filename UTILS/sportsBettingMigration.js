@@ -51,10 +51,14 @@ class SportsBettingMigration {
 
     async checkTableExists(tableName) {
         try {
-            const result = await this.dbManager.databaseAdapter.executeQuery(
-                'SHOW TABLES LIKE ?',
-                [tableName]
-            );
+            // SHOW TABLES LIKE does not support parameter placeholders in MySQL/MariaDB.
+            // To be safe, only allow simple identifiers and interpolate directly.
+            if (!/^[A-Za-z0-9_]+$/.test(tableName)) {
+                logger.warn(`Refusing to check table with invalid name: ${tableName}`);
+                return false;
+            }
+            const query = `SHOW TABLES LIKE '${tableName}'`;
+            const result = await this.dbManager.databaseAdapter.executeQuery(query);
             return result.length > 0;
         } catch (error) {
             logger.error(`Error checking table ${tableName}: ${error.message}`);
