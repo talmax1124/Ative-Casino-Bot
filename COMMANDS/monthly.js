@@ -101,8 +101,14 @@ module.exports = {
                 return;
             }
 
-            // Record the claim
-            await this.recordMonthlyClaim(userId, guildId, finalReward, subscription.subscription_type);
+            const claimRecorded = await this.recordMonthlyClaim(userId, guildId, finalReward, subscription.subscription_type);
+            if (!claimRecorded) {
+                logger.error(`Failed to record monthly claim for user ${userId}`);
+                await interaction.editReply({
+                    content: '❌ Failed to record your monthly claim. Please contact support with this error.'
+                });
+                return;
+            }
 
             // Get updated balance
             const balance = await dbManager.getUserBalance(userId, guildId);
@@ -223,12 +229,18 @@ module.exports = {
 
     async recordMonthlyClaim(userId, guildId, amount, subscriptionType) {
         try {
-            await dbManager.databaseAdapter.executeQuery(`
+            const result = await dbManager.databaseAdapter.executeQuery(`
                 INSERT INTO premium_claims 
                 (user_id, guild_id, claim_type, amount, subscription_type, claimed_at)
                 VALUES (?, ?, 'monthly', ?, ?, NOW())
             `, [userId, guildId, amount, subscriptionType]);
 
+            if (!result || (result.affectedRows !== undefined && result.affectedRows === 0)) {
+                logger.error(`Failed to insert monthly claim record for user ${userId}`);
+                return false;
+            }
+
+            logger.info(`Monthly claim recorded for user ${userId}: ${amount}`);
             return true;
         } catch (error) {
             logger.error(`Error recording monthly claim: ${error.message}`);

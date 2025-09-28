@@ -102,8 +102,14 @@ module.exports = {
                 return;
             }
 
-            // Record the claim
-            await this.recordWeeklyClaim(userId, guildId, finalReward, subscription.subscription_type);
+            const claimRecorded = await this.recordWeeklyClaim(userId, guildId, finalReward, subscription.subscription_type);
+            if (!claimRecorded) {
+                logger.error(`Failed to record weekly claim for user ${userId}`);
+                await interaction.editReply({
+                    content: '❌ Failed to record your weekly claim. Please contact support with this error.'
+                });
+                return;
+            }
 
             // Get updated balance
             const balance = await dbManager.getUserBalance(userId, guildId);
@@ -217,12 +223,18 @@ module.exports = {
 
     async recordWeeklyClaim(userId, guildId, amount, subscriptionType) {
         try {
-            await dbManager.databaseAdapter.executeQuery(`
+            const result = await dbManager.databaseAdapter.executeQuery(`
                 INSERT INTO premium_claims 
                 (user_id, guild_id, claim_type, amount, subscription_type, claimed_at)
                 VALUES (?, ?, 'weekly', ?, ?, NOW())
             `, [userId, guildId, amount, subscriptionType]);
 
+            if (!result || (result.affectedRows !== undefined && result.affectedRows === 0)) {
+                logger.error(`Failed to insert weekly claim record for user ${userId}`);
+                return false;
+            }
+
+            logger.info(`Weekly claim recorded for user ${userId}: ${amount}`);
             return true;
         } catch (error) {
             logger.error(`Error recording weekly claim: ${error.message}`);

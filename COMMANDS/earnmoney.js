@@ -122,12 +122,9 @@ module.exports = {
                 return await interaction.editReply({ embeds: [cooldownEmbed] });
             }
 
-            // Update balance with total earnings
             const newWallet = parseFloat(balance.wallet) + totalEarned;
             
-            // Update all timestamps
             const updateFields = {};
-            // Always update earnmoney timestamp to enforce cooldown
             updateFields.last_earnmoney_ts = now;
             if (results.earn.earned > 0) updateFields.last_earn_ts = now;
             if (results.work.earned > 0) updateFields.last_work_ts = now;
@@ -137,7 +134,21 @@ module.exports = {
             if (results.dailytask.earned > 0) updateFields.last_dailytask_ts = now;
             if (results.quiz.earned > 0) updateFields.last_quiz_ts = now;
 
-            await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank, updateFields);
+            const balanceUpdateSuccess = await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank, updateFields);
+            
+            if (!balanceUpdateSuccess) {
+                logger.error(`Failed to update balance and cooldowns for user ${userId} in earnmoney`);
+                const errorEmbed = buildSessionEmbed({
+                    title: '❌ EarnMoney Update Failed',
+                    topFields: [
+                        { name: '🛠️ Database Error', value: 'Failed to save your earnings and cooldowns. Please try again.' }
+                    ],
+                    stageText: 'UPDATE FAILED',
+                    color: 0xFF0000,
+                    footer: 'Your balance was not changed'
+                });
+                return await interaction.editReply({ embeds: [errorEmbed] });
+            }
 
             // Create earnings fields for display
             const earnedFields = Object.entries(results)
