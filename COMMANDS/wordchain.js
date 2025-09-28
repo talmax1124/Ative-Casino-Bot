@@ -8,6 +8,7 @@ const dbManager = require('../UTILS/database');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const logger = require('../UTILS/logger');
 const sessionManager = require('../UTILS/sessionManager');
+const levelingSystem = require('../UTILS/levelingSystem');
 const { WordChainGame, buildGameEmbed, buildLobbyButtons, wordValidator } = require('../GAMES/wordchain');
 
 // Per-channel active game registry
@@ -20,12 +21,15 @@ async function ensureNoActiveGame(interaction) {
         if (data && data.game && data.game.state !== 'finished') {
             await interaction.reply({ content: '❌ A Word Chain game is already running in this channel.', flags: MessageFlags.Ephemeral });
             return false;
-
+        }
+    }
     return true;
+}
 
 async function payoutWinner(game) {
     // Payout handled via SessionManager.endSession for each participant; no direct DB credit here
     return;
+}
 
 async function updateTurnNotice(interaction, game) {
     const cp = game.currentPlayer;
@@ -63,6 +67,8 @@ async function updateTurnNotice(interaction, game) {
         
     } catch (e) {
         logger.warn(`WordChain turn notice failed: ${e.message}`);
+    }
+}
 
 function startTurnTimer(interaction, game, updatePanel) {
     // Clear previous timers and collectors
@@ -85,16 +91,18 @@ function startTurnTimer(interaction, game, updatePanel) {
                     components: [] 
                 });
             } catch {}
-
+        }
+        
         // Timeout -> lose life -> next turn
         game.handleTimeout();
         await updatePanel();
         if (game.state === 'finished') {
             await endGame(interaction, game, updatePanel);
             return;
-
+        }
         startTurnTimer(interaction, game, updatePanel);
     }, game.turnTimeout * 1000);
+}
 
 async function handleWordInputModal(buttonInteraction, game, originalInteraction) {
     try {
@@ -150,7 +158,8 @@ async function handleWordInputModal(buttonInteraction, game, originalInteraction
                             components: []
                         });
                     } catch {}
-
+                }
+                
                 logger.info(`WordChain: Word "${submittedWord}" accepted`);
             } else {
                 await modalInteraction.reply({ 
@@ -166,8 +175,10 @@ async function handleWordInputModal(buttonInteraction, game, originalInteraction
                             components: []
                         });
                     } catch {}
-
+                }
+                
                 logger.info(`WordChain: Word "${submittedWord}" rejected: ${msg}`);
+            }
 
             // Update the game panel
             const updatePanel = async () => {
@@ -175,7 +186,7 @@ async function handleWordInputModal(buttonInteraction, game, originalInteraction
                 const row = game.state === 'waiting' ? buildLobbyButtons(game) : null;
                 if (game.message) {
                     await game.message.edit({ embeds: [embed], components: row ? [row] : [] });
-
+                }
             };
             
             await updatePanel();
@@ -183,15 +194,18 @@ async function handleWordInputModal(buttonInteraction, game, originalInteraction
             if (ended || game.state === 'finished') {
                 await endGame(originalInteraction, game, updatePanel);
                 return;
+            }
 
             // Start next turn if game continues
             if (game.state === 'playing') {
                 startTurnTimer(originalInteraction, game, updatePanel);
+            }
 
         } catch (timeoutError) {
             // Modal submission timed out
             logger.info(`WordChain: Modal submission timed out for ${buttonInteraction.user.displayName}`);
             // The turn timer will handle the timeout
+        }
 
     } catch (error) {
         logger.error(`WordChain modal error: ${error.message}`);
@@ -201,6 +215,8 @@ async function handleWordInputModal(buttonInteraction, game, originalInteraction
                 ephemeral: true 
             });
         } catch {}
+    }
+}
 
 async function endGame(interaction, game, updatePanel) {
     try {
@@ -210,13 +226,29 @@ async function endGame(interaction, game, updatePanel) {
         if (game.collector) game.collector.stop('finished');
         await payoutWinner(game);
         await updatePanel();
-        
+        // Process XP and complete sessions for all participants
         for (const p of game.players.values()) {
             const won = game.activePlayers.length > 0 && game.activePlayers[0].user.id === p.user.id;
             
-                        // Check for level up (levelError) {
+            // Add XP for game completion
+            const xpResult = await levelingSystem.handleGameComplete(p.user.id, game.guildId, 'wordchain', won);
+            
+            // Check for level up
+            if (xpResult && xpResult.leveledUp) {
+                try {
+                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                    if (levelUpChannel) {
+                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(p.user, xpResult.newLevel);
+                        await levelUpChannel.send({ 
+                            content: `<@${p.user.id}>, you are now level ${xpResult.newLevel}!`,
+                            embeds: [levelUpEmbed] 
+                        });
+                    }
+                } catch (levelError) {
                     logger.error(`Failed to send level up notification: ${levelError.message}`);
-
+                }
+            }
+            
             // Complete session if exists
             if (p.sessionId) {
                 await sessionManager.endSession(p.sessionId, {
@@ -224,18 +256,21 @@ async function endGame(interaction, game, updatePanel) {
                     payout: won ? (game.potAmount * game.players.size) : 0,
                     won: won
                 });
-
+            }
+        }
         // Clean up turn message and collector
         if (game.turnButtonCollector) game.turnButtonCollector.stop();
         if (game.turnMessage) {
             try { await game.turnMessage.edit({ content: '✅ Game ended.', components: [] }); } catch {}
-
+        }
         const winner = game.activePlayers[0];
         const totalPaid = game.potEnabled ? fmt(game.potAmount * [...game.players.values()].filter(p => p.paidPot).length) : null;
         const winText = winner ? `🏆 ${winner.user} wins${totalPaid ? ` and takes ${totalPaid}!` : '!'}` : '🤝 Draw!';
         await interaction.followUp({ content: winText });
     } catch (e) {
         logger.error(`Error ending WordChain: ${e.message}`);
+    }
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -264,6 +299,7 @@ module.exports = {
         if (!check.allowed) {
             const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription(check.message).setColor(0xFF0000);
             return await interaction.editReply({ embeds: [errorEmbed] });
+        }
 
         const game = new WordChainGame(channel, guildId, interaction.user);
         game.potAmount = pot;
@@ -279,7 +315,7 @@ module.exports = {
             const row = game.state === 'waiting' ? buildLobbyButtons(game) : null;
             if (game.message) {
                 await game.message.edit({ embeds: [embed], components: row ? [row] : [] });
-
+            }
         };
 
         const embed = buildGameEmbed(game);
@@ -296,13 +332,13 @@ module.exports = {
             if (action === 'join') {
                 if (game.players.has(i.user.id)) {
                     return i.reply({ content: '❌ You are already in the game.', ephemeral: true });
-
+                }
                 if (game.addPlayer(i.user)) {
                     await i.reply({ content: '✅ Joined!', ephemeral: true });
                     await updatePanel();
                 } else {
                     await i.reply({ content: '❌ Game full (max 10) or already joined.', ephemeral: true });
-
+                }
             } else if (action === 'pay') {
                 const p = game.players.get(i.user.id);
                 if (!p) return i.reply({ content: '❌ Join the game first.', ephemeral: true });
@@ -321,13 +357,14 @@ module.exports = {
                         content: `❌ ${potValidation.errorEmbed.data.description}`, 
                         ephemeral: true 
                     });
-
+                }
+                
                 // Guard + create session for pot players
                 const sessionGuard = require('../UTILS/sessionGuard');
                 const check = await sessionGuard.check(i.user.id, guildId, 'wordchain', i.client);
                 if (!check.allowed) {
                     return i.reply({ content: `❌ ${check.message}`, ephemeral: true });
-
+                }
                 // Create session for pot players
                 const sessionResult = await sessionManager.createSession({
                     userId: i.user.id,
@@ -349,7 +386,8 @@ module.exports = {
                     // Refund the pot amount if session creation fails
                     await PayoutManager.refundBet(i.user.id, guildId, game.potAmount, 'WordChain session creation failed');
                     return i.reply({ content: '❌ Failed to create game session.', ephemeral: true });
-
+                }
+                
                 p.paidPot = true;
                 p.sessionId = sessionResult.sessionId; // Store session ID for later completion
                 await i.reply({ content: `✅ Paid ${fmt(game.potAmount)} into the pot.`, ephemeral: true });
@@ -357,10 +395,10 @@ module.exports = {
             } else if (action === 'leave') {
                 if (!game.players.has(i.user.id)) {
                     return i.reply({ content: "❌ You're not in this game.", ephemeral: true });
-
+                }
                 if (i.user.id === game.host.id && game.players.size > 1) {
                     return i.reply({ content: '❌ Host cannot leave while others joined.', ephemeral: true });
-
+                }
                 const p = game.players.get(i.user.id);
                 if (p.paidPot) await PayoutManager.refundBet(i.user.id, guildId, game.potAmount, 'Left WordChain game');
                 if (game.removePlayer(i.user.id)) {
@@ -368,14 +406,14 @@ module.exports = {
                     await updatePanel();
                 } else {
                     await i.reply({ content: '❌ Cannot leave while playing.', ephemeral: true });
-
+                }
             } else if (action === 'start') {
                 if (i.user.id !== game.host.id) {
                     return i.reply({ content: '❌ Only the host can start the game.', ephemeral: true });
-
+                }
                 if (!game.start()) {
                     return i.reply({ content: '❌ Need at least 2 players to start.', ephemeral: true });
-
+                }
                 await i.reply({ content: '🔗 Game started! Click the button when it\'s your turn to enter words.', ephemeral: false });
                 await updatePanel();
                 // Register active game for all participants
@@ -398,7 +436,7 @@ module.exports = {
                     )
                     .setColor(0x00BFFF);
                 await i.reply({ embeds: [help], ephemeral: true });
-
+            }
         });
 
         collector.on('end', () => {
@@ -435,10 +473,13 @@ module.exports = {
                                 logger.info(`Completed session ${p.sessionId} for user ${p.user.id} (dev stop)`);
                             } catch (error) {
                                 logger.error(`Failed to complete session ${p.sessionId} on dev stop: ${error.message}`);
-
+                            }
+                        }
+                    }
+                    
                     if (game.turnMessage) {
                         try { await game.turnMessage.edit({ content: '🛑 Game stopped by developer.' }); } catch {}
-
+                    }
                     // Update panel to finished look
                     game.state = 'finished';
                     const embed = buildGameEmbed(game);
@@ -448,9 +489,10 @@ module.exports = {
                     logger.error(`forceStop failed: ${e.message}`);
                 } finally {
                     activeGames.delete(channelId);
-
+                }
                 return true;
-
+            }
+        }
         return false;
-
+    }
 };

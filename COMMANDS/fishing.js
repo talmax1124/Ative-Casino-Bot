@@ -16,6 +16,7 @@ const {
 } = require('../GAMES/fishing');
 const logger = require('../UTILS/logger');
 const sessionManager = require('../UTILS/sessionManager');
+const levelingSystem = require('../UTILS/levelingSystem');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 const tuningManager = require('../UTILS/tuningManager');
 
@@ -56,7 +57,7 @@ module.exports = {
                                 .setColor(0xFF0000)
                                 .setTimestamp();
                             return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-
+                        }
                     } else {
                         const errorEmbed = new EmbedBuilder()
                             .setTitle('❌ Session Error')
@@ -64,7 +65,7 @@ module.exports = {
                             .setColor(0xFF0000)
                             .setTimestamp();
                         return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-
+                    }
                 } else {
                     const errorEmbed = new EmbedBuilder()
                         .setTitle('❌ Session Error')
@@ -72,7 +73,9 @@ module.exports = {
                         .setColor(0xFF0000)
                         .setTimestamp();
                     return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-
+                }
+            }
+            
             // Validate and deduct bet amount using PayoutManager
             const amountStr = interaction.options.getString('amount');
             
@@ -90,7 +93,8 @@ module.exports = {
                     flags: MessageFlags.Ephemeral
                 });
                 return;
-
+            }
+            
             const betAmount = validation.parsedAmount;
 
             // Create game session with enhanced protection
@@ -117,6 +121,7 @@ module.exports = {
                 
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
+            }
 
             // Create fishing game (bet already deducted by PayoutManager)
             const fishingGame = startFishingGame(userId, username, betAmount, validation.newWallet);
@@ -158,7 +163,8 @@ module.exports = {
                 await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
             } else {
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-
+            }
+        }
     },
 
     /**
@@ -179,7 +185,7 @@ module.exports = {
             if (result && result.gameEnded) {
                 logger.info(`Fishing game ended for ${userId}, calling endFishingSession`);
                 await this.endFishingSession(interaction, userId, guildId, result);
-
+            }
         } catch (error) {
             logger.error(`Error handling fishing button interaction: ${error.message}`, { userId, action });
             
@@ -188,7 +194,8 @@ module.exports = {
                     content: '❌ An error occurred while processing your fishing action.',
                     flags: MessageFlags.Ephemeral
                 });
-
+            }
+        }
     },
 
     /**
@@ -201,7 +208,8 @@ module.exports = {
             if (!game) {
                 logger.warn(`No fishing game found for user ${userId} during session end`);
                 return;
-
+            }
+            
             logger.info(`Found fishing game for ${userId}, sessionId: ${game.sessionId}`);
 
             // Calculate final amounts (wallet update handled by sessionManager payout)
@@ -223,11 +231,12 @@ module.exports = {
                         fishCaught: game.fishCaught,
                         endReason: result.lostToRedFish ? 'red_fish' : 
                                   result.reachedLimit ? 'limit_reached' : 'voluntary_stop'
-
+                    }
                 );
             } catch (recordError) {
                 logger.warn(`Failed to record fishing game result: ${recordError.message}`);
                 // Don't throw - game should still complete
+            }
 
             // Prepare final embed after payout has been processed (below)
             const endType = result.lostToRedFish ? 'red' : 
@@ -251,9 +260,25 @@ module.exports = {
                 guildId
             );
 
-                        // Check for level up (levelError) {
+            // Add XP for game completion
+            const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'fishing', won);
+            
+            // Check for level up
+            if (xpResult && xpResult.leveledUp) {
+                try {
+                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                    if (levelUpChannel) {
+                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
+                        await levelUpChannel.send({ 
+                            content: `<@${userId}>, you are now level ${xpResult.newLevel}!`,
+                            embeds: [levelUpEmbed] 
+                        });
+                    }
+                } catch (levelError) {
                     logger.error(`Failed to send level up notification: ${levelError.message}`);
-
+                }
+            }
+            
             // Complete session if exists (this processes payout and clears active flag)
             if (game.sessionId) {
                 logger.info(`Ending session ${game.sessionId} for user ${userId}`);
@@ -266,6 +291,7 @@ module.exports = {
                 logger.info(`Session ${game.sessionId} ended successfully for user ${userId}`);
             } else {
                 logger.warn(`No sessionId found for user ${userId} fishing game`);
+            }
 
             logger.info(`Fishing game completed: ${game.username} (${userId}) - ${won ? 'WIN' : 'LOSS'} ${fmt(netChange)}`);
 
@@ -278,7 +304,7 @@ module.exports = {
                     await interaction.followUp({ embeds: [finalEmbed] });
                 } catch (followUpError) {
                     logger.warn(`Failed to send fishing final embed: ${followUpError.message}`);
-
+                }
             }, 1000);
 
             // Remove game from active games
@@ -295,10 +321,11 @@ module.exports = {
                 const active = sessionManager.getUserActiveSession(userId);
                 if (active) {
                     await sessionManager.cancelSession(active.sessionId, 'Fishing end cleanup', true);
-
+                }
             } catch (cleanupError) {
                 logger.error(`Failed fishing session cleanup: ${cleanupError.message}`);
-
+            }
+        }
     },
 
     /**
@@ -306,5 +333,5 @@ module.exports = {
      */
     getHelpEmbed() {
         return FishingGame.getHelpEmbed();
-
+    }
 };

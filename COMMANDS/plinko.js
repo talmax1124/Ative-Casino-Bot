@@ -75,6 +75,7 @@ module.exports = {
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'plinko');
             if (!maintenanceCheck.allowed) {
                 return await interaction.editReply({ embeds: [maintenanceCheck.embed] });
+            }
 
             // Validate session using new system (correct order/flag)
             const sessionGuard = require('../UTILS/sessionGuard');
@@ -88,6 +89,7 @@ module.exports = {
                 });
                 await interaction.editReply({ embeds: [errorEmbed] });
                 return;
+            }
 
             // Get mode-specific minimum bet from plinko modes
             const { getCurrentPlinkoModes } = require('../UTILS/plinkoCanvas');
@@ -107,6 +109,7 @@ module.exports = {
             if (!validationResult.isValid) {
                 await interaction.editReply({ embeds: [validationResult.errorEmbed] });
                 return;
+            }
 
             const betAmount = validationResult.parsedAmount;
             const newWalletAfterBet = validationResult.newWallet;
@@ -144,11 +147,13 @@ module.exports = {
                     interaction: {
                         id: interaction.id,
                         user: interaction.user.tag
-
+                    }
+                }
             });
 
             if (!sessionResult.success) {
                 throw new Error(`Session creation failed: ${sessionResult.error}`);
+            }
 
             const sessionId = sessionResult.sessionId;
 
@@ -225,9 +230,10 @@ module.exports = {
                 const userSession = sessionManager.getUserActiveSession(userId);
                 if (userSession) {
                     await sessionManager.cancelSession(userSession.sessionId, 'Plinko game error', true);
-
+                }
             } catch (refundError) {
                 logger.error(`Failed to handle plinko session error: ${refundError.message}`);
+            }
 
             const errorEmbed = buildSessionEmbed({
                 title: `❌ ${username}'s Plinko`,
@@ -242,7 +248,9 @@ module.exports = {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } catch (replyError) {
                 logger.error(`Failed to send error reply: ${replyError.message}`);
-
+            }
+        }
+    }
 };
 
 /**
@@ -302,6 +310,7 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
                 i,
                 mode
             ));
+        }
 
         // Final frame with winning slot highlighted
         animationFrames.push(createPlinkoImage(
@@ -348,6 +357,7 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
             const frameAttachment = new AttachmentBuilder(animationFrames[i], { name: `plinko_frame_${i}.png` });
 
             await interaction.editReply({ embeds: [frameEmbed], files: [frameAttachment] });
+        }
 
         // Final pause before results
         await new Promise(resolve => setTimeout(resolve, 800));
@@ -358,6 +368,8 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
     } catch (error) {
         logger.error(`Error in animated plinko game: ${error.message}`);
         throw error;
+    }
+}
 
 /**
  * Show final game results
@@ -383,6 +395,7 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
         });
     } catch (sessionError) {
         logger.error(`Failed to complete plinko session: ${sessionError.message}`);
+    }
 
     // Record game result
     const gameResult = new GameResult({
@@ -397,7 +410,7 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
             dropSlot: finalSlot,
             finalMultiplier,
             housedEdge: 0.25 // 15% house edge
-
+        }
     });
 
     await PayoutManager.processGamePayout(gameResult);
@@ -417,16 +430,40 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
                 multiplier: finalMultiplier,
                 houseEdge: 0.15,
                 gameType: 'plinko'
-
+            }
         );
     } catch (aiError) {
         logger.error(`Failed to record plinko game result for AI: ${aiError.message}`);
+    }
 
-        try { (levelError) {
+    // Award XP for playing Plinko
+    try {
+        const levelingSystem = require('../UTILS/levelingSystem');
+        const specialResult = winnings >= betAmount * 5 ? 'big_win' : 
+                            winnings >= betAmount * 20 ? 'massive_win' : null;
+        
+        const levelResult = await levelingSystem.handleGameComplete(userId, guildId, 'plinko', won, specialResult);
+        
+        // Handle level up if occurred
+        if (levelResult && levelResult.levelUp) {
+            const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, levelResult.newLevel);
+            
+            // Award level-up rewards
+            await levelingSystem.processLevelUpRewards(userId, guildId, levelResult.newLevel);
+            
+            // Send level up message in level up channel
+            try {
+                const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                if (levelUpChannel) {
+                    await levelUpChannel.send({ embeds: [levelUpEmbed] });
+                }
+            } catch (levelError) {
                 logger.debug(`Could not send level up message: ${levelError.message}`);
-
+            }
+        }
     } catch (xpError) {
         logger.debug(`Could not award XP for plinko: ${xpError.message}`);
+    }
 
     // Determine result type
     let resultTitle, resultEmoji, resultColor;
@@ -450,6 +487,7 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
         resultTitle = '💥 LOSS';
         resultEmoji = '😢';
         resultColor = 0xFF0000;
+    }
 
     const netText = netChange >= 0 ? `+${fmtFull(netChange)}` : fmtFull(netChange);
 
@@ -491,3 +529,4 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
         userId,
         guildId
     );
+}

@@ -14,6 +14,7 @@ const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
+const levelingSystem = require('../UTILS/levelingSystem');
 const tuningManager = require('../UTILS/tuningManager');
 const allInManager = require('../UTILS/allInManager');
 
@@ -65,7 +66,7 @@ const MINES_MODES = {
         houseEdge: 0.15,
         emoji: '🔥',
         color: '#FF0000'
-
+    }
 };
 
 // Active games storage (indexed by sessionId for better session management)
@@ -97,6 +98,7 @@ async function createGameEmbed(game, user, balance = null, economicIndicators = 
             { name: '🏦 Bank', value: fmt(balance.bank), inline: true },
             { name: '🎯 Bet', value: fmt(game.betAmount), inline: true }
         );
+    }
 
     // Determine game stage and color
     let stageText = '';
@@ -112,15 +114,17 @@ async function createGameEmbed(game, user, balance = null, economicIndicators = 
         } else {
             stageText = 'ALL CLEAR';
             color = 0xFFD700; // Gold for perfect clear
-
+        }
     } else {
         stageText = 'PLAYING';
         color = 0x00ff00; // Bright green for active game
+    }
 
     let footer = game.gameEnded ? 'Game completed' : 'Click tiles to reveal or cash out';
     if (economicIndicators && !game.gameEnded) {
         footer += ` • AI Economy: ${economicIndicators.status} ${economicIndicators.healthScore}/100`;
-
+    }
+    
     return buildSessionEmbed({
         title: `💣 ${user.displayName}'s Mines`,
         topFields,
@@ -129,6 +133,7 @@ async function createGameEmbed(game, user, balance = null, economicIndicators = 
         color: economicIndicators?.color || color,
         footer
     });
+}
 
 /**
  * Create action buttons for mines game
@@ -145,7 +150,8 @@ async function createGameButtons(userId, game = null) {
             .setStyle(ButtonStyle.Secondary);
         
         return [new ActionRowBuilder().addComponents(helpButton)];
-
+    }
+    
     const rows = [];
     const buttons = [];
     
@@ -158,7 +164,8 @@ async function createGameButtons(userId, game = null) {
             .setEmoji('💎')
             .setStyle(ButtonStyle.Success);
         buttons.push(cashoutButton);
-
+    }
+    
     // Add help button
     const helpButton = new ButtonBuilder()
         .setCustomId(`mines-${userId}-help`)
@@ -170,7 +177,8 @@ async function createGameButtons(userId, game = null) {
     // Add to first row
     if (buttons.length > 0) {
         rows.push(new ActionRowBuilder().addComponents(buttons));
-
+    }
+    
     // Create ALL grid buttons showing current state
     const gridRows = Math.sqrt(game.gridSize);
     let currentRow = [];
@@ -194,7 +202,7 @@ async function createGameButtons(userId, game = null) {
                 buttonStyle = ButtonStyle.Secondary;
                 emoji = '💎';
                 disabled = true;
-
+            }
         } else {
             if (isGameEnded && isMine) {
                 // Game ended, show unrevealed mines
@@ -211,7 +219,9 @@ async function createGameButtons(userId, game = null) {
                 buttonStyle = ButtonStyle.Success;
                 emoji = '🟩';
                 disabled = false;
-
+            }
+        }
+        
         const button = new ButtonBuilder()
             .setCustomId(`mines-${userId}-tile-${i}`)
             .setLabel((i + 1).toString())
@@ -225,15 +235,19 @@ async function createGameButtons(userId, game = null) {
         if (currentRow.length === gridRows) {
             rows.push(new ActionRowBuilder().addComponents(currentRow));
             currentRow = [];
-
+        }
+        
         // Discord limit: max 5 rows, break if we reach limit
         if (rows.length >= 4) break; // Reserve 1 row for action buttons
-
+    }
+    
     // Add any remaining buttons
     if (currentRow.length > 0) {
         rows.push(new ActionRowBuilder().addComponents(currentRow));
-
+    }
+    
     return rows;
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -275,6 +289,7 @@ module.exports = {
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'mines');
             if (!maintenanceCheck.allowed) {
                 return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+            }
 
             // Validate session before proceeding using modern session system (via sessionGuard)
             const sessionGuard = require('../UTILS/sessionGuard');
@@ -287,6 +302,7 @@ module.exports = {
                     .setColor(0xFF0000)
                     .setTimestamp();
                 return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            }
 
             // Ensure user exists and get balance
             await dbManager.ensureUser(userId, username);
@@ -313,9 +329,11 @@ module.exports = {
                 const userBalance = await dbManager.getUserBalance(userId, guildId);
                 const totalWealth = userBalance.wallet + userBalance.bank;
                 logger.info(`🎯 MINES ALL-IN: ${userId} -> ${fmt(amount)} (${((amount / totalWealth) * 100).toFixed(1)}% of wealth)`);
+            }
 
             if (!validation.isValid) {
                 return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
+            }
 
             const betAmount = validation.parsedAmount;
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
@@ -340,6 +358,7 @@ module.exports = {
             
             if (!sessionResult.success) {
                 throw new Error(`Session creation failed: ${sessionResult.error}`);
+            }
 
             const sessionId = sessionResult.sessionId;
             logger.debug(`Mines session created: ${sessionId} for ${userId}`);
@@ -364,7 +383,7 @@ module.exports = {
                     revealedCount: game.revealedTiles.length,
                     gamePhase: 'playing',
                     gameStarted: true
-
+                }
             }, 'initial_setup');
 
             // Create embed and buttons
@@ -414,19 +433,22 @@ module.exports = {
                     const parsedAmount = parseAmount(amount);
                     if (parsedAmount > 0) {
                         refundAmount = parsedAmount;
-
+                    }
+                }
             } catch (parseError) {
                 logger.warn(`Could not determine refund amount: ${parseError.message}`);
-
+            }
+            
             // Handle session error and cleanup
             try {
                 const userSession = sessionManager.getUserActiveSession(userId);
                 if (userSession) {
                     await sessionManager.cancelSession(userSession.sessionId, 'Mines game initialization error', true);
-
+                }
             } catch (sessionError) {
                 logger.error(`Failed to handle session error: ${sessionError.message}`);
-
+            }
+            
             const { embed: errorEmbed } = GamePanel.createErrorEmbed({
                 title: '❌ Mines Error',
                 description: 'An error occurred while starting mines. Your bet has been refunded.',
@@ -442,11 +464,12 @@ module.exports = {
                     await interaction.editReply({ embeds: [errorEmbed] });
                 } else {
                     await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-
+                }
             } catch (replyError) {
                 logger.error(`Failed to send error reply: ${replyError.message}`);
                 logger.error(`Interaction state - replied: ${interaction.replied}, deferred: ${interaction.deferred}`);
-
+            }
+        }
     },
 
     // Mines button handlers (to be handled by interaction handler in index.js)
@@ -467,9 +490,11 @@ module.exports = {
                 sessionId = activeSession.sessionId;
                 const sessionData = activeGames.get(sessionId);
                 game = sessionData?.game;
-
+            }
+            
             if (!game || !sessionId) {
                 return await interaction.reply({ content: 'No active mines game found.', flags: MessageFlags.Ephemeral });
+            }
 
             const userBalance = await dbManager.getUserBalance(userId, guildId);
 
@@ -487,7 +512,8 @@ module.exports = {
                         break;
                     default:
                         await interaction.reply({ content: 'Unknown action.', flags: MessageFlags.Ephemeral });
-
+                }
+            }
         } catch (actionError) {
             logger.error(`Mines action error (${actionId}): ${actionError.message}`);
             try {
@@ -501,17 +527,20 @@ module.exports = {
             } catch (_) {}
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({ content: '❌ Error processing action.', flags: MessageFlags.Ephemeral });
-
+            }
+        }
     },
 
     async handleTileReveal(interaction, game, tileIndex, userId, guildId) {
         if (game.gameEnded) {
             return await interaction.reply({ content: 'Game has already ended.', flags: MessageFlags.Ephemeral });
+        }
 
         const result = game.revealTile(tileIndex);
         
         if (!result.success) {
             return await interaction.reply({ content: result.message, flags: MessageFlags.Ephemeral });
+        }
 
         // Update embed
         const userBalance = await dbManager.getUserBalance(userId, guildId);
@@ -530,15 +559,17 @@ module.exports = {
                 embeds: [embed],
                 components: actionRows
             });
-
+        }
     },
 
     async handleCashOut(interaction, game, userId, guildId) {
         if (game.gameEnded) {
             return await interaction.reply({ content: 'Game has already ended.', flags: MessageFlags.Ephemeral });
+        }
 
         if (game.revealedTiles.length === 0) {
             return await interaction.reply({ content: 'You must reveal at least one tile before cashing out.', flags: MessageFlags.Ephemeral });
+        }
 
         game.cashOut();
         await this.endGame(interaction, game, userId, guildId, true);
@@ -578,7 +609,8 @@ module.exports = {
             if (!sessionData || sessionData.game !== game) {
                 logger.warn(`endGame called but game no longer exists or differs for session ${game.sessionId}`);
                 return;
-
+            }
+            
             const currentMultiplier = await game.getCurrentMultiplier();
             const originalPayout = won ? Math.floor(game.betAmount * currentMultiplier) : 0;
             
@@ -594,11 +626,14 @@ module.exports = {
                 // Log significant all-in adjustments
                 if (allInAdjustment.houseEdgeApplied > 0.05) {
                     logger.info(`🎯 MINES ALL-IN EDGE: ${fmt(tuningAdjustment.adjustedPayout)} -> ${fmt(regulatedPayout)} (+${(allInAdjustment.houseEdgeApplied * 100).toFixed(1)}% house edge, ${(allInAdjustment.betRatio * 100).toFixed(1)}% of wealth)`);
-
+                }
+            }
+            
             // Log tuning application for monitoring
             if (tuningAdjustment.payoutDelta !== 0 || tuningAdjustment.feeApplied) {
                 logger.info(`🎛️ MINES TUNING: ${originalPayout} -> ${tuningAdjustment.adjustedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
-
+            }
+            
             // Use PayoutManager for consistent payout handling
             const gameResult = new GameResult({
                 userId,
@@ -613,7 +648,7 @@ module.exports = {
                     multiplier: currentMultiplier,
                     hitMine: game.hitMine,
                     cashedOut: game.cashedOut
-
+                }
             });
 
             await PayoutManager.processGamePayout(gameResult);
@@ -633,7 +668,7 @@ module.exports = {
                         hitMine: game.hitMine,
                         cashedOut: game.cashedOut,
                         mode: game.mode
-
+                    }
                 );
                 
                 // Record for AI economy analyzer
@@ -641,9 +676,38 @@ module.exports = {
                 
             } catch (recordError) {
                 logger.warn(`Failed to record mines game result: ${recordError.message}`);
+            }
 
-                // Send level up notification to the specified channel (levelError) {
+            // Add XP for game completion
+            const specialResult = (won && currentMultiplier >= 5) ? 'big_win' : 
+                                (won && currentMultiplier >= 10) ? 'huge_win' : null;
+            const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'mines', won, specialResult);
+
+            // Check for level up and prepare notification
+            let levelUpMessage = null;
+            if (xpResult && xpResult.leveledUp) {
+                // Process level-up rewards
+                const levelReward = await levelingSystem.processLevelUpRewards(userId, guildId, xpResult.newLevel);
+                
+                levelUpMessage = `\n\n🎉 **LEVEL UP!** You are now level **${xpResult.newLevel}**!`;
+                if (levelReward) {
+                    levelUpMessage += `\n💰 **Level Reward:** +$${levelReward.money.toLocaleString()}`;
+                }
+                
+                // Send level up notification to the specified channel
+                try {
+                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                    if (levelUpChannel) {
+                        const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
+                        await levelUpChannel.send({ 
+                            content: `<@${userId}>, you are now level ${xpResult.newLevel}!`,
+                            embeds: [levelUpEmbed] 
+                        });
+                    }
+                } catch (levelError) {
                     logger.error(`Failed to send level up notification: ${levelError.message}`);
+                }
+            }
 
             // Create final embed
             const userBalance = await dbManager.getUserBalance(userId, guildId);
@@ -657,10 +721,12 @@ module.exports = {
                 resultMessage = `💰 **${game.cashedOut ? 'CASHED OUT' : 'PERFECT CLEAR'}!** You won ${fmt(regulatedPayout)} (${currentMultiplier.toFixed(2)}x)`;
             } else {
                 resultMessage = `💸 **GAME OVER!** Better luck next time.`;
-
+            }
+            
             // Add level up message if applicable
             if (levelUpMessage) {
                 resultMessage += levelUpMessage;
+            }
 
             // Get updated balance for play again buttons
             const updatedBalance = await dbManager.getUserBalance(userId, guildId);
@@ -682,7 +748,8 @@ module.exports = {
                     await interaction.editReply(finalData);
                 } else {
                     await interaction.update(finalData);
-
+                }
+                
                 logger.info(`Mines game successfully ended for user ${userId}`);
             } catch (interactionError) {
                 logger.error(`Failed to update interaction for mines endGame: ${interactionError.message}`);
@@ -691,9 +758,11 @@ module.exports = {
                 try {
                     if (!interaction.replied && !interaction.deferred) {
                         await interaction.reply(finalData);
-
+                    }
                 } catch (fallbackError) {
                     logger.error(`Failed fallback reply for mines endGame: ${fallbackError.message}`);
+                }
+            }
 
             // Complete session if game has one
             if (game.sessionId) {
@@ -703,7 +772,8 @@ module.exports = {
                     won: won,
                     finalMultiplier: currentMultiplier
                 });
-
+            }
+            
             // Clean up after interaction update (success or failure)
             activeGames.delete(game.sessionId);
 
@@ -718,7 +788,7 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error ending mines game: ${error.message}`);
-
+        }
     },
 
     /**
@@ -753,8 +823,10 @@ module.exports = {
                     await interaction.reply({ content: errorMessage, ephemeral: true });
                 } else {
                     await interaction.followUp({ content: errorMessage, ephemeral: true });
-
+                }
             } catch (replyError) {
                 logger.error(`Failed to send error message: ${replyError.message}`);
-
+            }
+        }
+    }
 };
