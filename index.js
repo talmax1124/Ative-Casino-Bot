@@ -2684,7 +2684,10 @@ client.on('messageCreate', async message => {
         const { messageRewardSystem } = require('./UTILS/messageRewardSystem');
         await messageRewardSystem.processMessage(message);
 
-                );
+    } catch (error) {
+        logger.error('Error in messageCreate handler:', error);
+    }
+});
 
 client.on('warn', async warning => {
     logger.warn('Discord client warning:', warning);
