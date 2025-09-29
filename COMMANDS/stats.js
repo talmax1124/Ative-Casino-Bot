@@ -38,17 +38,17 @@ module.exports = {
             switch (period) {
                 case 'hour':
                     const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-                    timeFilter = `WHERE created_at >= '${oneHourAgo.toISOString()}'`;
+                    timeFilter = `WHERE played_at >= '${oneHourAgo.toISOString()}'`;
                     timeDesc = 'Last Hour';
                     break;
                 case 'day':
                     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-                    timeFilter = `WHERE created_at >= '${oneDayAgo.toISOString()}'`;
+                    timeFilter = `WHERE played_at >= '${oneDayAgo.toISOString()}'`;
                     timeDesc = 'Last 24 Hours';
                     break;
                 case 'week':
                     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                    timeFilter = `WHERE created_at >= '${oneWeekAgo.toISOString()}'`;
+                    timeFilter = `WHERE played_at >= '${oneWeekAgo.toISOString()}'`;
                     timeDesc = 'Last Week';
                     break;
                 case 'all':

@@ -85,13 +85,13 @@ module.exports = {
                 .setDescription('Sell stocks')
                 .addStringOption(option =>
                     option.setName('symbol')
-                        .setDescription('Stock symbol (e.g., AAPL, MSFT)')
-                        .setRequired(true)
+                        .setDescription('Stock symbol (e.g., AAPL, MSFT) or type "select" to choose from dropdown')
+                        .setRequired(false)
                 )
                 .addIntegerOption(option =>
                     option.setName('shares')
                         .setDescription('Number of shares to sell')
-                        .setRequired(true)
+                        .setRequired(false)
                         .setMinValue(1)
                         .setMaxValue(100000)
                 )
@@ -457,16 +457,122 @@ module.exports = {
     },
 
     async handleSell(interaction, userId, guildId, marriage) {
-        const symbol = interaction.options.getString('symbol').toUpperCase();
+        const symbol = interaction.options.getString('symbol');
         const shares = interaction.options.getInteger('shares');
 
+        try {
+            // If no symbol provided, show owned stocks for selection
+            if (!symbol || symbol.toLowerCase() === 'select') {
+                const portfolio = await this.getMarriagePortfolio(marriage.id, guildId);
+                
+                if (!portfolio || portfolio.length === 0) {
+                    await interaction.editReply({
+                        content: '📊 **Empty Portfolio**\n\nYou don\'t own any stocks to sell. Use `/marriage-stocks buy` to purchase stocks first!'
+                    });
+                    return;
+                }
+
+                // Create dropdown with owned stocks
+                const { StringSelectMenuBuilder, ActionRowBuilder } = require('discord.js');
+                
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('stock_sell_select')
+                    .setPlaceholder('Select a stock to sell')
+                    .setMinValues(1)
+                    .setMaxValues(1);
+
+                for (const holding of portfolio) {
+                    const currentPrice = await this.getStockPrice(holding.symbol);
+                    const currentValue = currentPrice ? currentPrice.price * holding.shares : 0;
+                    const profit = currentValue - holding.total_invested;
+                    const profitPercent = holding.total_invested > 0 ? (profit / holding.total_invested) * 100 : 0;
+                    
+                    selectMenu.addOptions({
+                        label: `${holding.symbol} - ${holding.shares} shares`,
+                        description: `Current: $${currentPrice ? currentPrice.price.toFixed(2) : 'N/A'} | P/L: ${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(1)}%`,
+                        value: holding.symbol
+                    });
+                }
+
+                const row = new ActionRowBuilder().addComponents(selectMenu);
+
+                const portfolioEmbed = new EmbedBuilder()
+                    .setTitle('📊 Select Stock to Sell')
+                    .setDescription('Choose which stock you want to sell from your portfolio')
+                    .setColor(0xFFD700)
+                    .setFooter({ text: 'Select a stock from the dropdown below' });
+
+                const message = await interaction.editReply({ 
+                    embeds: [portfolioEmbed],
+                    components: [row]
+                });
+
+                // Wait for selection
+                try {
+                    const selectInteraction = await message.awaitMessageComponent({
+                        filter: (i) => i.user.id === userId && i.customId === 'stock_sell_select',
+                        time: 60000
+                    });
+
+                    const selectedSymbol = selectInteraction.values[0];
+                    
+                    // Defer the update
+                    await selectInteraction.deferUpdate();
+                    
+                    // Continue with sell process using selected symbol
+                    await this.processSellWithSymbol(interaction, userId, guildId, marriage, selectedSymbol, shares);
+                    
+                } catch (timeoutError) {
+                    await interaction.editReply({
+                        content: '⏰ Stock selection timed out. Please try again.',
+                        embeds: [],
+                        components: []
+                    });
+                }
+                
+                return;
+            }
+
+            // Continue with regular sell if symbol was provided
+            await this.processSellWithSymbol(interaction, userId, guildId, marriage, symbol.toUpperCase(), shares);
+
+        } catch (error) {
+            logger.error(`Error in stock sell: ${error.message}`);
+            await interaction.editReply({
+                content: '❌ Failed to process stock sale. Please try again later.'
+            });
+        }
+    }
+
+    async processSellWithSymbol(interaction, userId, guildId, marriage, symbol, shares) {
         try {
             // Check if marriage owns this stock
             const ownedShares = await this.getOwnedShares(marriage.id, symbol, guildId);
 
+            if (ownedShares === 0) {
+                await interaction.editReply({
+                    content: `❌ You don't own any shares of **${symbol}**.\n\nUse \`/marriage-stocks portfolio\` to view your holdings.`,
+                    embeds: [],
+                    components: []
+                });
+                return;
+            }
+
+            if (!shares) {
+                // Show how many shares they own and ask for amount
+                await interaction.editReply({
+                    content: `📊 You own **${ownedShares} shares** of **${symbol}**.\n\nPlease run the command again with the number of shares you want to sell:\n\`/marriage-stocks sell symbol:${symbol} shares:[amount]\``,
+                    embeds: [],
+                    components: []
+                });
+                return;
+            }
+
             if (ownedShares < shares) {
                 await interaction.editReply({
-                    content: `❌ Insufficient shares to sell.\n\n**You own:** ${ownedShares} shares of ${symbol}\n**Trying to sell:** ${shares} shares`
+                    content: `❌ Insufficient shares to sell.\n\n**You own:** ${ownedShares} shares of ${symbol}\n**Trying to sell:** ${shares} shares`,
+                    embeds: [],
+                    components: []
                 });
                 return;
             }
@@ -475,7 +581,9 @@ module.exports = {
 
             if (!stockData) {
                 await interaction.editReply({
-                    content: `❌ Could not get current price for **${symbol}**. Please try again later.`
+                    content: `❌ Could not get current price for **${symbol}**. Please try again later.`,
+                    embeds: [],
+                    components: []
                 });
                 return;
             }
@@ -490,7 +598,9 @@ module.exports = {
 
             if (!addResult.success) {
                 await interaction.editReply({
-                    content: `❌ Sale failed: ${addResult.error}`
+                    content: `❌ Sale failed: ${addResult.error}`,
+                    embeds: [],
+                    components: []
                 });
                 return;
             }
@@ -520,7 +630,10 @@ module.exports = {
                 .setTimestamp()
                 .setFooter({ text: '📊 ATIVE Casino Stock Trading' });
 
-            await interaction.editReply({ embeds: [successEmbed] });
+            await interaction.editReply({ 
+                embeds: [successEmbed],
+                components: []
+            });
 
             // Log the transaction
             await sendLogMessage(
@@ -532,9 +645,11 @@ module.exports = {
             );
 
         } catch (error) {
-            logger.error(`Error in stock sell: ${error.message}`);
+            logger.error(`Error in processSellWithSymbol: ${error.message}`);
             await interaction.editReply({
-                content: '❌ Failed to process stock sale. Please try again later.'
+                content: '❌ Failed to process stock sale. Please try again later.',
+                embeds: [],
+                components: []
             });
         }
     },
@@ -562,8 +677,8 @@ module.exports = {
                 totalValue += currentValue;
 
                 portfolioFields.push({
-                    name: `📈 ${holding.symbol}`,
-                    value: `**Shares:** ${holding.shares}\n**Avg Cost:** $${holding.avg_price.toFixed(2)}\n**Current:** $${currentPrice ? currentPrice.price.toFixed(2) : 'N/A'}\n**Value:** ${fmt(currentValue)}\n**P/L:** ${profit >= 0 ? '+' : ''}${fmt(profit)} (${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%)`,
+                    name: `📈 ${holding.symbol || 'Unknown'}`,
+                    value: `**Shares:** ${holding.shares}\n**Avg Cost:** $${holding.avg_price ? holding.avg_price.toFixed(2) : 'N/A'}\n**Current:** $${currentPrice ? currentPrice.price.toFixed(2) : 'N/A'}\n**Value:** ${fmt(currentValue)}\n**P/L:** ${profit >= 0 ? '+' : ''}${fmt(profit)} (${profitPercent >= 0 ? '+' : ''}${profitPercent.toFixed(2)}%)`,
                     inline: true
                 });
             }
@@ -733,12 +848,12 @@ module.exports = {
                     },
                     {
                         name: '📈 Best Performer',
-                        value: `**${bestPerformer.symbol}:** ${bestPerformer.profitPercent >= 0 ? '+' : ''}${bestPerformer.profitPercent.toFixed(2)}%\n${fmt(bestPerformer.profit)} profit`,
+                        value: `**${bestPerformer.symbol || 'Unknown'}:** ${bestPerformer.profitPercent >= 0 ? '+' : ''}${bestPerformer.profitPercent.toFixed(2)}%\n${fmt(bestPerformer.profit)} profit`,
                         inline: true
                     },
                     {
                         name: '📉 Worst Performer',
-                        value: `**${worstPerformer.symbol}:** ${worstPerformer.profitPercent >= 0 ? '+' : ''}${worstPerformer.profitPercent.toFixed(2)}%\n${fmt(worstPerformer.profit)} ${worstPerformer.profit >= 0 ? 'profit' : 'loss'}`,
+                        value: `**${worstPerformer.symbol || 'Unknown'}:** ${worstPerformer.profitPercent >= 0 ? '+' : ''}${worstPerformer.profitPercent.toFixed(2)}%\n${fmt(worstPerformer.profit)} ${worstPerformer.profit >= 0 ? 'profit' : 'loss'}`,
                         inline: true
                     },
                     {
@@ -1294,8 +1409,9 @@ module.exports = {
                     plugins: {
                         title: {
                             display: true,
-                            text: `${symbol} - $${stockData.price.toFixed(2)}`,
-                            color: '#fff'
+                            text: `${symbol || 'Stock'} - $${stockData.price ? stockData.price.toFixed(2) : 'N/A'}`,
+                            color: '#fff',
+                            font: { size: 14 }
                         },
                         legend: { display: false }
                     },
@@ -1360,10 +1476,10 @@ module.exports = {
                 })
             );
 
-            // Create simplified pie chart
-            const symbols = portfolioWithCurrentValues.map(h => h.symbol);
+            // Create simplified pie chart - ensure symbols are defined
+            const symbols = portfolioWithCurrentValues.map(h => h.symbol || 'Unknown');
             const values = portfolioWithCurrentValues.map(h => h.currentValue);
-            const colors = ['#f00', '#0f0', '#00f', '#ff0', '#f0f', '#0ff', '#ffa500', '#800080'];
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f7dc6f', '#bb8fce', '#85c1e2', '#f8b739', '#a569bd'];
 
             const config = {
                 type: 'doughnut',
@@ -1414,57 +1530,111 @@ module.exports = {
             if (!portfolio || portfolio.length === 0) return null;
 
             const chart = new QuickChart();
-            chart.setWidth(500); // Reduced size
-            chart.setHeight(300); // Reduced size
+            chart.setWidth(600);
+            chart.setHeight(400);
             chart.setBackgroundColor('#2c2f33');
 
-            // Calculate P&L for each holding (limit to 6 holdings)
+            // Calculate comprehensive P&L data for all holdings
             const profitLossData = await Promise.all(
-                portfolio.slice(0, 6).map(async holding => {
+                portfolio.map(async holding => {
                     const currentPrice = await this.getStockPrice(holding.symbol);
                     const currentValue = currentPrice ? currentPrice.price * holding.shares : 0;
-                    const profit = Math.round(currentValue - holding.total_invested);
+                    const profit = currentValue - holding.total_invested;
+                    const profitPercent = holding.total_invested > 0 ? (profit / holding.total_invested) * 100 : 0;
                     
                     return {
                         symbol: holding.symbol,
-                        profit
+                        profit: Math.round(profit),
+                        profitPercent: profitPercent.toFixed(2),
+                        currentValue: Math.round(currentValue),
+                        invested: Math.round(holding.total_invested),
+                        shares: holding.shares,
+                        avgPrice: holding.avg_price.toFixed(2),
+                        currentPrice: currentPrice ? currentPrice.price.toFixed(2) : 'N/A'
                     };
                 })
             );
 
-            const symbols = profitLossData.map(p => p.symbol);
-            const profits = profitLossData.map(p => p.profit);
-            const colors = profits.map(p => p >= 0 ? '#0f0' : '#f00');
+            // Sort by profit descending
+            profitLossData.sort((a, b) => b.profit - a.profit);
+
+            // Take top performers and bottom performers
+            const topPerformers = profitLossData.slice(0, 4);
+            const bottomPerformers = profitLossData.slice(-2).filter(p => p.profit < 0);
+            const displayData = [...topPerformers, ...bottomPerformers].filter((v, i, a) => a.findIndex(t => t.symbol === v.symbol) === i);
+
+            const symbols = displayData.map(p => p.symbol || 'Unknown');
+            const profits = displayData.map(p => p.profit);
+            const profitPercents = displayData.map(p => p.profitPercent);
+            const colors = profits.map(p => p >= 0 ? 'rgba(0,255,0,0.7)' : 'rgba(255,0,0,0.7)');
+            const borderColors = profits.map(p => p >= 0 ? '#00ff00' : '#ff0000');
 
             const config = {
                 type: 'bar',
                 data: {
                     labels: symbols,
                     datasets: [{
+                        label: 'Profit/Loss ($)',
                         data: profits,
                         backgroundColor: colors,
-                        borderWidth: 1
+                        borderColor: borderColors,
+                        borderWidth: 2
                     }]
                 },
                 options: {
+                    responsive: true,
                     plugins: {
                         title: {
                             display: true,
-                            text: 'Profit/Loss',
-                            color: '#fff'
+                            text: 'Portfolio Profit/Loss Analysis',
+                            color: '#fff',
+                            font: { size: 16 }
                         },
-                        legend: { display: false }
+                        legend: { 
+                            display: true,
+                            labels: { color: '#fff' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: function(context) {
+                                    const index = context.dataIndex;
+                                    const data = displayData[index];
+                                    return [
+                                        `Percent: ${data.profitPercent}%`,
+                                        `Shares: ${data.shares}`,
+                                        `Avg: $${data.avgPrice}`,
+                                        `Current: $${data.currentPrice}`
+                                    ];
+                                }
+                            }
+                        },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            color: '#fff',
+                            font: { size: 10 },
+                            formatter: function(value, context) {
+                                const percent = profitPercents[context.dataIndex];
+                                return `${percent}%`;
+                            }
+                        }
                     },
                     scales: {
                         x: {
                             grid: { color: '#444' },
-                            ticks: { color: '#fff' }
+                            ticks: { 
+                                color: '#fff',
+                                font: { size: 11 }
+                            }
                         },
                         y: {
                             grid: { color: '#444' },
                             ticks: { 
                                 color: '#fff',
                                 callback: function(value) { 
+                                    if (value >= 1000 || value <= -1000) {
+                                        return '$' + (value/1000).toFixed(1) + 'k';
+                                    }
                                     return '$' + value; 
                                 }
                             }
@@ -1477,9 +1647,17 @@ module.exports = {
             const url = chart.getUrl();
             
             // Check URL length
-            if (url.length > 2000) {
-                logger.warn(`P&L chart URL too long (${url.length} chars), skipping`);
-                return null;
+            if (url.length > 2048) {
+                // Simplify if too long
+                delete config.options.plugins.datalabels;
+                delete config.options.plugins.tooltip;
+                chart.setConfig(config);
+                const simpleUrl = chart.getUrl();
+                if (simpleUrl.length > 2048) {
+                    logger.warn(`P&L chart URL still too long (${simpleUrl.length} chars), skipping`);
+                    return null;
+                }
+                return simpleUrl;
             }
             
             return url;

@@ -4345,6 +4345,40 @@ class DatabaseAdapter {
     }
 
     /**
+     * Add money to shared bank account (e.g. from stock sales)
+     */
+    async addToSharedBank(userId, guildId, amount) {
+        try {
+            // Get user's marriage
+            const marriageData = await this.getUserMarriage(userId, guildId);
+            if (!marriageData.married) {
+                return { success: false, error: 'User is not married' };
+            }
+
+            // Update shared bank balance
+            await this.pool.execute(
+                'UPDATE marriages SET shared_bank = shared_bank + ? WHERE id = ? AND status = ?',
+                [amount, marriageData.marriage.id, 'active']
+            );
+
+            // Get updated balance
+            const [updatedMarriage] = await this.pool.execute(
+                'SELECT shared_bank FROM marriages WHERE id = ?',
+                [marriageData.marriage.id]
+            );
+
+            return { 
+                success: true, 
+                newSharedBalance: updatedMarriage[0].shared_bank 
+            };
+
+        } catch (error) {
+            logger.error(`Error adding to shared bank: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
      * Withdraw money from shared bank account
      */
     async withdrawFromSharedBank(userId, guildId, amount) {

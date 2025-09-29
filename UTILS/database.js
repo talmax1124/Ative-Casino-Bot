@@ -1683,6 +1683,16 @@ class DatabaseManager {
     }
 
     /**
+     * Add money to shared bank
+     */
+    async addToSharedBank(userId, guildId, amount) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.addToSharedBank(userId, guildId, amount);
+        }
+        return { success: false, error: 'Database not available' };
+    }
+
+    /**
      * Withdraw money from shared bank
      */
     async withdrawFromSharedBank(userId, guildId, amount) {
