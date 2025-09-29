@@ -1158,7 +1158,7 @@ class ScratchTicketSystem {
                 .setTitle(title)
                 .setDescription(`**Ticket ID:** ${ticket.id}\n**Progress:** ${scratchedPositions.length}/9 scratched\n\nClick the buttons below to scratch and reveal symbols!`)
                 .setColor(0x00FF99)
-                .addFields(fields);
+                .addFields(fields)
                 .setFooter({ text: '🍀 Good luck scratching!' })
                 .setTimestamp();
 
