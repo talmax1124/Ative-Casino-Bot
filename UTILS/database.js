@@ -250,8 +250,8 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async updateUserBalance(userId, guildId = null, walletChange = 0, bankChange = 0, kwargs = {}) {
-        // Check for play-for context and redirect winnings
-        if (kwargs.playFor && walletChange > 0) {
+        // Check for play-for context and redirect winnings (but exclude level rewards and other non-game payouts)
+        if (kwargs.playFor && walletChange > 0 && !kwargs.excludeFromPlayfor) {
             logger.info(`PlayFor: Redirecting ${walletChange} from ${userId} to ${kwargs.playFor.recipientId}`);
             logger.info(`PlayFor: Global context exists: ${!!global.playForContext}, Client exists: ${!!global.discordClient}`);
             
