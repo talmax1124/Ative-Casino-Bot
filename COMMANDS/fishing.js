@@ -127,11 +127,21 @@ module.exports = {
             const fishingGame = startFishingGame(userId, username, betAmount, validation.newWallet);
             fishingGame.sessionId = sessionResult.sessionId; // Store session ID for completion
 
+            // Get playFor context if exists
+            const playForRecipient = global.playForContext?.recipientName;
+            const playingForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+            
+            // Store playFor context in game instance
+            if (playingForSomeoneElse) {
+                fishingGame.playForRecipient = playForRecipient;
+                fishingGame.playForRecipientId = global.playForContext.recipientId;
+            }
+
             // Get current balance for bank amount in embed
             const balance = await dbManager.getUserBalance(userId, guildId);
             
             // Create initial embed and buttons
-            const initialEmbed = fishingGame.getInitialEmbed(balance.bank);
+            const initialEmbed = fishingGame.getInitialEmbed(balance.bank, playForRecipient);
             const buttons = fishingGame.createButtons();
 
             // Send initial message
@@ -242,9 +252,9 @@ module.exports = {
             const endType = result.lostToRedFish ? 'red' : 
                           result.reachedLimit ? 'limit' : 'stop';
 
-            // Check if this is a playfor game
-            const playForRecipient = global.playForContext?.recipientName;
-            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+            // Check if this is a playfor game from the game instance
+            const playForRecipient = game.playForRecipient;
+            const winningForSomeoneElse = playForRecipient && game.playForRecipientId;
 
             // Log game completion
             let logMessage = `🎣 **Fishing Game Completed**\n` +

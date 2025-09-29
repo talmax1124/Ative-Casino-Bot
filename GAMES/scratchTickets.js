@@ -1117,27 +1117,48 @@ class ScratchTicketSystem {
                 scratchedPositions = [];
             }
             
+            // Check if this is a playfor game
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+            
+            const title = winningForSomeoneElse ? 
+                `🎫 ${user.displayName}'s Scratch Ticket (for @${playForRecipient})` : 
+                `🎫 ${user.displayName}'s Scratch Ticket`;
+                
+            const fields = [];
+            
+            // Add Playing For field if applicable
+            if (winningForSomeoneElse) {
+                fields.push({
+                    name: '🎁 Playing For',
+                    value: `@${playForRecipient}`,
+                    inline: false
+                });
+            }
+            
+            fields.push(
+                {
+                    name: '🎯 Goal',
+                    value: 'Find 3 matching symbols to win!',
+                    inline: true
+                },
+                {
+                    name: '💰 Prizes',
+                    value: '$150K • $250K • $400K',
+                    inline: true
+                },
+                {
+                    name: '⏰ Time Left',
+                    value: 'Up to 10 minutes',
+                    inline: true
+                }
+            );
+                
             const embed = new EmbedBuilder()
-                .setTitle(`🎫 ${user.displayName}'s Scratch Ticket`)
+                .setTitle(title)
                 .setDescription(`**Ticket ID:** ${ticket.id}\n**Progress:** ${scratchedPositions.length}/9 scratched\n\nClick the buttons below to scratch and reveal symbols!`)
                 .setColor(0x00FF99)
-                .addFields([
-                    {
-                        name: '🎯 Goal',
-                        value: 'Find 3 matching symbols to win!',
-                        inline: true
-                    },
-                    {
-                        name: '💰 Prizes',
-                        value: '$150K • $250K • $400K',
-                        inline: true
-                    },
-                    {
-                        name: '⏰ Time Left',
-                        value: 'Up to 10 minutes',
-                        inline: true
-                    }
-                ])
+                .addFields(fields);
                 .setFooter({ text: '🍀 Good luck scratching!' })
                 .setTimestamp();
 

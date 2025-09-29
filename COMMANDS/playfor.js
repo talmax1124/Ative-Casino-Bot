@@ -19,7 +19,6 @@ const SUPPORTED_GAMES = {
     'keno': 'keno',
     'mines': 'mines',
     'multi-slots': 'multi-slots',
-    'scratch': 'scratch',
     'yahtzee': 'yahtzee',
     'fishing': 'fishing',
     'treasurevault': 'treasurevault'
@@ -144,17 +143,6 @@ module.exports = {
         .addSubcommand(subcommand =>
             subcommand.setName('multi-slots')
                 .setDescription('🎰 Play multi-slots for someone else')
-                .addUserOption(option =>
-                    option.setName('recipient')
-                        .setDescription('Who will receive the winnings')
-                        .setRequired(true))
-                .addStringOption(option =>
-                    option.setName('amount')
-                        .setDescription('Amount to bet (supports K/M/B/T, "all", "half", "quarter")')
-                        .setRequired(true)))
-        .addSubcommand(subcommand =>
-            subcommand.setName('scratch')
-                .setDescription('🎫 Play scratch for someone else')
                 .addUserOption(option =>
                     option.setName('recipient')
                         .setDescription('Who will receive the winnings')
@@ -350,7 +338,8 @@ module.exports = {
                 ...interaction,
                 user: {
                     ...interaction.user,
-                    id: playerId // Use player's ID for balance operations
+                    id: playerId, // Use player's ID for balance operations
+                    displayName: interaction.user.displayName || interaction.user.globalName || interaction.user.username // Preserve display name
                 },
                 member: {
                     ...interaction.member,

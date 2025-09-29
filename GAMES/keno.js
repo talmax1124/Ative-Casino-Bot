@@ -94,20 +94,39 @@ class KenoGame {
      * Create number selection embed
      */
     createSelectionEmbed() {
+        // Check for playfor context
+        const playForRecipient = global.playForContext?.recipientName;
+        const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+        
+        const topFields = [];
+        
+        // Add Playing For field if applicable
+        if (winningForSomeoneElse) {
+            topFields.push({
+                name: '🎁 Playing For',
+                value: `@${playForRecipient}`,
+                inline: false
+            });
+        }
+        
+        topFields.push(
+            {
+                name: '🎯 SELECT YOUR NUMBERS',
+                value: `**Spots to Pick:** ${this.spots}\n**Selected:** ${this.selectedNumbers.length}/${this.spots}\n**Numbers:** ${this.selectedNumbers.length > 0 ? this.selectedNumbers.sort((a,b) => a-b).join(', ') : 'None yet'}`,
+                inline: false
+            },
+            {
+                name: '💰 BET INFO',
+                value: `**Bet Amount:** ${fmt(this.betAmount)}\n**Max Payout:** ${fmt(this.betAmount * this.getMaxMultiplier())}x`,
+                inline: false
+            }
+        );
+        
+        const title = winningForSomeoneElse ? `🎲 KENO - NUMBER SELECTION (for @${playForRecipient})` : `🎲 KENO - NUMBER SELECTION`;
+        
         return buildSessionEmbed({
-            title: `🎲 KENO - NUMBER SELECTION`,
-            topFields: [
-                {
-                    name: '🎯 SELECT YOUR NUMBERS',
-                    value: `**Spots to Pick:** ${this.spots}\n**Selected:** ${this.selectedNumbers.length}/${this.spots}\n**Numbers:** ${this.selectedNumbers.length > 0 ? this.selectedNumbers.sort((a,b) => a-b).join(', ') : 'None yet'}`,
-                    inline: false
-                },
-                {
-                    name: '💰 BET INFO',
-                    value: `**Bet Amount:** ${fmt(this.betAmount)}\n**Max Payout:** ${fmt(this.betAmount * this.getMaxMultiplier())}x`,
-                    inline: false
-                }
-            ],
+            title,
+            topFields,
             stageText: 'PICK YOUR LUCKY NUMBERS',
             color: 0x4169E1,
             footer: 'Select numbers from the buttons below'

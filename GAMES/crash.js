@@ -315,6 +315,15 @@ class OptimizedCrashGame {
       .setFooter({ text: this.ownerUsername ? 'Personal Crash Game • Others can start their own!' : 'Crash Game' })
       .setTimestamp();
 
+    // Add Playing For field if applicable
+    if (winningForSomeoneElse) {
+      embed.addFields([{
+        name: '🎁 Playing For',
+        value: `@${playForRecipient}`,
+        inline: true
+      }]);
+    }
+
     // Add player list
     if (this.players.size > 0) {
       const playerList = Array.from(this.players.entries())

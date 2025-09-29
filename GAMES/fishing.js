@@ -448,8 +448,19 @@ class FishingGame {
     /**
      * Get initial game embed using gameSessionKit
      */
-    getInitialEmbed(bankBalance) {
-        const topFields = [
+    getInitialEmbed(bankBalance, playForRecipient = null) {
+        const topFields = [];
+        
+        // Add playFor field if playing for someone else
+        if (playForRecipient) {
+            topFields.push({
+                name: '🎁 Playing For',
+                value: `@${playForRecipient}`,
+                inline: false
+            });
+        }
+        
+        topFields.push(
             {
                 name: '🎣 FISHING ADVENTURE BEGINS',
                 value: `${this.username} casts their line into the water...`,
@@ -464,7 +475,7 @@ class FishingGame {
                        '🦈 **Red Fish** (7%): 🔥 LOSE ALL',
                 inline: false
             }
-        ];
+        );
 
         const bankFields = [
             { name: 'Bait Cost', value: fmt(this.initialBet), inline: true },
@@ -475,7 +486,7 @@ class FishingGame {
         ];
 
         return buildSessionEmbed({
-            title: `🎣 ${this.username}'s Fishing`,
+            title: playForRecipient ? `🎣 ${this.username}'s Fishing (for @${playForRecipient})` : `🎣 ${this.username}'s Fishing`,
             topFields,
             bankFields,
             stageText: 'READY TO FISH',
