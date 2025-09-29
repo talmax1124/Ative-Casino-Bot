@@ -16,6 +16,7 @@ const {
 } = require('./slots');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
 // Active bonus games storage
 const activeBonusGames = new Map();
@@ -274,6 +275,21 @@ async function handleBuffaloBonusSpin(interaction) {
         // If bonus won, add to user balance
         if (result.won) {
             await dbManager.updateUserBalance(userId, bonusSession.guildId, result.payout, 0);
+        }
+
+        // Log bonus spin result with comprehensive logger
+        try {
+            await comprehensiveLogger.logGame(userId, interaction.user.displayName || 'Player', 'multi-slots-bonus', result.won ? 'BONUS_WIN' : 'BONUS_SPIN', {
+                bonusBetAmount: bonusSession.bonusBetAmount,
+                payout: result.payout,
+                multiplier: result.multiplier,
+                matrix: result.symbols,
+                spinsLeft: bonusSession.spinsLeft,
+                totalBonusWinnings: bonusSession.totalBonusWinnings,
+                playForRecipient: global.playForContext?.recipientName || null
+            });
+        } catch (logError) {
+            logger.warn(`Failed to log buffalo bonus spin with comprehensive logger: ${logError.message}`);
         }
 
         // Get updated balance

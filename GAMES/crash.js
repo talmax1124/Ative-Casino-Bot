@@ -232,7 +232,7 @@ class OptimizedCrashGame {
     player.winnings = Math.floor(player.bet * this.currentMultiplier);
     
     // Comprehensive logging for cashout
-    comprehensiveLogger.logGame(userId, player.username, 'crash', 'CASH_OUT', {
+    comprehensiveLogger.logGame(userId, player.username || 'Player', 'crash', 'CASH_OUT', {
       betAmount: player.bet,
       multiplier: this.currentMultiplier,
       winnings: player.winnings,
@@ -459,7 +459,7 @@ class OptimizedCrashGame {
         const netChange = won ? (player.winnings - player.bet) : -player.bet;
         
         // Comprehensive logging for each player outcome
-        await comprehensiveLogger.logGame(userId, player.username, 'crash', won ? 'WIN' : 'LOSS', {
+        await comprehensiveLogger.logGame(userId, player.username || 'Player', 'crash', won ? 'WIN' : 'LOSS', {
           betAmount: player.bet,
           payout: payout,
           netChange: netChange,
@@ -865,7 +865,7 @@ async function handleModalSubmit(interaction, client, game) {
     const dynamicMaxBet = maxBetConfig.maxBet;
     
     // Log comprehensive betting attempt
-    await comprehensiveLogger.logGame(userId, username, 'crash', 'BET_ATTEMPT', {
+    await comprehensiveLogger.logGame(userId, username || 'Player', 'crash', 'BET_ATTEMPT', {
       betAmount: betAmount,
       maxBetAllowed: dynamicMaxBet,
       userCapped: maxBetConfig.userCapped,

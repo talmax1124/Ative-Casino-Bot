@@ -21,6 +21,7 @@ const {
 const dbManager = require('../UTILS/database');
 const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
 // PROGRESSIVE DIFFICULTY MODES
 const MULTI_SLOTS_MODES = {
@@ -81,6 +82,7 @@ module.exports = {
 
     async execute(interaction) {
         const userId = interaction.user.id;
+        const username = interaction.user.displayName || 'Player';
         const amount = interaction.options.getString('amount');
         const selectedMode = interaction.options.getString('mode') || 'balanced';
         const guildId = await getGuildId(interaction);
@@ -104,7 +106,7 @@ module.exports = {
                 return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
             // Ensure user exists and get balance
-            await dbManager.ensureUser(userId, interaction.user.displayName);
+            await dbManager.ensureUser(userId, username);
             const userBalance = await dbManager.getUserBalance(userId, guildId);
 
             // Validate and deduct bet with special matrix requirements
@@ -340,6 +342,21 @@ module.exports = {
             // Log significant wins
             if (result.won && result.multiplier >= 50) {
                 logger.info(`Big matrix slots win: ${interaction.user.tag} (${userId}) won ${fmt(result.payout)} with ${result.multiplier}x multiplier`);
+            }
+
+            // Log game result with comprehensive logger
+            try {
+                await comprehensiveLogger.logGame(userId, username || 'Player', 'multi-slots', result.won ? 'WIN' : 'LOSS', {
+                    betAmount,
+                    payout: result.payout,
+                    multiplier: result.multiplier,
+                    matrix: result.symbols,
+                    mode: selectedMode,
+                    buffaloBonus: buffaloBonus || false,
+                    playForRecipient: global.playForContext?.recipientName || null
+                });
+            } catch (logError) {
+                logger.warn(`Failed to log multi-slots game with comprehensive logger: ${logError.message}`);
             }
 
             // Complete session (payout already processed via PayoutManager above)

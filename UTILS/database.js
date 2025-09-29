@@ -255,22 +255,38 @@ class DatabaseManager {
             logger.info(`PlayFor: Redirecting ${walletChange} from ${userId} to ${kwargs.playFor.recipientId}`);
             logger.info(`PlayFor: Global context exists: ${!!global.playForContext}, Client exists: ${!!global.discordClient}`);
             
+            // Check if we've already sent a notification for this playfor session to prevent duplicates
+            // Use timestamp to make the key unique per game session (new timestamp each time playfor context is set)
+            const sessionTimestamp = global.playForContext?.sessionTimestamp || Date.now();
+            const notificationKey = `playfor_${global.playForContext?.channelId}_${global.playForContext?.recipientId}_${userId}_${sessionTimestamp}`;
+            if (!global.playForNotificationSent) {
+                global.playForNotificationSent = new Set();
+            }
+            
             // Get recipient's balance BEFORE giving them the winnings
             const recipientBalanceBefore = await this.getUserBalance(kwargs.playFor.recipientId, guildId);
             
             // Give the winnings to the recipient instead
             const result = await this.updateUserBalance(kwargs.playFor.recipientId, guildId, walletChange, bankChange, { ...kwargs, playFor: null });
             
-            // Send DM notification and channel mention if payout was successful
-            if (result && global.playForContext) {
+            // Send DM notification and channel mention if payout was successful (only once per session)
+            if (result && global.playForContext && !global.playForNotificationSent.has(notificationKey)) {
+                // Mark this session as notified
+                global.playForNotificationSent.add(notificationKey);
+                
+                // Clean up old notifications (keep only last 100 to prevent memory leaks)
+                if (global.playForNotificationSent.size > 100) {
+                    const entries = Array.from(global.playForNotificationSent);
+                    global.playForNotificationSent = new Set(entries.slice(-50));
+                }
                 try {
                     const { formatMoney } = require('./moneyFormatter');
                     
                     // Get the bot client and recipient balance info
                     if (global.discordClient) {
                         const recipient = await global.discordClient.users.fetch(kwargs.playFor.recipientId);
-                        const playerName = global.playForContext.playerName || 'Someone';
-                        const gameName = global.playForContext.game || 'a game';
+                        const playerName = global.playForContext?.playerName || kwargs.playFor?.recipientName || 'Someone';
+                        const gameName = global.playForContext?.game || 'a game';
                         
                         // Use the balance we captured before the payout
                         const previousBalance = recipientBalanceBefore.wallet;

@@ -763,11 +763,14 @@ module.exports = {
             // Get updated balance for play again buttons
             const updatedBalance = await dbManager.getUserBalance(userId, guildId);
             
+            // Check if this is a playfor game - disable buttons if so
+            const isPlayforGame = global.playForContext?.recipientId;
+            
             // Enhanced interaction update with validation
             const finalData = {
                 content: resultMessage,
                 embeds: [finalEmbed],
-                components: GamePanel.createGameButtons({ 
+                components: isPlayforGame ? [] : GamePanel.createGameButtons({ 
                     actions: ['play_again_multi', 'quit'],
                     lastBet: game.betAmount,
                     balance: updatedBalance.wallet,

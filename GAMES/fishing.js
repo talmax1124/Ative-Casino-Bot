@@ -145,7 +145,7 @@ class FishingGame {
             this.fishCaught.push(`${fishData.emoji} ${fishData.name} (🔥 DOOM!)`);
             
             // Comprehensive logging for red fish catch
-            comprehensiveLogger.logGame(this.userId, this.username, 'fishing', 'RED_FISH_CAUGHT', {
+            comprehensiveLogger.logGame(this.userId, this.username || 'Player', 'fishing', 'RED_FISH_CAUGHT', {
                 totalCatches: this.totalCatches,
                 oldWinnings: oldWinnings,
                 lostAmount: oldWinnings,
@@ -173,7 +173,7 @@ class FishingGame {
         this.fishCaught.push(`${fishData.emoji} ${fishData.name} (${multiplier.toFixed(2)}x)`);
 
         // Comprehensive logging for successful fish catch
-        comprehensiveLogger.logGame(this.userId, this.username, 'fishing', 'FISH_CAUGHT', {
+        comprehensiveLogger.logGame(this.userId, this.username || 'Player', 'fishing', 'FISH_CAUGHT', {
             totalCatches: this.totalCatches,
             fishType: fishType,
             multiplier: multiplier,
@@ -190,7 +190,7 @@ class FishingGame {
             this.gameEnded = true;
             
             // Comprehensive logging for reaching fishing limit
-            comprehensiveLogger.logGame(this.userId, this.username, 'fishing', 'CATCH_LIMIT_REACHED', {
+            comprehensiveLogger.logGame(this.userId, this.username || 'Player', 'fishing', 'CATCH_LIMIT_REACHED', {
                 totalCatches: this.totalCatches,
                 maxCatches: this.maxCatches,
                 finalWinnings: this.currentWinnings,

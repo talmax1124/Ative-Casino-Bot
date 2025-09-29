@@ -427,7 +427,7 @@ class BingoGameSession {
                 const netChange = isWinner ? (prizePerWinner - this.starterBet) : -this.starterBet;
                 
                 // Comprehensive logging for each player's result
-                await comprehensiveLogger.logGame(player.userId, player.username, 'bingo', 
+                await comprehensiveLogger.logGame(player.userId, player.username || 'Player', 'bingo', 
                     isWinner ? 'WIN' : 'LOSS', {
                     betAmount: this.starterBet,
                     payout: isWinner ? prizePerWinner : 0,

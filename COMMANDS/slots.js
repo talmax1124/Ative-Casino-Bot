@@ -15,6 +15,7 @@ const logger = require('../UTILS/logger');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 // EconomyGuardianInterface removed - using bulletproof economy
 const tuningManager = require('../UTILS/tuningManager');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
 // SLOTS DIFFICULTY MODES - Progressive risk/reward system
 const SLOTS_MODES = {
@@ -165,7 +166,7 @@ module.exports = {
 
     async execute(interaction) {
         const userId = interaction.user.id;
-        const username = interaction.user.displayName;
+        const username = interaction.user.displayName || 'Player';
         const amount = interaction.options.getString('amount');
         const mode = interaction.options.getString('mode') || 'balanced'; // Default to balanced mode
         const guildId = await getGuildId(interaction);
@@ -557,6 +558,20 @@ module.exports = {
             // Log significant wins
             if (result.won && result.multiplier >= 50) {
                 logger.info(`Big slots win: ${interaction.user.tag} (${userId}) won ${fmt(result.payout)} with ${result.multiplier}x multiplier`);
+            }
+
+            // Log game result with comprehensive logger
+            try {
+                await comprehensiveLogger.logGame(userId, username || 'Player', 'slots', result.won ? 'WIN' : 'LOSS', {
+                    betAmount,
+                    payout: result.payout,
+                    multiplier: result.multiplier,
+                    symbols: symbols,
+                    mode: mode,
+                    playForRecipient: global.playForContext?.recipientName || null
+                });
+            } catch (logError) {
+                logger.warn(`Failed to log slots game with comprehensive logger: ${logError.message}`);
             }
 
             // Log AI transaction result for audit

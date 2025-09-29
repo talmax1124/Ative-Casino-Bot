@@ -222,23 +222,28 @@ function createActionButtons(game) {
     const rows = [];
 
     if (game.gameEnded) {
-        // Game over buttons
-        const row = new ActionRowBuilder();
+        // Check if this is a playfor game - disable play again if so
+        const isPlayforGame = global.playForContext?.recipientId;
         
-        row.addComponents(
-            new ButtonBuilder()
-                .setCustomId('yahtzee_play_again')
-                .setLabel('Play Again')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('🔄'),
-            new ButtonBuilder()
-                .setCustomId('yahtzee_quit')
-                .setLabel('Quit')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('❌')
-        );
-        
-        rows.push(row);
+        if (!isPlayforGame) {
+            // Game over buttons (only show if not playfor game)
+            const row = new ActionRowBuilder();
+            
+            row.addComponents(
+                new ButtonBuilder()
+                    .setCustomId('yahtzee_play_again')
+                    .setLabel('Play Again')
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji('🔄'),
+                new ButtonBuilder()
+                    .setCustomId('yahtzee_quit')
+                    .setLabel('Quit')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setEmoji('❌')
+            );
+            
+            rows.push(row);
+        }
     } else {
         // Roll dice button
         if (gameState.rollsLeft > 0) {

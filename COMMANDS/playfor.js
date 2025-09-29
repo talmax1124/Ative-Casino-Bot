@@ -224,8 +224,8 @@ module.exports = {
             }
 
             // Ensure both users exist in the database
-            await dbManager.ensureUser(userId, interaction.user.username);
-            await dbManager.ensureUser(recipient.id, recipient.username);
+            await dbManager.ensureUser(userId, interaction.user.displayName || interaction.user.globalName || 'Player');
+            await dbManager.ensureUser(recipient.id, recipient.displayName || recipient.globalName || recipient.username || 'Recipient');
 
             // Get player balance and validate bet
             const playerBalance = await dbManager.getUserBalance(userId, guildId);
@@ -328,12 +328,13 @@ module.exports = {
             // Store play-for context globally for the session manager to pick up
             global.playForContext = {
                 recipientId: recipient.id,
-                recipientName: recipient.username,
+                recipientName: recipient.displayName || recipient.globalName || recipient.username || 'Recipient',
                 playerId: playerId,
-                playerName: interaction.user.displayName,
+                playerName: interaction.user.displayName || interaction.user.globalName || 'Player',
                 bet: bet,
                 game: game,
-                channelId: interaction.channelId
+                channelId: interaction.channelId,
+                sessionTimestamp: Date.now() // Unique identifier for this playfor session
             };
             
             // Store Discord client for DM notifications

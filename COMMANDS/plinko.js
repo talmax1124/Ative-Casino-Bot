@@ -169,12 +169,26 @@ module.exports = {
             };
 
             // Show initial game setup with help info
+            const topFields = [
+                { name: '🎮 Game Starting!', value: `Preparing your plinko board...\n\n**Mode:** ${modeData.name}\n**Drop Slot:** Random\n**Bet:** ${fmtFull(betAmount)}` },
+                { name: '❓ How to Play', value: '• Ball drops from a random starting position\n• Bounces randomly down the pegs\n• Lands in a multiplier slot at bottom\n• Win = Bet × Multiplier', inline: false }
+            ];
+            
+            // Check if this is a playfor game
+            const playForRecipient = global.playForContext?.recipientName;
+            const playingForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+            
+            if (playingForSomeoneElse) {
+                topFields.splice(1, 0, {
+                    name: '🎁 Playing For',
+                    value: `@${playForRecipient}`,
+                    inline: true
+                });
+            }
+            
             const setupEmbed = buildSessionEmbed({
                 title: `🎯 ${username}'s ${selectedMode} Plinko`,
-                topFields: [
-                    { name: '🎮 Game Starting!', value: `Preparing your plinko board...\n\n**Mode:** ${modeData.name}\n**Drop Slot:** Random\n**Bet:** ${fmtFull(betAmount)}` },
-                    { name: '❓ How to Play', value: '• Ball drops from a random starting position\n• Bounces randomly down the pegs\n• Lands in a multiplier slot at bottom\n• Win = Bet × Multiplier', inline: false }
-                ],
+                topFields,
                 bankFields: [
                     { name: 'Difficulty Modes', value: '🟢 Easy: Safe multipliers\n🟡 Medium: Balanced risk\n🔴 Hard: High risk/reward\n💀 Nightmare: Extreme variance', inline: true }
                 ],
@@ -324,11 +338,25 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
         ));
 
         // Show ball drop starting
+        const topFields = [
+            { name: 'Ball Released!', value: `🔴 Ball dropped from random position!\nWatch it bounce through the pegs...` }
+        ];
+        
+        // Check if this is a playfor game
+        const playForRecipient = global.playForContext?.recipientName;
+        const playingForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+        
+        if (playingForSomeoneElse) {
+            topFields.splice(0, 0, {
+                name: '🎁 Playing For',
+                value: `@${playForRecipient}`,
+                inline: true
+            });
+        }
+        
         let embed = buildSessionEmbed({
             title: `🎯 ${username}'s ${mode} Plinko`,
-            topFields: [
-                { name: 'Ball Released!', value: `🔴 Ball dropped from random position!\nWatch it bounce through the pegs...` }
-            ],
+            topFields,
             stageText: 'BALL DROPPING',
             color: modeColors[mode] || 0x00FF00,
             footer: 'Plinko • Ball in motion!'
@@ -343,11 +371,21 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
         for (let i = 1; i < animationFrames.length - 1; i++) {
             await new Promise(resolve => setTimeout(resolve, 500)); // Shorter delay for smoother animation
 
+            const frameTopFields = [
+                { name: 'Ball Bouncing', value: `⚡ Ball bouncing through pegs...\nRow ${Math.min(i, rows)}/${rows}` }
+            ];
+            
+            if (playingForSomeoneElse) {
+                frameTopFields.splice(0, 0, {
+                    name: '🎁 Playing For',
+                    value: `@${playForRecipient}`,
+                    inline: true
+                });
+            }
+
             const frameEmbed = buildSessionEmbed({
                 title: `🎯 ${username}'s ${mode} Plinko`,
-                topFields: [
-                    { name: 'Ball Bouncing', value: `⚡ Ball bouncing through pegs...\nRow ${Math.min(i, rows)}/${rows}` }
-                ],
+                topFields: frameTopFields,
                 stageText: 'BALL BOUNCING',
                 color: modeColors[mode] || 0x00FF00,
                 footer: 'Plinko • Almost there!',

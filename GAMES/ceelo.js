@@ -353,7 +353,7 @@ class CeeloGame {
             const netChange = won ? (this.payout - this.betAmount) : tie ? 0 : -this.betAmount;
             
             // Comprehensive logging for game result
-            await comprehensiveLogger.logGame(this.userId, this.username, 'ceelo', 
+            await comprehensiveLogger.logGame(this.userId, this.username || 'Player', 'ceelo', 
                 won ? 'WIN' : tie ? 'TIE' : 'LOSS', {
                 betAmount: this.betAmount,
                 payout: this.payout,

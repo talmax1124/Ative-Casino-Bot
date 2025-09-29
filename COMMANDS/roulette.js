@@ -118,6 +118,18 @@ async function createPayoutEmbed(user, balance, currentBet = null) {
     // Show current bet at the top if placed
     const topFields = [];
     
+    // Check if this is a playfor game
+    const playForRecipient = global.playForContext?.recipientName;
+    const playingForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+    
+    if (playingForSomeoneElse) {
+        topFields.push({
+            name: '🎁 Playing For',
+            value: `@${playForRecipient}`,
+            inline: true
+        });
+    }
+    
     if (currentBet) {
         topFields.push({
             name: '🎯 CURRENT BET',
@@ -944,7 +956,7 @@ module.exports = {
             const winColorEmoji = color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢';
             
             // Comprehensive logging for game result
-            await comprehensiveLogger.logGame(userId, interaction.user.displayName, 'roulette', won ? 'WIN' : 'LOSS', {
+            await comprehensiveLogger.logGame(userId, interaction.user.displayName || interaction.user.username || 'Unknown', 'roulette', won ? 'WIN' : 'LOSS', {
                 betAmount: game.betAmount,
                 payout: payout,
                 netChange: netChange,
@@ -959,7 +971,7 @@ module.exports = {
             if (won) {
                 await comprehensiveLogger.logEconomic('ROULETTE_WIN_PAYOUT', 'NORMAL', `Player won ${fmt(payout)} from roulette on ${winColorEmoji} ${result}`, {
                     userId: userId,
-                    username: interaction.user.displayName,
+                    username: interaction.user.displayName || interaction.user.username || 'Unknown',
                     betAmount: game.betAmount,
                     winnings: payout,
                     netProfit: netChange,
@@ -971,7 +983,7 @@ module.exports = {
             } else {
                 await comprehensiveLogger.logEconomic('ROULETTE_LOSS', 'NORMAL', `Player lost ${fmt(game.betAmount)} to roulette on ${winColorEmoji} ${result}`, {
                     userId: userId,
-                    username: interaction.user.displayName,
+                    username: interaction.user.displayName || interaction.user.username || 'Unknown',
                     betAmount: game.betAmount,
                     lossAmount: game.betAmount,
                     result: result,

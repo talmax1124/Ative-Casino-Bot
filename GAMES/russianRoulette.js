@@ -883,7 +883,7 @@ class RussianRouletteGame {
             const netChange = isWinner ? (winnings - this.entryAmount) : -this.entryAmount;
             
             // Comprehensive logging for each player's result
-            await comprehensiveLogger.logGame(player.id, player.username, 'russianroulette', 
+            await comprehensiveLogger.logGame(player.id, player.username || 'Player', 'russianroulette', 
                 isWinner ? 'WIN' : 'LOSS', {
                 betAmount: this.entryAmount,
                 payout: isWinner ? winnings : 0,
