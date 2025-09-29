@@ -25,45 +25,45 @@ const allInManager = require('../UTILS/allInManager');
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
 
-// PROGRESSIVE DIFFICULTY MODES - REDUCED WIN RATES with stronger house edge
+// PLAYER-FRIENDLY DIFFICULTY MODES - Much better odds and payouts
 const BLACKJACK_MODES = {
     safe: {
         name: '🛡️ Safe',
-        description: 'Conservative mode with standard payouts',
+        description: 'Player-friendly mode with great payouts',
         minBet: 500,
-        blackjackMultiplier: 1.25,   // 1.25x for blackjack (reduced from 1.45x)
-        winMultiplier: 0.86,         // 0.86x for regular wins (increased by 1%)
-        houseEdge: 0.08,             // 8% house edge (increased)
+        blackjackMultiplier: 2.5,    // 2.5x for blackjack (way better!)
+        winMultiplier: 1.95,         // 1.95x for regular wins (almost double!)
+        houseEdge: 0.005,            // 0.5% house edge (realistic)
         emoji: '🛡️',
         color: '#4CAF50'
     },
     balanced: {
         name: '⚖️ Balanced',
-        description: 'Standard mode with traditional payouts',
+        description: 'Fair mode with good payouts',
         minBet: 1000,
-        blackjackMultiplier: 1.35,   // 1.35x for blackjack (reduced from 1.5x)
-        winMultiplier: 0.91,         // 0.91x for regular wins (increased by 1%)
-        houseEdge: 0.12,             // 12% house edge (increased)
+        blackjackMultiplier: 2.25,   // 2.25x for blackjack
+        winMultiplier: 1.85,         // 1.85x for regular wins
+        houseEdge: 0.01,             // 1% house edge
         emoji: '⚖️',
         color: '#FF9800'
     },
     risky: {
         name: '⚡ Risky',
-        description: 'High risk with enhanced payouts',
+        description: 'Higher rewards with slightly more risk',
         minBet: 2500,
-        blackjackMultiplier: 1.4,    // 1.4x for blackjack (reduced from 1.55x)
-        winMultiplier: 0.96,         // 0.96x for regular wins (increased by 1%)
-        houseEdge: 0.15,             // 15% house edge (increased)
+        blackjackMultiplier: 2.0,    // 2.0x for blackjack
+        winMultiplier: 1.75,         // 1.75x for regular wins
+        houseEdge: 0.02,             // 2% house edge
         emoji: '⚡',
         color: '#FF8800'
     },
     extreme: {
         name: '🔥 Extreme',
-        description: 'Maximum risk with premium payouts',
+        description: 'Highest stakes with best potential returns',
         minBet: 5000,
-        blackjackMultiplier: 1.45,   // 1.45x for blackjack (reduced from 1.6x)
-        winMultiplier: 1.01,         // 1.01x for regular wins (increased by 1%)
-        houseEdge: 0.18,             // 18% house edge (increased)
+        blackjackMultiplier: 1.8,    // 1.8x for blackjack
+        winMultiplier: 1.65,         // 1.65x for regular wins
+        houseEdge: 0.03,             // 3% house edge
         emoji: '🔥',
         color: '#FF0000'
     }
@@ -81,8 +81,21 @@ const gamePanelUtil = new GamePanelUtil();
  */
 async function createGameEmbed(game, user, showDealer = false, balance = null, economicIndicators = null, regulatedPayout = null) {
     // Economy badge removed - using bulletproof economy system
+    // Check for playfor context
+    const playForRecipient = global.playForContext?.recipientName;
+    const playingForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+    
     // Top fields for game information
     const topFields = [];
+    
+    // Add playfor indicator if applicable
+    if (playingForSomeoneElse) {
+        topFields.push({
+            name: '🎁 Playing For',
+            value: `@${playForRecipient}`,
+            inline: true
+        });
+    }
     
     // Dealer's hand - when hidden, only show value of visible card
     let dealerDisplay;
@@ -567,14 +580,17 @@ module.exports = {
             
         // Use sessionManager to find user's active session
         const activeSession = sessionManager.getUserActiveSession(userId);
+        logger.debug(`Blackjack action: activeSession found=${!!activeSession}, gameType=${activeSession?.gameType}, expected=${SMGameType.BLACKJACK}`);
             
             if (activeSession && activeSession.gameType === SMGameType.BLACKJACK) {
                 sessionId = activeSession.sessionId;
                 const sessionData = activeGames.get(sessionId);
                 game = sessionData?.game;
+                logger.debug(`Blackjack action: sessionId=${sessionId}, sessionData found=${!!sessionData}, game found=${!!game}`);
             }
             
             if (!game || !sessionId) {
+                logger.warn(`Blackjack action failed: game=${!!game}, sessionId=${sessionId}, activeSession=${JSON.stringify(activeSession)}`);
                 return await interaction.reply({ content: 'No active blackjack game found.', flags: MessageFlags.Ephemeral });
             }
 
@@ -611,10 +627,21 @@ module.exports = {
                     await interaction.update(updateData);
                 } catch (hitError) {
                     logger.error(`Error in blackjack hit action: ${hitError.message}`);
-                    await interaction.reply({ 
-                        content: '❌ An error occurred while hitting. Please try again.', 
-                        flags: MessageFlags.Ephemeral 
-                    });
+                    try {
+                        if (!interaction.replied && !interaction.deferred) {
+                            await interaction.reply({ 
+                                content: '❌ An error occurred while hitting. Please try again.', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            await interaction.followUp({ 
+                                content: '❌ An error occurred while hitting. Please try again.', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        }
+                    } catch (interactionError) {
+                        logger.error(`Failed to send hit error response: ${interactionError.message}`);
+                    }
                 }
                 break;
             }
@@ -648,49 +675,69 @@ module.exports = {
                 break;
             }
 
-            case 'double':
-                // Check if can double
-                if (!game.canDouble()) {
-                    return await interaction.reply({ content: 'Cannot double down now.', flags: MessageFlags.Ephemeral });
-                }
-
-                // Check funds
-                if (userBalance.wallet < game.betAmount) {
-                    return await interaction.reply({ 
-                        content: `Insufficient funds to double down! You need ${fmt(game.betAmount)} more.`, 
-                        flags: MessageFlags.Ephemeral 
-                    });
-                }
-
-                // Deduct additional bet
-                await dbManager.updateUserBalance(userId, guildId, -game.betAmount, 0);
-
-                // Double down (this automatically advances to next hand)
-                game.doubleDown();
-                
-                // Check if all hands are complete (doubleDown() method already advances to next hand)
-                if (game.allHandsComplete() || game.gameEnded) {
-                    // All hands complete, game should be over
-                    await module.exports.endGame(interaction, game, userId, guildId);
-                } else {
-                    // Update display for next hand
-                    const doubleEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
-                    const doubleActionRows = createGameButtons(userId, game);
-                    const tableImage = await createGameTableImage(game, false);
-
-                    const updateData = {
-                        embeds: [doubleEmbed], 
-                        components: doubleActionRows
-                    };
-                    
-                    if (tableImage) {
-                        updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
-                        doubleEmbed.setImage('attachment://blackjack-table.png');
+            case 'double': {
+                try {
+                    // Check if can double
+                    if (!game.canDouble()) {
+                        return await interaction.reply({ content: 'Cannot double down now.', flags: MessageFlags.Ephemeral });
                     }
 
-                    await interaction.update(updateData);
+                    // Check funds
+                    if (userBalance.wallet < game.betAmount) {
+                        return await interaction.reply({ 
+                            content: `Insufficient funds to double down! You need ${fmt(game.betAmount)} more.`, 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                    }
+
+                    // Deduct additional bet
+                    await dbManager.updateUserBalance(userId, guildId, -game.betAmount, 0);
+
+                    // Double down (this automatically advances to next hand)
+                    game.doubleDown();
+                    
+                    // Check if all hands are complete (doubleDown() method already advances to next hand)
+                    if (game.allHandsComplete() || game.gameEnded) {
+                        // All hands complete, game should be over
+                        await module.exports.endGame(interaction, game, userId, guildId);
+                    } else {
+                        // Update display for next hand
+                        const doubleEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
+                        const doubleActionRows = createGameButtons(userId, game);
+                        const tableImage = await createGameTableImage(game, false);
+
+                        const updateData = {
+                            embeds: [doubleEmbed], 
+                            components: doubleActionRows
+                        };
+                        
+                        if (tableImage) {
+                            updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                            doubleEmbed.setImage('attachment://blackjack-table.png');
+                        }
+
+                        await interaction.update(updateData);
+                    }
+                } catch (doubleError) {
+                    logger.error(`Error in blackjack double action: ${doubleError.message}`);
+                    try {
+                        if (!interaction.replied && !interaction.deferred) {
+                            await interaction.reply({ 
+                                content: '❌ An error occurred while doubling down. Please try again.', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            await interaction.followUp({ 
+                                content: '❌ An error occurred while doubling down. Please try again.', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        }
+                    } catch (interactionError) {
+                        logger.error(`Failed to send double error response: ${interactionError.message}`);
+                    }
                 }
                 break;
+            }
 
             case 'split': {
                 // Check if can split
@@ -942,7 +989,9 @@ module.exports = {
                 logger.info(`🎛️ BLACKJACK TUNING: ${totalPayout} -> ${tuningAdjustment.adjustedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
             }
             
-            const won = regulatedPayout > 0;
+            // Determine if player won based on game outcome, not just payout amount
+            // For pushes, payout > 0 (return bet) but it's not a win
+            const won = isPush ? false : originalWon && regulatedPayout > 0;
             
             // Use PayoutManager for consistent payout handling
             const gameResult = new GameResult({
@@ -1039,19 +1088,35 @@ module.exports = {
                     const actualPayout = regulatedPayout || 0;
                     logger.info(`🔍 DEBUG: won=${result.won}, outcome=${result.outcome}, baseMultiplier=${result.baseMultiplier}, multiplier=${result.multiplier}, originalPayout=${result.payout}, regulatedPayout=${actualPayout}`);
                     
+                    // Check for playfor context to display recipient
+                    const playForRecipient = global.playForContext?.recipientName;
+                    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+                    
                     // Display win/loss based on actual regulated payout amount
                     if (actualPayout > 0) {
                         if (result.outcome === 'BLACKJACK') {
-                            resultMessage = `🎉 **BLACKJACK!** ${fmt(actualPayout)}`;
+                            if (winningForSomeoneElse) {
+                                resultMessage = `🎉 **BLACKJACK!** ${fmt(actualPayout)} for **@${playForRecipient}**!`;
+                            } else {
+                                resultMessage = `🎉 **BLACKJACK!** ${fmt(actualPayout)}`;
+                            }
                         } else if (result.outcome === 'PUSH') {
                             resultMessage = `🤝 **PUSH** - Your bet is returned.`;
                         } else {
-                            resultMessage = `🎉 **YOU WIN!** ${fmt(actualPayout)}`;
+                            if (winningForSomeoneElse) {
+                                resultMessage = `🎉 **YOU WIN ${fmt(actualPayout)} for @${playForRecipient}!**`;
+                            } else {
+                                resultMessage = `🎉 **YOU WIN!** ${fmt(actualPayout)}`;
+                            }
                         }
                     } else if (result.outcome === 'PUSH') {
                         resultMessage = `🤝 **PUSH** - Your bet is returned.`;
                     } else {
-                        resultMessage = `💸 **YOU LOSE!** Better luck next time.`;
+                        if (winningForSomeoneElse) {
+                            resultMessage = `💸 **YOU LOSE!** @${playForRecipient} gets nothing.`;
+                        } else {
+                            resultMessage = `💸 **YOU LOSE!** Better luck next time.`;
+                        }
                     }
                 }
             } catch (messageError) {
@@ -1073,11 +1138,14 @@ module.exports = {
             // Get updated balance for play again buttons
             const updatedBalance = await dbManager.getUserBalance(userId, guildId);
             
+            // Check if this is a playfor game - disable buttons if so
+            const isPlayforGame = global.playForContext?.recipientId;
+            
             // Enhanced interaction update with validation
             const finalData = {
                 content: resultMessage || `🎰 Game Complete - Total Payout: ${fmt(regulatedPayout)}`,
                 embeds: [finalEmbed],
-                components: GamePanel.createGameButtons({ 
+                components: isPlayforGame ? [] : GamePanel.createGameButtons({ 
                     actions: ['play_again_multi', 'quit'],
                     lastBet: game.betAmount,
                     balance: updatedBalance.wallet
@@ -1111,7 +1179,7 @@ module.exports = {
                         const fallbackData = {
                             content: `🎰 Game Complete - Payout: ${fmt(regulatedPayout)}`,
                             embeds: [finalEmbed],
-                            components: GamePanel.createGameButtons({ 
+                            components: isPlayforGame ? [] : GamePanel.createGameButtons({ 
                                 actions: ['play_again_multi', 'quit'],
                                 lastBet: game.betAmount,
                                 balance: updatedBalance.wallet

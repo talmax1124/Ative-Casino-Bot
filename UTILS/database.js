@@ -250,6 +250,70 @@ class DatabaseManager {
      * @returns {boolean} Success status
      */
     async updateUserBalance(userId, guildId = null, walletChange = 0, bankChange = 0, kwargs = {}) {
+        // Check for play-for context and redirect winnings
+        if (kwargs.playFor && walletChange > 0) {
+            logger.info(`PlayFor: Redirecting ${walletChange} from ${userId} to ${kwargs.playFor.recipientId}`);
+            logger.info(`PlayFor: Global context exists: ${!!global.playForContext}, Client exists: ${!!global.discordClient}`);
+            
+            // Get recipient's balance BEFORE giving them the winnings
+            const recipientBalanceBefore = await this.getUserBalance(kwargs.playFor.recipientId, guildId);
+            
+            // Give the winnings to the recipient instead
+            const result = await this.updateUserBalance(kwargs.playFor.recipientId, guildId, walletChange, bankChange, { ...kwargs, playFor: null });
+            
+            // Send DM notification and channel mention if payout was successful
+            if (result && global.playForContext) {
+                try {
+                    const { formatMoney } = require('./moneyFormatter');
+                    
+                    // Get the bot client and recipient balance info
+                    if (global.discordClient) {
+                        const recipient = await global.discordClient.users.fetch(kwargs.playFor.recipientId);
+                        const playerName = global.playForContext.playerName || 'Someone';
+                        const gameName = global.playForContext.game || 'a game';
+                        
+                        // Use the balance we captured before the payout
+                        const previousBalance = recipientBalanceBefore.wallet;
+                        
+                        // Get recipient's new balance (after the payout)
+                        const newBalance = await this.getUserBalance(kwargs.playFor.recipientId, guildId);
+                        
+                        // Send DM with enhanced formatting
+                        const dmMessage = `🎉 **WINNER!** 🎉\n\n` +
+                            `**${playerName}** just played **${gameName}** for you and won!\n\n` +
+                            `💎 **Your Winnings:** ${formatMoney(walletChange)}\n\n` +
+                            `💰 **Balance Update:**\n` +
+                            `┌─ Previous: ${formatMoney(previousBalance)}\n` +
+                            `├─ Winnings: +${formatMoney(walletChange)}\n` +
+                            `└─ **New Total: ${formatMoney(newBalance.wallet)}**\n\n` +
+                            `✨ *Thanks to ${playerName} for playing for you!* ✨`;
+                        
+                        await recipient.send(dmMessage);
+                        logger.info(`PlayFor: DM sent to ${kwargs.playFor.recipientId} about ${formatMoney(walletChange)} winnings`);
+                        
+                        // Post channel mention if we have channel info
+                        if (global.playForContext.channelId) {
+                            const channel = await global.discordClient.channels.fetch(global.playForContext.channelId);
+                            if (channel) {
+                                const channelMessage = `🎉 **BIG WIN!** 🎉\n\n` +
+                                    `<@${kwargs.playFor.recipientId}> **${playerName}** just won **${formatMoney(walletChange)}** for you!\n\n` +
+                                    `🎮 **Game:** ${gameName.toUpperCase()}\n` +
+                                    `💎 **Winnings:** ${formatMoney(walletChange)}\n` +
+                                    `💰 **Balance:** ${formatMoney(previousBalance)} → **${formatMoney(newBalance.wallet)}**\n\n` +
+                                    `📱 *Check your DMs for full details!*`;
+                                await channel.send(channelMessage);
+                                logger.info(`PlayFor: Channel mention sent for ${kwargs.playFor.recipientId}`);
+                            }
+                        }
+                    }
+                } catch (dmError) {
+                    logger.warn(`PlayFor: Failed to send notifications to ${kwargs.playFor.recipientId}: ${dmError.message}`);
+                }
+            }
+            
+            return result;
+        }
+
         // Try primary database connection with fallback system
         if (this.usingAdapter && !fallbackSystem.fallbackMode) {
             try {

@@ -493,33 +493,48 @@ module.exports = {
         let color = 0x00FF00;
         let footerText = '';
 
+        // Check if this is a playfor game
+        const playForRecipient = global.playForContext?.recipientName;
+        const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+
         // Calculate final payout
         const netChange = currentPayout - betAmount;
         const won = currentPayout > betAmount;
 
         switch (reason) {
             case 'player_choice':
-                title = '🚪 Adventure Ended by Choice';
-                description = `You chose to end your adventure safely!\nYou walk away with **${fmt(currentPayout)}** treasure!`;
+                title = winningForSomeoneElse ? `🚪 Adventure Ended by Choice for @${playForRecipient}` : '🚪 Adventure Ended by Choice';
+                description = winningForSomeoneElse ? 
+                    `You chose to end your adventure safely for @${playForRecipient}!\nThey receive **${fmt(currentPayout)}** treasure!` :
+                    `You chose to end your adventure safely!\nYou walk away with **${fmt(currentPayout)}** treasure!`;
                 footerText = `Net ${won ? 'Profit' : 'Loss'}: ${won ? '+' : ''}${fmt(netChange)}`;
+                if (winningForSomeoneElse) footerText += ` - Sent to @${playForRecipient}`;
                 color = 0x00AA00;
                 break;
             case 'timeout':
-                title = '⏰ Adventure Ended by Timeout';
-                description = `Time ran out! You cautiously retreat with your current treasure.\nYou walk away with **${fmt(currentPayout)}** treasure!`;
+                title = winningForSomeoneElse ? `⏰ Adventure Ended by Timeout for @${playForRecipient}` : '⏰ Adventure Ended by Timeout';
+                description = winningForSomeoneElse ?
+                    `Time ran out! You cautiously retreat with treasure for @${playForRecipient}.\nThey receive **${fmt(currentPayout)}** treasure!` :
+                    `Time ran out! You cautiously retreat with your current treasure.\nYou walk away with **${fmt(currentPayout)}** treasure!`;
                 footerText = `Net ${won ? 'Profit' : 'Loss'}: ${won ? '+' : ''}${fmt(netChange)}`;
+                if (winningForSomeoneElse) footerText += ` - Sent to @${playForRecipient}`;
                 color = 0xFFA500;
                 break;
             case 'trap':
-                title = '💀 Adventure Failed!';
-                description = `Your adventure has come to a tragic end!\nYou lose everything and walk away empty-handed.`;
+                title = winningForSomeoneElse ? `💀 Adventure Failed for @${playForRecipient}!` : '💀 Adventure Failed!';
+                description = winningForSomeoneElse ?
+                    `Your adventure for @${playForRecipient} has come to a tragic end!\nYou lose everything and they walk away empty-handed.` :
+                    `Your adventure has come to a tragic end!\nYou lose everything and walk away empty-handed.`;
                 footerText = `Net Loss: ${fmt(netChange)}`;
                 color = 0xFF0000;
                 break;
             case 'completed':
-                title = '🏆 Adventure Completed!';
-                description = `Congratulations! You've conquered all 6 rounds!\nYou emerge victorious with **${fmt(currentPayout)}** treasure!`;
+                title = winningForSomeoneElse ? `🏆 Adventure Completed for @${playForRecipient}!` : '🏆 Adventure Completed!';
+                description = winningForSomeoneElse ?
+                    `Congratulations! You've conquered all 6 rounds for @${playForRecipient}!\nThey emerge victorious with **${fmt(currentPayout)}** treasure!` :
+                    `Congratulations! You've conquered all 6 rounds!\nYou emerge victorious with **${fmt(currentPayout)}** treasure!`;
                 footerText = `Net Profit: +${fmt(netChange)}`;
+                if (winningForSomeoneElse) footerText += ` - Sent to @${playForRecipient}`;
                 color = 0xFFD700;
                 break;
         }
@@ -575,6 +590,15 @@ module.exports = {
                 inline: false
             }
         ];
+
+        // Add playfor context if applicable
+        if (winningForSomeoneElse) {
+            topFields.push({
+                name: '🎁 Playing For',
+                value: `@${playForRecipient}`,
+                inline: true
+            });
+        }
 
         const bankFields = [
             { name: 'Original Bet', value: fmt(betAmount), inline: true },

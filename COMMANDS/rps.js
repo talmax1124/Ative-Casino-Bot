@@ -521,14 +521,26 @@ module.exports = {
                 components: []
             });
 
+            // Check if this is a playfor game
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+
             // Log game completion
+            let resultText = '';
+            if (finalWinner === 0) {
+                resultText = 'Tie (Both Refunded)';
+            } else if (finalWinner === 1) {
+                resultText = winningForSomeoneElse ? `${game.player1Name} Wins for @${playForRecipient}` : `${game.player1Name} Wins`;
+            } else {
+                resultText = winningForSomeoneElse ? `${game.player2Name} Wins for @${playForRecipient}` : `${game.player2Name} Wins`;
+            }
+
             const logMessage = `⚔️ **RPS Game Completed**\n` +
                              `**Players:** ${game.player1Name} vs ${game.player2Name}\n` +
                              `**Final Score:** ${game.player1Wins} - ${game.player2Wins}\n` +
                              `**Prize Pool:** ${fmt(game.totalPot)}\n` +
-                             `**Result:** ${finalWinner === 0 ? 'Tie (Both Refunded)' : 
-                                         finalWinner === 1 ? `${game.player1Name} Wins` : 
-                                         `${game.player2Name} Wins`}\n` +
+                             `**Result:** ${resultText}\n` +
+                             (winningForSomeoneElse ? `**Playing For:** @${playForRecipient}\n` : '') +
                              `**Channel:** <#${channelId}>`;
 
             await sendLogMessage(

@@ -46,6 +46,10 @@ const CATEGORY_NAMES = {
 async function createGameEmbed(game, user, balance = null) {
     const gameState = game.getGameState();
     
+    // Check if this is a playfor game
+    const playForRecipient = global.playForContext?.recipientName;
+    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+    
     // Basic game information
     const fields = [];
     
@@ -146,6 +150,15 @@ async function createGameEmbed(game, user, balance = null) {
         inline: true
     });
 
+    // Add playfor context if applicable
+    if (winningForSomeoneElse) {
+        fields.push({
+            name: '🎁 Playing For',
+            value: `@${playForRecipient}`,
+            inline: true
+        });
+    }
+
     // Determine color and stage
     let color = 0x00ff00; // Default green
     let stageText = 'In Progress';
@@ -154,7 +167,7 @@ async function createGameEmbed(game, user, balance = null) {
         const result = game.getResult();
         if (result.won) {
             color = 0xFFD700; // Gold for win
-            stageText = 'Winner!';
+            stageText = winningForSomeoneElse ? `Winner for @${playForRecipient}!` : 'Winner!';
         } else {
             color = 0xff0000; // Red for loss
             stageText = 'Game Over';
@@ -164,10 +177,12 @@ async function createGameEmbed(game, user, balance = null) {
     // Use consistent embed builder from gameSessionKit
     const embed = buildSessionEmbed({
         title: '🎲 YAHTZEE',
-        description: `${user.displayName}'s Yahtzee Game`,
+        description: winningForSomeoneElse ? `${user.displayName}'s Yahtzee Game for @${playForRecipient}` : `${user.displayName}'s Yahtzee Game`,
         fields,
         color,
-        footer: 'ATIVE Casino • Click dice to keep/release • Choose scoring category'
+        footer: winningForSomeoneElse ? 
+            `ATIVE Casino • Playing for @${playForRecipient} • Click dice to keep/release` :
+            'ATIVE Casino • Click dice to keep/release • Choose scoring category'
     });
 
     return embed;
@@ -588,15 +603,18 @@ module.exports = {
             TimeoutManager.clearTimeout(userId);
 
             // Log game end
-            logger.info(`User ${userId} finished Yahtzee: ${result.outcome}, score: ${result.score}, payout: ${payout}`);
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+            
+            logger.info(`User ${userId} finished Yahtzee: ${result.outcome}, score: ${result.score}, payout: ${payout}${winningForSomeoneElse ? ` for @${playForRecipient}` : ''}`);
             await sendLogMessage(guildId, 
-                `🎲 **Yahtzee Completed**\n` +
+                `🎲 **Yahtzee Completed${winningForSomeoneElse ? ` for @${playForRecipient}` : ''}**\n` +
                 `User: ${interaction.user.tag}\n` +
                 `Score: ${result.score} points\n` +
                 `Result: ${result.outcome}\n` +
                 `Bet: ${fmt(game.betAmount)}\n` +
                 `Payout: ${fmt(payout)}\n` +
-                `Net: ${fmtDelta(balanceChange)}`
+                `Net: ${fmtDelta(balanceChange)}${winningForSomeoneElse ? `\nPlaying for: @${playForRecipient}` : ''}`
             );
 
         } catch (error) {

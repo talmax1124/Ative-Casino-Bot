@@ -556,7 +556,18 @@ class PayoutManager {
             
             // Update balance - use relative update to prevent race conditions
             const totalPayoutWithBonus = finalPayout + boosterBonus;
-            const success = await dbManager.updateUserBalance(userId, guildId, totalPayoutWithBonus, 0);
+            
+            // Check for play-for context and pass it to database for proper recipient handling
+            const updateOptions = {};
+            if (global.playForContext && global.playForContext.recipientId) {
+                updateOptions.playFor = {
+                    recipientId: global.playForContext.recipientId,
+                    recipientName: global.playForContext.recipientName
+                };
+                logger.info(`PayoutManager: Processing playFor payout ${totalPayoutWithBonus} for ${userId} -> ${global.playForContext.recipientId}`);
+            }
+            
+            const success = await dbManager.updateUserBalance(userId, guildId, totalPayoutWithBonus, 0, updateOptions);
             
             if (!success) {
                 logger.error(`Failed to update balance for user ${userId} after game ${gameType}`);

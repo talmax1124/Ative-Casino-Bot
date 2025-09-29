@@ -352,18 +352,29 @@ class BingoGameSession {
                 }
 
                 const totalPot = this.players.size * this.starterBet;
+                const playForRecipient = global.playForContext?.recipientName;
+                const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+                
                 if (winners.length === 1) {
+                    let winnerText = `**${winners[0].username}** wins ${fmt(totalPot)}!`;
+                    if (winningForSomeoneElse && winners[0].userId === global.playForContext.recipientId) {
+                        winnerText = `**${winners[0].username}** wins ${fmt(totalPot)} for **@${playForRecipient}**!`;
+                    }
                     embed.addFields({
-                        name: '<� Winner',
-                        value: `**${winners[0].username}** wins ${fmt(totalPot)}!`,
+                        name: winningForSomeoneElse ? '🎁 Winner for @' + playForRecipient : '🏆 Winner',
+                        value: winnerText,
                         inline: false
                     });
                 } else {
                     const prizePerWinner = totalPot / winners.length;
                     const winnerNames = winners.map(w => `**${w.username}**`);
+                    let winnersText = `${winnerNames.join(', ')}\nEach wins ${fmt(prizePerWinner)}!`;
+                    if (winningForSomeoneElse) {
+                        winnersText += ` (Winnings for **@${playForRecipient}**)`;
+                    }
                     embed.addFields({
-                        name: `<� ${winners.length} Winners`,
-                        value: `${winnerNames.join(', ')}\nEach wins ${fmt(prizePerWinner)}!`,
+                        name: winningForSomeoneElse ? `🎁 ${winners.length} Winners for @${playForRecipient}` : `🏆 ${winners.length} Winners`,
+                        value: winnersText,
                         inline: false
                     });
                 }
@@ -505,13 +516,21 @@ class BingoGameSession {
             { name: '📊 Status', value: this.players.size >= 2 ? '✅ Ready to Start' : '⏳ Need More Players', inline: true }
         ];
 
+        const playForRecipient = global.playForContext?.recipientName;
+        const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+        
+        let footer = 'BINGO Lobby • Join and start playing • ATIVE Casino';
+        if (winningForSomeoneElse) {
+            footer = `BINGO Lobby • Playing for @${playForRecipient} • ATIVE Casino`;
+        }
+        
         return buildSessionEmbed({
             title: '🎯 Multiplayer BINGO Lobby',
             topFields,
             bankFields,
             stageText: 'GAME LOBBY',
             color: 0x3498DB,
-            footer: 'BINGO Lobby • Join and start playing • ATIVE Casino'
+            footer
         });
     }
 
@@ -567,13 +586,21 @@ class BingoGameSession {
             bankFields.push({ name: '🏆 Winners', value: winnerNames, inline: false });
         }
 
+        const playForRecipient = global.playForContext?.recipientName;
+        const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+        
+        let footer = 'BINGO Game • Click buttons for actions • ATIVE Casino';
+        if (winningForSomeoneElse) {
+            footer = `BINGO Game • Playing for @${playForRecipient} • ATIVE Casino`;
+        }
+        
         return buildSessionEmbed({
             title: '🎯 Multiplayer BINGO Game',
             topFields,
             bankFields,
             stageText: this.winners.length > 0 ? 'GAME COMPLETED' : 'GAME ACTIVE',
             color: this.winners.length > 0 ? 0x27AE60 : 0x3498DB,
-            footer: 'BINGO Game • Click buttons for actions • ATIVE Casino'
+            footer
         });
     }
 

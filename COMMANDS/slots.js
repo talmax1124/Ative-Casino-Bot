@@ -53,6 +53,10 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
     
     const topFields = [];
     
+    // Check if this is a playfor game
+    const playForRecipient = global.playForContext?.recipientName;
+    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+    
     // Slot display (raw text; formatted by buildSessionEmbed)
     const slotDisplay = createSlotDisplay(symbols);
     topFields.push({
@@ -60,6 +64,15 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
         value: slotDisplay,
         inline: false
     });
+    
+    // Add playfor context if applicable
+    if (winningForSomeoneElse) {
+        topFields.push({
+            name: '🎁 Playing For',
+            value: `@${playForRecipient}`,
+            inline: true
+        });
+    }
 
     // Banking fields
     const bankFields = [
@@ -80,15 +93,28 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
     let color = 0x00ff00; // Default green
 
     if (result.won) {
-        if (result.multiplier >= 100) {
-            stageText = 'INCREDIBLE WIN!';
-            color = 0xFFD700; // Gold
-        } else if (result.multiplier >= 50) {
-            stageText = 'AMAZING WIN!';
-            color = 0x00ff00; // Green
+        if (winningForSomeoneElse) {
+            if (result.multiplier >= 100) {
+                stageText = `INCREDIBLE WIN FOR @${playForRecipient}!`;
+                color = 0xFFD700; // Gold
+            } else if (result.multiplier >= 50) {
+                stageText = `AMAZING WIN FOR @${playForRecipient}!`;
+                color = 0x00ff00; // Green
+            } else {
+                stageText = `WON FOR @${playForRecipient}!`;
+                color = 0x00ff00; // Green
+            }
         } else {
-            stageText = 'WINNER!';
-            color = 0x00ff00; // Green
+            if (result.multiplier >= 100) {
+                stageText = 'INCREDIBLE WIN!';
+                color = 0xFFD700; // Gold
+            } else if (result.multiplier >= 50) {
+                stageText = 'AMAZING WIN!';
+                color = 0x00ff00; // Green
+            } else {
+                stageText = 'WINNER!';
+                color = 0x00ff00; // Green
+            }
         }
     } else {
         stageText = 'TRY AGAIN';
@@ -97,6 +123,9 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
 
     // Get economic indicators if AI result is available
     let economicFooter = result.won ? result.type : 'Better luck next time!';
+    if (winningForSomeoneElse && result.won) {
+        economicFooter = `${result.type} - Winnings sent to @${playForRecipient}!`;
+    }
     if (aiResult) {
         // EconomyGuardianInterface removed - using bulletproof economy
     }

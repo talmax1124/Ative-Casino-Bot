@@ -183,6 +183,19 @@ async function createPayoutEmbed(user, balance, currentBet = null) {
 function createGameEmbed(game, user, balance = null) {
     const topFields = [];
     
+    // Check if this is a playfor game
+    const playForRecipient = global.playForContext?.recipientName;
+    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+    
+    // Add playfor context if applicable
+    if (winningForSomeoneElse) {
+        topFields.push({
+            name: '🎁 Playing For',
+            value: `@${playForRecipient}`,
+            inline: true
+        });
+    }
+    
     // Show current bet if game is active
     if (game.currentBet) {
         topFields.push({
@@ -227,7 +240,11 @@ function createGameEmbed(game, user, balance = null) {
         embedColor = 0xFFD700; // Gold for spinning
     } else if (game.gameEnded) {
         if (game.lastPayout > 0) {
-            stageText = 'WIN';
+            if (winningForSomeoneElse) {
+                stageText = `WON FOR @${playForRecipient}`;
+            } else {
+                stageText = 'WIN';
+            }
             embedColor = 0x00ff00; // Green for win
         } else {
             stageText = 'LOSS';
@@ -238,13 +255,18 @@ function createGameEmbed(game, user, balance = null) {
         embedColor = 0x00ff00; // Bright green for betting
     }
 
+    let footer = game.gameEnded ? 'Game completed' : game.isSpinning ? 'Ball is spinning...' : 'Place your bets!';
+    if (winningForSomeoneElse && game.gameEnded && game.lastPayout > 0) {
+        footer = `Winnings sent to @${playForRecipient}!`;
+    }
+    
     return buildSessionEmbed({
         title: `🎰 ${user.displayName}'s American Roulette`,
         topFields,
         bankFields,
         stageText,
         embedColor,
-        footer: game.gameEnded ? 'Game completed' : game.isSpinning ? 'Ball is spinning...' : 'Place your bets!'
+        footer
     });
 }
 
@@ -1035,10 +1057,18 @@ module.exports = {
             const resultColor = game.getNumberColor(result);
             const finalColorEmoji = resultColor === 'red' ? '🔴' : resultColor === 'black' ? '⚫' : '🟢';
             
+            // Check if this is a playfor game
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+            
             let resultMessage = `🎰 **Ball landed on ${finalColorEmoji} ${result}**\n\n`;
             
             if (won) {
-                resultMessage += `🎉 **YOU WIN!** ${fmt(payout)}`;
+                if (winningForSomeoneElse) {
+                    resultMessage += `🎉 **YOU WIN ${fmt(payout)} for @${playForRecipient}!**`;
+                } else {
+                    resultMessage += `🎉 **YOU WIN!** ${fmt(payout)}`;
+                }
             } else {
                 resultMessage += `💸 **YOU LOSE!** Better luck next time.`;
             }

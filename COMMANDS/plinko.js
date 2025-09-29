@@ -465,18 +465,22 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
         logger.debug(`Could not award XP for plinko: ${xpError.message}`);
     }
 
+    // Check if this is a playfor game
+    const playForRecipient = global.playForContext?.recipientName;
+    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+
     // Determine result type
     let resultTitle, resultEmoji, resultColor;
     if (winnings >= betAmount * 20) {
-        resultTitle = '💰 MASSIVE WIN! 💰';
+        resultTitle = winningForSomeoneElse ? `💰 MASSIVE WIN for @${playForRecipient}! 💰` : '💰 MASSIVE WIN! 💰';
         resultEmoji = '🌟';
         resultColor = 0xFFD700;
     } else if (winnings >= betAmount * 5) {
-        resultTitle = '🎉 BIG WIN!';
+        resultTitle = winningForSomeoneElse ? `🎉 BIG WIN for @${playForRecipient}!` : '🎉 BIG WIN!';
         resultEmoji = '🎊';
         resultColor = 0x00FF00;
     } else if (winnings > betAmount) {
-        resultTitle = '✅ WIN!';
+        resultTitle = winningForSomeoneElse ? `✅ WIN for @${playForRecipient}!` : '✅ WIN!';
         resultEmoji = '🎯';
         resultColor = 0x32CD32;
     } else if (winnings === betAmount) {
@@ -491,23 +495,44 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
 
     const netText = netChange >= 0 ? `+${fmtFull(netChange)}` : fmtFull(netChange);
 
+    const topFields = [
+        { name: 'Result', value: `**${resultTitle}**` },
+        { name: 'Mode', value: `${modeData.emoji} ${mode}`, inline: true },
+        { name: 'Landing Slot', value: `**#${finalSlot + 1}** of ${gameData.slots}`, inline: true },
+        { name: 'Multiplier', value: `**${finalMultiplier.toFixed(2)}x**`, inline: true }
+    ];
+    
+    // Add playfor context if applicable
+    if (winningForSomeoneElse) {
+        topFields.splice(1, 0, {
+            name: '🎁 Playing For',
+            value: `@${playForRecipient}`,
+            inline: true
+        });
+    }
+    
+    let stageText = won ? 'WINNER!' : 'BETTER LUCK NEXT TIME';
+    if (winningForSomeoneElse && won) {
+        stageText = `WON FOR @${playForRecipient}!`;
+    }
+    
+    let footer = `🏠 House Edge: 15% | Full Animation Complete!`;
+    if (winningForSomeoneElse && won) {
+        footer = `Winnings sent to @${playForRecipient}! | Full Animation Complete!`;
+    }
+
     const embed = buildSessionEmbed({
         title: `${resultEmoji} ${username}'s Plinko Result`,
-        topFields: [
-            { name: 'Result', value: `**${resultTitle}**` },
-            { name: 'Mode', value: `${modeData.emoji} ${mode}`, inline: true },
-            { name: 'Landing Slot', value: `**#${finalSlot + 1}** of ${gameData.slots}`, inline: true },
-            { name: 'Multiplier', value: `**${finalMultiplier.toFixed(2)}x**`, inline: true }
-        ],
+        topFields,
         bankFields: [
             { name: 'Bet Amount', value: fmtFull(betAmount), inline: true },
             { name: 'Winnings', value: fmtFull(winnings), inline: true },
             { name: 'Net Change', value: netText, inline: true },
             { name: 'New Wallet', value: fmtFull(finalWallet), inline: true }
         ],
-        stageText: won ? 'WINNER!' : 'BETTER LUCK NEXT TIME',
+        stageText,
         color: resultColor,
-        footer: `🏠 House Edge: 15% | Full Animation Complete!`,
+        footer,
         image: 'attachment://plinko_final.png'
     });
 

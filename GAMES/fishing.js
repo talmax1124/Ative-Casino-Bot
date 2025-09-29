@@ -307,42 +307,58 @@ class FishingGame {
         const finalWallet = this.walletAfter + this.currentWinnings;
         const netChange = this.currentWinnings - this.initialBet;
 
+        // Check if this is a playfor game
+        const playForRecipient = global.playForContext?.recipientName;
+        const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+
         let title, description, color;
 
         if (endType === 'red') {
-            title = 'Red Fish of Doom!';
-            description = `${this.username} caught the cursed red fish and lost everything!`;
+            title = winningForSomeoneElse ? `Red Fish of Doom for @${playForRecipient}!` : 'Red Fish of Doom!';
+            description = winningForSomeoneElse ? 
+                `${this.username} caught the cursed red fish and lost everything for @${playForRecipient}!` :
+                `${this.username} caught the cursed red fish and lost everything!`;
             color = 0xE74C3C; // Red
         } else if (endType === 'limit') {
-            title = 'Fishing Limit Reached!';
-            description = `${this.username} completed a full fishing session! (20/20 catches)`;
+            title = winningForSomeoneElse ? `Fishing Limit Reached for @${playForRecipient}!` : 'Fishing Limit Reached!';
+            description = winningForSomeoneElse ?
+                `${this.username} completed a full fishing session for @${playForRecipient}! (20/20 catches)` :
+                `${this.username} completed a full fishing session! (20/20 catches)`;
             
             if (this.currentWinnings >= this.initialBet * 3) {
                 color = 0xF1C40F; // Gold
-                title = 'Master Angler!';
+                title = winningForSomeoneElse ? `Master Angler for @${playForRecipient}!` : 'Master Angler!';
             } else if (this.currentWinnings >= this.initialBet * 2) {
                 color = 0x2ECC71; // Green
-                title = 'Expert Fisher!';
+                title = winningForSomeoneElse ? `Expert Fisher for @${playForRecipient}!` : 'Expert Fisher!';
             } else {
                 color = 0x3498DB; // Blue
             }
         } else {
             // Voluntary stop
             if (this.currentWinnings >= this.initialBet * 5) {
-                title = 'Amazing Fishing Session!';
-                description = `${this.username} had an incredible fishing trip!`;
+                title = winningForSomeoneElse ? `Amazing Fishing Session for @${playForRecipient}!` : 'Amazing Fishing Session!';
+                description = winningForSomeoneElse ?
+                    `${this.username} had an incredible fishing trip for @${playForRecipient}!` :
+                    `${this.username} had an incredible fishing trip!`;
                 color = 0xF1C40F; // Gold
             } else if (this.currentWinnings >= this.initialBet * 2) {
-                title = 'Great Fishing Session!';
-                description = `${this.username} had a profitable fishing trip!`;
+                title = winningForSomeoneElse ? `Great Fishing Session for @${playForRecipient}!` : 'Great Fishing Session!';
+                description = winningForSomeoneElse ?
+                    `${this.username} had a profitable fishing trip for @${playForRecipient}!` :
+                    `${this.username} had a profitable fishing trip!`;
                 color = 0x2ECC71; // Green
             } else if (this.currentWinnings >= this.initialBet) {
-                title = 'Successful Fishing!';
-                description = `${this.username} made a profit fishing!`;
+                title = winningForSomeoneElse ? `Successful Fishing for @${playForRecipient}!` : 'Successful Fishing!';
+                description = winningForSomeoneElse ?
+                    `${this.username} made a profit fishing for @${playForRecipient}!` :
+                    `${this.username} made a profit fishing!`;
                 color = 0x3498DB; // Blue
             } else {
-                title = 'Fishing Loss';
-                description = `${this.username} didn't catch enough to cover the bait cost!`;
+                title = winningForSomeoneElse ? `Fishing Loss for @${playForRecipient}` : 'Fishing Loss';
+                description = winningForSomeoneElse ?
+                    `${this.username} didn't catch enough to cover the bait cost for @${playForRecipient}!` :
+                    `${this.username} didn't catch enough to cover the bait cost!`;
                 color = 0xE67E22; // Orange
             }
         }
@@ -368,6 +384,15 @@ class FishingGame {
             });
         }
 
+        // Add playfor context if applicable
+        if (winningForSomeoneElse) {
+            topFields.push({
+                name: '🎁 Playing For',
+                value: `@${playForRecipient}`,
+                inline: true
+            });
+        }
+
         const bankFields = [
             { name: '💰 Initial Bet', value: fmt(this.initialBet), inline: true },
             { name: '🎯 Final Winnings', value: fmt(this.currentWinnings), inline: true },
@@ -377,13 +402,18 @@ class FishingGame {
             { name: '🏦 Bank', value: fmt(bankBalance), inline: true }
         ];
 
+        let footerText = 'Thanks for fishing! Cast your line again anytime.';
+        if (winningForSomeoneElse) {
+            footerText = `Thanks for fishing! Winnings sent to @${playForRecipient}`;
+        }
+
         return buildSessionEmbed({
             title: `🎣 ${title}`,
             topFields,
             bankFields,
             stageText: 'GAME COMPLETE',
             color,
-            footer: 'Thanks for fishing! Cast your line again anytime.'
+            footer: footerText
         });
     }
 

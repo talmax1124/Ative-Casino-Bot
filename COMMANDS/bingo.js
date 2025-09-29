@@ -158,7 +158,15 @@ module.exports = {
             }
 
             // Show lobby
-            const embed = game.getLobbyEmbed(`🎯 **<@${userId}>** started a BINGO game!`);
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+            
+            let lobbyMessage = `🎯 **<@${userId}>** started a BINGO game!`;
+            if (winningForSomeoneElse) {
+                lobbyMessage = `🎯 **<@${userId}>** started a BINGO game for **@${playForRecipient}**!`;
+            }
+            
+            const embed = game.getLobbyEmbed(lobbyMessage);
             const buttons = game.createLobbyButtons();
 
             await interaction.followUp({ embeds: [embed], components: buttons });

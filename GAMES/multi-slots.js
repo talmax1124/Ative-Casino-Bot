@@ -54,6 +54,10 @@ class BuffaloBonusSession {
     createBonusEmbed(matrix, result, user) {
         const topFields = [];
         
+        // Check if this is a playfor game
+        const playForRecipient = global.playForContext?.recipientName;
+        const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+        
         // Matrix display (raw; formatting handled by buildSessionEmbed)
         const matrixDisplay = createMatrixDisplay(matrix);
         topFields.push({
@@ -63,10 +67,20 @@ class BuffaloBonusSession {
         });
 
         if (result.won) {
+            const winTitle = winningForSomeoneElse ? `🏆 BONUS WIN FOR @${playForRecipient}` : '🏆 BONUS WIN';
             topFields.push({
-                name: '🏆 BONUS WIN',
+                name: winTitle,
                 value: result.type,
                 inline: false
+            });
+        }
+        
+        // Add playfor context if applicable
+        if (winningForSomeoneElse) {
+            topFields.push({
+                name: '🎁 Playing For',
+                value: `@${playForRecipient}`,
+                inline: true
             });
         }
 
@@ -83,7 +97,10 @@ class BuffaloBonusSession {
             );
         }
 
-        const stageText = this.ended ? 'BONUS COMPLETE!' : 'BONUS ROUND';
+        let stageText = this.ended ? 'BONUS COMPLETE!' : 'BONUS ROUND';
+        if (winningForSomeoneElse && this.ended) {
+            stageText = `BONUS COMPLETE FOR @${playForRecipient}!`;
+        }
         const color = result.won ? 0xFFD700 : (this.ended ? 0x00ff00 : 0xFF6600);
 
         return buildSessionEmbed({
@@ -92,7 +109,9 @@ class BuffaloBonusSession {
             bankFields,
             stageText,
             color,
-            footer: this.ended ? `Total bonus winnings: ${fmt(this.totalBonusWinnings)}` : 'Click Spin for your bonus round!'
+            footer: this.ended ? 
+                (winningForSomeoneElse ? `Total bonus winnings for @${playForRecipient}: ${fmt(this.totalBonusWinnings)}` : `Total bonus winnings: ${fmt(this.totalBonusWinnings)}`) : 
+                (winningForSomeoneElse ? `Click Spin for @${playForRecipient}'s bonus round!` : 'Click Spin for your bonus round!')
         });
     }
 
@@ -111,6 +130,10 @@ class BuffaloBonusSession {
 function createMatrixEmbed(user, matrix, result, betAmount, userBalance, buffaloBonus = false) {
     const topFields = [];
     
+    // Check if this is a playfor game
+    const playForRecipient = global.playForContext?.recipientName;
+    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+    
     // Matrix display (raw; formatting handled by buildSessionEmbed)
     const matrixDisplay = createMatrixDisplay(matrix);
     topFields.push({
@@ -120,18 +143,29 @@ function createMatrixEmbed(user, matrix, result, betAmount, userBalance, buffalo
     });
 
     if (result.won) {
+        const winTitle = winningForSomeoneElse ? `🏆 WINNING LINES FOR @${playForRecipient}` : '🏆 WINNING LINES';
         topFields.push({
-            name: '🏆 WINNING LINES',
+            name: winTitle,
             value: result.type,
             inline: false
         });
     }
 
     if (buffaloBonus) {
+        const bonusTitle = winningForSomeoneElse ? `🦬 BUFFALO BONUS TRIGGERED FOR @${playForRecipient}!` : '🦬 BUFFALO BONUS TRIGGERED!';
         topFields.push({
-            name: '🦬 BUFFALO BONUS TRIGGERED!',
+            name: bonusTitle,
             value: '**5 FREE SPINS with 2.2x multiplier!**',
             inline: false
+        });
+    }
+    
+    // Add playfor context if applicable
+    if (winningForSomeoneElse) {
+        topFields.push({
+            name: '🎁 Playing For',
+            value: `@${playForRecipient}`,
+            inline: true
         });
     }
 
@@ -154,18 +188,31 @@ function createMatrixEmbed(user, matrix, result, betAmount, userBalance, buffalo
     let color = 0x00ff00;
 
     if (buffaloBonus) {
-        stageText = 'BUFFALO BONUS!';
+        stageText = winningForSomeoneElse ? `BUFFALO BONUS FOR @${playForRecipient}!` : 'BUFFALO BONUS!';
         color = 0xFFD700; // Gold for buffalo
     } else if (result.won) {
-        if (result.multiplier >= 100) {
-            stageText = 'INCREDIBLE WIN!';
-            color = 0xFFD700;
-        } else if (result.multiplier >= 50) {
-            stageText = 'AMAZING WIN!';
-            color = 0x00ff00;
+        if (winningForSomeoneElse) {
+            if (result.multiplier >= 100) {
+                stageText = `INCREDIBLE WIN FOR @${playForRecipient}!`;
+                color = 0xFFD700;
+            } else if (result.multiplier >= 50) {
+                stageText = `AMAZING WIN FOR @${playForRecipient}!`;
+                color = 0x00ff00;
+            } else {
+                stageText = `WON FOR @${playForRecipient}!`;
+                color = 0x00ff00;
+            }
         } else {
-            stageText = 'WINNER!';
-            color = 0x00ff00;
+            if (result.multiplier >= 100) {
+                stageText = 'INCREDIBLE WIN!';
+                color = 0xFFD700;
+            } else if (result.multiplier >= 50) {
+                stageText = 'AMAZING WIN!';
+                color = 0x00ff00;
+            } else {
+                stageText = 'WINNER!';
+                color = 0x00ff00;
+            }
         }
     } else {
         stageText = 'TRY AGAIN';
@@ -178,7 +225,9 @@ function createMatrixEmbed(user, matrix, result, betAmount, userBalance, buffalo
         bankFields,
         stageText,
         color,
-        footer: result.won ? result.type : 'Try the 3x3 matrix for better odds!'
+        footer: result.won ? 
+            (winningForSomeoneElse ? `${result.type} - Winnings sent to @${playForRecipient}!` : result.type) : 
+            'Try the 3x3 matrix for better odds!'
     });
 }
 

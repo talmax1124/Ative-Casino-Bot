@@ -481,11 +481,20 @@ class CeeloGame {
         const won = this.winner === 'player';
         const tie = this.winner === 'tie';
         
+        // Check for playfor context
+        const playForRecipient = global.playForContext?.recipientName;
+        const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+        
         // Create simple explanation of what happened
         let whatHappened = '';
         if (won) {
-            whatHappened = `🎉 **YOU WON!** Your ${this.playerHand.description} beat the house's ${this.houseHand.description}.\n` +
-                          `You win your bet back plus an equal amount (1:1 payout) = ${fmt(this.payout)}!`;
+            if (winningForSomeoneElse) {
+                whatHappened = `🎉 **WIN FOR @${playForRecipient}!** Your ${this.playerHand.description} beat the house's ${this.houseHand.description}.\n` +
+                              `You win your bet back plus an equal amount (1:1 payout) = ${fmt(this.payout)} for @${playForRecipient}!`;
+            } else {
+                whatHappened = `🎉 **YOU WON!** Your ${this.playerHand.description} beat the house's ${this.houseHand.description}.\n` +
+                              `You win your bet back plus an equal amount (1:1 payout) = ${fmt(this.payout)}!`;
+            }
         } else if (tie) {
             whatHappened = `🤝 **TIE GAME!** Both you and the house rolled ${this.playerHand.description}.\n` +
                           `Your bet is refunded - no winner, no loser.`;
@@ -494,28 +503,54 @@ class CeeloGame {
                           `Better luck next roll!`;
         }
         
+        let topFields = [
+            {
+                name: '🎯 YOUR DICE',
+                value: `${this.playerDice.map(d => `⚀⚁⚂⚃⚄⚅`[d-1]).join(' ')} = **${this.playerHand.description}**`,
+                inline: false
+            },
+            {
+                name: '🏠 HOUSE DICE',
+                value: `${this.houseDice.map(d => `⚀⚁⚂⚃⚄⚅`[d-1]).join(' ')} = **${this.houseHand.description}**`,
+                inline: false
+            },
+            {
+                name: '📊 WHAT HAPPENED?',
+                value: whatHappened,
+                inline: false
+            }
+        ];
+        
+        // Add playfor field if applicable
+        if (winningForSomeoneElse) {
+            topFields.push({
+                name: '🎁 Playing For',
+                value: `@${playForRecipient}`,
+                inline: true
+            });
+        }
+        
+        let title = `🎲 CEELO Results - ${tie ? 'Tie Game' : (won ? 'You Won!' : 'House Won')}`;
+        if (winningForSomeoneElse && won) {
+            title = `🎲 CEELO Results - Won for @${playForRecipient}!`;
+        }
+        
+        let stageText = won ? 'WINNER!' : tie ? 'TIE GAME' : 'HOUSE WINS';
+        if (winningForSomeoneElse && won) {
+            stageText = `WON FOR @${playForRecipient}!`;
+        }
+        
+        let footer = 'CEELO TIP: 4-5-6 beats everything! Then three-of-a-kind, then pairs (point = the odd die)';
+        if (winningForSomeoneElse) {
+            footer = `Playing for @${playForRecipient} • ` + footer;
+        }
+        
         return buildSessionEmbed({
-            title: `🎲 CEELO Results - ${tie ? 'Tie Game' : (won ? 'You Won!' : 'House Won')}`,
-            topFields: [
-                {
-                    name: '🎯 YOUR DICE',
-                    value: `${this.playerDice.map(d => `⚀⚁⚂⚃⚄⚅`[d-1]).join(' ')} = **${this.playerHand.description}**`,
-                    inline: false
-                },
-                {
-                    name: '🏠 HOUSE DICE',
-                    value: `${this.houseDice.map(d => `⚀⚁⚂⚃⚄⚅`[d-1]).join(' ')} = **${this.houseHand.description}**`,
-                    inline: false
-                },
-                {
-                    name: '📊 WHAT HAPPENED?',
-                    value: whatHappened,
-                    inline: false
-                }
-            ],
-            stageText: won ? 'WINNER!' : tie ? 'TIE GAME' : 'HOUSE WINS',
+            title,
+            topFields,
+            stageText,
             color: won ? 0x00FF00 : tie ? 0xFFAA00 : 0xFF4444,
-            footer: 'CEELO TIP: 4-5-6 beats everything! Then three-of-a-kind, then pairs (point = the odd die)'
+            footer
         });
     }
 

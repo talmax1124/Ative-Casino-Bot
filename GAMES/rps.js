@@ -368,6 +368,10 @@ class RPSGameSession {
      * Get final game embed
      */
     getFinalEmbed(finalWinner) {
+        // Check if this is a playfor game
+        const playForRecipient = global.playForContext?.recipientName;
+        const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+        
         if (finalWinner === 0) {
             // Tie game
             const embed = new EmbedBuilder()
@@ -379,25 +383,54 @@ class RPSGameSession {
                 .setColor(0xF1C40F) // Yellow
                 .setFooter({ text: '❌ Game has ended' });
 
+            // Add playfor context if applicable
+            if (winningForSomeoneElse) {
+                embed.addFields({
+                    name: '🎁 Playing For',
+                    value: `@${playForRecipient}`,
+                    inline: true
+                });
+            }
+
             return embed;
         } else {
             // Winner determined
             const winnerName = finalWinner === 1 ? this.player1Name : this.player2Name;
             const loserName = finalWinner === 1 ? this.player2Name : this.player1Name;
 
+            let title = '🏆 Game Complete!';
+            let description = `**${winnerName}** defeats **${loserName}**!\n\n` +
+                             `**Final Score:** ${this.player1Wins} - ${this.player2Wins}\n` +
+                             `**Prize Won:** ${fmt(this.totalPot)}`;
+
+            // Update title and description for playfor context
+            if (winningForSomeoneElse) {
+                title = `🏆 VICTORY FOR @${playForRecipient}!`;
+                description = `**${winnerName}** defeats **${loserName}** for @${playForRecipient}!\n\n` +
+                             `**Final Score:** ${this.player1Wins} - ${this.player2Wins}\n` +
+                             `**Prize Won:** ${fmt(this.totalPot)}`;
+            }
+
             const embed = new EmbedBuilder()
-                .setTitle('🏆 Game Complete!')
-                .setDescription(
-                    `**${winnerName}** defeats **${loserName}**!\n\n` +
-                    `**Final Score:** ${this.player1Wins} - ${this.player2Wins}\n` +
-                    `**Prize Won:** ${fmt(this.totalPot)}`
-                )
+                .setTitle(title)
+                .setDescription(description)
                 .setColor(0xF1C40F) // Gold
                 .addFields(
                     { name: '🎉 Winner', value: winnerName, inline: true },
                     { name: '💰 Prize', value: fmt(this.totalPot), inline: true }
-                )
-                .setFooter({ text: '❌ Game has ended' });
+                );
+
+            // Add playfor context if applicable
+            if (winningForSomeoneElse) {
+                embed.addFields({
+                    name: '🎁 Playing For',
+                    value: `@${playForRecipient}`,
+                    inline: true
+                });
+                embed.setFooter({ text: `❌ Game has ended - Winnings sent to @${playForRecipient}` });
+            } else {
+                embed.setFooter({ text: '❌ Game has ended' });
+            }
 
             return embed;
         }

@@ -1,0 +1,152 @@
+🔐 Initializing Bulletproof Economy Controller...
+🔒 Initializing military-grade cryptographic security...
+✅ Cryptographic security initialized
+⚙️ Initializing core economy components...
+🔐 Initializing Bulletproof Economy Engine...
+🔐 Initializing Bulletproof Economy Engine...
+✅ Bulletproof Economy Engine initialized successfully
+✅ Bulletproof Economy Engine initialized successfully
+⚙️ Initializing Dynamic House Edge System...
+✅ Dynamic House Edge System initialized
+🛡️ Initializing Advanced Risk Management System...
+🧠 Initializing Intelligent Adaptive Payout System...
+✅ Core economy components initialized
+🔍 Economic oversight system integrated
+📊 Setting up monitoring system...
+✅ Monitoring system setup complete
+🔍 Performing system validation...
+✅ Advanced Risk Management System initialized
+✅ Intelligent Adaptive Payout System initialized
+✅ System validation complete - Health: EXCELLENT
+✅ Bulletproof Economy Controller initialized successfully
+🛡️ Security Level: MILITARY_GRADE
+⚡ Adaptation Speed: REAL_TIME
+
+════════════════════════════════════════════════════════════════════════════════
+🎰               ATIVE CASINO BOT - STARTUP SEQUENCE                  🎰
+════════════════════════════════════════════════════════════════════════════════
+🚀 Version: 3.0.0 | Environment: development
+💻 Node Version: v22.14.0
+📅 Started: 9/29/2025, 12:24:15 AM
+════════════════════════════════════════════════════════════════════════════════
+
+00:24:21 ℹ️ [INFO] Loaded command: portal
+00:24:21 ℹ️ [INFO] Loaded command: balance
+00:24:21 ℹ️ [INFO] Loaded command: battleship
+00:24:21 ℹ️ [INFO] Loaded command: beg
+00:24:21 ℹ️ [INFO] Loaded command: bingo
+00:24:21 ℹ️ [INFO] Loaded command: blackjack
+00:24:21 ℹ️ [INFO] Loaded command: buymoney
+00:24:21 ℹ️ [INFO] Loaded command: ceelo
+00:24:21 ℹ️ [INFO] Loaded command: cooldown
+00:24:21 ℹ️ [INFO] Loaded command: crash
+00:24:21 ℹ️ [INFO] Loaded command: crime
+00:24:21 🤖 [AI/ML] Loaded command: dailytask
+00:24:21 ℹ️ [INFO] Loaded command: deposit
+00:24:21 ℹ️ [INFO] Loaded command: divorce
+00:24:21 ℹ️ [INFO] Loaded command: drawlottery
+00:24:21 ℹ️ [INFO] Loaded command: duck
+00:24:21 ℹ️ [INFO] Loaded command: earn
+00:24:21 ℹ️ [INFO] Loaded command: earnmoney
+00:24:21 ℹ️ [INFO] Loaded command: fishing
+00:24:21 ℹ️ [INFO] Loaded command: gamehistory
+00:24:21 ℹ️ [INFO] Loaded command: givepremium
+00:24:21 ℹ️ [INFO] Loaded command: heist-game
+00:24:21 ℹ️ [INFO] Loaded command: help
+00:24:21 ℹ️ [INFO] Loaded command: keno
+00:24:21 ℹ️ [INFO] Loaded command: leaderboard
+00:24:21 ℹ️ [INFO] Loaded command: lottery
+00:24:21 ℹ️ [INFO] Loaded command: lottery2
+00:24:21 🤖 [AI/ML] Loaded command: maintenance
+00:24:21 ✅ [SUCCESS] Loaded command: markcompletedmt
+00:24:21 ℹ️ [INFO] Loaded command: marriage-bank
+00:24:21 ℹ️ [INFO] Loaded command: marriage-profile
+00:24:21 ❌ [ERROR] Failed to load command marriage-stocks.js: Unexpected token 'async'
+00:24:21 ℹ️ [INFO] Loaded command: marriage-task
+00:24:21 ℹ️ [INFO] Loaded command: mines
+00:24:21 ℹ️ [INFO] Loaded command: monthly
+00:24:21 ℹ️ [INFO] Loaded command: multi-slots
+00:24:21 ℹ️ [INFO] Loaded command: playfor
+00:24:21 ℹ️ [INFO] Loaded command: plinko
+00:24:21 ℹ️ [INFO] Loaded command: polls
+00:24:22 ℹ️ [INFO] Loaded command: profile
+00:24:22 ℹ️ [INFO] Loaded command: propose
+00:24:22 ℹ️ [INFO] Loaded command: purchaselottery
+00:24:22 ℹ️ [INFO] Loaded command: purchaselottery2
+00:24:22 ℹ️ [INFO] Loaded command: quiz
+00:24:22 ℹ️ [INFO] Loaded command: rank
+00:24:22 ℹ️ [INFO] Loaded command: release
+00:24:22 ℹ️ [INFO] Loaded command: restorestreak
+00:24:22 ℹ️ [INFO] Loaded command: riddle
+00:24:22 ℹ️ [INFO] Loaded command: rob
+00:24:22 ℹ️ [INFO] Loaded command: robstats
+00:24:22 ℹ️ [INFO] Loaded command: roulette
+00:24:22 ℹ️ [INFO] Loaded command: rps
+00:24:22 ℹ️ [INFO] Loaded command: russianroulette
+00:24:22 ℹ️ [INFO] Loaded command: scratch
+00:24:22 ℹ️ [INFO] Loaded command: sendmoney
+00:24:22 ℹ️ [INFO] Loaded command: sessionstatus
+00:24:22 ℹ️ [INFO] Loaded command: setup
+00:24:22 ℹ️ [INFO] Loaded command: shop
+00:24:22 ℹ️ [INFO] Loaded command: slots
+00:24:22 ℹ️ [INFO] Loaded command: sportbet
+00:24:22 ℹ️ [INFO] Loaded command: start-marriage
+00:24:22 ℹ️ [INFO] Loaded command: stats
+00:24:22 ℹ️ [INFO] Loaded command: stopgame
+00:24:22 ℹ️ [INFO] Loaded command: stopmysession
+00:24:22 ℹ️ [INFO] Loaded command: summary
+00:24:22 ℹ️ [INFO] Loaded command: test-rotation-status
+00:24:22 ℹ️ [INFO] Loaded command: test-week2
+00:24:22 ℹ️ [INFO] Loaded command: treasurevault
+00:24:22 ℹ️ [INFO] Loaded command: uno
+00:24:22 ℹ️ [INFO] Loaded command: vote
+00:24:22 ℹ️ [INFO] Loaded command: weekly
+00:24:22 ℹ️ [INFO] Loaded command: withdraw
+00:24:22 🤖 [AI/ML] Loaded command: wordchain
+00:24:22 ℹ️ [INFO] Loaded command: work
+00:24:22 ℹ️ [INFO] Loaded command: yahtzee
+🚀 [STARTUP] COMPREHENSIVE_LOGGER: Comprehensive logging system initialized
+   📋 Details: {
+  "sessionId": "CASINO_mg4mjoh6_5xud19g2g",
+  "logDirectory": "./logs",
+  "timestamp": "2025-09-29T04:24:22.050Z"
+}
+
+📊 SYSTEM STATUS OVERVIEW:
+────────────────────────────────────────
+✅ Database System          ONLINE
+   └─ NodeCache active, MariaDB connected
+✅ Economic Engine          ONLINE
+   └─ Built-in analytics active
+✅ Cache System             ONLINE
+   └─ NodeCache replacing Redis
+✅ Economy System           ONLINE
+   └─ Moved to UAS bot
+✅ Game Sessions            ONLINE
+   └─ Session manager active
+✅ Security                 ONLINE
+   └─ Anti-abuse AI active
+────────────────────────────────────────
+
+
+📦 STARTUP SUMMARY
+────────────────────────────────────────
+🧭 Environment:     DEVELOPMENT
+🏷️ Version:         3.x
+🧪 Node:            v22.14.0
+🏠 Guilds:          3
+🧩 Commands Loaded: 74
+🎮 Games Available: 20
+🗄️ Cache Keys:      0
+📈 Cache Hit Rate:  0%
+🛢️ Database:        ONLINE
+⏱️ Uptime:          0h 0m 9s
+🧠 Memory:          175.0 MB
+────────────────────────────────────────
+
+════════════════════════════════════════════════════════════════════════════════
+✅               STARTUP SEQUENCE COMPLETE                           ✅
+🎰 ATIVE Casino Bot is now ONLINE and ready for players! 🎰
+════════════════════════════════════════════════════════════════════════════════
+
+📝 [LOGGER] Flushing 0 pending logs...

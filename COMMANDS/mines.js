@@ -79,6 +79,10 @@ const gamePanelUtil = new GamePanelUtil();
  * Create game embed with consistent styling using gameSessionKit
  */
 async function createGameEmbed(game, user, balance = null, economicIndicators = null, regulatedPayout = null) {
+    // Check for playfor context
+    const playForRecipient = global.playForContext?.recipientName;
+    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+    
     // Top fields for game information
     const topFields = [];
     
@@ -89,6 +93,15 @@ async function createGameEmbed(game, user, balance = null, economicIndicators = 
         value: `Revealed: ${stats.revealed}/${stats.safeSpots} | Mines: ${stats.mineCount} | Current Multiplier: ${stats.currentMultiplier.toFixed(2)}x`,
         inline: false
     });
+    
+    // Add playfor field if applicable
+    if (winningForSomeoneElse) {
+        topFields.push({
+            name: '🎁 Playing For',
+            value: `@${playForRecipient}`,
+            inline: true
+        });
+    }
 
     // Banking fields
     const bankFields = [];
@@ -109,10 +122,18 @@ async function createGameEmbed(game, user, balance = null, economicIndicators = 
             stageText = 'MINE HIT!';
             color = 0xff0000; // Red for loss
         } else if (game.cashedOut) {
-            stageText = 'CASHED OUT';
+            if (winningForSomeoneElse) {
+                stageText = `CASHED OUT FOR @${playForRecipient}!`;
+            } else {
+                stageText = 'CASHED OUT';
+            }
             color = 0x00ff00; // Green for cash out
         } else {
-            stageText = 'ALL CLEAR';
+            if (winningForSomeoneElse) {
+                stageText = `ALL CLEAR FOR @${playForRecipient}!`;
+            } else {
+                stageText = 'ALL CLEAR';
+            }
             color = 0xFFD700; // Gold for perfect clear
         }
     } else {
@@ -121,6 +142,9 @@ async function createGameEmbed(game, user, balance = null, economicIndicators = 
     }
 
     let footer = game.gameEnded ? 'Game completed' : 'Click tiles to reveal or cash out';
+    if (winningForSomeoneElse) {
+        footer = `Playing for @${playForRecipient} • ` + footer;
+    }
     if (economicIndicators && !game.gameEnded) {
         footer += ` • AI Economy: ${economicIndicators.status} ${economicIndicators.healthScore}/100`;
     }
@@ -713,12 +737,20 @@ module.exports = {
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             const finalEmbed = await createGameEmbed(game, interaction.user, userBalance, null, regulatedPayout);
 
+            // Check for playfor context
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+            
             // Create result message
             let resultMessage = '';
             if (game.hitMine) {
                 resultMessage = `💥 **MINE HIT!** You lost ${fmt(game.betAmount)}`;
             } else if (won) {
-                resultMessage = `💰 **${game.cashedOut ? 'CASHED OUT' : 'PERFECT CLEAR'}!** You won ${fmt(regulatedPayout)} (${currentMultiplier.toFixed(2)}x)`;
+                if (winningForSomeoneElse) {
+                    resultMessage = `💰 **${game.cashedOut ? 'CASHED OUT' : 'PERFECT CLEAR'} FOR @${playForRecipient}!** You won ${fmt(regulatedPayout)} (${currentMultiplier.toFixed(2)}x) for @${playForRecipient}`;
+                } else {
+                    resultMessage = `💰 **${game.cashedOut ? 'CASHED OUT' : 'PERFECT CLEAR'}!** You won ${fmt(regulatedPayout)} (${currentMultiplier.toFixed(2)}x)`;
+                }
             } else {
                 resultMessage = `💸 **GAME OVER!** Better luck next time.`;
             }

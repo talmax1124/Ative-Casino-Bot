@@ -923,18 +923,41 @@ module.exports = {
             const winnerPlayer = game.players.get(winner);
             const loserId = [...game.players.keys()].find(id => id !== winner);
             const loserPlayer = game.players.get(loserId);
+
+            // Check if this is a playfor game
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
             
             // Create victory embed
+            let title = `🎉 BATTLESHIP VICTORY! 🎉`;
+            let stageText = `${winnerPlayer.displayName} WINS THE BATTLE!`;
+
+            if (winningForSomeoneElse) {
+                title = `🎉 BATTLESHIP VICTORY FOR @${playForRecipient}! 🎉`;
+                stageText = `${winnerPlayer.displayName} WINS THE BATTLE FOR @${playForRecipient}!`;
+            }
+
+            const topFields = [
+                { name: '🏆 Winner', value: `${winnerPlayer.displayName}\nAll enemy ships destroyed!`, inline: true },
+                { name: '🪦 Defeated', value: `${loserPlayer.displayName}\nFleet completely sunk`, inline: true },
+                { name: '⚓ Game Summary', value: `Battle concluded\nWell played by both commanders!`, inline: false }
+            ];
+
+            // Add playfor context if applicable
+            if (winningForSomeoneElse) {
+                topFields.push({
+                    name: '🎁 Playing For',
+                    value: `@${playForRecipient}`,
+                    inline: true
+                });
+            }
+
             const victoryEmbed = buildSessionEmbed({
-                title: `🎉 BATTLESHIP VICTORY! 🎉`,
-                stageText: `${winnerPlayer.displayName} WINS THE BATTLE!`,
-                topFields: [
-                    { name: '🏆 Winner', value: `${winnerPlayer.displayName}\nAll enemy ships destroyed!`, inline: true },
-                    { name: '🪦 Defeated', value: `${loserPlayer.displayName}\nFleet completely sunk`, inline: true },
-                    { name: '⚓ Game Summary', value: `Battle concluded\nWell played by both commanders!`, inline: false }
-                ],
+                title,
+                stageText,
+                topFields,
                 color: 0xFFD700, // Gold color for victory
-                footer: 'Thanks for playing Battleship! 🚢'
+                footer: winningForSomeoneElse ? `Thanks for playing Battleship! Winnings sent to @${playForRecipient} 🚢` : 'Thanks for playing Battleship! 🚢'
             });
 
             // Update the main game message
@@ -1522,10 +1545,33 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
             const finishedComponents = game.createGameButtons();
             await game.message.edit({ embeds: [finishedEmbed], components: finishedComponents });
 
+            // Check if this is a playfor game
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+
+            let title = '🏆 Victory Achieved!';
+            let stageText = `${resultMessage}\n\nWinner: <@${winner}>\nPrize: ${fmt(winnings)}`;
+
+            if (winningForSomeoneElse) {
+                title = `🏆 VICTORY FOR @${playForRecipient}!`;
+                stageText = `${resultMessage}\n\nWinner: <@${winner}> for @${playForRecipient}\nPrize: ${fmt(winnings)}`;
+            }
+
+            const topFields = [];
+            if (winningForSomeoneElse) {
+                topFields.push({
+                    name: '🎁 Playing For',
+                    value: `@${playForRecipient}`,
+                    inline: true
+                });
+            }
+
             const winEmbed = buildSessionEmbed({
-                title: '🏆 Victory Achieved!',
-                stageText: `${resultMessage}\n\nWinner: <@${winner}>\nPrize: ${fmt(winnings)}`,
-                color: 0xFFD700
+                title,
+                stageText,
+                topFields,
+                color: 0xFFD700,
+                footer: winningForSomeoneElse ? `Winnings sent to @${playForRecipient}` : undefined
             });
             
             await interaction.reply({ embeds: [winEmbed], flags: MessageFlags.Ephemeral });

@@ -63,7 +63,6 @@ const CRASH_MODES = {
     houseEdge: 0.15,           // 15% house edge
     emoji: '🔥',
     color: '#9C27B0'
-
 };
 
 // Global configuration
@@ -272,8 +271,15 @@ class OptimizedCrashGame {
   createEmbed() {
     let title, color, description;
     
+    // Check if this is a playfor game
+    const playForRecipient = global.playForContext?.recipientName;
+    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+    
     // Add owner info to distinguish between multiple games
-    const ownerInfo = this.ownerUsername ? `${this.ownerUsername}'s ` : '';
+    let ownerInfo = this.ownerUsername ? `${this.ownerUsername}'s ` : '';
+    if (winningForSomeoneElse) {
+      ownerInfo = `${this.ownerUsername}'s (for @${playForRecipient}) `;
+    }
     
     switch (this.state) {
       case 'betting':
@@ -313,10 +319,21 @@ class OptimizedCrashGame {
     if (this.players.size > 0) {
       const playerList = Array.from(this.players.entries())
         .map(([userId, player]) => {
+          // Check if this is a playfor game
+          const playForRecipient = global.playForContext?.recipientName;
+          const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId && global.playForContext.playerId === userId;
+          
           const status = player.cashedOut 
-            ? `✅ ${player.cashOutMultiplier.toFixed(2)}x (+${fmt(player.winnings)})`
+            ? (winningForSomeoneElse 
+                ? `✅ ${player.cashOutMultiplier.toFixed(2)}x (+${fmt(player.winnings)} for @${playForRecipient})`
+                : `✅ ${player.cashOutMultiplier.toFixed(2)}x (+${fmt(player.winnings)})`)
             : (this.state === 'crashed' ? '❌ Lost' : '⏳ Active');
-          return `• **${player.username}**: ${fmt(player.bet)} ${status}`;
+          
+          const playerLabel = winningForSomeoneElse 
+            ? `**${player.username}** (playing for @${playForRecipient})`
+            : `**${player.username}**`;
+            
+          return `• ${playerLabel}: ${fmt(player.bet)} ${status}`;
         })
         .slice(0, 10) // Limit to 10 players for embed size
         .join('\n');

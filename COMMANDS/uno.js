@@ -1027,20 +1027,68 @@ module.exports = {
 
             }
 
+            // Check if this is a playfor game
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+
+            // Create victory embed
+            let title = '🏆 UNO VICTORY!';
+            let description = `**${game.winner.username}** wins the UNO game!\n\n**Prize Won:** ${fmt(totalPot)}\n**Players:** ${game.players.size}`;
+
+            if (winningForSomeoneElse) {
+                title = `🏆 UNO VICTORY FOR @${playForRecipient}!`;
+                description = `**${game.winner.username}** wins the UNO game for @${playForRecipient}!\n\n**Prize Won:** ${fmt(totalPot)}\n**Players:** ${game.players.size}`;
+            }
+
+            const victoryEmbed = UITemplates.createStandardGameEmbed(
+                title,
+                description,
+                0, // No wallet display needed for final result
+                {
+                    minBet: 0,
+                    maxBet: null,
+                    wins: 0,
+                    losses: 0,
+                    hideWalletInfo: true,
+                    gameSpecific: [
+                        { name: '🎉 Winner', value: game.winner.username, inline: true },
+                        { name: '💰 Prize Pool', value: fmt(totalPot), inline: true },
+                        { name: '🎮 Total Players', value: `${game.players.size}`, inline: true }
+                    ]
+                }
+            ).setColor(0xFFD700); // Gold color for victory
+
+            // Add playfor context if applicable
+            if (winningForSomeoneElse) {
+                victoryEmbed.addFields({
+                    name: '🎁 Playing For',
+                    value: `@${playForRecipient}`,
+                    inline: true
+                });
+                victoryEmbed.setFooter({ text: `Game completed - Winnings sent to @${playForRecipient}` });
+            } else {
+                victoryEmbed.setFooter({ text: 'Game completed successfully!' });
+            }
+
             // Update main game message
             if (game.mainGameInteraction) {
                 try {
-                    await game.mainGameInteraction.editReply({ embeds: [embed], components: [] });
+                    await game.mainGameInteraction.editReply({ embeds: [victoryEmbed], components: [] });
                 } catch (editError) {
                     // Message might be too old to edit
                 }
             }
 
-            // Log game completion
+            // Log game completion with playfor context
+            let logMessage = `🎴 **UNO Game Completed**\\n**Winner:** ${game.winner.username} (\`${game.winner.userId}\`)\\n**Prize:** ${fmt(totalPot)}\\n**Players:** ${game.players.size}\\n**Channel:** <#${channelId}>`;
+            if (winningForSomeoneElse) {
+                logMessage = `🎴 **UNO Game Completed**\\n**Winner:** ${game.winner.username} (\`${game.winner.userId}\`) for @${playForRecipient}\\n**Prize:** ${fmt(totalPot)}\\n**Players:** ${game.players.size}\\n**Playing For:** @${playForRecipient}\\n**Channel:** <#${channelId}>`;
+            }
+
             await sendLogMessage(
                 interaction.client,
                 'success',
-                `🎴 **UNO Game Completed**\\n**Winner:** ${game.winner.username} (\`${game.winner.userId}\`)\\n**Prize:** ${fmt(totalPot)}\\n**Players:** ${game.players.size}\\n**Channel:** <#${channelId}>`,
+                logMessage,
                 game.winner.userId,
                 guildId
             );

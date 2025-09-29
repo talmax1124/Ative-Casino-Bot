@@ -539,8 +539,21 @@ class ScratchTicketSystem {
         if (scratchedPositions.length >= 3) {
             const hasWin = this.checkWinCondition(symbols, scratchedPositions);
             if (hasWin.won) {
+                // Check if this is a playfor game
+                const playForRecipient = global.playForContext?.recipientName;
+                const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+                
+                const winTitle = winningForSomeoneElse ? `🎉 WINNER FOR @${playForRecipient}!` : '🎉 WINNER!';
+                const winMessage = winningForSomeoneElse ? 
+                    `You found 3 ${hasWin.symbol} for @${playForRecipient}! Prize: **${fmtFull(ticket.won_amount)}**` :
+                    `You found 3 ${hasWin.symbol}! Prize: **${fmtFull(ticket.won_amount)}**`;
+                    
                 embed.setColor(0xFFD700)
-                    .addFields({ name: '🎉 WINNER!', value: `You found 3 ${hasWin.symbol}! Prize: **${fmtFull(ticket.won_amount)}**`, inline: false });
+                    .addFields({ name: winTitle, value: winMessage, inline: false });
+                    
+                if (winningForSomeoneElse) {
+                    embed.addFields({ name: '🎁 Playing For', value: `@${playForRecipient}`, inline: true });
+                }
             } else if (scratchedPositions.length === 9) {
                 embed.setColor(0xFF4444)
                     .addFields({ name: '💸 No Match', value: 'Better luck next time!', inline: false });
@@ -1163,8 +1176,16 @@ class ScratchTicketSystem {
      */
     async createResultInterface(ticket, scratchedPositions, winResult, winAmount, user) {
         try {
+            // Check if this is a playfor game
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+            
+            const titleSuffix = winResult.won ? 
+                (winningForSomeoneElse ? `🎉 WINNER FOR @${playForRecipient}!` : '🎉 WINNER!') : 
+                '💸 NO MATCH';
+                
             const embed = new EmbedBuilder()
-                .setTitle(`🎫 ${user.displayName}'s Scratch Ticket - ${winResult.won ? '🎉 WINNER!' : '💸 NO MATCH'}`)
+                .setTitle(`🎫 ${user.displayName}'s Scratch Ticket - ${titleSuffix}`)
                 .setDescription(`**Ticket ID:** ${ticket.id}\n**Final Result:** All 9 positions scratched!`)
                 .setColor(winResult.won ? 0x00FF00 : 0xFF6B6B);
 
@@ -1188,13 +1209,28 @@ class ScratchTicketSystem {
             ]);
 
             if (winResult.won) {
-                embed.addFields([
+                const congratsTitle = winningForSomeoneElse ? `🏆 Congratulations for @${playForRecipient}!` : '🏆 Congratulations!';
+                const congratsMessage = winningForSomeoneElse ? 
+                    `You found **3 ${winResult.symbol}** symbols for @${playForRecipient}!\n**Prize Won:** ${fmtFull(winAmount)}` :
+                    `You found **3 ${winResult.symbol}** symbols!\n**Prize Won:** ${fmtFull(winAmount)}`;
+                    
+                const winFields = [
                     {
-                        name: '🏆 Congratulations!',
-                        value: `You found **3 ${winResult.symbol}** symbols!\n**Prize Won:** ${fmtFull(winAmount)}`,
+                        name: congratsTitle,
+                        value: congratsMessage,
                         inline: false
                     }
-                ]);
+                ];
+                
+                if (winningForSomeoneElse) {
+                    winFields.push({
+                        name: '🎁 Playing For',
+                        value: `@${playForRecipient}`,
+                        inline: true
+                    });
+                }
+                
+                embed.addFields(winFields);
             } else {
                 embed.addFields([
                     {

@@ -542,7 +542,7 @@ module.exports = {
                 content: '❌ Failed to process stock sale. Please try again later.'
             });
         }
-    }
+    },
 
     async processSellWithSymbol(interaction, userId, guildId, marriage, symbol, shares) {
         try {

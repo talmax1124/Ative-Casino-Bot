@@ -242,8 +242,12 @@ module.exports = {
             const endType = result.lostToRedFish ? 'red' : 
                           result.reachedLimit ? 'limit' : 'stop';
 
+            // Check if this is a playfor game
+            const playForRecipient = global.playForContext?.recipientName;
+            const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+
             // Log game completion
-            const logMessage = `🎣 **Fishing Game Completed**\n` +
+            let logMessage = `🎣 **Fishing Game Completed**\n` +
                              `**Player:** ${game.username} (\`${userId}\`)\n` +
                              `**Initial Bet:** ${fmt(game.initialBet)}\n` +
                              `**Final Winnings:** ${fmt(game.currentWinnings)}\n` +
@@ -251,6 +255,10 @@ module.exports = {
                              `**Total Catches:** ${game.totalCatches}/${game.maxCatches}\n` +
                              `**End Reason:** ${result.lostToRedFish ? 'Red Fish 💀' : 
                                                 result.reachedLimit ? 'Limit Reached 🏁' : 'Voluntary Stop 🛑'}`;
+
+            if (winningForSomeoneElse) {
+                logMessage += `\n**Playing For:** @${playForRecipient}`;
+            }
 
             await sendLogMessage(
                 interaction.client,

@@ -520,12 +520,22 @@ class KenoGame {
             this.drawnNumbers.includes(num) ? `**${num}** ✅` : `${num}`
         ).join(' ');
         
+        // Check for playfor context
+        const playForRecipient = global.playForContext?.recipientName;
+        const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+        
         // Simplified explanation of what happened
         let winExplanation = '';
         if (won) {
-            winExplanation = `🎉 **YOU WON!** You matched ${this.matches} out of your ${this.spots} numbers.\n` +
-                           `With ${this.spots} numbers picked, you needed ${Math.min(...Object.keys(PAYOUT_TABLE[this.spots]).map(Number))} matches to win.\n` +
-                           `Your ${this.matches} matches earned ${this.multiplier}x your bet = ${fmt(displayPayout)}!`;
+            if (winningForSomeoneElse) {
+                winExplanation = `🎉 **WIN FOR @${playForRecipient}!** You matched ${this.matches} out of your ${this.spots} numbers.\n` +
+                               `With ${this.spots} numbers picked, you needed ${Math.min(...Object.keys(PAYOUT_TABLE[this.spots]).map(Number))} matches to win.\n` +
+                               `Your ${this.matches} matches earned ${this.multiplier}x your bet = ${fmt(displayPayout)} for @${playForRecipient}!`;
+            } else {
+                winExplanation = `🎉 **YOU WON!** You matched ${this.matches} out of your ${this.spots} numbers.\n` +
+                               `With ${this.spots} numbers picked, you needed ${Math.min(...Object.keys(PAYOUT_TABLE[this.spots]).map(Number))} matches to win.\n` +
+                               `Your ${this.matches} matches earned ${this.multiplier}x your bet = ${fmt(displayPayout)}!`;
+            }
         } else {
             const minToWin = Math.min(...Object.keys(PAYOUT_TABLE[this.spots]).map(Number));
             winExplanation = `❌ **No payout this time.** You matched ${this.matches} out of your ${this.spots} numbers.\n` +
@@ -533,28 +543,54 @@ class KenoGame {
                            `Better luck next time!`;
         }
         
+        let topFields = [
+            {
+                name: '🎯 YOUR NUMBERS (Auto-Selected)',
+                value: selectedDisplay,
+                inline: false
+            },
+            {
+                name: '🎲 HOUSE DREW 20 NUMBERS', 
+                value: this.drawnNumbers.join(' '),
+                inline: false
+            },
+            {
+                name: '📊 WHAT HAPPENED?',
+                value: winExplanation,
+                inline: false
+            }
+        ];
+        
+        // Add playfor field if applicable
+        if (winningForSomeoneElse) {
+            topFields.push({
+                name: '🎁 Playing For',
+                value: `@${playForRecipient}`,
+                inline: true
+            });
+        }
+        
+        let title = `🎲 KENO Results - ${this.matches} Match${this.matches !== 1 ? 'es' : ''}`;
+        if (winningForSomeoneElse && won) {
+            title = `🎲 KENO Results - Won for @${playForRecipient}!`;
+        }
+        
+        let stageText = won ? `🎊 WINNER! 🎊` : `${this.matches}/${this.spots} matches`;
+        if (winningForSomeoneElse && won) {
+            stageText = `WON FOR @${playForRecipient}!`;
+        }
+        
+        let footer = `KENO TIP: More numbers = bigger multipliers but harder to match! Current: ${this.spots} numbers picked`;
+        if (winningForSomeoneElse) {
+            footer = `Playing for @${playForRecipient} • ` + footer;
+        }
+        
         return buildSessionEmbed({
-            title: `🎲 KENO Results - ${this.matches} Match${this.matches !== 1 ? 'es' : ''}`,
-            topFields: [
-                {
-                    name: '🎯 YOUR NUMBERS (Auto-Selected)',
-                    value: selectedDisplay,
-                    inline: false
-                },
-                {
-                    name: '🎲 HOUSE DREW 20 NUMBERS', 
-                    value: this.drawnNumbers.join(' '),
-                    inline: false
-                },
-                {
-                    name: '📊 WHAT HAPPENED?',
-                    value: winExplanation,
-                    inline: false
-                }
-            ],
-            stageText: won ? `🎊 WINNER! 🎊` : `${this.matches}/${this.spots} matches`,
+            title,
+            topFields,
+            stageText,
             color: won ? 0x00FF00 : 0xFF4444,
-            footer: `KENO TIP: More numbers = bigger multipliers but harder to match! Current: ${this.spots} numbers picked`
+            footer
         });
     }
 

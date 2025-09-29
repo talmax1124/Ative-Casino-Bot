@@ -968,7 +968,11 @@ class RussianRouletteGame {
                 return b.turnsTaken - a.turnsTaken;
             })
             .map((player, i) => {
-                const status = player.alive ? '👑 WINNER' : `💀 Eliminated (Turn ${player.turnsTaken})`;
+                const playForRecipient = global.playForContext?.recipientName;
+                const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+                const status = player.alive ? 
+                    (winningForSomeoneElse ? `👑 WINNER FOR @${playForRecipient}` : '👑 WINNER') : 
+                    `💀 Eliminated (Turn ${player.turnsTaken})`;
                 return `${i + 1}. ${player.username} - ${status}`;
             })
             .join('\n');
@@ -977,30 +981,49 @@ class RussianRouletteGame {
             .map((bullet, i) => bullet ? '💥' : '⚫')
             .join(' ');
 
+        // Check if this is a playfor game
+        const playForRecipient = global.playForContext?.recipientName;
+        const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+        
+        const topFields = [
+            {
+                name: winningForSomeoneElse && winner ? `👑 WINNER FOR @${playForRecipient}` : '👑 WINNER',
+                value: winner ? 
+                    `**${winner.username}** survives!\n💰 **Won:** ${fmt(winnings)}\n🎯 **Survival Rate:** 1/${this.players.size}` :
+                    'No survivors... everyone eliminated!',
+                inline: false
+            },
+            {
+                name: '📊 FINAL STANDINGS',
+                value: finalStandings,
+                inline: false
+            },
+            {
+                name: winningForSomeoneElse && winner ? `💰 WINNER TAKES ALL FOR @${playForRecipient}` : '💰 WINNER TAKES ALL',
+                value: `**Total Pot:** ${fmt(totalPot)}\n**Winner Payout:** ${fmt(totalPot)}`,
+                inline: false
+            }
+        ];
+        
+        // Add playfor context if applicable
+        if (winningForSomeoneElse && winner) {
+            topFields.push({
+                name: '🎁 Playing For',
+                value: `@${playForRecipient}`,
+                inline: true
+            });
+        }
+
         const embed = buildSessionEmbed({
             title: '🏆 RUSSIAN ROULETTE - GAME OVER',
-            topFields: [
-                {
-                    name: '👑 WINNER',
-                    value: winner ? 
-                        `**${winner.username}** survives!\n💰 **Won:** ${fmt(winnings)}\n🎯 **Survival Rate:** 1/${this.players.size}` :
-                        'No survivors... everyone eliminated!',
-                    inline: false
-                },
-                {
-                    name: '📊 FINAL STANDINGS',
-                    value: finalStandings,
-                    inline: false
-                },
-                {
-                    name: '💰 WINNER TAKES ALL',
-                    value: `**Total Pot:** ${fmt(totalPot)}\n**Winner Payout:** ${fmt(totalPot)}`,
-                    inline: false
-                }
-            ],
-            stageText: winner ? `${winner.username.toUpperCase()} WINS!` : 'NO SURVIVORS!',
+            topFields,
+            stageText: winner ? 
+                (winningForSomeoneElse ? `${winner.username.toUpperCase()} WINS FOR @${playForRecipient}!` : `${winner.username.toUpperCase()} WINS!`) : 
+                'NO SURVIVORS!',
             color: winner ? 0xFFD700 : 0x800000,
-            footer: '🎰 Thanks for playing Russian Roulette! • ATIVE Casino'
+            footer: winner && winningForSomeoneElse ? 
+                `🎰 Thanks for playing Russian Roulette! Winnings sent to @${playForRecipient} • ATIVE Casino` :
+                '🎰 Thanks for playing Russian Roulette! • ATIVE Casino'
         });
 
         try {

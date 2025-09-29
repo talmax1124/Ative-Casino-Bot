@@ -43,12 +43,26 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 process.on('uncaughtException', (error) => {
-    logger.error('Uncaught exception:', error instanceof Error ? error.message : JSON.stringify(error, null, 2));
+    console.error('❌ [CRITICAL ERROR] Uncaught exception occurred:');
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Error type:', error.constructor.name);
+    
+    if (error instanceof Error) {
+        console.error('Full stack trace:', error.stack);
+        logger.error('Uncaught exception:', error.message);
+        logger.error('Stack trace:', error.stack);
+    } else {
+        console.error('Non-Error object:', JSON.stringify(error, null, 2));
+        logger.error('Uncaught exception (non-Error):', JSON.stringify(error, null, 2));
+    }
+    
     // Don't exit the process for unknown interaction errors
     if (error.message && error.message.includes('Unknown interaction')) {
         logger.debug('Unknown interaction uncaught exception handled');
         return;
     }
+    
+    console.error('❌ Process will exit due to uncaught exception');
     process.exit(1);
 });
 

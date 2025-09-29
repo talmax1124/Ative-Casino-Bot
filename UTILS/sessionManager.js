@@ -496,7 +496,13 @@ class UnifiedSessionManager extends EventEmitter {
                 timeout,
                 metadata: {
                     ...metadata,
-                    version: '2.0.0'
+                    version: '2.0.0',
+                    // Include play-for context if available
+                    ...(global.playForContext ? {
+                        playFor: true,
+                        recipientId: global.playForContext.recipientId,
+                        recipientName: global.playForContext.recipientName
+                    } : {})
                 },
                 stats: {
                     actions: 0,
@@ -507,6 +513,11 @@ class UnifiedSessionManager extends EventEmitter {
             // Store session in all indexes
             this.sessions.set(sessionId, session);
             this.log('debug', `Session object stored and indexed: ${sessionId}`);
+            
+            // Debug play-for sessions
+            if (session.metadata.playFor) {
+                this.log('info', `PlayFor session created: ${sessionId} for ${userId} -> ${session.metadata.recipientId}`);
+            }
             
             // 🚀 NODECACHE: Cache session for high-speed access
             try {
@@ -653,12 +664,24 @@ class UnifiedSessionManager extends EventEmitter {
             // Process payout if any
             if (payout > 0) {
                 try {
+                    // Check if this is a play-for session
+                    const payoutOptions = { game_active: false };
+                    if (session.metadata && session.metadata.playFor) {
+                        this.log('info', `PlayFor payout processing: ${payout} for session ${sessionId} -> ${session.metadata.recipientId}`);
+                        payoutOptions.playFor = {
+                            recipientId: session.metadata.recipientId,
+                            recipientName: session.metadata.recipientName
+                        };
+                    } else {
+                        this.log('debug', `Regular payout processing: ${payout} for session ${sessionId} (no playFor metadata)`);
+                    }
+
                     const payoutSuccess = await dbManager.updateUserBalance(
                         session.userId,
                         session.guildId,
                         payout,
                         0,
-                        { game_active: false }
+                        payoutOptions
                     );
 
                     if (!payoutSuccess) {
