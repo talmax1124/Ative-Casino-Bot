@@ -366,7 +366,7 @@ class RankTopManager {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.botAuthToken}`
+                    'Authorization': this.botAuthToken
                 },
                 body: JSON.stringify(payload)
             });
