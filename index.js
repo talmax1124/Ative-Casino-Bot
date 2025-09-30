@@ -1125,6 +1125,32 @@ client.on('interactionCreate', async interaction => {
                     await minesCommand.startNewGame(interaction, betAmount);
                 }
             }
+            // Handle Texas Hold'em bet amount selection dropdown
+            else if (interaction.customId.startsWith('th-') && interaction.customId.includes('-bet_amount')) {
+                const parts = interaction.customId.split('-');
+                if (parts.length >= 3) {
+                    const menuType = parts[1];
+                    // Handle universal bet menu
+                    if (menuType === 'betmenu') {
+                        const texasHoldemCommand = client.commands.get('texasholdem');
+                        if (texasHoldemCommand && texasHoldemCommand.handleBetAmountSelection) {
+                            await texasHoldemCommand.handleBetAmountSelection(interaction, interaction.values[0]);
+                        }
+                    }
+                    // Handle legacy user-specific menus
+                    else if (menuType === interaction.user.id) {
+                        const texasHoldemCommand = client.commands.get('texasholdem');
+                        if (texasHoldemCommand && texasHoldemCommand.handleBetAmountSelection) {
+                            await texasHoldemCommand.handleBetAmountSelection(interaction, interaction.values[0]);
+                        }
+                    } else {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: 'This menu is not for you!',
+                            flags: MessageFlags.Ephemeral
+                        });
+                    }
+                }
+            }
             // Handle roulette number selection dropdown
             else if (interaction.customId.startsWith('roulette-') && interaction.customId.includes('-number-select')) {
                 const parts = interaction.customId.split('-');
@@ -1516,6 +1542,34 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
                             content: 'This is not your game!',
+                            flags: MessageFlags.Ephemeral
+                        });
+                    }
+                }
+            }
+            // Handle Texas Hold'em buttons (format: th-{type}-{action})
+            else if (customId.startsWith('th-')) {
+                const parts = customId.split('-');
+                if (parts.length >= 3) {
+                    const buttonType = parts[1];
+                    const actionId = parts.slice(2).join('-'); // Handle multi-part action names
+                    
+                    // Handle different button types
+                    if (buttonType === 'general' || buttonType === 'player' || buttonType === 'creator' || buttonType === 'action') {
+                        const texasHoldemCommand = client.commands.get('texasholdem');
+                        if (texasHoldemCommand && texasHoldemCommand.handleTexasHoldemAction) {
+                            await texasHoldemCommand.handleTexasHoldemAction(interaction, actionId);
+                        }
+                    }
+                    // Handle legacy user-specific buttons (format: th-{userId}-{action})
+                    else if (buttonType === interaction.user.id) {
+                        const texasHoldemCommand = client.commands.get('texasholdem');
+                        if (texasHoldemCommand && texasHoldemCommand.handleTexasHoldemAction) {
+                            await texasHoldemCommand.handleTexasHoldemAction(interaction, actionId);
+                        }
+                    } else {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: 'This button is not for you!',
                             flags: MessageFlags.Ephemeral
                         });
                     }

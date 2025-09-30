@@ -4982,7 +4982,7 @@ class DatabaseAdapter {
     /**
      * Cache or update guild member data
      */
-    async cacheGuildMember(memberData) {
+    async cacheGuildMember(memberData, retryCount = 0) {
         try {
             // Validate memberData
             if (!memberData || !memberData.userId || !memberData.guildId) {
@@ -5034,7 +5034,25 @@ class DatabaseAdapter {
             return { success: true };
 
         } catch (error) {
-            logger.error(`Error caching guild member: ${error.message}`);
+            // Handle timeout errors with retry logic
+            if ((error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET' || 
+                 error.code === 'ECONNREFUSED' || error.message.includes('ETIMEDOUT')) && 
+                retryCount < 3) {
+                
+                const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+                logger.debug(`Database timeout for member cache (attempt ${retryCount + 1}/3), retrying in ${delay}ms...`);
+                
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return this.cacheGuildMember(memberData, retryCount + 1);
+            }
+            
+            // Don't spam logs for timeout errors after retries
+            if (error.code === 'ETIMEDOUT' || error.message.includes('ETIMEDOUT')) {
+                logger.debug(`Member cache timeout after retries: ${memberData.userId}`);
+            } else {
+                logger.error(`Error caching guild member: ${error.message}`);
+            }
             return { success: false, error: error.message };
         }
     }
