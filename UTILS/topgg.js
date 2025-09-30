@@ -160,9 +160,9 @@ class TopGGManager {
             let lotteryTicketsGiven = 0;
             if (voteType === 'ranktop' && rewardConfig.lotteryTickets > 0) {
                 try {
-                    // Give free lottery tickets (using guildId = null for global)
-                    const guildId = process.env.DESIGNATED_SERVER_ID || null;
-                    lotteryTicketsGiven = await this.giveFreeLotteryTickets(userId, guildId, rewardConfig.lotteryTickets);
+                    // Give free lottery tickets using designated server ID
+                    const lotteryGuildId = process.env.DESIGNATED_SERVER_ID || '1403244656845787167';
+                    lotteryTicketsGiven = await this.giveFreeLotteryTickets(userId, lotteryGuildId, rewardConfig.lotteryTickets);
                     logger.info(`Gave ${lotteryTicketsGiven} free lottery tickets to user ${userId} for rank.top vote`);
                 } catch (lotteryError) {
                     logger.error(`Failed to give lottery tickets to user ${userId}: ${lotteryError.message}`);
@@ -424,6 +424,14 @@ class TopGGManager {
      */
     async giveFreeLotteryTickets(userId, guildId, ticketCount) {
         try {
+            // Validate required parameters
+            if (!userId) {
+                throw new Error('User ID is required');
+            }
+            if (!guildId) {
+                throw new Error('Guild ID is required for lottery tickets');
+            }
+            
             // Ensure user exists in database
             await dbManager.ensureUser(userId, 'Rank.top Voter');
             
