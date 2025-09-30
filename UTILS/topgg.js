@@ -382,25 +382,42 @@ class TopGGManager {
      */
     async handleRanktopVoteWebhook(req, res) {
         try {
-            logger.debug('Received Rank.top webhook request');
-            logger.debug('Headers:', req.headers);
-            logger.debug('Body:', req.body);
+            logger.info('🎟️ Received Rank.top webhook request');
+            logger.debug('Headers:', JSON.stringify(req.headers, null, 2));
+            logger.debug('Body:', JSON.stringify(req.body, null, 2));
 
-            // Verify webhook signature from Authorization header
-            const authHeader = req.headers['authorization'];
-            if (!this.verifyRanktopWebhookSignature(req.body, authHeader)) {
-                logger.warn('Invalid Rank.top webhook authorization');
-                logger.warn(`Expected format: Bearer ${this.ranktopWebhookSecret}`);
-                logger.warn(`Received: ${authHeader}`);
-                return res.status(401).send('Unauthorized');
+            // For test messages, just respond OK
+            const voteData = req.body;
+            if (voteData.test === true || voteData.type === 'test') {
+                logger.info('🧪 Rank.top test webhook received - responding OK');
+                return res.status(200).json({ 
+                    status: 'success', 
+                    message: 'Test webhook received successfully',
+                    timestamp: new Date().toISOString()
+                });
             }
 
-            const voteData = req.body;
-            const userId = voteData.user;
+            // Verify webhook signature from Authorization header
+            const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+            if (!this.verifyRanktopWebhookSignature(req.body, authHeader)) {
+                logger.warn('❌ Invalid Rank.top webhook authorization');
+                logger.warn(`Expected format: Bearer ${this.ranktopWebhookSecret}`);
+                logger.warn(`Received: ${authHeader}`);
+                return res.status(401).json({ 
+                    error: 'Unauthorized',
+                    message: 'Invalid authorization header'
+                });
+            }
+
+            // Extract user ID from various possible fields
+            const userId = voteData.user || voteData.user_id || voteData.userId;
             
             if (!userId) {
-                logger.error('No user ID in rank.top vote data:', voteData);
-                return res.status(400).send('Bad Request - Missing user ID');
+                logger.error('❌ No user ID in rank.top vote data:', voteData);
+                return res.status(400).json({ 
+                    error: 'Bad Request',
+                    message: 'Missing user ID in vote data'
+                });
             }
             
             logger.info(`🎟️ Rank.top vote received from user: ${userId}`);
@@ -408,12 +425,23 @@ class TopGGManager {
             // Process the vote reward with rank.top type
             await this.processVoteReward(userId, voteData, 'ranktop');
             
-            logger.info(`🎟️ Successfully processed rank.top vote for user: ${userId}`);
-            res.status(200).send('OK');
+            logger.info(`✅ Successfully processed rank.top vote for user: ${userId}`);
+            
+            // Return JSON response for better compatibility
+            res.status(200).json({
+                status: 'success',
+                message: 'Vote processed successfully',
+                user_id: userId,
+                timestamp: new Date().toISOString()
+            });
         } catch (error) {
             logger.error(`❌ Rank.top webhook error: ${error.message}`);
             logger.error('Stack trace:', error.stack);
-            res.status(500).send('Internal Server Error');
+            res.status(500).json({
+                status: 'error',
+                message: 'Internal server error',
+                error: error.message
+            });
         }
     }
 
@@ -508,14 +536,31 @@ class TopGGManager {
      * Verify webhook signature from Rank.top
      */
     verifyRanktopWebhookSignature(body, signature) {
-        if (!signature || !this.ranktopWebhookSecret) {
+        if (!this.ranktopWebhookSecret) {
+            logger.warn('RANKTOP_WEBHOOK_SECRET not configured, skipping signature verification');
+            return true; // Allow webhook if no secret is configured
+        }
+        
+        if (!signature) {
+            logger.warn('No authorization header received from Rank.top');
             return false;
         }
         
-        // Rank.top sends signature as Authorization header
-        // Format: "Bearer your-webhook-secret"
-        const expectedAuth = `Bearer ${this.ranktopWebhookSecret}`;
-        return signature === expectedAuth;
+        // Try multiple possible formats
+        const possibleFormats = [
+            `Bearer ${this.ranktopWebhookSecret}`,
+            this.ranktopWebhookSecret,
+            `${this.ranktopWebhookSecret}`
+        ];
+        
+        for (const expectedAuth of possibleFormats) {
+            if (signature === expectedAuth) {
+                return true;
+            }
+        }
+        
+        logger.warn(`Rank.top signature mismatch. Expected one of: ${possibleFormats.join(', ')}, Got: ${signature}`);
+        return false;
     }
 }
 
