@@ -3717,22 +3717,22 @@ async function showAdvancedHelpContent(interaction, customId) {
 client.once('clientReady', () => {
     logger.info(`Bot is ready! Logged in as ${client.user.tag}`);
     
-    // Initialize Rank.Top Manager
-    const RankTopManager = require('./UTILS/ranktopManager');
-    client.rankTopManager = new RankTopManager(client);
+    // Rank.Top Manager disabled due to authentication issues
+    // const RankTopManager = require('./UTILS/ranktopManager');
+    // client.rankTopManager = new RankTopManager(client);
     
-    // Start autoposting if configured
-    if (process.env.RANKTOP_API_KEY && process.env.RANKTOP_BOT_AUTH_TOKEN) {
-        client.rankTopManager.startAutopost()
-            .then(success => {
-                if (success) {
-                    logger.info('✅ Rank.Top autopost started');
-                }
-            })
-            .catch(error => {
-                logger.error('Failed to start Rank.Top autopost:', error);
-            });
-    }
+    // Rank.Top autoposting disabled
+    // if (process.env.RANKTOP_API_KEY && process.env.RANKTOP_BOT_AUTH_TOKEN) {
+    //     client.rankTopManager.startAutopost()
+    //         .then(success => {
+    //             if (success) {
+    //                 logger.info('✅ Rank.Top autopost started');
+    //             }
+    //         })
+    //         .catch(error => {
+    //             logger.error('Failed to start Rank.Top autopost:', error);
+    //         });
+    // }
     
     // Voting system status
     logger.info('✅ Voting system initialized successfully');
