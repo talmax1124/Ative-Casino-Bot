@@ -809,7 +809,7 @@ client.once('clientReady', async () => {
         'Database System': { online: true, details: 'NodeCache active, MariaDB connected' },
         'Economic Engine': { online: true, details: 'Built-in analytics active' },
         'Cache System': { online: true, details: 'NodeCache replacing Redis' },
-        'Economy System': { online: true, details: 'Moved to UAS bot' },
+        'Economy System': { online: true, details: 'House Edge: 2.5% avg | Moved to UAS bot' },
         'Game Sessions': { online: true, details: 'Session manager active' },
         'Security': { online: true, details: 'Anti-abuse AI active' }
     };
