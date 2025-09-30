@@ -8,7 +8,7 @@ require('dotenv').config();
 
 // Configuration - UPDATE THESE VALUES
 const WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL || 'http://199.244.48.46:25565';
-const TEST_USER_ID = 'YOUR_DISCORD_USER_ID_HERE'; // Replace with your Discord user ID
+const TEST_USER_ID = '466050111680544798'; // Your Discord user ID
 
 // Environment variables
 const TOPGG_WEBHOOK_SECRET = process.env.TOPGG_WEBHOOK_SECRET;
@@ -93,16 +93,24 @@ async function testRanktopVoteWebhook() {
     console.log(`\n${colors.cyan}Testing Rank.top Vote Webhook...${colors.reset}`);
     
     try {
+        const crypto = require('crypto');
+        const body = {
+            user: TEST_USER_ID,
+            bot: '1403236218900185088',
+            timestamp: Date.now()
+        };
+        
+        // Generate HMAC signature like the webhook expects
+        const signature = crypto.createHmac('sha256', RANKTOP_WEBHOOK_SECRET)
+            .update(JSON.stringify(body))
+            .digest('hex');
+        
         const response = await axios.post(
             `${WEBHOOK_BASE_URL}/ranktop/webhook`,
-            {
-                user: TEST_USER_ID,
-                bot: '1403236218900185088',
-                timestamp: Date.now()
-            },
+            body,
             {
                 headers: {
-                    'Authorization': `Bearer ${RANKTOP_WEBHOOK_SECRET}`,
+                    'x-signature': signature,
                     'Content-Type': 'application/json'
                 }
             }
