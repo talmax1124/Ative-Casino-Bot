@@ -47,7 +47,7 @@ module.exports = {
             
             const response = await interaction.reply({
                 embeds: [dashboardEmbed],
-                components: [actionButtons, navButtons],
+                components: [...actionButtons, navButtons],
                 fetchReply: true
             });
 
@@ -149,7 +149,7 @@ module.exports = {
             },
             {
                 name: '💰 Vote Rewards',
-                value: '• **25,000 coins** per vote\n• **Weekend Bonus**: +50% extra\n• **Streak Bonuses**: Up to 1M coins!',
+                value: '• **Bot Vote**: 25,000 coins + bonuses\n• **Server Vote**: 25,000 coins + bonuses\n• **Rank.top Vote**: 1 free lottery ticket\n• **Weekend Bonus**: +50% extra coins\n• **Streak Bonuses**: Up to 1M coins!',
                 inline: false
             }
         );
@@ -171,46 +171,69 @@ module.exports = {
     },
 
     createActionButtons(canVoteNow) {
-        const actionRow = new ActionRowBuilder();
+        const actionRows = [];
+        
+        // First row: Voting buttons
+        const voteRow = new ActionRowBuilder();
         
         if (canVoteNow) {
-            actionRow.addComponents(
+            voteRow.addComponents(
                 new ButtonBuilder()
-                    .setLabel('🗳️ Vote Now!')
+                    .setLabel('🤖 Vote Bot')
                     .setStyle(ButtonStyle.Link)
                     .setURL('https://top.gg/bot/1403236218900185088/vote')
-                    .setEmoji('⚡'),
+                    .setEmoji('🗳️'),
                 new ButtonBuilder()
-                    .setCustomId('vote_remind_me')
-                    .setLabel('Set Reminder')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('⏰'),
+                    .setLabel('🏆 Vote Server')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://top.gg/servers/1403244656845787167/vote')
+                    .setEmoji('🗳️'),
                 new ButtonBuilder()
-                    .setCustomId('vote_refresh')
-                    .setLabel('Refresh')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('🔄')
+                    .setLabel('🎟️ Vote Rank.top')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://rank.top/bot/1403236218900185088/vote')
+                    .setEmoji('🎫')
             );
         } else {
-            actionRow.addComponents(
+            voteRow.addComponents(
                 new ButtonBuilder()
-                    .setLabel('🗳️ Vote on Top.GG')
+                    .setLabel('🤖 Vote Bot')
                     .setStyle(ButtonStyle.Link)
-                    .setURL('https://top.gg/bot/1403236218900185088/vote'),
+                    .setURL('https://top.gg/bot/1403236218900185088/vote')
+                    .setEmoji('🗳️'),
                 new ButtonBuilder()
-                    .setCustomId('vote_remind_me')
-                    .setLabel('Set Reminder')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('⏰'),
+                    .setLabel('🏆 Vote Server')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://top.gg/servers/1403244656845787167/vote')
+                    .setEmoji('🗳️'),
                 new ButtonBuilder()
-                    .setCustomId('vote_refresh')
-                    .setLabel('Refresh')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('🔄')
+                    .setLabel('🎟️ Vote Rank.top')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://rank.top/bot/1403236218900185088/vote')
+                    .setEmoji('🎫')
             );
         }
-
-        return actionRow;
+        
+        actionRows.push(voteRow);
+        
+        // Second row: Action buttons
+        const actionRow = new ActionRowBuilder();
+        actionRow.addComponents(
+            new ButtonBuilder()
+                .setCustomId('vote_remind_me')
+                .setLabel('Set Reminder')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('⏰'),
+            new ButtonBuilder()
+                .setCustomId('vote_refresh')
+                .setLabel('Refresh')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🔄')
+        );
+        
+        actionRows.push(actionRow);
+        
+        return actionRows;
     },
 
     createNavigationButtons() {
@@ -309,7 +332,7 @@ module.exports = {
 
         await interaction.update({
             embeds: [dashboardEmbed],
-            components: [actionButtons, navButtons]
+            components: [...actionButtons, navButtons]
         });
     },
 
@@ -356,16 +379,28 @@ module.exports = {
                     .setCustomId('back_to_dashboard')
                     .setLabel('← Back to Dashboard')
                     .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('🏠'),
+                    .setEmoji('🏠')
+            );
+
+        const voteButtons = new ActionRowBuilder()
+            .addComponents(
                 new ButtonBuilder()
-                    .setLabel('🗳️ Vote Now')
+                    .setLabel('🤖 Vote Bot')
                     .setStyle(ButtonStyle.Link)
-                    .setURL('https://top.gg/bot/1403236218900185088/vote')
+                    .setURL('https://top.gg/bot/1403236218900185088/vote'),
+                new ButtonBuilder()
+                    .setLabel('🏆 Vote Server')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://top.gg/servers/1403244656845787167/vote'),
+                new ButtonBuilder()
+                    .setLabel('🎟️ Vote Rank.top')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://rank.top/bot/1403236218900185088/vote')
             );
 
         await interaction.update({
             embeds: [statsEmbed],
-            components: [backButton]
+            components: [backButton, voteButtons]
         });
     },
 
@@ -416,16 +451,28 @@ module.exports = {
                     .setCustomId('back_to_dashboard')
                     .setLabel('← Back to Dashboard')
                     .setStyle(ButtonStyle.Secondary)
-                    .setEmoji('🏠'),
+                    .setEmoji('🏠')
+            );
+
+        const voteButtons = new ActionRowBuilder()
+            .addComponents(
                 new ButtonBuilder()
-                    .setLabel('🗳️ Vote Now')
+                    .setLabel('🤖 Vote Bot')
                     .setStyle(ButtonStyle.Link)
-                    .setURL('https://top.gg/bot/1403236218900185088/vote')
+                    .setURL('https://top.gg/bot/1403236218900185088/vote'),
+                new ButtonBuilder()
+                    .setLabel('🏆 Vote Server')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://top.gg/servers/1403244656845787167/vote'),
+                new ButtonBuilder()
+                    .setLabel('🎟️ Vote Rank.top')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL('https://rank.top/bot/1403236218900185088/vote')
             );
 
         await interaction.update({
             embeds: [rewardsEmbed],
-            components: [backButton]
+            components: [backButton, voteButtons]
         });
     },
 
@@ -471,16 +518,28 @@ module.exports = {
                         .setCustomId('back_to_dashboard')
                         .setLabel('← Back to Dashboard')
                         .setStyle(ButtonStyle.Secondary)
-                        .setEmoji('🏠'),
+                        .setEmoji('🏠')
+                );
+
+            const voteButtons = new ActionRowBuilder()
+                .addComponents(
                     new ButtonBuilder()
-                        .setLabel('🗳️ Vote Now')
+                        .setLabel('🤖 Vote Bot')
                         .setStyle(ButtonStyle.Link)
-                        .setURL('https://top.gg/bot/1403236218900185088/vote')
+                        .setURL('https://top.gg/bot/1403236218900185088/vote'),
+                    new ButtonBuilder()
+                        .setLabel('🏆 Vote Server')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL('https://top.gg/servers/1403244656845787167/vote'),
+                    new ButtonBuilder()
+                        .setLabel('🎟️ Vote Rank.top')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL('https://rank.top/bot/1403236218900185088/vote')
                 );
 
             await interaction.update({
                 embeds: [leaderboardEmbed],
-                components: [backButton]
+                components: [backButton, voteButtons]
             });
 
         } catch (error) {
@@ -503,7 +562,7 @@ module.exports = {
 
         await interaction.update({
             embeds: [dashboardEmbed],
-            components: [actionButtons, navButtons]
+            components: [...actionButtons, navButtons]
         });
     },
 
@@ -716,16 +775,26 @@ module.exports = {
             embeds.push(successEmbed);
         }
 
-        // Always add vote button
-        const voteButton = new ButtonBuilder()
-            .setLabel('🗳️ Vote on Top.GG')
-            .setStyle(ButtonStyle.Link)
-            .setURL('https://top.gg/bot/1403236218900185088/vote');
+        // Always add vote buttons
+        const voteButtons = [
+            new ButtonBuilder()
+                .setLabel('🤖 Vote Bot')
+                .setStyle(ButtonStyle.Link)
+                .setURL('https://top.gg/bot/1403236218900185088/vote'),
+            new ButtonBuilder()
+                .setLabel('🏆 Vote Server')
+                .setStyle(ButtonStyle.Link)
+                .setURL('https://top.gg/servers/1403244656845787167/vote'),
+            new ButtonBuilder()
+                .setLabel('🎟️ Vote Rank.top')
+                .setStyle(ButtonStyle.Link)
+                .setURL('https://rank.top/bot/1403236218900185088/vote')
+        ];
         
-        if (components.length === 0) {
-            components.push(new ActionRowBuilder());
-        }
-        components[0].addComponents(voteButton);
+        // Add a new row for vote buttons
+        const voteRow = new ActionRowBuilder();
+        voteRow.addComponents(...voteButtons);
+        components.push(voteRow);
 
         await interaction.update({
             embeds: embeds,

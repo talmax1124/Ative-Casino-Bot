@@ -1322,8 +1322,63 @@ async function sendSubscriptionNotification(userId, discordUsername, product, ac
   }
 }
 
-// Top.GG webhook endpoint for vote rewards
+// Import TopGG Manager for vote processing
+let topggManager;
+try {
+  const TopGGManager = require('../UTILS/topgg');
+  // We'll need to get the client instance somehow, for now use null
+  topggManager = new TopGGManager(null);
+} catch (error) {
+  console.error('Failed to initialize TopGG Manager:', error);
+}
+
+// Top.GG webhook endpoint for bot vote rewards
 app.post('/topgg/webhook', async (req, res) => {
+  try {
+    if (!topggManager) {
+      return res.status(500).send('TopGG Manager not initialized');
+    }
+    
+    // Use the TopGG Manager to handle the webhook
+    return await topggManager.handleVoteWebhook(req, res);
+  } catch (error) {
+    console.error('Top.GG webhook error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Top.GG webhook endpoint for server vote rewards
+app.post('/topgg/server/webhook', async (req, res) => {
+  try {
+    if (!topggManager) {
+      return res.status(500).send('TopGG Manager not initialized');
+    }
+    
+    // Use the TopGG Manager to handle server votes
+    return await topggManager.handleServerVoteWebhook(req, res);
+  } catch (error) {
+    console.error('Server vote webhook error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Rank.top webhook endpoint for rank.top votes with lottery tickets
+app.post('/ranktop/webhook', async (req, res) => {
+  try {
+    if (!topggManager) {
+      return res.status(500).send('TopGG Manager not initialized');
+    }
+    
+    // Use the TopGG Manager to handle rank.top votes
+    return await topggManager.handleRanktopVoteWebhook(req, res);
+  } catch (error) {
+    console.error('Rank.top webhook error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Legacy webhook endpoint (keeping for backward compatibility)
+app.post('/topgg/webhook/legacy', async (req, res) => {
   try {
     const webhookSecret = process.env.TOPGG_WEBHOOK_SECRET || 'topgg-webhook-secret';
     const signature = req.headers['x-topgg-signature'];

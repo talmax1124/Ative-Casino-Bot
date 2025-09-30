@@ -63,6 +63,7 @@ const CRASH_MODES = {
     houseEdge: 0.15,           // 15% house edge
     emoji: '🔥',
     color: '#9C27B0'
+  }
 };
 
 // Global configuration

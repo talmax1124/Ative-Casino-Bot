@@ -910,9 +910,9 @@ class DatabaseAdapter {
             const updateFields = ['wallet = ?', 'bank = ?', 'updated_at = NOW()'];
             const updateValues = [newWallet, newBank];
 
-            // Handle additional fields (exclude play-for metadata)
+            // Handle additional fields (exclude play-for metadata and excludeFromPlayfor flag)
             for (const [key, value] of Object.entries(kwargs)) {
-                if (key !== 'user_id' && key !== 'guild_id' && key !== 'playFor') {
+                if (key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
                     updateFields.push(`${key} = ?`);
                     updateValues.push(value);
                 }
@@ -969,9 +969,9 @@ class DatabaseAdapter {
                 updateValues.push(bankValue);
             }
 
-            // Handle additional fields (exclude play-for metadata)
+            // Handle additional fields (exclude play-for metadata and excludeFromPlayfor flag)
             for (const [key, value] of Object.entries(kwargs)) {
-                if (key !== 'user_id' && key !== 'guild_id' && key !== 'playFor') {
+                if (key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
                     updateFields.push(`${key} = ?`);
                     updateValues.push(value);
                 }

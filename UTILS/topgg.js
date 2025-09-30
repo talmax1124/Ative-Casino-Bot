@@ -15,14 +15,33 @@ class TopGGManager {
         this.webhookSecret = process.env.TOPGG_WEBHOOK_SECRET || 'topgg-webhook-secret';
         this.botId = process.env.CLIENT_ID;
         
-        // Voting rewards configuration
+        // Rank.top configuration
+        this.ranktopWebhookSecret = process.env.RANKTOP_WEBHOOK_SECRET || 'ranktop-webhook-secret';
+        
+        // Voting rewards configuration by type
         this.voteRewards = {
-            coins: 25000, // 25K coins per vote
-            bonusMultiplier: 1.5, // Weekend bonus
-            streakBonuses: {
-                7: 50000,   // 7 day streak: 50K bonus
-                30: 200000, // 30 day streak: 200K bonus
-                100: 1000000 // 100 day streak: 1M bonus
+            bot: {
+                coins: 25000, // 25K coins per vote
+                bonusMultiplier: 1.5, // Weekend bonus
+                streakBonuses: {
+                    7: 50000,   // 7 day streak: 50K bonus
+                    30: 200000, // 30 day streak: 200K bonus
+                    100: 1000000 // 100 day streak: 1M bonus
+                }
+            },
+            server: {
+                coins: 25000, // Same as bot vote
+                bonusMultiplier: 1.5, // Weekend bonus
+                streakBonuses: {
+                    7: 50000,   // 7 day streak: 50K bonus
+                    30: 200000, // 30 day streak: 200K bonus
+                    100: 1000000 // 100 day streak: 1M bonus
+                }
+            },
+            ranktop: {
+                coins: 0, // No coins, just lottery ticket
+                lotteryTickets: 1, // 1 free lottery ticket
+                bonusMultiplier: 1.0
             }
         };
     }
@@ -57,19 +76,22 @@ class TopGGManager {
     /**
      * Process vote reward for user
      */
-    async processVoteReward(userId, voteData) {
+    async processVoteReward(userId, voteData, voteType = 'bot') {
         try {
             // Get user's current vote data
             const voteInfo = await dbManager.databaseAdapter.getUserVoteData(userId);
             const currentTime = Date.now();
             
+            // Get rewards configuration for this vote type
+            const rewardConfig = this.voteRewards[voteType] || this.voteRewards.bot;
+            
             // Calculate reward amount
-            let rewardAmount = this.voteRewards.coins;
+            let rewardAmount = rewardConfig.coins || 0;
             
             // Weekend bonus (Saturday/Sunday)
             const isWeekend = [0, 6].includes(new Date().getDay());
-            if (isWeekend) {
-                rewardAmount = Math.floor(rewardAmount * this.voteRewards.bonusMultiplier);
+            if (isWeekend && rewardConfig.bonusMultiplier) {
+                rewardAmount = Math.floor(rewardAmount * rewardConfig.bonusMultiplier);
             }
 
             // Calculate vote streak first
@@ -95,8 +117,8 @@ class TopGGManager {
                 }
                 
                 // Check for streak bonuses
-                if (this.voteRewards.streakBonuses[currentStreak]) {
-                    streakBonus = this.voteRewards.streakBonuses[currentStreak];
+                if (rewardConfig.streakBonuses && rewardConfig.streakBonuses[currentStreak]) {
+                    streakBonus = rewardConfig.streakBonuses[currentStreak];
                     rewardAmount += streakBonus;
                 }
             } else {
@@ -117,18 +139,33 @@ class TopGGManager {
 
             // Save vote data and add coins
             await dbManager.databaseAdapter.updateUserVoteData(userId, null, newVoteData);
-            await dbManager.adjustWallet(userId, null, rewardAmount);
+            if (rewardAmount > 0) {
+                await dbManager.adjustWallet(userId, null, rewardAmount);
+            }
+
+            // Handle lottery tickets for rank.top votes
+            let lotteryTicketsGiven = 0;
+            if (voteType === 'ranktop' && rewardConfig.lotteryTickets > 0) {
+                try {
+                    // Give free lottery tickets (using guildId = null for global)
+                    const guildId = process.env.DESIGNATED_SERVER_ID || null;
+                    lotteryTicketsGiven = await this.giveFreeLotteryTickets(userId, guildId, rewardConfig.lotteryTickets);
+                    logger.info(`Gave ${lotteryTicketsGiven} free lottery tickets to user ${userId} for rank.top vote`);
+                } catch (lotteryError) {
+                    logger.error(`Failed to give lottery tickets to user ${userId}: ${lotteryError.message}`);
+                }
+            }
 
             // Get user for notification
             try {
                 const user = await this.client.users.fetch(userId);
                 
                 // Send reward notification
-                await this.sendVoteRewardNotification(user, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes);
+                await this.sendVoteRewardNotification(user, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes, voteType, lotteryTicketsGiven);
             } catch (userError) {
                 logger.error(`Failed to fetch user ${userId} for vote notification: ${userError.message}`);
                 // Try to send notification without user object
-                await this.sendVoteRewardNotification({ id: userId, username: 'Unknown User', displayAvatarURL: () => null }, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes);
+                await this.sendVoteRewardNotification({ id: userId, username: 'Unknown User', displayAvatarURL: () => null }, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes, voteType, lotteryTicketsGiven);
             }
 
             logger.info(`Vote reward processed: User ${userId} received ${fmt(rewardAmount)} coins`);
@@ -141,29 +178,58 @@ class TopGGManager {
     /**
      * Send vote reward notification to user
      */
-    async sendVoteRewardNotification(user, rewardAmount, streakBonus, streak, isWeekend, canUseEarnmoney, totalVotes) {
+    async sendVoteRewardNotification(user, rewardAmount, streakBonus, streak, isWeekend, canUseEarnmoney, totalVotes, voteType = 'bot', lotteryTicketsGiven = 0) {
         try {
+            // Set title and description based on vote type
+            let title, description;
+            switch (voteType) {
+                case 'ranktop':
+                    title = '🎟️ Thank You for Voting on Rank.top!';
+                    description = `**${user.username}**, thanks for voting on Rank.top!`;
+                    break;
+                case 'server':
+                    title = '🏆 Thank You for Voting for Our Server!';
+                    description = `**${user.username}**, thanks for voting for our server on Top.GG!`;
+                    break;
+                default:
+                    title = '🗳️ Thank You for Voting!';
+                    description = `**${user.username}**, thanks for voting on Top.GG!`;
+            }
+
             const embed = new EmbedBuilder()
-                .setTitle('🗳️ Thank You for Voting!')
-                .setDescription(`**${user.username}**, thanks for voting on Top.GG!`)
-                .setColor(0x00D4FF)
-                .addFields(
-                    {
-                        name: '💰 Reward Earned',
-                        value: `${fmt(rewardAmount)} coins`,
-                        inline: true
-                    },
-                    {
-                        name: '🔥 Vote Streak',
-                        value: `${streak} day${streak !== 1 ? 's' : ''}`,
-                        inline: true
-                    },
-                    {
-                        name: '⏰ Next Vote',
-                        value: '<t:' + Math.floor((Date.now() + 12 * 60 * 60 * 1000) / 1000) + ':R>',
-                        inline: true
-                    }
-                )
+                .setTitle(title)
+                .setDescription(description)
+                .setColor(voteType === 'ranktop' ? 0xFFD700 : 0x00D4FF);
+
+            // Add reward fields based on vote type
+            if (rewardAmount > 0) {
+                embed.addFields({
+                    name: '💰 Reward Earned',
+                    value: `${fmt(rewardAmount)} coins`,
+                    inline: true
+                });
+            }
+
+            if (lotteryTicketsGiven > 0) {
+                embed.addFields({
+                    name: '🎫 Lottery Tickets',
+                    value: `${lotteryTicketsGiven} free ticket${lotteryTicketsGiven > 1 ? 's' : ''} added!`,
+                    inline: true
+                });
+            }
+
+            embed.addFields(
+                {
+                    name: '🔥 Vote Streak',
+                    value: `${streak} day${streak !== 1 ? 's' : ''}`,
+                    inline: true
+                },
+                {
+                    name: '⏰ Next Vote',
+                    value: '<t:' + Math.floor((Date.now() + 12 * 60 * 60 * 1000) / 1000) + ':R>',
+                    inline: true
+                }
+            )
                 .setThumbnail(user.displayAvatarURL())
                 .setFooter({ 
                     text: '🎰 ATIVE Casino • Vote every 12 hours for rewards!',
@@ -299,6 +365,96 @@ class TopGGManager {
     }
 
     /**
+     * Handle Rank.top webhook vote notification
+     */
+    async handleRanktopVoteWebhook(req, res) {
+        try {
+            // Verify webhook signature from Authorization header
+            const authHeader = req.headers['authorization'];
+            if (!this.verifyRanktopWebhookSignature(req.body, authHeader)) {
+                logger.warn('Invalid Rank.top webhook authorization');
+                return res.status(401).send('Unauthorized');
+            }
+
+            const voteData = req.body;
+            const userId = voteData.user;
+            
+            logger.info(`Rank.top vote received from user: ${userId}`);
+
+            // Process the vote reward with rank.top type
+            await this.processVoteReward(userId, voteData, 'ranktop');
+            
+            res.status(200).send('OK');
+        } catch (error) {
+            logger.error(`Rank.top webhook error: ${error.message}`);
+            res.status(500).send('Internal Server Error');
+        }
+    }
+
+    // Server voting uses API polling instead of webhooks (see ServerVotePoller.js)
+
+    /**
+     * Give free lottery tickets to user
+     */
+    async giveFreeLotteryTickets(userId, guildId, ticketCount) {
+        try {
+            // Ensure user exists in database
+            await dbManager.ensureUser(userId, 'Rank.top Voter');
+            
+            // Get current week start for lottery system
+            const currentWeekStart = dbManager.databaseAdapter.getCurrentWeekStart();
+            
+            // Check current ticket count to enforce 10 ticket limit
+            const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId, 1); // Tier 1
+            
+            // Calculate how many tickets can actually be given
+            const maxTickets = 10;
+            const remainingSlots = maxTickets - currentTickets;
+            const actualTicketsToGive = Math.min(ticketCount, remainingSlots);
+            
+            if (actualTicketsToGive <= 0) {
+                logger.info(`User ${userId} already has maximum lottery tickets (${currentTickets}/10)`);
+                return 0;
+            }
+
+            // Add the lottery tickets directly to database
+            const connection = await dbManager.databaseAdapter.pool.getConnection();
+            try {
+                await connection.beginTransaction();
+                
+                // Insert or update lottery tickets
+                await connection.execute(
+                    `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, week_start, tier) 
+                     VALUES (?, ?, ?, ?, 1)
+                     ON DUPLICATE KEY UPDATE ticket_count = ticket_count + ?`,
+                    [userId, guildId, actualTicketsToGive, currentWeekStart, actualTicketsToGive]
+                );
+
+                // Update lottery info prize pool (no money added for free tickets)
+                await connection.execute(
+                    `INSERT INTO lottery_info (guild_id, total_tickets, week_start, tier) 
+                     VALUES (?, ?, ?, 1)
+                     ON DUPLICATE KEY UPDATE total_tickets = total_tickets + ?`,
+                    [guildId, actualTicketsToGive, currentWeekStart, actualTicketsToGive]
+                );
+
+                await connection.commit();
+                logger.info(`Successfully gave ${actualTicketsToGive} free lottery tickets to user ${userId}`);
+                
+                return actualTicketsToGive;
+            } catch (dbError) {
+                await connection.rollback();
+                throw dbError;
+            } finally {
+                connection.release();
+            }
+        } catch (error) {
+            logger.error(`Failed to give free lottery tickets to user ${userId}: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
      * Verify webhook signature from Top.GG
      */
     verifyWebhookSignature(body, signature) {
@@ -309,6 +465,20 @@ class TopGGManager {
         // Top.GG sends signature as Authorization header
         // Format: "Bearer your-webhook-secret"
         const expectedAuth = `Bearer ${this.webhookSecret}`;
+        return signature === expectedAuth;
+    }
+
+    /**
+     * Verify webhook signature from Rank.top
+     */
+    verifyRanktopWebhookSignature(body, signature) {
+        if (!signature || !this.ranktopWebhookSecret) {
+            return false;
+        }
+        
+        // Rank.top sends signature as Authorization header
+        // Format: "Bearer your-webhook-secret"
+        const expectedAuth = `Bearer ${this.ranktopWebhookSecret}`;
         return signature === expectedAuth;
     }
 }

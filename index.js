@@ -2867,17 +2867,35 @@ app.post('/role-assignment', async (req, res) => {
     }
 });
 
-// Top.GG webhook endpoint
+// Top.GG bot webhook endpoint
 app.post('/topgg/webhook', async (req, res) => {
     try {
         // Initialize TopGG manager
         const TopGGManager = require('./UTILS/topgg');
         const topggManager = new TopGGManager(client);
 
-        // Handle the webhook
+        // Handle the bot vote webhook
         await topggManager.handleVoteWebhook(req, res);
     } catch (error) {
         logger.error(`Top.GG webhook server error: ${error.message}`);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Top.GG server voting uses API polling (see ServerVotePoller.js)
+// No webhook endpoint needed for server votes
+
+// Rank.top webhook endpoint
+app.post('/ranktop/webhook', async (req, res) => {
+    try {
+        // Initialize TopGG manager (handles all vote types)
+        const TopGGManager = require('./UTILS/topgg');
+        const topggManager = new TopGGManager(client);
+
+        // Handle the rank.top vote webhook
+        await topggManager.handleRanktopVoteWebhook(req, res);
+    } catch (error) {
+        logger.error(`Rank.top webhook server error: ${error.message}`);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -2894,7 +2912,7 @@ app.get('/health', (req, res) => {
 // Start webhook server
 app.listen(PORT, () => {
     logger.info(`Webhook server running on port ${PORT}`);
-    logger.info(`Available endpoints: /role-assignment, /topgg/webhook, /health, /uas/sessions/*`);
+    logger.info(`Available endpoints: /role-assignment, /topgg/webhook, /ranktop/webhook, /health, /uas/sessions/*`);
 });
 
 // Handle uncaught exceptions
@@ -3536,6 +3554,31 @@ async function showAdvancedHelpContent(interaction, customId) {
         await interaction.editReply({ embeds: [embed], components: [buttons] });
     }
 }
+
+// Initialize server vote poller when client is ready
+client.once('ready', () => {
+    logger.info(`Bot is ready! Logged in as ${client.user.tag}`);
+    
+    // Initialize server vote poller
+    try {
+        const TopGGManager = require('./UTILS/topgg');
+        const ServerVotePoller = require('./UTILS/serverVotePoller');
+        
+        // Create TopGG manager instance
+        const topggManager = new TopGGManager(client);
+        
+        // Create and start server vote poller
+        const serverVotePoller = new ServerVotePoller(topggManager);
+        serverVotePoller.start();
+        
+        // Store reference for potential cleanup
+        client.serverVotePoller = serverVotePoller;
+        
+        logger.info('Server vote polling initialized successfully');
+    } catch (error) {
+        logger.error('Failed to initialize server vote poller:', error);
+    }
+});
 
 // Start the bot
 client.login(TOKEN).then(() => {
