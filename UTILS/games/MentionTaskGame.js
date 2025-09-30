@@ -45,6 +45,7 @@ class MentionTaskGame {
 
     async handleStart(interaction, session, util) {
         try {
+            const { ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
             const marriage = session.marriage;
             
             // Get current progress
@@ -52,7 +53,7 @@ class MentionTaskGame {
             
             const embed = new EmbedBuilder()
                 .setTitle('💖 Week 2 - Task 1: Mention Task')
-                .setDescription(`**${marriage.partner1.name}** & **${marriage.partner2.name}**\n\n📝 **Your Mission:**\n• Mention your spouse and say something nice about them\n• We'll track your mentions automatically throughout the week!\n• Use positive words like: amazing, wonderful, kind, talented, caring`)
+                .setDescription(`**${marriage.partner1.name}** & **${marriage.partner2.name}**\n\n📝 **Your Mission:**\n• Mention your spouse and say something nice about them in any channel\n• Then click the "I Mentioned My Spouse!" button below to mark your progress\n• Use positive words like: amazing, wonderful, kind, talented, caring`)
                 .setColor(0xFF69B4);
 
             // Add progress fields for both partners
@@ -63,15 +64,15 @@ class MentionTaskGame {
                 { 
                     name: `📊 ${marriage.partner1.name}'s Progress`, 
                     value: partner1Progress.completed ? 
-                        '✅ **Completed!** Nice mention detected!' : 
-                        `⏳ **In Progress** (${partner1Progress.mentions} nice mentions found)`,
+                        '✅ **Completed!** Nice mention submitted!' : 
+                        `⏳ **In Progress** (${partner1Progress.mentions} mentions submitted)`,
                     inline: true 
                 },
                 { 
                     name: `📊 ${marriage.partner2.name}'s Progress`, 
                     value: partner2Progress.completed ? 
-                        '✅ **Completed!** Nice mention detected!' : 
-                        `⏳ **In Progress** (${partner2Progress.mentions} nice mentions found)`,
+                        '✅ **Completed!** Nice mention submitted!' : 
+                        `⏳ **In Progress** (${partner2Progress.mentions} mentions submitted)`,
                     inline: true 
                 }
             );
@@ -81,30 +82,129 @@ class MentionTaskGame {
                 embed.setColor(0x00FF00);
                 embed.addFields({
                     name: '🎉 Task Status',
-                    value: '**COMPLETED!** Both partners have mentioned each other with nice messages!',
+                    value: '**COMPLETED!** Both partners have submitted their nice mentions!',
                     inline: false
                 });
             } else {
                 embed.addFields({
                     name: '📝 Task Status',
-                    value: 'Automatic tracking active - just mention your spouse with nice words in any channel!',
+                    value: 'Click the button below after mentioning your spouse with nice words!',
                     inline: false
                 });
             }
 
+            // Create interaction button for submitting mentions (only if not completed)
+            const components = [];
+            if (!bothCompleted) {
+                const currentUserProgress = session.marriage.currentUser === marriage.partner1.id ? partner1Progress : partner2Progress;
+                if (!currentUserProgress.completed) {
+                    const submitButton = new ActionRowBuilder()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`mention_game_submit_${session.sessionId}`)
+                                .setLabel('I Mentioned My Spouse! 💖')
+                                .setStyle(ButtonStyle.Primary)
+                                .setEmoji('💖')
+                        );
+                    components.push(submitButton);
+                }
+            }
+
             await util.safeReply(interaction, {
                 embeds: [embed],
-                components: []
+                components: components
             });
 
-            // End session immediately since this is just a progress view
-            util.endGameSession(session.sessionId);
+            // Don't end session immediately if there are active buttons
+            if (components.length === 0) {
+                util.endGameSession(session.sessionId);
+            }
             
         } catch (error) {
             logger.error(`Error in MentionTaskGame.handleStart: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error loading Mention Task progress. Please try again.',
                 components: []
+            });
+        }
+    }
+
+    // Handle button interactions for this game
+    async handleGameAction(interaction, actionType, sessionId) {
+        try {
+            if (actionType === 'submit') {
+                await this.handleMentionSubmit(interaction, sessionId);
+            } else {
+                await interaction.reply({
+                    content: '❌ Unknown action for Mention Task.',
+                    ephemeral: true
+                });
+            }
+        } catch (error) {
+            logger.error(`Error in MentionTaskGame.handleGameAction: ${error.message}`);
+            await interaction.reply({
+                content: '❌ Error processing mention task action.',
+                ephemeral: true
+            });
+        }
+    }
+
+    async handleMentionSubmit(interaction, sessionId) {
+        try {
+            const marriageTaskUtil = require('../MarriageTaskUtil');
+            const session = marriageTaskUtil.getGameSession(sessionId);
+            
+            if (!session) {
+                return await interaction.reply({
+                    content: '❌ Session expired. Please start the task again.',
+                    ephemeral: true
+                });
+            }
+
+            const marriage = session.marriage;
+            const userId = interaction.user.id;
+            
+            // Check if user is part of this marriage
+            if (userId !== marriage.partner1.id && userId !== marriage.partner2.id) {
+                return await interaction.reply({
+                    content: '❌ You are not part of this marriage!',
+                    ephemeral: true
+                });
+            }
+
+            // Get current progress
+            const progress = await this.getProgress(marriage.id);
+            const isPartner1 = userId === marriage.partner1.id;
+            const userProgress = isPartner1 ? progress.partner1 : progress.partner2;
+
+            if (userProgress.completed) {
+                return await interaction.reply({
+                    content: '✅ You have already completed this task!',
+                    ephemeral: true
+                });
+            }
+
+            // Update progress using existing method
+            const marriageTaskCommand = require('../../COMMANDS/marriage-task');
+            await marriageTaskCommand.updateMentionTaskProgress(marriage.id, userId, true);
+
+            // Check if both partners completed and mark overall task as done
+            const updatedProgress = await this.getProgress(marriage.id);
+            if (updatedProgress.partner1.completed && updatedProgress.partner2.completed) {
+                await marriageTaskUtil.markTaskCompleted(marriage.id, 1, userId, {
+                    completedBy: 'both_partners',
+                    completionType: 'mention_task_interactive'
+                });
+            }
+
+            // Update the display
+            await this.handleStart(interaction, session, marriageTaskUtil);
+
+        } catch (error) {
+            logger.error(`Error in handleMentionSubmit: ${error.message}`);
+            await interaction.reply({
+                content: '❌ Error submitting mention. Please try again.',
+                ephemeral: true
             });
         }
     }
@@ -123,82 +223,8 @@ class MentionTaskGame {
         }
     }
 
-    // Check message for mention task progress - called by message listener
-    async checkMention(message) {
-        try {
-            // Get user's marriage info
-            const userId = message.author.id;
-            const guildId = message.guildId;
-            
-            const dbManager = require('../database');
-            const marriageQuery = `
-                SELECT m.*, 
-                       u1.username as partner1_name, 
-                       u2.username as partner2_name 
-                FROM marriages m 
-                LEFT JOIN users u1 ON m.partner1_id COLLATE utf8mb4_unicode_ci = u1.user_id COLLATE utf8mb4_unicode_ci
-                LEFT JOIN users u2 ON m.partner2_id COLLATE utf8mb4_unicode_ci = u2.user_id COLLATE utf8mb4_unicode_ci
-                WHERE (m.partner1_id = ? OR m.partner2_id = ?) AND m.status = 'active'
-            `;
-            
-            const marriages = await dbManager.databaseAdapter.executeQuery(marriageQuery, [userId, userId]);
-            
-            if (!marriages || marriages.length === 0) {
-                return; // User not married
-            }
-
-            const marriage = marriages[0];
-            const progress = await this.getProgress(marriage.id);
-            const isPartner1 = message.author.id === marriage.partner1_id;
-            const userProgress = isPartner1 ? progress.partner1 : progress.partner2;
-            
-            if (userProgress.completed) {
-                return; // Already completed
-            }
-
-            // Check if they mentioned their spouse
-            const spouseId = isPartner1 ? marriage.partner2_id : marriage.partner1_id;
-            const mentionedSpouse = message.mentions.users.has(spouseId);
-            
-            if (!mentionedSpouse) {
-                return; // Didn't mention spouse
-            }
-
-            // Check for nice words
-            const messageText = message.content.toLowerCase();
-            const foundWords = this.niceWords.filter(word => messageText.includes(word.toLowerCase()));
-
-            if (foundWords.length === 0) {
-                return; // No nice words found
-            }
-
-            // Update progress using the existing method from marriage-task
-            const marriageTaskCommand = require('../../COMMANDS/marriage-task');
-            await marriageTaskCommand.updateMentionTaskProgress(marriage.id, message.author.id, true);
-
-            // Send a reaction to acknowledge the mention
-            try {
-                await message.react('💖');
-            } catch (reactionError) {
-                // Ignore reaction errors
-            }
-
-            // Check if both partners completed the task and mark overall task as done
-            const updatedProgress = await this.getProgress(marriage.id);
-            if (updatedProgress.partner1.completed && updatedProgress.partner2.completed) {
-                // Both completed - mark task as done in marriageTaskStatus
-                const marriageTaskUtil = require('../MarriageTaskUtil');
-                await marriageTaskUtil.markTaskCompleted(marriage.id, 1, 'system', {
-                    completedBy: 'both_partners',
-                    completionType: 'mention_task'
-                });
-                logger.info(`Task 1 (Mention Task) marked as complete for marriage ${marriage.id}`);
-            }
-
-        } catch (error) {
-            logger.error(`Error checking mention for task: ${error.message}`);
-        }
-    }
+    // Note: Message-based mention checking removed to work without message content intent
+    // Users now use the interactive button to submit their mentions
 }
 
 module.exports = MentionTaskGame;

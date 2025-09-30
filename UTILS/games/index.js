@@ -8,6 +8,13 @@
 const logger = require('../logger');
 
 // Import all your games here
+// Week 1 Games
+const TicTacToeTaskGame = require('./TicTacToeTaskGame');
+const PlantTreeTaskGame = require('./PlantTreeTaskGame');
+const PoemTaskGame = require('./PoemTaskGame');
+const QuizTaskGame = require('./QuizTaskGame');
+
+// Week 2 Games
 const MentionTaskGame = require('./MentionTaskGame');
 const TriviaTaskGame = require('./TriviaTaskGame');
 const DateNightTaskGame = require('./DateNightTaskGame');
@@ -24,7 +31,20 @@ class GameManager {
             // Initialize all games
             logger.info('🎮 Loading marriage task games...');
 
-            // Load all games
+            // Load Week 1 games
+            this.ticTacToeGame = new TicTacToeTaskGame();
+            this.games.set('tictactoe', this.ticTacToeGame);
+            
+            this.plantTreeGame = new PlantTreeTaskGame();
+            this.games.set('planttree', this.plantTreeGame);
+            
+            this.poemGame = new PoemTaskGame();
+            this.games.set('poem', this.poemGame);
+            
+            this.quizGame = new QuizTaskGame();
+            this.games.set('quiz', this.quizGame);
+
+            // Load Week 2 games
             this.mentionGame = new MentionTaskGame();
             this.games.set('mention', this.mentionGame);
             

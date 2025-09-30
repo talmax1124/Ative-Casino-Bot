@@ -143,15 +143,39 @@ class MarriageTaskUtil {
 
         const marriage = marriages[0];
         
+        // Fall back to Discord usernames if database usernames are null
+        let partner1Name = marriage.partner1_name;
+        let partner2Name = marriage.partner2_name;
+        
+        if (!partner1Name || !partner2Name) {
+            try {
+                // Get Discord usernames as fallback
+                const client = interaction.client;
+                if (!partner1Name && client) {
+                    const user1 = await client.users.fetch(marriage.partner1_id).catch(() => null);
+                    partner1Name = user1 ? user1.displayName || user1.username : `User ${marriage.partner1_id}`;
+                }
+                if (!partner2Name && client) {
+                    const user2 = await client.users.fetch(marriage.partner2_id).catch(() => null);
+                    partner2Name = user2 ? user2.displayName || user2.username : `User ${marriage.partner2_id}`;
+                }
+            } catch (error) {
+                logger.error(`Error fetching Discord usernames: ${error.message}`);
+                // Use fallback names if Discord fetch fails
+                partner1Name = partner1Name || `User ${marriage.partner1_id}`;
+                partner2Name = partner2Name || `User ${marriage.partner2_id}`;
+            }
+        }
+        
         return {
             id: marriage.id,
             partner1: {
                 id: marriage.partner1_id,
-                name: marriage.partner1_name
+                name: partner1Name
             },
             partner2: {
                 id: marriage.partner2_id,
-                name: marriage.partner2_name
+                name: partner2Name
             },
             currentUser: userId,
             isPartner1: userId === marriage.partner1_id,

@@ -97,6 +97,79 @@ const client = new Client({
 // Set start time for uptime tracking
 client.startTime = Date.now();
 
+// Helper function for handling game modal submissions
+async function handleGameModalSubmit(interaction) {
+    try {
+        const customId = interaction.customId;
+        
+        if (customId.startsWith('poem_line_')) {
+            const sessionId = customId.replace('poem_line_', '');
+            const poemLine = interaction.fields.getTextInputValue('poem_line');
+            
+            const marriageTaskUtil = require('./UTILS/MarriageTaskUtil');
+            const session = marriageTaskUtil.getGameSession(sessionId);
+            
+            if (!session) {
+                return await interaction.reply({
+                    content: '❌ Session expired. Please start the task again.',
+                    ephemeral: true
+                });
+            }
+
+            const gameData = session.gameData;
+            const marriage = session.marriage;
+            
+            // Add the line to the poem
+            gameData.poemLines.push(poemLine);
+            gameData.turnCount++;
+            
+            // Switch turns
+            gameData.currentTurn = gameData.currentTurn === marriage.partner1.id ? 
+                marriage.partner2.id : marriage.partner1.id;
+
+            await interaction.reply({
+                content: `✅ Line added: "${poemLine}"`,
+                ephemeral: true
+            });
+
+        } else if (customId.startsWith('quiz_answer_')) {
+            const sessionId = customId.replace('quiz_answer_', '');
+            const quizAnswer = interaction.fields.getTextInputValue('quiz_answer');
+            
+            const marriageTaskUtil = require('./UTILS/MarriageTaskUtil');
+            const session = marriageTaskUtil.getGameSession(sessionId);
+            
+            if (!session) {
+                return await interaction.reply({
+                    content: '❌ Session expired. Please start the task again.',
+                    ephemeral: true
+                });
+            }
+
+            const gameData = session.gameData;
+            
+            // Add the answer
+            gameData.answers.push({
+                question: gameData.questions[gameData.currentQuestion],
+                answer: quizAnswer,
+                answeredBy: interaction.user.id
+            });
+
+            await interaction.reply({
+                content: `✅ Answer recorded: "${quizAnswer}"`,
+                ephemeral: true
+            });
+        }
+
+    } catch (error) {
+        logger.error(`Error in handleGameModalSubmit: ${error.message}`);
+        await interaction.reply({
+            content: '❌ Error processing your submission. Please try again.',
+            ephemeral: true
+        });
+    }
+}
+
 // Commands collection
 client.commands = new Collection();
 
@@ -707,6 +780,14 @@ client.once('clientReady', async () => {
 
     // Initialize marriage task rotation scheduler
     initializeMarriageTaskScheduler();
+    
+    // Initialize marriage task games
+    try {
+        const gameManager = require('./UTILS/games');
+        logger.info('🎮 Marriage task games initialized successfully');
+    } catch (error) {
+        logger.error('Failed to initialize marriage task games:', error);
+    }
 
     // Send online announcement to logs channel (ONLY in development)
     if (IS_DEVELOPMENT) {
@@ -980,6 +1061,10 @@ client.on('interactionCreate', async interaction => {
                 if (releaseCommand && releaseCommand.handleEmergencyClearModal) {
                     await releaseCommand.handleEmergencyClearModal(interaction);
                 }
+            }
+            // Handle marriage task game modals (poem lines, quiz answers)
+            else if (interaction.customId.startsWith('poem_line_') || interaction.customId.startsWith('quiz_answer_')) {
+                await handleGameModalSubmit(interaction);
             }
         } catch (error) {
             logger.error(`Error handling modal ${interaction.customId}: ${error.message}`);
@@ -2550,17 +2635,18 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
             }
-            // Handle Week 2 marriage task game start buttons
-            else if (customId === 'datenight_task_start' || customId === 'trivia_task_start' || customId === 'emoji_task_start') {
-                const marriageTaskCommand = client.commands.get('marriage-task');
-                if (marriageTaskCommand) {
-                    if (customId === 'datenight_task_start' && marriageTaskCommand.handleDateNightStart) {
-                        await marriageTaskCommand.handleDateNightStart(interaction);
-                    } else if (customId === 'trivia_task_start' && marriageTaskCommand.handleTriviaStart) {
-                        await marriageTaskCommand.handleTriviaStart(interaction);
-                    } else if (customId === 'emoji_task_start' && marriageTaskCommand.handleEmojiStart) {
-                        await marriageTaskCommand.handleEmojiStart(interaction);
-                    }
+            // Handle marriage task game start buttons (new unified system)
+            else if (customId.endsWith('_task_start')) {
+                const gameType = customId.replace('_task_start', '');
+                const marriageTaskUtil = require('./UTILS/MarriageTaskUtil');
+                await marriageTaskUtil.startGameSession(interaction, gameType);
+            }
+            // Handle marriage task game action buttons (new unified system)
+            else if (customId.includes('_game_')) {
+                const gameManager = require('./UTILS/games');
+                const handled = await gameManager.handleButtonInteraction(interaction);
+                if (!handled) {
+                    logger.warn(`Unhandled game button interaction: ${customId}`);
                 }
             }
             // Handle confirmed task start buttons
