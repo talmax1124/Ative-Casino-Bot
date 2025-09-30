@@ -439,7 +439,7 @@ class TopGGManager {
             const currentWeekStart = dbManager.databaseAdapter.getCurrentWeekStart();
             
             // Check current ticket count to enforce 10 ticket limit
-            const currentTickets = await dbManager.getUserLotteryTickets(userId, guildId, 1); // Tier 1
+            const currentTickets = await dbManager.databaseAdapter.getUserLotteryTickets(userId, guildId, 1); // Tier 1
             
             // Calculate how many tickets can actually be given
             const maxTickets = 10;
@@ -456,17 +456,19 @@ class TopGGManager {
             try {
                 await connection.beginTransaction();
                 
-                // Insert or update lottery tickets with purchase_cost = 0 for free tickets
+                // Insert lottery tickets using the same structure as purchaseLotteryTickets
                 await connection.execute(
-                    `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, week_start, tier, purchase_cost) 
-                     VALUES (?, ?, ?, ?, 1, 0)
-                     ON DUPLICATE KEY UPDATE ticket_count = ticket_count + ?`,
+                    `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, purchase_cost, week_start, tier, purchased_at, awarded_manually, award_reason) 
+                     VALUES (?, ?, ?, 0, ?, 1, NOW(), TRUE, 'Rank.top vote reward')
+                     ON DUPLICATE KEY UPDATE 
+                     ticket_count = ticket_count + ?,
+                     awarded_manually = TRUE`,
                     [userId, guildId, actualTicketsToGive, currentWeekStart, actualTicketsToGive]
                 );
 
-                // Update lottery info prize pool (no money added for free tickets)
+                // Update lottery info prize pool (using current_week_start column name)
                 await connection.execute(
-                    `INSERT INTO lottery_info (guild_id, total_tickets, week_start, tier) 
+                    `INSERT INTO lottery_info (guild_id, total_tickets, current_week_start, tier) 
                      VALUES (?, ?, ?, 1)
                      ON DUPLICATE KEY UPDATE total_tickets = total_tickets + ?`,
                     [guildId, actualTicketsToGive, currentWeekStart, actualTicketsToGive]
