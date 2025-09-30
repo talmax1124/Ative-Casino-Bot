@@ -554,12 +554,17 @@ module.exports = {
 
             // Enhanced error response handling
             try {
-                if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-                } else if (interaction.deferred) {
-                    await interaction.editReply({ embeds: [errorEmbed] });
+                // Check if interaction is still valid before responding
+                if (interaction.isRepliable()) {
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    } else if (interaction.deferred) {
+                        await interaction.editReply({ embeds: [errorEmbed] });
+                    } else {
+                        await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    }
                 } else {
-                    await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    logger.warn('Interaction is no longer repliable for error reply');
                 }
             } catch (replyError) {
                 logger.error(`Failed to send error reply: ${replyError.message}`);
@@ -591,7 +596,12 @@ module.exports = {
             
             if (!game || !sessionId) {
                 logger.warn(`Blackjack action failed: game=${!!game}, sessionId=${sessionId}, activeSession=${JSON.stringify(activeSession)}`);
-                return await interaction.reply({ content: 'No active blackjack game found.', flags: MessageFlags.Ephemeral });
+                if (interaction.isRepliable()) {
+                    return await interaction.reply({ content: 'No active blackjack game found.', flags: MessageFlags.Ephemeral });
+                } else {
+                    logger.warn('Cannot send game not found reply - interaction not repliable');
+                    return;
+                }
             }
 
             const userBalance = await dbManager.getUserBalance(userId, guildId);
@@ -628,16 +638,21 @@ module.exports = {
                 } catch (hitError) {
                     logger.error(`Error in blackjack hit action: ${hitError.message}`);
                     try {
-                        if (!interaction.replied && !interaction.deferred) {
-                            await interaction.reply({ 
-                                content: '❌ An error occurred while hitting. Please try again.', 
-                                flags: MessageFlags.Ephemeral 
-                            });
+                        // Check if interaction is still valid before responding
+                        if (interaction.isRepliable()) {
+                            if (!interaction.replied && !interaction.deferred) {
+                                await interaction.reply({ 
+                                    content: '❌ An error occurred while hitting. Please try again.', 
+                                    flags: MessageFlags.Ephemeral 
+                                });
+                            } else {
+                                await interaction.followUp({ 
+                                    content: '❌ An error occurred while hitting. Please try again.', 
+                                    flags: MessageFlags.Ephemeral 
+                                });
+                            }
                         } else {
-                            await interaction.followUp({ 
-                                content: '❌ An error occurred while hitting. Please try again.', 
-                                flags: MessageFlags.Ephemeral 
-                            });
+                            logger.warn('Interaction is no longer repliable for hit error response');
                         }
                     } catch (interactionError) {
                         logger.error(`Failed to send hit error response: ${interactionError.message}`);
@@ -679,15 +694,25 @@ module.exports = {
                 try {
                     // Check if can double
                     if (!game.canDouble()) {
-                        return await interaction.reply({ content: 'Cannot double down now.', flags: MessageFlags.Ephemeral });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ content: 'Cannot double down now.', flags: MessageFlags.Ephemeral });
+                        } else {
+                            logger.warn('Cannot send double down error - interaction not repliable');
+                            return;
+                        }
                     }
 
                     // Check funds
                     if (userBalance.wallet < game.betAmount) {
-                        return await interaction.reply({ 
-                            content: `Insufficient funds to double down! You need ${fmt(game.betAmount)} more.`, 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ 
+                                content: `Insufficient funds to double down! You need ${fmt(game.betAmount)} more.`, 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            logger.warn('Cannot send insufficient funds error - interaction not repliable');
+                            return;
+                        }
                     }
 
                     // Deduct additional bet
@@ -721,16 +746,21 @@ module.exports = {
                 } catch (doubleError) {
                     logger.error(`Error in blackjack double action: ${doubleError.message}`);
                     try {
-                        if (!interaction.replied && !interaction.deferred) {
-                            await interaction.reply({ 
-                                content: '❌ An error occurred while doubling down. Please try again.', 
-                                flags: MessageFlags.Ephemeral 
-                            });
+                        // Check if interaction is still valid before responding
+                        if (interaction.isRepliable()) {
+                            if (!interaction.replied && !interaction.deferred) {
+                                await interaction.reply({ 
+                                    content: '❌ An error occurred while doubling down. Please try again.', 
+                                    flags: MessageFlags.Ephemeral 
+                                });
+                            } else {
+                                await interaction.followUp({ 
+                                    content: '❌ An error occurred while doubling down. Please try again.', 
+                                    flags: MessageFlags.Ephemeral 
+                                });
+                            }
                         } else {
-                            await interaction.followUp({ 
-                                content: '❌ An error occurred while doubling down. Please try again.', 
-                                flags: MessageFlags.Ephemeral 
-                            });
+                            logger.warn('Interaction is no longer repliable for double error response');
                         }
                     } catch (interactionError) {
                         logger.error(`Failed to send double error response: ${interactionError.message}`);
@@ -742,15 +772,25 @@ module.exports = {
             case 'split': {
                 // Check if can split
                 if (!game.canSplit()) {
-                    return await interaction.reply({ content: 'Cannot split this hand.', flags: MessageFlags.Ephemeral });
+                    if (interaction.isRepliable()) {
+                        return await interaction.reply({ content: 'Cannot split this hand.', flags: MessageFlags.Ephemeral });
+                    } else {
+                        logger.warn('Cannot send split error - interaction not repliable');
+                        return;
+                    }
                 }
 
                 // Check funds for split
                 if (userBalance.wallet < game.betAmount) {
-                    return await interaction.reply({ 
-                        content: `Insufficient funds to split! You need ${fmt(game.betAmount)} more.`, 
-                        flags: MessageFlags.Ephemeral 
-                    });
+                    if (interaction.isRepliable()) {
+                        return await interaction.reply({ 
+                            content: `Insufficient funds to split! You need ${fmt(game.betAmount)} more.`, 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                    } else {
+                        logger.warn('Cannot send split insufficient funds error - interaction not repliable');
+                        return;
+                    }
                 }
 
                 // Deduct additional bet for split
@@ -781,15 +821,25 @@ module.exports = {
             case 'insurance_yes': {
                 // Take insurance
                 if (!game.canOfferInsurance()) {
-                    return await interaction.reply({ content: 'Insurance is not available.', flags: MessageFlags.Ephemeral });
+                    if (interaction.isRepliable()) {
+                        return await interaction.reply({ content: 'Insurance is not available.', flags: MessageFlags.Ephemeral });
+                    } else {
+                        logger.warn('Cannot send insurance error - interaction not repliable');
+                        return;
+                    }
                 }
                 
                 // Check if user has enough funds for insurance
                 if (userBalance.wallet < game.insuranceAmount) {
-                    return await interaction.reply({ 
-                        content: `Insufficient funds for insurance! You need ${fmt(game.insuranceAmount)} more.`, 
-                        flags: MessageFlags.Ephemeral 
-                    });
+                    if (interaction.isRepliable()) {
+                        return await interaction.reply({ 
+                            content: `Insufficient funds for insurance! You need ${fmt(game.insuranceAmount)} more.`, 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                    } else {
+                        logger.warn('Cannot send insurance insufficient funds error - interaction not repliable');
+                        return;
+                    }
                 }
                 
                 // Deduct insurance amount
@@ -867,7 +917,11 @@ module.exports = {
                     ]
                 });
 
-                await interaction.reply({ embeds: [helpEmbed], components: helpComponents, flags: MessageFlags.Ephemeral });
+                if (interaction.isRepliable()) {
+                    await interaction.reply({ embeds: [helpEmbed], components: helpComponents, flags: MessageFlags.Ephemeral });
+                } else {
+                    logger.warn('Cannot send help reply - interaction not repliable');
+                }
                 break;
             }
             }
@@ -882,8 +936,11 @@ module.exports = {
                     guildId
                 );
             } catch (_) {}
-            if (!interaction.replied && !interaction.deferred) {
+            // Check if interaction is still valid before responding
+            if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
                 await interaction.reply({ content: '❌ Error processing action.', flags: MessageFlags.Ephemeral });
+            } else {
+                logger.warn('Cannot send action error reply - interaction not repliable or already handled');
             }
         }
     },
@@ -1195,19 +1252,23 @@ module.exports = {
                     finalData.content = `🎰 Game Complete - Payout: ${fmt(regulatedPayout)}`;
                 }
                 
-                if (interaction.deferred || interaction.replied) {
-                    await interaction.editReply(finalData);
+                // Check if interaction is still valid before responding
+                if (interaction.isRepliable()) {
+                    if (interaction.deferred || interaction.replied) {
+                        await interaction.editReply(finalData);
+                    } else {
+                        await interaction.update(finalData);
+                    }
+                    logger.info(`Blackjack game successfully ended for user ${userId}`);
                 } else {
-                    await interaction.update(finalData);
+                    logger.warn('Interaction is no longer repliable for endGame update');
                 }
-                
-                logger.info(`Blackjack game successfully ended for user ${userId}`);
             } catch (interactionError) {
                 logger.error(`Failed to update interaction for blackjack endGame: ${interactionError.message}`);
                 
                 // Fallback: try to send a new reply if update fails
                 try {
-                    if (!interaction.replied && !interaction.deferred) {
+                    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
                         const fallbackData = {
                             content: `🎰 Game Complete - Payout: ${fmt(regulatedPayout)}`,
                             embeds: [finalEmbed],
@@ -1224,6 +1285,8 @@ module.exports = {
                         }
                         
                         await interaction.reply(fallbackData);
+                    } else {
+                        logger.warn('Cannot send fallback reply - interaction not repliable or already handled');
                     }
                 } catch (fallbackError) {
                     logger.error(`Failed fallback reply for blackjack endGame: ${fallbackError.message}`);

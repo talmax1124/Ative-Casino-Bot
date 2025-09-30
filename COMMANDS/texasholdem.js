@@ -76,9 +76,19 @@ async function createGameEmbed(game) {
     const currentPlayer = game.getCurrentPlayer();
     const gameState = game.getGameState();
     
-    // Main game info
+    // Main game info with enhanced pot display
     let description = `**Hand #${gameState.handNumber}** • **Phase:** ${gameState.phase.replace('_', ' ').toUpperCase()}\n`;
-    description += `**💰 Pot:** ${fmt(gameState.totalPot)} • **🎯 Current Bet:** ${fmt(gameState.currentBet)}`;
+    description += `**💰 Main Pot:** ${fmt(gameState.totalPot)} • **🎯 Current Bet:** ${fmt(gameState.currentBet)}`;
+    
+    // Add side pots if they exist
+    if (gameState.pots && gameState.pots.length > 1) {
+        const sidePots = gameState.pots.slice(1).map((pot, index) => 
+            `Side Pot ${index + 1}: ${fmt(pot.amount)}`
+        ).join(' • ');
+        if (sidePots) {
+            description += `\n**💼 Side Pots:** ${sidePots}`;
+        }
+    }
     
     if (gameState.currentPlayer) {
         description += `\n**🎮 Current Turn:** ${gameState.currentPlayer.username} ⏰`;
@@ -308,8 +318,29 @@ async function updateGameStateForAllPlayers(game, interaction) {
 
     await interaction.update(messageData);
     
-    // Send private hand to the acting player
+    // Send turn notification message that auto-deletes after 10 seconds
     const currentPlayer = game.getCurrentPlayer();
+    if (currentPlayer) {
+        try {
+            const turnMessage = await interaction.followUp({
+                content: `<@${currentPlayer.userId}>, it's your turn for Texas Hold'em! ⏰`,
+                flags: 0 // Not ephemeral - everyone can see
+            });
+            
+            // Delete the turn notification after 10 seconds
+            setTimeout(async () => {
+                try {
+                    await turnMessage.delete();
+                } catch (deleteError) {
+                    logger.warn(`Failed to delete turn notification: ${deleteError.message}`);
+                }
+            }, 10000);
+        } catch (error) {
+            logger.warn(`Failed to send turn notification: ${error.message}`);
+        }
+    }
+    
+    // Send private hand to the acting player
     if (currentPlayer && currentPlayer.userId === interaction.user.id) {
         try {
             const privateData = await createPrivatePlayerEmbed(game, interaction.user.id);
@@ -861,8 +892,10 @@ module.exports = {
                 .setDescription('An error occurred while creating the game. Please try again.')
                 .setColor(0xFF0000);
 
-            if (!interaction.replied && !interaction.deferred) {
+            if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
                 await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            } else {
+                logger.warn('Cannot send main execute error reply - interaction not repliable or already handled');
             }
         }
     },
@@ -878,10 +911,15 @@ module.exports = {
         try {
             const game = getTexasHoldemGame(channelId);
             if (!game) {
-                return await interaction.reply({ 
-                    content: 'No active Texas Hold\'em game found in this channel.', 
-                    flags: MessageFlags.Ephemeral 
-                });
+                if (interaction.isRepliable()) {
+                    return await interaction.reply({ 
+                        content: 'No active Texas Hold\'em game found in this channel.', 
+                        flags: MessageFlags.Ephemeral 
+                    });
+                } else {
+                    logger.warn('Cannot send game not found reply - interaction not repliable');
+                    return;
+                }
             }
 
             const user = interaction.user;
@@ -891,17 +929,27 @@ module.exports = {
                 case 'join':
                 case 'general-join': {
                     if (game.players.has(userId)) {
-                        return await interaction.reply({ 
-                            content: 'You are already in the game!', 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ 
+                                content: 'You are already in the game!', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            logger.warn('Cannot send already in game reply - interaction not repliable');
+                            return;
+                        }
                     }
 
                     if (game.gameActive) {
-                        return await interaction.reply({ 
-                            content: 'Cannot join game in progress.', 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ 
+                                content: 'Cannot join game in progress.', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            logger.warn('Cannot send join in progress reply - interaction not repliable');
+                            return;
+                        }
                     }
 
                     // Validate and deduct buy-in
@@ -934,10 +982,15 @@ module.exports = {
                 case 'leave':
                 case 'player-leave': {
                     if (!game.players.has(userId)) {
-                        return await interaction.reply({ 
-                            content: 'You are not in the game!', 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ 
+                                content: 'You are not in the game!', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            logger.warn('Cannot send not in game reply - interaction not repliable');
+                            return;
+                        }
                     }
 
                     // Refund buy-in if game hasn't started
@@ -961,17 +1014,27 @@ module.exports = {
                 case 'start':
                 case 'creator-start': {
                     if (game.creatorId !== userId) {
-                        return await interaction.reply({ 
-                            content: 'Only the game creator can start the game!', 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ 
+                                content: 'Only the game creator can start the game!', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            logger.warn('Cannot send creator only reply - interaction not repliable');
+                            return;
+                        }
                     }
 
                     if (game.seatOrder.length < game.minPlayers) {
-                        return await interaction.reply({ 
-                            content: `Need at least ${game.minPlayers} players to start!`, 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ 
+                                content: `Need at least ${game.minPlayers} players to start!`, 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            logger.warn('Cannot send min players reply - interaction not repliable');
+                            return;
+                        }
                     }
 
                     game.startGame();
@@ -1027,17 +1090,27 @@ module.exports = {
                 case BETTING_ACTIONS.CALL:
                 case BETTING_ACTIONS.ALL_IN: {
                     if (!game.gameActive) {
-                        return await interaction.reply({ 
-                            content: 'Game is not active!', 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ 
+                                content: 'Game is not active!', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            logger.warn('Cannot send game not active reply - interaction not repliable');
+                            return;
+                        }
                     }
 
                     if (!game.isPlayerTurn(userId)) {
-                        return await interaction.reply({ 
-                            content: 'It\'s not your turn!', 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ 
+                                content: 'It\'s not your turn!', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            logger.warn('Cannot send not your turn reply - interaction not repliable');
+                            return;
+                        }
                     }
 
                     // Extract the actual action from the actionId (remove action- prefix if present)
@@ -1059,17 +1132,27 @@ module.exports = {
                 case BETTING_ACTIONS.BET:
                 case BETTING_ACTIONS.RAISE: {
                     if (!game.gameActive) {
-                        return await interaction.reply({ 
-                            content: 'Game is not active!', 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ 
+                                content: 'Game is not active!', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            logger.warn('Cannot send game not active reply - interaction not repliable');
+                            return;
+                        }
                     }
 
                     if (!game.isPlayerTurn(userId)) {
-                        return await interaction.reply({ 
-                            content: 'It\'s not your turn!', 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        if (interaction.isRepliable()) {
+                            return await interaction.reply({ 
+                                content: 'It\'s not your turn!', 
+                                flags: MessageFlags.Ephemeral 
+                            });
+                        } else {
+                            logger.warn('Cannot send not your turn reply - interaction not repliable');
+                            return;
+                        }
                     }
 
                     // Show bet amount selection
@@ -1158,26 +1241,37 @@ module.exports = {
                         .setColor(0x0066CC)
                         .setTimestamp();
 
-                    await interaction.reply({ embeds: [helpEmbed], flags: MessageFlags.Ephemeral });
+                    if (interaction.isRepliable()) {
+                        await interaction.reply({ embeds: [helpEmbed], flags: MessageFlags.Ephemeral });
+                    } else {
+                        logger.warn('Cannot send help reply - interaction not repliable');
+                    }
                     break;
                 }
 
                 default:
                     logger.warn(`Unknown Texas Hold'em action: ${actionId}`);
-                    await interaction.reply({ 
-                        content: 'Unknown action!', 
-                        flags: MessageFlags.Ephemeral 
-                    });
+                    if (interaction.isRepliable()) {
+                        await interaction.reply({ 
+                            content: 'Unknown action!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                    } else {
+                        logger.warn('Cannot send unknown action reply - interaction not repliable');
+                    }
             }
 
         } catch (error) {
             logger.error(`Texas Hold'em action error (${actionId}): ${error.message}`);
             
-            if (!interaction.replied && !interaction.deferred) {
+            // Check if interaction is still valid before responding
+            if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
                 await interaction.reply({ 
                     content: '❌ Error processing action. Please try again.', 
                     flags: MessageFlags.Ephemeral 
                 });
+            } else {
+                logger.warn('Cannot send action error reply - interaction not repliable or already handled');
             }
         }
     },
@@ -1190,27 +1284,42 @@ module.exports = {
         try {
             const game = getTexasHoldemGame(channelId);
             if (!game || !game.gameActive) {
-                return await interaction.reply({ 
-                    content: 'No active game found!', 
-                    flags: MessageFlags.Ephemeral 
-                });
+                if (interaction.isRepliable()) {
+                    return await interaction.reply({ 
+                        content: 'No active game found!', 
+                        flags: MessageFlags.Ephemeral 
+                    });
+                } else {
+                    logger.warn('Cannot send no active game reply - interaction not repliable');
+                    return;
+                }
             }
 
             if (!game.isPlayerTurn(userId)) {
-                return await interaction.reply({ 
-                    content: 'It\'s not your turn!', 
-                    flags: MessageFlags.Ephemeral 
-                });
+                if (interaction.isRepliable()) {
+                    return await interaction.reply({ 
+                        content: 'It\'s not your turn!', 
+                        flags: MessageFlags.Ephemeral 
+                    });
+                } else {
+                    logger.warn('Cannot send not your turn reply - interaction not repliable');
+                    return;
+                }
             }
 
             const [action, amountStr] = selection.split('_');
             const amount = parseInt(amountStr);
 
             if (isNaN(amount)) {
-                return await interaction.reply({ 
-                    content: 'Invalid amount!', 
-                    flags: MessageFlags.Ephemeral 
-                });
+                if (interaction.isRepliable()) {
+                    return await interaction.reply({ 
+                        content: 'Invalid amount!', 
+                        flags: MessageFlags.Ephemeral 
+                    });
+                } else {
+                    logger.warn('Cannot send invalid amount reply - interaction not repliable');
+                    return;
+                }
             }
 
             await game.processPlayerAction(userId, action, amount);
@@ -1226,10 +1335,14 @@ module.exports = {
         } catch (error) {
             logger.error(`Bet amount selection error: ${error.message}`);
             
-            await interaction.reply({ 
-                content: `❌ Error: ${error.message}`, 
-                flags: MessageFlags.Ephemeral 
-            });
+            if (interaction.isRepliable()) {
+                await interaction.reply({ 
+                    content: `❌ Error: ${error.message}`, 
+                    flags: MessageFlags.Ephemeral 
+                });
+            } else {
+                logger.warn('Cannot send bet error reply - interaction not repliable');
+            }
         }
     }
 };

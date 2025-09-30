@@ -206,7 +206,7 @@ class RankTopManager {
             // Using the REST API directly as the SDK doesn't expose this method
             const response = await fetch(`https://rank.top/api/bots/${botId}/details`, {
                 headers: {
-                    'Authorization': authToken
+                    'Authorization': `Bearer ${authToken}`
                 }
             });
 
@@ -244,7 +244,7 @@ class RankTopManager {
             const queryParams = new URLSearchParams(params);
             const response = await fetch(`https://rank.top/api/bots/search?${queryParams}`, {
                 headers: {
-                    'Authorization': authToken
+                    'Authorization': `Bearer ${authToken}`
                 }
             });
 
@@ -274,7 +274,7 @@ class RankTopManager {
         try {
             const response = await fetch(`https://rank.top/api/servers/${serverId}/details`, {
                 headers: {
-                    'Authorization': authToken
+                    'Authorization': `Bearer ${authToken}`
                 }
             });
 
@@ -304,7 +304,7 @@ class RankTopManager {
         try {
             const response = await fetch(`https://rank.top/api/users/${userId}/get`, {
                 headers: {
-                    'Authorization': authToken
+                    'Authorization': `Bearer ${authToken}`
                 }
             });
 
@@ -349,7 +349,6 @@ class RankTopManager {
             
             // Prepare the payload according to Rank.Top API requirements
             const payload = {
-                authorization: this.botAuthToken,
                 serverCount: stats.serverCount || this.client.guilds.cache.size,
                 userCount: stats.userCount || this.client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0),
                 ping: stats.ping || Math.round(this.client.ws.ping),
@@ -366,7 +365,8 @@ class RankTopManager {
             const response = await fetch(`https://rank.top/api/bots/${botId}/post`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.botAuthToken}`
                 },
                 body: JSON.stringify(payload)
             });

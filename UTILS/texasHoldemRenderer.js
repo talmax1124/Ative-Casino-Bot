@@ -44,13 +44,13 @@ const PLAYER_POSITIONS = [
     { x: 1000, y: 770, angle: 20, name: 'Bottom Right' }     // Seat 9 (bottom right)
 ];
 
-// Community card positions - Properly centered on the table
+// Community card positions - Better centered on the table
 const COMMUNITY_POSITIONS = {
-    flop1: { x: 520, y: 420 },
-    flop2: { x: 670, y: 420 },
-    flop3: { x: 820, y: 420 },
-    turn: { x: 970, y: 420 },
-    river: { x: 1120, y: 420 }
+    flop1: { x: 480, y: 450 },
+    flop2: { x: 620, y: 450 },
+    flop3: { x: 760, y: 450 },
+    turn: { x: 900, y: 450 },
+    river: { x: 1040, y: 450 }
 };
 
 class TexasHoldemRenderer {
@@ -100,8 +100,7 @@ class TexasHoldemRenderer {
             // Draw community cards
             await this.drawCommunityCards(ctx, gameState.communityCards, gameState.phase);
 
-            // Draw pot information
-            this.drawPotInfo(ctx, gameState.totalPot, gameState.pots);
+            // Pot information removed - now in embed instead
 
             // Draw player positions
             await this.drawPlayers(ctx, gameState.players, gameState.currentPlayer, viewingUserId);
@@ -169,7 +168,7 @@ class TexasHoldemRenderer {
         
         // Simple community cards label - no background box
         const centerX = TABLE_WIDTH / 2;
-        const labelY = 350;
+        const labelY = 380;
         
         ctx.fillStyle = COLORS.WHITE;
         ctx.font = this.fontLoaded ? 'bold 18px Roboto' : 'bold 18px Arial';
@@ -195,13 +194,13 @@ class TexasHoldemRenderer {
             ctx.fillStyle = COLORS.GOLD;
             ctx.font = this.fontLoaded ? 'bold 14px Roboto' : 'bold 14px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('FLOP', 670, 540);
+            ctx.fillText('FLOP', 620, 580);
         }
         if (communityCards.length >= 4) {
-            ctx.fillText('TURN', 970, 540);
+            ctx.fillText('TURN', 900, 580);
         }
         if (communityCards.length >= 5) {
-            ctx.fillText('RIVER', 1120, 540);
+            ctx.fillText('RIVER', 1040, 580);
         }
     }
 
