@@ -51,24 +51,37 @@ class TopGGManager {
      */
     async handleVoteWebhook(req, res) {
         try {
+            logger.debug('Received Top.GG webhook request');
+            logger.debug('Headers:', req.headers);
+            logger.debug('Body:', req.body);
+
             // Verify webhook signature from Authorization header
             const authHeader = req.headers['authorization'];
             if (!this.verifyWebhookSignature(req.body, authHeader)) {
                 logger.warn('Invalid Top.GG webhook authorization');
+                logger.warn(`Expected format: Bearer ${this.webhookSecret}`);
+                logger.warn(`Received: ${authHeader}`);
                 return res.status(401).send('Unauthorized');
             }
 
             const voteData = req.body;
             const userId = voteData.user;
             
-            logger.info(`Top.GG vote received from user: ${userId}`);
-
-            // Process the vote reward
-            await this.processVoteReward(userId, voteData);
+            if (!userId) {
+                logger.error('No user ID in vote data:', voteData);
+                return res.status(400).send('Bad Request - Missing user ID');
+            }
             
+            logger.info(`✅ Top.GG bot vote received from user: ${userId}`);
+
+            // Process the vote reward with 'bot' type (default)
+            await this.processVoteReward(userId, voteData, 'bot');
+            
+            logger.info(`✅ Successfully processed bot vote for user: ${userId}`);
             res.status(200).send('OK');
         } catch (error) {
-            logger.error(`Top.GG webhook error: ${error.message}`);
+            logger.error(`❌ Top.GG webhook error: ${error.message}`);
+            logger.error('Stack trace:', error.stack);
             res.status(500).send('Internal Server Error');
         }
     }
@@ -369,24 +382,37 @@ class TopGGManager {
      */
     async handleRanktopVoteWebhook(req, res) {
         try {
+            logger.debug('Received Rank.top webhook request');
+            logger.debug('Headers:', req.headers);
+            logger.debug('Body:', req.body);
+
             // Verify webhook signature from Authorization header
             const authHeader = req.headers['authorization'];
             if (!this.verifyRanktopWebhookSignature(req.body, authHeader)) {
                 logger.warn('Invalid Rank.top webhook authorization');
+                logger.warn(`Expected format: Bearer ${this.ranktopWebhookSecret}`);
+                logger.warn(`Received: ${authHeader}`);
                 return res.status(401).send('Unauthorized');
             }
 
             const voteData = req.body;
             const userId = voteData.user;
             
-            logger.info(`Rank.top vote received from user: ${userId}`);
+            if (!userId) {
+                logger.error('No user ID in rank.top vote data:', voteData);
+                return res.status(400).send('Bad Request - Missing user ID');
+            }
+            
+            logger.info(`🎟️ Rank.top vote received from user: ${userId}`);
 
             // Process the vote reward with rank.top type
             await this.processVoteReward(userId, voteData, 'ranktop');
             
+            logger.info(`🎟️ Successfully processed rank.top vote for user: ${userId}`);
             res.status(200).send('OK');
         } catch (error) {
-            logger.error(`Rank.top webhook error: ${error.message}`);
+            logger.error(`❌ Rank.top webhook error: ${error.message}`);
+            logger.error('Stack trace:', error.stack);
             res.status(500).send('Internal Server Error');
         }
     }

@@ -61,13 +61,17 @@ class ServerVotePoller {
      */
     async checkForVotes() {
         try {
+            logger.debug(`Polling server votes for guild ${this.serverId}`);
+            logger.debug(`Using token: ${this.topggServerToken ? 'Set' : 'Missing'}`);
+            
             // Get list of users who voted in the last 12 hours
             const response = await axios.get(
                 `https://top.gg/api/guilds/${this.serverId}/votes`,
                 {
                     headers: {
                         'Authorization': this.topggServerToken
-                    }
+                    },
+                    timeout: 10000 // 10 second timeout
                 }
             );
 
@@ -88,11 +92,28 @@ class ServerVotePoller {
 
         } catch (error) {
             if (error.response?.status === 404) {
-                logger.error('Server not found on Top.GG. Check DESIGNATED_SERVER_ID');
+                logger.error(`Server not found on Top.GG. Check DESIGNATED_SERVER_ID: ${this.serverId}`);
+                logger.error('Stopping server vote polling due to 404 error');
+                this.stop();
             } else if (error.response?.status === 401) {
                 logger.error('Invalid Top.GG server token. Check TOPGG_SERVER_TOKEN');
+                logger.error('Server vote polling will continue but may fail until token is fixed');
+            } else if (error.response?.status === 403) {
+                logger.error('Top.GG server API access forbidden (403)');
+                logger.error('This may indicate:');
+                logger.error('1. Server token is invalid or expired');
+                logger.error('2. Server is not listed on Top.GG');
+                logger.error('3. API endpoint requires different permissions');
+                logger.error('Disabling server vote polling until issue is resolved');
+                this.stop();
+            } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+                logger.warn('Top.GG API temporarily unavailable, will retry next poll');
             } else {
                 logger.error(`Error polling server votes: ${error.message}`);
+                if (error.response) {
+                    logger.error(`Response status: ${error.response.status}`);
+                    logger.error(`Response data:`, error.response.data);
+                }
             }
         }
     }

@@ -2909,6 +2909,24 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Webhook test endpoint
+app.get('/webhook-test', (req, res) => {
+    res.status(200).json({
+        status: 'Webhook endpoints ready',
+        endpoints: {
+            'topgg_bot': '/topgg/webhook',
+            'ranktop': '/ranktop/webhook',
+            'server_votes': 'API polling (no webhook)'
+        },
+        environment: {
+            topgg_webhook_secret: process.env.TOPGG_WEBHOOK_SECRET ? 'Set' : 'Missing',
+            ranktop_webhook_secret: process.env.RANKTOP_WEBHOOK_SECRET ? 'Set' : 'Missing',
+            topgg_server_token: process.env.TOPGG_SERVER_TOKEN ? 'Set' : 'Missing'
+        },
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Start webhook server
 app.listen(PORT, () => {
     logger.info(`Webhook server running on port ${PORT}`);
