@@ -3556,7 +3556,7 @@ async function showAdvancedHelpContent(interaction, customId) {
 }
 
 // Initialize server vote poller when client is ready
-client.once('ready', () => {
+client.once('clientReady', () => {
     logger.info(`Bot is ready! Logged in as ${client.user.tag}`);
     
     // Initialize server vote poller
