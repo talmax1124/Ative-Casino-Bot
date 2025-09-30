@@ -387,9 +387,7 @@ class TopGGManager {
      */
     async handleRanktopVoteWebhook(req, res) {
         try {
-            logger.debug('Received Rank.Top webhook request');
-            logger.debug('Headers:', req.headers);
-            logger.debug('Body:', req.body);
+            logger.info('✅ Received Rank.Top vote webhook');
 
             // Verify webhook signature
             const signature = req.headers['x-signature'];
