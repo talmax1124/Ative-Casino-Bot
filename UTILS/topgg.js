@@ -448,10 +448,10 @@ class TopGGManager {
             try {
                 await connection.beginTransaction();
                 
-                // Insert or update lottery tickets
+                // Insert or update lottery tickets with purchase_cost = 0 for free tickets
                 await connection.execute(
-                    `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, week_start, tier) 
-                     VALUES (?, ?, ?, ?, 1)
+                    `INSERT INTO lottery_tickets (user_id, guild_id, ticket_count, week_start, tier, purchase_cost) 
+                     VALUES (?, ?, ?, ?, 1, 0)
                      ON DUPLICATE KEY UPDATE ticket_count = ticket_count + ?`,
                     [userId, guildId, actualTicketsToGive, currentWeekStart, actualTicketsToGive]
                 );

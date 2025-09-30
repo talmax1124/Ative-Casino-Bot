@@ -99,12 +99,13 @@ class ServerVotePoller {
                 logger.error('Invalid Top.GG server token. Check TOPGG_SERVER_TOKEN');
                 logger.error('Server vote polling will continue but may fail until token is fixed');
             } else if (error.response?.status === 403) {
-                logger.error('Top.GG server API access forbidden (403)');
+                logger.error('❌ Top.GG server API access forbidden (403)');
                 logger.error('This may indicate:');
                 logger.error('1. Server token is invalid or expired');
                 logger.error('2. Server is not listed on Top.GG');
                 logger.error('3. API endpoint requires different permissions');
-                logger.error('Disabling server vote polling until issue is resolved');
+                logger.info('🛑 Disabling server vote polling until issue is resolved');
+                logger.info('✅ Bot and Rank.top voting will continue to work normally');
                 this.stop();
             } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
                 logger.warn('Top.GG API temporarily unavailable, will retry next poll');
