@@ -149,7 +149,7 @@ module.exports = {
             },
             {
                 name: '💰 Vote Rewards',
-                value: '• **Bot Vote**: 25,000 coins + bonuses\n• **Server Vote**: 25,000 coins + bonuses\n• **Rank.top Vote**: 1 free lottery ticket\n• **Weekend Bonus**: +50% extra coins\n• **Streak Bonuses**: Up to 1M coins!',
+                value: '• **Bot Vote**: 25,000 coins + bonuses\n• **Rank.top Vote**: 1 free lottery ticket\n• **Server Vote**: Community support (no rewards)\n• **Weekend Bonus**: +50% extra coins\n• **Streak Bonuses**: Up to 1M coins!',
                 inline: false
             }
         );
@@ -187,7 +187,7 @@ module.exports = {
                     .setLabel('🏆 Vote Server')
                     .setStyle(ButtonStyle.Link)
                     .setURL('https://top.gg/servers/1403244656845787167/vote')
-                    .setEmoji('🗳️'),
+                    .setEmoji('🤝'),
                 new ButtonBuilder()
                     .setLabel('🎟️ Vote Rank.top')
                     .setStyle(ButtonStyle.Link)
@@ -205,7 +205,7 @@ module.exports = {
                     .setLabel('🏆 Vote Server')
                     .setStyle(ButtonStyle.Link)
                     .setURL('https://top.gg/servers/1403244656845787167/vote')
-                    .setEmoji('🗳️'),
+                    .setEmoji('🤝'),
                 new ButtonBuilder()
                     .setLabel('🎟️ Vote Rank.top')
                     .setStyle(ButtonStyle.Link)

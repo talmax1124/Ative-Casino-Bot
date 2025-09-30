@@ -3573,29 +3573,15 @@ async function showAdvancedHelpContent(interaction, customId) {
     }
 }
 
-// Initialize server vote poller when client is ready
+// Initialize when client is ready
 client.once('clientReady', () => {
     logger.info(`Bot is ready! Logged in as ${client.user.tag}`);
     
-    // Initialize server vote poller
-    try {
-        const TopGGManager = require('./UTILS/topgg');
-        const ServerVotePoller = require('./UTILS/serverVotePoller');
-        
-        // Create TopGG manager instance
-        const topggManager = new TopGGManager(client);
-        
-        // Create and start server vote poller
-        const serverVotePoller = new ServerVotePoller(topggManager);
-        serverVotePoller.start();
-        
-        // Store reference for potential cleanup
-        client.serverVotePoller = serverVotePoller;
-        
-        logger.info('Server vote polling initialized successfully');
-    } catch (error) {
-        logger.error('Failed to initialize server vote poller:', error);
-    }
+    // Voting system status
+    logger.info('✅ Voting system initialized successfully');
+    logger.info('🤖 Bot votes: 25K coins + bonuses (webhook)');
+    logger.info('🎟️ Rank.top votes: Free lottery tickets (webhook)');
+    logger.info('🤝 Server votes: Community support button (no automated rewards)');
 });
 
 // Start the bot

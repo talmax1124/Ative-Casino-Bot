@@ -22,6 +22,13 @@ class ServerVotePoller {
      * Start polling for server votes
      */
     start() {
+        logger.info('⚠️  Server vote polling is disabled due to Cloudflare protection on Top.GG API');
+        logger.info('✅ Bot voting and Rank.top voting will continue to work normally');
+        logger.info('💡 Consider removing server vote polling or using alternative voting platforms');
+        return;
+        
+        // Commented out - Cloudflare blocks automated requests
+        /*
         if (!this.topggServerToken) {
             logger.warn('TOPGG_SERVER_TOKEN not set, server vote polling disabled');
             return;
@@ -42,6 +49,7 @@ class ServerVotePoller {
         this.pollTimer = setInterval(() => {
             this.checkForVotes();
         }, this.pollInterval);
+        */
     }
 
     /**

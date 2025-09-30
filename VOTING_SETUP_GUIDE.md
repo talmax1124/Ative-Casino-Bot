@@ -1,10 +1,12 @@
 # 🗳️ Voting System Setup & Testing Guide
 
 ## 📋 Overview
-This bot now supports 3 types of voting:
+This bot now supports 2 types of voting with rewards:
 1. **Bot Votes** (Top.GG) - 25,000 coins + bonuses
-2. **Server Votes** (Top.GG) - 25,000 coins + bonuses  
-3. **Rank.top Votes** - 1 free lottery ticket
+2. **Rank.top Votes** - 1 free lottery ticket
+
+Plus 1 community support option:
+3. **Server Votes** (Top.GG) - Community support (no automated rewards)
 
 ## 🚀 Quick Setup
 
