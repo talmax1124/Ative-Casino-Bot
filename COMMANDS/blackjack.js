@@ -940,7 +940,7 @@ module.exports = {
             for (const result of results) {
                 totalPayout += result.payout || 0;
                 if (result.won) {
-                    winnings += result.payout || 0;
+                    winnings += (result.payout || 0) - result.betAmount; // Only count profit as winnings
                 }
             }
 
@@ -952,14 +952,14 @@ module.exports = {
             
             const originalWon = totalPayout > 0;
             
-            // Check if this is a push (bet should be returned, not profit)
-            const isPush = results.some(r => r.outcome === 'PUSH') && results.every(r => r.outcome === 'PUSH' || r.outcome === 'BUSTED');
+            // Check if this is a push (all hands are pushes)
+            const isPush = results.every(r => r.outcome === 'PUSH');
             
             let regulatedPayout;
             let tuningAdjustment;
             
             if (isPush) {
-                // For pushes, return exactly the bet amount (no tuning applied)
+                // For pushes, return exactly the bet amount (no profit, no loss)
                 regulatedPayout = totalBetAmount;
                 tuningAdjustment = { 
                     originalPayout: totalBetAmount, 
@@ -967,10 +967,19 @@ module.exports = {
                     payoutDelta: 0, 
                     feeApplied: false 
                 };
+            } else if (!originalWon) {
+                // For losses, payout should be 0 (money already deducted)
+                regulatedPayout = 0;
+                tuningAdjustment = { 
+                    originalPayout: 0, 
+                    adjustedPayout: 0, 
+                    payoutDelta: 0, 
+                    feeApplied: false 
+                };
             } else {
-                // 🎰 APPLY AI TUNING SYSTEM - ECONOMIC REGULATION (only for non-push outcomes)
+                // 🎰 APPLY AI TUNING SYSTEM - ECONOMIC REGULATION (only for wins)
                 tuningAdjustment = await tuningManager.getAdjustedPayout('blackjack', totalPayout, totalBetAmount);
-                regulatedPayout = originalWon ? tuningAdjustment.adjustedPayout : 0;
+                regulatedPayout = tuningAdjustment.adjustedPayout;
             }
             
             // 🎯 APPLY ALL-IN SYSTEM - DYNAMIC HOUSE EDGE (but not for pushes)
@@ -989,11 +998,15 @@ module.exports = {
                 logger.info(`🎛️ BLACKJACK TUNING: ${totalPayout} -> ${tuningAdjustment.adjustedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
             }
             
-            // Determine if player won based on game outcome, not just payout amount
-            // For pushes, payout > 0 (return bet) but it's not a win
-            const won = isPush ? false : originalWon && regulatedPayout > 0;
+            // Determine if player won based on net profit
+            // Push: payout = bet (no profit), Loss: payout = 0, Win: payout > bet
+            const netProfit = regulatedPayout - totalBetAmount;
+            const won = netProfit > 0; // Only true wins have positive net profit
             
             // Use PayoutManager for consistent payout handling
+            // For losses, payout is 0 since bet was already deducted
+            // For pushes, payout equals bet amount (return bet, no profit)
+            // For wins, payout is greater than bet (bet + profit)
             const gameResult = new GameResult({
                 userId,
                 guildId,
@@ -1001,7 +1014,11 @@ module.exports = {
                 betAmount: totalBetAmount,
                 payout: regulatedPayout,
                 won: won,
-                metadata: { hands: results.length }
+                metadata: { 
+                    hands: results.length,
+                    isPush: isPush,
+                    netProfit: netProfit
+                }
             });
 
             await PayoutManager.processGamePayout(gameResult);
@@ -1076,12 +1093,26 @@ module.exports = {
                         // Calculate proportion of regulated payout for this hand (avoid division by zero)
                         const handProportion = totalPayout > 0 ? (result.payout || 0) / totalPayout : 0;
                         const handRegulatedPayout = regulatedPayout * handProportion;
-                        const status = handRegulatedPayout > 0 ? '🎉 WIN!' : '💸 LOSE';
+                        const handNetProfit = handRegulatedPayout - result.betAmount;
+                        const status = result.outcome === 'PUSH' ? '🤝 PUSH' : (handNetProfit > 0 ? '🎉 WIN!' : '💸 LOSE');
                         const doubledText = result.doubled ? ' (DOUBLED)' : '';
-                        handResults.push(`Hand ${i + 1}: ${status} ${fmt(handRegulatedPayout)}${doubledText}`);
+                        if (result.outcome === 'PUSH') {
+                            handResults.push(`Hand ${i + 1}: ${status} - Bet returned${doubledText}`);
+                        } else if (handNetProfit > 0) {
+                            handResults.push(`Hand ${i + 1}: ${status} Won ${fmt(handNetProfit)}${doubledText}`);
+                        } else {
+                            handResults.push(`Hand ${i + 1}: ${status} Lost ${fmt(result.betAmount)}${doubledText}`);
+                        }
                     }
                     resultMessage = handResults.join('\n');
-                    resultMessage += `\n\n**Total Payout: ${fmt(regulatedPayout)}**`;
+                    const totalNetProfit = regulatedPayout - totalBetAmount;
+                    if (totalNetProfit > 0) {
+                        resultMessage += `\n\n**Total Won: ${fmt(totalNetProfit)}**`;
+                    } else if (totalNetProfit === 0) {
+                        resultMessage += `\n\n**Total: Push - All bets returned**`;
+                    } else {
+                        resultMessage += `\n\n**Total Lost: ${fmt(Math.abs(totalNetProfit))}**`;
+                    }
                 } else {
                     const result = results[0] || {};
                     // Use the actual regulated payout, not the original game result payout
@@ -1092,30 +1123,31 @@ module.exports = {
                     const playForRecipient = global.playForContext?.recipientName;
                     const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
                     
-                    // Display win/loss based on actual regulated payout amount
-                    if (actualPayout > 0) {
+                    // Display win/loss based on outcome and net profit
+                    if (result.outcome === 'PUSH') {
+                        // Push always shows the same message regardless of payout
+                        resultMessage = `🤝 **PUSH** - Your bet of ${fmt(totalBetAmount)} is returned.`;
+                    } else if (netProfit > 0) {
+                        // Win scenarios - show profit, not total payout
                         if (result.outcome === 'BLACKJACK') {
                             if (winningForSomeoneElse) {
-                                resultMessage = `🎉 **BLACKJACK!** ${fmt(actualPayout)} for **@${playForRecipient}**!`;
+                                resultMessage = `🎉 **BLACKJACK!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
                             } else {
-                                resultMessage = `🎉 **BLACKJACK!** ${fmt(actualPayout)}`;
+                                resultMessage = `🎉 **BLACKJACK!** Won ${fmt(netProfit)}`;
                             }
-                        } else if (result.outcome === 'PUSH') {
-                            resultMessage = `🤝 **PUSH** - Your bet is returned.`;
                         } else {
                             if (winningForSomeoneElse) {
-                                resultMessage = `🎉 **YOU WIN ${fmt(actualPayout)} for @${playForRecipient}!**`;
+                                resultMessage = `🎉 **YOU WIN ${fmt(netProfit)} for @${playForRecipient}!**`;
                             } else {
-                                resultMessage = `🎉 **YOU WIN!** ${fmt(actualPayout)}`;
+                                resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)}`;
                             }
                         }
-                    } else if (result.outcome === 'PUSH') {
-                        resultMessage = `🤝 **PUSH** - Your bet is returned.`;
                     } else {
+                        // Loss scenarios
                         if (winningForSomeoneElse) {
                             resultMessage = `💸 **YOU LOSE!** @${playForRecipient} gets nothing.`;
                         } else {
-                            resultMessage = `💸 **YOU LOSE!** Better luck next time.`;
+                            resultMessage = `💸 **YOU LOSE!** Lost ${fmt(totalBetAmount)}.`;
                         }
                     }
                 }
@@ -1201,15 +1233,15 @@ module.exports = {
             // Complete session if game has one
             if (game.sessionId) {
                 // Determine actual game outcome: win (profit), push (break even), or loss
-                const netResult = totalPayout - totalBetAmount;
+                const netResult = regulatedPayout - totalBetAmount;
                 const actuallyWon = netResult > 0;
-                const isPush = netResult === 0 && totalPayout > 0;
+                const sessionIsPush = netResult === 0 && regulatedPayout > 0;
                 
                 await sessionManager.endSession(game.sessionId, {
                     outcome: 'COMPLETED',
-                    payout: totalPayout,
+                    payout: regulatedPayout,
                     won: actuallyWon,
-                    isPush: isPush,
+                    isPush: sessionIsPush,
                     netResult: netResult,
                     results: results
                 });
@@ -1226,11 +1258,11 @@ module.exports = {
             activeGames.delete(game.sessionId);
 
             // Log game end with proper outcome detection
-            const netResult = totalPayout - totalBetAmount;
+            const netResult = regulatedPayout - totalBetAmount;
             let outcomeText = '';
             if (netResult > 0) {
                 outcomeText = 'won';
-            } else if (netResult === 0 && totalPayout > 0) {
+            } else if (netResult === 0 && regulatedPayout > 0) {
                 outcomeText = 'pushed for';
             } else {
                 outcomeText = 'lost';
