@@ -93,11 +93,13 @@ class RankTopManager {
                     logger.info('✅ Rank.Top SDK autopost started successfully');
                     return true;
                 } catch (sdkError) {
-                    logger.warn(`SDK autopost failed, falling back to manual posting: ${sdkError.message}`);
+                    logger.warn(`SDK autopost failed (${sdkError.message}), falling back to manual posting`);
+                    logger.debug('SDK Error details:', sdkError);
                 }
             }
             
             // Fallback: Set up manual posting interval
+            logger.info('Using manual autopost as fallback');
             this.startManualAutopost();
             return true;
         } catch (error) {
@@ -114,13 +116,21 @@ class RankTopManager {
             clearInterval(this.autopostInterval);
         }
 
-        // Post stats immediately
-        this.postBotStats();
-
-        // Set up interval to post every 30 minutes
-        this.autopostInterval = setInterval(() => {
-            this.postBotStats();
-        }, 30 * 60 * 1000); // 30 minutes
+        // Test the auth token first with a manual post
+        logger.info('Testing Rank.Top auth token with initial post...');
+        this.postBotStats().then(success => {
+            if (success) {
+                logger.info('✅ Auth token verified, setting up 30-minute interval');
+                // Set up interval to post every 30 minutes
+                this.autopostInterval = setInterval(() => {
+                    this.postBotStats();
+                }, 30 * 60 * 1000); // 30 minutes
+            } else {
+                logger.error('❌ Auth token verification failed, autopost disabled');
+                this.autopostStarted = false;
+                return;
+            }
+        });
 
         this.autopostStarted = true;
         logger.info('✅ Manual Rank.Top autopost started (30 minute interval)');
@@ -363,6 +373,10 @@ class RankTopManager {
 
             if (!response.ok) {
                 const errorText = await response.text();
+                if (response.status === 401) {
+                    logger.error('❌ 401 Unauthorized - Check your RANKTOP_BOT_AUTH_TOKEN');
+                    logger.debug('Auth token being used:', this.botAuthToken ? `${this.botAuthToken.substring(0, 10)}...` : 'undefined');
+                }
                 throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
             }
 

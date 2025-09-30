@@ -2,7 +2,7 @@
  * Rank.Top command for bot statistics and API interactions
  */
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const logger = require('../UTILS/logger');
 
 module.exports = {
@@ -28,7 +28,7 @@ module.exports = {
             if (!rankTopManager) {
                 return await interaction.reply({
                     content: '❌ Rank.Top integration is not configured.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -37,7 +37,7 @@ module.exports = {
             logger.error('RankTop command error:', error);
             await interaction.reply({
                 content: '❌ An error occurred while executing the command.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     },
@@ -47,7 +47,7 @@ module.exports = {
 
         switch (action) {
             case 'start':
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
                 const startSuccess = await rankTopManager.startAutopost();
                 
                 await interaction.editReply({
@@ -61,7 +61,7 @@ module.exports = {
                 rankTopManager.stopAutopost();
                 await interaction.reply({
                     content: '⏹️ Autopost stopped.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 break;
 
@@ -80,7 +80,7 @@ module.exports = {
 
                 await interaction.reply({
                     embeds: [embed],
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 break;
         }
