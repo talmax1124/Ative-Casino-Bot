@@ -436,9 +436,18 @@ function createActionButtons(game, currentUserId = null) {
         return [];
     }
     
-    // Always show basic game buttons if game is active
+    // Check if all players are all-in or folded (no one can act)
+    const playersInHand = game.getPlayersInHand();
+    const playersCanAct = playersInHand.filter(p => p.canAct());
+    
+    // If no one can act, don't show any buttons (game should auto-advance)
+    if (playersCanAct.length === 0) {
+        return [];
+    }
+    
+    // Show basic game buttons if game is active and someone can act
     if (game.gameActive) {
-        // Add check hand button (always available for players in game)
+        // Add check hand button (only for players in game)
         buttons.push(
             new ButtonBuilder()
                 .setCustomId('th-action-checkhand')
@@ -1177,6 +1186,23 @@ module.exports = {
                     }
 
                     await updateGameStateForAllPlayers(game, interaction);
+                    
+                    // Auto-advance if no one can act after this update
+                    const playersInHand = game.getPlayersInHand();
+                    const playersCanAct = playersInHand.filter(p => p.canAct());
+                    if (playersCanAct.length === 0 && !game.payoutResults) {
+                        logger.info('Auto-advancing game - no players can act');
+                        // Force betting round completion
+                        if (game.isBettingRoundComplete()) {
+                            await game.completeBettingRound();
+                            // Check again for completion
+                            if (game.payoutResults) {
+                                await processHandCompletion(game, interaction);
+                                return;
+                            }
+                            await updateGameStateForAllPlayers(game, interaction);
+                        }
+                    }
                     break;
                 }
 

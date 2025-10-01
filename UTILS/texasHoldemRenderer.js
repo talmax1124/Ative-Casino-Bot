@@ -46,11 +46,11 @@ const PLAYER_POSITIONS = [
 
 // Community card positions - Properly centered and evenly spaced with margins
 const COMMUNITY_POSITIONS = {
-    flop1: { x: 400, y: 450 },
-    flop2: { x: 570, y: 450 },
-    flop3: { x: 740, y: 450 },
-    turn: { x: 910, y: 450 },
-    river: { x: 1080, y: 450 }
+    flop1: { x: 450, y: 450 },
+    flop2: { x: 620, y: 450 },
+    flop3: { x: 790, y: 450 },
+    turn: { x: 960, y: 450 },
+    river: { x: 1130, y: 450 }
 };
 
 class TexasHoldemRenderer {
@@ -306,13 +306,16 @@ class TexasHoldemRenderer {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             ctx.fillRect(position.x - nameWidth/2, position.y - 75, nameWidth, nameHeight);
             
-            // Name text with better contrast
+            // Name text with better contrast and stronger styling
             ctx.fillStyle = isCurrentPlayer ? COLORS.GOLD : 
                            isViewingPlayer ? '#00FFFF' :
                            player.hasFolded ? COLORS.GRAY : COLORS.WHITE;
-            ctx.font = this.fontLoaded ? 'bold 18px Roboto' : 'bold 18px Arial';
+            ctx.font = 'bold 20px Arial'; // Use Arial for better compatibility
             ctx.textAlign = 'center';
-            ctx.fillText(player.username, position.x, position.y - 56);
+            ctx.strokeStyle = COLORS.BLACK;
+            ctx.lineWidth = 3;
+            ctx.strokeText(player.username || 'Player', position.x, position.y - 56);
+            ctx.fillText(player.username || 'Player', position.x, position.y - 56);
 
             // Draw seat number
             ctx.fillStyle = isCurrentPlayer ? COLORS.BLACK : COLORS.LIGHT_GRAY;
@@ -408,6 +411,69 @@ class TexasHoldemRenderer {
                 ctx.fill();
             }
         }
+    }
+
+    /**
+     * Draw a smaller playing card for private hands
+     */
+    async drawCardSmall(ctx, card, x, y, faceDown = false) {
+        const SMALL_CARD_WIDTH = 120;
+        const SMALL_CARD_HEIGHT = 168;
+        
+        if (faceDown) {
+            // Draw card back
+            if (this.cardBackImage) {
+                ctx.drawImage(this.cardBackImage, x - SMALL_CARD_WIDTH/2, y - SMALL_CARD_HEIGHT/2, SMALL_CARD_WIDTH, SMALL_CARD_HEIGHT);
+            } else {
+                ctx.fillStyle = COLORS.CARD_BACK;
+                ctx.fillRect(x - SMALL_CARD_WIDTH/2, y - SMALL_CARD_HEIGHT/2, SMALL_CARD_WIDTH, SMALL_CARD_HEIGHT);
+            }
+            return;
+        }
+
+        // Draw card background
+        ctx.fillStyle = COLORS.WHITE;
+        ctx.fillRect(x - SMALL_CARD_WIDTH/2, y - SMALL_CARD_HEIGHT/2, SMALL_CARD_WIDTH, SMALL_CARD_HEIGHT);
+        
+        // Draw border
+        ctx.strokeStyle = COLORS.BLACK;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - SMALL_CARD_WIDTH/2, y - SMALL_CARD_HEIGHT/2, SMALL_CARD_WIDTH, SMALL_CARD_HEIGHT);
+
+        // Set color for text
+        ctx.fillStyle = (card.suit === '♥️' || card.suit === '♦️') ? COLORS.RED : COLORS.BLACK;
+
+        // Draw rank (top-left)
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(card.rank, x - SMALL_CARD_WIDTH/2 + 8, y - SMALL_CARD_HEIGHT/2 + 22);
+
+        // Draw suit (top-left, under rank)
+        ctx.font = '14px Arial';
+        ctx.fillText(card.suit, x - SMALL_CARD_WIDTH/2 + 8, y - SMALL_CARD_HEIGHT/2 + 40);
+
+        // Draw center suit (larger)
+        ctx.font = '40px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(card.suit, x, y + 8);
+
+        // Draw rank (bottom-right, rotated)
+        ctx.save();
+        ctx.translate(x + SMALL_CARD_WIDTH/2 - 8, y + SMALL_CARD_HEIGHT/2 - 8);
+        ctx.rotate(Math.PI);
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(card.rank, 0, 0);
+        ctx.restore();
+
+        // Draw suit (bottom-right, rotated)
+        ctx.save();
+        ctx.translate(x + SMALL_CARD_WIDTH/2 - 8, y + SMALL_CARD_HEIGHT/2 - 25);
+        ctx.rotate(Math.PI);
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(card.suit, 0, 0);
+        ctx.restore();
     }
 
     /**
@@ -824,16 +890,16 @@ class TexasHoldemRenderer {
             ctx.textAlign = 'center';
             ctx.fillText('🎴 Your Private Hand', 200, 40);
 
-            // Player's hole cards
+            // Player's hole cards (smaller size for private view)
             if (player.holeCards && player.holeCards.length === 2) {
-                await this.drawCard(ctx, player.holeCards[0], 150, 120, false);
-                await this.drawCard(ctx, player.holeCards[1], 250, 120, false);
+                await this.drawCardSmall(ctx, player.holeCards[0], 125, 120, false);
+                await this.drawCardSmall(ctx, player.holeCards[1], 225, 120, false);
                 
                 // Card labels
                 ctx.fillStyle = COLORS.WHITE;
                 ctx.font = this.fontLoaded ? '14px Roboto' : '14px Arial';
-                ctx.fillText('Card 1', 150, 200);
-                ctx.fillText('Card 2', 250, 200);
+                ctx.fillText('Card 1', 125, 190);
+                ctx.fillText('Card 2', 225, 190);
             }
 
             // Player info
