@@ -11,8 +11,8 @@ const logger = require('./logger');
 // Table dimensions and styling - Enhanced for better visibility
 const TABLE_WIDTH = 1400;
 const TABLE_HEIGHT = 900;
-const CARD_WIDTH = 140;
-const CARD_HEIGHT = 196;
+const CARD_WIDTH = 180;
+const CARD_HEIGHT = 252;
 const CHIP_RADIUS = 25;
 
 // Color scheme
@@ -44,13 +44,13 @@ const PLAYER_POSITIONS = [
     { x: 1000, y: 770, angle: 20, name: 'Bottom Right' }     // Seat 9 (bottom right)
 ];
 
-// Community card positions - Properly centered and evenly spaced
+// Community card positions - Properly centered and evenly spaced with margins
 const COMMUNITY_POSITIONS = {
-    flop1: { x: 490, y: 420 },
-    flop2: { x: 590, y: 420 },
-    flop3: { x: 690, y: 420 },
-    turn: { x: 810, y: 420 },
-    river: { x: 910, y: 420 }
+    flop1: { x: 400, y: 450 },
+    flop2: { x: 570, y: 450 },
+    flop3: { x: 740, y: 450 },
+    turn: { x: 910, y: 450 },
+    river: { x: 1080, y: 450 }
 };
 
 class TexasHoldemRenderer {

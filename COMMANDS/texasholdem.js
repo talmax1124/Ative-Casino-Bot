@@ -4,7 +4,7 @@
  * Features reliable button interactions, tournament mode, and comprehensive poker gameplay
  */
 
-const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ButtonStyle, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ButtonStyle, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
 const { 
@@ -84,29 +84,22 @@ async function createGameEmbed(game) {
     }
 
     const embed = new EmbedBuilder()
-        .setTitle('🃏 Texas Hold\'em Poker Table')
+        .setTitle('🃏 Texas Hold\'em Poker')
         .setDescription(description)
-        .setColor(0x1E8449)
+        .setColor(0x2E7D32)
         .setTimestamp();
 
-    // Add pot and betting info as organized fields
-    embed.addFields(
-        {
-            name: '💰 Main Pot',
-            value: fmt(gameState.totalPot),
-            inline: true
-        },
-        {
-            name: '🎯 Current Bet',
-            value: fmt(gameState.currentBet),
-            inline: true
-        },
-        {
-            name: '🎲 Blinds',
-            value: `${fmt(gameState.blinds.small)} / ${fmt(gameState.blinds.big)}`,
-            inline: true
-        }
-    );
+    // Clean game info section
+    const gameInfo = [];
+    gameInfo.push(`💰 **Pot:** ${fmt(gameState.totalPot)}`);
+    gameInfo.push(`🎯 **Bet:** ${fmt(gameState.currentBet)}`);
+    gameInfo.push(`🎲 **Blinds:** ${fmt(gameState.blinds.small)}/${fmt(gameState.blinds.big)}`);
+    
+    embed.addFields({
+        name: '📊 Game Status',
+        value: gameInfo.join(' • '),
+        inline: false
+    });
 
     // Add side pots if they exist
     if (gameState.pots && gameState.pots.length > 1) {
@@ -576,6 +569,14 @@ function createBetAmountMenu(game, userId, action) {
         });
     }
     
+    // Add custom amount option
+    options.push({
+        label: '💬 Custom Amount',
+        description: 'Type your own amount',
+        value: `${action}_custom`,
+        emoji: '✏️'
+    });
+    
     if (options.length === 0) {
         return null;
     }
@@ -586,6 +587,29 @@ function createBetAmountMenu(game, userId, action) {
         .addOptions(options.slice(0, 25)); // Discord limit
     
     return new ActionRowBuilder().addComponents(menu);
+}
+
+/**
+ * Create custom amount modal
+ */
+function createCustomAmountModal(action, minAmount, maxAmount) {
+    const modal = new ModalBuilder()
+        .setCustomId(`th-modal-${action}-amount`)
+        .setTitle(`${action.charAt(0).toUpperCase() + action.slice(1)} Amount`);
+
+    const amountInput = new TextInputBuilder()
+        .setCustomId('amount')
+        .setLabel(`Enter ${action} amount (${fmt(minAmount)} - ${fmt(maxAmount)})`)
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder(`e.g., ${fmt(Math.floor((minAmount + maxAmount) / 2))}`)
+        .setRequired(true)
+        .setMinLength(1)
+        .setMaxLength(20);
+
+    const firstActionRow = new ActionRowBuilder().addComponents(amountInput);
+    modal.addComponents(firstActionRow);
+
+    return modal;
 }
 
 /**
@@ -1392,8 +1416,27 @@ module.exports = {
             }
 
             const [action, amountStr] = selection.split('_');
-            const amount = parseInt(amountStr);
+            
+            // Handle custom amount selection
+            if (amountStr === 'custom') {
+                const player = game.players.get(userId);
+                let minBet, maxBet;
+                
+                if (action === BETTING_ACTIONS.BET) {
+                    minBet = game.blindStructure.big;
+                    maxBet = player.chipCount;
+                } else if (action === BETTING_ACTIONS.RAISE) {
+                    const callAmount = game.currentBet - player.currentBet;
+                    minBet = Math.max(game.currentBet + game.minRaise, callAmount + game.minRaise);
+                    maxBet = player.chipCount + player.currentBet;
+                }
+                
+                const modal = createCustomAmountModal(action, minBet, maxBet);
+                await interaction.showModal(modal);
+                return;
+            }
 
+            const amount = parseInt(amountStr);
             if (isNaN(amount)) {
                 if (interaction.isRepliable()) {
                     return await interaction.reply({ 
@@ -1427,6 +1470,58 @@ module.exports = {
             } else {
                 logger.warn('Cannot send bet error reply - interaction not repliable');
             }
+        }
+    },
+
+    // Handle custom amount modal submission
+    handleCustomAmountModal: async function(interaction, modalAction) {
+        const userId = interaction.user.id;
+        const channelId = interaction.channelId;
+        const guildId = await getGuildId(interaction);
+        
+        try {
+            const game = getTexasHoldemGame(channelId);
+            if (!game || !game.gameActive) {
+                return await interaction.reply({ 
+                    content: 'No active game found!', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+
+            if (!game.isPlayerTurn(userId)) {
+                return await interaction.reply({ 
+                    content: 'It\'s not your turn!', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+
+            const amountInput = interaction.fields.getTextInputValue('amount');
+            const amount = parseAmount(amountInput);
+            
+            if (!amount || amount <= 0) {
+                return await interaction.reply({ 
+                    content: 'Please enter a valid amount!', 
+                    flags: MessageFlags.Ephemeral 
+                });
+            }
+
+            await game.processPlayerAction(userId, modalAction, amount);
+
+            // Check if hand ended and process payouts (either showdown or uncontested win)
+            if (game.payoutResults) {
+                await processHandCompletion(game, interaction);
+                return;
+            }
+
+            await updateGameStateForAllPlayers(game, interaction);
+
+        } catch (error) {
+            logger.error(`Custom amount modal error: ${error.message}`);
+            
+            await interaction.reply({ 
+                content: `❌ Error: ${error.message}`, 
+                flags: MessageFlags.Ephemeral 
+            });
         }
     }
 };
