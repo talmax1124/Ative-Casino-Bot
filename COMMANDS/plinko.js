@@ -463,7 +463,7 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
             betAmount,
             winnings,
             {
-                mode: selectedMode,
+                mode: mode,
                 slot: finalPosition,
                 multiplier: finalMultiplier,
                 houseEdge: 0.15,

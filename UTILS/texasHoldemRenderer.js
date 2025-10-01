@@ -44,13 +44,13 @@ const PLAYER_POSITIONS = [
     { x: 1000, y: 770, angle: 20, name: 'Bottom Right' }     // Seat 9 (bottom right)
 ];
 
-// Community card positions - Better centered on the table
+// Community card positions - Properly centered and evenly spaced
 const COMMUNITY_POSITIONS = {
-    flop1: { x: 480, y: 450 },
-    flop2: { x: 620, y: 450 },
-    flop3: { x: 760, y: 450 },
-    turn: { x: 900, y: 450 },
-    river: { x: 1040, y: 450 }
+    flop1: { x: 490, y: 420 },
+    flop2: { x: 590, y: 420 },
+    flop3: { x: 690, y: 420 },
+    turn: { x: 810, y: 420 },
+    river: { x: 910, y: 420 }
 };
 
 class TexasHoldemRenderer {
@@ -194,13 +194,13 @@ class TexasHoldemRenderer {
             ctx.fillStyle = COLORS.GOLD;
             ctx.font = this.fontLoaded ? 'bold 14px Roboto' : 'bold 14px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('FLOP', 620, 580);
+            ctx.fillText('FLOP', 590, 540);
         }
         if (communityCards.length >= 4) {
-            ctx.fillText('TURN', 900, 580);
+            ctx.fillText('TURN', 810, 540);
         }
         if (communityCards.length >= 5) {
-            ctx.fillText('RIVER', 1040, 580);
+            ctx.fillText('RIVER', 910, 540);
         }
     }
 

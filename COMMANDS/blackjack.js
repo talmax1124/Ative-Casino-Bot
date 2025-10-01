@@ -1253,7 +1253,7 @@ module.exports = {
                 }
                 
                 // Check if interaction is still valid before responding
-                if (interaction.isRepliable()) {
+                if (interaction && typeof interaction.isRepliable === 'function' && interaction.isRepliable()) {
                     if (interaction.deferred || interaction.replied) {
                         await interaction.editReply(finalData);
                     } else {
@@ -1268,7 +1268,7 @@ module.exports = {
                 
                 // Fallback: try to send a new reply if update fails
                 try {
-                    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+                    if (interaction && typeof interaction.isRepliable === 'function' && interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
                         const fallbackData = {
                             content: `🎰 Game Complete - Payout: ${fmt(regulatedPayout)}`,
                             embeds: [finalEmbed],

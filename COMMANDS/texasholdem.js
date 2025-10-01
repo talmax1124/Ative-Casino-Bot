@@ -435,6 +435,12 @@ function createActionButtons(game, currentUserId = null) {
     const buttons = [];
     const currentPlayer = game.getCurrentPlayer();
     
+    // Don't show action buttons during showdown or when ready for next hand
+    if (game.phase === GAME_PHASES.SHOWDOWN || game.readyForNextHand) {
+        // Return empty during showdown - processHandCompletion will handle buttons
+        return [];
+    }
+    
     // Always show basic game buttons if game is active
     if (game.gameActive) {
         // Add check hand button (always available for players in game)
@@ -692,7 +698,28 @@ async function processHandCompletion(game, interaction) {
             logger.warn(`Failed to generate hand result image: ${error.message}`);
         }
         
-        const messageData = { embeds: [resultsEmbed], components: [] };
+        // Call endHand to prepare for next hand
+        game.endHand();
+        
+        // Create continue button for next hand if game is still active
+        const components = [];
+        if (game.gameActive && game.readyForNextHand) {
+            const continueButton = new ButtonBuilder()
+                .setCustomId('th-action-continue')
+                .setLabel('Continue to Next Hand')
+                .setEmoji('▶️')
+                .setStyle(ButtonStyle.Success);
+            
+            const quitButton = new ButtonBuilder()
+                .setCustomId('th-action-quit')
+                .setLabel('Leave Table')
+                .setEmoji('🚪')
+                .setStyle(ButtonStyle.Secondary);
+            
+            components.push(new ActionRowBuilder().addComponents(continueButton, quitButton));
+        }
+        
+        const messageData = { embeds: [resultsEmbed], components };
         if (handResultImage) {
             messageData.files = [{ attachment: handResultImage, name: 'poker-results.png' }];
             resultsEmbed.setImage('attachment://poker-results.png');
@@ -720,7 +747,7 @@ async function processHandCompletion(game, interaction) {
         const winnerCount = winnerMentions.length;
         game.payoutResults = null;
         
-        logger.info(`Texas Hold'em hand #${game.handNumber} completed with ${winnerCount} winners`);
+        logger.info(`Texas Hold'em hand #${game.handNumber - 1} completed with ${winnerCount} winners`);
         
     } catch (error) {
         logger.error(`Error processing hand completion: ${error.message}`);
@@ -1190,7 +1217,62 @@ module.exports = {
                     break;
                 }
 
+                case 'continue':
+                case 'action-continue': {
+                    if (!game.gameActive || !game.readyForNextHand) {
+                        return await interaction.reply({ 
+                            content: 'Cannot continue - game is not ready for next hand!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                    }
+                    
+                    // Start the next hand
+                    game.readyForNextHand = false;
+                    game.startNewHand();
+                    
+                    // Update the game state for all players
+                    await updateGameStateForAllPlayers(game, interaction);
+                    break;
+                }
+                
+                case 'quit':
+                case 'action-quit': {
+                    if (!game.players.has(userId)) {
+                        return await interaction.reply({ 
+                            content: 'You are not in the game!', 
+                            flags: MessageFlags.Ephemeral 
+                        });
+                    }
+                    
+                    // Remove player from game
+                    game.removePlayer(userId);
+                    
+                    // Check if game should end
+                    if (game.getActivePlayers().length < 2) {
+                        // Refund remaining player if any
+                        const remainingPlayers = game.getActivePlayers();
+                        if (remainingPlayers.length === 1) {
+                            const lastPlayer = remainingPlayers[0];
+                            await dbManager.updateUserBalance(lastPlayer.userId, guildId, lastPlayer.chipCount, 0);
+                        }
+                        
+                        deleteTexasHoldemGame(channelId);
+                        
+                        const endEmbed = new EmbedBuilder()
+                            .setTitle('🎮 Game Over')
+                            .setDescription('Texas Hold\'em game has ended due to insufficient players.')
+                            .setColor(0xFF0000);
+                        
+                        await interaction.update({ embeds: [endEmbed], components: [] });
+                    } else {
+                        // Continue with remaining players
+                        await updateGameStateForAllPlayers(game, interaction);
+                    }
+                    break;
+                }
+                
                 case 'checkhand':
+                case 'action-checkhand':
                 case 'player-checkhand': {
                     if (!game.gameActive) {
                         return await interaction.reply({ 

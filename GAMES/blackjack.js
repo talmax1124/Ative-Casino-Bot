@@ -349,7 +349,7 @@ class BlackjackGame {
             baseMultiplier = 1;
             outcome = 'PUSH';
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
-            baseMultiplier = options.personalizedPayouts?.blackjack || this.modeConfig?.blackjackMultiplier || 2.0;
+            baseMultiplier = options.personalizedPayouts?.blackjack || this.modeConfig?.blackjackMultiplier || 2.5;
             outcome = 'BLACKJACK';
         } else if (playerValue === dealerValue && !playerHand.isBusted()) {
             // Equal values are a push ONLY if neither player is busted
@@ -361,10 +361,10 @@ class BlackjackGame {
             outcome = 'BUSTED';
         } else if (this.dealerHand.isBusted()) {
             // Dealer busted and player didn't
-            baseMultiplier = options.personalizedPayouts?.win || this.modeConfig?.winMultiplier || 1.2;
+            baseMultiplier = options.personalizedPayouts?.win || this.modeConfig?.winMultiplier || 2.0;
             outcome = 'DEALER BUSTED';
         } else if (playerValue > dealerValue) {
-            baseMultiplier = options.personalizedPayouts?.win || this.modeConfig?.winMultiplier || 1.2;
+            baseMultiplier = options.personalizedPayouts?.win || this.modeConfig?.winMultiplier || 2.0;
             outcome = 'WIN';
         } else {
             baseMultiplier = 0;

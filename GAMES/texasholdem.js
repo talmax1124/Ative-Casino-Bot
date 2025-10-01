@@ -486,6 +486,7 @@ class TexasHoldemGame {
         this.currentBet = 0;
         this.minRaise = 0;
         this.handNumber = 0;
+        this.readyForNextHand = false;
         
         // Timing and session management
         this.gameStartTime = null;
@@ -778,15 +779,21 @@ class TexasHoldemGame {
     }
 
     isBettingRoundComplete() {
-        const playersInHand = this.getPlayersInHand().filter(p => p.canAct());
+        const playersInHand = this.getPlayersInHand();
+        const playersCanAct = playersInHand.filter(p => p.canAct());
         
-        // If only one player remains in hand, round is complete
-        if (playersInHand.length <= 1) {
+        // If no players can act (all folded or all-in), round is complete
+        if (playersCanAct.length === 0) {
+            return true;
+        }
+        
+        // If only one player remains who isn't all-in, round is complete
+        if (playersInHand.filter(p => !p.hasFolded && !p.isAllIn).length <= 1) {
             return true;
         }
         
         // Check if all players in hand have matched the current bet
-        const allMatchedBet = playersInHand.every(player => 
+        const allMatchedBet = playersCanAct.every(player => 
             player.currentBet === this.currentBet || player.isAllIn
         );
         
@@ -798,7 +805,7 @@ class TexasHoldemGame {
         // A betting round is only complete if all players in hand have either:
         // 1. Made an action this round (have lastAction set), OR
         // 2. Are all-in and cannot act
-        const allPlayersActed = playersInHand.every(player => {
+        const allPlayersActed = playersCanAct.every(player => {
             // Players who are all-in have acted by definition
             if (player.isAllIn) {
                 return true;
@@ -898,6 +905,11 @@ class TexasHoldemGame {
     }
 
     async advancePhase() {
+        // Check if all remaining players are all-in
+        const playersInHand = this.getPlayersInHand();
+        const playersCanAct = playersInHand.filter(p => p.canAct());
+        const shouldAutoComplete = playersCanAct.length === 0 && playersInHand.length >= 2;
+        
         switch (this.phase) {
             case GAME_PHASES.PRE_FLOP:
                 this.phase = GAME_PHASES.FLOP;
@@ -917,10 +929,16 @@ class TexasHoldemGame {
                 return;
         }
         
-        // Start new betting round
-        this.currentBet = 0;
-        this.minRaise = this.blindStructure.big;
-        this.currentPlayerIndex = this.getNextActivePlayerIndex(this.dealerPosition);
+        // If all players are all-in, auto-complete remaining rounds
+        if (shouldAutoComplete) {
+            // Recursively advance through remaining phases
+            await this.advancePhase();
+        } else {
+            // Start new betting round
+            this.currentBet = 0;
+            this.minRaise = this.blindStructure.big;
+            this.currentPlayerIndex = this.getNextActivePlayerIndex(this.dealerPosition);
+        }
     }
 
     dealFlop() {
@@ -968,8 +986,8 @@ class TexasHoldemGame {
         const payoutResults = await this.distributePots();
         this.payoutResults = payoutResults;
         
-        // End hand
-        this.endHand();
+        // Don't immediately end hand - let the UI update first
+        // this.endHand() will be called from the command handler after showing results
     }
 
     async awardPotsToLastPlayer() {
@@ -1107,10 +1125,9 @@ class TexasHoldemGame {
         this.dealerPosition = this.getNextActivePlayerIndex(this.dealerPosition);
         this.setBlindPositions();
         
-        // Start next hand
-        setTimeout(() => {
-            this.startNewHand();
-        }, 3000); // 3 second delay between hands
+        // Mark that we're ready for next hand
+        this.readyForNextHand = true;
+        // Don't auto-start next hand - wait for UI to update
     }
 
     endGame(reason = 'Game ended') {
