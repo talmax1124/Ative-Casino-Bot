@@ -1,0 +1,51 @@
+[
+  {
+    "timestamp": 1759307305483,
+    "date": "2025-10-01T08:28:25.483Z",
+    "gameType": "poker",
+    "userId": "1322257909887008928",
+    "guildId": "1403244656845787167",
+    "betAmount": 1000,
+    "payout": 990,
+    "won": true,
+    "netResult": -10,
+    "multiplierHit": 0.99,
+    "userWealthBefore": 7808487,
+    "userWealthAfter": 7807487,
+    "betToWealthRatio": 0.00012806578278224705,
+    "gameSpecificData": {
+      "handName": "Uncontested",
+      "handNumber": 1,
+      "playersInHand": 2
+    },
+    "houseEdgeApplied": 0,
+    "multiplierReduction": 0,
+    "wealthTierMultiplier": 1,
+    "sessionDuration": 0,
+    "gamesPlayedToday": 0,
+    "totalWinsToday": 0,
+    "totalLossesToday": 0,
+    "serverEconomicHealth": 100,
+    "activePlayersCount": 1,
+    "totalServerWealth": 7807487,
+    "winProbability": 0.4,
+    "expectedValue": -204,
+    "variance": 950424,
+    "betPattern": "CONSERVATIVE",
+    "winStreak": 5,
+    "lossStreak": 0,
+    "riskLevel": "LOW",
+    "suspiciousActivity": false,
+    "outcomeCategory": "PARTIAL_LOSS",
+    "profitabilityTier": "SMALL_LOSS",
+    "features": {
+      "betSizeCategory": "CASUAL",
+      "wealthCategory": "RICH",
+      "gameFrequency": 0,
+      "sessionLength": 0,
+      "timeOfDay": 4,
+      "dayOfWeek": 3,
+      "isWeekend": false
+    }
+  }
+]

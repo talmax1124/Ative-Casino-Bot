@@ -925,6 +925,15 @@ client.on('interactionCreate', async interaction => {
     // Handle modal submissions
     else if (interaction.isModalSubmit()) {
         try {
+            // Texas Hold'em custom amount modal (raise/bet)
+            if (interaction.customId.startsWith('th-modal-') && interaction.customId.endsWith('-amount')) {
+                const texasHoldemCommand = client.commands.get('texasholdem');
+                if (texasHoldemCommand && texasHoldemCommand.handleCustomAmountModal) {
+                    const action = interaction.customId.replace('th-modal-', '').replace('-amount', '');
+                    await texasHoldemCommand.handleCustomAmountModal(interaction, action);
+                    return;
+                }
+            }
             if (interaction.customId === 'lottery_buy_modal') {
                 const ticketCountStr = interaction.fields.getTextInputValue('ticket_count');
                 const ticketCount = parseInt(ticketCountStr);

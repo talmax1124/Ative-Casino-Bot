@@ -11,9 +11,12 @@ const logger = require('./logger');
 // Table dimensions and styling - Enhanced for better visibility
 const TABLE_WIDTH = 1400;
 const TABLE_HEIGHT = 900;
-const CARD_WIDTH = 180;
-const CARD_HEIGHT = 252;
+// Slightly smaller cards for a cleaner, less crowded table
+const CARD_WIDTH = 140;
+const CARD_HEIGHT = 196;
 const CHIP_RADIUS = 25;
+// Small left nudge to align visual center with background art
+const COMMUNITY_X_OFFSET = -19; // nudge further left by ~2px
 
 // Color scheme
 const COLORS = {
@@ -31,27 +34,27 @@ const COLORS = {
     LIGHT_GRAY: '#D3D3D3'
 };
 
-// Player positions around the oval table perimeter - Optimized for Texas_Board.png
-const PLAYER_POSITIONS = [
-    { x: 700, y: 820, angle: 0, name: 'Bottom Center' },     // Seat 1 (bottom center)
-    { x: 400, y: 770, angle: -20, name: 'Bottom Left' },     // Seat 2 (bottom left)
-    { x: 150, y: 600, angle: -65, name: 'Left' },            // Seat 3 (left side)
-    { x: 80, y: 450, angle: -90, name: 'Left Middle' },      // Seat 4 (left middle)
-    { x: 150, y: 300, angle: -115, name: 'Top Left' },       // Seat 5 (left top)
-    { x: 700, y: 80, angle: 180, name: 'Top Center' },       // Seat 6 (top center)
-    { x: 1250, y: 300, angle: 115, name: 'Top Right' },      // Seat 7 (right top)
-    { x: 1320, y: 450, angle: 90, name: 'Right Middle' },    // Seat 8 (right middle)
-    { x: 1000, y: 770, angle: 20, name: 'Bottom Right' }     // Seat 9 (bottom right)
-];
+// Compute player positions around an ellipse to align cleanly with the board
+function getSeatPosition(seatNumber) {
+    // Predefined angles (degrees) for up to 9 seats, starting at bottom center counter-clockwise
+    const angleDegs = [90, 120, 160, 200, 240, 270, 300, 340, 20];
+    const angle = (angleDegs[seatNumber % angleDegs.length] || 90) * Math.PI / 180;
+    const centerX = TABLE_WIDTH / 2;
+    const centerY = TABLE_HEIGHT / 2;
+    // Place players further out, outside table area
+    const rx = Math.max(0, (TABLE_WIDTH / 2) - 120);   // ~580 for 1400 width
+    const ry = Math.max(0, (TABLE_HEIGHT / 2) - 120);  // ~330 for 900 height
+    const x = Math.round(centerX + rx * Math.cos(angle));
+    const y = Math.round(centerY + ry * Math.sin(angle));
+    // Clamp inside canvas
+    return {
+        x: Math.min(TABLE_WIDTH - 70, Math.max(70, x)),
+        y: Math.min(TABLE_HEIGHT - 50, Math.max(50, y))
+    };
+}
 
-// Community card positions - Properly centered and evenly spaced with margins
-const COMMUNITY_POSITIONS = {
-    flop1: { x: 450, y: 450 },
-    flop2: { x: 620, y: 450 },
-    flop3: { x: 790, y: 450 },
-    turn: { x: 960, y: 450 },
-    river: { x: 1130, y: 450 }
-};
+// Community card baseline Y; X will be computed to center the row dynamically
+const COMMUNITY_Y = 450;
 
 class TexasHoldemRenderer {
     constructor() {
@@ -164,43 +167,43 @@ class TexasHoldemRenderer {
      * Draw community cards area
      */
     async drawCommunityCards(ctx, communityCards, phase) {
-        const positions = Object.values(COMMUNITY_POSITIONS);
-        
-        // Simple community cards label - no background box
+        // Dynamic centered layout for the number of visible community cards (no placeholders)
         const centerX = TABLE_WIDTH / 2;
-        const labelY = 380;
-        
-        ctx.fillStyle = COLORS.WHITE;
-        ctx.font = this.fontLoaded ? 'bold 18px Roboto' : 'bold 18px Arial';
+        const labelY = 360;
+        const gap = 18; // tighter spacing with smaller cards
+        const step = CARD_WIDTH + gap;
+        const n = Math.max(0, Math.min(5, communityCards.length));
+        const rowWidth = n > 0 ? (n * CARD_WIDTH + (n - 1) * gap) : 0;
+        const startX = n > 0 ? (centerX - rowWidth / 2 + CARD_WIDTH / 2 + COMMUNITY_X_OFFSET) : centerX + COMMUNITY_X_OFFSET;
+
+        // Title label - lighter and modern
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.font = this.fontLoaded ? '600 16px Roboto' : '600 16px Arial';
         ctx.textAlign = 'center';
         ctx.fillText('COMMUNITY CARDS', centerX, labelY);
-
-        // Draw card positions
-        for (let i = 0; i < 5; i++) {
-            const pos = positions[i];
-            
-            if (i < communityCards.length) {
-                // Draw actual card
-                await this.drawCard(ctx, communityCards[i], pos.x, pos.y, false);
-            } else {
-                // Draw subtle placeholder - just a very faint rectangle
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-                ctx.fillRect(pos.x - CARD_WIDTH/2, pos.y - CARD_HEIGHT/2, CARD_WIDTH, CARD_HEIGHT);
-            }
+        
+        // Draw only the visible cards, perfectly centered
+        for (let i = 0; i < n; i++) {
+            const posX = startX + i * step;
+            const posY = COMMUNITY_Y;
+            await this.drawCard(ctx, communityCards[i], posX, posY, false);
         }
 
-        // Enhanced phase labels with corrected positioning
-        if (communityCards.length >= 3) {
-            ctx.fillStyle = COLORS.GOLD;
-            ctx.font = this.fontLoaded ? 'bold 14px Roboto' : 'bold 14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('FLOP', 590, 540);
+        // Phase labels directly under visible cards
+        ctx.fillStyle = COLORS.GOLD;
+        ctx.font = this.fontLoaded ? '600 13px Roboto' : '600 13px Arial';
+        ctx.textAlign = 'center';
+        if (n >= 3) {
+            const flopCenterX = startX + step; // middle of three cards
+            ctx.fillText('FLOP', flopCenterX, COMMUNITY_Y + CARD_HEIGHT / 2 + 36);
         }
-        if (communityCards.length >= 4) {
-            ctx.fillText('TURN', 810, 540);
+        if (n >= 4) {
+            const turnX = startX + step * 3;
+            ctx.fillText('TURN', turnX, COMMUNITY_Y + CARD_HEIGHT / 2 + 36);
         }
-        if (communityCards.length >= 5) {
-            ctx.fillText('RIVER', 910, 540);
+        if (n >= 5) {
+            const riverX = startX + step * 4;
+            ctx.fillText('RIVER', riverX, COMMUNITY_Y + CARD_HEIGHT / 2 + 36);
         }
     }
 
@@ -259,8 +262,7 @@ class TexasHoldemRenderer {
      */
     async drawPlayers(ctx, players, currentPlayer, viewingUserId) {
         for (const player of players) {
-            const position = PLAYER_POSITIONS[player.seatNumber];
-            if (!position) continue;
+            const position = getSeatPosition(player.seatNumber);
 
             const isCurrentPlayer = currentPlayer && currentPlayer.userId === player.userId;
             const isViewingPlayer = player.userId === viewingUserId;
@@ -283,10 +285,11 @@ class TexasHoldemRenderer {
                 borderColor = COLORS.GRAY;
             }
             
-            // Draw cleaner player area background
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            // Draw cleaner player area background (smaller footprint, to stay out of table area)
+            // Turn current player's panel green instead of using a border
+            ctx.fillStyle = isCurrentPlayer ? 'rgba(0, 200, 83, 0.35)' : 'rgba(0, 0, 0, 0.45)';
             ctx.beginPath();
-            ctx.roundRect(position.x - 90, position.y - 80, 180, 160, 10);
+            ctx.roundRect(position.x - 60, position.y - 43, 120, 86, 10);
             ctx.fill();
             
             // Draw border to indicate status
@@ -299,39 +302,35 @@ class TexasHoldemRenderer {
             }
 
             // Draw player name with background for better visibility
-            const nameWidth = 160;
-            const nameHeight = 28;
+            const nameWidth = 120;
+            const nameHeight = 22;
             
-            // Name background
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.fillRect(position.x - nameWidth/2, position.y - 75, nameWidth, nameHeight);
+            // Name background (pill)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.beginPath();
+            ctx.roundRect(position.x - nameWidth/2, position.y - 38, nameWidth, nameHeight, 12);
+            ctx.fill();
             
             // Name text with better contrast and stronger styling
             ctx.fillStyle = isCurrentPlayer ? COLORS.GOLD : 
                            isViewingPlayer ? '#00FFFF' :
                            player.hasFolded ? COLORS.GRAY : COLORS.WHITE;
-            ctx.font = 'bold 20px Arial'; // Use Arial for better compatibility
+            ctx.font = this.fontLoaded ? '600 16px Roboto' : '600 16px Arial';
             ctx.textAlign = 'center';
-            ctx.strokeStyle = COLORS.BLACK;
-            ctx.lineWidth = 3;
-            ctx.strokeText(player.username || 'Player', position.x, position.y - 56);
-            ctx.fillText(player.username || 'Player', position.x, position.y - 56);
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.fillText(`👤 ${player.username || 'Player'}`, position.x, position.y - 26);
 
             // Draw seat number
-            ctx.fillStyle = isCurrentPlayer ? COLORS.BLACK : COLORS.LIGHT_GRAY;
-            ctx.font = this.fontLoaded ? '12px Roboto' : '12px Arial';
-            ctx.fillText(`Seat ${player.seatNumber + 1}`, position.x, position.y - 45);
+            // Remove seat and chip count for a minimal display per request
 
             // Draw chip count with better formatting
-            ctx.fillStyle = isCurrentPlayer ? COLORS.BLACK : COLORS.WHITE;
-            ctx.font = this.fontLoaded ? 'bold 14px Roboto' : 'bold 14px Arial';
-            ctx.fillText(`💰 $${player.chipCount.toLocaleString()}`, position.x, position.y - 25);
+            // No chip count shown
 
             // Draw current bet if any
             if (player.currentBet > 0) {
-                ctx.fillStyle = COLORS.RED;
-                ctx.font = this.fontLoaded ? '13px Roboto' : '13px Arial';
-                ctx.fillText(`🎯 Bet: $${player.currentBet.toLocaleString()}`, position.x, position.y - 5);
+                ctx.fillStyle = '#FFB74D';
+                ctx.font = this.fontLoaded ? '600 12px Roboto' : '600 12px Arial';
+                ctx.fillText(`Pot: $${player.currentBet.toLocaleString()}`, position.x, position.y + 2);
             }
 
             // Draw status with icons
@@ -361,55 +360,15 @@ class TexasHoldemRenderer {
             
             if (statusText) {
                 ctx.fillStyle = statusColor;
-                ctx.font = this.fontLoaded ? '12px Roboto' : '12px Arial';
-                ctx.fillText(statusText, position.x, position.y + 15);
+                ctx.font = this.fontLoaded ? '600 11px Roboto' : '600 11px Arial';
+                ctx.fillText(statusText, position.x, position.y + 18);
             }
 
-            // Draw hole cards - ALL CARDS ARE HIDDEN in main view (private cards sent via ephemeral)
-            if (player.holeCards && player.holeCards.length === 2 && !player.hasFolded) {
-                // Always draw face-down cards for all players in the main view
-                await this.drawCard(ctx, null, position.x - 25, position.y + 40, true);
-                await this.drawCard(ctx, null, position.x + 25, position.y + 40, true);
-                
-                // Add card count indicator
-                ctx.fillStyle = COLORS.WHITE;
-                ctx.font = this.fontLoaded ? '10px Roboto' : '10px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('🎴 2 Cards', position.x, position.y + 75);
-            } else if (player.hasFolded && player.holeCards && player.holeCards.length === 2) {
-                // Show folded cards differently
-                ctx.fillStyle = COLORS.GRAY;
-                ctx.fillRect(position.x - 30, position.y + 30, 25, 35);
-                ctx.fillRect(position.x + 5, position.y + 30, 25, 35);
-                ctx.strokeStyle = COLORS.RED;
-                ctx.lineWidth = 2;
-                ctx.strokeRect(position.x - 30, position.y + 30, 25, 35);
-                ctx.strokeRect(position.x + 5, position.y + 30, 25, 35);
-                
-                // Draw fold indicator
-                ctx.fillStyle = COLORS.RED;
-                ctx.font = this.fontLoaded ? 'bold 12px Roboto' : 'bold 12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('FOLDED', position.x, position.y + 75);
-            }
+            // Do not draw hole cards around table in public view.
+            // Keep player area minimalist per request.
 
             // Draw turn indicator
-            if (isCurrentPlayer) {
-                ctx.strokeStyle = COLORS.GOLD;
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.roundRect(position.x - 105, position.y - 85, 210, 170, 10);
-                ctx.stroke();
-                
-                // Arrow pointing to current player
-                ctx.fillStyle = COLORS.GOLD;
-                ctx.beginPath();
-                ctx.moveTo(position.x, position.y - 100);
-                ctx.lineTo(position.x - 10, position.y - 115);
-                ctx.lineTo(position.x + 10, position.y - 115);
-                ctx.closePath();
-                ctx.fill();
-            }
+            // No outline when it's the player's turn (green background indicates turn)
         }
     }
 
@@ -558,34 +517,34 @@ class TexasHoldemRenderer {
         const isRed = card.suit === '♥️' || card.suit === '♦️';
         ctx.fillStyle = isRed ? COLORS.RED : COLORS.BLACK;
 
-        // Draw rank (top-left) - Enhanced size for larger cards
-        ctx.font = this.fontLoaded ? 'bold 24px Roboto' : 'bold 24px Arial';
+        // Draw rank (top-left) - tighter for smaller cards
+        ctx.font = this.fontLoaded ? 'bold 20px Roboto' : 'bold 20px Arial';
         ctx.textAlign = 'left';
         ctx.fillText(card.rank, x + 12, y + 30);
 
-        // Draw suit (top-left, below rank) - Enhanced size
-        ctx.font = this.fontLoaded ? '20px Roboto' : '20px Arial';
+        // Draw suit (top-left, below rank) - tighter
+        ctx.font = this.fontLoaded ? '16px Roboto' : '16px Arial';
         ctx.fillText(card.suit, x + 12, y + 50);
 
-        // Draw large suit in center - Enhanced size for larger cards
-        ctx.font = this.fontLoaded ? '60px Roboto' : '60px Arial';
+        // Center suit - smaller to avoid spilling off bottom
+        ctx.font = this.fontLoaded ? '52px Roboto' : '52px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(card.suit, x + CARD_WIDTH / 2, y + CARD_HEIGHT / 2 + 15);
+        ctx.fillText(card.suit, x + CARD_WIDTH / 2, y + CARD_HEIGHT / 2 + 8);
 
         // Draw rank (bottom-right, rotated) - Enhanced size
         ctx.save();
-        ctx.translate(x + CARD_WIDTH - 12, y + CARD_HEIGHT - 12);
+        ctx.translate(x + CARD_WIDTH - 14, y + CARD_HEIGHT - 16);
         ctx.rotate(Math.PI);
-        ctx.font = this.fontLoaded ? 'bold 24px Roboto' : 'bold 24px Arial';
+        ctx.font = this.fontLoaded ? 'bold 20px Roboto' : 'bold 20px Arial';
         ctx.textAlign = 'left';
         ctx.fillText(card.rank, 0, 0);
         ctx.restore();
 
         // Draw suit (bottom-right, rotated) - Enhanced size
         ctx.save();
-        ctx.translate(x + CARD_WIDTH - 12, y + CARD_HEIGHT - 35);
+        ctx.translate(x + CARD_WIDTH - 14, y + CARD_HEIGHT - 32);
         ctx.rotate(Math.PI);
-        ctx.font = this.fontLoaded ? '20px Roboto' : '20px Arial';
+        ctx.font = this.fontLoaded ? '16px Roboto' : '16px Arial';
         ctx.textAlign = 'left';
         ctx.fillText(card.suit, 0, 0);
         ctx.restore();
@@ -598,7 +557,7 @@ class TexasHoldemRenderer {
         const dealer = players.find(p => p.seatNumber === dealerPosition);
         if (!dealer) return;
 
-        const position = PLAYER_POSITIONS[dealerPosition];
+        const position = getSeatPosition(dealerPosition);
         if (!position) return;
 
         // Draw dealer button
@@ -651,8 +610,8 @@ class TexasHoldemRenderer {
     drawGameInfo(ctx, gameState) {
         const panelX = 20;
         const panelY = 20;
-        let panelWidth = 280;
-        let panelHeight = 110;
+        let panelWidth = 260;
+        let panelHeight = 96;
         
         // Check if this is a finished hand or game end
         const isFinished = gameState.phase === 'finished' || gameState.phase === 'showdown';
@@ -660,38 +619,34 @@ class TexasHoldemRenderer {
         
         // Adjust panel size for end states
         if (isFinished || hasWinner) {
-            panelHeight = 140;
-            panelWidth = 320;
+            panelHeight = 130;
+            panelWidth = 300;
         }
         
         // Enhanced background for end states
-        if (isFinished || hasWinner) {
-            ctx.fillStyle = 'rgba(0, 100, 0, 0.9)'; // Green tint for winners
-        } else {
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        }
+        ctx.fillStyle = isFinished || hasWinner ? 'rgba(0, 80, 0, 0.85)' : 'rgba(15, 15, 15, 0.8)';
         ctx.beginPath();
         ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 8);
         ctx.fill();
         
         // Enhanced border for end states
-        ctx.strokeStyle = isFinished || hasWinner ? '#00FF00' : COLORS.GOLD;
-        ctx.lineWidth = isFinished || hasWinner ? 3 : 2;
+        ctx.strokeStyle = isFinished || hasWinner ? '#4CAF50' : 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = isFinished || hasWinner ? 2 : 1.5;
         ctx.beginPath();
         ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 8);
         ctx.stroke();
         
         // Title based on game state
-        ctx.fillStyle = isFinished || hasWinner ? '#00FF00' : COLORS.GOLD;
-        ctx.font = this.fontLoaded ? 'bold 18px Roboto' : 'bold 18px Arial';
+        ctx.fillStyle = isFinished || hasWinner ? '#00E676' : 'rgba(255,255,255,0.9)';
+        ctx.font = this.fontLoaded ? '600 16px Roboto' : '600 16px Arial';
         ctx.textAlign = 'left';
         
         if (hasWinner) {
             ctx.fillText('🎉 HAND COMPLETE', panelX + 15, panelY + 25);
             
             // Show winner info
-            ctx.fillStyle = COLORS.WHITE;
-            ctx.font = this.fontLoaded ? '14px Roboto' : '14px Arial';
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.font = this.fontLoaded ? '600 13px Roboto' : '600 13px Arial';
             const winner = gameState.payoutResults.find(p => p.won);
             if (winner) {
                 const winnerName = winner.username && winner.username.length > 15 ? 
@@ -709,8 +664,8 @@ class TexasHoldemRenderer {
         
         // Regular game info for active games
         if (!isFinished && !hasWinner) {
-            ctx.fillStyle = COLORS.WHITE;
-            ctx.font = this.fontLoaded ? '14px Roboto' : '14px Arial';
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.font = this.fontLoaded ? '600 13px Roboto' : '600 13px Arial';
             ctx.fillText(`Phase: ${gameState.phase}`, panelX + 15, panelY + 45);
             
             const activePlayers = gameState.players.filter(p => p.isActive).length;
@@ -874,43 +829,49 @@ class TexasHoldemRenderer {
      */
     async createPrivateHandImage(player, communityCards = []) {
         try {
-            const canvas = createCanvas(400, 300);
+            // Slightly larger, modern look for showHand modal
+            const canvas = createCanvas(520, 340);
             const ctx = canvas.getContext('2d');
 
             // Background
-            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-            gradient.addColorStop(0, COLORS.BLUE);
+            const gradient = ctx.createLinearGradient(0, 0, 0, 340);
+            gradient.addColorStop(0, '#0d47a1');
             gradient.addColorStop(1, COLORS.FELT_GRADIENT_END);
             ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 400, 300);
+            ctx.fillRect(0, 0, 520, 340);
 
             // Title
-            ctx.fillStyle = COLORS.WHITE;
-            ctx.font = this.fontLoaded ? 'bold 24px Roboto' : 'bold 24px Arial';
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            ctx.font = this.fontLoaded ? '600 22px Roboto' : '600 22px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('🎴 Your Private Hand', 200, 40);
+            ctx.fillText('🎴 Your Hand', 260, 36);
 
             // Player's hole cards (smaller size for private view)
             if (player.holeCards && player.holeCards.length === 2) {
-                await this.drawCardSmall(ctx, player.holeCards[0], 125, 120, false);
-                await this.drawCardSmall(ctx, player.holeCards[1], 225, 120, false);
+                await this.drawCardSmall(ctx, player.holeCards[0], 210, 140, false);
+                await this.drawCardSmall(ctx, player.holeCards[1], 310, 140, false);
                 
-                // Card labels
-                ctx.fillStyle = COLORS.WHITE;
-                ctx.font = this.fontLoaded ? '14px Roboto' : '14px Arial';
-                ctx.fillText('Card 1', 125, 190);
-                ctx.fillText('Card 2', 225, 190);
+                // Subtle underline for card area
+                ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                ctx.beginPath();
+                ctx.moveTo(150, 210);
+                ctx.lineTo(370, 210);
+                ctx.stroke();
             }
 
-            // Player info
-            ctx.fillStyle = COLORS.WHITE;
-            ctx.font = this.fontLoaded ? '16px Roboto' : '16px Arial';
+            // Player info / status row
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.font = this.fontLoaded ? '600 14px Roboto' : '600 14px Arial';
             ctx.textAlign = 'left';
-            ctx.fillText(`💰 Chips: ${player.chipCount.toLocaleString()}`, 20, 250);
-            ctx.fillText(`🪑 Seat: ${player.seatNumber + 1}`, 20, 270);
-            
+            const name = player.username?.length > 18 ? player.username.slice(0, 18) + '…' : (player.username || 'Player');
+            ctx.fillText(`👤 ${name}`, 24, 260);
             if (player.currentBet > 0) {
-                ctx.fillText(`🎯 Current Bet: ${player.currentBet.toLocaleString()}`, 220, 250);
+                ctx.fillStyle = '#FFB74D';
+                ctx.fillText(`Pot: $${player.currentBet.toLocaleString()}`, 24, 282);
+            }
+            if (player.lastAction) {
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.fillText(`${player.lastAction.toUpperCase()}`, 24, 304);
             }
 
             return canvas.toBuffer('image/png');

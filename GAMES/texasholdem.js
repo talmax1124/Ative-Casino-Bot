@@ -188,15 +188,27 @@ class PokerHand {
         });
         
         const counts = Object.values(rankCounts).sort((a, b) => b - a);
+        // Build groups: [{rankValue, count}], sorted by count desc then rank desc
+        const groups = Object.entries(rankCounts)
+            .map(([rv, cnt]) => ({ rankValue: parseInt(rv), count: cnt }))
+            .sort((a, b) => {
+                if (b.count !== a.count) return b.count - a.count;
+                return b.rankValue - a.rankValue;
+            });
+        
         const isFlush = suits.every(suit => suit === suits[0]);
         const isStraight = PokerHand.isStraight(ranks);
+
+        // Determine straight high card correctly (handles A-2-3-4-5 as 5-high)
+        const straightHigh = PokerHand.getStraightHigh(ranks);
         
-        // Royal Flush
-        if (isFlush && isStraight && ranks[0] === 14) {
+        // Royal Flush (10-J-Q-K-A of same suit)
+        if (isFlush && isStraight && straightHigh === 14 && Math.min(...ranks) === 10) {
             return {
                 rank: HAND_RANKINGS.ROYAL_FLUSH,
                 name: 'Royal Flush',
-                kickers: ranks
+                // For royal flush, kickers don't matter, but keep standard ordering
+                kickers: [14, 13, 12, 11, 10]
             };
         }
         
@@ -205,25 +217,30 @@ class PokerHand {
             return {
                 rank: HAND_RANKINGS.STRAIGHT_FLUSH,
                 name: 'Straight Flush',
-                kickers: ranks
+                // Kickers compare only by straight high
+                kickers: [straightHigh, 0, 0, 0, 0]
             };
         }
         
         // Four of a Kind
         if (counts[0] === 4) {
+            const quadRank = groups.find(g => g.count === 4).rankValue;
+            const kicker = groups.find(g => g.count === 1).rankValue;
             return {
                 rank: HAND_RANKINGS.FOUR_OF_A_KIND,
                 name: 'Four of a Kind',
-                kickers: ranks
+                kickers: [quadRank, kicker, 0, 0, 0]
             };
         }
         
         // Full House
         if (counts[0] === 3 && counts[1] === 2) {
+            const tripRank = groups.find(g => g.count === 3).rankValue;
+            const pairRank = groups.find(g => g.count === 2).rankValue;
             return {
                 rank: HAND_RANKINGS.FULL_HOUSE,
                 name: 'Full House',
-                kickers: ranks
+                kickers: [tripRank, pairRank, 0, 0, 0]
             };
         }
         
@@ -241,34 +258,40 @@ class PokerHand {
             return {
                 rank: HAND_RANKINGS.STRAIGHT,
                 name: 'Straight',
-                kickers: ranks
+                kickers: [straightHigh, 0, 0, 0, 0]
             };
         }
         
         // Three of a Kind
         if (counts[0] === 3) {
+            const tripRank = groups.find(g => g.count === 3).rankValue;
+            const kickers = groups.filter(g => g.count === 1).map(g => g.rankValue).sort((a,b)=>b-a).slice(0,2);
             return {
                 rank: HAND_RANKINGS.THREE_OF_A_KIND,
                 name: 'Three of a Kind',
-                kickers: ranks
+                kickers: [tripRank, kickers[0] || 0, kickers[1] || 0, 0, 0]
             };
         }
         
         // Two Pair
         if (counts[0] === 2 && counts[1] === 2) {
+            const pairRanks = groups.filter(g => g.count === 2).map(g => g.rankValue).sort((a,b)=>b-a);
+            const kicker = groups.filter(g => g.count === 1).map(g => g.rankValue).sort((a,b)=>b-a)[0] || 0;
             return {
                 rank: HAND_RANKINGS.TWO_PAIR,
                 name: 'Two Pair',
-                kickers: ranks
+                kickers: [pairRanks[0], pairRanks[1], kicker, 0, 0]
             };
         }
         
         // Pair
         if (counts[0] === 2) {
+            const pairRank = groups.find(g => g.count === 2).rankValue;
+            const kickers = groups.filter(g => g.count === 1).map(g => g.rankValue).sort((a,b)=>b-a).slice(0,3);
             return {
                 rank: HAND_RANKINGS.PAIR,
                 name: 'Pair',
-                kickers: ranks
+                kickers: [pairRank, kickers[0] || 0, kickers[1] || 0, kickers[2] || 0, 0]
             };
         }
         
@@ -298,6 +321,28 @@ class PokerHand {
         }
         
         return false;
+    }
+
+    // Return the top card value for a straight (handles A-2-3-4-5 as 5-high)
+    static getStraightHigh(ranks) {
+        const sorted = [...ranks].sort((a, b) => a - b);
+        // Wheel straight: treat Ace as 1, high card is 5
+        if (sorted[0] === 2 && sorted[1] === 3 && sorted[2] === 4 && sorted[3] === 5 && sorted[4] === 14) {
+            return 5;
+        }
+        return Math.max(...sorted);
+    }
+
+    // Build kicker array for straight comparisons with proper A-5 handling
+    static getStraightKickers(ranks) {
+        const sorted = [...ranks].sort((a, b) => b - a);
+        // If wheel, convert Ace to 1 and sort again
+        const isWheel = ranks.includes(14) && ranks.includes(5) && ranks.includes(4) && ranks.includes(3) && ranks.includes(2);
+        if (isWheel) {
+            const adjusted = ranks.map(v => (v === 14 ? 1 : v)).sort((a, b) => b - a);
+            return adjusted;
+        }
+        return sorted;
     }
 
     // Compare two hands (returns -1, 0, or 1)
@@ -877,26 +922,51 @@ class TexasHoldemGame {
     createPots(playerBets) {
         // Sort bets by amount (ascending)
         playerBets.sort((a, b) => a.amount - b.amount);
-        
+
         let currentPotAmount = 0;
         let remainingPlayers = new Set(playerBets.map(bet => bet.userId));
-        
+
+        // Helper to compare eligible player sets
+        const setsEqual = (a, b) => {
+            if (!a || !b) return false;
+            if (a.size !== b.size) return false;
+            for (const v of a) if (!b.has(v)) return false;
+            return true;
+        };
+
         // Create side pots for all-in players
         for (let i = 0; i < playerBets.length; i++) {
             const currentBet = playerBets[i];
             const potContribution = currentBet.amount - currentPotAmount;
-            
+
             if (potContribution > 0) {
-                const pot = {
-                    amount: potContribution * remainingPlayers.size,
-                    eligiblePlayers: new Set(remainingPlayers),
-                    type: i === 0 ? 'main' : 'side'
-                };
-                
-                this.pots.push(pot);
+                const amountToAdd = potContribution * remainingPlayers.size;
+
+                // Decide pot type: only the very first pot overall is 'main'
+                const isFirstOverallPot = this.pots.length === 0 && i === 0;
+
+                // If not the first overall pot, try to merge into the most recent pot with same eligible players
+                let merged = false;
+                if (!isFirstOverallPot) {
+                    const lastPot = this.pots[this.pots.length - 1];
+                    if (lastPot && setsEqual(lastPot.eligiblePlayers, remainingPlayers)) {
+                        lastPot.amount += amountToAdd;
+                        merged = true;
+                    }
+                }
+
+                if (!merged) {
+                    const pot = {
+                        amount: amountToAdd,
+                        eligiblePlayers: new Set(remainingPlayers),
+                        type: isFirstOverallPot ? 'main' : 'side'
+                    };
+                    this.pots.push(pot);
+                }
+
                 currentPotAmount = currentBet.amount;
             }
-            
+
             // Remove all-in players from future pots
             if (currentBet.isAllIn) {
                 remainingPlayers.delete(currentBet.userId);
@@ -1008,6 +1078,7 @@ class TexasHoldemGame {
             
             payoutResults.push({
                 userId: winner.userId,
+                username: winner.username,
                 amount: winAmount,
                 won: true,
                 handName: 'Uncontested'
@@ -1041,6 +1112,7 @@ class TexasHoldemGame {
                 
                 payoutResults.push({
                     userId: winner.userId,
+                    username: winner.username,
                     amount: winAmount,
                     won: true,
                     handName: 'Uncontested'
@@ -1076,6 +1148,7 @@ class TexasHoldemGame {
                     
                     payoutResults.push({
                         userId: winners[i].userId,
+                        username: winners[i].username,
                         amount: totalWin,
                         won: true,
                         handName: winners[i].bestHand.name

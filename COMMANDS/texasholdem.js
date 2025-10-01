@@ -631,6 +631,28 @@ function createResultsEmbed(game, winners, pots) {
         .setTimestamp();
     
     let description = `**Hand #${game.handNumber} Complete**\n\n`;
+
+    // Aggregate overall winnings per player (choose a single overall winner for display)
+    const overall = new Map(); // userId -> { name, total }
+    for (const pr of (game.payoutResults || [])) {
+        if (!pr || !pr.won || !pr.amount) continue;
+        const entry = overall.get(pr.userId) || { name: pr.username || game.players.get(pr.userId)?.username || 'Player', total: 0 };
+        entry.total += pr.amount;
+        overall.set(pr.userId, entry);
+    }
+
+    if (overall.size > 0) {
+        // Pick single highest total winner
+        let topUserId = null;
+        let topInfo = null;
+        for (const [uid, info] of overall) {
+            if (!topInfo || info.total > topInfo.total) {
+                topUserId = uid;
+                topInfo = info;
+            }
+        }
+        description += `🏆 **Winner:** ${topInfo.name}\n💰 **Total Won:** ${fmt(topInfo.total)}\n\n`;
+    }
     
     // Show community cards
     if (game.communityCards.length > 0) {
@@ -639,22 +661,7 @@ function createResultsEmbed(game, winners, pots) {
     }
     
     // Show results for each pot
-    pots.forEach((pot, index) => {
-        const potType = pot.type === 'main' ? 'Main Pot' : `Side Pot ${index}`;
-        description += `**${potType}: ${fmt(pot.amount)}**\n`;
-        
-        if (pot.winners) {
-            const winnerNames = pot.winners.map(w => w.username).join(', ');
-            const winAmount = Math.floor(pot.amount / pot.winners.length);
-            description += `🏆 Winner${pot.winners.length > 1 ? 's' : ''}: ${winnerNames}\n`;
-            description += `💰 Each wins: ${fmt(winAmount)}\n`;
-            description += `🃏 Winning hand: ${pot.winningHand}\n\n`;
-        } else if (pot.winner) {
-            description += `🏆 Winner: ${pot.winner.username}\n`;
-            description += `💰 Wins: ${fmt(pot.amount)}\n`;
-            description += `🃏 Winning hand: ${pot.winningHand}\n\n`;
-        }
-    });
+    // Intentionally suppress per-pot breakdown to avoid multiple winner lines in UI
     
     embed.setDescription(description);
     
@@ -762,24 +769,31 @@ async function processHandCompletion(game, interaction) {
         
         await interaction.update(messageData);
         
-        // Send winner mentions in the channel
-        const winnerMentions = [];
+        // Send single winner mention (highest total)
+        const totals = new Map();
         for (const result of game.payoutResults || []) {
             if (result.won && result.amount > 0) {
-                winnerMentions.push(`<@${result.userId}> you have won Poker! 🎉 **+${fmt(result.amount)}**`);
+                totals.set(result.userId, (totals.get(result.userId) || 0) + result.amount);
+            }
+        }
+
+        let winnerCount = 0;
+        if (totals.size > 0) {
+            let topUserId = null;
+            let topAmount = -1;
+            for (const [userId, amount] of totals) {
+                if (amount > topAmount) {
+                    topUserId = userId;
+                    topAmount = amount;
+                }
+            }
+            if (topUserId) {
+                winnerCount = 1;
+                await interaction.followUp({ content: `<@${topUserId}> you have won Poker! 🎉 **+${fmt(topAmount)}**`, flags: 0 });
             }
         }
         
-        if (winnerMentions.length > 0) {
-            // Send winner mentions as a follow-up message
-            await interaction.followUp({
-                content: winnerMentions.join('\n'),
-                flags: 0 // Not ephemeral - everyone should see the winners
-            });
-        }
-        
         // Clear payout results
-        const winnerCount = winnerMentions.length;
         game.payoutResults = null;
         
         logger.info(`Texas Hold'em hand #${game.handNumber - 1} completed with ${winnerCount} winners`);
@@ -1234,37 +1248,39 @@ module.exports = {
                         }
                     }
 
-                    // Show bet amount selection
                     const actualAction = actionId.startsWith('action-') ? actionId.replace('action-', '') : actionId;
-                    const betMenu = createBetAmountMenu(game, userId, actualAction);
-                    if (betMenu) {
-                        const gameData = await createGameEmbed(game);
-                        
-                        // IMPORTANT: Keep action buttons AND add bet menu
-                        const actionButtons = createActionButtons(game);
-                        const allComponents = [...actionButtons, betMenu];
-                        
-                        const messageData = { embeds: [gameData.embed], components: allComponents };
-                        if (gameData.tableImage) {
-                            messageData.files = [{ attachment: gameData.tableImage, name: 'poker-table.png' }];
+                    // For raises: use a text input modal only (no dropdown)
+                    if (actualAction === BETTING_ACTIONS.RAISE) {
+                        const player = game.players.get(userId);
+                        const callAmount = game.currentBet - player.currentBet;
+                        const minBet = Math.max(game.currentBet + game.minRaise, callAmount + game.minRaise);
+                        const maxBet = player.chipCount + player.currentBet;
+                        if (minBet > maxBet) {
+                            return await interaction.reply({ content: 'Insufficient chips to raise.', flags: MessageFlags.Ephemeral });
                         }
-                        await interaction.update(messageData);
-                        
-                        // Send private hand info
-                        const privateData = await createPrivatePlayerEmbed(game, userId);
-                        const privateMessageData = { 
-                            embeds: [privateData.embed], 
-                            flags: MessageFlags.Ephemeral 
-                        };
-                        if (privateData.image) {
-                            privateMessageData.files = [{ attachment: privateData.image, name: 'private-hand.png' }];
-                        }
-                        await interaction.followUp(privateMessageData);
+                        const modal = createCustomAmountModal(BETTING_ACTIONS.RAISE, minBet, maxBet);
+                        await interaction.showModal(modal);
                     } else {
-                        return await interaction.reply({ 
-                            content: 'Invalid betting action!', 
-                            flags: MessageFlags.Ephemeral 
-                        });
+                        // For bets: show preset dropdown + custom option
+                        const betMenu = createBetAmountMenu(game, userId, actualAction);
+                        if (betMenu) {
+                            const gameData = await createGameEmbed(game);
+                            const actionButtons = createActionButtons(game);
+                            const allComponents = [...actionButtons, betMenu];
+                            const messageData = { embeds: [gameData.embed], components: allComponents };
+                            if (gameData.tableImage) {
+                                messageData.files = [{ attachment: gameData.tableImage, name: 'poker-table.png' }];
+                            }
+                            await interaction.update(messageData);
+                            const privateData = await createPrivatePlayerEmbed(game, userId);
+                            const privateMessageData = { embeds: [privateData.embed], flags: MessageFlags.Ephemeral };
+                            if (privateData.image) {
+                                privateMessageData.files = [{ attachment: privateData.image, name: 'private-hand.png' }];
+                            }
+                            await interaction.followUp(privateMessageData);
+                        } else {
+                            return await interaction.reply({ content: 'Invalid betting action!', flags: MessageFlags.Ephemeral });
+                        }
                     }
                     break;
                 }
