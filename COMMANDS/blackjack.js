@@ -1151,11 +1151,11 @@ module.exports = {
                         const handProportion = totalPayout > 0 ? (result.payout || 0) / totalPayout : 0;
                         const handRegulatedPayout = regulatedPayout * handProportion;
                         const handNetProfit = handRegulatedPayout - result.betAmount;
-                        const status = result.outcome === 'PUSH' ? '🤝 PUSH' : (handNetProfit > 0 ? '🎉 WIN!' : '💸 LOSE');
+                        const status = result.outcome === 'PUSH' ? '🤝 PUSH' : (result.won ? '🎉 WIN!' : '💸 LOSE');
                         const doubledText = result.doubled ? ' (DOUBLED)' : '';
                         if (result.outcome === 'PUSH') {
                             handResults.push(`Hand ${i + 1}: ${status} - Bet returned${doubledText}`);
-                        } else if (handNetProfit > 0) {
+                        } else if (result.won) {
                             handResults.push(`Hand ${i + 1}: ${status} Won ${fmt(handNetProfit)}${doubledText}`);
                         } else {
                             handResults.push(`Hand ${i + 1}: ${status} Lost ${fmt(result.betAmount)}${doubledText}`);
@@ -1184,7 +1184,7 @@ module.exports = {
                     if (result.outcome === 'PUSH') {
                         // Push always shows the same message regardless of payout
                         resultMessage = `🤝 **PUSH** - Your bet of ${fmt(totalBetAmount)} is returned.`;
-                    } else if (netProfit > 0) {
+                    } else if (result.won || result.outcome === 'BLACKJACK') {
                         // Win scenarios - show profit, not total payout
                         if (result.outcome === 'BLACKJACK') {
                             if (winningForSomeoneElse) {
