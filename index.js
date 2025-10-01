@@ -3040,6 +3040,32 @@ app.post('/ranktop/webhook', async (req, res) => {
     }
 });
 
+// Test vote endpoint for debugging
+app.post('/test/vote/:platform', async (req, res) => {
+    try {
+        const { platform } = req.params;
+        const { userId } = req.body;
+        
+        if (!userId) {
+            return res.status(400).json({ error: 'userId required in body' });
+        }
+        
+        const TopGGManager = require('./UTILS/topgg');
+        const topggManager = new TopGGManager(client);
+        
+        // Process test vote
+        await topggManager.processVoteReward(userId, { test: true }, platform);
+        
+        res.status(200).json({ 
+            success: true, 
+            message: `Test ${platform} vote processed for user ${userId}` 
+        });
+    } catch (error) {
+        logger.error(`Test vote error: ${error.message}`);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).json({

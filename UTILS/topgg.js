@@ -392,6 +392,9 @@ class TopGGManager {
             const signature = req.headers['x-signature'] || req.headers['authorization'];
             const voteData = req.body || {};
             
+            // Log the actual data received for debugging
+            logger.info('Rank.Top webhook data received:', JSON.stringify(voteData));
+            
             // Handle test webhooks - if no user ID or empty body, it's a test
             if (!voteData.user || Object.keys(voteData).length === 0) {
                 logger.info('✅ Rank.Top test webhook detected - responding with success');
