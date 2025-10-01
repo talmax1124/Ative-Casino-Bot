@@ -284,7 +284,7 @@ class LogSummaryManager {
                     game_type,
                     COUNT(*) as game_count
                 FROM game_results 
-                WHERE created_at >= ?
+                WHERE played_at >= ?
                 GROUP BY game_type
                 ORDER BY game_count DESC
                 LIMIT 1
@@ -296,7 +296,7 @@ class LogSummaryManager {
             const activePlayerQuery = `
                 SELECT user_id, COUNT(*) as game_count
                 FROM game_results 
-                WHERE created_at >= ?
+                WHERE played_at >= ?
                 GROUP BY user_id
                 ORDER BY game_count DESC
                 LIMIT 1

@@ -389,9 +389,11 @@ class TopGGManager {
         try {
             logger.info('✅ Received Rank.Top vote webhook');
 
-            // Verify webhook signature
+            // Verify webhook signature (skip for test webhooks)
             const signature = req.headers['x-signature'];
-            if (!this.verifyRanktopWebhookSignature(req.body, signature)) {
+            const isTestWebhook = Object.keys(req.body || {}).length === 0;
+            
+            if (!isTestWebhook && !this.verifyRanktopWebhookSignature(req.body, signature)) {
                 logger.warn('Invalid Rank.Top webhook signature');
                 return res.status(401).send('Unauthorized');
             }
@@ -399,9 +401,15 @@ class TopGGManager {
             const voteData = req.body;
             const userId = voteData.user;
             
+            // Handle test webhooks from Rank.Top
+            if (!userId && Object.keys(voteData).length === 0) {
+                logger.info('✅ Rank.Top test webhook received - responding successfully');
+                return res.status(200).json({ success: true, message: 'Test webhook received' });
+            }
+            
             if (!userId) {
                 logger.error('No user ID in Rank.Top vote data:', voteData);
-                return res.status(400).send('Bad Request - Missing user ID');
+                return res.status(400).json({ success: false, error: 'Missing user ID' });
             }
             
             logger.info(`✅ Rank.Top vote received from user: ${userId}`);
@@ -410,7 +418,7 @@ class TopGGManager {
             await this.processVoteReward(userId, voteData, 'ranktop');
             
             logger.info(`✅ Successfully processed Rank.Top vote for user: ${userId}`);
-            res.status(200).send('OK');
+            res.status(200).json({ success: true, message: 'Vote processed successfully' });
         } catch (error) {
             logger.error(`❌ Rank.Top webhook error: ${error.message}`);
             logger.error('Stack trace:', error.stack);
@@ -509,6 +517,11 @@ class TopGGManager {
      * Verify Rank.Top webhook signature
      */
     verifyRanktopWebhookSignature(body, signature) {
+        // Allow test webhooks without signature
+        if (!signature && (!body || Object.keys(body).length === 0)) {
+            return true;
+        }
+        
         if (!signature || !this.ranktopWebhookSecret) {
             return false;
         }
