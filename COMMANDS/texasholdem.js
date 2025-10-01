@@ -76,22 +76,11 @@ async function createGameEmbed(game) {
     const currentPlayer = game.getCurrentPlayer();
     const gameState = game.getGameState();
     
-    // Main game info with enhanced pot display
-    let description = `**Hand #${gameState.handNumber}** • **Phase:** ${gameState.phase.replace('_', ' ').toUpperCase()}\n`;
-    description += `**💰 Main Pot:** ${fmt(gameState.totalPot)} • **🎯 Current Bet:** ${fmt(gameState.currentBet)}`;
-    
-    // Add side pots if they exist
-    if (gameState.pots && gameState.pots.length > 1) {
-        const sidePots = gameState.pots.slice(1).map((pot, index) => 
-            `Side Pot ${index + 1}: ${fmt(pot.amount)}`
-        ).join(' • ');
-        if (sidePots) {
-            description += `\n**💼 Side Pots:** ${sidePots}`;
-        }
-    }
+    // Simplified main description - just essential info
+    let description = `**Hand #${gameState.handNumber}** • ${gameState.phase.replace('_', ' ').toUpperCase()}`;
     
     if (gameState.currentPlayer) {
-        description += `\n**🎮 Current Turn:** ${gameState.currentPlayer.username} ⏰`;
+        description += `\n🎮 **${gameState.currentPlayer.username}'s Turn** ⏰`;
     }
 
     const embed = new EmbedBuilder()
@@ -100,67 +89,80 @@ async function createGameEmbed(game) {
         .setColor(0x1E8449)
         .setTimestamp();
 
+    // Add pot and betting info as organized fields
+    embed.addFields(
+        {
+            name: '💰 Main Pot',
+            value: fmt(gameState.totalPot),
+            inline: true
+        },
+        {
+            name: '🎯 Current Bet',
+            value: fmt(gameState.currentBet),
+            inline: true
+        },
+        {
+            name: '🎲 Blinds',
+            value: `${fmt(gameState.blinds.small)} / ${fmt(gameState.blinds.big)}`,
+            inline: true
+        }
+    );
+
+    // Add side pots if they exist
+    if (gameState.pots && gameState.pots.length > 1) {
+        const sidePots = gameState.pots.slice(1).map((pot, index) => 
+            `Side Pot ${index + 1}: ${fmt(pot.amount)}`
+        ).join('\n');
+        
+        embed.addFields({
+            name: '💼 Side Pots',
+            value: sidePots,
+            inline: false
+        });
+    }
+
     // Community cards with better formatting
     if (gameState.communityCards.length > 0) {
         const cardDisplay = gameState.communityCards.map(card => `\`${card.toString()}\``).join(' ');
         let phaseText = '';
-        if (gameState.communityCards.length === 3) phaseText = '**FLOP**';
-        else if (gameState.communityCards.length === 4) phaseText = '**TURN**';
-        else if (gameState.communityCards.length === 5) phaseText = '**RIVER**';
+        if (gameState.communityCards.length === 3) phaseText = 'FLOP';
+        else if (gameState.communityCards.length === 4) phaseText = 'TURN';
+        else if (gameState.communityCards.length === 5) phaseText = 'RIVER';
         
         embed.addFields({
-            name: `🏠 Community Cards ${phaseText}`,
+            name: `🏠 Community Cards - ${phaseText}`,
             value: cardDisplay,
             inline: false
         });
     }
 
-    // Blinds info
-    embed.addFields({
-        name: '🎲 Blinds',
-        value: `Small: ${fmt(gameState.blinds.small)} • Big: ${fmt(gameState.blinds.big)}`,
-        inline: true
-    });
-
-    // Players status (NO PRIVATE CARDS - public info only)
+    // Simplified players status
     const activePlayers = gameState.players.filter(p => p.isActive);
     if (activePlayers.length > 0) {
         const playerStatus = activePlayers.map(p => {
-            let status = `**${p.username}** (Seat ${p.seatNumber + 1})`;
-            status += `\n💰 ${fmt(p.chipCount)}`;
+            let status = `**${p.username}**`;
             
-            if (p.currentBet > 0) {
-                status += ` • 🎯 Bet: ${fmt(p.currentBet)}`;
-            }
-            
-            if (p.hasFolded) {
-                status += ' • ❌ **FOLDED**';
-            } else if (p.isAllIn) {
-                status += ' • 🚀 **ALL-IN**';
-            } else if (p.holeCards && p.holeCards.length > 0) {
-                status += ' • 🎴 [Hidden Cards]';
-            }
-            
+            // Current turn indicator
             if (currentPlayer && p.userId === currentPlayer.userId) {
-                status += ' • ⬅️ **CURRENT TURN**';
+                status += ' ⬅️';
             }
             
-            if (p.lastAction) {
-                const actionEmojis = {
-                    'check': '✅ Checked',
-                    'call': '📞 Called',
-                    'bet': '💰 Bet',
-                    'raise': '⬆️ Raised',
-                    'fold': '❌ Folded'
-                };
-                status += ` • ${actionEmojis[p.lastAction.toLowerCase()] || p.lastAction}`;
+            // Status indicators (prioritize most important)
+            if (p.hasFolded) {
+                status += ' ❌';
+            } else if (p.isAllIn) {
+                status += ' 🚀';
+            } else if (p.currentBet > 0) {
+                status += ` 🎯${fmt(p.currentBet)}`;
             }
+            
+            status += ` (${fmt(p.chipCount)})`;
             
             return status;
-        }).join('\n\n');
+        }).join(' • ');
         
         embed.addFields({
-            name: '👥 Players at Table',
+            name: '👥 Players',
             value: playerStatus,
             inline: false
         });
@@ -1144,8 +1146,8 @@ module.exports = {
                     const actualAction = actionId.startsWith('action-') ? actionId.replace('action-', '') : actionId;
                     await game.processPlayerAction(userId, actualAction);
 
-                    // Check if hand ended and process payouts
-                    if (game.phase === GAME_PHASES.SHOWDOWN && game.payoutResults) {
+                    // Check if hand ended and process payouts (either showdown or uncontested win)
+                    if (game.payoutResults) {
                         await processHandCompletion(game, interaction);
                         return;
                     }
@@ -1406,8 +1408,8 @@ module.exports = {
 
             await game.processPlayerAction(userId, action, amount);
 
-            // Check if hand ended and process payouts
-            if (game.phase === GAME_PHASES.SHOWDOWN && game.payoutResults) {
+            // Check if hand ended and process payouts (either showdown or uncontested win)
+            if (game.payoutResults) {
                 await processHandCompletion(game, interaction);
                 return;
             }
