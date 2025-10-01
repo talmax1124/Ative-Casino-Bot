@@ -75,7 +75,7 @@ Replace `YOUR_CLIENT_ID` with your actual Discord bot client ID:
 #### `views/support.ejs`
 Add your Discord support server invite link:
 ```html
-<a href="https://discord.gg/YOUR_SERVER_INVITE" class="btn">Join Support Server</a>
+<a href="https://discord.gg/ativecasino" class="btn">Join Support Server</a>
 ```
 
 #### Legal Pages

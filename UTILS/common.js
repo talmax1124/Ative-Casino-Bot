@@ -290,9 +290,9 @@ function buildErrorEmbedWithSupport(title, description, guildId) {
     // Add support button for external servers (not ATIVE main server)
     if (guildId && guildId !== '1403244656845787167') {
         const supportButton = new ButtonBuilder()
-            .setLabel('Get Support')
+            .setLabel('Support Server')
             .setStyle(ButtonStyle.Link)
-            .setURL('https://discord.gg/ztEqhxeUuQ')
+            .setURL('https://discord.gg/ativecasino')
             .setEmoji('🛟');
 
         components.push(new ActionRowBuilder().addComponents(supportButton));
