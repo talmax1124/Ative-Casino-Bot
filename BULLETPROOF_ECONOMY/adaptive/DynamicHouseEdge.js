@@ -648,7 +648,7 @@ class DynamicHouseEdgeSystem {
      * Perform deep mathematical analysis (non-blocking)
      */
     async performDeepAnalysis() {
-        console.log('🔍 Performing deep house edge analysis...');
+        // console.log('🔍 Performing deep house edge analysis...');
         
         const gameTypes = Array.from(this.baseEdges.keys());
         
@@ -668,7 +668,7 @@ class DynamicHouseEdgeSystem {
             }
         }
         
-        console.log('✅ Deep house edge analysis completed');
+        // console.log('✅ Deep house edge analysis completed');
     }
 
     /**
