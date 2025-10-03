@@ -953,9 +953,12 @@ module.exports = {
 
     // Handle button interactions for this command
     async handleButtonInteraction(interaction) {
-        // DISABLED: This old handler conflicts with buttonUtility approach
-        // The newer handleButtonInteractionWithUtility method should handle all interactions
-        console.log('⚠️ Old button handler disabled - using buttonUtility approach instead');
+        // This method is no longer used - buttons are handled directly in index.js
+        logger.debug('Old handleButtonInteraction called - this should not happen');
+        await interaction.reply({
+            content: '❌ Please try again - the button system has been updated.',
+            ephemeral: true
+        });
         return;
         
         if (!interaction.customId.startsWith('marriage_task_')) {

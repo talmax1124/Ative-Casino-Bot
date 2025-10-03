@@ -2718,25 +2718,40 @@ client.on('interactionCreate', async interaction => {
                     // Handle history button
                     await showMarriageTaskHistory(interaction);
                 } else {
-                    // Handle task buttons (marriage_task_task1, marriage_task_task2, etc.)
-                    const marriageTaskCommand = client.commands.get('marriage-task');
-                    if (marriageTaskCommand && marriageTaskCommand.handleButtonInteractionWithUtility) {
-                        // Get marriage data for the utility handler
-                        const { getGuildId } = require('./UTILS/common');
-                        const guildId = await getGuildId(interaction);
-                        const marriageData = await dbManager.getUserMarriage(interaction.user.id, guildId);
+                    // Handle task buttons directly (marriage_task_task1, marriage_task_task2, etc.)
+                    const marriageTaskUtil = require('./marriages/MarriageTaskUtil');
+                    const buttonUtility = require('./UTILS/buttonUtility');
+                    
+                    if (customId.startsWith('marriage_task_task')) {
+                        // Extract task number from customId (e.g., marriage_task_task1 -> 1)
+                        const taskNum = parseInt(customId.replace('marriage_task_task', ''));
                         
-                        if (marriageData.married) {
-                            await marriageTaskCommand.handleButtonInteractionWithUtility(interaction, marriageData.marriage);
-                        } else {
-                            await interaction.reply({
-                                content: '❌ You must be married to access marriage tasks!',
-                                ephemeral: true
-                            });
+                        await buttonUtility.handleInteraction(interaction, async (i) => {
+                            await marriageTaskUtil.handleTaskDisplay(i, taskNum);
+                        });
+                    } else if (customId === 'refresh_tasks') {
+                        // Handle refresh button
+                        const marriageTaskCommand = client.commands.get('marriage-task');
+                        if (marriageTaskCommand) {
+                            const fakeInteraction = {
+                                ...interaction,
+                                options: {
+                                    getString: () => 'view'
+                                },
+                                deferReply: async () => {},
+                                editReply: async (options) => await interaction.update(options)
+                            };
+                            await marriageTaskCommand.execute(fakeInteraction);
                         }
+                    } else if (customId === 'marriage_task_help') {
+                        // Handle help button  
+                        await showMarriageTaskHelp(interaction);
+                    } else if (customId === 'marriage_task_history') {
+                        // Handle history button
+                        await showMarriageTaskHistory(interaction);
                     } else {
                         await interaction.reply({
-                            content: '❌ Marriage task system is temporarily unavailable.',
+                            content: '❌ Unknown marriage task action.',
                             ephemeral: true
                         });
                     }
