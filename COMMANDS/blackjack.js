@@ -25,15 +25,15 @@ const allInManager = require('../UTILS/allInManager');
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
 
-// PLAYER-FRIENDLY DIFFICULTY MODES - Much better odds and payouts
+// PLAYER-FRIENDLY DIFFICULTY MODES - Improved odds and payouts
 const BLACKJACK_MODES = {
     safe: {
         name: '🛡️ Safe',
         description: 'Player-friendly mode with great payouts',
         minBet: 500,
-        blackjackMultiplier: 2.5,    // 2.5x for blackjack (way better!)
-        winMultiplier: 1.95,         // 1.95x for regular wins (almost double!)
-        houseEdge: 0.005,            // 0.5% house edge (realistic)
+        blackjackMultiplier: 2.6,    // 2.6x for blackjack (improved!)
+        winMultiplier: 2.0,          // 2.0x for regular wins (nice improvement!)
+        houseEdge: 0.003,            // 0.3% house edge (even better!)
         emoji: '🛡️',
         color: '#4CAF50'
     },
@@ -41,9 +41,9 @@ const BLACKJACK_MODES = {
         name: '⚖️ Balanced',
         description: 'Fair mode with good payouts',
         minBet: 1000,
-        blackjackMultiplier: 2.25,   // 2.25x for blackjack
-        winMultiplier: 1.85,         // 1.85x for regular wins
-        houseEdge: 0.01,             // 1% house edge
+        blackjackMultiplier: 2.35,   // 2.35x for blackjack (improved!)
+        winMultiplier: 1.92,         // 1.92x for regular wins (better!)
+        houseEdge: 0.007,            // 0.7% house edge (improved!)
         emoji: '⚖️',
         color: '#FF9800'
     },
@@ -51,9 +51,9 @@ const BLACKJACK_MODES = {
         name: '⚡ Risky',
         description: 'Higher rewards with slightly more risk',
         minBet: 2500,
-        blackjackMultiplier: 2.0,    // 2.0x for blackjack
-        winMultiplier: 1.75,         // 1.75x for regular wins
-        houseEdge: 0.02,             // 2% house edge
+        blackjackMultiplier: 2.1,    // 2.1x for blackjack (improved!)
+        winMultiplier: 1.82,         // 1.82x for regular wins (better!)
+        houseEdge: 0.015,            // 1.5% house edge (improved!)
         emoji: '⚡',
         color: '#FF8800'
     },
@@ -61,9 +61,9 @@ const BLACKJACK_MODES = {
         name: '🔥 Extreme',
         description: 'Highest stakes with best potential returns',
         minBet: 5000,
-        blackjackMultiplier: 1.8,    // 1.8x for blackjack
-        winMultiplier: 1.65,         // 1.65x for regular wins
-        houseEdge: 0.03,             // 3% house edge
+        blackjackMultiplier: 1.9,    // 1.9x for blackjack (improved!)
+        winMultiplier: 1.72,         // 1.72x for regular wins (better!)
+        houseEdge: 0.025,            // 2.5% house edge (improved!)
         emoji: '🔥',
         color: '#FF0000'
     }
@@ -321,10 +321,10 @@ module.exports = {
                 .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
                 .setRequired(false)
                 .addChoices(
-                    { name: '🛡️ Safe (Min: $500, BJ: 1.45x, Win: 0.95x)', value: 'safe' },
-                    { name: '⚖️ Balanced (Min: $1K, BJ: 1.5x, Win: 0.98x)', value: 'balanced' },
-                    { name: '⚡ Risky (Min: $2.5K, BJ: 1.55x, Win: 1.02x)', value: 'risky' },
-                    { name: '🔥 Extreme (Min: $5K, BJ: 1.6x, Win: 1.05x)', value: 'extreme' }
+                    { name: '🛡️ Safe (Min: $500, BJ: 2.6x, Win: 2.0x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, BJ: 2.35x, Win: 1.92x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, BJ: 2.1x, Win: 1.82x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, BJ: 1.9x, Win: 1.72x)', value: 'extreme' }
                 )
         ),
 

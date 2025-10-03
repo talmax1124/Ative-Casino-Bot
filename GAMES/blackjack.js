@@ -164,9 +164,9 @@ class BlackjackGame {
         this.currentWealth = currentWealth;
         this.modeConfig = modeConfig || {
             name: 'Balanced',
-            blackjackMultiplier: 1.5,
-            winMultiplier: 1.01,
-            houseEdge: 0.07
+            blackjackMultiplier: 2.35,
+            winMultiplier: 1.92,
+            houseEdge: 0.007
         };
         this.deck = new Deck();
         this.playerHand = new BlackjackHand();
@@ -307,8 +307,9 @@ class BlackjackGame {
     }
 
     dealerPlay() {
-        // Player-favorable rules: dealer stands on all 17s (including soft 17)
-        while (this.dealerHand.getValue() < 17) {
+        // Player-favorable rules: dealer hits on soft 17 (better for players)
+        while (this.dealerHand.getValue() < 17 || 
+               (this.dealerHand.getValue() === 17 && this.dealerHand.isSoft())) {
             this.dealerHand.addCard(this.deck.dealCard());
         }
         this.gameEnded = true;
@@ -349,7 +350,7 @@ class BlackjackGame {
             baseMultiplier = 1;
             outcome = 'PUSH';
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
-            baseMultiplier = options.personalizedPayouts?.blackjack || this.modeConfig?.blackjackMultiplier || 2.5;
+            baseMultiplier = options.personalizedPayouts?.blackjack || this.modeConfig?.blackjackMultiplier || 2.6;
             outcome = 'BLACKJACK';
         } else if (playerValue === dealerValue && !playerHand.isBusted()) {
             // Equal values are a push ONLY if neither player is busted
