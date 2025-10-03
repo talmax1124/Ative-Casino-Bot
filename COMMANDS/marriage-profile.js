@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId } = require('../UTILS/common');
-const { getMarriageLevelByXP, getLevelProgress, getXPForNextLevel } = require('../UTILS/marriageLevels');
+const { getMarriageLevelByXP, getLevelProgress, getXPForNextLevel } = require('../marriages/marriageLevels');
 const logger = require('../UTILS/logger');
 const fs = require('fs');
 const path = require('path');

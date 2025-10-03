@@ -9,16 +9,16 @@ const logger = require('../logger');
 
 // Import all your games here
 // Week 1 Games
-const TicTacToeTaskGame = require('./TicTacToeTaskGame');
-const PlantTreeTaskGame = require('./PlantTreeTaskGame');
-const PoemTaskGame = require('./PoemTaskGame');
-const QuizTaskGame = require('./QuizTaskGame');
+const TicTacToeTaskGame = require('../../marriages/games/TicTacToeTaskGame');
+const PlantTreeTaskGame = require('../../marriages/games/PlantTreeTaskGame');
+const PoemTaskGame = require('../../marriages/games/PoemTaskGame');
+const QuizTaskGame = require('../../marriages/games/QuizTaskGame');
 
 // Week 2 Games
-const MentionTaskGame = require('./MentionTaskGame');
-const TriviaTaskGame = require('./TriviaTaskGame');
-const DateNightTaskGame = require('./DateNightTaskGame');
-const EmojiTaskGame = require('./EmojiTaskGame');
+const MentionTaskGame = require('../../marriages/games/MentionTaskGame');
+const TriviaTaskGame = require('../../marriages/games/TriviaTaskGame');
+const DateNightTaskGame = require('../../marriages/games/DateNightTaskGame');
+const EmojiTaskGame = require('../../marriages/games/EmojiTaskGame');
 
 class GameManager {
     constructor() {

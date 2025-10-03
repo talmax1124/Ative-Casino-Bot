@@ -3,9 +3,9 @@
  * Handles task completion tracking across different rotation weeks
  */
 
-const dbManager = require('./database');
+const dbManager = require('../UTILS/database');
 const marriageTaskRotation = require('./marriageTaskRotation');
-const logger = require('./logger');
+const logger = require('../UTILS/logger');
 
 class MarriageTaskStatusManager {
     constructor() {
@@ -73,7 +73,22 @@ class MarriageTaskStatusManager {
 
                 const tasks = {};
                 rows.forEach(row => {
-                    tasks[`task${row.task_number}`] = {
+                    // For Week 5, map task numbers back to 1-6 for display
+                    let displayTaskNumber = row.task_number;
+                    if (rotationInfo.rotationId === 'week5') {
+                        // Week 5 uses task numbers 17-22, map them back to 1-6
+                        const week5TaskMapping = {
+                            17: 1, // House Design
+                            18: 2, // Connect 4
+                            19: 3, // Love Letters
+                            20: 4, // Vacation Planning
+                            21: 5, // Daily Check-In
+                            22: 6  // Virtual Pet
+                        };
+                        displayTaskNumber = week5TaskMapping[row.task_number] || row.task_number;
+                    }
+                    
+                    tasks[`task${displayTaskNumber}`] = {
                         completed: true,
                         completedBy: row.completed_by,
                         completedAt: row.completed_at,
@@ -88,10 +103,12 @@ class MarriageTaskStatusManager {
                 };
             } else {
                 // Fallback to legacy system for non-database setups
+                logger.warn(`Marriage task status falling back to legacy system - no database adapter for marriage ${marriageId}`);
                 return await dbManager.getMarriageTaskStatus(marriageId);
             }
         } catch (error) {
             logger.error(`Error getting rotation-aware task status: ${error.message}`);
+            logger.warn(`Marriage task status falling back to legacy system due to error for marriage ${marriageId}`);
             // Fallback to legacy system
             return await dbManager.getMarriageTaskStatus(marriageId);
         }

@@ -1,20 +1,17 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { getGuildId } = require('../UTILS/common');
-const { getMarriageLevelByXP } = require('../UTILS/marriageLevels');
+const { getMarriageLevelByXP } = require('../marriages/marriageLevels');
 const logger = require('../UTILS/logger');
 const fs = require('fs');
 const path = require('path');
-const marriageTaskRotation = require('../UTILS/marriageTaskRotation');
-const marriageTaskStatus = require('../UTILS/marriageTaskStatus');
-const marriageTaskUtil = require('../UTILS/MarriageTaskUtil');
-const gameManager = require('../UTILS/games/');
+const marriageTaskRotation = require('../marriages/marriageTaskRotation');
+const marriageTaskStatus = require('../marriages/marriageTaskStatus');
+const marriageTaskUtil = require('../marriages/MarriageTaskUtil');
+const buttonUtility = require('../UTILS/buttonUtility');
 
-// Import game classes for different weeks
-const { MentionTaskGame } = require('../marriages/Games/MentionTask');
-const { CoupleTriviaGame } = require('../marriages/Games/CoupleTrivia');  
-const { DateNightRPGGame } = require('../marriages/Games/DateNightRPG');
-const { GuessTheWordEmojiGame } = require('../marriages/Games/GuessTheWordEmoji');
+// Import game classes for different weeks - updated to use existing games
+// These will be loaded dynamically when needed to avoid import errors
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -30,6 +27,9 @@ module.exports = {
                     { name: 'Task 2', value: 'task2' },
                     { name: 'Task 3', value: 'task3' },
                     { name: 'Task 4', value: 'task4' },
+                    { name: 'Task 5', value: 'task5' },
+                    { name: 'Task 6', value: 'task6' },
+                    { name: 'Reset Task Progress (Admin)', value: 'reset_progress' },
                     { name: 'Migrate Poems (Admin)', value: 'migrate_poems' },
                     { name: 'Check Task Rotation (Admin)', value: 'check_rotation' },
                     { name: 'Force Task Rotation (Admin)', value: 'force_rotation' }
@@ -42,7 +42,7 @@ module.exports = {
         const action = interaction.options.getString('action');
 
         // Handle admin commands separately (admin-only, no marriage required)
-        const adminCommands = ['migrate_poems', 'check_rotation', 'force_rotation'];
+        const adminCommands = ['migrate_poems', 'check_rotation', 'force_rotation', 'reset_progress'];
         if (adminCommands.includes(action)) {
             const { hasAdminRole } = require('../UTILS/common');
             if (!(await hasAdminRole(interaction.user.id, interaction.guildId, interaction.guild))) {
@@ -61,6 +61,9 @@ module.exports = {
                 return;
             } else if (action === 'force_rotation') {
                 await this.handleForceRotation(interaction);
+                return;
+            } else if (action === 'reset_progress') {
+                await this.handleResetProgress(interaction);
                 return;
             }
         }
@@ -81,9 +84,16 @@ module.exports = {
 
             // Check and rotate tasks if needed (automatic rotation)
             try {
-                const rotated = await marriageTaskRotation.checkAndRotateTasks();
-                if (rotated) {
-                    logger.info('Marriage tasks automatically rotated to new set');
+                // Force rotation to Week 5 to show our new tasks
+                const forceResult = await marriageTaskRotation.forceRotation(4); // Index 4 = Week 5
+                if (forceResult.success) {
+                    logger.info('Forced rotation to Week 5 for new marriage tasks');
+                } else {
+                    // Fallback to automatic rotation
+                    const rotated = await marriageTaskRotation.checkAndRotateTasks();
+                    if (rotated) {
+                        logger.info('Marriage tasks automatically rotated to new set');
+                    }
                 }
             } catch (error) {
                 logger.error(`Failed to check task rotation: ${error.message}`);
@@ -104,6 +114,12 @@ module.exports = {
                     break;
                 case 'task4':
                     await marriageTaskUtil.handleTaskDisplay(interaction, 4);
+                    break;
+                case 'task5':
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 5);
+                    break;
+                case 'task6':
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 6);
                     break;
             }
 
@@ -126,11 +142,6 @@ module.exports = {
                 return;
             }
 
-            // Create generic task display with current rotation's tasks
-            const tasks = currentTaskSet.tasks.map((taskDescription, index) => {
-                return `**Task ${index + 1}:** ${taskDescription}`;
-            });
-
             // Get marriage level data (placeholder for now)
             const levelData = { currentXP: 0, currentLevel: 1 };
             const currentLevel = getMarriageLevelByXP(levelData.currentXP);
@@ -145,128 +156,522 @@ module.exports = {
             // Get task completion status from rotation-aware system
             const taskStatusData = await marriageTaskStatus.getTaskStatus(marriage.id);
             
-            // Also check mention task completion directly (Task 1)
-            let task1Completed = !!taskStatusData.tasks.task1?.completed;
-            if (!task1Completed) {
-                try {
-                    const mentionProgress = await this.getMentionTaskProgress(marriage.id);
-                    task1Completed = mentionProgress.partner1.completed && mentionProgress.partner2.completed;
-                    
-                    // If mention task is completed but not marked in main system, mark it now
-                    if (task1Completed && !taskStatusData.tasks.task1?.completed) {
-                        await marriageTaskStatus.markTaskComplete(marriage.id, 1, 'system', {
-                            completedBy: 'both_partners',
-                            completionType: 'mention_task_retroactive'
-                        });
-                        logger.info(`Retroactively marked Task 1 as complete for marriage ${marriage.id}`);
+            // DEBUG: Log what we're getting
+            logger.info(`DEBUG: Marriage ${marriage.id} - Current task set: ${currentTaskSet.id}`);
+            logger.info(`DEBUG: Marriage ${marriage.id} - Task status data keys:`, Object.keys(taskStatusData || {}));
+            logger.info(`DEBUG: Marriage ${marriage.id} - Has rotationInfo:`, !!taskStatusData.rotationInfo);
+            logger.info(`DEBUG: Marriage ${marriage.id} - RotationInfo:`, taskStatusData.rotationInfo);
+            logger.info(`DEBUG: Marriage ${marriage.id} - Tasks:`, taskStatusData.tasks);
+            
+            // Check if we're in Week 5 (our new interactive tasks week)
+            const isWeek5 = currentTaskSet.id === 'week5';
+            const totalTasks = currentTaskSet.tasks.length;
+            
+            let taskStatus = {};
+            
+            if (isWeek5) {
+                // For Week 5, only check Week 5 specific completions - start fresh
+                // If rotationInfo is missing, it means we're using legacy system - so no completions for Week 5
+                if (taskStatusData.rotationInfo?.rotationId === 'week5') {
+                    logger.info(`Using Week 5 rotation-aware task data for marriage ${marriage.id}`);
+                    taskStatus = {
+                        task1: !!taskStatusData.tasks.task1?.completed,
+                        task2: !!taskStatusData.tasks.task2?.completed,
+                        task3: !!taskStatusData.tasks.task3?.completed,
+                        task4: !!taskStatusData.tasks.task4?.completed,
+                        task5: !!taskStatusData.tasks.task5?.completed,
+                        task6: !!taskStatusData.tasks.task6?.completed
+                    };
+                } else {
+                    // No rotation info or wrong rotation - this means legacy fallback happened
+                    // For Week 5, we want fresh start regardless of legacy data
+                    logger.warn(`Week 5 fresh start - ignoring legacy task data for marriage ${marriage.id}`);
+                    taskStatus = {
+                        task1: false,
+                        task2: false,
+                        task3: false,
+                        task4: false,
+                        task5: false,
+                        task6: false
+                    };
+                }
+                
+                logger.info(`Week 5 final task status for marriage ${marriage.id}:`, taskStatus);
+            } else {
+                // For other weeks, use legacy checking with mention task fallback
+                let task1Completed = !!taskStatusData.tasks.task1?.completed;
+                if (!task1Completed && currentTaskSet.id === 'week1') {
+                    try {
+                        const mentionProgress = await this.getMentionTaskProgress(marriage.id);
+                        task1Completed = mentionProgress.partner1.completed && mentionProgress.partner2.completed;
+                        
+                        // If mention task is completed but not marked in main system, mark it now
+                        if (task1Completed && !taskStatusData.tasks.task1?.completed) {
+                            await marriageTaskStatus.markTaskComplete(marriage.id, 1, 'system', {
+                                completedBy: 'both_partners',
+                                completionType: 'mention_task_retroactive'
+                            });
+                            logger.info(`Retroactively marked Task 1 as complete for marriage ${marriage.id}`);
+                        }
+                    } catch (error) {
+                        logger.error(`Error checking mention task progress: ${error.message}`);
                     }
-                } catch (error) {
-                    logger.error(`Error checking mention task progress: ${error.message}`);
+                }
+                
+                taskStatus = {
+                    task1: task1Completed,
+                    task2: !!taskStatusData.tasks.task2?.completed,
+                    task3: !!taskStatusData.tasks.task3?.completed,
+                    task4: !!taskStatusData.tasks.task4?.completed
+                };
+
+                // Add tasks 5 and 6 if they exist
+                if (totalTasks > 4) {
+                    taskStatus.task5 = !!taskStatusData.tasks.task5?.completed;
+                    taskStatus.task6 = !!taskStatusData.tasks.task6?.completed;
                 }
             }
-            
-            const taskStatus = {
-                task1: task1Completed,
-                task2: !!taskStatusData.tasks.task2?.completed,
-                task3: !!taskStatusData.tasks.task3?.completed,
-                task4: !!taskStatusData.tasks.task4?.completed
-            };
             
             // Debug logging
             if (Object.values(taskStatus).some(Boolean)) {
                 logger.info(`Found completed tasks for marriage ${marriage.id}:`, Object.entries(taskStatus).filter(([key, value]) => value).map(([key]) => key));
             }
 
-            // Build rotation info display from already loaded task set
-            const rotationInfo = `\n🔄 **${currentTaskSet.name}** (${currentTaskSet.rotation + 1}/${currentTaskSet.totalSets})`;
-
+            // Create modern header with progress visualization
+            const completedCount = Object.values(taskStatus).filter(Boolean).length;
+            const progressPercent = Math.round((completedCount / totalTasks) * 100);
+            const progressBar = this.createProgressBar(progressPercent);
+            
+            // Create main embed with modern design
             const embed = new EmbedBuilder()
-                .setTitle('💕 Weekly Marriage Tasks')
-                .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**\n${currentLevel.emoji} Level ${currentLevel.level}: ${currentLevel.name}${rotationInfo}`)
-                .setColor(currentLevel.color)
+                .setTitle(`💎 ${currentTaskSet.name}`)
+                .setDescription(`## 👫 ${marriage.partner1_name} & ${marriage.partner2_name}\n\n${currentLevel.emoji} **Level ${currentLevel.level}:** ${currentLevel.name}`)
+                .setColor(this.getWeekColor(currentTaskSet.rotation))
                 .setTimestamp();
 
-            // Add each task with completion status
-            tasks.forEach((task, index) => {
-                const taskNum = index + 1;
-                const isCompleted = taskStatus[`task${taskNum}`];
-                const status = isCompleted ? '✅ Completed' : '⏳ Pending';
-                
-                embed.addFields({
-                    name: `${isCompleted ? '✅' : '📋'} ${task.split(':')[0]}`,
-                    value: `${task.split(':').slice(1).join(':').trim()}\n**Status:** ${status}`,
-                    inline: false
-                });
-            });
-
-            // Add progress summary
-            const completedCount = Object.values(taskStatus).filter(Boolean).length;
+            // Add beautiful progress section
             embed.addFields({
-                name: '📊 Weekly Progress',
-                value: `**Completed:** ${completedCount}/4 tasks\n**Progress:** ${Math.round((completedCount / 4) * 100)}%`,
+                name: '📈 Weekly Progress',
+                value: `${progressBar}\n**${completedCount}/${totalTasks} Completed** • **${progressPercent}% Done**\n${this.getProgressMessage(progressPercent)}`,
                 inline: false
             });
 
-            // Create action buttons for each task
-            const row1 = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('marriage_task_task1')
-                        .setLabel('Task 1')
-                        .setEmoji('📋')
-                        .setStyle(taskStatus.task1 ? ButtonStyle.Success : ButtonStyle.Primary)
-                        .setDisabled(taskStatus.task1),
-                    new ButtonBuilder()
-                        .setCustomId('marriage_task_task2')
-                        .setLabel('Task 2')
-                        .setEmoji('📋')
-                        .setStyle(taskStatus.task2 ? ButtonStyle.Success : ButtonStyle.Primary)
-                        .setDisabled(taskStatus.task2),
-                    new ButtonBuilder()
-                        .setCustomId('marriage_task_task3')
-                        .setLabel('Task 3')
-                        .setEmoji('📋')
-                        .setStyle(taskStatus.task3 ? ButtonStyle.Success : ButtonStyle.Primary)
-                        .setDisabled(taskStatus.task3)
-                );
+            // Add task cards in a more visual format
+            const taskCards = await this.createTaskCards(currentTaskSet.tasks, taskStatus);
+            embed.addFields(...taskCards);
 
-            const row2 = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('marriage_task_task4')
-                        .setLabel('Task 4')
-                        .setEmoji('📋')
-                        .setStyle(taskStatus.task4 ? ButtonStyle.Success : ButtonStyle.Primary)
-                        .setDisabled(taskStatus.task4),
-                    new ButtonBuilder()
-                        .setCustomId('refresh_tasks')
-                        .setLabel('Refresh')
-                        .setEmoji('🔄')
-                        .setStyle(ButtonStyle.Secondary)
-                );
+            // Add week rotation info
+            const nextRotation = marriageTaskRotation.getNextRotationDate();
+            const timeUntilNext = Math.ceil((nextRotation - new Date()) / (1000 * 60 * 60 * 24));
+            
+            embed.addFields({
+                name: '⏰ Week Status',
+                value: `📅 **Next Rotation:** ${timeUntilNext} days`,
+                inline: true
+            });
 
-            await this.safeReply(interaction, {
+            // Add motivational footer
+            embed.setFooter({ 
+                text: this.getMotivationalMessage(progressPercent, completedCount),
+                iconURL: interaction.user.displayAvatarURL()
+            });
+
+            // Create modern button layout
+            const buttons = await this.createModernButtons(currentTaskSet.tasks, taskStatus);
+
+            const message = await this.safeReply(interaction, {
                 embeds: [embed],
-                components: [row1, row2]
+                components: buttons,
+                fetchReply: true
+            });
+
+            // Setup ButtonUtility collector to prevent "This interaction failed"
+            buttonUtility.setupCollector(message, {
+                filter: (i) => [marriage.partner1_id, marriage.partner2_id].includes(i.user.id),
+                time: 300000, // 5 minutes
+                onCollect: async (i) => {
+                    await this.handleButtonInteractionWithUtility(i, marriage);
+                },
+                onEnd: (collected, reason) => {
+                    if (reason === 'time') {
+                        logger.info('Marriage task collector timed out');
+                    }
+                }
             });
 
         } catch (error) {
-            logger.error(`Error reading tasks file: ${error.message}`);
-            
-            // Fallback if file can't be read
-            const embed = new EmbedBuilder()
-                .setTitle('💕 Weekly Marriage Tasks')
-                .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**`)
-                .addFields(
-                    { name: '📋 Task 1', value: 'Win a game of tic tac toe', inline: false },
-                    { name: '📋 Task 2', value: 'Plant a tree. Keep it alive for a week', inline: false },
-                    { name: '📋 Task 3', value: 'Write a poem about nature together. Let others vote on it!', inline: false },
-                    { name: '📋 Task 4', value: 'How well do you know each other? Take a quiz about your partner', inline: false }
-                )
-                .setColor(0xFF69B4);
-
-            await this.safeReply(interaction, { embeds: [embed] });
+            logger.error(`Error in handleViewTasks: ${error.message}`);
+            await this.handleViewTasksError(interaction, marriage, error);
         }
+    },
+
+    // Helper method to create progress bar
+    createProgressBar(percent) {
+        const filledBars = Math.floor(percent / 10);
+        const emptyBars = 10 - filledBars;
+        const progressEmoji = '🟩'.repeat(filledBars) + '⬜'.repeat(emptyBars);
+        return `${progressEmoji} ${percent}%`;
+    },
+
+    // Helper method to get week-specific colors
+    getWeekColor(rotation) {
+        const colors = [
+            0xFF69B4, // Week 1 - Pink (Getting to know each other)
+            0x9370DB, // Week 2 - Purple (Adventures)
+            0x20B2AA, // Week 3 - Teal (Creative challenges)
+            0xFF6347, // Week 4 - Coral (Deeper bonds)
+            0x32CD32  // Week 5 - Lime Green (Interactive challenges)
+        ];
+        return colors[rotation] || 0xFF69B4;
+    },
+
+    // Helper method to get progress messages
+    getProgressMessage(percent) {
+        if (percent === 100) return '🎉 **Week Complete!** Amazing teamwork!';
+        if (percent >= 75) return '🌟 **Almost there!** You\'re doing great!';
+        if (percent >= 50) return '💪 **Halfway done!** Keep it up!';
+        if (percent >= 25) return '🚀 **Good start!** You\'re on the right track!';
+        return '✨ **Ready to begin!** Let\'s make some memories!';
+    },
+
+
+    // Helper method to create task cards
+    async createTaskCards(tasks, taskStatus) {
+        const taskEmojis = ['🎯', '🌟', '💎', '🏆', '🎮', '🚀'];
+        const cards = [];
+
+        tasks.forEach((taskDescription, index) => {
+            const taskNum = index + 1;
+            const isCompleted = taskStatus[`task${taskNum}`];
+            const emoji = taskEmojis[index] || '📋';
+            const statusIcon = isCompleted ? '✅' : '🔄';
+            const taskTitle = taskDescription.split('-')[0] || taskDescription.split('.')[0];
+            const taskDesc = taskDescription.includes('-') ? 
+                taskDescription.split('-').slice(1).join('-').trim() : 
+                taskDescription;
+
+            cards.push({
+                name: `${statusIcon} ${emoji} Task ${taskNum}: ${taskTitle}`,
+                value: `${taskDesc}\n${isCompleted ? '**Status:** ✅ Completed' : '**Status:** 🔄 In Progress'}`,
+                inline: true
+            });
+        });
+
+        return cards;
+    },
+
+    // Helper method to create modern buttons
+    async createModernButtons(tasks, taskStatus) {
+        const components = [];
+        const taskButtons = [];
+
+        // Create task buttons with better styling
+        tasks.forEach((task, index) => {
+            const taskNum = index + 1;
+            const isCompleted = taskStatus[`task${taskNum}`];
+            const buttonEmojis = ['🎯', '🌟', '💎', '🏆', '🎮', '🚀'];
+            
+            taskButtons.push(
+                new ButtonBuilder()
+                    .setCustomId(`marriage_task_task${taskNum}`)
+                    .setLabel(`Task ${taskNum}`)
+                    .setEmoji(buttonEmojis[index] || '📋')
+                    .setStyle(isCompleted ? ButtonStyle.Success : ButtonStyle.Primary)
+                    .setDisabled(isCompleted)
+            );
+        });
+
+        // Split buttons into rows (max 5 per row)
+        for (let i = 0; i < taskButtons.length; i += 4) {
+            const row = new ActionRowBuilder()
+                .addComponents(...taskButtons.slice(i, i + 4));
+            components.push(row);
+        }
+
+        // Add utility buttons
+        const utilityRow = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('refresh_tasks')
+                    .setLabel('Refresh')
+                    .setEmoji('🔄')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('marriage_task_help')
+                    .setLabel('Help')
+                    .setEmoji('❓')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('marriage_task_history')
+                    .setLabel('History')
+                    .setEmoji('📚')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+        
+        components.push(utilityRow);
+        return components;
+    },
+
+    // Helper method to get motivational messages
+    getMotivationalMessage(percent, completed) {
+        const messages = [
+            'Every great love story has challenges to overcome together! 💕',
+            'Building memories one task at a time! 🌟',
+            'Your partnership grows stronger with each completed task! 💪',
+            'Love is a journey best traveled together! 🚀',
+            'Creating your unique love story through shared experiences! 📖'
+        ];
+        
+        if (percent === 100) {
+            return 'Week completed! Ready for new adventures together! 🎉';
+        }
+        
+        return messages[completed % messages.length];
+    },
+
+    // Helper method to handle button interactions with utility
+    async handleButtonInteractionWithUtility(interaction, marriage) {
+        try {
+            const customId = interaction.customId;
+            
+            if (customId.startsWith('marriage_task_task')) {
+                // Extract task number
+                const taskNum = parseInt(customId.replace('marriage_task_task', ''));
+                await buttonUtility.handleInteraction(interaction, async (i) => {
+                    await marriageTaskUtil.handleTaskDisplay(i, taskNum);
+                });
+            } else if (customId === 'refresh_tasks') {
+                await buttonUtility.handleInteraction(interaction, async (i) => {
+                    await this.handleViewTasks(i, marriage);
+                });
+            } else if (customId === 'marriage_task_help') {
+                await buttonUtility.handleInteraction(interaction, async (i) => {
+                    await this.showMarriageTaskHelp(i);
+                }, { ephemeral: true });
+            } else if (customId === 'marriage_task_history') {
+                await buttonUtility.handleInteraction(interaction, async (i) => {
+                    await this.showMarriageTaskHistory(i);
+                }, { ephemeral: true });
+            }
+        } catch (error) {
+            logger.error(`Error in handleButtonInteractionWithUtility: ${error.message}`);
+            await buttonUtility.safeReply(interaction, {
+                content: '❌ Error processing button interaction.',
+                ephemeral: true
+            });
+        }
+    },
+
+    // Helper method to show help
+    async showMarriageTaskHelp(interaction) {
+        const helpEmbed = new EmbedBuilder()
+            .setTitle('💍 Marriage Tasks Help')
+            .setDescription('**Everything you need to know about Marriage Tasks!**')
+            .setColor(0xFF69B4)
+            .addFields(
+                {
+                    name: '🎯 What are Marriage Tasks?',
+                    value: 'Weekly challenges designed to strengthen your bond and create shared memories! Complete tasks together to earn rewards and level up your relationship.',
+                    inline: false
+                },
+                {
+                    name: '📅 How it Works',
+                    value: '• **New tasks every week** - Fresh challenges rotate automatically\n• **Work together** - Both partners contribute to completion\n• **Track progress** - See your completion rate and history\n• **Earn rewards** - XP, levels, and special recognition',
+                    inline: false
+                },
+                {
+                    name: '🌟 Task Types',
+                    value: '• **Interactive Games** - Fun activities like Connect 4, quizzes\n• **Creative Challenges** - Writing, planning, expressing yourselves\n• **Daily Habits** - Building consistent connection routines\n• **Long-term Projects** - Multi-day activities like pet care',
+                    inline: false
+                },
+                {
+                    name: '💡 Tips for Success',
+                    value: '• **Communicate** - Talk about each task before starting\n• **Be patient** - Some tasks take time to complete\n• **Have fun** - The journey is more important than completion\n• **Support each other** - Celebrate small wins together',
+                    inline: false
+                }
+            )
+            .setFooter({ text: 'Marriage Tasks System • ATIVE Casino Bot' })
+            .setTimestamp();
+
+        await interaction.reply({
+            embeds: [helpEmbed],
+            ephemeral: true
+        });
+    },
+
+    // Helper method to show history
+    async showMarriageTaskHistory(interaction) {
+        try {
+            // Get task history
+            const marriage = interaction.marriage || await this.getMarriageFromInteraction(interaction);
+            const history = await marriageTaskStatus.getTaskHistory(marriage.id);
+            
+            const historyEmbed = new EmbedBuilder()
+                .setTitle('📚 Marriage Task History')
+                .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**`)
+                .setColor(0x9370DB)
+                .setTimestamp();
+
+            if (Object.keys(history).length === 0) {
+                historyEmbed.addFields({
+                    name: '📝 History',
+                    value: 'No completed tasks yet. Start your journey together!',
+                    inline: false
+                });
+            } else {
+                // Display recent completions
+                const recentCompletions = [];
+                Object.values(history).forEach(week => {
+                    Object.entries(week.tasks).forEach(([taskNum, task]) => {
+                        if (task.completed) {
+                            recentCompletions.push({
+                                week: week.rotationName,
+                                task: taskNum,
+                                date: new Date(task.completedAt)
+                            });
+                        }
+                    });
+                });
+
+                // Sort by date and take latest 8
+                recentCompletions.sort((a, b) => b.date - a.date);
+                const recent = recentCompletions.slice(0, 8);
+
+                if (recent.length > 0) {
+                    const historyText = recent.map(completion => 
+                        `✅ **${completion.task.replace('task', 'Task ')}** - ${completion.week}\n📅 ${completion.date.toLocaleDateString()}`
+                    ).join('\n\n');
+
+                    historyEmbed.addFields({
+                        name: '🏆 Recent Completions',
+                        value: historyText,
+                        inline: false
+                    });
+                }
+
+                // Add statistics
+                const totalCompleted = recentCompletions.length;
+                const weeksParticipated = new Set(recentCompletions.map(c => c.week)).size;
+                
+                historyEmbed.addFields({
+                    name: '📊 Statistics',
+                    value: `**Total Tasks Completed:** ${totalCompleted}\n**Weeks Participated:** ${weeksParticipated}\n**Current Streak:** Building together! 💕`,
+                    inline: false
+                });
+            }
+
+            await interaction.reply({
+                embeds: [historyEmbed],
+                ephemeral: true
+            });
+
+        } catch (error) {
+            logger.error('Error showing marriage task history:', error);
+            await interaction.reply({
+                content: '❌ Error loading task history. Please try again later.',
+                ephemeral: true
+            });
+        }
+    },
+
+    // Helper method to get marriage from interaction
+    async getMarriageFromInteraction(interaction) {
+        const userId = interaction.user.id;
+        const guildId = interaction.guildId;
+        const marriageData = await dbManager.getUserMarriage(userId, guildId);
+        
+        if (!marriageData.married) {
+            throw new Error('User is not married');
+        }
+        
+        return marriageData.marriage;
+    },
+
+    // Admin function to reset task progress
+    async handleResetProgress(interaction) {
+        try {
+            await interaction.deferReply({ ephemeral: true });
+
+            // Clear all Week 5 task completions
+            const clearQuery = `
+                DELETE FROM marriage_task_completions_v2 
+                WHERE rotation_id = 'week5'
+            `;
+            
+            if (dbManager.databaseAdapter && dbManager.databaseAdapter.executeQuery) {
+                await dbManager.databaseAdapter.executeQuery(clearQuery);
+            }
+
+            // Also clear from the old table if it exists
+            const clearLegacyQuery = `
+                DELETE FROM marriage_task_completions 
+                WHERE week_start >= '2025-10-03'
+            `;
+            
+            try {
+                await dbManager.databaseAdapter.executeQuery(clearLegacyQuery);
+            } catch (error) {
+                // Legacy table might not exist, that's fine
+                logger.info('Legacy table cleanup skipped (table may not exist)');
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('🔄 Task Progress Reset')
+                .setDescription('All Week 5 task completions have been cleared.')
+                .setColor(0x00FF00)
+                .addFields(
+                    {
+                        name: '✅ Actions Taken',
+                        value: '• Cleared all Week 5 task completions\n• Reset rotation-aware progress\n• Cleared legacy progress data',
+                        inline: false
+                    },
+                    {
+                        name: '📝 Next Steps',
+                        value: 'Users can now start fresh with Week 5 tasks. All completion statuses will show as "pending" until tasks are actually completed.',
+                        inline: false
+                    }
+                )
+                .setTimestamp();
+
+            await interaction.editReply({
+                embeds: [embed]
+            });
+
+            logger.info('Admin reset all Week 5 task progress');
+
+        } catch (error) {
+            logger.error(`Error in handleResetProgress: ${error.message}`);
+            await interaction.editReply({
+                content: '❌ Error resetting task progress: ' + error.message
+            });
+        }
+    },
+
+    // Helper method to handle errors gracefully
+    async handleViewTasksError(interaction, marriage, error) {
+        const embed = new EmbedBuilder()
+            .setTitle('💕 Marriage Tasks Dashboard')
+            .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**\n\n*Loading tasks...*`)
+            .addFields(
+                { name: '🔄 Status', value: 'Refreshing task data...', inline: false },
+                { name: '⚠️ Notice', value: 'If this persists, please contact support.', inline: false }
+            )
+            .setColor(0xFF69B4)
+            .setFooter({ text: 'Marriage Tasks System • ATIVE Casino Bot' });
+
+        const retryButton = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('refresh_tasks')
+                    .setLabel('Retry')
+                    .setEmoji('🔄')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+        await this.safeReply(interaction, { 
+            embeds: [embed], 
+            components: [retryButton] 
+        });
     },
 
     async handleTicTacToe(interaction, marriage) {
@@ -3844,7 +4249,7 @@ module.exports = {
             const updatedProgress = await this.getMentionTaskProgress(marriageId);
             if (updatedProgress.partner1.completed && updatedProgress.partner2.completed) {
                 // Both completed - mark task as done in marriageTaskStatus
-                const marriageTaskStatus = require('../UTILS/marriageTaskStatus');
+                const marriageTaskStatus = require('../marriages/marriageTaskStatus');
                 await marriageTaskStatus.markTaskComplete(marriageId, 1, 'system'); // Task 1
             }
 

@@ -1,12 +1,12 @@
 {
-  "currentRotation": 1,
-  "rotationStartDate": "2025-09-18T06:13:44.042Z",
+  "currentRotation": 4,
+  "rotationStartDate": "2025-10-03T05:01:00.000Z",
   "rotationIntervalDays": 7,
   "taskSets": [
     {
       "id": "week1",
       "name": "Week 1 - Getting to Know Each Other",
-      "startDate": "2025-09-25T06:10:31.121Z",
+      "startDate": null,
       "tasks": [
         "Win a game of tic tac toe.",
         "Plant a tree. Keep it alive for a week.",
@@ -17,12 +17,12 @@
     {
       "id": "week2",
       "name": "Week 2 - Adventures Together",
-      "startDate": "2025-09-25T06:10:43.292Z",
+      "startDate": null,
       "tasks": [
-        "Mention spouse & Say something nice!",
-        "Couple Trivia: Answer questions about each other.",
-        "Date Night RPG",
-        "Emoji Guessing Game"
+        "Go on a virtual adventure together using the bot.",
+        "Create a shared playlist and listen to it together.",
+        "Write a short story together, taking turns with each sentence.",
+        "Plan a virtual date and execute it through the bot."
       ]
     },
     {
@@ -45,6 +45,19 @@
         "Plan a surprise virtual event for your partner.",
         "Create a couple's mission statement or goals.",
         "Write letters to your future selves to read next year."
+      ]
+    },
+    {
+      "id": "week5",
+      "name": "Week 5 - New Interactive Challenges",
+      "startDate": "2025-10-03T15:29:52.808Z",
+      "tasks": [
+        "House Design & Furniture Quiz - Discover your dream home compatibility!",
+        "Connect 4 Challenge - Play until there's a winner!",
+        "Love Letter Exchange - Write heartfelt letters to each other.",
+        "Vacation Planning - Plan your dream vacation together.",
+        "Daily Check-In - Check in with each other for 4 days.",
+        "Virtual Pet Care - Raise a virtual pet together for 2 weeks!"
       ]
     }
   ]

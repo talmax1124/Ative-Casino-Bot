@@ -159,6 +159,18 @@ async function handleGameModalSubmit(interaction) {
                 content: `✅ Answer recorded: "${quizAnswer}"`,
                 ephemeral: true
             });
+        } else if (customId.startsWith('letter_modal_')) {
+            // Handle love letter modal submission
+            const sessionId = customId.replace('letter_modal_', '');
+            const LoveLetterTaskGame = require('./marriages/games/LoveLetterTaskGame');
+            const game = new LoveLetterTaskGame();
+            await game.handleModalSubmit(interaction, sessionId);
+        } else if (customId.startsWith('vacation_modal_')) {
+            // Handle vacation planning modal submission
+            const sessionId = customId.replace('vacation_modal_', '');
+            const VacationPlanTaskGame = require('./marriages/games/VacationPlanTaskGame');
+            const game = new VacationPlanTaskGame();
+            await game.handleModalSubmit(interaction, sessionId);
         }
 
     } catch (error) {
@@ -494,33 +506,33 @@ async function handleLotteryButtons(interaction, customId) {
 }
 
 /**
- * Initialize marriage task rotation scheduler
+ * Initialize marriage task rotation scheduler for Friday rotations
  */
 function initializeMarriageTaskScheduler() {
-    const marriageTaskRotation = require('./UTILS/marriageTaskRotation');
+    const marriageTaskRotation = require('./marriages/marriageTaskRotation');
     
-    // Calculate milliseconds until next Thursday at 12:01 AM EST
-    function getNextThursdayEST() {
+    // Calculate milliseconds until next Friday at 12:01 AM EST
+    function getNextFridayEST() {
         const now = new Date();
-        const nextThursday = new Date();
+        const nextFriday = new Date();
         
-        // Get current day (0 = Sunday, 1 = Monday, ..., 4 = Thursday)
+        // Get current day (0 = Sunday, 1 = Monday, ..., 5 = Friday)
         const currentDay = now.getDay();
-        const thursdayDay = 4; // Thursday
+        const fridayDay = 5; // Friday
         
-        // Calculate days until next Thursday
-        let daysUntilThursday = thursdayDay - currentDay;
-        if (daysUntilThursday <= 0 || (daysUntilThursday === 0 && now.getHours() >= 5)) {
-            // If today is Thursday and it's already past 12:01 AM EST (5:01 AM UTC), 
-            // or if we're past Thursday, go to next Thursday
-            daysUntilThursday += 7;
+        // Calculate days until next Friday
+        let daysUntilFriday = fridayDay - currentDay;
+        if (daysUntilFriday <= 0 || (daysUntilFriday === 0 && now.getHours() >= 5)) {
+            // If today is Friday and it's already past 12:01 AM EST (5:01 AM UTC), 
+            // or if we're past Friday, go to next Friday
+            daysUntilFriday += 7;
         }
         
-        // Set to next Thursday at 12:01 AM EST (5:01 AM UTC)
-        nextThursday.setDate(now.getDate() + daysUntilThursday);
-        nextThursday.setUTCHours(5, 1, 0, 0); // 12:01 AM EST = 5:01 AM UTC
+        // Set to next Friday at 12:01 AM EST (5:01 AM UTC)
+        nextFriday.setDate(now.getDate() + daysUntilFriday);
+        nextFriday.setUTCHours(5, 1, 0, 0); // 12:01 AM EST = 5:01 AM UTC
         
-        return nextThursday.getTime() - now.getTime();
+        return nextFriday.getTime() - now.getTime();
     }
     
     // Check and rotate tasks
@@ -538,19 +550,19 @@ function initializeMarriageTaskScheduler() {
         }
     }
     
-    // Schedule the first check for next Thursday at 12:01 AM EST
-    const timeUntilThursday = getNextThursdayEST();
+    // Schedule the first check for next Friday at 12:01 AM EST
+    const timeUntilFriday = getNextFridayEST();
     
     setTimeout(() => {
         // Run the initial check
         checkTaskRotation();
         
-        // Then set up weekly checks every Thursday (7 days = 7 * 24 * 60 * 60 * 1000 ms)
+        // Then set up weekly checks every Friday (7 days = 7 * 24 * 60 * 60 * 1000 ms)
         setInterval(checkTaskRotation, 7 * 24 * 60 * 60 * 1000);
         
-    }, timeUntilThursday);
+    }, timeUntilFriday);
     
-    logger.info(`🕛 Marriage task scheduler initialized - next Thursday rotation in ${Math.round(timeUntilThursday / (1000 * 60 * 60))} hours`);
+    logger.info(`🕛 Marriage task scheduler initialized - next Friday rotation in ${Math.round(timeUntilFriday / (1000 * 60 * 60))} hours`);
 }
 
 /**
@@ -608,6 +620,15 @@ async function createStartupEconomicSummary(client) {
 // Event handlers
 client.once('clientReady', async () => {
     logger.info(`ATIVE Casino Bot logged in as ${client.user.tag} (ID: ${client.user.id})`);
+
+    // Load marriage task games
+    try {
+        const marriageGameLoader = require('./marriages/games/marriageGameLoader');
+        await marriageGameLoader.loadAllGames();
+        logger.info('✅ Marriage task games initialized');
+    } catch (error) {
+        logger.error('❌ Failed to initialize marriage task games:', error);
+    }
 
     // Set dynamic bot activity status
     setupBotActivity();
@@ -781,10 +802,10 @@ client.once('clientReady', async () => {
     // Initialize marriage task rotation scheduler
     initializeMarriageTaskScheduler();
     
-    // Initialize marriage task games
+    // Initialize marriage task games (old Week 1-4 system - disabled)
     try {
-        const gameManager = require('./UTILS/games');
-        logger.info('🎮 Marriage task games initialized successfully');
+        // const gameManager = require('./UTILS/games'); // Disabled - using new Week 5+ system
+        logger.info('🎮 Old marriage task games system disabled (using new Week 5+ system)');
     } catch (error) {
         logger.error('Failed to initialize marriage task games:', error);
     }
@@ -2690,6 +2711,12 @@ client.on('interactionCreate', async interaction => {
                         };
                         await marriageTaskCommand.execute(fakeInteraction);
                     }
+                } else if (customId === 'marriage_task_help') {
+                    // Handle help button
+                    await showMarriageTaskHelp(interaction);
+                } else if (customId === 'marriage_task_history') {
+                    // Handle history button
+                    await showMarriageTaskHistory(interaction);
                 } else {
                     // Handle task buttons (marriage_task_task1, marriage_task_task2, etc.)
                     const marriageTaskCommand = client.commands.get('marriage-task');
@@ -2704,13 +2731,39 @@ client.on('interactionCreate', async interaction => {
                 const marriageTaskUtil = require('./UTILS/MarriageTaskUtil');
                 await marriageTaskUtil.startGameSession(interaction, gameType);
             }
-            // Handle marriage task game action buttons (new unified system)
-            else if (customId.includes('_game_')) {
-                const gameManager = require('./UTILS/games');
-                const handled = await gameManager.handleButtonInteraction(interaction);
-                if (!handled) {
-                    logger.warn(`Unhandled game button interaction: ${customId}`);
+            // Handle new marriage task game buttons
+            else if (customId.startsWith('house_answer_') || customId.startsWith('c4_drop_') || customId.startsWith('c4_restart') ||
+                     customId.startsWith('letter_write_') || customId.startsWith('vacation_add_') || customId.startsWith('vacation_finish_') ||
+                     customId.startsWith('vacation_view_') || customId.startsWith('checkin_morning_') || customId.startsWith('checkin_night_') ||
+                     customId.startsWith('pet_feed_') || customId.startsWith('pet_water_') || customId.startsWith('pet_clean_') || 
+                     customId.startsWith('pet_pet_') || customId.startsWith('pet_retry_')) {
+                
+                // Handle specific game actions
+                if (customId.startsWith('house_answer_')) {
+                    // House design quiz handled by the game itself
+                    await interaction.reply({ content: '⚠️ Please use the Start House Quiz button to begin.', ephemeral: true });
+                } else if (customId.startsWith('c4_drop_') || customId.startsWith('c4_restart')) {
+                    // Connect 4 game actions handled by the game itself
+                    await interaction.reply({ content: '⚠️ Please use the Start Connect 4 button to begin.', ephemeral: true });
+                } else if (customId.startsWith('letter_write_')) {
+                    // Love letter actions handled by the game itself
+                    await interaction.reply({ content: '⚠️ Please use the Write Love Letter button to begin.', ephemeral: true });
+                } else if (customId.startsWith('vacation_')) {
+                    // Vacation planning actions handled by the game itself
+                    await interaction.reply({ content: '⚠️ Please use the Start Planning button to begin.', ephemeral: true });
+                } else if (customId.startsWith('checkin_')) {
+                    // Daily check-in actions handled by the game itself
+                    await interaction.reply({ content: '⚠️ Please use the Daily Check-In button to begin.', ephemeral: true });
+                } else if (customId.startsWith('pet_')) {
+                    // Virtual pet actions handled by the game itself
+                    await interaction.reply({ content: '⚠️ Please use the Adopt Pet button to begin.', ephemeral: true });
                 }
+            }
+            // Handle marriage task game action buttons (old system - disabled)
+            else if (customId.includes('_game_')) {
+                // const gameManager = require('./UTILS/games'); // Disabled - old Week 1-4 system
+                // const handled = await gameManager.handleButtonInteraction(interaction);
+                logger.warn(`Old game button interaction disabled: ${customId}`);
             }
             // Handle confirmed task start buttons
             else if (customId.startsWith('confirmed_start_')) {
@@ -3037,6 +3090,17 @@ app.post('/topgg/webhook', async (req, res) => {
 // Rank.top webhook endpoint
 app.post('/ranktop/webhook', async (req, res) => {
     try {
+        // Log everything for debugging real rank.top webhooks
+        logger.info('=== RANK.TOP WEBHOOK RECEIVED ===');
+        logger.info('Method:', req.method);
+        logger.info('URL:', req.url);
+        logger.info('Headers:', JSON.stringify(req.headers, null, 2));
+        logger.info('Body:', JSON.stringify(req.body, null, 2));
+        logger.info('Raw body type:', typeof req.body);
+        logger.info('Query params:', JSON.stringify(req.query, null, 2));
+        logger.info('IP:', req.ip || req.connection.remoteAddress);
+        logger.info('=== END RANK.TOP WEBHOOK ===');
+        
         // Initialize TopGG manager (handles all vote types)
         const TopGGManager = require('./UTILS/topgg');
         const topggManager = new TopGGManager(client);
@@ -3775,6 +3839,154 @@ client.once('clientReady', () => {
     logger.info('🎟️ Rank.top votes: Free lottery tickets (webhook)');
     logger.info('🤝 Server votes: Community support button (no automated rewards)');
 });
+
+// Helper functions for marriage task help and history
+async function showMarriageTaskHelp(interaction) {
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    
+    const helpEmbed = new EmbedBuilder()
+        .setTitle('💍 Marriage Tasks Help')
+        .setDescription('**Everything you need to know about Marriage Tasks!**')
+        .setColor(0xFF69B4)
+        .addFields(
+            {
+                name: '🎯 What are Marriage Tasks?',
+                value: 'Weekly challenges designed to strengthen your bond and create shared memories! Complete tasks together to earn rewards and level up your relationship.',
+                inline: false
+            },
+            {
+                name: '📅 How it Works',
+                value: '• **New tasks every week** - Fresh challenges rotate automatically\n• **Work together** - Both partners contribute to completion\n• **Track progress** - See your completion rate and history\n• **Earn rewards** - XP, levels, and special recognition',
+                inline: false
+            },
+            {
+                name: '🌟 Task Types',
+                value: '• **Interactive Games** - Fun activities like Connect 4, quizzes\n• **Creative Challenges** - Writing, planning, expressing yourselves\n• **Daily Habits** - Building consistent connection routines\n• **Long-term Projects** - Multi-day activities like pet care',
+                inline: false
+            },
+            {
+                name: '💡 Tips for Success',
+                value: '• **Communicate** - Talk about each task before starting\n• **Be patient** - Some tasks take time to complete\n• **Have fun** - The journey is more important than completion\n• **Support each other** - Celebrate small wins together',
+                inline: false
+            }
+        )
+        .setFooter({ text: 'Marriage Tasks System • ATIVE Casino Bot' })
+        .setTimestamp();
+
+    const backButton = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId('refresh_tasks')
+                .setLabel('Back to Tasks')
+                .setEmoji('↩️')
+                .setStyle(ButtonStyle.Primary)
+        );
+
+    await interaction.reply({
+        embeds: [helpEmbed],
+        components: [backButton],
+        ephemeral: true
+    });
+}
+
+async function showMarriageTaskHistory(interaction) {
+    const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+    const dbManager = require('./UTILS/database');
+    const marriageTaskStatus = require('./marriages/marriageTaskStatus');
+    
+    try {
+        // Get user's marriage
+        const userId = interaction.user.id;
+        const guildId = interaction.guildId;
+        const marriageData = await dbManager.getUserMarriage(userId, guildId);
+        
+        if (!marriageData.married) {
+            return await interaction.reply({
+                content: '❌ You must be married to view task history!',
+                ephemeral: true
+            });
+        }
+
+        // Get task history
+        const history = await marriageTaskStatus.getTaskHistory(marriageData.marriage.id);
+        
+        const historyEmbed = new EmbedBuilder()
+            .setTitle('📚 Marriage Task History')
+            .setDescription(`**${marriageData.marriage.partner1_name}** & **${marriageData.marriage.partner2_name}**`)
+            .setColor(0x9370DB)
+            .setTimestamp();
+
+        if (Object.keys(history).length === 0) {
+            historyEmbed.addFields({
+                name: '📝 History',
+                value: 'No completed tasks yet. Start your journey together!',
+                inline: false
+            });
+        } else {
+            // Display recent completions
+            const recentCompletions = [];
+            Object.values(history).forEach(week => {
+                Object.entries(week.tasks).forEach(([taskNum, task]) => {
+                    if (task.completed) {
+                        recentCompletions.push({
+                            week: week.rotationName,
+                            task: taskNum,
+                            date: new Date(task.completedAt)
+                        });
+                    }
+                });
+            });
+
+            // Sort by date and take latest 8
+            recentCompletions.sort((a, b) => b.date - a.date);
+            const recent = recentCompletions.slice(0, 8);
+
+            if (recent.length > 0) {
+                const historyText = recent.map(completion => 
+                    `✅ **${completion.task.replace('task', 'Task ')}** - ${completion.week}\n📅 ${completion.date.toLocaleDateString()}`
+                ).join('\n\n');
+
+                historyEmbed.addFields({
+                    name: '🏆 Recent Completions',
+                    value: historyText,
+                    inline: false
+                });
+            }
+
+            // Add statistics
+            const totalCompleted = recentCompletions.length;
+            const weeksParticipated = new Set(recentCompletions.map(c => c.week)).size;
+            
+            historyEmbed.addFields({
+                name: '📊 Statistics',
+                value: `**Total Tasks Completed:** ${totalCompleted}\n**Weeks Participated:** ${weeksParticipated}\n**Current Streak:** Building together! 💕`,
+                inline: false
+            });
+        }
+
+        const backButton = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('refresh_tasks')
+                    .setLabel('Back to Tasks')
+                    .setEmoji('↩️')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+        await interaction.reply({
+            embeds: [historyEmbed],
+            components: [backButton],
+            ephemeral: true
+        });
+
+    } catch (error) {
+        logger.error('Error showing marriage task history:', error);
+        await interaction.reply({
+            content: '❌ Error loading task history. Please try again later.',
+            ephemeral: true
+        });
+    }
+}
 
 // Start the bot
 client.login(TOKEN).then(() => {

@@ -12,10 +12,10 @@
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const dbManager = require('./database');
+const dbManager = require('../UTILS/database');
 const marriageTaskRotation = require('./marriageTaskRotation');
 const marriageTaskStatus = require('./marriageTaskStatus');
-const logger = require('./logger');
+const logger = require('../UTILS/logger');
 
 class MarriageTaskUtil {
     constructor() {

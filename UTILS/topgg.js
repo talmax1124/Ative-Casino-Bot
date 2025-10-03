@@ -39,14 +39,10 @@ class TopGGManager {
                 }
             },
             ranktop: {
-                coins: 25000, // 25K coins per vote
-                lotteryTickets: 3, // 3 free lottery tickets
-                bonusMultiplier: 1.5, // Weekend bonus
-                streakBonuses: {
-                    7: 50000,   // 7 day streak: 50K bonus
-                    30: 200000, // 30 day streak: 200K bonus
-                    100: 1000000 // 100 day streak: 1M bonus
-                }
+                coins: 0, // No coins for rank.top votes
+                lotteryTickets: 1, // 1 free lottery ticket per vote
+                bonusMultiplier: 1.0, // No weekend bonus for lottery tickets
+                streakBonuses: {} // No streak bonuses for lottery-only rewards
             }
         };
     }
@@ -96,7 +92,36 @@ class TopGGManager {
      */
     async processVoteReward(userId, voteData, voteType = 'bot') {
         try {
-            // Get user's current vote data
+            // Handle rank.top votes separately (lottery tickets only, no streaks)
+            if (voteType === 'ranktop') {
+                const rewardConfig = this.voteRewards.ranktop;
+                let lotteryTicketsGiven = 0;
+                
+                if (rewardConfig.lotteryTickets > 0) {
+                    try {
+                        // Give free lottery tickets using designated server ID
+                        const lotteryGuildId = process.env.DESIGNATED_SERVER_ID || '1403244656845787167';
+                        lotteryTicketsGiven = await this.giveFreeLotteryTickets(userId, lotteryGuildId, rewardConfig.lotteryTickets);
+                        logger.info(`Gave ${lotteryTicketsGiven} free lottery tickets to user ${userId} for rank.top vote`);
+                    } catch (lotteryError) {
+                        logger.error(`Failed to give lottery tickets to user ${userId}: ${lotteryError.message}`);
+                    }
+                }
+
+                // Send notification for lottery tickets only
+                try {
+                    const user = await this.client.users.fetch(userId);
+                    await this.sendVoteRewardNotification(user, 0, 0, 0, false, false, 0, voteType, lotteryTicketsGiven);
+                } catch (userError) {
+                    logger.error(`Failed to fetch user ${userId} for rank.top vote notification: ${userError.message}`);
+                    await this.sendVoteRewardNotification({ id: userId, username: 'Unknown User', displayAvatarURL: () => null }, 0, 0, 0, false, false, 0, voteType, lotteryTicketsGiven);
+                }
+
+                logger.info(`Rank.top vote processed: User ${userId} received ${lotteryTicketsGiven} lottery tickets`);
+                return;
+            }
+
+            // Handle Top.GG votes (coins + streaks)
             const voteInfo = await dbManager.databaseAdapter.getUserVoteData(userId);
             const currentTime = Date.now();
             
@@ -161,29 +186,16 @@ class TopGGManager {
                 await dbManager.adjustWallet(userId, null, rewardAmount);
             }
 
-            // Handle lottery tickets for rank.top votes
-            let lotteryTicketsGiven = 0;
-            if (voteType === 'ranktop' && rewardConfig.lotteryTickets > 0) {
-                try {
-                    // Give free lottery tickets using designated server ID
-                    const lotteryGuildId = process.env.DESIGNATED_SERVER_ID || '1403244656845787167';
-                    lotteryTicketsGiven = await this.giveFreeLotteryTickets(userId, lotteryGuildId, rewardConfig.lotteryTickets);
-                    logger.info(`Gave ${lotteryTicketsGiven} free lottery tickets to user ${userId} for rank.top vote`);
-                } catch (lotteryError) {
-                    logger.error(`Failed to give lottery tickets to user ${userId}: ${lotteryError.message}`);
-                }
-            }
-
             // Get user for notification
             try {
                 const user = await this.client.users.fetch(userId);
                 
                 // Send reward notification
-                await this.sendVoteRewardNotification(user, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes, voteType, lotteryTicketsGiven);
+                await this.sendVoteRewardNotification(user, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes, voteType, 0);
             } catch (userError) {
                 logger.error(`Failed to fetch user ${userId} for vote notification: ${userError.message}`);
                 // Try to send notification without user object
-                await this.sendVoteRewardNotification({ id: userId, username: 'Unknown User', displayAvatarURL: () => null }, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes, voteType, lotteryTicketsGiven);
+                await this.sendVoteRewardNotification({ id: userId, username: 'Unknown User', displayAvatarURL: () => null }, rewardAmount, streakBonus, newVoteData.vote_streak, isWeekend, newVoteData.can_use_earnmoney, newVoteData.total_votes, voteType, 0);
             }
 
             logger.info(`Vote reward processed: User ${userId} received ${fmt(rewardAmount)} coins`);
@@ -236,18 +248,21 @@ class TopGGManager {
                 });
             }
 
-            embed.addFields(
-                {
-                    name: '🔥 Vote Streak',
-                    value: `${streak} day${streak !== 1 ? 's' : ''}`,
-                    inline: true
-                },
-                {
-                    name: '⏰ Next Vote',
-                    value: '<t:' + Math.floor((Date.now() + 12 * 60 * 60 * 1000) / 1000) + ':R>',
-                    inline: true
-                }
-            )
+            // Only show streak and next vote for Top.GG votes, not rank.top
+            if (voteType !== 'ranktop') {
+                embed.addFields(
+                    {
+                        name: '🔥 Vote Streak',
+                        value: `${streak} day${streak !== 1 ? 's' : ''}`,
+                        inline: true
+                    },
+                    {
+                        name: '⏰ Next Vote',
+                        value: '<t:' + Math.floor((Date.now() + 12 * 60 * 60 * 1000) / 1000) + ':R>',
+                        inline: true
+                    }
+                );
+            }
                 .setThumbnail(user.displayAvatarURL())
                 .setFooter({ 
                     text: '🎰 ATIVE Casino • Vote every 12 hours for rewards!',
@@ -255,41 +270,44 @@ class TopGGManager {
                 })
                 .setTimestamp();
 
-            if (isWeekend) {
-                embed.addFields({
-                    name: '🎉 Weekend Bonus!',
-                    value: `+50% extra coins (${fmt(this.voteRewards.coins * 0.5)})`,
-                    inline: false
-                });
-            }
+            // Only show bonuses and earnmoney status for Top.GG votes, not rank.top
+            if (voteType !== 'ranktop') {
+                if (isWeekend) {
+                    embed.addFields({
+                        name: '🎉 Weekend Bonus!',
+                        value: `+50% extra coins (${fmt(this.voteRewards.coins * 0.5)})`,
+                        inline: false
+                    });
+                }
 
-            if (streakBonus > 0) {
-                embed.addFields({
-                    name: '🏆 Streak Bonus!',
-                    value: `${fmt(streakBonus)} bonus coins for ${streak} day streak!`,
-                    inline: false
-                });
-            }
+                if (streakBonus > 0) {
+                    embed.addFields({
+                        name: '🏆 Streak Bonus!',
+                        value: `${fmt(streakBonus)} bonus coins for ${streak} day streak!`,
+                        inline: false
+                    });
+                }
 
-            // Show /earnmoney status
-            if (canUseEarnmoney) {
-                embed.addFields({
-                    name: '💰 /earnmoney Unlocked!',
-                    value: `You can use \`/earnmoney\` command! (${totalVotes} total votes, ${streak} day streak)`,
-                    inline: false
-                });
-            } else if (totalVotes < 10) {
-                embed.addFields({
-                    name: '🎯 Progress to /earnmoney',
-                    value: `${totalVotes}/10 votes needed to unlock \`/earnmoney\` command`,
-                    inline: false
-                });
-            } else if (streak === 0) {
-                embed.addFields({
-                    name: '⚠️ /earnmoney Locked',
-                    value: `You have ${totalVotes} votes but lost your streak! Keep voting daily to unlock \`/earnmoney\``,
-                    inline: false
-                });
+                // Show /earnmoney status
+                if (canUseEarnmoney) {
+                    embed.addFields({
+                        name: '💰 /earnmoney Unlocked!',
+                        value: `You can use \`/earnmoney\` command! (${totalVotes} total votes, ${streak} day streak)`,
+                        inline: false
+                    });
+                } else if (totalVotes < 10) {
+                    embed.addFields({
+                        name: '🎯 Progress to /earnmoney',
+                        value: `${totalVotes}/10 votes needed to unlock \`/earnmoney\` command`,
+                        inline: false
+                    });
+                } else if (streak === 0) {
+                    embed.addFields({
+                        name: '⚠️ /earnmoney Locked',
+                        value: `You have ${totalVotes} votes but lost your streak! Keep voting daily to unlock \`/earnmoney\``,
+                        inline: false
+                    });
+                }
             }
 
             // Try to DM user first
@@ -392,7 +410,14 @@ class TopGGManager {
             const signature = req.headers['x-signature'] || req.headers['authorization'];
             const voteData = req.body || {};
             
-            // Log the actual data received for debugging
+            // Enhanced logging for debugging real webhooks from rank.top
+            logger.info('Rank.Top webhook headers:', {
+                'user-agent': req.headers['user-agent'],
+                'x-signature': req.headers['x-signature'],
+                'authorization': req.headers['authorization'],
+                'content-type': req.headers['content-type'],
+                'x-forwarded-for': req.headers['x-forwarded-for']
+            });
             logger.info('Rank.Top webhook data received:', JSON.stringify(voteData));
             
             // Handle test webhooks - if no user ID or empty body, it's a test
