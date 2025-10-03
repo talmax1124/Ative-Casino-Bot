@@ -361,7 +361,7 @@ class EnhancedEconomicAnalyzer {
                     AVG(bet_amount) as avg_bet,
                     COUNT(DISTINCT user_id) as unique_players
                 FROM game_results 
-                WHERE timestamp >= ?
+                WHERE played_at >= ?
             `, [thirtyMinutesAgo]);
             
             const metrics = gameResults[0] || {};
