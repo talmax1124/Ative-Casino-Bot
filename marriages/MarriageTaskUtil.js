@@ -53,31 +53,30 @@ class MarriageTaskUtil {
      */
     async safeReply(interaction, options) {
         try {
-            // Handle different interaction types
+            // Check if interaction is already handled or expired
+            if (interaction.replied) {
+                // Try editReply first for already replied interactions
+                return await interaction.editReply(options);
+            }
+            
+            if (interaction.deferred) {
+                // For deferred interactions, use editReply
+                return await interaction.editReply(options);
+            }
+
+            // Handle different interaction types for fresh interactions
             if (interaction.isButton && interaction.isButton()) {
-                if (interaction.deferred || interaction.replied) {
-                    return await interaction.editReply(options);
-                } else {
-                    return await interaction.update(options);
-                }
+                // For button interactions, prefer update over reply
+                return await interaction.update(options);
             }
 
             if (interaction.isModalSubmit && interaction.isModalSubmit()) {
-                if (interaction.deferred || interaction.replied) {
-                    return await interaction.editReply(options);
-                } else {
-                    return await interaction.update(options);
-                }
+                // For modal submissions, use reply
+                return await interaction.reply(options);
             }
 
             // For slash commands and other interactions
-            if (interaction.deferred || interaction.replied) {
-                if (interaction.editReply) {
-                    return await interaction.editReply(options);
-                } else {
-                    return await interaction.followUp(options);
-                }
-            } else if (interaction.reply) {
+            if (interaction.reply) {
                 return await interaction.reply(options);
             } else {
                 logger.error(`No available method to send interaction response. Type: ${interaction.type}`);
@@ -85,13 +84,19 @@ class MarriageTaskUtil {
             }
         } catch (error) {
             logger.error(`Error in safeReply: ${error.message}`);
+            logger.debug(`Interaction state - replied: ${interaction.replied}, deferred: ${interaction.deferred}, type: ${interaction.constructor.name}`);
             
-            // Fallback attempts
+            // More robust fallback attempts
             try {
                 if (interaction.followUp && (interaction.replied || interaction.deferred)) {
                     return await interaction.followUp({ content: options.content || 'An error occurred.', ephemeral: true });
-                } else if (interaction.reply && !interaction.replied) {
+                } else if (interaction.reply && !interaction.replied && !interaction.deferred) {
                     return await interaction.reply({ content: options.content || 'An error occurred.', ephemeral: true });
+                } else if (interaction.editReply && (interaction.replied || interaction.deferred)) {
+                    return await interaction.editReply({ content: options.content || 'An error occurred.' });
+                } else {
+                    logger.warn(`Unable to send interaction response - all methods exhausted`);
+                    return false;
                 }
             } catch (fallbackError) {
                 logger.error(`Fallback safeReply also failed: ${fallbackError.message}`);
