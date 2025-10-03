@@ -1006,6 +1006,14 @@ module.exports = {
                     console.log('→ Calling marriageTaskUtil.handleTaskDisplay for task 4');
                     await marriageTaskUtil.handleTaskDisplay(interaction, 4);
                     break;
+                case 'task5':
+                    console.log('→ Calling marriageTaskUtil.handleTaskDisplay for task 5');
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 5);
+                    break;
+                case 'task6':
+                    console.log('→ Calling marriageTaskUtil.handleTaskDisplay for task 6');
+                    await marriageTaskUtil.handleTaskDisplay(interaction, 6);
+                    break;
                 default:
                     console.log('❌ Unknown task action:', taskAction);
                     await interaction.reply({
