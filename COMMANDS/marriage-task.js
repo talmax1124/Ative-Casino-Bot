@@ -279,11 +279,13 @@ module.exports = {
             // Create modern button layout
             const buttons = await this.createModernButtons(currentTaskSet.tasks, taskStatus);
 
-            const message = await this.safeReply(interaction, {
+            await this.safeReply(interaction, {
                 embeds: [embed],
-                components: buttons,
-                fetchReply: true
+                components: buttons
             });
+            
+            // Get the message for button collector
+            const message = await interaction.fetchReply();
 
             // Setup ButtonUtility collector to prevent "This interaction failed"
             buttonUtility.setupCollector(message, {

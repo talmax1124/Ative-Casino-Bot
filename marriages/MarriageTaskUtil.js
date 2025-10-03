@@ -53,16 +53,12 @@ class MarriageTaskUtil {
      */
     async safeReply(interaction, options) {
         try {
-            // Check if interaction is already handled or expired
-            if (interaction.replied) {
-                return await interaction.editReply(options);
-            }
-            
-            if (interaction.deferred) {
+            // ButtonUtility defers interactions, so we should use editReply for deferred interactions
+            if (interaction.deferred || interaction.replied) {
                 return await interaction.editReply(options);
             }
 
-            // Try reply first for all fresh interactions - more reliable than update
+            // For fresh interactions not handled by ButtonUtility, use reply
             if (interaction.reply) {
                 return await interaction.reply(options);
             } else {
