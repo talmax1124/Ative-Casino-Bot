@@ -234,6 +234,12 @@ class ButtonUtility {
      */
     async disableButtons(message) {
         try {
+            // Check if message is valid and editable
+            if (!message || !message.editable || !message.components) {
+                logger.debug('Message is not editable or has no components, skipping button disable');
+                return;
+            }
+
             const components = message.components.map(row => {
                 const newRow = new ActionRowBuilder();
                 const disabledComponents = row.components.map(component => {
@@ -248,7 +254,7 @@ class ButtonUtility {
 
             await message.edit({ components });
         } catch (error) {
-            logger.error('Failed to disable buttons:', error);
+            logger.debug(`Failed to disable buttons (non-critical): ${error.message}`);
         }
     }
 

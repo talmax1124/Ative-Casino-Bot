@@ -1009,6 +1009,9 @@ module.exports = {
             
             const originalWon = totalPayout > 0;
             
+            // Debug logging to track the issue
+            logger.info(`🔍 BLACKJACK CALCULATION: totalPayout=${totalPayout}, totalBetAmount=${totalBetAmount}, originalWon=${originalWon}`);
+            
             // Check if this is a push (all hands are pushes)
             const isPush = results.every(r => r.outcome === 'PUSH');
             
@@ -1037,12 +1040,15 @@ module.exports = {
                 // 🎰 APPLY AI TUNING SYSTEM - ECONOMIC REGULATION (only for wins)
                 tuningAdjustment = await tuningManager.getAdjustedPayout('blackjack', totalPayout, totalBetAmount);
                 regulatedPayout = tuningAdjustment.adjustedPayout;
+                logger.info(`🔍 TUNING APPLIED: originalPayout=${totalPayout}, adjustedPayout=${regulatedPayout}, tuningAdjustment=${JSON.stringify(tuningAdjustment)}`);
             }
             
             // 🎯 APPLY ALL-IN SYSTEM - DYNAMIC HOUSE EDGE (but not for pushes)
             if (originalWon && regulatedPayout > 0 && !isPush) {
                 const allInAdjustment = await allInManager.adjustGameResult(userId, totalBetAmount, regulatedPayout, true, 'blackjack');
+                const preAllInPayout = regulatedPayout;
                 regulatedPayout = allInAdjustment.adjustedPayout;
+                logger.info(`🔍 ALL-IN APPLIED: preAllIn=${preAllInPayout}, postAllIn=${regulatedPayout}, allInAdjustment=${JSON.stringify(allInAdjustment)}`);
                 
                 // Log significant all-in adjustments
                 if (allInAdjustment.houseEdgeApplied > 0.05) {
@@ -1059,6 +1065,9 @@ module.exports = {
             // Push: payout = bet (no profit), Loss: payout = 0, Win: payout > bet
             const netProfit = regulatedPayout - totalBetAmount;
             const won = netProfit > 0; // Only true wins have positive net profit
+            
+            // Final summary log to track win/loss determination
+            logger.info(`🔍 FINAL RESULT: netProfit=${netProfit}, won=${won}, regulatedPayout=${regulatedPayout}, totalBetAmount=${totalBetAmount}`);
             
             // Use PayoutManager for consistent payout handling
             // For losses, payout is 0 since bet was already deducted
@@ -1174,7 +1183,7 @@ module.exports = {
                     const result = results[0] || {};
                     // Use the actual regulated payout, not the original game result payout
                     const actualPayout = regulatedPayout || 0;
-                    logger.info(`🔍 DEBUG: won=${result.won}, outcome=${result.outcome}, baseMultiplier=${result.baseMultiplier}, multiplier=${result.multiplier}, originalPayout=${result.payout}, regulatedPayout=${actualPayout}`);
+                    logger.info(`🔍 DEBUG: originalWon=${result.won}, finalWon=${won}, outcome=${result.outcome}, netProfit=${netProfit}, baseMultiplier=${result.baseMultiplier}, multiplier=${result.multiplier}, originalPayout=${result.payout}, regulatedPayout=${actualPayout}`);
                     
                     // Check for playfor context to display recipient
                     const playForRecipient = global.playForContext?.recipientName;
@@ -1184,7 +1193,7 @@ module.exports = {
                     if (result.outcome === 'PUSH') {
                         // Push always shows the same message regardless of payout
                         resultMessage = `🤝 **PUSH** - Your bet of ${fmt(totalBetAmount)} is returned.`;
-                    } else if (result.won || result.outcome === 'BLACKJACK') {
+                    } else if (won || (result.outcome === 'BLACKJACK' && netProfit >= 0)) {
                         // Win scenarios - show profit, not total payout
                         if (result.outcome === 'BLACKJACK') {
                             if (winningForSomeoneElse) {

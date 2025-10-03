@@ -87,11 +87,12 @@ class DailyCheckInTaskGame {
                         .setStyle(ButtonStyle.Primary)
                 );
 
-            const message = await util.safeReply(interaction, {
+            await util.safeReply(interaction, {
                 embeds: [embed],
-                components: [buttons],
-                fetchReply: true
+                components: [buttons]
             });
+            
+            const message = await interaction.fetchReply();
 
             // Setup collector
             buttonUtility.setupCollector(message, {

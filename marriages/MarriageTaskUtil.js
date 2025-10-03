@@ -53,6 +53,12 @@ class MarriageTaskUtil {
      */
     async safeReply(interaction, options) {
         try {
+            // Check if interaction is still valid
+            if (!interaction || !interaction.isRepliable || !interaction.isRepliable()) {
+                logger.debug('Interaction is no longer repliable, skipping response');
+                return false;
+            }
+
             // ButtonUtility defers interactions, so we should use editReply for deferred interactions
             if (interaction.deferred || interaction.replied) {
                 return await interaction.editReply(options);
@@ -67,10 +73,22 @@ class MarriageTaskUtil {
             }
         } catch (error) {
             logger.error(`Error in safeReply: ${error.message}`);
-            logger.debug(`Interaction state - replied: ${interaction.replied}, deferred: ${interaction.deferred}, type: ${interaction.constructor.name}`);
+            logger.debug(`Interaction details - replied: ${interaction.replied}, deferred: ${interaction.deferred}, type: ${interaction.constructor?.name || 'unknown'}, id: ${interaction.id || 'no-id'}, customId: ${interaction.customId || 'no-customId'}`);
+            
+            // Check if interaction is valid before attempting fallback
+            if (!interaction || typeof interaction !== 'object') {
+                logger.error('Invalid interaction object provided to safeReply');
+                return false;
+            }
             
             // More robust fallback attempts
             try {
+                // Check if interaction is still valid before attempting fallbacks
+                if (!interaction.isRepliable || !interaction.isRepliable()) {
+                    logger.debug('Interaction is no longer repliable during fallback, aborting');
+                    return false;
+                }
+
                 if (interaction.followUp && (interaction.replied || interaction.deferred)) {
                     return await interaction.followUp({ content: options.content || 'An error occurred.', ephemeral: true });
                 } else if (interaction.reply && !interaction.replied && !interaction.deferred) {
@@ -78,11 +96,11 @@ class MarriageTaskUtil {
                 } else if (interaction.editReply && (interaction.replied || interaction.deferred)) {
                     return await interaction.editReply({ content: options.content || 'An error occurred.' });
                 } else {
-                    logger.warn(`Unable to send interaction response - all methods exhausted`);
+                    logger.debug(`Unable to send interaction response - all methods exhausted. Available methods: reply=${!!interaction.reply}, followUp=${!!interaction.followUp}, editReply=${!!interaction.editReply}`);
                     return false;
                 }
             } catch (fallbackError) {
-                logger.error(`Fallback safeReply also failed: ${fallbackError.message}`);
+                logger.debug(`Fallback safeReply also failed (non-critical): ${fallbackError.message}`);
                 return false;
             }
         }

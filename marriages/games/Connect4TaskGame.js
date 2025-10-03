@@ -135,11 +135,12 @@ class Connect4TaskGame {
         rows.push(new ActionRowBuilder().addComponents(buttons.slice(0, 5)));
         rows.push(new ActionRowBuilder().addComponents(buttons.slice(5, 7)));
 
-        const message = await util.safeReply(interaction, {
+        await util.safeReply(interaction, {
             embeds: [embed],
-            components: rows,
-            fetchReply: true
+            components: rows
         });
+        
+        const message = await interaction.fetchReply();
 
         // Setup collector
         buttonUtility.setupCollector(message, {

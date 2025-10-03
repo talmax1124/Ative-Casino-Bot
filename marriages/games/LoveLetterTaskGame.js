@@ -82,12 +82,13 @@ class LoveLetterTaskGame {
                         .setStyle(ButtonStyle.Primary)
                 );
 
-            const message = await util.safeReply(interaction, {
+            await util.safeReply(interaction, {
                 embeds: [embed],
                 components: [button],
-                ephemeral: true,
-                fetchReply: true
+                ephemeral: true
             });
+            
+            const message = await interaction.fetchReply();
 
             // Setup collector for button
             buttonUtility.setupCollector(message, {
