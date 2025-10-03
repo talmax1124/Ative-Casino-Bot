@@ -5,7 +5,7 @@
 
 const marriageTaskUtil = require('../MarriageTaskUtil');
 const buttonUtility = require('../../UTILS/buttonUtility');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, MessageFlags } = require('discord.js');
 const logger = require('../../UTILS/logger');
 const dbManager = require('../../UTILS/database');
 
@@ -119,7 +119,7 @@ class HouseDesignTaskGame {
             logger.error(`Error in HouseDesignTaskGame.handleStart: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error starting house design quiz.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -185,7 +185,7 @@ class HouseDesignTaskGame {
                 if (reason === 'time' && collected.size === 0) {
                     interaction.followUp({
                         content: '⏰ Quiz timed out. Please restart.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }

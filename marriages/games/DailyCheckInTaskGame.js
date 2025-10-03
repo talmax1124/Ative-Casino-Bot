@@ -5,7 +5,7 @@
 
 const marriageTaskUtil = require('../MarriageTaskUtil');
 const buttonUtility = require('../../UTILS/buttonUtility');
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const logger = require('../../UTILS/logger');
 const dbManager = require('../../UTILS/database');
 
@@ -51,7 +51,7 @@ class DailyCheckInTaskGame {
             if (existing.length > 0) {
                 await util.safeReply(interaction, {
                     content: `☑️ You've already done your ${checkType} check-in today!`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 return;
             }
@@ -108,7 +108,7 @@ class DailyCheckInTaskGame {
             logger.error(`Error in DailyCheckInTaskGame: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error with daily check-in.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -161,9 +161,9 @@ class DailyCheckInTaskGame {
 
         } catch (error) {
             logger.error(`Error recording check-in: ${error.message}`);
-            await interaction.reply({
+            await util.safeReply(interaction, {
                 content: '❌ Error recording check-in.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

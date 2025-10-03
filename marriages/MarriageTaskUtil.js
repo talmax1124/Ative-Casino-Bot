@@ -11,7 +11,7 @@
  * Game developers only need to focus on game logic!
  */
 
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const marriageTaskRotation = require('./marriageTaskRotation');
 const marriageTaskStatus = require('./marriageTaskStatus');
@@ -53,9 +53,15 @@ class MarriageTaskUtil {
      */
     async safeReply(interaction, options) {
         try {
-            // Check if interaction is still valid
+            // Check if interaction is still valid and not expired  
             if (!interaction || !interaction.isRepliable || !interaction.isRepliable()) {
                 logger.debug('Interaction is no longer repliable, skipping response');
+                return false;
+            }
+            
+            // Additional validation for interaction type and state
+            if (!interaction.id || interaction.id === 'unknown') {
+                logger.debug('Interaction has invalid ID, skipping response');
                 return false;
             }
 
@@ -90,9 +96,9 @@ class MarriageTaskUtil {
                 }
 
                 if (interaction.followUp && (interaction.replied || interaction.deferred)) {
-                    return await interaction.followUp({ content: options.content || 'An error occurred.', ephemeral: true });
+                    return await interaction.followUp({ content: options.content || 'An error occurred.', flags: MessageFlags.Ephemeral });
                 } else if (interaction.reply && !interaction.replied && !interaction.deferred) {
-                    return await interaction.reply({ content: options.content || 'An error occurred.', ephemeral: true });
+                    return await interaction.reply({ content: options.content || 'An error occurred.', flags: MessageFlags.Ephemeral });
                 } else if (interaction.editReply && (interaction.replied || interaction.deferred)) {
                     return await interaction.editReply({ content: options.content || 'An error occurred.' });
                 } else {
@@ -267,7 +273,7 @@ class MarriageTaskUtil {
             if (!gameConfig) {
                 return await this.safeReply(interaction, {
                     content: `❌ Task ${taskNumber} is not available yet.`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -286,7 +292,7 @@ class MarriageTaskUtil {
             logger.error(`Error in handleTaskDisplay: ${error.message}`);
             return await this.safeReply(interaction, {
                 content: `❌ ${error.message}`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -318,7 +324,7 @@ class MarriageTaskUtil {
             if (isCompleted && !gameConfig.allowReplay) {
                 return await this.safeReply(interaction, {
                     content: '✅ This task has already been completed!',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -363,7 +369,7 @@ class MarriageTaskUtil {
             logger.error(`Error starting game session: ${error.message}`);
             return await this.safeReply(interaction, {
                 content: `❌ ${error.message}`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

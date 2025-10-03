@@ -5,7 +5,7 @@
 
 const marriageTaskUtil = require('../MarriageTaskUtil');
 const buttonUtility = require('../../UTILS/buttonUtility');
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 const logger = require('../../UTILS/logger');
 const dbManager = require('../../UTILS/database');
 
@@ -50,7 +50,7 @@ class LoveLetterTaskGame {
                     
                 await util.safeReply(interaction, {
                     content: `💌 You've already written your letter! Waiting for ${partnerName} to write theirs.`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 return;
             }
@@ -85,7 +85,7 @@ class LoveLetterTaskGame {
             await util.safeReply(interaction, {
                 embeds: [embed],
                 components: [button],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
             
             const message = await interaction.fetchReply();
@@ -104,7 +104,7 @@ class LoveLetterTaskGame {
             logger.error(`Error in LoveLetterTaskGame.handleStart: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error starting love letter exchange.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -181,7 +181,7 @@ class LoveLetterTaskGame {
 
             await interaction.reply({
                 content: '💌 Your love letter has been written and sealed!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
 
             // Check if both partners have written letters
@@ -191,7 +191,7 @@ class LoveLetterTaskGame {
             logger.error(`Error handling letter modal: ${error.message}`);
             await interaction.reply({
                 content: '❌ Error saving your letter. Please try again.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

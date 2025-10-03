@@ -5,7 +5,7 @@
 
 const marriageTaskUtil = require('../MarriageTaskUtil');
 const buttonUtility = require('../../UTILS/buttonUtility');
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const logger = require('../../UTILS/logger');
 const dbManager = require('../../UTILS/database');
 
@@ -48,7 +48,7 @@ class VirtualPetTaskGame {
             logger.error(`Error in VirtualPetTaskGame: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error with virtual pet.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
