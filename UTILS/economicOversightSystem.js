@@ -8,6 +8,7 @@ const dbManager = require('./database');
 const logger = require('./logger');
 const { fmt, sendLogMessage } = require('./common');
 const robStatsManager = require('./robStatsManager');
+const { EmbedBuilder } = require('discord.js');
 
 class EconomicOversightSystem {
     constructor() {
@@ -98,6 +99,9 @@ class EconomicOversightSystem {
             }
         };
         
+        this.enhancedAnalyzer = null;
+        this.client = null;
+        
         this.initialize();
     }
 
@@ -121,6 +125,9 @@ class EconomicOversightSystem {
             
             // Start real-time monitoring
             this.startRealTimeMonitoring();
+            
+            // Initialize enhanced analyzer if available
+            await this.initializeEnhancedAnalyzer();
             
         } catch (error) {
             logger.error(`Failed to initialize Economic Oversight System: ${error.message}`);
@@ -583,7 +590,216 @@ class EconomicOversightSystem {
     async notifyAdministrators(alert) { logger.error(`📢 ADMIN NOTIFICATION: ${alert.type}`, alert.data); }
     async logToAdminSystems(alert) { logger.info(`📝 Logged to admin systems: ${alert.type}`); }
     escalateAlert(alertId) { logger.warn(`⬆️ Escalating alert: ${alertId}`); }
+    
+    /**
+     * Initialize enhanced economic analyzer
+     */
+    async initializeEnhancedAnalyzer() {
+        try {
+            const EnhancedEconomicAnalyzer = require('./EnhancedEconomicAnalyzer');
+            this.enhancedAnalyzer = new EnhancedEconomicAnalyzer();
+            logger.info('✅ Enhanced Economic Analyzer integrated');
+        } catch (error) {
+            logger.debug('Enhanced Economic Analyzer not available, using basic oversight');
+        }
+    }
+    
+    /**
+     * Set Discord client for enhanced reporting
+     */
+    setClient(client) {
+        this.client = client;
+        if (this.enhancedAnalyzer) {
+            this.enhancedAnalyzer.client = client;
+        }
+    }
+    
+    /**
+     * Enhanced log to admin systems with Discord integration
+     */
+    async logToAdminSystems(alert) {
+        logger.info(`📝 Logged to admin systems: ${alert.type}`);
+        
+        // Send to Discord log channel if available
+        await this.sendAlertToLogChannel(alert);
+    }
+    
+    /**
+     * Send alert to Discord log channel
+     */
+    async sendAlertToLogChannel(alert) {
+        try {
+            if (!this.client || !this.client.channels) return;
+            
+            const logChannelId = process.env.LOG_CHANNEL_ID;
+            if (!logChannelId) return;
+            
+            const logChannel = await this.client.channels.fetch(logChannelId).catch(() => null);
+            if (!logChannel) return;
+            
+            const embed = new EmbedBuilder()
+                .setTitle('⚠️ Economic Oversight Alert')
+                .setDescription(`**${alert.type}** - ${alert.level}`)
+                .setColor(this.getAlertColor(alert.level))
+                .setTimestamp();
+            
+            // Add alert data
+            if (alert.data) {
+                const dataFields = [];
+                
+                if (alert.data.currentLoss !== undefined) {
+                    dataFields.push(`Loss: **${fmt(Math.abs(alert.data.currentLoss))}**`);
+                }
+                if (alert.data.threshold !== undefined) {
+                    dataFields.push(`Threshold: **${fmt(alert.data.threshold)}**`);
+                }
+                if (alert.data.currentRate !== undefined) {
+                    dataFields.push(`Rate: **${(alert.data.currentRate * 100).toFixed(1)}%**`);
+                }
+                if (alert.data.timeframe) {
+                    dataFields.push(`Timeframe: **${alert.data.timeframe}**`);
+                }
+                
+                if (dataFields.length > 0) {
+                    embed.addFields({
+                        name: 'Alert Details',
+                        value: dataFields.join('\n'),
+                        inline: false
+                    });
+                }
+            }
+            
+            // Add actions taken
+            if (alert.actions && alert.actions.length > 0) {
+                const actionsList = alert.actions
+                    .map(action => `• ${action.action} (${action.status})`)
+                    .join('\n');
+                
+                embed.addFields({
+                    name: 'Actions Taken',
+                    value: actionsList,
+                    inline: false
+                });
+            }
+            
+            await logChannel.send({ embeds: [embed] });
+            
+        } catch (error) {
+            logger.error(`Error sending alert to log channel: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Get color for alert level
+     */
+    getAlertColor(level) {
+        switch (level) {
+            case 'RED_ALERT': return 0xFF0000;
+            case 'ORANGE_ALERT': return 0xFF8000;
+            case 'YELLOW_ALERT': return 0xFFFF00;
+            default: return 0x808080;
+        }
+    }
+    
+    /**
+     * Enhanced hourly report with Discord integration
+     */
+    async generateHourlyReport() {
+        logger.debug('📋 Generating hourly report...');
+        
+        try {
+            // Generate comprehensive oversight report
+            const report = await this.generateOversightReport();
+            
+            // Send to log channel if significant activity
+            if (report.significantActivity) {
+                await this.sendHourlyReportToLogChannel(report);
+            }
+            
+        } catch (error) {
+            logger.error(`Error generating hourly report: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Generate oversight report
+     */
+    async generateOversightReport() {
+        const report = {
+            timestamp: Date.now(),
+            activeAlerts: this.liveData.activeAlerts.size,
+            suspiciousPlayers: this.liveData.suspiciousPlayers.size,
+            recentInterventions: this.liveData.interventions.length,
+            hourlyStats: { ...this.liveData.hourlyStats },
+            significantActivity: false
+        };
+        
+        // Determine if there's significant activity to report
+        report.significantActivity = 
+            report.activeAlerts > 0 ||
+            report.suspiciousPlayers > 0 ||
+            report.recentInterventions > 0 ||
+            Math.abs(report.hourlyStats.netProfit) > 100000; // >$100K profit/loss
+        
+        return report;
+    }
+    
+    /**
+     * Send hourly report to log channel
+     */
+    async sendHourlyReportToLogChannel(report) {
+        try {
+            if (!this.client || !this.client.channels) return;
+            
+            const logChannelId = process.env.LOG_CHANNEL_ID;
+            if (!logChannelId) return;
+            
+            const logChannel = await this.client.channels.fetch(logChannelId).catch(() => null);
+            if (!logChannel) return;
+            
+            const embed = new EmbedBuilder()
+                .setTitle('🔍 Economic Oversight Report')
+                .setDescription('Automated economic monitoring summary')
+                .setColor(report.activeAlerts > 0 ? 0xFF8000 : 0x00D4FF)
+                .setTimestamp();
+            
+            // Oversight metrics
+            embed.addFields({
+                name: '📊 Oversight Metrics',
+                value: `Active Alerts: **${report.activeAlerts}**\n` +
+                       `Suspicious Players: **${report.suspiciousPlayers}**\n` +
+                       `Recent Interventions: **${report.recentInterventions}**`,
+                inline: true
+            });
+            
+            // Hourly performance
+            if (report.hourlyStats.gamesPlayed > 0) {
+                embed.addFields({
+                    name: '🎮 Hourly Activity',
+                    value: `Games Played: **${report.hourlyStats.gamesPlayed}**\n` +
+                           `Total Wagered: **${fmt(report.hourlyStats.totalWagered)}**\n` +
+                           `Net Profit: **${fmt(report.hourlyStats.netProfit)}**`,
+                    inline: true
+                });
+            }
+            
+            // Alert status
+            if (report.activeAlerts > 0) {
+                embed.addFields({
+                    name: '⚠️ Alert Status',
+                    value: `${report.activeAlerts} active alert${report.activeAlerts !== 1 ? 's' : ''} requiring attention`,
+                    inline: false
+                });
+            }
+            
+            await logChannel.send({ embeds: [embed] });
+            
+        } catch (error) {
+            logger.error(`Error sending hourly report to log channel: ${error.message}`);
+        }
+    }
 }
 
 // Export singleton instance
-module.exports = new EconomicOversightSystem();
+const oversightSystemInstance = new EconomicOversightSystem();
+module.exports = oversightSystemInstance;

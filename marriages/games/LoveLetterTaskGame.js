@@ -45,8 +45,8 @@ class LoveLetterTaskGame {
             const [existing] = await dbManager.databaseAdapter.pool.execute(checkQuery, [sessionId, userId]);
             
             if (existing.length > 0 && existing[0].is_sent) {
-                const partnerName = userId === marriage.partner1.id ? 
-                    marriage.partner2.name : marriage.partner1.name;
+                const partnerName = userId === marriage.partner1_id ? 
+                    marriage.partner2_name : marriage.partner1_name;
                     
                 await util.safeReply(interaction, {
                     content: `💌 You've already written your letter! Waiting for ${partnerName} to write theirs.`,
@@ -58,7 +58,7 @@ class LoveLetterTaskGame {
             // Create embed with button to open modal
             const embed = new EmbedBuilder()
                 .setTitle('💌 Write Your Love Letter')
-                .setDescription(`Write a heartfelt letter to **${userId === marriage.partner1.id ? marriage.partner2.name : marriage.partner1.name}**`)
+                .setDescription(`Write a heartfelt letter to **${userId === marriage.partner1_id ? marriage.partner2_name : marriage.partner1_name}**`)
                 .setColor(0xFF69B4)
                 .addFields(
                     { 
@@ -112,8 +112,8 @@ class LoveLetterTaskGame {
     async showLetterModal(interaction, session) {
         const marriage = session.marriage;
         const userId = interaction.user.id;
-        const recipientName = userId === marriage.partner1.id ? 
-            marriage.partner2.name : marriage.partner1.name;
+        const recipientName = userId === marriage.partner1_id ? 
+            marriage.partner2_name : marriage.partner1_name;
 
         // Create modal
         const modal = new ModalBuilder()
@@ -155,7 +155,7 @@ class LoveLetterTaskGame {
                         VALUES (?, ?, ?, ?)
                     `;
                     await dbManager.databaseAdapter.pool.execute(createSessionQuery, [
-                        sessionId, marriage.id, marriage.partner1.id, marriage.partner2.id
+                        sessionId, marriage.id, marriage.partner1_id, marriage.partner2_id
                     ]);
                 }
             }

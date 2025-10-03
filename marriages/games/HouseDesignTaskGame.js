@@ -99,8 +99,8 @@ class HouseDesignTaskGame {
             await dbManager.databaseAdapter.executeQuery(query, [
                 sessionId,
                 marriage.id,
-                marriage.partner1.id,
-                marriage.partner2.id
+                marriage.partner1_id,
+                marriage.partner2_id
             ]);
 
             // Store game data in session
@@ -127,7 +127,7 @@ class HouseDesignTaskGame {
     async showQuestion(interaction, session, questionIndex, util) {
         const marriage = session.marriage;
         const userId = interaction.user.id;
-        const isPartner1 = userId === marriage.partner1.id;
+        const isPartner1 = userId === marriage.partner1_id;
         const gameData = session.gameData;
 
         // Check if this user already answered
@@ -146,7 +146,7 @@ class HouseDesignTaskGame {
             .setDescription(`**${question.question}**`)
             .setColor(0x8B4513)
             .setFooter({ 
-                text: `Answering as: ${isPartner1 ? marriage.partner1.name : marriage.partner2.name}`
+                text: `Answering as: ${isPartner1 ? marriage.partner1_name : marriage.partner2_name}`
             });
 
         // Create buttons for options
@@ -195,7 +195,7 @@ class HouseDesignTaskGame {
     async handleUserComplete(interaction, session, util) {
         const marriage = session.marriage;
         const userId = interaction.user.id;
-        const isPartner1 = userId === marriage.partner1.id;
+        const isPartner1 = userId === marriage.partner1_id;
         const gameData = session.gameData;
 
         // Save user's answers to database
@@ -225,7 +225,7 @@ class HouseDesignTaskGame {
             await this.calculateAndShowResults(interaction, session, util, quizData);
         } else {
             // Waiting for partner
-            const partnerName = isPartner1 ? marriage.partner2.name : marriage.partner1.name;
+            const partnerName = isPartner1 ? marriage.partner2_name : marriage.partner1_name;
             
             const embed = new EmbedBuilder()
                 .setTitle('✅ Your Answers Submitted!')
@@ -243,7 +243,7 @@ class HouseDesignTaskGame {
             });
 
             // Notify partner via mention (not DM)
-            const partnerId = isPartner1 ? marriage.partner2.id : marriage.partner1.id;
+            const partnerId = isPartner1 ? marriage.partner2_id : marriage.partner1_id;
             try {
                 await interaction.followUp({
                     content: `<@${partnerId}> Your partner has completed the house design quiz! Use the marriage task command to take your turn.`,
@@ -273,7 +273,7 @@ class HouseDesignTaskGame {
                 matches++;
                 comparison.push(`✅ **${question.question}**\nBoth chose: ${p1Answer}`);
             } else {
-                comparison.push(`❌ **${question.question}**\n${marriage.partner1.name}: ${p1Answer}\n${marriage.partner2.name}: ${p2Answer}`);
+                comparison.push(`❌ **${question.question}**\n${marriage.partner1_name}: ${p1Answer}\n${marriage.partner2_name}: ${p2Answer}`);
             }
         }
 
@@ -291,7 +291,7 @@ class HouseDesignTaskGame {
         // Create results embed
         const embed = new EmbedBuilder()
             .setTitle('🏠 Dream Home Compatibility Results!')
-            .setDescription(`**${marriage.partner1.name}** & **${marriage.partner2.name}**`)
+            .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**`)
             .setColor(compatibility >= 70 ? 0x00FF00 : compatibility >= 40 ? 0xFFFF00 : 0xFF0000)
             .addFields(
                 {

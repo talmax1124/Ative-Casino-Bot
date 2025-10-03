@@ -70,7 +70,7 @@ class VirtualPetTaskGame {
 
         const embed = new EmbedBuilder()
             .setTitle('🎉 Pet Adopted!')
-            .setDescription(`**${marriage.partner1.name}** & **${marriage.partner2.name}** have adopted a ${petType}!`)
+            .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}** have adopted a ${petType}!`)
             .setColor(0x00FF00)
             .addFields(
                 { name: '📊 Stats', value: 'Hunger: 50%\nThirst: 50%\nCleanliness: 50%\nHappiness: 50%', inline: true },
@@ -89,7 +89,7 @@ class VirtualPetTaskGame {
         
         const embed = new EmbedBuilder()
             .setTitle(`${pet.pet_type} Status`)
-            .setDescription(`Pet of **${marriage.partner1.name}** & **${marriage.partner2.name}**`)
+            .setDescription(`Pet of **${marriage.partner1_name}** & **${marriage.partner2_name}**`)
             .setColor(pet.is_alive ? 0x00FF00 : 0xFF0000);
 
         if (pet.is_alive) {

@@ -21,6 +21,23 @@ class MarriageTaskUtil {
     constructor() {
         this.registeredGames = new Map();
         this.activeGameSessions = new Map();
+        this.gamesLoaded = false;
+    }
+    
+    /**
+     * Ensure games are loaded
+     */
+    async ensureGamesLoaded() {
+        if (this.gamesLoaded) return;
+        
+        try {
+            const marriageGameLoader = require('./games/marriageGameLoader');
+            await marriageGameLoader.loadAllGames();
+            this.gamesLoaded = true;
+            logger.info('Marriage games loaded successfully');
+        } catch (error) {
+            logger.error(`Failed to load marriage games: ${error.message}`);
+        }
     }
 
     /**
@@ -261,10 +278,28 @@ class MarriageTaskUtil {
     }
 
     /**
+     * Get marriage information from interaction
+     */
+    async getMarriageInfo(interaction) {
+        const { getGuildId } = require('../UTILS/common');
+        const guildId = await getGuildId(interaction);
+        const marriageData = await dbManager.getUserMarriage(interaction.user.id, guildId);
+        
+        if (!marriageData.married) {
+            throw new Error('You must be married to access marriage tasks!');
+        }
+        
+        return marriageData.marriage;
+    }
+    
+    /**
      * Handle task display - shows the task with start button
      */
     async handleTaskDisplay(interaction, taskNumber) {
         try {
+            // Ensure games are loaded
+            await this.ensureGamesLoaded();
+            
             const marriage = await this.getMarriageInfo(interaction);
             const weekInfo = this.getCurrentWeekInfo();
             const taskId = `${weekInfo.weekId}_task${taskNumber}`;
@@ -298,10 +333,63 @@ class MarriageTaskUtil {
     }
 
     /**
+     * Get current week information
+     */
+    getCurrentWeekInfo() {
+        // Get current week info from rotation system
+        const currentWeek = marriageTaskRotation.getCurrentWeek();
+        return {
+            weekId: `week${currentWeek + 1}`,
+            weekNumber: currentWeek + 1
+        };
+    }
+    
+    /**
+     * Create task display embed
+     */
+    async createTaskDisplayEmbed(marriage, taskNumber) {
+        const weekInfo = this.getCurrentWeekInfo();
+        const taskId = `${weekInfo.weekId}_task${taskNumber}`;
+        const gameConfig = this.registeredGames.get(taskId);
+        
+        const embed = new EmbedBuilder()
+            .setTitle(`💍 Task ${taskNumber} - ${gameConfig?.title || 'Marriage Task'}`)
+            .setDescription(gameConfig?.description || 'Complete this task together!')
+            .setColor(gameConfig?.color || 0xFF69B4)
+            .addFields(
+                { name: '💑 Partners', value: `${marriage.partner1_name} & ${marriage.partner2_name}`, inline: true },
+                { name: '📅 Week', value: weekInfo.weekNumber.toString(), inline: true }
+            )
+            .setTimestamp();
+            
+        return embed;
+    }
+    
+    /**
+     * Create task button
+     */
+    createTaskButton(taskNumber, gameConfig, isCompleted) {
+        const button = new ButtonBuilder()
+            .setCustomId(`${gameConfig.gameType}_task_start`)
+            .setLabel(isCompleted ? 'Play Again' : (gameConfig.buttonLabel || 'Start Task'))
+            .setStyle(isCompleted ? ButtonStyle.Secondary : ButtonStyle.Primary)
+            .setDisabled(false);
+            
+        if (gameConfig.buttonEmoji) {
+            button.setEmoji(gameConfig.buttonEmoji);
+        }
+        
+        return new ActionRowBuilder().addComponents(button);
+    }
+    
+    /**
      * Start a game session
      */
     async startGameSession(interaction, gameType) {
         try {
+            // Ensure games are loaded
+            await this.ensureGamesLoaded();
+            
             const marriage = await this.getMarriageInfo(interaction);
             const weekInfo = this.getCurrentWeekInfo();
             
@@ -356,6 +444,7 @@ class MarriageTaskUtil {
 
             // Call game-specific start handler if it exists
             if (gameConfig.startHandler && typeof gameConfig.startHandler === 'function') {
+                logger.info(`Starting ${gameType} game session for marriage ${marriage.id}`);
                 return await gameConfig.startHandler(interaction, session, this);
             }
 
@@ -367,8 +456,17 @@ class MarriageTaskUtil {
 
         } catch (error) {
             logger.error(`Error starting game session: ${error.message}`);
+            
+            // More specific error messages
+            let errorMessage = '❌ Failed to start the game. Please try again.';
+            if (error.message.includes('married')) {
+                errorMessage = '❌ You must be married to access marriage tasks!';
+            } else if (error.message.includes('not found')) {
+                errorMessage = '❌ This task is not available yet.';
+            }
+            
             return await this.safeReply(interaction, {
-                content: `❌ ${error.message}`,
+                content: errorMessage,
                 flags: MessageFlags.Ephemeral
             });
         }

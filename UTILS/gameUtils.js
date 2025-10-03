@@ -10,6 +10,7 @@ const progressiveTax = require('./progressiveTax');
 // const wealthCeiling = require('./wealthCeiling'); // DISABLED - replaced by allInManager
 // AI tracking removed
 const BulletproofEconomyController = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
+const EconomicDashboard = require('./EconomicDashboard');
 // wealthBasedBetLimits removed - no bet limits enforced
 const { 
     fmt, 
@@ -31,17 +32,23 @@ const {
 const logger = require('./logger');
 const sessionManager = require('./sessionManager');
 
-// Initialize bulletproof economy controller
+// Initialize bulletproof economy controller and dashboard
 let bulletproofEconomy = null;
+let economicDashboard = null;
+
 (async () => {
     try {
         bulletproofEconomy = new BulletproofEconomyController();
         await bulletproofEconomy.initialize();
         logger.info('✅ Bulletproof Economy Controller initialized successfully');
         
+        // Initialize economic dashboard
+        economicDashboard = new EconomicDashboard();
+        logger.info('✅ Economic Dashboard initialized successfully');
+        
         // Client will be set later via setDiscordClient function
     } catch (error) {
-        logger.error(`Failed to initialize Bulletproof Economy Controller: ${error.message}`);
+        logger.error(`Failed to initialize economic systems: ${error.message}`);
     }
 })();
 
@@ -900,7 +907,12 @@ async function recordGameChoice(gameType, userId, choice, metadata = {}) {
 function setDiscordClient(client) {
     if (bulletproofEconomy) {
         bulletproofEconomy.setClient(client);
-        logger.info('✅ Discord client connected to trend analysis system');
+        logger.info('✅ Discord client connected to economic systems');
+    }
+    
+    if (economicDashboard) {
+        economicDashboard.setClient(client);
+        logger.info('✅ Discord client connected to economic dashboard');
     }
 }
 

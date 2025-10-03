@@ -44,7 +44,7 @@ class VacationPlanTaskGame {
 
             const embed = new EmbedBuilder()
                 .setTitle('✈️ Vacation Planning Checklist')
-                .setDescription(`Plan your dream vacation with **${marriage.partner1.name}** & **${marriage.partner2.name}**`)
+                .setDescription(`Plan your dream vacation with **${marriage.partner1_name}** & **${marriage.partner2_name}**`)
                 .setColor(0x00BFFF);
 
             // Add checklist items
@@ -70,7 +70,7 @@ class VacationPlanTaskGame {
             const p2Done = sessionData?.partner2_finished ? '✅' : '⏳';
             embed.addFields({ 
                 name: '👥 Partner Status', 
-                value: `${marriage.partner1.name}: ${p1Done}\n${marriage.partner2.name}: ${p2Done}`,
+                value: `${marriage.partner1_name}: ${p1Done}\n${marriage.partner2_name}: ${p2Done}`,
                 inline: true 
             });
 
@@ -115,7 +115,7 @@ class VacationPlanTaskGame {
                     VALUES (?, ?, ?, ?, NOW())
                 `;
                 await dbManager.databaseAdapter.pool.execute(insertQuery, [
-                    sessionId, marriage.id, marriage.partner1.id, marriage.partner2.id
+                    sessionId, marriage.id, marriage.partner1_id, marriage.partner2_id
                 ]);
             }
         } catch (error) {

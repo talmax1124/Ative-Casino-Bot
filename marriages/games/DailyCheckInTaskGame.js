@@ -61,7 +61,7 @@ class DailyCheckInTaskGame {
 
             const embed = new EmbedBuilder()
                 .setTitle(`${checkType === 'morning' ? '☀️ Good Morning' : '🌙 Good Night'} Check-In`)
-                .setDescription(`Daily check-in for **${marriage.partner1.name}** & **${marriage.partner2.name}**`)
+                .setDescription(`Daily check-in for **${marriage.partner1_name}** & **${marriage.partner2_name}**`)
                 .setColor(checkType === 'morning' ? 0xFFD700 : 0x191970);
 
             // Show progress
@@ -73,7 +73,7 @@ class DailyCheckInTaskGame {
 
             if (progress.recentCheckins.length > 0) {
                 const recent = progress.recentCheckins.slice(0, 5).map(c => 
-                    `${c.checkin_type === 'morning' ? '☀️' : '🌙'} ${c.user_id === marriage.partner1.id ? marriage.partner1.name : marriage.partner2.name} - ${new Date(c.checkin_date).toLocaleDateString()}`
+                    `${c.checkin_type === 'morning' ? '☀️' : '🌙'} ${c.user_id === marriage.partner1_id ? marriage.partner1_name : marriage.partner2_name} - ${new Date(c.checkin_date).toLocaleDateString()}`
                 ).join('\n');
                 embed.addFields({ name: '📅 Recent Check-ins', value: recent, inline: false });
             }

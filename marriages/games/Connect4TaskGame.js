@@ -43,7 +43,7 @@ class Connect4TaskGame {
             const sessionId = session.sessionId;
             
             // Randomly decide who goes first
-            const firstPlayer = Math.random() < 0.5 ? marriage.partner1.id : marriage.partner2.id;
+            const firstPlayer = Math.random() < 0.5 ? marriage.partner1_id : marriage.partner2_id;
             
             // Save game to database
             const query = `
@@ -55,8 +55,8 @@ class Connect4TaskGame {
             await dbManager.databaseAdapter.executeQuery(query, [
                 sessionId,
                 marriage.id,
-                marriage.partner1.id,
-                marriage.partner2.id,
+                marriage.partner1_id,
+                marriage.partner2_id,
                 JSON.stringify(board),
                 firstPlayer,
                 JSON.stringify([])
@@ -65,8 +65,8 @@ class Connect4TaskGame {
             session.gameData = {
                 board: board,
                 currentTurn: firstPlayer,
-                player1: marriage.partner1.id,
-                player2: marriage.partner2.id,
+                player1: marriage.partner1_id,
+                player2: marriage.partner2_id,
                 moves: [],
                 sessionId: sessionId
             };
@@ -85,18 +85,18 @@ class Connect4TaskGame {
     async showGameBoard(interaction, session, util) {
         const gameData = session.gameData;
         const marriage = session.marriage;
-        const currentPlayerName = gameData.currentTurn === marriage.partner1.id ? 
-            marriage.partner1.name : marriage.partner2.name;
-        const playerEmoji = gameData.currentTurn === marriage.partner1.id ? '🔴' : '🟡';
+        const currentPlayerName = gameData.currentTurn === marriage.partner1_id ? 
+            marriage.partner1_name : marriage.partner2_name;
+        const playerEmoji = gameData.currentTurn === marriage.partner1_id ? '🔴' : '🟡';
 
         // Create board display
         let boardDisplay = '';
         for (let row = 0; row < this.ROWS; row++) {
             for (let col = 0; col < this.COLS; col++) {
                 const cell = gameData.board[row][col];
-                if (cell === marriage.partner1.id) {
+                if (cell === marriage.partner1_id) {
                     boardDisplay += '🔴';
-                } else if (cell === marriage.partner2.id) {
+                } else if (cell === marriage.partner2_id) {
                     boardDisplay += '🟡';
                 } else {
                     boardDisplay += '⚫';
@@ -109,7 +109,7 @@ class Connect4TaskGame {
         const embed = new EmbedBuilder()
             .setTitle('🎮 Connect 4 Challenge')
             .setDescription(boardDisplay)
-            .setColor(gameData.currentTurn === marriage.partner1.id ? 0xFF0000 : 0xFFFF00)
+            .setColor(gameData.currentTurn === marriage.partner1_id ? 0xFF0000 : 0xFFFF00)
             .addFields(
                 { name: 'Current Turn', value: `${playerEmoji} ${currentPlayerName}`, inline: true },
                 { name: 'Moves', value: `${gameData.moves.length}`, inline: true }
@@ -196,8 +196,8 @@ class Connect4TaskGame {
             await this.handleDraw(interaction, session, util);
         } else {
             // Switch turns
-            gameData.currentTurn = gameData.currentTurn === marriage.partner1.id ? 
-                marriage.partner2.id : marriage.partner1.id;
+            gameData.currentTurn = gameData.currentTurn === marriage.partner1_id ? 
+                marriage.partner2_id : marriage.partner1_id;
             
             // Update database
             const updateQuery = `
@@ -261,18 +261,18 @@ class Connect4TaskGame {
 
     async handleGameEnd(interaction, session, winnerId, util) {
         const marriage = session.marriage;
-        const winnerName = winnerId === marriage.partner1.id ? 
-            marriage.partner1.name : marriage.partner2.name;
-        const winnerEmoji = winnerId === marriage.partner1.id ? '🔴' : '🟡';
+        const winnerName = winnerId === marriage.partner1_id ? 
+            marriage.partner1_name : marriage.partner2_name;
+        const winnerEmoji = winnerId === marriage.partner1_id ? '🔴' : '🟡';
 
         // Create final board display
         let boardDisplay = '';
         for (let row = 0; row < this.ROWS; row++) {
             for (let col = 0; col < this.COLS; col++) {
                 const cell = session.gameData.board[row][col];
-                if (cell === marriage.partner1.id) {
+                if (cell === marriage.partner1_id) {
                     boardDisplay += '🔴';
-                } else if (cell === marriage.partner2.id) {
+                } else if (cell === marriage.partner2_id) {
                     boardDisplay += '🟡';
                 } else {
                     boardDisplay += '⚫';

@@ -2720,8 +2720,25 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     // Handle task buttons (marriage_task_task1, marriage_task_task2, etc.)
                     const marriageTaskCommand = client.commands.get('marriage-task');
-                    if (marriageTaskCommand && marriageTaskCommand.handleButtonInteraction) {
-                        await marriageTaskCommand.handleButtonInteraction(interaction);
+                    if (marriageTaskCommand && marriageTaskCommand.handleButtonInteractionWithUtility) {
+                        // Get marriage data for the utility handler
+                        const { getGuildId } = require('./UTILS/common');
+                        const guildId = await getGuildId(interaction);
+                        const marriageData = await dbManager.getUserMarriage(interaction.user.id, guildId);
+                        
+                        if (marriageData.married) {
+                            await marriageTaskCommand.handleButtonInteractionWithUtility(interaction, marriageData.marriage);
+                        } else {
+                            await interaction.reply({
+                                content: '❌ You must be married to access marriage tasks!',
+                                ephemeral: true
+                            });
+                        }
+                    } else {
+                        await interaction.reply({
+                            content: '❌ Marriage task system is temporarily unavailable.',
+                            ephemeral: true
+                        });
                     }
                 }
             }

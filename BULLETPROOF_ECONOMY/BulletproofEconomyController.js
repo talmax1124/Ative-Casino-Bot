@@ -10,6 +10,7 @@ const AdvancedRiskManager = require('./risk/AdvancedRiskManager');
 const IntelligentPayoutSystem = require('./adaptive/IntelligentPayoutSystem');
 const GameTrendAnalyzer = require('../UTILS/GameTrendAnalyzer');
 const EnhancedTrendAnalyzer = require('../UTILS/EnhancedTrendAnalyzer');
+const EnhancedEconomicAnalyzer = require('../UTILS/EnhancedEconomicAnalyzer');
 const EconomicOversightSystem = require('../UTILS/economicOversightSystem');
 
 const crypto = require('crypto');
@@ -292,6 +293,15 @@ class BulletproofEconomyController {
         // Initialize comprehensive economic oversight system
         this.oversightSystem = EconomicOversightSystem;
         
+        // Initialize enhanced economic analyzer
+        try {
+            this.economicAnalyzer = new EnhancedEconomicAnalyzer();
+            console.log('✅ Enhanced Economic Analyzer initialized');
+        } catch (error) {
+            console.log('⚠️ Enhanced Economic Analyzer unavailable, using basic oversight');
+            this.economicAnalyzer = null;
+        }
+        
         console.log('✅ Core economy components initialized');
         console.log('🔍 Economic oversight system integrated');
     }
@@ -538,6 +548,16 @@ class BulletproofEconomyController {
         // Pass client to trend analyzer for log channel reporting
         if (this.trendAnalyzer) {
             this.trendAnalyzer.client = client;
+        }
+        
+        // Pass client to economic analyzer for log channel reporting
+        if (this.economicAnalyzer) {
+            this.economicAnalyzer.client = client;
+        }
+        
+        // Pass client to oversight system for enhanced reporting
+        if (this.oversightSystem) {
+            this.oversightSystem.setClient(client);
         }
         
         console.log('✅ BulletproofEconomyController connected to Discord client');
