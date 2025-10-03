@@ -55,27 +55,14 @@ class MarriageTaskUtil {
         try {
             // Check if interaction is already handled or expired
             if (interaction.replied) {
-                // Try editReply first for already replied interactions
                 return await interaction.editReply(options);
             }
             
             if (interaction.deferred) {
-                // For deferred interactions, use editReply
                 return await interaction.editReply(options);
             }
 
-            // Handle different interaction types for fresh interactions
-            if (interaction.isButton && interaction.isButton()) {
-                // For button interactions, prefer update over reply
-                return await interaction.update(options);
-            }
-
-            if (interaction.isModalSubmit && interaction.isModalSubmit()) {
-                // For modal submissions, use reply
-                return await interaction.reply(options);
-            }
-
-            // For slash commands and other interactions
+            // Try reply first for all fresh interactions - more reliable than update
             if (interaction.reply) {
                 return await interaction.reply(options);
             } else {

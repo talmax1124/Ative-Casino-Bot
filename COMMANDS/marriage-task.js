@@ -951,6 +951,10 @@ module.exports = {
 
     // Handle button interactions for this command
     async handleButtonInteraction(interaction) {
+        // DISABLED: This old handler conflicts with buttonUtility approach
+        // The newer handleButtonInteractionWithUtility method should handle all interactions
+        console.log('⚠️ Old button handler disabled - using buttonUtility approach instead');
+        return;
         
         if (!interaction.customId.startsWith('marriage_task_')) {
             console.log('❌ Not a marriage task button, returning');
