@@ -4340,7 +4340,7 @@ module.exports = {
     async handleDateNightStart(interaction) {
         try {
             // Get the DateNightRPG game class
-            const { DateNightRPGGame } = require('../marriages/Games/DateNightRPG');
+            // const { DateNightRPGGame } = require('../marriages/Games/DateNightRPG'); // File not found - commented out
             const game = new DateNightRPGGame();
             
             // Start the game
@@ -4364,7 +4364,7 @@ module.exports = {
     async handleTriviaStart(interaction) {
         try {
             // Get the CoupleTrivia game class
-            const { CoupleTriviaGame } = require('../marriages/Games/CoupleTrivia');
+            // const { CoupleTriviaGame } = require('../marriages/Games/CoupleTrivia'); // File not found - commented out
             const game = new CoupleTriviaGame();
             
             // Start the game
@@ -4388,7 +4388,7 @@ module.exports = {
     async handleEmojiStart(interaction) {
         try {
             // Get the GuessTheWordEmoji game class
-            const { GuessTheWordEmojiGame } = require('../marriages/Games/GuessTheWordEmoji');
+            // const { GuessTheWordEmojiGame } = require('../marriages/Games/GuessTheWordEmoji'); // File not found - commented out
             const game = new GuessTheWordEmojiGame();
             
             // Start the game

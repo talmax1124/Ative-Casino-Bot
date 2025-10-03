@@ -106,7 +106,7 @@ async function handleGameModalSubmit(interaction) {
             const sessionId = customId.replace('poem_line_', '');
             const poemLine = interaction.fields.getTextInputValue('poem_line');
             
-            const marriageTaskUtil = require('./UTILS/MarriageTaskUtil');
+            const marriageTaskUtil = require('./marriages/MarriageTaskUtil');
             const session = marriageTaskUtil.getGameSession(sessionId);
             
             if (!session) {
@@ -136,7 +136,7 @@ async function handleGameModalSubmit(interaction) {
             const sessionId = customId.replace('quiz_answer_', '');
             const quizAnswer = interaction.fields.getTextInputValue('quiz_answer');
             
-            const marriageTaskUtil = require('./UTILS/MarriageTaskUtil');
+            const marriageTaskUtil = require('./marriages/MarriageTaskUtil');
             const session = marriageTaskUtil.getGameSession(sessionId);
             
             if (!session) {
@@ -2728,7 +2728,7 @@ client.on('interactionCreate', async interaction => {
             // Handle marriage task game start buttons (new unified system)
             else if (customId.endsWith('_task_start')) {
                 const gameType = customId.replace('_task_start', '');
-                const marriageTaskUtil = require('./UTILS/MarriageTaskUtil');
+                const marriageTaskUtil = require('./marriages/MarriageTaskUtil');
                 await marriageTaskUtil.startGameSession(interaction, gameType);
             }
             // Handle new marriage task game buttons
