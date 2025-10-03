@@ -9,6 +9,7 @@ const DynamicHouseEdgeSystem = require('./adaptive/DynamicHouseEdge');
 const AdvancedRiskManager = require('./risk/AdvancedRiskManager');
 const IntelligentPayoutSystem = require('./adaptive/IntelligentPayoutSystem');
 const GameTrendAnalyzer = require('../UTILS/GameTrendAnalyzer');
+const EnhancedTrendAnalyzer = require('../UTILS/EnhancedTrendAnalyzer');
 const EconomicOversightSystem = require('../UTILS/economicOversightSystem');
 
 const crypto = require('crypto');
@@ -279,7 +280,14 @@ class BulletproofEconomyController {
         );
         
         // Initialize Nash equilibrium trend analyzer
-        this.trendAnalyzer = new GameTrendAnalyzer();
+        // Use enhanced analyzer if available, fallback to basic
+        try {
+            this.trendAnalyzer = new EnhancedTrendAnalyzer();
+            console.log('✅ Enhanced Trend Analyzer initialized');
+        } catch (error) {
+            this.trendAnalyzer = new GameTrendAnalyzer();
+            console.log('✅ Basic Trend Analyzer initialized (enhanced unavailable)');
+        }
         
         // Initialize comprehensive economic oversight system
         this.oversightSystem = EconomicOversightSystem;
@@ -519,6 +527,20 @@ class BulletproofEconomyController {
             return this.trendAnalyzer.getTrendSummary();
         }
         return { message: 'Trend analyzer not initialized' };
+    }
+    
+    /**
+     * Initialize with Discord client for log channel reporting
+     */
+    setClient(client) {
+        this.client = client;
+        
+        // Pass client to trend analyzer for log channel reporting
+        if (this.trendAnalyzer) {
+            this.trendAnalyzer.client = client;
+        }
+        
+        console.log('✅ BulletproofEconomyController connected to Discord client');
     }
 
     /**

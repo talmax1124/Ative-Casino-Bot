@@ -263,10 +263,11 @@ class TopGGManager {
                     }
                 );
             }
-                .setThumbnail(user.displayAvatarURL())
+
+            embed.setThumbnail(user.displayAvatarURL())
                 .setFooter({ 
                     text: '🎰 ATIVE Casino • Vote every 12 hours for rewards!',
-                    iconURL: this.client.user.displayAvatarURL()
+                    iconURL: this.client && this.client.user ? this.client.user.displayAvatarURL() : null
                 })
                 .setTimestamp();
 

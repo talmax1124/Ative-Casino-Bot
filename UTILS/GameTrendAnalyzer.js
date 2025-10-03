@@ -1082,6 +1082,11 @@ class GameTrendAnalyzer {
             logger.warn(`   Reason: ${trendAnalysis.pattern} (${trendAnalysis.dominantStrategy})`);
             logger.warn(`   Confidence: ${(trendAnalysis.confidence * 100).toFixed(1)}%`);
             logger.warn(`   Total Adjustment: ${(newAdjustment * 100).toFixed(3)}%`);
+            
+            // Send to log channel if significant
+            if (adjustment > 0.01) {
+                this.sendAdjustmentAlert(gameType, adjustment, trendAnalysis, newAdjustment);
+            }
         }
     }
     
@@ -1393,6 +1398,9 @@ class GameTrendAnalyzer {
                 
                 logger.warn(`🚨 EMERGENCY ADJUSTMENT: ${gameType} +${(emergencyAdjustment * 100).toFixed(1)}% house edge`);
                 logger.warn(`   Reason: Massive win of ${winAmount} (${multiplier.toFixed(1)}x multiplier)`);
+                
+                // Send critical alert to log channel
+                this.sendBigWinAlert(gameType, winAmount, multiplier, emergencyAdjustment);
             }
             
         } catch (error) {
@@ -1594,6 +1602,81 @@ class GameTrendAnalyzer {
         }
         
         return summary;
+    }
+    
+    /**
+     * Send adjustment alert to log channel
+     */
+    async sendAdjustmentAlert(gameType, adjustment, trendAnalysis, totalAdjustment) {
+        try {
+            const { EmbedBuilder } = require('discord.js');
+            const bulletproofEconomy = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
+            const client = bulletproofEconomy.client;
+            
+            if (!client || !client.channels) return;
+            
+            const logChannelId = process.env.LOG_CHANNEL_ID;
+            if (!logChannelId) return;
+            
+            const logChannel = await client.channels.fetch(logChannelId).catch(() => null);
+            if (!logChannel) return;
+            
+            const embed = new EmbedBuilder()
+                .setTitle('🎯 Nash Equilibrium Adjustment')
+                .setDescription(`Automatic adjustment applied to ${gameType}`)
+                .setColor(0xFFD700)
+                .addFields(
+                    { name: 'Game', value: gameType, inline: true },
+                    { name: 'Adjustment', value: `+${(adjustment * 100).toFixed(3)}%`, inline: true },
+                    { name: 'Total Edge', value: `+${(totalAdjustment * 100).toFixed(3)}%`, inline: true },
+                    { name: 'Pattern', value: trendAnalysis.pattern || 'Unknown', inline: true },
+                    { name: 'Strategy', value: trendAnalysis.dominantStrategy || 'None', inline: true },
+                    { name: 'Confidence', value: `${(trendAnalysis.confidence * 100).toFixed(1)}%`, inline: true }
+                )
+                .setTimestamp();
+            
+            await logChannel.send({ embeds: [embed] });
+            
+        } catch (error) {
+            logger.error(`Error sending adjustment alert: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Send big win alert to log channel
+     */
+    async sendBigWinAlert(gameType, winAmount, multiplier, emergencyAdjustment) {
+        try {
+            const { EmbedBuilder } = require('discord.js');
+            const { fmt } = require('./common');
+            const bulletproofEconomy = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
+            const client = bulletproofEconomy.client;
+            
+            if (!client || !client.channels) return;
+            
+            const logChannelId = process.env.LOG_CHANNEL_ID;
+            if (!logChannelId) return;
+            
+            const logChannel = await client.channels.fetch(logChannelId).catch(() => null);
+            if (!logChannel) return;
+            
+            const embed = new EmbedBuilder()
+                .setTitle('🚨 MASSIVE WIN DETECTED')
+                .setDescription(`Emergency adjustment applied`)
+                .setColor(0xFF0000)
+                .addFields(
+                    { name: 'Game', value: gameType, inline: true },
+                    { name: 'Win Amount', value: fmt(winAmount), inline: true },
+                    { name: 'Multiplier', value: `${multiplier.toFixed(1)}x`, inline: true },
+                    { name: 'Emergency Adjustment', value: `+${(emergencyAdjustment * 100).toFixed(1)}%`, inline: false }
+                )
+                .setTimestamp();
+            
+            await logChannel.send({ embeds: [embed] });
+            
+        } catch (error) {
+            logger.error(`Error sending big win alert: ${error.message}`);
+        }
     }
 }
 

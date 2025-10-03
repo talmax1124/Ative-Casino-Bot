@@ -38,6 +38,8 @@ let bulletproofEconomy = null;
         bulletproofEconomy = new BulletproofEconomyController();
         await bulletproofEconomy.initialize();
         logger.info('✅ Bulletproof Economy Controller initialized successfully');
+        
+        // Client will be set later via setDiscordClient function
     } catch (error) {
         logger.error(`Failed to initialize Bulletproof Economy Controller: ${error.message}`);
     }
@@ -891,6 +893,17 @@ async function recordGameChoice(gameType, userId, choice, metadata = {}) {
     }
 }
 
+/**
+ * Set Discord client for trend analysis log channel reporting
+ * @param {Client} client - Discord client instance
+ */
+function setDiscordClient(client) {
+    if (bulletproofEconomy) {
+        bulletproofEconomy.setClient(client);
+        logger.info('✅ Discord client connected to trend analysis system');
+    }
+}
+
 // ========================= EXPORTS =========================
 
 module.exports = {
@@ -900,5 +913,6 @@ module.exports = {
     PayoutManager,
     GameValidator,
     TimeoutManager,
-    recordGameChoice
+    recordGameChoice,
+    setDiscordClient
 };

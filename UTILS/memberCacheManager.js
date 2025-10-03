@@ -57,8 +57,8 @@ class MemberCacheManager {
             roles: roles,
             permissions: member.permissions?.bitfield?.toString(),
             isOwner: member.guild?.ownerId === (member.user?.id || member.id),
-            isAdministrator: member.permissions?.has(PermissionFlagsBits.Administrator) || false,
-            isModerator: member.permissions?.has(PermissionFlagsBits.ModerateMembers) || false,
+            isAdministrator: (member.permissions && typeof member.permissions.has === 'function' && member.permissions.has(PermissionFlagsBits.Administrator)) || false,
+            isModerator: (member.permissions && typeof member.permissions.has === 'function' && member.permissions.has(PermissionFlagsBits.ModerateMembers)) || false,
             isBooster: member.premiumSince !== null,
             premiumSince: member.premiumSince,
             joinedAt: member.joinedAt
