@@ -48,7 +48,7 @@ module.exports = {
             logger.error('Button test error:', error);
             await buttonUtility.safeReply(interaction, {
                 content: '❌ Test failed: ' + error.message,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

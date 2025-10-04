@@ -126,7 +126,7 @@ class ButtonUtility {
             // Attempt to respond with error message
             await this.safeReply(interaction, {
                 content: errorMessage,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
 
             // Clean up state
@@ -221,7 +221,7 @@ class ButtonUtility {
             
             // Last resort - try follow up
             try {
-                return await interaction.followUp({ ...data, ephemeral: true });
+                return await interaction.followUp({ ...data, flags: MessageFlags.Ephemeral });
             } catch (followUpError) {
                 logger.error('Follow up also failed:', followUpError);
             }

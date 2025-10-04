@@ -290,7 +290,7 @@ module.exports = {
             if (player2Balance.wallet < game.potAmount) {
                 await interaction.reply({
                     content: `❌ You need ${fmt(game.potAmount)} to join this game! You only have ${fmt(player2Balance.wallet)}.`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 return;
             }
@@ -299,7 +299,7 @@ module.exports = {
             /*if (player2Balance.game_active) {
                 await interaction.reply({
                     content: '❌ You already have an active game session!',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 return;
             }*/
@@ -308,7 +308,7 @@ module.exports = {
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(player2Id, guildId, SMGameType.RPS, interaction.client);
             if (!check.allowed) {
-                await interaction.reply({ content: `❌ ${check.message}`, ephemeral: true });
+                await interaction.reply({ content: `❌ ${check.message}`, flags: MessageFlags.Ephemeral });
                 return;
             }
             // Proceed to create session
@@ -333,7 +333,7 @@ module.exports = {
             if (!player2SessionResult.success) {
                 await interaction.reply({
                     content: `❌ Failed to create game session: ${player2SessionResult.error}`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 return;
             }
@@ -368,7 +368,7 @@ module.exports = {
             logger.error(`Error handling player join: ${error.message}`);
             await interaction.reply({
                 content: '❌ An error occurred while joining the game.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     },

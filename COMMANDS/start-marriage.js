@@ -58,7 +58,7 @@ module.exports = {
         if (flowerGirl && flowerGirl.id === '1009220009739960411') {
             await interaction.reply({
                 content: '❌ This person does not give consent. Please choose someone else.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
             return;
         }

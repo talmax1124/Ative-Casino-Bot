@@ -664,6 +664,30 @@ async function sendLogMessage(bot, level, message, userId = null, guildId = null
     }
 }
 
+/**
+ * Safely update an interaction, handling expired interactions
+ * @param {Object} interaction - Discord interaction object
+ * @param {Object} options - Update options (embeds, components, etc.)
+ * @returns {Promise<Object>} Response or followUp result
+ */
+async function safeInteractionUpdate(interaction, options) {
+    try {
+        return await interaction.update(options);
+    } catch (error) {
+        if (error.code === 10062) { // Unknown interaction
+            logger.warn('Interaction expired, using followUp instead');
+            const { MessageFlags } = require('discord.js');
+            const followUpOptions = {
+                ...options,
+                flags: MessageFlags.Ephemeral
+            };
+            return await interaction.followUp(followUpOptions);
+        } else {
+            throw error;
+        }
+    }
+}
+
 module.exports = {
     // Money formatting
     fmt,
@@ -713,7 +737,10 @@ module.exports = {
     // Boost utilities
     isServerBooster,
     calculateBoosterBonus,
-    calculateBoosterBonusLegacy
+    calculateBoosterBonusLegacy,
+    
+    // Interaction utilities
+    safeInteractionUpdate
 };
 
 /**

@@ -130,7 +130,7 @@ class SetupInteractionHandler {
                 if (interaction.replied || interaction.deferred) {
                     await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                 } else {
-                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                 }
             } catch (responseError) {
                 // If we can't respond to the interaction, just log it
@@ -284,7 +284,7 @@ class SetupInteractionHandler {
             .setColor(0x3498DB)
             .setTimestamp();
 
-        await interaction.reply({ embeds: [configEmbed], ephemeral: true });
+        await interaction.reply({ embeds: [configEmbed], flags: MessageFlags.Ephemeral });
     }
 
     static async handleChannelSelection(interaction, wizard, channelType) {
@@ -335,7 +335,7 @@ class SetupInteractionHandler {
         else {
             await interaction.reply({ 
                 content: '⚙️ This configuration option is still being implemented.', 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
     }

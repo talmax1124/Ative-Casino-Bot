@@ -9,7 +9,7 @@ const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = req
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 // Removed global earnings cooldown - commands now run independently
-const { PayoutManager } = require('../UTILS/gameUtils');
+const { PayoutManager, GameResult } = require('../UTILS/gameUtils');
 const sessionManager = require('../UTILS/sessionManager');
 const tuningManager = require('../UTILS/tuningManager');
 const logger = require('../UTILS/logger');
@@ -80,19 +80,21 @@ module.exports = {
             const totalEarning = adjustedEarning + boosterBonus;
 
             // Create game result object for payout processing
-            const gameResult = {
-                type: 'beg',
+            const gameResult = new GameResult({
+                gameType: 'beg',
                 userId: userId,
                 guildId: guildId,
                 betAmount: 0, // No bet for begging
                 payout: totalEarning,
                 won: true,
-                scenario: scenario.person,
-                baseEarning: adjustedEarning,
-                boosterBonus: boosterBonus,
-                isBooster: boosterInfo.isBooster,
-                tuningMultiplier: (1 + tuningAdjustment.payoutDelta)
-            };
+                metadata: {
+                    scenario: scenario.person,
+                    baseEarning: adjustedEarning,
+                    boosterBonus: boosterBonus,
+                    isBooster: boosterInfo.isBooster,
+                    tuningMultiplier: (1 + tuningAdjustment.payoutDelta)
+                }
+            });
 
             // Process payout through modern payout manager
             const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);

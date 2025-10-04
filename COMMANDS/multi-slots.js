@@ -393,7 +393,7 @@ module.exports = {
             if (!result.success) {
                 return await interaction.followUp({
                     content: result.error || 'An error occurred during the bonus game.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -416,7 +416,7 @@ module.exports = {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: 'An error occurred during the bonus game.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
         }

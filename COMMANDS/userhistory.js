@@ -121,9 +121,9 @@ module.exports = {
             if (interaction.isRepliable()) {
                 try {
                     if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                        await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                     } else {
-                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                     }
                 } catch (replyError) {
                     logger.error(`Failed to send error message: ${replyError.message}`);
@@ -146,7 +146,7 @@ module.exports = {
                     .setColor(0x4CAF50)
                     .setTimestamp();
 
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
@@ -201,7 +201,7 @@ module.exports = {
                 .setFooter({ text: `Showing last ${Math.min(gameHistory.length, 10)} games` })
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
         } catch (error) {
             logger.error(`Error showing game history: ${error.message}`);
@@ -221,7 +221,7 @@ module.exports = {
                     .setColor(0x4CAF50)
                     .setTimestamp();
 
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
@@ -263,7 +263,7 @@ module.exports = {
                 .setFooter({ text: `Showing last ${Math.min(transactions.length, 10)} transactions` })
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 
         } catch (error) {
             logger.error(`Error showing transaction history: ${error.message}`);

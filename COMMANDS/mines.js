@@ -867,9 +867,9 @@ module.exports = {
             try {
                 const errorMessage = 'Failed to start new game. Please use `/mines` command directly.';
                 if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({ content: errorMessage, ephemeral: true });
+                    await interaction.reply({ content: errorMessage, flags: MessageFlags.Ephemeral });
                 } else {
-                    await interaction.followUp({ content: errorMessage, ephemeral: true });
+                    await interaction.followUp({ content: errorMessage, flags: MessageFlags.Ephemeral });
                 }
             } catch (replyError) {
                 logger.error(`Failed to send error message: ${replyError.message}`);

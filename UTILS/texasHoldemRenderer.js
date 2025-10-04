@@ -4,7 +4,7 @@
  * Uses Canvas API for high-quality rendering
  */
 
-const { createCanvas, loadImage, registerFont } = require('@napi-rs/canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const path = require('path');
 const logger = require('./logger');
 
@@ -59,21 +59,11 @@ const COMMUNITY_Y = 450;
 class TexasHoldemRenderer {
     constructor() {
         this.cardImages = new Map();
-        this.fontLoaded = false;
         this.initialize();
     }
 
     async initialize() {
         try {
-            // Try to load custom fonts
-            try {
-                registerFont(path.join(__dirname, '../assets/fonts/Roboto-Bold.ttf'), { family: 'Roboto' });
-                this.fontLoaded = true;
-            } catch (fontError) {
-                logger.warn('Custom font not found, using system fonts');
-                this.fontLoaded = false;
-            }
-
             // Preload card back image
             try {
                 const cardBackPath = path.join(__dirname, '../assets/poker/card_back.png');
@@ -178,7 +168,7 @@ class TexasHoldemRenderer {
 
         // Title label - lighter and modern
         ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.font = this.fontLoaded ? '600 16px Roboto' : '600 16px Arial';
+        ctx.font = '600 16px Arial';
         ctx.textAlign = 'center';
         ctx.fillText('COMMUNITY CARDS', centerX, labelY);
         
@@ -191,7 +181,7 @@ class TexasHoldemRenderer {
 
         // Phase labels directly under visible cards
         ctx.fillStyle = COLORS.GOLD;
-        ctx.font = this.fontLoaded ? '600 13px Roboto' : '600 13px Arial';
+        ctx.font = '600 13px Arial';
         ctx.textAlign = 'center';
         if (n >= 3) {
             const flopCenterX = startX + step; // middle of three cards
@@ -229,7 +219,7 @@ class TexasHoldemRenderer {
         
         // Enhanced main pot display
         ctx.fillStyle = COLORS.GOLD;
-        ctx.font = this.fontLoaded ? 'bold 28px Roboto' : 'bold 28px Arial';
+        ctx.font = 'bold 28px Arial';
         ctx.textAlign = 'center';
         ctx.fillText(`POT: $${totalPot.toLocaleString()}`, centerX, potY + 5);
         
@@ -241,7 +231,7 @@ class TexasHoldemRenderer {
         
         // Side pots display below main pot, avoiding card overlap
         if (pots && pots.length > 1) {
-            ctx.font = this.fontLoaded ? '12px Roboto' : '12px Arial';
+            ctx.font = '12px Arial';
             ctx.fillStyle = COLORS.WHITE;
             ctx.textAlign = 'center';
             let yOffset = 0;
@@ -315,7 +305,7 @@ class TexasHoldemRenderer {
             ctx.fillStyle = isCurrentPlayer ? COLORS.GOLD : 
                            isViewingPlayer ? '#00FFFF' :
                            player.hasFolded ? COLORS.GRAY : COLORS.WHITE;
-            ctx.font = this.fontLoaded ? '600 16px Roboto' : '600 16px Arial';
+            ctx.font = '600 16px Arial';
             ctx.textAlign = 'center';
             ctx.fillStyle = 'rgba(255,255,255,0.95)';
             ctx.fillText(`👤 ${player.username || 'Player'}`, position.x, position.y - 26);
@@ -329,7 +319,7 @@ class TexasHoldemRenderer {
             // Draw current bet if any
             if (player.currentBet > 0) {
                 ctx.fillStyle = '#FFB74D';
-                ctx.font = this.fontLoaded ? '600 12px Roboto' : '600 12px Arial';
+                ctx.font = '600 12px Arial';
                 ctx.fillText(`Pot: $${player.currentBet.toLocaleString()}`, position.x, position.y + 2);
             }
 
@@ -360,7 +350,7 @@ class TexasHoldemRenderer {
             
             if (statusText) {
                 ctx.fillStyle = statusColor;
-                ctx.font = this.fontLoaded ? '600 11px Roboto' : '600 11px Arial';
+                ctx.font = '600 11px Arial';
                 ctx.fillText(statusText, position.x, position.y + 18);
             }
 
@@ -467,7 +457,7 @@ class TexasHoldemRenderer {
                 
                 // Enhanced pattern
                 ctx.fillStyle = COLORS.GOLD;
-                ctx.font = this.fontLoaded ? 'bold 60px Roboto' : 'bold 60px Arial';
+                ctx.font = 'bold 60px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('♠', x, y + 10);
                 
@@ -518,16 +508,16 @@ class TexasHoldemRenderer {
         ctx.fillStyle = isRed ? COLORS.RED : COLORS.BLACK;
 
         // Draw rank (top-left) - tighter for smaller cards
-        ctx.font = this.fontLoaded ? 'bold 20px Roboto' : 'bold 20px Arial';
+        ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'left';
         ctx.fillText(card.rank, x + 12, y + 30);
 
         // Draw suit (top-left, below rank) - tighter
-        ctx.font = this.fontLoaded ? '16px Roboto' : '16px Arial';
+        ctx.font = '16px Arial';
         ctx.fillText(card.suit, x + 12, y + 50);
 
         // Center suit - smaller to avoid spilling off bottom
-        ctx.font = this.fontLoaded ? '52px Roboto' : '52px Arial';
+        ctx.font = '52px Arial';
         ctx.textAlign = 'center';
         ctx.fillText(card.suit, x + CARD_WIDTH / 2, y + CARD_HEIGHT / 2 + 8);
 
@@ -535,7 +525,7 @@ class TexasHoldemRenderer {
         ctx.save();
         ctx.translate(x + CARD_WIDTH - 14, y + CARD_HEIGHT - 16);
         ctx.rotate(Math.PI);
-        ctx.font = this.fontLoaded ? 'bold 20px Roboto' : 'bold 20px Arial';
+        ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'left';
         ctx.fillText(card.rank, 0, 0);
         ctx.restore();
@@ -544,7 +534,7 @@ class TexasHoldemRenderer {
         ctx.save();
         ctx.translate(x + CARD_WIDTH - 14, y + CARD_HEIGHT - 32);
         ctx.rotate(Math.PI);
-        ctx.font = this.fontLoaded ? '16px Roboto' : '16px Arial';
+        ctx.font = '16px Arial';
         ctx.textAlign = 'left';
         ctx.fillText(card.suit, 0, 0);
         ctx.restore();
@@ -571,7 +561,7 @@ class TexasHoldemRenderer {
 
         // Draw "D" for dealer
         ctx.fillStyle = COLORS.BLACK;
-        ctx.font = this.fontLoaded ? 'bold 16px Roboto' : 'bold 16px Arial';
+        ctx.font = 'bold 16px Arial';
         ctx.textAlign = 'center';
         ctx.fillText('D', position.x + 60, position.y - 55);
     }
@@ -638,7 +628,7 @@ class TexasHoldemRenderer {
         
         // Title based on game state
         ctx.fillStyle = isFinished || hasWinner ? '#00E676' : 'rgba(255,255,255,0.9)';
-        ctx.font = this.fontLoaded ? '600 16px Roboto' : '600 16px Arial';
+        ctx.font = '600 16px Arial';
         ctx.textAlign = 'left';
         
         if (hasWinner) {
@@ -646,7 +636,7 @@ class TexasHoldemRenderer {
             
             // Show winner info
             ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            ctx.font = this.fontLoaded ? '600 13px Roboto' : '600 13px Arial';
+            ctx.font = '600 13px Arial';
             const winner = gameState.payoutResults.find(p => p.won);
             if (winner) {
                 const winnerName = winner.username && winner.username.length > 15 ? 
@@ -665,7 +655,7 @@ class TexasHoldemRenderer {
         // Regular game info for active games
         if (!isFinished && !hasWinner) {
             ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            ctx.font = this.fontLoaded ? '600 13px Roboto' : '600 13px Arial';
+            ctx.font = '600 13px Arial';
             ctx.fillText(`Phase: ${gameState.phase}`, panelX + 15, panelY + 45);
             
             const activePlayers = gameState.players.filter(p => p.isActive).length;
@@ -686,7 +676,7 @@ class TexasHoldemRenderer {
         } else {
             // Show next hand countdown or game status
             ctx.fillStyle = COLORS.WHITE;
-            ctx.font = this.fontLoaded ? '12px Roboto' : '12px Arial';
+            ctx.font = '12px Arial';
             if (gameState.nextHandIn) {
                 ctx.fillText(`Next hand in: ${gameState.nextHandIn}s`, panelX + 15, panelY + 105);
             } else {
@@ -728,7 +718,7 @@ class TexasHoldemRenderer {
             ctx.shadowOffsetY = 3;
 
             ctx.fillStyle = COLORS.GOLD;
-            ctx.font = this.fontLoaded ? 'bold 48px Roboto' : 'bold 48px Arial';
+            ctx.font = 'bold 48px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('🏆 SHOWDOWN RESULTS 🏆', 600, 80);
 
@@ -746,7 +736,7 @@ class TexasHoldemRenderer {
             ctx.strokeRect(150, 120, 900, 140);
 
             ctx.fillStyle = COLORS.WHITE;
-            ctx.font = this.fontLoaded ? 'bold 24px Roboto' : 'bold 24px Arial';
+            ctx.font = 'bold 24px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('COMMUNITY CARDS', 600, 150);
 
@@ -793,11 +783,11 @@ class TexasHoldemRenderer {
 
                 // Player name and hand
                 ctx.fillStyle = isWinner ? '#1A1A1A' : COLORS.WHITE;
-                ctx.font = this.fontLoaded ? (isWinner ? 'bold 24px Roboto' : 'bold 20px Roboto') : (isWinner ? 'bold 24px Arial' : 'bold 20px Arial');
+                ctx.font = isWinner ? 'bold 24px Arial' : 'bold 20px Arial';
                 ctx.textAlign = 'left';
                 ctx.fillText(hand.playerName, 80, yOffset + 10);
 
-                ctx.font = this.fontLoaded ? (isWinner ? 'bold 20px Roboto' : '18px Roboto') : (isWinner ? 'bold 20px Arial' : '18px Arial');
+                ctx.font = isWinner ? 'bold 20px Arial' : '18px Arial';
                 ctx.fillText(hand.handName, 80, yOffset + 35);
 
                 // Draw player's hole cards with enhanced positioning
@@ -809,7 +799,7 @@ class TexasHoldemRenderer {
                 // Winner crown and text
                 if (isWinner) {
                     ctx.fillStyle = '#1A1A1A';
-                    ctx.font = this.fontLoaded ? 'bold 32px Roboto' : 'bold 32px Arial';
+                    ctx.font = 'bold 32px Arial';
                     ctx.textAlign = 'right';
                     ctx.fillText('👑 WINNER! 👑', 1070, yOffset + 20);
                 }
@@ -842,7 +832,7 @@ class TexasHoldemRenderer {
 
             // Title
             ctx.fillStyle = 'rgba(255,255,255,0.95)';
-            ctx.font = this.fontLoaded ? '600 22px Roboto' : '600 22px Arial';
+            ctx.font = '600 22px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('🎴 Your Hand', 260, 36);
 
@@ -861,7 +851,7 @@ class TexasHoldemRenderer {
 
             // Player info / status row
             ctx.fillStyle = 'rgba(255,255,255,0.9)';
-            ctx.font = this.fontLoaded ? '600 14px Roboto' : '600 14px Arial';
+            ctx.font = '600 14px Arial';
             ctx.textAlign = 'left';
             const name = player.username?.length > 18 ? player.username.slice(0, 18) + '…' : (player.username || 'Player');
             ctx.fillText(`👤 ${name}`, 24, 260);

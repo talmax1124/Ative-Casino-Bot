@@ -800,7 +800,7 @@ class BingoInteractiveCardView {
             console.error('Error handling button click:', error);
             await interaction.reply({ 
                 content: 'L Error processing your click!', 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral
             });
         }
     }

@@ -112,7 +112,7 @@ async function handleGameModalSubmit(interaction) {
             if (!session) {
                 return await interaction.reply({
                     content: '❌ Session expired. Please start the task again.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -129,7 +129,7 @@ async function handleGameModalSubmit(interaction) {
 
             await interaction.reply({
                 content: `✅ Line added: "${poemLine}"`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
 
         } else if (customId.startsWith('quiz_answer_')) {
@@ -142,7 +142,7 @@ async function handleGameModalSubmit(interaction) {
             if (!session) {
                 return await interaction.reply({
                     content: '❌ Session expired. Please start the task again.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -157,7 +157,7 @@ async function handleGameModalSubmit(interaction) {
 
             await interaction.reply({
                 content: `✅ Answer recorded: "${quizAnswer}"`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         } else if (customId.startsWith('letter_modal_')) {
             // Handle love letter modal submission
@@ -177,7 +177,7 @@ async function handleGameModalSubmit(interaction) {
         logger.error(`Error in handleGameModalSubmit: ${error.message}`);
         await interaction.reply({
             content: '❌ Error processing your submission. Please try again.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 }
@@ -414,7 +414,7 @@ async function sendStartupNotification() {
 async function handleLotteryButtons(interaction, customId) {
     const lotteryCommand = client.commands.get('lottery');
     if (!lotteryCommand) {
-        await interaction.reply({ content: 'Lottery system not available.', ephemeral: true });
+        await interaction.reply({ content: 'Lottery system not available.', flags: MessageFlags.Ephemeral });
         return;
     }
 
@@ -490,17 +490,17 @@ async function handleLotteryButtons(interaction, customId) {
                     .setFooter({ text: '🍀 Good luck! May the odds be in your favor!' })
                     .setTimestamp();
 
-                await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
+                await interaction.reply({ embeds: [helpEmbed], flags: MessageFlags.Ephemeral });
                 break;
 
             default:
-                await interaction.reply({ content: 'Unknown lottery action.', ephemeral: true });
+                await interaction.reply({ content: 'Unknown lottery action.', flags: MessageFlags.Ephemeral });
         }
     } catch (error) {
         logger.error(`Error handling lottery button ${customId}: ${error.message}`);
         await interaction.reply({
             content: 'An error occurred while processing your lottery request.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 }
@@ -970,14 +970,14 @@ client.on('interactionCreate', async interaction => {
                 if (isNaN(ticketCount) || ticketCount < 1 || ticketCount > 7) {
                     await interaction.reply({
                         content: '❌ Invalid ticket count! Please enter a number between 1 and 7.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                     return;
                 }
 
                 // Execute lottery buy command
                 const lotteryCommand = client.commands.get('lottery');
-                if (lotteryCommand) {
+                if (lotteryCommand && lotteryCommand.handleBuyTickets) {
                     // Simulate the options for handleBuyTickets
                     const mockInteraction = {
                         ...interaction,
@@ -988,27 +988,11 @@ client.on('interactionCreate', async interaction => {
                             }
                         }
                     };
-
-                    // Use the purchaselottery command instead
-                    const purchaseCommand = client.commands.get('purchaselottery');
-                    if (purchaseCommand) {
-                        const purchaseMockInteraction = {
-                            ...interaction,
-                            options: {
-                                getInteger: (name) => {
-                                    if (name === 'count') return ticketCount;
-                                    return null;
-                                }
-                            }
-                        };
-                        await purchaseCommand.execute(purchaseMockInteraction);
-                    } else {
-                        throw new Error('Purchase lottery command not found');
-                    }
+                    await lotteryCommand.handleBuyTickets(mockInteraction, interaction.user.id, interaction.guildId);
                 } else {
                     await interaction.reply({
                         content: '❌ Lottery system not available.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -1021,7 +1005,7 @@ client.on('interactionCreate', async interaction => {
                     await crashGame.handleModalSubmit(interaction, client, game);
                 } else {
                     logger.error(`No crash game found for modal submit in channel ${interaction.channelId}`);
-                    await interaction.reply({ content: '❌ Game session expired. Please start a new game.', ephemeral: true });
+                    await interaction.reply({ content: '❌ Game session expired. Please start a new game.', flags: MessageFlags.Ephemeral });
                 }
             }
             // stopmysession confirmation modal
@@ -1112,9 +1096,9 @@ client.on('interactionCreate', async interaction => {
                 .setColor(0xFF0000);
 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
         }
     }
@@ -1395,7 +1379,7 @@ client.on('interactionCreate', async interaction => {
                 if (battleshipCommand && battleshipCommand.handleSelectMenu) {
                     await battleshipCommand.handleSelectMenu(interaction);
                 } else {
-                    await interaction.reply({ content: '❌ Battleship handler not available.', ephemeral: true });
+                    await interaction.reply({ content: '❌ Battleship handler not available.', flags: MessageFlags.Ephemeral });
                 }
             }
             // Handle sportbet country selection
@@ -1483,7 +1467,7 @@ client.on('interactionCreate', async interaction => {
                         } else {
                             await interaction.followUp({
                                 content: '❌ Error starting blackjack game. Please try using `/blackjack` directly.',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                     } catch (updateError) {
@@ -1502,7 +1486,7 @@ client.on('interactionCreate', async interaction => {
                         logger.warn(`VPS select menu handler not found: ${interaction.customId}`);
                         await interaction.reply({
                             content: '❌ VPS management option not available.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 } catch (vpsError) {
@@ -1515,7 +1499,7 @@ client.on('interactionCreate', async interaction => {
                         isLoss: false
                     });
 
-                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                 }
             }
 
@@ -1674,7 +1658,7 @@ client.on('interactionCreate', async interaction => {
                     // Log all available games for debugging
                     const allGames = crashGame.crashManager.getAllChannelGames(interaction.channelId);
                     logger.warn(`No crash game found for button interaction: ${customId} by ${interaction.user.displayName} in channel ${interaction.channelId}. Total games in channel: ${allGames.length}`);
-                    await interaction.reply({ content: '❌ No active crash game found. The game may have ended or expired.', ephemeral: true });
+                    await interaction.reply({ content: '❌ No active crash game found. The game may have ended or expired.', flags: MessageFlags.Ephemeral });
                 }
             }
             // Handle scratch ticket buttons (claim_scratch_{ticketId} and scratch_{ticketId}_{position})
@@ -1721,7 +1705,7 @@ client.on('interactionCreate', async interaction => {
                         } else {
                             await interaction.reply({
                                 content: 'This is not your bonus game!',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                     } else if (customId.startsWith('bonus-')) {
@@ -1735,7 +1719,7 @@ client.on('interactionCreate', async interaction => {
                         } else {
                             await interaction.reply({
                                 content: 'This is not your bonus game!',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                     }
@@ -1754,7 +1738,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: 'This is not your fishing session!',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -1863,9 +1847,9 @@ client.on('interactionCreate', async interaction => {
             // Handle lottery2 buttons
             else if (customId.startsWith('lottery2_')) {
                 const action = customId.substring('lottery2_'.length);
-                const purchaseLottery2Command = client.commands.get('purchaselottery2');
-                if (purchaseLottery2Command && purchaseLottery2Command.handleButtonInteraction) {
-                    await purchaseLottery2Command.handleButtonInteraction(interaction, action);
+                const lottery2Command = client.commands.get('lottery2');
+                if (lottery2Command && lottery2Command.handleButtonInteraction) {
+                    await lottery2Command.handleButtonInteraction(interaction, action);
                 } else {
                     logger.warn(`No handler found for lottery2 button: ${customId}`);
                 }
@@ -1903,9 +1887,9 @@ client.on('interactionCreate', async interaction => {
                             .setColor(0xFF0000);
 
                         if (interaction.replied || interaction.deferred) {
-                            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                            await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                         } else {
-                            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                         }
                     } catch (replyError) {
                         logger.error(`Failed to send help error reply: ${replyError.message}`);
@@ -1944,7 +1928,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: '❌ Treasure Vault game not available. Please try again.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -1956,7 +1940,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: '❌ Economy command handler not available.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -2033,7 +2017,7 @@ client.on('interactionCreate', async interaction => {
                         logger.error('Battleship command or handler not found');
                         await interaction.reply({
                             content: '❌ Battleship handler not available. Please try again.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 } catch (error) {
@@ -2061,7 +2045,7 @@ client.on('interactionCreate', async interaction => {
                         logger.error('Plinko command or handler not found');
                         await interaction.reply({
                             content: '❌ Plinko handler not available. Please try again.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 } catch (error) {
@@ -2204,7 +2188,7 @@ client.on('interactionCreate', async interaction => {
                         logger.warn(`VPS button handler not found: ${customId}`);
                         await interaction.reply({
                             content: '❌ VPS management function not available.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 } catch (vpsError) {
@@ -2220,7 +2204,7 @@ client.on('interactionCreate', async interaction => {
                     if (interaction.deferred || interaction.replied) {
                         await interaction.editReply({ embeds: [errorEmbed] });
                     } else {
-                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                     }
                 }
             }
@@ -2265,14 +2249,14 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await interaction.reply({
                             content: '❌ AI command not available.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 } catch (aiError) {
                     logger.error(`Error handling AI button ${customId}:`, aiError);
                     await interaction.reply({
                         content: '❌ AI command error occurred.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -2286,14 +2270,14 @@ client.on('interactionCreate', async interaction => {
                         logger.warn(`Shop admin command not found or missing button handler`);
                         await interaction.reply({
                             content: '❌ Shop administration not available.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 } catch (adminShopError) {
                     logger.error(`Error handling shop admin button ${customId}:`, adminShopError);
                     await interaction.reply({
                         content: '❌ Shop administration error occurred.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -2302,7 +2286,7 @@ client.on('interactionCreate', async interaction => {
                 const action = customId.startsWith('divorce_confirm_') ? 'confirm' : 'cancel';
                 const marriageId = customId.replace(`divorce_${action}_`, '');
                 
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
                 
                 try {
                     const guildId = interaction.guild?.id;
@@ -2452,7 +2436,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: '❌ Shop not available at the moment.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -2616,13 +2600,13 @@ client.on('interactionCreate', async interaction => {
                             } else {
                                 await interaction.reply({
                                     content: '❌ Insufficient balance to play Blackjack. You need at least $10.',
-                                    ephemeral: true
+                                    flags: MessageFlags.Ephemeral
                                 });
                             }
                         } catch (error) {
                             await interaction.reply({
                                 content: '❌ Error loading bet selection. Please try using `/blackjack` directly.',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                     } else if (gameType === 'mines') {
@@ -2660,25 +2644,25 @@ client.on('interactionCreate', async interaction => {
                             } else {
                                 await interaction.reply({
                                     content: '❌ Insufficient balance to play Mines. You need at least $500.',
-                                    ephemeral: true
+                                    flags: MessageFlags.Ephemeral
                                 });
                             }
                         } catch (error) {
                             await interaction.reply({
                                 content: '❌ Error loading bet selection. Please try using `/mines` directly.',
-                                ephemeral: true
+                                flags: MessageFlags.Ephemeral
                             });
                         }
                     } else if (gameType) {
                         // For other games, just tell user to use command directly
                         await interaction.reply({
                             content: `🎮 To play ${gameType} again, please use the \`/${gameType}\` command.`,
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     } else {
                         await interaction.reply({
                             content: '❌ Unable to determine which game to restart. Please use the game command directly.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 } else if (action === 'quit') {
@@ -2697,7 +2681,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: `❌ Unknown game action: ${action}`,
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -2718,14 +2702,14 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await interaction.reply({
                             content: '❌ Unable to verify vote. Please make sure you voted and try again in a few minutes.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 } else if (customId === 'vote_reminder') {
                     // Set a reminder for when they can vote again
                     await interaction.reply({
                         content: '⏰ I\'ll remind you when you can vote again! (Note: This is a placeholder - actual reminder system would need to be implemented)',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -2803,7 +2787,7 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await interaction.reply({
                             content: '❌ Unknown marriage task action.',
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 }
@@ -2824,22 +2808,22 @@ client.on('interactionCreate', async interaction => {
                 // Handle specific game actions
                 if (customId.startsWith('house_answer_')) {
                     // House design quiz handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Start House Quiz button to begin.', ephemeral: true });
+                    await interaction.reply({ content: '⚠️ Please use the Start House Quiz button to begin.', flags: MessageFlags.Ephemeral });
                 } else if (customId.startsWith('c4_drop_') || customId.startsWith('c4_restart')) {
                     // Connect 4 game actions handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Start Connect 4 button to begin.', ephemeral: true });
+                    await interaction.reply({ content: '⚠️ Please use the Start Connect 4 button to begin.', flags: MessageFlags.Ephemeral });
                 } else if (customId.startsWith('letter_write_')) {
                     // Love letter actions handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Write Love Letter button to begin.', ephemeral: true });
+                    await interaction.reply({ content: '⚠️ Please use the Write Love Letter button to begin.', flags: MessageFlags.Ephemeral });
                 } else if (customId.startsWith('vacation_')) {
                     // Vacation planning actions handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Start Planning button to begin.', ephemeral: true });
+                    await interaction.reply({ content: '⚠️ Please use the Start Planning button to begin.', flags: MessageFlags.Ephemeral });
                 } else if (customId.startsWith('checkin_')) {
                     // Daily check-in actions handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Daily Check-In button to begin.', ephemeral: true });
+                    await interaction.reply({ content: '⚠️ Please use the Daily Check-In button to begin.', flags: MessageFlags.Ephemeral });
                 } else if (customId.startsWith('pet_')) {
                     // Virtual pet actions handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Adopt Pet button to begin.', ephemeral: true });
+                    await interaction.reply({ content: '⚠️ Please use the Adopt Pet button to begin.', flags: MessageFlags.Ephemeral });
                 }
             }
             // Handle marriage task game action buttons (old system - disabled)
@@ -3182,13 +3166,13 @@ app.post('/ranktop/webhook', async (req, res) => {
     try {
         // Log everything for debugging real rank.top webhooks
         logger.info('=== RANK.TOP WEBHOOK RECEIVED ===');
-        logger.info('Method:', req.method);
-        logger.info('URL:', req.url);
-        logger.info('Headers:', JSON.stringify(req.headers, null, 2));
-        logger.info('Body:', JSON.stringify(req.body, null, 2));
-        logger.info('Raw body type:', typeof req.body);
-        logger.info('Query params:', JSON.stringify(req.query, null, 2));
-        logger.info('IP:', req.ip || req.connection.remoteAddress);
+        logger.info(`Method: ${req.method || 'undefined'}`);
+        logger.info(`URL: ${req.url || 'undefined'}`);
+        logger.info(`Headers: ${JSON.stringify(req.headers || {}, null, 2)}`);
+        logger.info(`Body: ${JSON.stringify(req.body || {}, null, 2)}`);
+        logger.info(`Raw body type: ${typeof req.body}`);
+        logger.info(`Query params: ${JSON.stringify(req.query || {}, null, 2)}`);
+        logger.info(`IP: ${req.ip || req.connection?.remoteAddress || 'undefined'}`);
         logger.info('=== END RANK.TOP WEBHOOK ===');
         
         // Initialize TopGG manager (handles all vote types)
@@ -3563,7 +3547,7 @@ async function showSlotsHelp(interaction) {
                 .setStyle(ButtonStyle.Success)
         );
 
-    await interaction.reply({ embeds: [embed], components: [closeButton], ephemeral: true });
+    await interaction.reply({ embeds: [embed], components: [closeButton], flags: MessageFlags.Ephemeral });
 }
 
 /**
@@ -3613,7 +3597,7 @@ async function showBlackjackHelp(interaction) {
                 .setStyle(ButtonStyle.Success)
         );
 
-    await interaction.reply({ embeds: [embed], components: [closeButton], ephemeral: true });
+    await interaction.reply({ embeds: [embed], components: [closeButton], flags: MessageFlags.Ephemeral });
 }
 
 /**
@@ -3663,7 +3647,7 @@ async function showFishingHelp(interaction) {
                 .setStyle(ButtonStyle.Success)
         );
 
-    await interaction.reply({ embeds: [embed], components: [closeButton], ephemeral: true });
+    await interaction.reply({ embeds: [embed], components: [closeButton], flags: MessageFlags.Ephemeral });
 }
 
 // Graceful shutdown utility to check for active games
@@ -3975,7 +3959,7 @@ async function showMarriageTaskHelp(interaction) {
     await interaction.reply({
         embeds: [helpEmbed],
         components: [backButton],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
     });
 }
 
@@ -3993,7 +3977,7 @@ async function showMarriageTaskHistory(interaction) {
         if (!marriageData.married) {
             return await interaction.reply({
                 content: '❌ You must be married to view task history!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -4066,14 +4050,14 @@ async function showMarriageTaskHistory(interaction) {
         await interaction.reply({
             embeds: [historyEmbed],
             components: [backButton],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
 
     } catch (error) {
         logger.error('Error showing marriage task history:', error);
         await interaction.reply({
             content: '❌ Error loading task history. Please try again later.',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 }

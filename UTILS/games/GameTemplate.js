@@ -93,7 +93,7 @@ class YourGameNameHere {
             if (!session || session.status !== 'active') {
                 return await marriageTaskUtil.safeReply(interaction, {
                     content: '❌ Game session not found or expired.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -113,7 +113,7 @@ class YourGameNameHere {
             logger.error(`Error in handleGameAction: ${error.message}`);
             await marriageTaskUtil.safeReply(interaction, {
                 content: '❌ Error processing game action.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

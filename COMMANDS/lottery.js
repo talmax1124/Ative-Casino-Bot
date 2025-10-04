@@ -65,9 +65,9 @@ module.exports = {
             if (interaction.isRepliable()) {
                 try {
                     if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                        await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                     } else {
-                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                     }
                 } catch (replyError) {
                     logger.error(`Failed to send error message: ${replyError.message}`);
@@ -79,7 +79,8 @@ module.exports = {
     // Lottery Status Interface (from original lottery.js)
     async showLotteryMainPanel(interaction, userId, guildId) {
         // Get player data
-        const userBalance = await dbManager.getWallet(userId, guildId);
+        const balances = await dbManager.getBalances(userId, guildId);
+        const userBalance = balances.wallet;
         const tier1Tickets = await dbManager.databaseAdapter.getUserLotteryTickets(userId, guildId, 1);
         const tier2Tickets = await dbManager.databaseAdapter.getUserLotteryTickets(userId, guildId, 2);
         
@@ -159,7 +160,7 @@ module.exports = {
                     .setEmoji('🔄')
             );
 
-        await interaction.reply({ embeds: [embed], components: [row1], ephemeral: true });
+        await interaction.reply({ embeds: [embed], components: [row1], flags: MessageFlags.Ephemeral });
     },
 
     // Admin Lottery Draw Handler (from original drawlottery.js)
@@ -174,7 +175,7 @@ module.exports = {
                 color: 0xFF0000
             });
             
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -185,12 +186,12 @@ module.exports = {
                 color: 0xFFA500
             });
             
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
         // Defer the reply since drawing might take a while
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             // Log the manual drawing attempt

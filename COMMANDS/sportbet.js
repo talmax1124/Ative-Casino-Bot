@@ -2311,18 +2311,17 @@ async function handleGameSelection(interaction) {
  */
 async function handleSelectButton(interaction) {
     try {
-        console.log('SportBet: handleSelectButton called - This should only happen when clicking Place Bet button!');
+        console.log('SportBet: Place Bet button clicked');
         console.log('SportBet: Interaction customId:', interaction.customId);
         const tempId = interaction.customId.replace('sportbet_select_', '');
         const pendingData = pendingGames.get(tempId);
         
         if (!pendingData) {
             // Debug logging
-            console.log('SportBet: No pending data found for tempId:', tempId);
+            console.log('SportBet: Session expired for tempId:', tempId);
             console.log('SportBet: Available keys:', Array.from(pendingGames.keys()));
-            console.log('SportBet: This is likely an old button from a previous session');
             return await interaction.reply({
-                content: '❌ This betting session has expired. Please use `/sportbet view` to start a new session.',
+                content: '❌ This betting session has expired (sessions last 5 minutes). Please use `/sportbet view` to start a new session.',
                 flags: MessageFlags.Ephemeral
             });
         }
