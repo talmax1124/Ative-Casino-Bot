@@ -82,19 +82,33 @@ class MarriageTaskUtil {
                 return false;
             }
 
-            // ButtonUtility defers interactions, so we should use editReply for deferred interactions
-            if (interaction.deferred || interaction.replied) {
+            // Handle already replied interactions
+            if (interaction.replied) {
+                logger.debug('Interaction already replied, using followUp');
+                return await interaction.followUp(options);
+            }
+
+            // Handle deferred interactions
+            if (interaction.deferred) {
+                logger.debug('Interaction deferred, using editReply');
                 return await interaction.editReply(options);
             }
 
-            // For fresh interactions not handled by ButtonUtility, use reply
+            // For fresh interactions, use reply
             if (interaction.reply) {
+                logger.debug('Fresh interaction, using reply');
                 return await interaction.reply(options);
             } else {
                 logger.error(`No available method to send interaction response. Type: ${interaction.type}`);
                 return false;
             }
         } catch (error) {
+            // Don't log "already acknowledged" as errors since they're expected in some flows
+            if (error.message.includes('already been acknowledged')) {
+                logger.debug(`Interaction already acknowledged (non-critical): ${error.message}`);
+                return false;
+            }
+            
             logger.error(`Error in safeReply: ${error.message}`);
             logger.debug(`Interaction details - replied: ${interaction.replied}, deferred: ${interaction.deferred}, type: ${interaction.constructor?.name || 'unknown'}, id: ${interaction.id || 'no-id'}, customId: ${interaction.customId || 'no-customId'}`);
             
@@ -123,7 +137,9 @@ class MarriageTaskUtil {
                     return false;
                 }
             } catch (fallbackError) {
-                logger.debug(`Fallback safeReply also failed (non-critical): ${fallbackError.message}`);
+                if (!fallbackError.message.includes('already been acknowledged')) {
+                    logger.debug(`Fallback safeReply also failed (non-critical): ${fallbackError.message}`);
+                }
                 return false;
             }
         }

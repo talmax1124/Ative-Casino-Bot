@@ -495,7 +495,7 @@ module.exports = {
             .setFooter({ text: 'Marriage Tasks System • ATIVE Casino Bot' })
             .setTimestamp();
 
-        await interaction.reply({
+        await this.safeReply(interaction, {
             embeds: [helpEmbed],
             flags: MessageFlags.Ephemeral
         });
@@ -562,14 +562,14 @@ module.exports = {
                 });
             }
 
-            await interaction.reply({
+            await this.safeReply(interaction, {
                 embeds: [historyEmbed],
                 flags: MessageFlags.Ephemeral
             });
 
         } catch (error) {
             logger.error('Error showing marriage task history:', error);
-            await interaction.reply({
+            await this.safeReply(interaction, {
                 content: '❌ Error loading task history. Please try again later.',
                 flags: MessageFlags.Ephemeral
             });
@@ -955,7 +955,7 @@ module.exports = {
     async handleButtonInteraction(interaction) {
         // This method is no longer used - buttons are handled directly in index.js
         logger.debug('Old handleButtonInteraction called - this should not happen');
-        await interaction.reply({
+        await this.safeReply(interaction, {
             content: '❌ Please try again - the button system has been updated.',
             flags: MessageFlags.Ephemeral
         });

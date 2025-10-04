@@ -122,13 +122,29 @@ class ButtonUtility {
             throw lastError;
 
         } catch (error) {
-            logger.error('Button interaction error:', error);
-            
-            // Attempt to respond with error message
-            await this.safeReply(interaction, {
-                content: errorMessage,
-                flags: MessageFlags.Ephemeral
-            });
+            // Downgrade common Discord interaction errors
+            const msg = error?.message || '';
+            const code = error?.code;
+            if (code === 10062 || msg.includes('Unknown interaction')) {
+                // Interaction expired or invalid — ignore quietly
+                logger.debug('Button interaction expired/unknown:', msg || code);
+            } else if (code === 40060 || msg.includes('already been acknowledged')) {
+                // Already acknowledged — likely double-ack scenario, not critical
+                logger.debug('Button interaction already acknowledged:', msg || code);
+            } else {
+                logger.error('Button interaction error:', error);
+                // Attempt to respond with error message only if still repliable
+                try {
+                    if (interaction?.isRepliable && interaction.isRepliable()) {
+                        await this.safeReply(interaction, {
+                            content: errorMessage,
+                            flags: MessageFlags.Ephemeral
+                        });
+                    }
+                } catch (_) {
+                    // Swallow follow-up errors
+                }
+            }
 
             // Clean up state
             this.interactionStates.delete(interaction.id);
@@ -174,7 +190,15 @@ class ButtonUtility {
                     });
                 }
             } catch (error) {
-                logger.error('Collector error:', error);
+                const msg = error?.message || '';
+                const code = error?.code;
+                if (code === 10062 || msg.includes('Unknown interaction')) {
+                    logger.debug('Collector: interaction expired/unknown');
+                } else if (code === 40060 || msg.includes('already been acknowledged')) {
+                    logger.debug('Collector: interaction already acknowledged');
+                } else {
+                    logger.error('Collector error:', error);
+                }
             }
         });
 
@@ -204,28 +228,44 @@ class ButtonUtility {
      */
     async safeReply(interaction, data) {
         try {
+            if (!interaction || !interaction.isRepliable || !interaction.isRepliable()) {
+                return false;
+            }
+
             const state = this.interactionStates.get(interaction.id) || {};
+
+            // Prefer update for fresh component interactions when requested
+            if (data.update && interaction.isMessageComponent && interaction.isMessageComponent() && !interaction.deferred && !interaction.replied) {
+                return await interaction.update(data);
+            }
 
             if (interaction.replied || state.replied) {
                 return await interaction.followUp(data);
             } else if (interaction.deferred || state.deferred) {
                 return await interaction.editReply(data);
             } else {
-                if (data.update) {
-                    return await interaction.update(data);
-                } else {
-                    return await interaction.reply(data);
-                }
+                return await interaction.reply(data);
             }
         } catch (error) {
-            logger.error('Safe reply failed:', error);
-            
-            // Last resort - try follow up
-            try {
-                return await interaction.followUp({ ...data, flags: MessageFlags.Ephemeral });
-            } catch (followUpError) {
-                logger.error('Follow up also failed:', followUpError);
+            const msg = error?.message || '';
+            const code = error?.code;
+            if (code === 10062 || msg.includes('Unknown interaction')) {
+                // Expired — nothing to do
+                logger.debug('Safe reply skipped: unknown/expired interaction');
+                return false;
             }
+            if (code === 40060 || msg.includes('already been acknowledged')) {
+                // Already acked — try follow up once
+                try {
+                    return await interaction.followUp({ ...data, flags: data.flags ?? MessageFlags.Ephemeral });
+                } catch (_) {
+                    logger.debug('Follow up after acknowledged failed; ignoring');
+                    return false;
+                }
+            }
+
+            logger.error('Safe reply failed:', error);
+            return false;
         }
     }
 

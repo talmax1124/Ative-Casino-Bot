@@ -2785,7 +2785,7 @@ client.on('interactionCreate', async interaction => {
                         // Handle history button
                         await showMarriageTaskHistory(interaction);
                     } else {
-                        await interaction.reply({
+                        await SafeInteractionHandler.safeReply(interaction, {
                             content: '❌ Unknown marriage task action.',
                             flags: MessageFlags.Ephemeral
                         });
@@ -2808,22 +2808,22 @@ client.on('interactionCreate', async interaction => {
                 // Handle specific game actions
                 if (customId.startsWith('house_answer_')) {
                     // House design quiz handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Start House Quiz button to begin.', flags: MessageFlags.Ephemeral });
+                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Start House Quiz button to begin.', flags: MessageFlags.Ephemeral });
                 } else if (customId.startsWith('c4_drop_') || customId.startsWith('c4_restart')) {
                     // Connect 4 game actions handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Start Connect 4 button to begin.', flags: MessageFlags.Ephemeral });
+                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Start Connect 4 button to begin.', flags: MessageFlags.Ephemeral });
                 } else if (customId.startsWith('letter_write_')) {
                     // Love letter actions handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Write Love Letter button to begin.', flags: MessageFlags.Ephemeral });
+                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Write Love Letter button to begin.', flags: MessageFlags.Ephemeral });
                 } else if (customId.startsWith('vacation_')) {
                     // Vacation planning actions handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Start Planning button to begin.', flags: MessageFlags.Ephemeral });
+                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Start Planning button to begin.', flags: MessageFlags.Ephemeral });
                 } else if (customId.startsWith('checkin_')) {
                     // Daily check-in actions handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Daily Check-In button to begin.', flags: MessageFlags.Ephemeral });
+                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Daily Check-In button to begin.', flags: MessageFlags.Ephemeral });
                 } else if (customId.startsWith('pet_')) {
                     // Virtual pet actions handled by the game itself
-                    await interaction.reply({ content: '⚠️ Please use the Adopt Pet button to begin.', flags: MessageFlags.Ephemeral });
+                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Adopt Pet button to begin.', flags: MessageFlags.Ephemeral });
                 }
             }
             // Handle marriage task game action buttons (old system - disabled)
@@ -3956,7 +3956,7 @@ async function showMarriageTaskHelp(interaction) {
                 .setStyle(ButtonStyle.Primary)
         );
 
-    await interaction.reply({
+    await SafeInteractionHandler.safeReply(interaction, {
         embeds: [helpEmbed],
         components: [backButton],
         flags: MessageFlags.Ephemeral
@@ -3975,7 +3975,7 @@ async function showMarriageTaskHistory(interaction) {
         const marriageData = await dbManager.getUserMarriage(userId, guildId);
         
         if (!marriageData.married) {
-            return await interaction.reply({
+            return await SafeInteractionHandler.safeReply(interaction, {
                 content: '❌ You must be married to view task history!',
                 flags: MessageFlags.Ephemeral
             });
@@ -4047,7 +4047,7 @@ async function showMarriageTaskHistory(interaction) {
                     .setStyle(ButtonStyle.Primary)
             );
 
-        await interaction.reply({
+        await SafeInteractionHandler.safeReply(interaction, {
             embeds: [historyEmbed],
             components: [backButton],
             flags: MessageFlags.Ephemeral
@@ -4055,7 +4055,7 @@ async function showMarriageTaskHistory(interaction) {
 
     } catch (error) {
         logger.error('Error showing marriage task history:', error);
-        await interaction.reply({
+        await SafeInteractionHandler.safeReply(interaction, {
             content: '❌ Error loading task history. Please try again later.',
             flags: MessageFlags.Ephemeral
         });

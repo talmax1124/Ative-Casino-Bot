@@ -114,7 +114,7 @@ class VirtualPetTaskGame {
                     inline: false 
                 });
                 
-                await marriageTaskUtil.markTaskCompleted(marriage.id, 22, 'both', {
+                await marriageTaskUtil.markTaskCompleted(marriage.id, 6, 'both', {
                     petType: pet.pet_type,
                     daysAlive: daysAlive,
                     livesRemaining: pet.lives_remaining
@@ -150,6 +150,16 @@ class VirtualPetTaskGame {
                 embeds: [embed],
                 components: [buttons]
             });
+
+            // Setup button collector
+            const message = await interaction.fetchReply();
+            const collector = buttonUtility.setupCollector(message, {
+                filter: (i) => i.customId.startsWith('pet_') && i.customId.includes(pet.pet_id),
+                time: 300000, // 5 minutes
+                onCollect: async (buttonInteraction) => {
+                    await this.handlePetInteraction(buttonInteraction, pet, marriage, util);
+                }
+            });
         } else {
             embed.addFields(
                 { name: '💀 Status', value: 'Your pet has passed away...', inline: false },
@@ -175,6 +185,16 @@ class VirtualPetTaskGame {
                 await util.safeReply(interaction, {
                     embeds: [embed],
                     components: [button]
+                });
+
+                // Setup respawn button collector
+                const message = await interaction.fetchReply();
+                const collector = buttonUtility.setupCollector(message, {
+                    filter: (i) => i.customId.startsWith('pet_respawn_') && i.customId.includes(pet.pet_id),
+                    time: 300000, // 5 minutes
+                    onCollect: async (buttonInteraction) => {
+                        await this.handleRespawn(buttonInteraction, pet, marriage, util);
+                    }
                 });
             } else {
                 embed.addFields({ 
@@ -234,6 +254,79 @@ class VirtualPetTaskGame {
         } catch (error) {
             logger.error(`Error getting active pet: ${error.message}`);
             return null;
+        }
+    }
+
+    async handlePetInteraction(interaction, pet, marriage, util) {
+        try {
+            const actionType = interaction.customId.split('_')[1]; // feed, water, clean, pet
+            
+            // Update pet based on action
+            switch (actionType) {
+                case 'feed':
+                    pet.hunger = Math.min(100, pet.hunger + 20);
+                    break;
+                case 'water':
+                    pet.thirst = Math.min(100, pet.thirst + 25);
+                    break;
+                case 'clean':
+                    pet.cleanliness = Math.min(100, pet.cleanliness + 30);
+                    break;
+                case 'pet':
+                    pet.happiness = Math.min(100, pet.happiness + 15);
+                    break;
+            }
+
+            // Update database
+            const updateQuery = `
+                UPDATE marriage_virtual_pets 
+                SET hunger = ?, thirst = ?, cleanliness = ?, happiness = ?, last_interaction = NOW()
+                WHERE pet_id = ?
+            `;
+            
+            await dbManager.databaseAdapter.pool.execute(updateQuery, [
+                pet.hunger, pet.thirst, pet.cleanliness, pet.happiness, pet.pet_id
+            ]);
+
+            // Show updated status
+            await this.showPetStatus(interaction, pet, marriage, util);
+            
+        } catch (error) {
+            logger.error(`Error handling pet interaction: ${error.message}`);
+            await util.safeReply(interaction, {
+                content: '❌ Error caring for pet.',
+                flags: MessageFlags.Ephemeral
+            });
+        }
+    }
+
+    async handleRespawn(interaction, pet, marriage, util) {
+        try {
+            // Respawn pet with reduced lives
+            const updateQuery = `
+                UPDATE marriage_virtual_pets 
+                SET is_alive = TRUE, hunger = 50, thirst = 50, cleanliness = 50, happiness = 50, last_interaction = NOW()
+                WHERE pet_id = ?
+            `;
+            
+            await dbManager.databaseAdapter.pool.execute(updateQuery, [pet.pet_id]);
+            
+            // Update local pet object
+            pet.is_alive = true;
+            pet.hunger = 50;
+            pet.thirst = 50;
+            pet.cleanliness = 50;
+            pet.happiness = 50;
+
+            // Show updated status
+            await this.showPetStatus(interaction, pet, marriage, util);
+            
+        } catch (error) {
+            logger.error(`Error respawning pet: ${error.message}`);
+            await util.safeReply(interaction, {
+                content: '❌ Error respawning pet.',
+                flags: MessageFlags.Ephemeral
+            });
         }
     }
 }
