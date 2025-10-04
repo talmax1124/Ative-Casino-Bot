@@ -157,54 +157,38 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
 
     if (game.gameEnded) {
         const results = await game.getResults();
-        
-        // Use regulated payout if available, otherwise fall back to original game result
-        if (regulatedPayout !== null) {
-            // Determine result based on actual regulated payout
-            if (regulatedPayout > 0) {
-                const result = results[0];
-                if (result && result.outcome === 'BLACKJACK') {
-                    stageText = 'BLACKJACK';
-                    color = 0xFFD700; // Gold for blackjack
-                } else if (result && result.outcome === 'PUSH') {
-                    stageText = 'PUSH';
-                    color = 0xFFFF00; // Yellow for push
-                } else {
-                    stageText = results.length > 1 ? 'SPLIT WIN' : 'WIN';
-                    color = 0x00ff00; // Green for win
-                }
+        // Determine display strictly from game outcomes, not payout adjustments
+        if (results.length > 1) {
+            const allPush = results.every(r => r.outcome === 'PUSH');
+            const anyBlackjack = results.some(r => r.outcome === 'BLACKJACK');
+            const wins = results.filter(r => r.won).length;
+            if (anyBlackjack) {
+                stageText = 'BLACKJACK';
+                color = 0xFFD700;
+            } else if (allPush) {
+                stageText = 'PUSH';
+                color = 0xFFFF00;
+            } else if (wins > 0) {
+                stageText = 'SPLIT WIN';
+                color = 0x00ff00;
             } else {
-                const result = results[0];
-                if (result && result.outcome === 'PUSH') {
-                    stageText = 'PUSH';
-                    color = 0xFFFF00; // Yellow for push
-                } else {
-                    stageText = results.length > 1 ? 'SPLIT LOSS' : 'LOSS';
-                    color = 0xff0000; // Red for loss
-                }
+                stageText = 'SPLIT LOSS';
+                color = 0xff0000;
             }
         } else {
-            // Original logic for cases where regulated payout isn't available yet
-            if (results.length > 1) {
-                // Split hands results
-                const wins = results.filter(r => r.won).length;
-                stageText = wins > 0 ? 'SPLIT WIN' : 'SPLIT LOSS';
-                color = wins > 0 ? 0x00ff00 : 0xff0000;
+            const result = results[0];
+            if (result.outcome === 'BLACKJACK') {
+                stageText = 'BLACKJACK';
+                color = 0xFFD700;
+            } else if (result.outcome === 'PUSH') {
+                stageText = 'PUSH';
+                color = 0xFFFF00;
+            } else if (result.won) {
+                stageText = 'WIN';
+                color = 0x00ff00;
             } else {
-                const result = results[0];
-                if (result.outcome === 'BLACKJACK') {
-                    stageText = 'BLACKJACK';
-                    color = 0xFFD700; // Gold for blackjack
-                } else if (result.won) {
-                    stageText = 'WIN';
-                    color = 0x00ff00; // Green for win
-                } else if (result.outcome === 'PUSH') {
-                    stageText = 'PUSH';
-                    color = 0xFFFF00; // Yellow for push
-                } else {
-                    stageText = 'LOSS';
-                    color = 0xff0000; // Red for loss
-                }
+                stageText = 'LOSS';
+                color = 0xff0000;
             }
         }
     } else {
@@ -1063,9 +1047,20 @@ module.exports = {
                 logger.info(`🎛️ BLACKJACK TUNING: ${totalPayout} -> ${tuningAdjustment.adjustedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
             }
             
-            // Determine if player won based on net profit
+            // Incorporate insurance side bet into final outcome
+            let totalInsuranceAmount = 0;
+            let totalInsurancePayout = 0;
+            for (const r of results) {
+                totalInsuranceAmount += r.insuranceAmount || 0;
+                totalInsurancePayout += r.insurancePayout || 0;
+            }
+
+            // Final payout includes main regulated payout plus insurance payouts
+            const finalPayout = (regulatedPayout || 0) + totalInsurancePayout;
+
+            // Determine if player won based on net profit including insurance
             // Push: payout = bet (no profit), Loss: payout = 0, Win: payout > bet
-            const netProfit = regulatedPayout - totalBetAmount;
+            const netProfit = finalPayout - totalBetAmount - totalInsuranceAmount;
             const won = netProfit > 0; // Only true wins have positive net profit
             
             // Final summary log to track win/loss determination
@@ -1079,13 +1074,17 @@ module.exports = {
                 userId,
                 guildId,
                 gameType: 'blackjack',
-                betAmount: totalBetAmount,
-                payout: regulatedPayout,
+                betAmount: totalBetAmount + totalInsuranceAmount,
+                payout: finalPayout,
                 won: won,
                 metadata: { 
                     hands: results.length,
                     isPush: isPush,
-                    netProfit: netProfit
+                    netProfit: netProfit,
+                    insurance: {
+                        amount: totalInsuranceAmount,
+                        payout: totalInsurancePayout
+                    }
                 }
             });
 
@@ -1098,7 +1097,7 @@ module.exports = {
                     'blackjack', 
                     won, 
                     totalBetAmount, 
-                    regulatedPayout,  // Use regulated payout for recording
+                    finalPayout,  // Include insurance payout for recording
                     {
                         hands: game.splitHands.length || 1,
                         dealerValue: game.dealerHand.getValue(),
@@ -1174,7 +1173,7 @@ module.exports = {
                                    (result.won && handNetProfit > 0)) {
                             // Win scenarios: check both outcome and net profit for accuracy
                             status = result.outcome === 'BLACKJACK' ? '🃏 BLACKJACK' : '🎉 WIN';
-                            description = `Won ${fmt(handNetProfit)}`;
+                            description = handNetProfit > 0 ? `Won ${fmt(handNetProfit)}` : 'No profit';
                         } else {
                             status = '💸 LOSE';
                             description = `Lost ${fmt(result.betAmount)}`;
@@ -1183,25 +1182,32 @@ module.exports = {
                         handResults.push(`Hand ${i + 1}: ${status} ${description}${doubledText}`);
                     }
                     resultMessage = handResults.join('\n');
-                    const totalNetProfit = regulatedPayout - totalBetAmount;
-                    if (totalNetProfit > 0) {
-                        resultMessage += `\n\n**Total Won: ${fmt(totalNetProfit)}**`;
-                    } else if (totalNetProfit === 0) {
+                    // Insurance summary
+                    if (totalInsuranceAmount > 0) {
+                        if (totalInsurancePayout > 0) {
+                            resultMessage += `\n**Insurance:** WON ${fmt(totalInsurancePayout)} (cost ${fmt(totalInsuranceAmount)})`;
+                        } else {
+                            resultMessage += `\n**Insurance:** LOST ${fmt(totalInsuranceAmount)}`;
+                        }
+                    }
+                    if (netProfit > 0) {
+                        resultMessage += `\n\n**Total Won: ${fmt(netProfit)}**`;
+                    } else if (netProfit === 0) {
                         resultMessage += `\n\n**Total: Push - All bets returned**`;
                     } else {
-                        resultMessage += `\n\n**Total Lost: ${fmt(Math.abs(totalNetProfit))}**`;
+                        resultMessage += `\n\n**Total Lost: ${fmt(Math.abs(netProfit))}**`;
                     }
                 } else {
                     const result = results[0] || {};
-                    // Use the actual regulated payout, not the original game result payout
-                    const actualPayout = regulatedPayout || 0;
-                    logger.info(`🔍 DEBUG: originalWon=${result.won}, finalWon=${won}, outcome=${result.outcome}, netProfit=${netProfit}, baseMultiplier=${result.baseMultiplier}, multiplier=${result.multiplier}, originalPayout=${result.payout}, regulatedPayout=${actualPayout}`);
+                    // Use the actual final payout with insurance for debug
+                    const actualPayout = finalPayout || 0;
+                    logger.info(`🔍 DEBUG: originalWon=${result.won}, finalWon=${won}, outcome=${result.outcome}, netProfit=${netProfit}, baseMultiplier=${result.baseMultiplier}, multiplier=${result.multiplier}, originalPayout=${result.payout}, finalPayout=${actualPayout}, insuranceAmount=${totalInsuranceAmount}, insurancePayout=${totalInsurancePayout}`);
                     
                     // Check for playfor context to display recipient
                     const playForRecipient = global.playForContext?.recipientName;
                     const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
                     
-                    // Display win/loss based on outcome and net profit (use netProfit for accuracy)
+                    // Display win/loss based on rules outcome and net profit (avoid calling a rules win a loss)
                     if (result.outcome === 'PUSH' || (netProfit === 0 && regulatedPayout > 0)) {
                         // Push: bet is returned (no profit, no loss)
                         resultMessage = `🤝 **PUSH** - Your bet of ${fmt(totalBetAmount)} is returned.`;
@@ -1220,12 +1226,29 @@ module.exports = {
                                 resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)}`;
                             }
                         }
+                    } else if (result.won) {
+                        // Rules-based win, but no profit after adjustments — avoid saying "lose"
+                        if (result.outcome === 'BLACKJACK') {
+                            resultMessage = '🃏 **BLACKJACK!** (No profit)';
+                        } else if (result.outcome === 'DEALER BUSTED') {
+                            resultMessage = '🎉 **YOU WIN!** Dealer busted (No profit)';
+                        } else {
+                            resultMessage = '🎉 **YOU WIN!** (No profit)';
+                        }
                     } else {
                         // Loss scenarios (netProfit <= 0 and not a push)
                         if (winningForSomeoneElse) {
                             resultMessage = `💸 **YOU LOSE!** @${playForRecipient} gets nothing.`;
                         } else {
                             resultMessage = `💸 **YOU LOSE!** Lost ${fmt(totalBetAmount)}.`;
+                        }
+                    }
+                    // Append insurance summary for single-hand games
+                    if (totalInsuranceAmount > 0) {
+                        if (totalInsurancePayout > 0) {
+                            resultMessage += `\n**Insurance:** WON ${fmt(totalInsurancePayout)} (cost ${fmt(totalInsuranceAmount)})`;
+                        } else {
+                            resultMessage += `\n**Insurance:** LOST ${fmt(totalInsuranceAmount)}`;
                         }
                     }
                 }
@@ -1253,7 +1276,7 @@ module.exports = {
             
             // Enhanced interaction update with validation
             const finalData = {
-                content: resultMessage || `🎰 Game Complete - Total Payout: ${fmt(regulatedPayout)}`,
+                content: resultMessage || `🎰 Game Complete - Total Payout: ${fmt(finalPayout)}`,
                 embeds: [finalEmbed],
                 components: isPlayforGame ? [] : GamePanel.createGameButtons({ 
                     actions: ['play_again_multi', 'quit'],
@@ -1270,7 +1293,7 @@ module.exports = {
             try {
                 // Validate finalData before sending
                 if (!finalData.content || finalData.content.trim() === '') {
-                    finalData.content = `🎰 Game Complete - Payout: ${fmt(regulatedPayout)}`;
+                    finalData.content = `🎰 Game Complete - Payout: ${fmt(finalPayout)}`;
                 }
                 
                 // Check if interaction is still valid before responding
@@ -1307,7 +1330,7 @@ module.exports = {
                 try {
                     if (interaction && typeof interaction.isRepliable === 'function' && interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
                         const fallbackData = {
-                            content: `🎰 Game Complete - Payout: ${fmt(regulatedPayout)}`,
+                            content: `🎰 Game Complete - Payout: ${fmt(finalPayout)}`,
                             embeds: [finalEmbed],
                             components: isPlayforGame ? [] : GamePanel.createGameButtons({ 
                                 actions: ['play_again_multi', 'quit'],
@@ -1341,13 +1364,13 @@ module.exports = {
             // Complete session if game has one
             if (game.sessionId) {
                 // Determine actual game outcome: win (profit), push (break even), or loss
-                const netResult = regulatedPayout - totalBetAmount;
+                const netResult = netProfit; // already includes insurance
                 const actuallyWon = netResult > 0;
                 const sessionIsPush = netResult === 0 && regulatedPayout > 0;
                 
                 await sessionManager.endSession(game.sessionId, {
                     outcome: 'COMPLETED',
-                    payout: regulatedPayout,
+                    payout: finalPayout,
                     won: actuallyWon,
                     isPush: sessionIsPush,
                     netResult: netResult,
@@ -1366,7 +1389,7 @@ module.exports = {
             activeGames.delete(game.sessionId);
 
             // Log game end with proper outcome detection
-            const netResult = regulatedPayout - totalBetAmount;
+            const netResult = netProfit; // include insurance
             let outcomeText = '';
             if (netResult > 0) {
                 outcomeText = 'won';
@@ -1379,7 +1402,7 @@ module.exports = {
             await sendLogMessage(
                 interaction.client,
                 'game',
-                `Blackjack game ended: ${interaction.user.displayName} ${outcomeText} ${fmt(Math.abs(netResult))}`,
+                `Blackjack game ended: ${interaction.user.displayName} ${outcomeText} ${fmt(Math.abs(netResult))} (incl. insurance)`,
                 userId,
                 guildId
             );

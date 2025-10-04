@@ -2803,28 +2803,11 @@ client.on('interactionCreate', async interaction => {
                      customId.startsWith('letter_write_') || customId.startsWith('vacation_add_') || customId.startsWith('vacation_finish_') ||
                      customId.startsWith('vacation_view_') || customId.startsWith('checkin_morning_') || customId.startsWith('checkin_night_') ||
                      customId.startsWith('pet_feed_') || customId.startsWith('pet_water_') || customId.startsWith('pet_clean_') || 
-                     customId.startsWith('pet_pet_') || customId.startsWith('pet_retry_')) {
-                
-                // Handle specific game actions
-                if (customId.startsWith('house_answer_')) {
-                    // House design quiz handled by the game itself
-                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Start House Quiz button to begin.', flags: MessageFlags.Ephemeral });
-                } else if (customId.startsWith('c4_drop_') || customId.startsWith('c4_restart')) {
-                    // Connect 4 game actions handled by the game itself
-                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Start Connect 4 button to begin.', flags: MessageFlags.Ephemeral });
-                } else if (customId.startsWith('letter_write_')) {
-                    // Love letter actions handled by the game itself
-                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Write Love Letter button to begin.', flags: MessageFlags.Ephemeral });
-                } else if (customId.startsWith('vacation_')) {
-                    // Vacation planning actions handled by the game itself
-                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Start Planning button to begin.', flags: MessageFlags.Ephemeral });
-                } else if (customId.startsWith('checkin_')) {
-                    // Daily check-in actions handled by the game itself
-                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Daily Check-In button to begin.', flags: MessageFlags.Ephemeral });
-                } else if (customId.startsWith('pet_')) {
-                    // Virtual pet actions handled by the game itself
-                    await SafeInteractionHandler.safeReply(interaction, { content: '⚠️ Please use the Adopt Pet button to begin.', flags: MessageFlags.Ephemeral });
-                }
+                     customId.startsWith('pet_pet_') || customId.startsWith('pet_retry_') || customId.startsWith('pet_respawn_')) {
+                // These interactions are handled by the marriage game collectors on the specific messages.
+                // Do not reply here to avoid double-acks and incorrect prompts mid-game.
+                logger.debug(`Marriage game component handled by game collectors: ${customId}`);
+                return;
             }
             // Handle marriage task game action buttons (old system - disabled)
             else if (customId.includes('_game_')) {
