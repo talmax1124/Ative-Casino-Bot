@@ -1007,10 +1007,12 @@ module.exports = {
                 totalBetAmount += result.betAmount || game.betAmount;
             }
             
-            const originalWon = totalPayout > 0;
+            // Calculate original net profit to determine if player actually won
+            const originalNetProfit = totalPayout - totalBetAmount;
+            const originalWon = originalNetProfit > 0;
             
             // Debug logging to track the issue
-            logger.info(`🔍 BLACKJACK CALCULATION: totalPayout=${totalPayout}, totalBetAmount=${totalBetAmount}, originalWon=${originalWon}`);
+            logger.info(`🔍 BLACKJACK CALCULATION: totalPayout=${totalPayout}, totalBetAmount=${totalBetAmount}, originalNetProfit=${originalNetProfit}, originalWon=${originalWon}`);
             
             // Check if this is a push (all hands are pushes)
             const isPush = results.every(r => r.outcome === 'PUSH');
@@ -1027,8 +1029,8 @@ module.exports = {
                     payoutDelta: 0, 
                     feeApplied: false 
                 };
-            } else if (!originalWon) {
-                // For losses, payout should be 0 (money already deducted)
+            } else if (originalNetProfit <= 0) {
+                // For losses (including cases where totalPayout <= totalBetAmount), payout should be 0
                 regulatedPayout = 0;
                 tuningAdjustment = { 
                     originalPayout: 0, 
@@ -1168,8 +1170,9 @@ module.exports = {
                         if (result.outcome === 'PUSH') {
                             status = '🤝 PUSH';
                             description = 'Bet returned';
-                        } else if (handNetProfit > 0) {
-                            // Use net profit to determine win (more accurate than result.won)
+                        } else if (result.outcome === 'BLACKJACK' || result.outcome === 'WIN' || result.outcome === 'DEALER BUSTED' || 
+                                   (result.won && handNetProfit > 0)) {
+                            // Win scenarios: check both outcome and net profit for accuracy
                             status = result.outcome === 'BLACKJACK' ? '🃏 BLACKJACK' : '🎉 WIN';
                             description = `Won ${fmt(handNetProfit)}`;
                         } else {

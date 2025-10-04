@@ -86,6 +86,15 @@ async function createGameEmbed(game, user, balance = null, economicIndicators = 
     // Top fields for game information
     const topFields = [];
     
+    // Add instructions if game is just starting
+    if (!game.gameEnded && game.revealedTiles.length === 0) {
+        topFields.push({
+            name: '📖 HOW TO PLAY',
+            value: '• Click numbered tiles to reveal them\n• Avoid mines - hit a mine and lose everything!\n• Each safe tile increases your multiplier\n• Cash out anytime to secure your winnings',
+            inline: false
+        });
+    }
+    
     // Game stats only - no visual grid
     const stats = await game.getStats();
     topFields.push({
@@ -203,9 +212,11 @@ async function createGameButtons(userId, game = null) {
         rows.push(new ActionRowBuilder().addComponents(buttons));
     }
     
-    // Create ALL grid buttons showing current state
-    const gridRows = Math.sqrt(game.gridSize);
+    // Create grid buttons - max 5 buttons per row, max 4 rows for grid (reserving 1 for controls)
+    const gridDimension = Math.sqrt(game.gridSize);
+    const maxButtonsPerRow = Math.min(5, gridDimension); // Discord limit: 5 buttons per row
     let currentRow = [];
+    let tileCount = 0;
     
     for (let i = 0; i < game.gridSize; i++) {
         const isRevealed = game.revealedTiles.includes(i);
@@ -239,9 +250,9 @@ async function createGameButtons(userId, game = null) {
                 emoji = '⬜';
                 disabled = true;
             } else {
-                // Active tile - green with number
+                // Active tile - green with question mark
                 buttonStyle = ButtonStyle.Success;
-                emoji = '🟩';
+                emoji = '❓';
                 disabled = false;
             }
         }
@@ -254,19 +265,20 @@ async function createGameButtons(userId, game = null) {
             .setDisabled(disabled);
         
         currentRow.push(button);
+        tileCount++;
         
-        // Create new row every gridRows buttons (5x5, 4x4, etc.)
-        if (currentRow.length === gridRows) {
+        // Create new row when we hit the max buttons per row OR at grid boundaries
+        if (currentRow.length === maxButtonsPerRow || (tileCount % gridDimension === 0 && tileCount > 0)) {
             rows.push(new ActionRowBuilder().addComponents(currentRow));
             currentRow = [];
+            
+            // Discord limit: max 5 total rows, we reserve 1 for action buttons
+            if (rows.length >= 4) break;
         }
-        
-        // Discord limit: max 5 rows, break if we reach limit
-        if (rows.length >= 4) break; // Reserve 1 row for action buttons
     }
     
-    // Add any remaining buttons
-    if (currentRow.length > 0) {
+    // Add any remaining buttons if there's room
+    if (currentRow.length > 0 && rows.length < 4) {
         rows.push(new ActionRowBuilder().addComponents(currentRow));
     }
     
