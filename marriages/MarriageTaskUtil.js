@@ -277,20 +277,6 @@ class MarriageTaskUtil {
             );
     }
 
-    /**
-     * Get marriage information from interaction
-     */
-    async getMarriageInfo(interaction) {
-        const { getGuildId } = require('../UTILS/common');
-        const guildId = await getGuildId(interaction);
-        const marriageData = await dbManager.getUserMarriage(interaction.user.id, guildId);
-        
-        if (!marriageData.married) {
-            throw new Error('You must be married to access marriage tasks!');
-        }
-        
-        return marriageData.marriage;
-    }
     
     /**
      * Handle task display - shows the task with start button
