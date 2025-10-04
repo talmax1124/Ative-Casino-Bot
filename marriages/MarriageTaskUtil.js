@@ -198,6 +198,10 @@ class MarriageTaskUtil {
         
         return {
             id: marriage.id,
+            partner1_id: marriage.partner1_id,
+            partner2_id: marriage.partner2_id,
+            partner1_name: partner1Name,
+            partner2_name: partner2Name,
             partner1: {
                 id: marriage.partner1_id,
                 name: partner1Name

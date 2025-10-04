@@ -8,7 +8,8 @@ const {
     ButtonStyle, 
     ActionRowBuilder, 
     ComponentType,
-    InteractionType 
+    InteractionType,
+    MessageFlags 
 } = require('discord.js');
 const logger = require('./logger');
 
