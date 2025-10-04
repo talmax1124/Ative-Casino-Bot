@@ -248,8 +248,14 @@ class GameTrendAnalyzer {
      */
     async recordChoice(gameType, userId, choice, metadata = {}) {
         try {
+            // Handle undefined/null gameType
+            if (!gameType || gameType === 'undefined' || gameType === undefined) {
+                logger.warn(`Undefined game type for trend analysis (gameType: ${gameType}, userId: ${userId}, choice: ${choice})`);
+                return;
+            }
+            
             if (!this.trendData.has(gameType)) {
-                logger.warn(`Unknown game type for trend analysis: ${gameType}`);
+                logger.warn(`Unknown game type for trend analysis: "${gameType}" (type: ${typeof gameType}, userId: ${userId})`);
                 return;
             }
             
@@ -1329,8 +1335,14 @@ class GameTrendAnalyzer {
             };
             
             // Add to game-specific tracking
+            // Handle undefined/null gameType
+            if (!gameType || gameType === 'undefined' || gameType === undefined) {
+                logger.warn(`Undefined game type for big win (gameType: ${gameType}, userId: ${userId}, winAmount: ${winAmount})`);
+                return;
+            }
+            
             if (!this.trendData.has(gameType)) {
-                logger.warn(`Unknown game type for big win: ${gameType}`);
+                logger.warn(`Unknown game type for big win: "${gameType}" (type: ${typeof gameType}, userId: ${userId})`);
                 return;
             }
             

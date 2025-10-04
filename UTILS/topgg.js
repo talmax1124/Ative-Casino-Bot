@@ -316,38 +316,49 @@ class TopGGManager {
             try {
                 await user.send({ embeds: [embed] });
                 dmSent = true;
-                logger.info(`✅ Vote confirmation DM sent to ${user.username || user.id}`);
+                logger.debug(`✅ Vote confirmation DM sent to ${user.username || user.id}`);
             } catch (dmError) {
-                logger.info(`❌ Failed to DM user ${user.username || user.id}: ${dmError.message}`);
+                // Common reason: user has DMs disabled - log as debug instead of error
+                if (dmError.code === 50007 || dmError.message.includes('Cannot send messages to this user')) {
+                    logger.debug(`🔒 User ${user.username || user.id} has DMs disabled - will use log channel instead`);
+                } else {
+                    logger.warn(`❌ Failed to DM user ${user.username || user.id}: ${dmError.message}`);
+                }
             }
 
             // Always send to vote log channel as backup and for logging
+            let logChannelSent = false;
             try {
                 const logChannelId = process.env.LOG_CHANNEL_ID || process.env.VOTE_LOG_CHANNEL_ID;
                 if (logChannelId) {
                     const logChannel = await this.client.channels.fetch(logChannelId);
-                    if (logChannel) {
+                    if (logChannel && logChannel.isTextBased()) {
                         const logEmbed = new EmbedBuilder(embed);
                         if (!dmSent) {
-                            logEmbed.setDescription(`**${user.username || user.id}** received vote rewards! ⚠️ *DM failed - user may have DMs disabled*\n\n${embed.description || 'Vote reward notification'}`);
+                            logEmbed.setDescription(`**${user.username || user.id}** received vote rewards! 🔒 *User has DMs disabled*\n\n${embed.description || 'Vote reward notification'}`);
                         } else {
                             logEmbed.setDescription(embed.description || `**${user.username || user.id}** received vote rewards!`);
                         }
                         await logChannel.send({ embeds: [logEmbed] });
-                        logger.info(`📋 Vote notification logged to channel ${logChannel.name}`);
+                        logChannelSent = true;
+                        logger.debug(`📋 Vote notification logged to channel ${logChannel.name}`);
                     } else {
-                        logger.error(`❌ Could not find log channel with ID: ${logChannelId}`);
+                        logger.warn(`❌ Log channel ${logChannelId} not found or not text-based`);
                     }
                 } else {
-                    logger.warn(`⚠️ No LOG_CHANNEL_ID configured - vote notifications will only be sent via DM`);
+                    logger.debug(`⚠️ No LOG_CHANNEL_ID configured - vote notifications will only be sent via DM`);
                 }
             } catch (channelError) {
-                logger.error(`❌ Failed to send vote notification to log channel: ${channelError.message}`);
+                logger.warn(`❌ Failed to send vote notification to log channel: ${channelError.message}`);
             }
 
-            // If both DM and channel failed, log the issue
-            if (!dmSent) {
-                logger.warn(`⚠️ Vote confirmation may not have reached user ${user.username || user.id} - DM failed and log channel unavailable`);
+            // Only warn if both DM and log channel failed
+            if (!dmSent && !logChannelSent) {
+                logger.error(`⚠️ Vote confirmation could not be delivered to user ${user.username || user.id} - both DM and log channel failed`);
+            } else if (!dmSent && logChannelSent) {
+                logger.info(`✅ Vote confirmation delivered via log channel for user ${user.username || user.id} (DMs disabled)`);
+            } else if (dmSent) {
+                logger.info(`✅ Vote confirmation delivered via DM to user ${user.username || user.id}`);
             }
 
         } catch (error) {

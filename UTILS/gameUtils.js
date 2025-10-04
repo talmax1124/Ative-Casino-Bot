@@ -102,6 +102,11 @@ class GameResult {
         choice = null,
         metadata = {}
     }) {
+        // Validate required fields
+        if (!gameType || gameType === 'undefined' || gameType === undefined) {
+            throw new Error(`GameResult constructor: Invalid gameType (${gameType}) for user ${userId}`);
+        }
+        
         this.userId = userId;
         this.guildId = guildId;
         this.gameType = gameType;
@@ -409,6 +414,12 @@ class PayoutManager {
      */
     static async processGamePayout(gameResult, interaction = null) {
         const { userId, guildId, gameType, betAmount, payout, won } = gameResult;
+        
+        // Validate gameType from GameResult
+        if (!gameType || gameType === 'undefined' || gameType === undefined) {
+            logger.error(`⚠️ PayoutManager: Invalid gameType (${gameType}) in GameResult for user ${userId}. GameResult object:`, gameResult);
+            throw new Error(`Invalid gameType in GameResult: ${gameType}`);
+        }
         
         // Process game through bulletproof economy system for house edge optimization
         let finalPayout = payout;

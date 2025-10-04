@@ -55,8 +55,8 @@ class SportsApiManager {
     async getApiUsage(keyIndex, monthYear) {
         try {
             const result = await dbManager.databaseAdapter.executeQuery(
-                'SELECT request_count FROM api_usage_tracking WHERE api_key_index = ? AND month_year = ?',
-                [keyIndex, monthYear]
+                'SELECT request_count FROM sports_api_usage WHERE api_key_id = ? AND month = ?',
+                [`api_${keyIndex}`, monthYear]
             );
             
             return result.length > 0 ? result[0].request_count : 0;
@@ -78,12 +78,13 @@ class SportsApiManager {
             nextMonth.setHours(0, 0, 0, 0);
             
             await dbManager.databaseAdapter.executeQuery(`
-                INSERT INTO api_usage_tracking (api_key_index, request_count, month_year, reset_at)
-                VALUES (?, 1, ?, ?)
+                INSERT INTO sports_api_usage (api_key_id, request_count, month, last_request_at)
+                VALUES (?, 1, ?, NOW())
                 ON DUPLICATE KEY UPDATE 
                     request_count = request_count + 1,
-                    last_request_at = CURRENT_TIMESTAMP
-            `, [keyIndex, currentMonth, nextMonth.toISOString().slice(0, 19).replace('T', ' ')]);
+                    last_request_at = NOW(),
+                    updated_at = NOW()
+            `, [`api_${keyIndex}`, currentMonth]);
             
         } catch (error) {
             logger.error(`Error tracking API request: ${error.message}`);
@@ -106,21 +107,26 @@ class SportsApiManager {
             // Get current API key
             const apiKeyInfo = await this.getCurrentApiKey();
             
-            if (!apiKeyInfo) {
-                logger.warn('API limits reached, returning mock data');
+            if (!apiKeyInfo || !apiKeyInfo.key) {
+                logger.warn('API limits reached or no API key configured, returning mock data');
                 return this.getMockGames(sport);
             }
             
             // Fetch fresh data
             const allGames = [];
             
-            for (const league of leagues) {
+            // Limit to first 2 leagues to conserve API calls
+            const leaguesToFetch = leagues.slice(0, 2);
+            
+            for (const league of leaguesToFetch) {
                 try {
+                    console.log(`Fetching games for league: ${league}`);
                     const url = `${this.baseUrl}/sports/${league}/odds/?apiKey=${apiKeyInfo.key}&regions=us&markets=h2h,spreads,totals`;
                     const response = await fetch(url);
                     
                     if (response.ok) {
                         const data = await response.json();
+                        console.log(`Fetched ${data.length} games for ${league}`);
                         allGames.push(...data);
                         
                         // Track API usage
@@ -134,12 +140,15 @@ class SportsApiManager {
                         if (apiKeyInfo.index === 1 && this.secondaryKey !== this.primaryKey) {
                             return this.fetchGamesWithCache(sport, leagues);
                         }
+                    } else {
+                        logger.warn(`API returned status ${response.status} for ${league}`);
                     }
                 } catch (error) {
                     logger.error(`Error fetching ${league}: ${error.message}`);
                 }
             }
             
+            console.log(`Total games fetched: ${allGames.length}`);
             return allGames.length > 0 ? allGames : this.getMockGames(sport);
             
         } catch (error) {
@@ -300,25 +309,25 @@ class SportsApiManager {
             
             const stats = await dbManager.databaseAdapter.executeQuery(`
                 SELECT 
-                    api_key_index,
+                    api_key_id,
                     request_count,
                     last_request_at
-                FROM api_usage_tracking
-                WHERE month_year = ?
-                ORDER BY api_key_index
+                FROM sports_api_usage
+                WHERE month = ?
+                ORDER BY api_key_id
             `, [currentMonth]);
             
             return {
                 month: currentMonth,
                 primary: {
-                    used: stats.find(s => s.api_key_index === 1)?.request_count || 0,
+                    used: stats.find(s => s.api_key_id === 'api_1')?.request_count || 0,
                     limit: this.monthlyLimit,
-                    lastRequest: stats.find(s => s.api_key_index === 1)?.last_request_at
+                    lastRequest: stats.find(s => s.api_key_id === 'api_1')?.last_request_at
                 },
                 secondary: {
-                    used: stats.find(s => s.api_key_index === 2)?.request_count || 0,
+                    used: stats.find(s => s.api_key_id === 'api_2')?.request_count || 0,
                     limit: this.monthlyLimit,
-                    lastRequest: stats.find(s => s.api_key_index === 2)?.last_request_at
+                    lastRequest: stats.find(s => s.api_key_id === 'api_2')?.last_request_at
                 },
                 totalUsed: stats.reduce((sum, s) => sum + s.request_count, 0),
                 totalLimit: this.monthlyLimit * 2

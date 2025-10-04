@@ -362,6 +362,11 @@ class BulletproofEconomyController {
         const { gameType, userId, betAmount, originalPayout, won, guildId } = gameData;
         
         try {
+            // Validate gameType
+            if (!gameType || gameType === 'undefined' || gameType === undefined) {
+                console.warn(`⚠️ BulletproofEconomy: Invalid gameType (${gameType}) for user ${userId}, using fallback payout`);
+                return { adjustedPayout: originalPayout };
+            }
             // Record player choice/behavior for trend analysis
             if (this.trendAnalyzer && gameData.choice) {
                 await this.trendAnalyzer.recordChoice(gameType, userId, gameData.choice, {
@@ -510,6 +515,12 @@ class BulletproofEconomyController {
      * Record game choice for trend analysis
      */
     async recordGameChoice(gameType, userId, choice, metadata = {}) {
+        // Validate gameType
+        if (!gameType || gameType === 'undefined' || gameType === undefined) {
+            console.warn(`⚠️ BulletproofEconomy: Invalid gameType (${gameType}) for user ${userId} in recordGameChoice`);
+            return;
+        }
+        
         if (this.trendAnalyzer) {
             try {
                 await this.trendAnalyzer.recordChoice(gameType, userId, choice, metadata);
@@ -572,6 +583,12 @@ class BulletproofEconomyController {
         }
         
         const { gameType, userId, betAmount } = gameData;
+        
+        // Validate gameType
+        if (!gameType || gameType === 'undefined' || gameType === undefined) {
+            console.warn(`⚠️ BulletproofEconomy: Invalid gameType (${gameType}) for user ${userId} in processGameWithSecurity`);
+            throw new Error(`Invalid game type: ${gameType}`);
+        }
         
         // 1. Player risk assessment
         const playerProfile = await this.riskManager.getPlayerRiskAssessment(userId);

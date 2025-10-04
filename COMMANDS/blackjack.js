@@ -1160,15 +1160,24 @@ module.exports = {
                         const handProportion = totalPayout > 0 ? (result.payout || 0) / totalPayout : 0;
                         const handRegulatedPayout = regulatedPayout * handProportion;
                         const handNetProfit = handRegulatedPayout - result.betAmount;
-                        const status = result.outcome === 'PUSH' ? '🤝 PUSH' : (result.won ? '🎉 WIN!' : '💸 LOSE');
+                        
+                        // Determine correct hand status based on actual outcome and regulated payout
+                        let status, description;
                         const doubledText = result.doubled ? ' (DOUBLED)' : '';
+                        
                         if (result.outcome === 'PUSH') {
-                            handResults.push(`Hand ${i + 1}: ${status} - Bet returned${doubledText}`);
-                        } else if (result.won) {
-                            handResults.push(`Hand ${i + 1}: ${status} Won ${fmt(handNetProfit)}${doubledText}`);
+                            status = '🤝 PUSH';
+                            description = 'Bet returned';
+                        } else if (handNetProfit > 0) {
+                            // Use net profit to determine win (more accurate than result.won)
+                            status = result.outcome === 'BLACKJACK' ? '🃏 BLACKJACK' : '🎉 WIN';
+                            description = `Won ${fmt(handNetProfit)}`;
                         } else {
-                            handResults.push(`Hand ${i + 1}: ${status} Lost ${fmt(result.betAmount)}${doubledText}`);
+                            status = '💸 LOSE';
+                            description = `Lost ${fmt(result.betAmount)}`;
                         }
+                        
+                        handResults.push(`Hand ${i + 1}: ${status} ${description}${doubledText}`);
                     }
                     resultMessage = handResults.join('\n');
                     const totalNetProfit = regulatedPayout - totalBetAmount;
@@ -1189,27 +1198,27 @@ module.exports = {
                     const playForRecipient = global.playForContext?.recipientName;
                     const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
                     
-                    // Display win/loss based on outcome and net profit
-                    if (result.outcome === 'PUSH') {
-                        // Push always shows the same message regardless of payout
+                    // Display win/loss based on outcome and net profit (use netProfit for accuracy)
+                    if (result.outcome === 'PUSH' || (netProfit === 0 && regulatedPayout > 0)) {
+                        // Push: bet is returned (no profit, no loss)
                         resultMessage = `🤝 **PUSH** - Your bet of ${fmt(totalBetAmount)} is returned.`;
-                    } else if (won || (result.outcome === 'BLACKJACK' && netProfit >= 0)) {
+                    } else if (netProfit > 0) {
                         // Win scenarios - show profit, not total payout
                         if (result.outcome === 'BLACKJACK') {
                             if (winningForSomeoneElse) {
-                                resultMessage = `🎉 **BLACKJACK!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
+                                resultMessage = `🃏 **BLACKJACK!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
                             } else {
-                                resultMessage = `🎉 **BLACKJACK!** Won ${fmt(netProfit)}`;
+                                resultMessage = `🃏 **BLACKJACK!** Won ${fmt(netProfit)}`;
                             }
                         } else {
                             if (winningForSomeoneElse) {
-                                resultMessage = `🎉 **YOU WIN ${fmt(netProfit)} for @${playForRecipient}!**`;
+                                resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
                             } else {
                                 resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)}`;
                             }
                         }
                     } else {
-                        // Loss scenarios
+                        // Loss scenarios (netProfit <= 0 and not a push)
                         if (winningForSomeoneElse) {
                             resultMessage = `💸 **YOU LOSE!** @${playForRecipient} gets nothing.`;
                         } else {

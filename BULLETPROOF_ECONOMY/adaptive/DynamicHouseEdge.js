@@ -271,10 +271,16 @@ class DynamicHouseEdgeSystem {
      * SIMPLIFIED FOR FAIRNESS - Prevents excessive edge stacking
      */
     calculateDynamicEdge(gameType, userId, betAmount, playerProfile = null) {
+        // Handle undefined/null gameType
+        if (!gameType || gameType === 'undefined' || gameType === undefined) {
+            console.log(`⚠️ Undefined game type detected (gameType: ${gameType}, userId: ${userId}), using default 2% edge`);
+            return 0.02;
+        }
+        
         const baseEdge = this.baseEdges.get(gameType);
         if (!baseEdge) {
             // Return a fair default edge for unknown games
-            console.log(`⚠️ Unknown game type: ${gameType}, using default 2% edge`);
+            console.log(`⚠️ Unknown game type: "${gameType}" (type: ${typeof gameType}, userId: ${userId}), using default 2% edge`);
             return 0.02;
         }
         

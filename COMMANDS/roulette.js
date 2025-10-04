@@ -183,7 +183,7 @@ async function createPayoutEmbed(user, balance, currentBet = null) {
 
     embed.setFooter({ 
         text: currentBet ? '🎲 Ready to spin when you are!' : '💡 Choose your betting strategy wisely!',
-        iconURL: user.displayAvatarURL() 
+        iconURL: user.displayAvatarURL?.() || user.defaultAvatarURL 
     });
 
     return embed;
@@ -273,7 +273,7 @@ function createGameEmbed(game, user, balance = null) {
     }
     
     return buildSessionEmbed({
-        title: `🎰 ${user.displayName}'s American Roulette`,
+        title: `🎰 ${user.displayName || user.username || 'Player'}'s American Roulette`,
         topFields,
         bankFields,
         stageText,

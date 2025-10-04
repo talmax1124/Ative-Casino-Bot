@@ -902,6 +902,13 @@ client.on('interactionCreate', async interaction => {
 
         // Command disabling functionality moved to developer panel
         // (commented out since devModule was removed)
+        
+        // Debug logging for sportbet
+        if (interaction.commandName === 'sportbet') {
+            console.log('SportBet: Executing sportbet slash command');
+            console.log('SportBet: Subcommand:', interaction.options.getSubcommand());
+            console.log('SportBet: User:', interaction.user.id);
+        }
 
         try {
             await command.execute(interaction);
@@ -1275,20 +1282,6 @@ client.on('interactionCreate', async interaction => {
                     await yahtzeeCommand.handleInteraction(interaction);
                 }
             }
-            // Handle sportbet select button
-            else if (interaction.customId.startsWith('sportbet_select_')) {
-                const sportbetCommand = client.commands.get('sportbet');
-                if (sportbetCommand && sportbetCommand.handleSelectButton) {
-                    await sportbetCommand.handleSelectButton(interaction);
-                }
-            }
-            // Handle sportbet team selection button
-            else if (interaction.customId.startsWith('sportbet_team_')) {
-                const sportbetCommand = client.commands.get('sportbet');
-                if (sportbetCommand && sportbetCommand.handleTeamSelection) {
-                    await sportbetCommand.handleTeamSelection(interaction);
-                }
-            }
             // Handle sportbet country selection
             else if (interaction.customId.startsWith('sportbet_country_')) {
                 const sportbetCommand = client.commands.get('sportbet');
@@ -1391,7 +1384,7 @@ client.on('interactionCreate', async interaction => {
                 const unoCommand = client.commands.get('uno');
                 if (unoCommand && unoCommand.handleColorSelection) {
                     const parts = interaction.customId.split('_');
-                    const cardIndex = parts[3]; // uno_color_select_{channelId}_{cardIndex}
+                    const cardIndex = parts[4]; // Format: uno_color_select_{channelId}_{cardIndex}
                     const chosenColor = interaction.values[0];
                     await unoCommand.handleColorSelection(interaction, cardIndex, chosenColor);
                 }
@@ -1965,6 +1958,64 @@ client.on('interactionCreate', async interaction => {
                         content: '❌ Economy command handler not available.',
                         ephemeral: true
                     });
+                }
+            }
+            // Handle sportbet buttons
+            else if (customId.startsWith('sportbet_select_')) {
+                console.log('SportBet: Button interaction detected - customId:', customId);
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleSelectButton) {
+                    await sportbetCommand.handleSelectButton(interaction);
+                } else {
+                    console.log('SportBet: No handleSelectButton method found');
+                }
+            }
+            else if (customId.startsWith('sportbet_team_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleTeamSelection) {
+                    await sportbetCommand.handleTeamSelection(interaction);
+                }
+            }
+            else if (customId.startsWith('sportbet_back_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleBackButton) {
+                    await sportbetCommand.handleBackButton(interaction);
+                }
+            }
+            else if (customId.startsWith('sportbet_refresh_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleRefreshButton) {
+                    await sportbetCommand.handleRefreshButton(interaction);
+                }
+            }
+            else if (customId.startsWith('sportbet_markets_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleMarketsButton) {
+                    await sportbetCommand.handleMarketsButton(interaction);
+                }
+            }
+            else if (customId.startsWith('sportbet_market_bet_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleMarketBetButton) {
+                    await sportbetCommand.handleMarketBetButton(interaction);
+                }
+            }
+            else if (customId.startsWith('sportbet_back_markets_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleBackToMarkets) {
+                    await sportbetCommand.handleBackToMarkets(interaction);
+                }
+            }
+            else if (customId.startsWith('sportbet_page_') && !customId.includes('_info_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handlePageNavigation) {
+                    await sportbetCommand.handlePageNavigation(interaction);
+                }
+            }
+            else if (customId.startsWith('sportbet_final_bet_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleFinalBet) {
+                    await sportbetCommand.handleFinalBet(interaction);
                 }
             }
             // Handle panel system buttons
@@ -2908,6 +2959,13 @@ client.on('interactionCreate', async interaction => {
                 const marriageTaskCommand = client.commands.get('marriage-task');
                 if (marriageTaskCommand && marriageTaskCommand.handlePoemLineSubmission) {
                     await marriageTaskCommand.handlePoemLineSubmission(interaction);
+                }
+            }
+            // Handle sportbet bet amount modal
+            else if (customId.startsWith('sportbet_bet_amount_')) {
+                const sportbetCommand = client.commands.get('sportbet');
+                if (sportbetCommand && sportbetCommand.handleBetAmountModal) {
+                    await sportbetCommand.handleBetAmountModal(interaction);
                 }
             }
         } catch (error) {
