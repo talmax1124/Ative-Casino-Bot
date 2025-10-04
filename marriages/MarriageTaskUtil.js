@@ -332,38 +332,6 @@ class MarriageTaskUtil {
         }
     }
 
-    /**
-     * Get current week information
-     */
-    getCurrentWeekInfo() {
-        // Get current week info from rotation system
-        const currentWeek = marriageTaskRotation.getCurrentWeek();
-        return {
-            weekId: `week${currentWeek + 1}`,
-            weekNumber: currentWeek + 1
-        };
-    }
-    
-    /**
-     * Create task display embed
-     */
-    async createTaskDisplayEmbed(marriage, taskNumber) {
-        const weekInfo = this.getCurrentWeekInfo();
-        const taskId = `${weekInfo.weekId}_task${taskNumber}`;
-        const gameConfig = this.registeredGames.get(taskId);
-        
-        const embed = new EmbedBuilder()
-            .setTitle(`💍 Task ${taskNumber} - ${gameConfig?.title || 'Marriage Task'}`)
-            .setDescription(gameConfig?.description || 'Complete this task together!')
-            .setColor(gameConfig?.color || 0xFF69B4)
-            .addFields(
-                { name: '💑 Partners', value: `${marriage.partner1_name} & ${marriage.partner2_name}`, inline: true },
-                { name: '📅 Week', value: weekInfo.weekNumber.toString(), inline: true }
-            )
-            .setTimestamp();
-            
-        return embed;
-    }
     
     /**
      * Create task button
