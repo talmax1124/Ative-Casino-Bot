@@ -121,6 +121,11 @@ module.exports = {
             const gameSession = startPlinkoGame(userId, username, betAmount, interaction.channelId, normalizedMode);
             
             // Get base multipliers and randomize their positions 
+            // Check if mode exists first
+            if (!gameSession.modes || !gameSession.modes[normalizedMode]) {
+                logger.error(`Invalid mode '${normalizedMode}' - modes available:`, Object.keys(gameSession.modes || {}));
+                throw new Error(`Invalid game mode: ${normalizedMode}`);
+            }
             const baseMultipliers = gameSession.modes[normalizedMode].multipliers;
             
             // Use the same multipliers for both display and calculations (fix the disconnect)

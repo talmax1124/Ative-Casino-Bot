@@ -144,7 +144,15 @@ class LoveLetterTaskGame {
             const sessionQuery = `
                 SELECT * FROM marriage_vacation_sessions WHERE session_id = ?
             `;
-            const [sessions] = await dbManager.databaseAdapter.pool.execute(sessionQuery, [sessionId]);
+            let sessions = [];
+            try {
+                const res = await dbManager.databaseAdapter.executeQuery(sessionQuery, [sessionId]);
+                sessions = Array.isArray(res) && Array.isArray(res[0]) ? res[0] : (Array.isArray(res) ? res : []);
+            } catch (e) {
+                // Fallback to pool if executeQuery not available
+                const tmp = await dbManager.databaseAdapter.pool.execute(sessionQuery, [sessionId]);
+                sessions = tmp[0] || [];
+            }
             
             if (sessions.length === 0) {
                 // Create session if doesn't exist
@@ -154,7 +162,7 @@ class LoveLetterTaskGame {
                         INSERT INTO marriage_vacation_sessions (session_id, marriage_id, partner1_id, partner2_id)
                         VALUES (?, ?, ?, ?)
                     `;
-                    await dbManager.databaseAdapter.pool.execute(createSessionQuery, [
+                    await dbManager.databaseAdapter.executeQuery(createSessionQuery, [
                         sessionId, marriage.id, marriage.partner1_id, marriage.partner2_id
                     ]);
                 }
@@ -171,13 +179,23 @@ class LoveLetterTaskGame {
                 VALUES (?, ?, ?, ?, ?, TRUE, NOW())
             `;
 
-            await dbManager.databaseAdapter.pool.execute(insertQuery, [
-                sessionId,
-                sessionData.marriage_id,
-                userId,
-                recipientId,
-                letterContent
-            ]);
+            try {
+                await dbManager.databaseAdapter.executeQuery(insertQuery, [
+                    sessionId,
+                    sessionData.marriage_id,
+                    userId,
+                    recipientId,
+                    letterContent
+                ]);
+            } catch (_) {
+                await dbManager.databaseAdapter.pool.execute(insertQuery, [
+                    sessionId,
+                    sessionData.marriage_id,
+                    userId,
+                    recipientId,
+                    letterContent
+                ]);
+            }
 
             await interaction.reply({
                 content: '💌 Your love letter has been written and sealed!',
@@ -204,7 +222,14 @@ class LoveLetterTaskGame {
                 WHERE session_id = ? AND is_sent = TRUE
             `;
             
-            const [letters] = await dbManager.databaseAdapter.pool.execute(query, [sessionId]);
+            let letters = [];
+            try {
+                const res = await dbManager.databaseAdapter.executeQuery(query, [sessionId]);
+                letters = Array.isArray(res) && Array.isArray(res[0]) ? res[0] : (Array.isArray(res) ? res : []);
+            } catch (e) {
+                const tmp = await dbManager.databaseAdapter.pool.execute(query, [sessionId]);
+                letters = tmp[0] || [];
+            }
 
             if (letters.length >= 2) {
                 // Both partners have written letters - deliver them!
@@ -224,7 +249,11 @@ class LoveLetterTaskGame {
                     SET is_read = TRUE, read_at = NOW() 
                     WHERE session_id = ?
                 `;
-                await dbManager.databaseAdapter.pool.execute(updateQuery, [sessionId]);
+                try {
+                    await dbManager.databaseAdapter.executeQuery(updateQuery, [sessionId]);
+                } catch (_) {
+                    await dbManager.databaseAdapter.pool.execute(updateQuery, [sessionId]);
+                }
             } else {
                 // Notify the other partner
                 const letter = letters[0];

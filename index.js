@@ -1083,8 +1083,13 @@ client.on('interactionCreate', async interaction => {
                     await releaseCommand.handleEmergencyClearModal(interaction);
                 }
             }
-            // Handle marriage task game modals (poem lines, quiz answers)
-            else if (interaction.customId.startsWith('poem_line_') || interaction.customId.startsWith('quiz_answer_')) {
+            // Handle marriage task game modals (poem lines, quiz answers, love letters, vacation items)
+            else if (
+                interaction.customId.startsWith('poem_line_') ||
+                interaction.customId.startsWith('quiz_answer_') ||
+                interaction.customId.startsWith('letter_modal_') ||
+                interaction.customId.startsWith('vacation_modal_')
+            ) {
                 await handleGameModalSubmit(interaction);
             }
         } catch (error) {

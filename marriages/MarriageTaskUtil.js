@@ -103,13 +103,23 @@ class MarriageTaskUtil {
                 return false;
             }
         } catch (error) {
-            // Don't log "already acknowledged" as errors since they're expected in some flows
-            if (error.message.includes('already been acknowledged')) {
-                logger.debug(`Interaction already acknowledged (non-critical): ${error.message}`);
+            // Don't log these as errors since they're expected in some flows
+            const msg = error?.message || '';
+            const code = error?.code;
+            
+            if (msg.includes('already been acknowledged') ||
+                msg.includes('already been sent or deferred') ||
+                code === 40060) {
+                logger.debug(`Interaction already acknowledged (non-critical): ${msg}`);
                 return false;
             }
             
-            logger.error(`Error in safeReply: ${error.message}`);
+            if (msg.includes('Unknown interaction') || code === 10062) {
+                logger.debug(`Interaction expired or unknown (non-critical): ${msg}`);
+                return false;
+            }
+            
+            logger.error(`Error in safeReply: ${msg}`);
             logger.debug(`Interaction details - replied: ${interaction.replied}, deferred: ${interaction.deferred}, type: ${interaction.constructor?.name || 'unknown'}, id: ${interaction.id || 'no-id'}, customId: ${interaction.customId || 'no-customId'}`);
             
             // Check if interaction is valid before attempting fallback

@@ -352,7 +352,18 @@ module.exports = {
                 options: {
                     getString: (key) => {
                         if (key === 'amount' || key === 'bet') return bet.toString();
-                        if (key === 'mode') return 'balanced';
+                        // Plinko expects capitalized mode names
+                        if (key === 'mode') {
+                            // Check if game is plinko and return proper mode
+                            if (game === 'plinko') {
+                                // Check if user provided a risk level
+                                const risk = interaction.options.getString('risk');
+                                if (risk === 'low') return 'Easy';
+                                if (risk === 'high') return 'Hard';
+                                return 'Medium';  // Default to Medium
+                            }
+                            return 'balanced'; // For other games
+                        }
                         if (key === 'risk') return 'medium'; 
                         if (key === 'type') return 'red';
                         return interaction.options.getString(key);
@@ -378,10 +389,13 @@ module.exports = {
                 followUp: interaction.followUp.bind(interaction),
                 deleteReply: interaction.deleteReply.bind(interaction),
                 // Override deferReply since we're already deferred
-                deferReply: async () => { /* Already deferred by playfor */ },
-                // Interaction state - let the game think it needs to defer/reply
+                deferReply: async () => { 
+                    // Already deferred by playfor, just return success
+                    return Promise.resolve();
+                },
+                // Interaction state - playfor has already deferred this
                 replied: false,
-                deferred: false
+                deferred: true  // Important: we HAVE deferred already
             };
 
             // Execute the game command

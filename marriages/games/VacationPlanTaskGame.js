@@ -165,8 +165,16 @@ class VacationPlanTaskGame {
                             return;
                         }
                     } catch (err) {
-                        logger.error(`Vacation collector error: ${err.message}`);
-                        await util.safeReply(i, { content: '❌ Error processing your action.', flags: MessageFlags.Ephemeral });
+                        const msg = err?.message || '';
+                        if (msg.includes('already been sent or deferred') || 
+                            msg.includes('already been acknowledged') ||
+                            err.code === 40060) {
+                            // Non-critical - interaction was already handled
+                            logger.debug('Vacation collector: interaction already acknowledged');
+                        } else {
+                            logger.error(`Vacation collector error: ${err.message}`);
+                            await util.safeReply(i, { content: '❌ Error processing your action.', flags: MessageFlags.Ephemeral });
+                        }
                     }
                 }
             });

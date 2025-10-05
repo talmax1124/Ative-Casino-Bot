@@ -109,10 +109,22 @@ class ButtonUtility {
                     return result;
                 } catch (error) {
                     lastError = error;
+                    const msg = error?.message || '';
+                    
+                    // Don't retry for interaction already acknowledged errors
+                    if (msg.includes('already been sent or deferred') || 
+                        msg.includes('already been acknowledged') ||
+                        error.code === 40060) {
+                        // This is not a critical error, just means interaction was already handled
+                        logger.debug(`Button interaction already acknowledged, not retrying`);
+                        this.interactionStates.delete(interaction.id);
+                        throw error; // Throw to outer handler but don't retry
+                    }
+                    
                     attempts++;
                     
                     if (attempts < this.maxRetries) {
-                        logger.warn(`Button handler attempt ${attempts} failed, retrying...`, error);
+                        logger.warn(`Button handler attempt ${attempts} failed, retrying...`, error.message);
                         await this.wait(1000 * attempts); // Exponential backoff
                     }
                 }
@@ -128,7 +140,8 @@ class ButtonUtility {
             if (code === 10062 || msg.includes('Unknown interaction')) {
                 // Interaction expired or invalid — ignore quietly
                 logger.debug('Button interaction expired/unknown:', msg || code);
-            } else if (code === 40060 || msg.includes('already been acknowledged')) {
+            } else if (code === 40060 || msg.includes('already been acknowledged') || 
+                      msg.includes('already been sent or deferred')) {
                 // Already acknowledged — likely double-ack scenario, not critical
                 logger.debug('Button interaction already acknowledged:', msg || code);
             } else {
@@ -194,7 +207,8 @@ class ButtonUtility {
                 const code = error?.code;
                 if (code === 10062 || msg.includes('Unknown interaction')) {
                     logger.debug('Collector: interaction expired/unknown');
-                } else if (code === 40060 || msg.includes('already been acknowledged')) {
+                } else if (code === 40060 || msg.includes('already been acknowledged') ||
+                          msg.includes('already been sent or deferred')) {
                     logger.debug('Collector: interaction already acknowledged');
                 } else {
                     logger.error('Collector error:', error);
