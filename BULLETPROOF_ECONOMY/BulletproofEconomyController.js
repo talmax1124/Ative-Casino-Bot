@@ -103,7 +103,8 @@ class BulletproofEconomyController {
      * Initialize the bulletproof economy system
      */
     async initialize() {
-        console.log('🔐 Initializing Bulletproof Economy Controller...');
+        const logger = require('../UTILS/logger');
+        logger.debug('🔐 Initializing Bulletproof Economy Controller...');
         
         try {
             // Initialize cryptographic security first
@@ -118,14 +119,14 @@ class BulletproofEconomyController {
             // Perform initial system validation
             await this.performSystemValidation();
             
-            console.log('✅ Bulletproof Economy Controller initialized successfully');
-            console.log(`🛡️ Security Level: ${this.cryptoManager.securityLevel}`);
-            console.log(`⚡ Adaptation Speed: ${this.optimization.adaptationSpeed}`);
+            logger.debug('✅ Bulletproof Economy Controller initialized successfully');
+            logger.debug(`🛡️ Security Level: ${this.cryptoManager.securityLevel}`);
+            logger.debug(`⚡ Adaptation Speed: ${this.optimization.adaptationSpeed}`);
             
             return true;
             
         } catch (error) {
-            console.error('❌ Failed to initialize Bulletproof Economy Controller:', error);
+            logger.error(`❌ Failed to initialize Bulletproof Economy Controller: ${error.message}`);
             throw error;
         }
     }
@@ -134,7 +135,8 @@ class BulletproofEconomyController {
      * Initialize military-grade cryptographic security
      */
     async initializeCryptographicSecurity() {
-        console.log('🔒 Initializing military-grade cryptographic security...');
+        const logger = require('../UTILS/logger');
+        logger.debug('🔒 Initializing military-grade cryptographic security...');
         
         // Generate master seed using multiple entropy sources
         this.cryptoManager.masterSeed = await this.generateMasterSeed();
@@ -152,7 +154,7 @@ class BulletproofEconomyController {
         // Setup quantum-resistant key rotation
         this.setupQuantumSecurity();
         
-        console.log('✅ Cryptographic security initialized');
+        logger.debug('✅ Cryptographic security initialized');
     }
 
     /**

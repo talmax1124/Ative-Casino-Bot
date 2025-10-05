@@ -173,7 +173,7 @@ class VacationPlanTaskGame {
                             logger.debug('Vacation collector: interaction already acknowledged');
                         } else {
                             logger.error(`Vacation collector error: ${err.message}`);
-                            await util.safeReply(i, { content: '❌ Error processing your action.', flags: MessageFlags.Ephemeral });
+                            await util.safeReply(i, { content: '❌ Error processing your action.', ephemeral: true });
                         }
                     }
                 }
@@ -183,7 +183,7 @@ class VacationPlanTaskGame {
             logger.error(`Error in VacationPlanTaskGame: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error starting vacation planning.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -247,7 +247,7 @@ class VacationPlanTaskGame {
             }
 
             if (!marriageId) {
-                return await interaction.reply({ content: '❌ Session not found. Please restart the task.', flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ content: '❌ Session not found. Please restart the task.', ephemeral: true });
             }
 
             // Insert item
@@ -262,7 +262,7 @@ class VacationPlanTaskGame {
                 interaction.user.id
             ]);
 
-            await interaction.reply({ content: `✅ Added: "${itemText}"`, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: `✅ Added: "${itemText}"`, ephemeral: true });
 
             // Refresh panel if we have an active session to update
             if (session) {
@@ -273,7 +273,7 @@ class VacationPlanTaskGame {
         } catch (error) {
             logger.error(`Error handling vacation modal submit: ${error.message}`);
             try {
-                await interaction.reply({ content: '❌ Failed to add item.', flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: '❌ Failed to add item.', ephemeral: true });
             } catch (_) {}
         }
     }

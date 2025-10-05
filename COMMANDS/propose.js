@@ -28,7 +28,7 @@ module.exports = {
         if (proposer.id === recipient.id) {
             await interaction.reply({
                 content: '❌ You cannot propose to yourself!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -37,7 +37,7 @@ module.exports = {
         if (recipient.bot) {
             await interaction.reply({
                 content: '❌ You cannot propose to bots!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -158,7 +158,7 @@ module.exports = {
                 if (!dbResponse.success) {
                     await interaction.followUp({
                         content: `❌ Failed to process response: ${dbResponse.error}`,
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                     return;
                 }

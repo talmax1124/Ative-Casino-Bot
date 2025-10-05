@@ -598,48 +598,79 @@ async function sendLogMessage(bot, level, message, userId = null, guildId = null
     // Economy activities go to monitoring channel, everything else to general log channel
     const ECONOMY_CHANNEL_ID = '1409016191049142434'; // Economy monitoring channel (log-only mode)
     const GENERAL_LOG_CHANNEL_ID = '1405096821512212521'; // General bot activity log channel
-    
-    const LOG_CHANNEL_ID = (level === 'economy') ? ECONOMY_CHANNEL_ID : GENERAL_LOG_CHANNEL_ID;
-    
+
+    // Normalize level and map to presentation
+    const lvl = String(level || 'info').toLowerCase();
+    const isEconomy = lvl === 'economy';
+    const LOG_CHANNEL_ID = isEconomy ? ECONOMY_CHANNEL_ID : GENERAL_LOG_CHANNEL_ID;
+
     try {
         // Check if bot and bot.channels are defined
         if (!bot || !bot.channels) {
             logger.debug('Bot client or channels not available for logging (bot may be starting up)');
             return;
         }
-        
+
+        // Lightweight noise filter for info-level to avoid init spam
+        if (lvl === 'info') {
+            const msg = String(message || '');
+            const noisy = /(initialized|initialised|loading command|loaded command|registering|refres(h|hed)ing\s+application|activity changed|cache (warm|init)|monitor initialized)/i.test(msg);
+            const explicitlyImportant = /(error|failed|critical|started successfully|online|ready|pinned)/i.test(msg) || /^\s*[✅❌⚠️🚨]/.test(msg);
+            if (noisy && !explicitlyImportant) {
+                return; // suppress non-critical init chatter in logs channel
+            }
+        }
+
         const channel = await bot.channels.fetch(LOG_CHANNEL_ID);
         if (!channel) {
             logger.warn(`Log channel ${LOG_CHANNEL_ID} not found`);
             return;
         }
-        
+
         const colors = {
-            info: 0x00FF00,     // Green
-            warn: 0xFFFF00,     // Yellow
-            error: 0xFF0000,    // Red
-            economy: 0x00BFFF   // Deep Sky Blue
+            info: 0x3AA569,      // Green
+            warn: 0xF7C843,      // Yellow
+            error: 0xE5534B,     // Red
+            economy: 0x00BFFF,   // Deep Sky Blue
+            admin: 0x5865F2,     // Blurple
+            game: 0x6E8B3D,      // Olive
+            security: 0xEF4444,  // Strong Red
+            system: 0x00ADB5     // Teal
         };
-        
+
+        const icons = {
+            info: 'ℹ️',
+            warn: '⚠️',
+            error: '❌',
+            economy: '💰',
+            admin: '🛠️',
+            game: '🎮',
+            security: '🛡️',
+            system: '🚀'
+        };
+
+        const titleLabel = lvl.toUpperCase();
+        const icon = icons[lvl] || icons.info;
+
         const embed = new EmbedBuilder()
-            .setTitle(`${String(level).toUpperCase()} Log`)
-            .setDescription(message)
-            .setColor(colors[level] || 0x808080)
+            .setTitle(`${icon} ${titleLabel}`)
+            .setDescription(String(message || ''))
+            .setColor(colors[lvl] || 0x808080)
             .setTimestamp();
-        
+
         // Enhanced user information
         if (userId) {
             try {
                 const user = await bot.users.fetch(userId);
                 const userInfo = user ? `${user.displayName} (@${user.username})` : `Unknown User (${userId})`;
                 embed.addFields({ name: '👤 User', value: userInfo, inline: true });
-                embed.addFields({ name: '🆔 User ID', value: userId, inline: true });
-            } catch (error) {
+                embed.addFields({ name: '🆔 User ID', value: String(userId), inline: true });
+            } catch (_) {
                 embed.addFields({ name: '👤 User', value: `Unknown User (${userId})`, inline: true });
-                embed.addFields({ name: '🆔 User ID', value: userId, inline: true });
+                embed.addFields({ name: '🆔 User ID', value: String(userId), inline: true });
             }
         }
-        
+
         // Enhanced guild information
         if (guildId) {
             try {
@@ -647,17 +678,17 @@ async function sendLogMessage(bot, level, message, userId = null, guildId = null
                 if (guild) {
                     const guildLink = `https://discord.com/channels/${guildId}`;
                     embed.addFields({ name: '🏰 Server', value: `[${guild.name}](${guildLink})`, inline: true });
-                    embed.addFields({ name: '🆔 Guild ID', value: guildId, inline: true });
+                    embed.addFields({ name: '🆔 Guild ID', value: String(guildId), inline: true });
                 } else {
                     embed.addFields({ name: '🏰 Server', value: `Unknown Server (${guildId})`, inline: true });
-                    embed.addFields({ name: '🆔 Guild ID', value: guildId, inline: true });
+                    embed.addFields({ name: '🆔 Guild ID', value: String(guildId), inline: true });
                 }
-            } catch (error) {
+            } catch (_) {
                 embed.addFields({ name: '🏰 Server', value: `Unknown Server (${guildId})`, inline: true });
-                embed.addFields({ name: '🆔 Guild ID', value: guildId, inline: true });
+                embed.addFields({ name: '🆔 Guild ID', value: String(guildId), inline: true });
             }
         }
-        
+
         await channel.send({ embeds: [embed] });
     } catch (error) {
         logger.error(`Failed to send log message: ${error.message}`);
@@ -676,10 +707,9 @@ async function safeInteractionUpdate(interaction, options) {
     } catch (error) {
         if (error.code === 10062) { // Unknown interaction
             logger.warn('Interaction expired, using followUp instead');
-            const { MessageFlags } = require('discord.js');
             const followUpOptions = {
                 ...options,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             };
             return await interaction.followUp(followUpOptions);
         } else {

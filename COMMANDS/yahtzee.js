@@ -373,14 +373,14 @@ module.exports = {
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'yahtzee');
             if (!maintenanceCheck.allowed) {
-                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], ephemeral: true });
             }
 
             // Check for existing game
             if (activeGames.has(userId)) {
                 return await interaction.reply({
                     content: '❌ You already have an active Yahtzee game. Finish it or wait for it to expire.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -396,7 +396,7 @@ module.exports = {
                     null    // No maximum bet limit
                 );
                 if (!validation.isValid) {
-                    return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
+                    return await interaction.reply({ embeds: [validation.errorEmbed], ephemeral: true });
                 }
                 balance = await dbManager.getUserBalance(userId, guildId);
             }
@@ -415,7 +415,7 @@ module.exports = {
             });
             if (!sessionResult.success) {
                 const errorEmbed = new EmbedBuilder().setTitle('❌ Session Error').setDescription(`Failed to create game session: ${sessionResult.error}`).setColor(0xFF0000);
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
             const sessionId = sessionResult.sessionId;
             
@@ -451,7 +451,7 @@ module.exports = {
                 guildId
             );
 
-            const replyOptions = { embeds: [embed], flags: MessageFlags.Ephemeral };
+            const replyOptions = { embeds: [embed], ephemeral: true };
             if (components.length > 0) {
                 replyOptions.components = components;
             }
@@ -473,7 +473,7 @@ module.exports = {
             if (!gameData) {
                 return await interaction.reply({
                     content: '❌ No active Yahtzee game found. Use `/yahtzee` to start a new game.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -495,7 +495,7 @@ module.exports = {
                 guildId
             );
 
-            const replyOptions = { embeds: [embed], flags: MessageFlags.Ephemeral };
+            const replyOptions = { embeds: [embed], ephemeral: true };
             if (components.length > 0) {
                 replyOptions.components = components;
             }
@@ -685,7 +685,7 @@ module.exports = {
             // Trigger new game
             await interaction.followUp({
                 content: `Starting new Yahtzee game with bet: ${fmt(previousBet)}`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
 
             // Would redirect to execute method, but that's not easily accessible here
@@ -733,7 +733,7 @@ module.exports = {
 
         await interaction.followUp({
             embeds: [helpEmbed],
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     },
 
@@ -754,7 +754,7 @@ module.exports = {
             await interaction.followUp({
                 embeds: [embed],
                 files: [attachment],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             
         } catch (error) {
@@ -793,7 +793,7 @@ module.exports = {
 
             await interaction.followUp({
                 embeds: [embed],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },

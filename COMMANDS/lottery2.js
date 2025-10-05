@@ -33,7 +33,7 @@ module.exports = {
                 error: error.message
             });
             
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     },
 
@@ -173,7 +173,7 @@ module.exports = {
                 error: error.message
             });
 
-            await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
         }
     },
 
@@ -196,7 +196,7 @@ module.exports = {
         };
 
         const rulesEmbed = UITemplates.createRulesEmbed('Tier 2 High Stakes Lottery', rules, payouts);
-        await interaction.reply({ embeds: [rulesEmbed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [rulesEmbed], ephemeral: true });
     },
 
     async showUserTickets(interaction, userId, guildId) {
@@ -209,7 +209,7 @@ module.exports = {
                 isLoss: false
             });
             
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         const totalTickets = lotteryInfo.total_tickets || 0;
@@ -254,7 +254,7 @@ module.exports = {
             .setFooter({ text: '🍀 Good luck in the high stakes drawing!' })
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
     },
 
     async showPrizeBreakdown(interaction, guildId) {
@@ -301,7 +301,7 @@ module.exports = {
             .setFooter({ text: 'High stakes, high rewards!' })
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], ephemeral: true });
     },
 
     // Helper method to get next Tuesday/Saturday drawing at 10 AM EST timestamp  

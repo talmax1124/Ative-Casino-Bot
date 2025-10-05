@@ -77,7 +77,7 @@ class Connect4TaskGame {
             logger.error(`Error in Connect4TaskGame.handleStart: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error starting Connect 4 game.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -155,7 +155,7 @@ class Connect4TaskGame {
                 if (reason === 'time' && collected.size === 0) {
                     interaction.followUp({
                         content: '⏰ Game timed out. Please restart.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -178,7 +178,7 @@ class Connect4TaskGame {
         if (row === -1) {
             await util.safeReply(interaction, {
                 content: '❌ This column is full!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }

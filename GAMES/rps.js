@@ -534,7 +534,7 @@ async function handleRPSAction(interaction, action) {
     if (!game) {
         await interaction.reply({
             content: '❌ No active RPS game found in this channel! Use `/rps` to start a new game.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return;
     }
@@ -554,14 +554,14 @@ async function handleRPSAction(interaction, action) {
             default:
                 await interaction.reply({
                     content: '❌ Unknown RPS action.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
         }
     } catch (error) {
         logger.error(`Error handling RPS action ${action}:`, error);
         await interaction.reply({
             content: '❌ An error occurred while processing your RPS action.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 }
@@ -575,7 +575,7 @@ async function handleJoinGame(interaction, game) {
     if (userId === game.player1Id) {
         await interaction.reply({
             content: '❌ You cannot play against yourself!',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return { success: false };
     }
@@ -583,7 +583,7 @@ async function handleJoinGame(interaction, game) {
     if (game.started) {
         await interaction.reply({
             content: '❌ This game is already full!',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return { success: false };
     }
@@ -606,7 +606,7 @@ async function handleChoice(interaction, game, choice) {
     if (!game.started) {
         await interaction.reply({
             content: '❌ Waiting for a second player to join!',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return { success: false };
     }
@@ -614,7 +614,7 @@ async function handleChoice(interaction, game, choice) {
     if (userId !== game.player1Id && userId !== game.player2Id) {
         await interaction.reply({
             content: '❌ You are not a player in this game!',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return { success: false };
     }
@@ -643,7 +643,7 @@ async function handleChoice(interaction, game, choice) {
         const currentPlayerName = game.currentTurn === 1 ? game.player1Name : game.player2Name;
         await interaction.reply({
             content: `❌ It's ${currentPlayerName}'s turn to choose!`,
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return { success: false };
     }
@@ -652,7 +652,7 @@ async function handleChoice(interaction, game, choice) {
     if (game.vsBot && !isPlayer1) {
         await interaction.reply({
             content: '❌ You cannot control the bot!',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return { success: false };
     }
@@ -662,7 +662,7 @@ async function handleChoice(interaction, game, choice) {
     if (!result.success) {
         await interaction.reply({
             content: `❌ ${result.error}`,
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return { success: false };
     }
@@ -702,7 +702,7 @@ async function handleBotGame(interaction, game) {
     if (userId !== game.player1Id) {
         await interaction.reply({
             content: '❌ Only the game creator can choose to play vs bot!',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return { success: false };
     }
@@ -710,7 +710,7 @@ async function handleBotGame(interaction, game) {
     if (game.started) {
         await interaction.reply({
             content: '❌ This game has already started!',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return { success: false };
     }
@@ -740,7 +740,7 @@ async function handleHelpAction(interaction) {
     const helpEmbed = RPSGameSession.getHelpEmbed();
     await interaction.reply({
         embeds: [helpEmbed],
-        flags: MessageFlags.Ephemeral
+        ephemeral: true
     });
     return { success: true };
 }

@@ -49,7 +49,8 @@ class AdvancedRiskManager {
      * Initialize the advanced risk management system
      */
     async initialize() {
-        console.log('🛡️ Initializing Advanced Risk Management System...');
+        const logger = require('../../UTILS/logger');
+        logger.debug('🛡️ Initializing Advanced Risk Management System...');
         
         // Initialize machine learning models
         await this.initializeMLModels();
@@ -63,7 +64,7 @@ class AdvancedRiskManager {
         // Setup real-time monitoring
         this.setupRealTimeMonitoring();
         
-        console.log('✅ Advanced Risk Management System initialized');
+        logger.debug('✅ Advanced Risk Management System initialized');
     }
 
     /**

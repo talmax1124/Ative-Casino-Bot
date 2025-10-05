@@ -61,6 +61,27 @@ class StorageMonitor {
     }
 
     /**
+     * Single snapshot of current storage status (for startup/system checks)
+     * @returns {Promise<{filesystem:string,total:string,used:string,available:string,usage:number,timestamp:Date}>}
+     */
+    async snapshot() {
+        try {
+            const info = await this.getStorageInfo();
+            return info;
+        } catch (error) {
+            logger.warn(`Storage snapshot failed: ${error.message}`);
+            return {
+                filesystem: 'unknown',
+                total: 'unknown',
+                used: 'unknown',
+                available: 'unknown',
+                usage: this.lastKnownUsage || 0,
+                timestamp: new Date()
+            };
+        }
+    }
+
+    /**
      * Stop automatic storage monitoring
      */
     stopMonitoring() {

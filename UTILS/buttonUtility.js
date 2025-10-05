@@ -151,7 +151,7 @@ class ButtonUtility {
                     if (interaction?.isRepliable && interaction.isRepliable()) {
                         await this.safeReply(interaction, {
                             content: errorMessage,
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 } catch (_) {
@@ -271,7 +271,19 @@ class ButtonUtility {
             if (code === 40060 || msg.includes('already been acknowledged')) {
                 // Already acked — try follow up once
                 try {
-                    return await interaction.followUp({ ...data, flags: data.flags ?? MessageFlags.Ephemeral });
+                    {
+                        const payload = { ...data };
+                        if ('flags' in payload) {
+                            try {
+                                const { MessageFlags } = require('discord.js');
+                        if (payload.flags === MessageFlags.Ephemeral) {
+                            payload.ephemeral = true;
+                        }
+                    } catch (_) {}
+                    delete payload.flags;
+                        }
+                        return await interaction.followUp(payload);
+                    }
                 } catch (_) {
                     logger.debug('Follow up after acknowledged failed; ignoring');
                     return false;

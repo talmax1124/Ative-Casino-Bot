@@ -102,8 +102,7 @@ const minimalConsoleFilter = winston.format((info) => {
     if (/\b(error|failed|exception)\b/i.test(msg)) return info;
     if (/^\s*❌/.test(msg)) return info;
 
-    // Show command load successes
-    if (msg.includes('Loaded command:')) return info;
+    // Optionally, allow single summary lines to pass; per minimal mode we suppress per-command load spam.
     return false; // hide everything else on console
 });
 

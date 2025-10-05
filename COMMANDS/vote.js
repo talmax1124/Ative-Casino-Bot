@@ -25,7 +25,7 @@ module.exports = {
             console.error('Vote command error:', error);
             await interaction.reply({
                 content: '❌ An error occurred while processing the vote command.',
-                flags: require('discord.js').MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -45,11 +45,11 @@ module.exports = {
             const actionButtons = this.createActionButtons(votingStatus.canVoteNow);
             const navButtons = this.createNavigationButtons();
             
-            const response = await interaction.reply({
+            await interaction.reply({
                 embeds: [dashboardEmbed],
-                components: [...actionButtons, navButtons],
-                fetchReply: true
+                components: [...actionButtons, navButtons]
             });
+            const response = await interaction.fetchReply();
 
             // Set up collectors for all interactions
             await this.setupCollectors(response, interaction, voteData, votingStatus);
@@ -58,7 +58,7 @@ module.exports = {
             console.error('Error showing unified vote interface:', error);
             await interaction.reply({
                 content: '❌ Failed to load voting interface.',
-                flags: require('discord.js').MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -300,7 +300,7 @@ module.exports = {
                 console.error('Collector error:', error);
                 await SafeInteractionHandler.safeReply(i, {
                     content: '❌ An error occurred while processing your request.',
-                    flags: require('discord.js').MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
         });
@@ -546,7 +546,7 @@ module.exports = {
             console.error('Error showing leaderboard:', error);
             await interaction.reply({
                 content: '❌ Failed to load leaderboard.',
-                flags: require('discord.js').MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -667,7 +667,7 @@ module.exports = {
         await interaction.reply({
             embeds: [reminderEmbed],
             components: [menuRow],
-            flags: require('discord.js').MessageFlags.Ephemeral
+            ephemeral: true
         });
 
         // Collect the selection

@@ -199,7 +199,7 @@ module.exports = {
         if (category === 'roles' && guildId !== '1403244656845787167') {
             await interaction.reply({
                 content: '❌ Role colors are not available in this server.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -772,7 +772,7 @@ module.exports = {
         if (interaction.guildId !== '1403244656845787167') {
             await interaction.reply({
                 content: '❌ Role color purchases are not available in this server.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -843,7 +843,7 @@ module.exports = {
             // Send confirmation message
             await interaction.followUp({
                 content: `🎉 Your **${roleName}** role has been created and assigned! You now have a custom colored username.`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             
         } catch (error) {
@@ -851,7 +851,7 @@ module.exports = {
             
             await interaction.followUp({
                 content: `❌ There was an error creating your role. Please contact an administrator.`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }

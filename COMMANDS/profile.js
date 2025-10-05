@@ -120,7 +120,7 @@ module.exports = {
                         // Redirect to shop browse
                         await i.reply({
                             content: '🛒 Use `/shop` to visit the shop!',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     } else if (i.customId === 'profile_decorations') {
                         await this.showUserDecorations(i, userId);
@@ -373,7 +373,7 @@ module.exports = {
                     footer: 'Visit the shop to purchase decorations!'
                 });
 
-                return await interaction.reply({ embeds: [noDecorationsEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [noDecorationsEmbed], ephemeral: true });
             }
 
             const decorationFields = decorations.map(decoration => ({
@@ -390,7 +390,7 @@ module.exports = {
                 footer: 'Your decorations are automatically applied to your profile!'
             });
 
-            await interaction.reply({ embeds: [decorationsEmbed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [decorationsEmbed], ephemeral: true });
         } catch (error) {
             logger.error(`Error showing user decorations: ${error.message}`);
             
@@ -403,7 +403,7 @@ module.exports = {
                 color: 0xFF0000
             });
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     },
 
@@ -549,7 +549,7 @@ module.exports = {
                     if (i.guildId !== '1403244656845787167') {
                         await i.reply({
                             content: '❌ Role color customization is not available in this server.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                         return;
                     }
@@ -561,7 +561,7 @@ module.exports = {
                     if (i.guildId !== '1403244656845787167') {
                         await i.reply({
                             content: '❌ Role color features are not available in this server.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                         return;
                     }
@@ -842,7 +842,7 @@ module.exports = {
                 } else {
                     await i.reply({
                         content: '❌ Failed to set active decoration. Please try again.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }

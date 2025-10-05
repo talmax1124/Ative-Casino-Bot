@@ -12,11 +12,12 @@ const { SessionState } = sessionManager;
 const logger = require('../UTILS/logger');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 const tuningManager = require('../UTILS/tuningManager');
+const uasDataExporter = require('../UTILS/uasDataExporter');
 
-// CEELO Configuration
+// CEELO Configuration - IMPROVED: Restored fair 1:1 payouts
 const CEELO_CONFIG = {
     MIN_BET: 5,            // Minimum $5 entry
-    PAYOUT_MULTIPLIER: 0.8 // 0.8:1 reduced payout (increased house edge)
+    PAYOUT_MULTIPLIER: 1.0 // RESTORED: 1:1 even money (fair traditional game)
 };
 
 // PROGRESSIVE DIFFICULTY MODES - ALL HOUSE FAVORABLE NOW
@@ -25,7 +26,7 @@ const CEELO_MODES = {
         name: '🛡️ Safe',
         description: 'Conservative mode with reduced payouts',
         minBet: 500,
-        evenMoneyMultiplier: 0.90, // 90% payout (10% house edge)
+        evenMoneyMultiplier: 0.98, // IMPROVED: 98% payout (2% house edge)
         emoji: '🛡️',
         color: '#4CAF50'
     },
@@ -33,7 +34,7 @@ const CEELO_MODES = {
         name: '⚖️ Balanced',
         description: 'Standard mode with moderate house edge',
         minBet: 1000,
-        evenMoneyMultiplier: 0.85, // 85% payout (15% house edge)
+        evenMoneyMultiplier: 0.97, // IMPROVED: 97% payout (3% house edge)
         emoji: '⚖️',
         color: '#FF9800'
     },
@@ -41,7 +42,7 @@ const CEELO_MODES = {
         name: '⚡ Risky',
         description: 'High risk with lower payouts',
         minBet: 2500,
-        evenMoneyMultiplier: 0.80, // 80% payout (20% house edge)
+        evenMoneyMultiplier: 0.95, // IMPROVED: 95% payout (5% house edge)
         emoji: '⚡',
         color: '#FF8800'
     },
@@ -49,7 +50,7 @@ const CEELO_MODES = {
         name: '🔥 Extreme',
         description: 'Maximum risk with minimal payouts',
         minBet: 5000,
-        evenMoneyMultiplier: 0.75, // 75% payout (25% house edge)
+        evenMoneyMultiplier: 0.93, // IMPROVED: 93% payout (7% house edge)
         emoji: '🔥',
         color: '#FF0000'
     }
@@ -69,10 +70,10 @@ module.exports = {
                 .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
                 .setRequired(false)
                 .addChoices(
-                    { name: '🛡️ Safe (Min: $500, Payout: 1.95x)', value: 'safe' },
-                    { name: '⚖️ Balanced (Min: $1K, Payout: 1.98x)', value: 'balanced' },
-                    { name: '⚡ Risky (Min: $2.5K, Payout: 2.02x)', value: 'risky' },
-                    { name: '🔥 Extreme (Min: $5K, Payout: 2.05x)', value: 'extreme' }
+                    { name: '🛡️ Safe (Min: $500, Payout: 0.98x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, Payout: 0.97x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, Payout: 0.95x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, Payout: 0.93x)', value: 'extreme' }
                 )
         ),
 

@@ -492,7 +492,7 @@ async function handleViewGames(interaction, tier) {
         console.log('SportBet: No sport provided in options');
         return await interaction.editReply({
             content: '❌ Please select a sport category first.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
     
@@ -503,7 +503,7 @@ async function handleViewGames(interaction, tier) {
         console.log('SportBet: No countries found for sport:', sport);
         return await interaction.editReply({
             content: `❌ No leagues available for ${sport}. Please try another sport.`,
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
     
@@ -616,7 +616,7 @@ async function showLeagueSelection(interaction, sport, countryKey, tier) {
             console.log('SportBet: Invalid country data for:', countryKey, 'in sport:', sport);
             return await interaction.editReply({
                 content: `❌ Invalid country selection: ${countryKey}. Please try again.`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
         
@@ -624,7 +624,7 @@ async function showLeagueSelection(interaction, sport, countryKey, tier) {
             console.log('SportBet: Invalid sport data for:', sport);
             return await interaction.editReply({
                 content: `❌ Invalid sport: ${sport}. Please try again.`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -697,7 +697,7 @@ async function showLeagueSelection(interaction, sport, countryKey, tier) {
         try {
             await interaction.editReply({
                 content: `❌ Error loading leagues for ${sport}. Please try again.\n\nError: ${error.message}`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         } catch (replyError) {
             console.log('SportBet: Could not send error reply:', replyError.message);
@@ -790,7 +790,7 @@ async function showGamesForLeague(interaction, sport, countryKey, leagueKey, tie
         console.log('SportBet: Invalid data - countryData:', !!countryData, 'sportData:', !!sportData);
         return await interaction.editReply({
             content: `❌ Invalid configuration for ${sport}/${countryKey}. Please try again.`,
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
     
@@ -803,7 +803,7 @@ async function showGamesForLeague(interaction, sport, countryKey, leagueKey, tie
         console.log('SportBet: Games fetch returned null/undefined');
         return await interaction.editReply({
             content: '❌ Failed to fetch games. Please try again later.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 
@@ -1207,7 +1207,7 @@ async function showGamesForLeagueWithPage(interaction, sport, countryKey, league
         console.error('SportBet: Error updating games embed with pagination:', error);
         await interaction.followUp({
             content: '❌ An error occurred while updating games. Please try again.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 }
@@ -1518,7 +1518,7 @@ async function showBettingMarkets(interaction, sport, tempId, tier) {
     if (!markets) {
         return await interaction.reply({
             content: '❌ No betting markets available for this sport.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 
@@ -1567,7 +1567,7 @@ async function showBettingMarkets(interaction, sport, tempId, tier) {
     pendingGames.set(`market_${marketTempId}`, { sport, tempId, tier });
     setTimeout(() => pendingGames.delete(`market_${marketTempId}`), 300000);
 
-    await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
 }
 
 /**
@@ -1578,7 +1578,7 @@ async function showMarketBets(interaction, sport, marketType, tempId, tier) {
     if (!pendingData) {
         return await interaction.reply({
             content: '❌ Session expired. Please start again.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 
@@ -1589,7 +1589,7 @@ async function showMarketBets(interaction, sport, marketType, tempId, tier) {
     if (games.length === 0) {
         return await interaction.reply({
             content: '❌ No games available for this market.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 
@@ -1766,7 +1766,7 @@ async function handleMarketBetSelection(interaction, sport, marketType, tempId) 
     if (!pendingData) {
         return await interaction.reply({
             content: '❌ Session expired. Please start a new bet.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 
@@ -1794,7 +1794,7 @@ async function handleMarketBetSelection(interaction, sport, marketType, tempId) 
         .setColor('#00FF00')
         .setFooter({ text: 'You will be prompted for bet amount after game selection' });
 
-    await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
 }
 
 /**
@@ -1966,7 +1966,7 @@ async function handleApiUsage(interaction, userId) {
         if (!devUserIds.includes(userId)) {
             return await interaction.editReply({
                 content: '❌ This command is restricted to administrators.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -1976,7 +1976,7 @@ async function handleApiUsage(interaction, userId) {
         if (!stats) {
             return await interaction.editReply({
                 content: '❌ Could not retrieve API usage statistics.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -2301,7 +2301,7 @@ async function handleGameSelection(interaction) {
         logger.error(`Error in handleGameSelection: ${error.message}`);
         await interaction.reply({
             content: '❌ An error occurred. Please try again.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 }
@@ -2322,7 +2322,7 @@ async function handleSelectButton(interaction) {
             console.log('SportBet: Available keys:', Array.from(pendingGames.keys()));
             return await interaction.reply({
                 content: '❌ This betting session has expired (sessions last 5 minutes). Please use `/sportbet view` to start a new session.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -2355,13 +2355,13 @@ async function handleSelectButton(interaction) {
         await interaction.reply({
             content: 'Please select a game to bet on:',
             components: [row],
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     } catch (error) {
         logger.error(`Error in handleSelectButton: ${error.message}`);
         await interaction.reply({
             content: '❌ An error occurred. Please try again.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 }
@@ -2385,7 +2385,7 @@ async function handleTeamSelection(interaction) {
         if (!pendingData) {
             return await interaction.reply({
                 content: '❌ Session expired. Please start a new bet.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -2394,7 +2394,7 @@ async function handleTeamSelection(interaction) {
         if (amount > balance.wallet) {
             return await interaction.reply({
                 content: `❌ Insufficient balance! You have ${fmt(balance.wallet)}`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -2458,7 +2458,7 @@ async function handleTeamSelection(interaction) {
         logger.error(`Error in handleTeamSelection: ${error.message}`);
         await interaction.reply({
             content: '❌ An error occurred placing your bet. Your balance has not been deducted.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 }
@@ -2557,7 +2557,7 @@ module.exports.handleBackToMarkets = async function(interaction) {
     if (!pendingData) {
         return await interaction.reply({
             content: '❌ Session expired. Please start again.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
     
@@ -2585,7 +2585,7 @@ module.exports.handleMarketGameSelection = async function(interaction) {
     if (!pendingData) {
         return await interaction.reply({
             content: '❌ Session expired. Please start a new bet.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
     
@@ -2698,7 +2698,7 @@ module.exports.handlePageNavigation = async function(interaction) {
         if (userId !== interaction.user.id) {
             return await interaction.reply({
                 content: '❌ You can only navigate your own betting session.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
         
@@ -2712,7 +2712,7 @@ module.exports.handlePageNavigation = async function(interaction) {
         console.error('SportBet: Error in page navigation:', error);
         await interaction.reply({
             content: '❌ An error occurred while changing pages. Please try again.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 };
@@ -2731,7 +2731,7 @@ module.exports.handleFinalBet = async function(interaction) {
         if (!pendingData) {
             return await interaction.reply({
                 content: '❌ Session expired. Please start a new bet.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
         
@@ -2740,14 +2740,14 @@ module.exports.handleFinalBet = async function(interaction) {
         // For now, just confirm the selection
         await interaction.reply({
             content: `✅ You selected: **${betType}** at odds **${odds}**\nGame: ${game.home_team} vs ${game.away_team}\n\nBetting placement coming soon!`,
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         
     } catch (error) {
         logger.error(`Error in handleFinalBet: ${error.message}`);
         await interaction.reply({
             content: '❌ An error occurred processing your bet.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 };
@@ -2776,7 +2776,7 @@ module.exports.handleBetAmountModal = async function(interaction) {
         if (!amount || amount < 10) {
             return await interaction.reply({
                 content: '❌ Invalid bet amount. Please enter a number greater than 10.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
         
@@ -2785,7 +2785,7 @@ module.exports.handleBetAmountModal = async function(interaction) {
         if (!pendingData) {
             return await interaction.reply({
                 content: '❌ Session expired. Please start a new bet.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
         
@@ -2793,7 +2793,7 @@ module.exports.handleBetAmountModal = async function(interaction) {
         if (!game) {
             return await interaction.reply({
                 content: '❌ Invalid game selection.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
         
@@ -2802,7 +2802,7 @@ module.exports.handleBetAmountModal = async function(interaction) {
         if (userBalance < amount) {
             return await interaction.reply({
                 content: `❌ Insufficient balance. You have ${fmt(userBalance)} but need ${fmt(amount)}.`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
         
@@ -2842,14 +2842,14 @@ module.exports.handleBetAmountModal = async function(interaction) {
         await interaction.reply({ 
             embeds: [selectEmbed], 
             components: [row],
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         
     } catch (error) {
         logger.error(`Error in handleBetAmountModal: ${error.message}`);
         await interaction.reply({
             content: '❌ An error occurred processing your bet amount.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 };

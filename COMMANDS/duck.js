@@ -403,7 +403,7 @@ module.exports = {
             const check = await sessionGuard.check(userId, guildId, SMGameType.DUCK, interaction.client);
             if (!check.allowed) {
                 const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription(check.message).setColor(0xFF0000);
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             // Check if user already has an active duck game
@@ -413,7 +413,7 @@ module.exports = {
                     .setDescription('You already have an active duck game.')
                     .setColor(0xFF0000);
                 
-                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
 
             // Ensure user exists and get balance
@@ -430,7 +430,7 @@ module.exports = {
             );
 
             if (!validation.isValid) {
-                return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [validation.errorEmbed], ephemeral: true });
             }
 
             const betAmount = validation.parsedAmount;
@@ -494,7 +494,7 @@ module.exports = {
                 .setDescription('An error occurred while starting the duck game. Please try again.')
                 .setColor(0xFF0000);
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     },
 
@@ -506,14 +506,14 @@ module.exports = {
         if (!gameData || gameData.type !== 'mode_select') {
             return await interaction.reply({ 
                 content: 'No active mode selection found.', 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
 
         if (!GAME_MODES[mode]) {
             return await interaction.reply({ 
                 content: 'Invalid game mode selected.', 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
 
@@ -571,7 +571,7 @@ module.exports = {
         if (!gameData) {
             return await interaction.reply({ 
                 content: 'No active game found.', 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
 
@@ -614,7 +614,7 @@ module.exports = {
             if (!gameSession || gameSession.type === 'mode_select') {
                 return await interaction.reply({ 
                     content: 'No active duck game found.', 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             }
 
@@ -641,7 +641,7 @@ module.exports = {
                 );
             } catch (_) {}
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: '❌ Error processing action.', flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: '❌ Error processing action.', ephemeral: true });
             }
         }
     },
@@ -763,7 +763,7 @@ module.exports = {
             )
             .setFooter({ text: '🍀 Good luck crossing the road!' });
 
-        await interaction.reply({ embeds: [helpEmbed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
     },
 
     async endGame(interaction, gameSession, won, payout) {

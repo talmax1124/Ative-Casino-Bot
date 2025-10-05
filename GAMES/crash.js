@@ -24,6 +24,7 @@ const { fmt, parseAmount, resolveAmount, sendLogMessage } = require('../UTILS/co
 const sessionManager = require('../UTILS/sessionManager');
 const { GameType } = require('../UTILS/gameUtils');
 const logger = require('../UTILS/logger');
+const uasDataExporter = require('../UTILS/uasDataExporter');
 
 const CRASH_MODES = {
   safe:   { name: '🛡️ Safe',    minBet: 500,  maxMultiplier: 1.5, color: 0x4CAF50 },
@@ -35,12 +36,27 @@ const CRASH_MODES = {
 function randFloat() { return Math.random(); }
 
 function generateCrashPoint(maxMultiplier) {
-  // Simple biased distribution up to maxMultiplier
+  // IMPROVED: More player-friendly distribution - higher crash points more likely
   const r = randFloat();
   let cp;
-  if (r < 0.6) cp = 1.0 + (randFloat() * (maxMultiplier - 1.0) * 0.5);
-  else if (r < 0.9) cp = 1.0 + (randFloat() * (maxMultiplier - 1.0) * 0.8);
-  else cp = 1.0 + (randFloat() * (maxMultiplier - 1.0));
+  
+  // 70% chance for favorable crashes (75-90% of max multiplier range)
+  if (r < 0.7) {
+    const minRange = 1.0 + (maxMultiplier - 1.0) * 0.75; // Start at 75% of max range
+    const maxRange = 1.0 + (maxMultiplier - 1.0) * 0.9;  // Up to 90% of max range
+    cp = minRange + (randFloat() * (maxRange - minRange));
+  }
+  // 20% chance for mid-range crashes (50-75% of max multiplier range)
+  else if (r < 0.9) {
+    const minRange = 1.0 + (maxMultiplier - 1.0) * 0.5;  // Start at 50% of max range
+    const maxRange = 1.0 + (maxMultiplier - 1.0) * 0.75; // Up to 75% of max range
+    cp = minRange + (randFloat() * (maxRange - minRange));
+  }
+  // 10% chance for early crashes (keep some risk)
+  else {
+    cp = 1.0 + (randFloat() * (maxMultiplier - 1.0) * 0.5);
+  }
+  
   return Math.min(maxMultiplier, Number(cp.toFixed(2)));
 }
 
@@ -104,6 +120,27 @@ class CrashGame {
     p.winnings = Math.floor(p.bet * this.currentMultiplier);
     // Credit winnings (bet already deducted)
     dbManager.updateUserBalance(userId, this.guildId, p.winnings, 0).catch(() => {});
+    
+    // Export to UAS for centralized analysis
+    try {
+      uasDataExporter.exportGameResult({
+        userId,
+        guildId: this.guildId,
+        gameType: 'crash',
+        betAmount: p.bet,
+        winnings: p.winnings,
+        won: true, // They cashed out successfully
+        metadata: {
+          mode: this.modeKey,
+          cashOutMultiplier: this.currentMultiplier,
+          crashPoint: this.crashPoint,
+          gameTimestamp: Date.now()
+        }
+      }).catch(exportError => {
+        logger.debug(`Failed to export crash result to UAS: ${exportError.message}`);
+      });
+    } catch (_) {}
+    
     try {
       sendLogMessage(require('..').client || null, 'game', `Crash cashout: ${p.username} at ${this.currentMultiplier.toFixed(2)}x -> +${fmt(p.winnings)}`, userId, this.guildId);
     } catch (_) {}
@@ -190,6 +227,30 @@ class CrashGame {
     this.state = 'crashed';
     this.currentMultiplier = this.crashPoint;
     if (this.updateInterval) { clearInterval(this.updateInterval); this.updateInterval = null; }
+    
+    // Export losing players to UAS
+    for (const [userId, p] of this.players.entries()) {
+      if (!p.cashedOut) {
+        try {
+          uasDataExporter.exportGameResult({
+            userId,
+            guildId: this.guildId,
+            gameType: 'crash',
+            betAmount: p.bet,
+            winnings: 0, // They lost
+            won: false,
+            metadata: {
+              mode: this.modeKey,
+              crashPoint: this.crashPoint,
+              gameTimestamp: Date.now()
+            }
+          }).catch(exportError => {
+            logger.debug(`Failed to export crash loss to UAS: ${exportError.message}`);
+          });
+        } catch (_) {}
+      }
+    }
+    
     await this.updateMessage();
   }
 

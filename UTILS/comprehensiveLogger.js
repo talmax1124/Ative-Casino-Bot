@@ -24,9 +24,10 @@ class LoggingFallbackSystem {
             this.fallbackMode = true;
             this.consecutiveFailures++;
             
-            // Use console as ultimate fallback
-            console.error(`🚨 LOGGING FALLBACK MODE ENABLED: ${reason}`);
-            console.error(`📊 Buffer size: ${this.memoryBuffer.length}, Failures: ${this.consecutiveFailures}`);
+            // Route through central logger for consistency
+            const logger = require('./logger');
+            logger.error(`🚨 LOGGING FALLBACK MODE ENABLED: ${reason}`);
+            logger.error(`📊 Buffer size: ${this.memoryBuffer.length}, Failures: ${this.consecutiveFailures}`);
         }
     }
 
@@ -34,7 +35,8 @@ class LoggingFallbackSystem {
         if (this.fallbackMode) {
             this.fallbackMode = false;
             this.consecutiveFailures = 0;
-            console.log(`✅ Logging fallback mode DISABLED - ${this.memoryBuffer.length} logs in buffer`);
+            const logger = require('./logger');
+            logger.warn(`✅ Logging fallback mode DISABLED - ${this.memoryBuffer.length} logs in buffer`);
         }
     }
 
@@ -53,7 +55,8 @@ class LoggingFallbackSystem {
 
         // Emergency console output
         if (this.emergencyConsoleLogging) {
-            console.log(`📝 [BUFFER] ${logEntry.level} ${logEntry.component}: ${logEntry.message}`);
+            const logger = require('./logger');
+            logger.debug(`📝 [BUFFER] ${logEntry.level} ${logEntry.component}: ${logEntry.message}`);
         }
     }
 
@@ -61,7 +64,8 @@ class LoggingFallbackSystem {
     async flushBufferedLogs(writeFunction) {
         if (this.memoryBuffer.length === 0) return;
 
-        console.log(`🔄 Attempting to flush ${this.memoryBuffer.length} buffered logs...`);
+        const logger = require('./logger');
+        logger.info(`🔄 Attempting to flush ${this.memoryBuffer.length} buffered logs...`);
         
         const logsToFlush = [...this.memoryBuffer];
         let flushedCount = 0;
@@ -71,14 +75,14 @@ class LoggingFallbackSystem {
                 await writeFunction(logEntry);
                 flushedCount++;
             } catch (error) {
-                console.error(`Failed to flush log: ${error.message}`);
+                logger.error(`Failed to flush log: ${error.message}`);
                 break; // Stop if we can't write
             }
         }
         
         // Remove successfully flushed logs
         this.memoryBuffer.splice(0, flushedCount);
-        console.log(`✅ Flushed ${flushedCount}/${logsToFlush.length} buffered logs`);
+        logger.info(`✅ Flushed ${flushedCount}/${logsToFlush.length} buffered logs`);
         
         return flushedCount;
     }
@@ -165,7 +169,8 @@ class ComprehensiveLogger {
             });
             
         } catch (error) {
-            console.error('❌ Failed to initialize comprehensive logger:', error);
+            const logger = require('./logger');
+            logger.error(`❌ Failed to initialize comprehensive logger: ${error.message}`);
         }
     }
 
@@ -194,10 +199,11 @@ class ComprehensiveLogger {
         await this.writeToFile('startup', logEntry);
         await this.sendToDiscord('general', 'startup', logEntry);
         
-        // Also console log for immediate feedback
-        console.log(`🚀 [STARTUP] ${component}: ${message}`);
+        // Also log via central logger (respects console filtering)
+        const logger = require('./logger');
+        logger.info(`🚀 [STARTUP] ${component}: ${message}`);
         if (Object.keys(details).length > 0) {
-            console.log(`   📋 Details:`, JSON.stringify(details, null, 2));
+            logger.debug(`   📋 Details: ${JSON.stringify(details)}`);
         }
     }
 
@@ -228,7 +234,8 @@ class ComprehensiveLogger {
             await this.sendToDiscord('general', 'game', logEntry);
         }
         
-        console.log(`🎰 [GAME] ${username} ${action} ${game}${details.betAmount ? ` ($${details.betAmount.toLocaleString()})` : ''}`);
+        const logger = require('./logger');
+        logger.debug(`🎰 [GAME] ${username} ${action} ${game}${details.betAmount ? ` ($${details.betAmount.toLocaleString()})` : ''}`);
     }
 
     /**
@@ -256,9 +263,10 @@ class ComprehensiveLogger {
             await this.sendToDiscord('economy', 'economic', logEntry);
         }
         
-        console.log(`💰 [ECONOMIC] ${category}: ${action}`);
+        const logger = require('./logger');
+        logger.debug(`💰 [ECONOMIC] ${category}: ${action}`);
         if (details.impact) {
-            console.log(`   📊 Impact: ${details.impact}`);
+            logger.debug(`   📊 Impact: ${details.impact}`);
         }
     }
 
@@ -293,7 +301,8 @@ class ComprehensiveLogger {
             'CRITICAL': '🚨'
         };
         
-        console.log(`${severityEmoji[severity] || '⚠️'} [SECURITY] ${eventType}: ${description}`);
+        const logger = require('./logger');
+        logger.warn(`${severityEmoji[severity] || '⚠️'} [SECURITY] ${eventType}: ${description}`);
     }
 
     /**
@@ -322,7 +331,8 @@ class ComprehensiveLogger {
             await this.sendToDiscord('general', 'ai', logEntry);
         }
         
-        console.log(`🤖 [AI] ${component}: ${action}${details.fallbackUsed ? ' (FALLBACK)' : ''}`);
+        const logger = require('./logger');
+        logger.debug(`🤖 [AI] ${component}: ${action}${details.fallbackUsed ? ' (FALLBACK)' : ''}`);
     }
 
     /**
@@ -350,7 +360,8 @@ class ComprehensiveLogger {
         // Always log admin actions to Discord
         await this.sendToDiscord('general', 'admin', logEntry);
         
-        console.log(`👑 [ADMIN] ${adminUsername}: ${action} -> ${target}`);
+        const logger = require('./logger');
+        logger.info(`👑 [ADMIN] ${adminUsername}: ${action} -> ${target}`);
         if (details.impact) {
             console.log(`   ⚡ Impact: ${details.impact}`);
         }
@@ -380,7 +391,8 @@ class ComprehensiveLogger {
             await this.sendToDiscord('errors', 'error', logEntry);
         }
         
-        console.error(`❌ [ERROR] ${component}: ${error.message}`);
+        const logger = require('./logger');
+        logger.error(`❌ [ERROR] ${component}: ${error.message}`);
     }
 
     /**
@@ -408,7 +420,8 @@ class ComprehensiveLogger {
         }
         
         if (duration > 1000) {
-            console.log(`⏱️ [PERFORMANCE] ${operation}: ${duration}ms (SLOW)`);
+            const logger = require('./logger');
+            logger.warn(`⏱️ [PERFORMANCE] ${operation}: ${duration}ms (SLOW)`);
         }
     }
 
@@ -433,7 +446,8 @@ class ComprehensiveLogger {
         await this.writeToFile('database', logEntry);
         
         if (duration > 2000 || details.error) {
-            console.log(`🗄️ [DATABASE] ${operation}: ${duration}ms${details.error ? ' (ERROR)' : ''}`);
+            const logger = require('./logger');
+            logger.debug(`🗄️ [DATABASE] ${operation}: ${duration}ms${details.error ? ' (ERROR)' : ''}`);
         }
     }
 
@@ -464,7 +478,8 @@ class ComprehensiveLogger {
                 return;
             }
         } catch (error) {
-            console.error(`💥 Failed to write ${category} log: ${error.message}`);
+            const logger = require('./logger');
+            logger.error(`💥 Failed to write ${category} log: ${error.message}`);
             loggingFallback.trackFailure('writeToFile', error);
             
             // Enable fallback mode
@@ -527,7 +542,8 @@ class ComprehensiveLogger {
             await client.send({ embeds: [embed] });
             
         } catch (error) {
-            console.error(`💥 Failed to send Discord log for ${category}: ${error.message}`);
+            const logger = require('./logger');
+            logger.error(`💥 Failed to send Discord log for ${category}: ${error.message}`);
             loggingFallback.trackFailure('sendToDiscord', error);
             
             // Don't enable fallback mode just for Discord failures - file logging is more critical
@@ -549,7 +565,8 @@ class ComprehensiveLogger {
         };
 
         await this.writeToFile('startup', health);
-        console.log(`💚 [HEALTH] System running - Uptime: ${Math.floor(process.uptime())}s`);
+        const logger = require('./logger');
+        logger.info(`💚 [HEALTH] System running - Uptime: ${Math.floor(process.uptime())}s`);
     }
 
     /**
@@ -576,7 +593,8 @@ class ComprehensiveLogger {
      */
     enableEmergencyMode(reason = 'Manual activation') {
         loggingFallback.enableFallbackMode(reason);
-        console.log(`🚨 Emergency logging mode manually enabled: ${reason}`);
+        const logger = require('./logger');
+        logger.error(`🚨 Emergency logging mode manually enabled: ${reason}`);
     }
 
     /**
@@ -608,20 +626,22 @@ class ComprehensiveLogger {
      */
     emergencyLog(level, message, details = {}) {
         const timestamp = new Date().toISOString();
-        console.error(`🚨 [EMERGENCY] ${timestamp} [${level}] ${message}`);
+        const logger = require('./logger');
+        logger.error(`🚨 [EMERGENCY] ${timestamp} [${level}] ${message}`);
         if (Object.keys(details).length > 0) {
-            console.error(`🚨 [EMERGENCY] Details:`, JSON.stringify(details, null, 2));
+            logger.error(`🚨 [EMERGENCY] Details: ${JSON.stringify(details)}`);
         }
     }
 
     async flush() {
-        console.log(`📝 [LOGGER] Flushing ${this.logQueue.length} pending logs...`);
+        const logger = require('./logger');
+        logger.info(`📝 [LOGGER] Flushing ${this.logQueue.length} pending logs...`);
         
         // Try to flush any buffered logs first
         try {
             await this.flushBufferedLogs();
         } catch (error) {
-            console.error('Failed to flush buffered logs during shutdown:', error);
+            logger.error(`Failed to flush buffered logs during shutdown: ${error.message}`);
         }
         
         // Process any remaining logs

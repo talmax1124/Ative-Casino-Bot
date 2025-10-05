@@ -123,25 +123,27 @@ class TuningManager {
             // Get global fee adjustment
             const feeDelta = await this.getTuning('global', 'feePctDelta', 0);
             
-            // Apply payout adjustment (multiplicative)
-            let adjustedPayout = basePayout * (1 + payoutDelta);
+            // Apply payout adjustment (multiplicative) - IMPROVED: Cap adjustment to ±5%
+            const cappedPayoutDelta = Math.max(-0.05, Math.min(0.05, payoutDelta));
+            let adjustedPayout = basePayout * (1 + cappedPayoutDelta);
             
-            // Apply fee adjustment (subtractive from winnings)
-            if (feeDelta > 0 && adjustedPayout > betAmount) {
-                const fee = (adjustedPayout - betAmount) * (feeDelta / 100);
+            // Apply fee adjustment (subtractive from winnings) - IMPROVED: Cap fee to max 3%
+            const cappedFeeDelta = Math.max(0, Math.min(3, feeDelta));
+            if (cappedFeeDelta > 0 && adjustedPayout > betAmount) {
+                const fee = (adjustedPayout - betAmount) * (cappedFeeDelta / 100);
                 adjustedPayout -= fee;
             }
             
             // Ensure payout is never negative
             adjustedPayout = Math.max(0, adjustedPayout);
             
-            logger.debug(`${gameName} payout: ${basePayout} -> ${adjustedPayout} (delta: ${payoutDelta}, fee: ${feeDelta})`);
+            logger.debug(`${gameName} payout: ${basePayout} -> ${adjustedPayout} (delta: ${cappedPayoutDelta}, fee: ${cappedFeeDelta}%)`);
             
             return {
                 originalPayout: basePayout,
                 adjustedPayout: Math.floor(adjustedPayout),
-                payoutDelta: payoutDelta,
-                feeApplied: feeDelta > 0 ? (adjustedPayout < basePayout) : false
+                payoutDelta: cappedPayoutDelta,
+                feeApplied: cappedFeeDelta > 0 ? (adjustedPayout < basePayout) : false
             };
             
         } catch (error) {

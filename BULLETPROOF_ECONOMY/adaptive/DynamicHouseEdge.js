@@ -44,7 +44,8 @@ class DynamicHouseEdgeSystem {
      * Initialize the dynamic house edge system
      */
     initialize() {
-        console.log('⚙️ Initializing Dynamic House Edge System...');
+        const logger = require('../../UTILS/logger');
+        logger.debug('⚙️ Initializing Dynamic House Edge System...');
         
         // Set base house edges for each game
         this.initializeBaseEdges();
@@ -55,7 +56,7 @@ class DynamicHouseEdgeSystem {
         // Setup monitoring intervals
         this.setupMonitoring();
         
-        console.log('✅ Dynamic House Edge System initialized');
+        logger.debug('✅ Dynamic House Edge System initialized');
     }
 
     /**

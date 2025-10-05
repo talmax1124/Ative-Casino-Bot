@@ -36,7 +36,7 @@ module.exports = {
         const isAdmin = interaction.member?.permissions.has('Administrator') || isDev;
 
         try {
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             // If no target specified, stop caller's sessions
             if (!targetUser) {

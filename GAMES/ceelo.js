@@ -15,6 +15,7 @@ const { secureRandomDiceMultiple } = require('../UTILS/rng');
 const Canvas = require('canvas');
 const path = require('path');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
+const uasDataExporter = require('../UTILS/uasDataExporter');
 
 // CEELO Configuration
 const CONFIG = {
@@ -447,6 +448,25 @@ class CeeloGame {
                     winner: this.winner
                 }
             );
+
+            // 🔗 EXPORT TO UAS BOT FOR CENTRALIZED ANALYSIS
+            await uasDataExporter.exportGameResult({
+                gameType: 'ceelo',
+                userId: this.userId,
+                guildId: this.guildId,
+                betAmount: this.betAmount,
+                payout: this.payout,
+                won: won,
+                multiplier: this.payout > 0 ? this.payout / this.betAmount : 0,
+                metadata: {
+                    playerDice: this.playerDice,
+                    houseDice: this.houseDice,
+                    playerHand: this.playerHand.description,
+                    houseHand: this.houseHand.description,
+                    winner: this.winner,
+                    gameLength: Date.now() - this.startTime
+                }
+            });
 
             // Send final result with dice image
             const replyData = {

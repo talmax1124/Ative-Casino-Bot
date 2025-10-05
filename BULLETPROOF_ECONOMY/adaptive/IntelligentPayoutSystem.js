@@ -62,7 +62,8 @@ class IntelligentPayoutSystem {
      * Initialize the intelligent payout system
      */
     async initialize() {
-        console.log('🧠 Initializing Intelligent Adaptive Payout System...');
+        const logger = require('../../UTILS/logger');
+        logger.debug('🧠 Initializing Intelligent Adaptive Payout System...');
         
         // Initialize mathematical models
         await this.initializePayoutModels();
@@ -76,7 +77,7 @@ class IntelligentPayoutSystem {
         // Setup real-time monitoring
         this.setupPayoutMonitoring();
         
-        console.log('✅ Intelligent Adaptive Payout System initialized');
+        logger.debug('✅ Intelligent Adaptive Payout System initialized');
     }
 
     /**

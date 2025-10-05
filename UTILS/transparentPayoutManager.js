@@ -14,21 +14,21 @@ class HonestPayoutManager {
             // Transparency Policy - ALL payouts must match displayed amounts
             displayPolicy: 'HONEST_ONLY', // Only show what players actually receive
             
-            // House Edge Configuration (applied transparently upfront)
+            // House Edge Configuration (applied transparently upfront) - FURTHER IMPROVED
             houseEdges: {
-                slots: 0.02,        // 2% house edge (98% RTP) - REDUCED FOR FAIRNESS
-                plinko: 0.015,      // 1.5% house edge (98.5% RTP) - REDUCED FOR FAIRNESS  
-                crash: 0.02,        // 2% house edge (98% RTP) - REDUCED FOR FAIRNESS
+                slots: 0.015,       // 1.5% house edge (98.5% RTP) - FURTHER REDUCED
+                plinko: 0.01,       // 1% house edge (99% RTP) - FURTHER REDUCED  
+                crash: 0.015,       // 1.5% house edge (98.5% RTP) - FURTHER REDUCED
                 blackjack: 0.005,   // 0.5% house edge (99.5% RTP) - kept same
                 roulette: 0.027,    // 2.7% house edge (97.3% RTP) - kept same (standard)
-                keno: 0.08,         // 8% house edge (92% RTP) - REDUCED FOR FAIRNESS
-                mines: 0.05,        // 5% house edge (95% RTP) - REDUCED FOR FAIRNESS
-                bingo: 0.05,        // 5% house edge (95% RTP) - REDUCED FOR FAIRNESS
-                fishing: 0.02,      // 2% house edge (98% RTP) - REDUCED FOR FAIRNESS
-                ceelo: 0.02,        // 2% house edge (98% RTP) - REDUCED FOR FAIRNESS
-                treasurevault: 0.025, // 2.5% house edge (97.5% RTP) - REDUCED FOR FAIRNESS
-                multi_slots: 0.02,  // 2% house edge (98% RTP) - REDUCED FOR FAIRNESS
-                yahtzee: 0.03,      // 3% house edge (97% RTP) - REDUCED FOR FAIRNESS
+                keno: 0.06,         // 6% house edge (94% RTP) - FURTHER REDUCED
+                mines: 0.03,        // 3% house edge (97% RTP) - FURTHER REDUCED
+                bingo: 0.03,        // 3% house edge (97% RTP) - FURTHER REDUCED
+                fishing: 0.015,     // 1.5% house edge (98.5% RTP) - FURTHER REDUCED
+                ceelo: 0.015,       // 1.5% house edge (98.5% RTP) - FURTHER REDUCED
+                treasurevault: 0.02, // 2% house edge (98% RTP) - FURTHER REDUCED
+                multi_slots: 0.015, // 1.5% house edge (98.5% RTP) - FURTHER REDUCED
+                yahtzee: 0.02,      // 2% house edge (98% RTP) - FURTHER REDUCED
                 battleship: 0.01,   // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS
                 wordchain: 0.01,    // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS
                 rps: 0.01,          // 1% house edge (99% RTP) - REDUCED FOR FAIRNESS

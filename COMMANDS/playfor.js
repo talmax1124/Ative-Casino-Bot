@@ -200,14 +200,14 @@ module.exports = {
             if (recipient.id === userId) {
                 return await interaction.editReply({
                     content: '❌ You cannot play for yourself! Just use the regular game commands.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
             if (recipient.bot) {
                 return await interaction.editReply({
                     content: '❌ You cannot play for bots.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -222,7 +222,7 @@ module.exports = {
             if (!betValidation.isValid) {
                 return await interaction.editReply({
                     content: `❌ ${betValidation.error}`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 

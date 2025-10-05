@@ -324,7 +324,7 @@ module.exports = {
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'mines');
             if (!maintenanceCheck.allowed) {
-                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], ephemeral: true });
             }
 
             // Validate session before proceeding using modern session system (via sessionGuard)
@@ -337,7 +337,7 @@ module.exports = {
                     .setDescription(check.message)
                     .setColor(0xFF0000)
                     .setTimestamp();
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             // Ensure user exists and get balance
@@ -368,7 +368,7 @@ module.exports = {
             }
 
             if (!validation.isValid) {
-                return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [validation.errorEmbed], ephemeral: true });
             }
 
             const betAmount = validation.parsedAmount;
@@ -495,11 +495,11 @@ module.exports = {
             // Enhanced error response handling
             try {
                 if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 } else if (interaction.deferred) {
                     await interaction.editReply({ embeds: [errorEmbed] });
                 } else {
-                    await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                 }
             } catch (replyError) {
                 logger.error(`Failed to send error reply: ${replyError.message}`);
@@ -529,7 +529,7 @@ module.exports = {
             }
             
             if (!game || !sessionId) {
-                return await interaction.reply({ content: 'No active mines game found.', flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ content: 'No active mines game found.', ephemeral: true });
             }
 
             const userBalance = await dbManager.getUserBalance(userId, guildId);
@@ -547,7 +547,7 @@ module.exports = {
                         await this.handleHelp(interaction);
                         break;
                     default:
-                        await interaction.reply({ content: 'Unknown action.', flags: MessageFlags.Ephemeral });
+                        await interaction.reply({ content: 'Unknown action.', ephemeral: true });
                 }
             }
         } catch (actionError) {
@@ -562,20 +562,20 @@ module.exports = {
                 );
             } catch (_) {}
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: '❌ Error processing action.', flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: '❌ Error processing action.', ephemeral: true });
             }
         }
     },
 
     async handleTileReveal(interaction, game, tileIndex, userId, guildId) {
         if (game.gameEnded) {
-            return await interaction.reply({ content: 'Game has already ended.', flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ content: 'Game has already ended.', ephemeral: true });
         }
 
         const result = game.revealTile(tileIndex);
         
         if (!result.success) {
-            return await interaction.reply({ content: result.message, flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ content: result.message, ephemeral: true });
         }
 
         // Update embed
@@ -600,11 +600,11 @@ module.exports = {
 
     async handleCashOut(interaction, game, userId, guildId) {
         if (game.gameEnded) {
-            return await interaction.reply({ content: 'Game has already ended.', flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ content: 'Game has already ended.', ephemeral: true });
         }
 
         if (game.revealedTiles.length === 0) {
-            return await interaction.reply({ content: 'You must reveal at least one tile before cashing out.', flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ content: 'You must reveal at least one tile before cashing out.', ephemeral: true });
         }
 
         game.cashOut();
@@ -635,7 +635,7 @@ module.exports = {
             ]
         });
 
-        await interaction.reply({ embeds: [helpEmbed], components: helpComponents, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [helpEmbed], components: helpComponents, ephemeral: true });
     },
 
     endGame: async function(interaction, game, userId, guildId, won = false) {
@@ -867,9 +867,9 @@ module.exports = {
             try {
                 const errorMessage = 'Failed to start new game. Please use `/mines` command directly.';
                 if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({ content: errorMessage, flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: errorMessage, ephemeral: true });
                 } else {
-                    await interaction.followUp({ content: errorMessage, flags: MessageFlags.Ephemeral });
+                    await interaction.followUp({ content: errorMessage, ephemeral: true });
                 }
             } catch (replyError) {
                 logger.error(`Failed to send error message: ${replyError.message}`);

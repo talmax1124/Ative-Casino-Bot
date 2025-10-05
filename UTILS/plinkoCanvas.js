@@ -12,39 +12,39 @@ const { secureRandomInt, secureRandomFloat, secureRandomChoice, generateProvably
 const BASE_PLINKO_MODES = {
     Easy: {
         rows: 8,
-        multipliers: [0.2, 0.4, 0.6, 0.8, 1.3, 0.8, 0.6, 0.4, 0.2], // Max 1.3x multiplier
+        multipliers: [0.5, 0.7, 0.9, 1.1, 1.3, 1.1, 0.9, 0.7, 0.5], // IMPROVED: Better distribution, fewer losses
         description: "Safest option with decent win potential. Great for beginners!",
         color: '#00FF00',
         emoji: '🟢',
-        house_edge: 0.15,
-        minBet: 500 // Increased base minimum bet
+        house_edge: 0.08, // REDUCED from 0.15
+        minBet: 500
     },
     Medium: {
         rows: 12,
-        multipliers: [0.1, 0.2, 0.3, 0.5, 0.8, 1.2, 2.0, 1.2, 0.8, 0.5, 0.3, 0.2, 0.1], // Max 2.0x multiplier
+        multipliers: [0.3, 0.5, 0.7, 0.9, 1.1, 1.4, 2.0, 1.4, 1.1, 0.9, 0.7, 0.5, 0.3], // IMPROVED: Better distribution, fewer losses
         description: "Moderate risk with good win potential. Balanced gameplay!",
         color: '#FFA500',
         emoji: '🟠',
-        house_edge: 0.20,
-        minBet: 1000 // 2x base minimum
+        house_edge: 0.12, // REDUCED from 0.20
+        minBet: 1000
     },
     Hard: {
         rows: 16,
-        multipliers: [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.0, 1.5, 2.8, 1.5, 1.0, 0.8, 0.5, 0.3, 0.2, 0.1, 0.0], // Max 2.8x multiplier
-        description: "High risk with some 0x slots. For thrill seekers!",
+        multipliers: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 2.0, 2.8, 2.0, 1.5, 1.2, 1.0, 0.8, 0.6, 0.4, 0.2], // IMPROVED: No 0x slots, better distribution
+        description: "High risk with higher rewards. For thrill seekers!",
         color: '#FF0000',
         emoji: '🔴',
-        house_edge: 0.25,
-        minBet: 2500 // 5x base minimum
+        house_edge: 0.15, // REDUCED from 0.25
+        minBet: 2500
     },
     Nightmare: {
         rows: 20,
-        multipliers: [0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.8, 1.0, 3.2, 1.0, 0.8, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0, 0.0], // Max 3.2x multiplier
-        description: "💀 NIGHTMARE MODE 💀 - Many 0x slots but max 3.2x payout!",
+        multipliers: [0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 1.1, 1.4, 1.8, 3.2, 1.8, 1.4, 1.1, 0.9, 0.7, 0.5, 0.3, 0.2, 0.1], // IMPROVED: Only 2 low slots, better rewards
+        description: "💀 NIGHTMARE MODE 💀 - High risk with big rewards!",
         color: '#8B008B',
         emoji: '💀',
-        house_edge: 0.30,
-        minBet: 5000 // 10x base minimum
+        house_edge: 0.18, // REDUCED from 0.30
+        minBet: 5000
     }
 };
 

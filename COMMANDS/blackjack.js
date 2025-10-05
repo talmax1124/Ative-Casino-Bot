@@ -21,6 +21,7 @@ const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 // EconomyGuardianInterface removed - using bulletproof economy
 const tuningManager = require('../UTILS/tuningManager');
 const allInManager = require('../UTILS/allInManager');
+const uasDataExporter = require('../UTILS/uasDataExporter');
 
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
@@ -1089,6 +1090,34 @@ module.exports = {
             });
 
             await PayoutManager.processGamePayout(gameResult);
+
+            // Export to UAS for centralized analysis
+            try {
+                await uasDataExporter.exportGameResult({
+                    userId,
+                    guildId,
+                    gameType: 'blackjack',
+                    betAmount: totalBetAmount + totalInsuranceAmount,
+                    winnings: finalPayout,
+                    won,
+                    metadata: {
+                        hands: results.length,
+                        dealerValue: game.dealerHand.getValue(),
+                        playerValue: game.playerHand.getValue(),
+                        isPush,
+                        netProfit,
+                        outcome: results[0]?.outcome || 'unknown',
+                        split: game.splitHands.length > 0,
+                        insurance: {
+                            amount: totalInsuranceAmount,
+                            payout: totalInsurancePayout
+                        },
+                        gameTimestamp: Date.now()
+                    }
+                });
+            } catch (exportError) {
+                logger.debug(`Failed to export blackjack result to UAS: ${exportError.message}`);
+            }
             
             try {
                 await dbManager.recordGameResult(

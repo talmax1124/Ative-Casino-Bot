@@ -3,7 +3,7 @@
  * Tests various button patterns to ensure no "This Interaction Failed" messages
  */
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const buttonUtility = require('../UTILS/buttonUtility');
 const logger = require('../UTILS/logger');
 
@@ -48,7 +48,7 @@ module.exports = {
             logger.error('Button test error:', error);
             await buttonUtility.safeReply(interaction, {
                 content: '❌ Test failed: ' + error.message,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -65,11 +65,11 @@ async function testSimpleButtons(interaction) {
         { customId: 'test_4', label: 'Button 4', style: 4, emoji: '4️⃣' }
     ]);
 
-    const message = await interaction.reply({
+    await interaction.reply({
         content: '🧪 **Simple Button Test**\nClick any button to test interaction handling:',
-        components: [buttons],
-        fetchReply: true
+        components: [buttons]
     });
+    const message = await interaction.fetchReply();
 
     // Setup collector
     buttonUtility.setupCollector(message, {
@@ -98,10 +98,10 @@ async function testConfirmation(interaction) {
         cancelLabel: 'No, cancel'
     });
 
-    const message = await interaction.reply({
-        ...confirmation,
-        fetchReply: true
+    await interaction.reply({
+        ...confirmation
     });
+    const message = await interaction.fetchReply();
 
     const result = await confirmation.handleResponse(message, interaction.user.id);
 
@@ -128,10 +128,10 @@ async function testPagination(interaction) {
     }
 
     const pagination = buttonUtility.createPagination(pages);
-    const message = await interaction.reply({
-        ...pagination.getPage(),
-        fetchReply: true
+    await interaction.reply({
+        ...pagination.getPage()
     });
+    const message = await interaction.fetchReply();
 
     // Setup collector for pagination
     buttonUtility.setupCollector(message, {
@@ -166,11 +166,11 @@ async function testButtonMenu(interaction) {
         maxSelect: 3
     });
 
-    const message = await interaction.reply({
+    await interaction.reply({
         content: '🍔 **Button Menu Test**\nSelect up to 3 fruits (minimum 1):',
-        components: menu.components,
-        fetchReply: true
+        components: menu.components
     });
+    const message = await interaction.fetchReply();
 
     // Setup collector
     buttonUtility.setupCollector(message, {
@@ -247,10 +247,10 @@ async function testGameSimulation(interaction) {
         return { embeds: [embed], components: [buttons] };
     };
 
-    const message = await interaction.reply({
-        ...updateGame(),
-        fetchReply: true
+    await interaction.reply({
+        ...updateGame()
     });
+    const message = await interaction.fetchReply();
 
     // Setup game collector
     buttonUtility.setupCollector(message, {

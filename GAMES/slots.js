@@ -11,17 +11,18 @@ const { secureRandomFloat, secureRandomInt, secureRandomChoice } = require('../U
 
 // BASE slot symbols - These get automatically adapted based on player wealth
 // Players always see honest multipliers - the symbols adapt behind the scenes
+// IMPROVED: Increased frequencies for better win rates while keeping payouts the same
 const BASE_SLOT_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 35, basePayout: 1.05 },
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 30, basePayout: 1.1 },
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 20, basePayout: 1.2 },
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 10, basePayout: 1.4 },
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 3, basePayout: 1.6 },
-    'bar': { name: 'Bar', emoji: '📊', rarity: 1.5, basePayout: 1.8 },
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 0.4, basePayout: 2.0 },
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.08, basePayout: 2.0 },
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.02, basePayout: 2.0 },
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.001, basePayout: 2.0 }
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 50, basePayout: 1.05 },    // +15 more frequent
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 40, basePayout: 1.1 },         // +10 more frequent
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 30, basePayout: 1.2 },       // +10 more frequent
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 15, basePayout: 1.4 },       // +5 more frequent
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 5, basePayout: 1.6 }, // +2 more frequent
+    'bar': { name: 'Bar', emoji: '📊', rarity: 2.5, basePayout: 1.8 },            // +1 more frequent
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 0.8, basePayout: 2.0 },  // 2x more frequent
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.15, basePayout: 2.0 },   // Nearly 2x more frequent
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.05, basePayout: 2.0 },   // 2.5x more frequent
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.01, basePayout: 2.0 }    // 10x more frequent (but still rare)
 };
 
 // Default slot symbols (for backward compatibility)
@@ -47,18 +48,18 @@ async function getAdaptedSlotSymbols(userId, currentWealth, betAmount) {
     return symbols;
 }
 
-// Matrix mode symbols - Max 2.2x multipliers, economically balanced (slightly increased win rates)
+// Matrix mode symbols - Max 2.2x multipliers, economically balanced (IMPROVED win rates)
 const MATRIX_SYMBOLS = {
-    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 32, payout: 1.1 },
-    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 27, payout: 1.2 },
-    'orange': { name: 'Orange', emoji: '🍊', rarity: 22, payout: 1.3 },
-    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 16, payout: 1.5 },
-    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 6.5, payout: 1.7 },
-    'bar': { name: 'Bar', emoji: '📊', rarity: 2.8, payout: 1.9 },
-    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1.1, payout: 2.2 },       // Max payout
-    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.45, payout: 2.2 },       // Max payout
-    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.09, payout: 2.2 },      // Max payout + triggers bonus
-    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.025, payout: 2.2 }       // Max payout - rare
+    'cherries': { name: 'Cherries', emoji: '🍒', rarity: 42, payout: 1.1 },        // +10 more frequent
+    'lemon': { name: 'Lemon', emoji: '🍋', rarity: 35, payout: 1.2 },             // +8 more frequent
+    'orange': { name: 'Orange', emoji: '🍊', rarity: 28, payout: 1.3 },           // +6 more frequent
+    'grapes': { name: 'Grapes', emoji: '🍇', rarity: 20, payout: 1.5 },           // +4 more frequent
+    'watermelon': { name: 'Watermelon', emoji: '🍉', rarity: 9, payout: 1.7 },    // +2.5 more frequent
+    'bar': { name: 'Bar', emoji: '📊', rarity: 4, payout: 1.9 },                  // +1.2 more frequent
+    'seven': { name: 'Lucky Seven', emoji: '7️⃣', rarity: 1.8, payout: 2.2 },     // +0.7 more frequent
+    'diamond': { name: 'Diamond', emoji: '💎', rarity: 0.8, payout: 2.2 },       // Nearly 2x more frequent
+    'buffalo': { name: 'Buffalo', emoji: '🦬', rarity: 0.18, payout: 2.2 },      // 2x more frequent + triggers bonus
+    'jackpot': { name: 'Jackpot', emoji: '🎰', rarity: 0.05, payout: 2.2 }       // 2x more frequent but still rare
 };
 
 // Special combinations
@@ -256,12 +257,13 @@ function calculatePayout(symbols, betAmount, personalizedPayouts = null, modeCon
                 baseMultiplier = personalizedPayouts[symbol];
             }
             
-            let multiplier = baseMultiplier * TWO_MATCH_MULTIPLIER;
+            // IMPROVED: Better partial win rate (was TWO_MATCH_MULTIPLIER=0.75, now 0.85)
+            let multiplier = baseMultiplier * 0.85;
             
             // Validate multiplier to prevent NaN propagation
             if (isNaN(multiplier) || !isFinite(multiplier) || multiplier < 0) {
-                logger.warn(`Invalid two-match multiplier for symbol ${symbol}: ${multiplier}, using fallback 0.75`);
-                multiplier = 0.75;
+                logger.warn(`Invalid two-match multiplier for symbol ${symbol}: ${multiplier}, using fallback 0.85`);
+                multiplier = 0.85;
             }
             
             // Apply mode-specific maximum multiplier cap

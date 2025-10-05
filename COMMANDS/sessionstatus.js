@@ -182,7 +182,7 @@ module.exports = {
             
             await interaction.reply({ 
                 embeds: [embed], 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
             
         } catch (error) {
@@ -200,7 +200,7 @@ module.exports = {
             
             await interaction.reply({ 
                 embeds: [errorEmbed], 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         }
     },

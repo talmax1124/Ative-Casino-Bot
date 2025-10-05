@@ -56,7 +56,7 @@ module.exports = {
                                 .setDescription(retryCheck.message)
                                 .setColor(0xFF0000)
                                 .setTimestamp();
-                            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                            return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                         }
                     } else {
                         const errorEmbed = new EmbedBuilder()
@@ -64,7 +64,7 @@ module.exports = {
                             .setDescription(check.message)
                             .setColor(0xFF0000)
                             .setTimestamp();
-                        return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                        return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                     }
                 } else {
                     const errorEmbed = new EmbedBuilder()
@@ -72,7 +72,7 @@ module.exports = {
                         .setDescription(check.message)
                         .setColor(0xFF0000)
                         .setTimestamp();
-                    return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 }
             }
             
@@ -90,7 +90,7 @@ module.exports = {
             if (!validation.isValid) {
                 await interaction.reply({
                     embeds: [validation.errorEmbed],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -119,7 +119,7 @@ module.exports = {
                     .setDescription(`Failed to create game session: ${sessionResult.error}`)
                     .setColor(0xFF0000);
                 
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [embed], ephemeral: true });
                 return;
             }
 
@@ -170,9 +170,9 @@ module.exports = {
                 .setColor(0xFF0000);
             
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [embed], ephemeral: true });
             } else {
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [embed], ephemeral: true });
             }
         }
     },
@@ -202,7 +202,7 @@ module.exports = {
             if (!interaction.replied) {
                 await interaction.reply({
                     content: '❌ An error occurred while processing your fishing action.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
         }

@@ -19,7 +19,7 @@ async function ensureNoActiveGame(interaction) {
     if (activeGames.has(channelId)) {
         const data = activeGames.get(channelId);
         if (data && data.game && data.game.state !== 'finished') {
-            await interaction.reply({ content: '❌ A Word Chain game is already running in this channel.', flags: MessageFlags.Ephemeral });
+            await interaction.reply({ content: '❌ A Word Chain game is already running in this channel.', ephemeral: true });
             return false;
         }
     }
@@ -147,7 +147,7 @@ async function handleWordInputModal(buttonInteraction, game, originalInteraction
             if (ok) {
                 await modalInteraction.reply({ 
                     content: `✅ "${submittedWord}" accepted!`, 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
                 
                 // Update turn message to show what was submitted
@@ -164,7 +164,7 @@ async function handleWordInputModal(buttonInteraction, game, originalInteraction
             } else {
                 await modalInteraction.reply({ 
                     content: `❌ ${msg}`, 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
                 
                 // Update turn message to show rejection
@@ -212,7 +212,7 @@ async function handleWordInputModal(buttonInteraction, game, originalInteraction
         try {
             await buttonInteraction.reply({ 
                 content: '❌ Error processing word input. Please try again.', 
-                flags: MessageFlags.Ephemeral 
+                ephemeral: true 
             });
         } catch {}
     }
@@ -331,18 +331,18 @@ module.exports = {
             const action = i.customId.split(':')[1];
             if (action === 'join') {
                 if (game.players.has(i.user.id)) {
-                    return i.reply({ content: '❌ You are already in the game.', flags: MessageFlags.Ephemeral });
+                    return i.reply({ content: '❌ You are already in the game.', ephemeral: true });
                 }
                 if (game.addPlayer(i.user)) {
-                    await i.reply({ content: '✅ Joined!', flags: MessageFlags.Ephemeral });
+                    await i.reply({ content: '✅ Joined!', ephemeral: true });
                     await updatePanel();
                 } else {
-                    await i.reply({ content: '❌ Game full (max 10) or already joined.', flags: MessageFlags.Ephemeral });
+                    await i.reply({ content: '❌ Game full (max 10) or already joined.', ephemeral: true });
                 }
             } else if (action === 'pay') {
                 const p = game.players.get(i.user.id);
-                if (!p) return i.reply({ content: '❌ Join the game first.', flags: MessageFlags.Ephemeral });
-                if (p.paidPot) return i.reply({ content: '❌ You already paid into the pot.', flags: MessageFlags.Ephemeral });
+                if (!p) return i.reply({ content: '❌ Join the game first.', ephemeral: true });
+                if (p.paidPot) return i.reply({ content: '❌ You already paid into the pot.', ephemeral: true });
                 // Validate and deduct pot amount using PayoutManager
                 const potValidation = await PayoutManager.validateAndDeductBet(
                     i,
@@ -355,7 +355,7 @@ module.exports = {
                 if (!potValidation.isValid) {
                     return i.reply({ 
                         content: `❌ ${potValidation.errorEmbed.data.description}`, 
-                        flags: MessageFlags.Ephemeral 
+                        ephemeral: true 
                     });
                 }
                 
@@ -363,7 +363,7 @@ module.exports = {
                 const sessionGuard = require('../UTILS/sessionGuard');
                 const check = await sessionGuard.check(i.user.id, guildId, 'wordchain', i.client);
                 if (!check.allowed) {
-                    return i.reply({ content: `❌ ${check.message}`, flags: MessageFlags.Ephemeral });
+                    return i.reply({ content: `❌ ${check.message}`, ephemeral: true });
                 }
                 // Create session for pot players
                 const sessionResult = await sessionManager.createSession({
@@ -385,34 +385,34 @@ module.exports = {
                 if (!sessionResult.success) {
                     // Refund the pot amount if session creation fails
                     await PayoutManager.refundBet(i.user.id, guildId, game.potAmount, 'WordChain session creation failed');
-                    return i.reply({ content: '❌ Failed to create game session.', flags: MessageFlags.Ephemeral });
+                    return i.reply({ content: '❌ Failed to create game session.', ephemeral: true });
                 }
                 
                 p.paidPot = true;
                 p.sessionId = sessionResult.sessionId; // Store session ID for later completion
-                await i.reply({ content: `✅ Paid ${fmt(game.potAmount)} into the pot.`, flags: MessageFlags.Ephemeral });
+                await i.reply({ content: `✅ Paid ${fmt(game.potAmount)} into the pot.`, ephemeral: true });
                 await updatePanel();
             } else if (action === 'leave') {
                 if (!game.players.has(i.user.id)) {
-                    return i.reply({ content: "❌ You're not in this game.", flags: MessageFlags.Ephemeral });
+                    return i.reply({ content: "❌ You're not in this game.", ephemeral: true });
                 }
                 if (i.user.id === game.host.id && game.players.size > 1) {
-                    return i.reply({ content: '❌ Host cannot leave while others joined.', flags: MessageFlags.Ephemeral });
+                    return i.reply({ content: '❌ Host cannot leave while others joined.', ephemeral: true });
                 }
                 const p = game.players.get(i.user.id);
                 if (p.paidPot) await PayoutManager.refundBet(i.user.id, guildId, game.potAmount, 'Left WordChain game');
                 if (game.removePlayer(i.user.id)) {
-                    await i.reply({ content: '👋 Left the game.', flags: MessageFlags.Ephemeral });
+                    await i.reply({ content: '👋 Left the game.', ephemeral: true });
                     await updatePanel();
                 } else {
-                    await i.reply({ content: '❌ Cannot leave while playing.', flags: MessageFlags.Ephemeral });
+                    await i.reply({ content: '❌ Cannot leave while playing.', ephemeral: true });
                 }
             } else if (action === 'start') {
                 if (i.user.id !== game.host.id) {
-                    return i.reply({ content: '❌ Only the host can start the game.', flags: MessageFlags.Ephemeral });
+                    return i.reply({ content: '❌ Only the host can start the game.', ephemeral: true });
                 }
                 if (!game.start()) {
-                    return i.reply({ content: '❌ Need at least 2 players to start.', flags: MessageFlags.Ephemeral });
+                    return i.reply({ content: '❌ Need at least 2 players to start.', ephemeral: true });
                 }
                 await i.reply({ content: '🔗 Game started! Click the button when it\'s your turn to enter words.', ephemeral: false });
                 await updatePanel();
@@ -435,7 +435,7 @@ module.exports = {
                         { name: 'Start', value: `Game begins from WORD → required letter is 'D'`, inline: false }
                     )
                     .setColor(0x00BFFF);
-                await i.reply({ embeds: [help], flags: MessageFlags.Ephemeral });
+                await i.reply({ embeds: [help], ephemeral: true });
             }
         });
 

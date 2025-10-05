@@ -263,16 +263,17 @@ class GameDataCollector {
      * Helper methods for data classification
      */
     calculateTheoreticalWinProbability(gameType) {
+        // IMPROVED: Updated win probabilities to reflect better win rates
         const probabilities = {
-            'blackjack': 0.49,
-            'roulette': 0.47,
-            'crash': 0.45,
-            'plinko': 0.40,
-            'slots': 0.35,
-            'ceelo': 0.47,
-            'keno': 0.25
+            'blackjack': 0.49,  // Kept same (skill-based)
+            'roulette': 0.47,   // Kept same (fixed odds)
+            'crash': 0.50,      // +0.05 improved
+            'plinko': 0.45,     // +0.05 improved
+            'slots': 0.45,      // +0.10 significant improvement due to symbol frequency changes
+            'ceelo': 0.50,      // +0.03 improved
+            'keno': 0.30        // +0.05 improved (but still low due to nature of game)
         };
-        return probabilities[gameType] || 0.40;
+        return probabilities[gameType] || 0.45; // Default improved from 0.40 to 0.45
     }
 
     calculateExpectedValue(gameData) {

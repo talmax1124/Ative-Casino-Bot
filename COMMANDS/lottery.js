@@ -65,9 +65,9 @@ module.exports = {
             if (interaction.isRepliable()) {
                 try {
                     if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                        await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                     } else {
-                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                     }
                 } catch (replyError) {
                     logger.error(`Failed to send error message: ${replyError.message}`);
@@ -160,7 +160,7 @@ module.exports = {
                     .setEmoji('🔄')
             );
 
-        await interaction.reply({ embeds: [embed], components: [row1], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed], components: [row1], ephemeral: true });
     },
 
     // Admin Lottery Draw Handler (from original drawlottery.js)
@@ -175,7 +175,7 @@ module.exports = {
                 color: 0xFF0000
             });
             
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [embed], ephemeral: true });
             return;
         }
 
@@ -186,12 +186,12 @@ module.exports = {
                 color: 0xFFA500
             });
             
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [embed], ephemeral: true });
             return;
         }
 
         // Defer the reply since drawing might take a while
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             // Log the manual drawing attempt

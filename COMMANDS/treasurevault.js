@@ -83,7 +83,7 @@ module.exports = {
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'treasurevault');
             if (!maintenanceCheck.allowed) {
-                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], ephemeral: true });
             }
 
             // Session guard (unified)
@@ -92,7 +92,7 @@ module.exports = {
             if (!check.allowed) {
                 return await interaction.reply({
                     embeds: [new EmbedBuilder().setTitle('❌ Session Error').setDescription(check.message).setColor(0xFF0000)],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -109,7 +109,7 @@ module.exports = {
             if (!validation.isValid) {
                 return await interaction.reply({
                     embeds: [validation.errorEmbed],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -136,7 +136,7 @@ module.exports = {
                 await PayoutManager.refundBet(userId, guildId, betAmount, 'TreasureVault session create failed');
                 return await interaction.reply({
                     embeds: [new EmbedBuilder().setTitle('❌ Session Error').setDescription(`Failed to create session: ${createRes.error}`).setColor(0xFF0000)],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -184,7 +184,7 @@ module.exports = {
             if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     },
@@ -202,7 +202,7 @@ module.exports = {
             logger.warn(`No active game session found for user ${userId}`);
             return await interaction.reply({
                 content: '🏛️ No active Treasure Vault adventure found. Start a new one with `/treasurevault`!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 

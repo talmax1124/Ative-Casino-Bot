@@ -19,6 +19,7 @@ const gifAnimator = require('../UTILS/gifAnimator');
 // economicManager removed - using bulletproof economy
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 const tuningManager = require('../UTILS/tuningManager');
+const uasDataExporter = require('../UTILS/uasDataExporter');
 
 // Game type constant
 const SMGameType = { ROULETTE: 'roulette' };
@@ -809,7 +810,7 @@ module.exports = {
                         ]
                     });
 
-                    await interaction.reply({ embeds: [helpEmbed], components: helpComponents, flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [helpEmbed], components: helpComponents, ephemeral: true });
                     break;
             }
         } catch (actionError) {
@@ -1009,6 +1010,27 @@ module.exports = {
             });
 
             await PayoutManager.processGamePayout(gameResult);
+
+            // Export to UAS for centralized analysis
+            try {
+                await uasDataExporter.exportGameResult({
+                    userId,
+                    guildId,
+                    gameType: 'roulette',
+                    betAmount: game.betAmount,
+                    winnings: payout,
+                    won,
+                    metadata: {
+                        result,
+                        resultColor: color,
+                        betType: game.currentBet.type,
+                        betNumbers: game.currentBet.numbers || null,
+                        gameTimestamp: Date.now()
+                    }
+                });
+            } catch (exportError) {
+                logger.debug(`Failed to export roulette result to UAS: ${exportError.message}`);
+            }
             
             try {
                 await dbManager.recordGameResult(
@@ -1146,7 +1168,7 @@ module.exports = {
             
             const game = activeGames.get(activeSession.sessionId);
             if (!game) {
-                return await interaction.reply({ content: 'Game not found.', flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ content: 'Game not found.', ephemeral: true });
             }
 
             // Place number bet - handle both numeric and string values (for '00')
@@ -1188,7 +1210,7 @@ module.exports = {
             
             const game = activeGames.get(activeSession.sessionId);
             if (!game) {
-                return await interaction.reply({ content: 'Game not found.', flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ content: 'Game not found.', ephemeral: true });
             }
 
             // Place dozen bet
@@ -1242,9 +1264,9 @@ module.exports = {
             try {
                 const errorMessage = 'Failed to start new game. Please use `/roulette` command directly.';
                 if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({ content: errorMessage, flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: errorMessage, ephemeral: true });
                 } else {
-                    await interaction.followUp({ content: errorMessage, flags: MessageFlags.Ephemeral });
+                    await interaction.followUp({ content: errorMessage, ephemeral: true });
                 }
             } catch (replyError) {
                 logger.error(`Failed to send error message: ${replyError.message}`);

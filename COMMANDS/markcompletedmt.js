@@ -34,7 +34,7 @@ module.exports = {
         if (!(await hasAdminRole(interaction.user.id, interaction.guildId, interaction.guild))) {
             await interaction.reply({
                 content: '❌ This command is only available to administrators.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -44,7 +44,7 @@ module.exports = {
         const reason = interaction.options.getString('reason') || 'Manual admin completion';
         const guildId = await getGuildId(interaction);
 
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             // Check if target user is married

@@ -89,7 +89,7 @@ module.exports = {
                 .setColor('#ff0000')
                 .setTitle('❌ Access Denied')
                 .setDescription('Only the developer can use this command.');
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         const cogName = interaction.options.getString('cog');
@@ -100,7 +100,7 @@ module.exports = {
                 .setColor('#ff0000')
                 .setTitle('❌ Invalid Cog')
                 .setDescription(`Cog \`${cogName}\` not found.`);
-            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [embed], ephemeral: true });
         }
 
         const loadingEmbed = new EmbedBuilder()

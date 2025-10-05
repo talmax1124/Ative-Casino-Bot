@@ -16,6 +16,7 @@ const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 // EconomyGuardianInterface removed - using bulletproof economy
 const tuningManager = require('../UTILS/tuningManager');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
+const uasDataExporter = require('../UTILS/uasDataExporter');
 
 // SLOTS DIFFICULTY MODES - Progressive risk/reward system
 const SLOTS_MODES = {
@@ -178,7 +179,7 @@ module.exports = {
                 .setTitle('❌ Invalid Mode')
                 .setDescription('Invalid game mode selected.')
                 .setColor(0xFF0000);
-            return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
 
         try {
@@ -188,7 +189,7 @@ module.exports = {
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'slots');
             if (!maintenanceCheck.allowed) {
-                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], ephemeral: true });
             }
             
             // Validate session before proceeding (via sessionGuard)
@@ -201,7 +202,7 @@ module.exports = {
                     .setDescription(check.message)
                     .setColor(0xFF0000)
                     .setTimestamp();
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             // 🎛️ INITIALIZE AI TUNING SYSTEM
@@ -222,7 +223,7 @@ module.exports = {
             );
 
             if (!validation.isValid) {
-                return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [validation.errorEmbed], ephemeral: true });
             }
 
             const betAmount = validation.parsedAmount;
@@ -389,6 +390,27 @@ module.exports = {
                 // 📊 RECORD FOR AI ECONOMY ANALYZER
                 await tuningManager.recordGameResult(userId, 'slots', betAmount, result.payout, result.won);
                 
+                // 🔗 EXPORT TO UAS BOT FOR CENTRALIZED ANALYSIS
+                await uasDataExporter.exportGameResult({
+                    gameType: 'slots',
+                    userId: userId,
+                    guildId: guildId,
+                    betAmount: betAmount,
+                    payout: result.payout,
+                    won: result.won,
+                    multiplier: result.multiplier,
+                    houseEdgeApplied: transparentResult?.houseEdge || null,
+                    userWealthBefore: balance?.wallet || null,
+                    userWealthAfter: updatedBalance?.wallet || null,
+                    metadata: {
+                        symbols: symbols,
+                        mode: selectedMode,
+                        type: result.type,
+                        tuningApplied: tuningAdjustment?.payoutDelta || 0,
+                        aiAdjustment: aiResult?.multiplierAdjustment?.finalMultiplier || 1
+                    }
+                });
+                
             } catch (recordError) {
                 logger.warn(`Failed to record slots game result: ${recordError.message}`);
             }
@@ -497,7 +519,7 @@ module.exports = {
                                 try {
                                     await interaction.followUp({ 
                                         embeds: [taxNotificationEmbed], 
-                                        flags: MessageFlags.Ephemeral 
+                                        ephemeral: true 
                                     });
                                 } catch (followUpError) {
                                     logger.warn(`Failed to send wealth tax notification: ${followUpError.message}`);
@@ -613,7 +635,7 @@ module.exports = {
                 if (interaction.replied || interaction.deferred) {
                     await interaction.editReply({ embeds: [errorEmbed] });
                 } else {
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 }
             } catch (replyError) {
                 logger.error(`Failed to send slots error reply: ${replyError.message}`);

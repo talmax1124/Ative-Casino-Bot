@@ -272,7 +272,7 @@ class RussianRouletteGame {
                 if (result.success) {
                     await interaction.reply({
                         content: `🎯 ${username} has joined the deadly game!`,
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                     
                     // Update the main message
@@ -287,7 +287,7 @@ class RussianRouletteGame {
                 } else {
                     await interaction.reply({
                         content: `❌ ${result.reason}${result.balance ? ` (You have ${fmt(result.balance)})` : ''}`,
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             } else if (interaction.customId === `rr_startmatch_${this.sessionId}`) {
@@ -295,7 +295,7 @@ class RussianRouletteGame {
                 if (userId !== this.hostId) {
                     await interaction.reply({
                         content: `❌ Only the game host can start the match!`,
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                     return;
                 }
@@ -303,7 +303,7 @@ class RussianRouletteGame {
                 if (this.players.size >= CONFIG.MIN_PLAYERS) {
                     await interaction.reply({
                         content: `🎮 Starting match with ${this.players.size} players!`,
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                     
                     clearTimeout(this.joinTimer);
@@ -311,14 +311,14 @@ class RussianRouletteGame {
                 } else {
                     await interaction.reply({
                         content: `❌ Need at least ${CONFIG.MIN_PLAYERS} players to start!`,
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             } else if (interaction.customId === `rr_forcestart_${this.sessionId}`) {
                 // Auto-start info button (disabled, just informational)
                 await interaction.reply({
                     content: `ℹ️ Auto-start is enabled! Game will automatically start when timer ends or minimum players join.`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
         });

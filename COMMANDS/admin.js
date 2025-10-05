@@ -56,7 +56,7 @@ const portalCommand = {
                 })
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [embed], ephemeral: true });
         } catch (error) {
             logger.error(`Error in portal command: ${error.message}`);
             
@@ -66,7 +66,7 @@ const portalCommand = {
                 .setColor(0xFF0000)
                 .setTimestamp();
             
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     }
 };

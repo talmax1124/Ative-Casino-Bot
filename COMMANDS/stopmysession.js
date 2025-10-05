@@ -23,7 +23,7 @@ module.exports = {
       if (!active) {
         return await interaction.reply({
           embeds: [new EmbedBuilder().setTitle('🎮 No Active Session').setDescription('You do not have any active game session to stop.').setColor(0x0099FF)],
-          flags: MessageFlags.Ephemeral
+          ephemeral: true
         });
       }
 
@@ -50,7 +50,7 @@ module.exports = {
         .setTitle('❌ Error')
         .setDescription('Failed to stop your session. Please try again in a moment.')
         .setColor(0xFF0000);
-      try { await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }); } catch (_) {}
+      try { await interaction.reply({ embeds: [embed], ephemeral: true }); } catch (_) {}
     }
   },
 
@@ -65,13 +65,13 @@ module.exports = {
       const guildId = await getGuildId(interaction);
       const text = interaction.fields.getTextInputValue('confirm_text') || '';
       if (text.trim().toUpperCase() !== 'STOP') {
-        return await interaction.reply({ content: '❌ Confirmation failed. Type STOP to confirm.', flags: MessageFlags.Ephemeral });
+        return await interaction.reply({ content: '❌ Confirmation failed. Type STOP to confirm.', ephemeral: true });
       }
       const parts = interaction.customId.split(':');
       const sessionId = parts[1];
       const session = sessionManager.getSession(sessionId) || sessionManager.getUserActiveSession(userId);
       if (!session) {
-        return await interaction.reply({ content: 'ℹ️ No active session found to stop.', flags: MessageFlags.Ephemeral });
+        return await interaction.reply({ content: 'ℹ️ No active session found to stop.', ephemeral: true });
       }
       await sessionManager.cancelSession(session.sessionId, 'User confirmed stop via modal', true);
       const refunded = session.betAmount > 0 ? fmt(session.betAmount) : '$0.00';
@@ -80,7 +80,7 @@ module.exports = {
         .addFields({ name: 'Game', value: session.gameType || 'unknown', inline: true }, { name: 'Refunded', value: refunded, inline: true })
         .setColor(0x00FF00)
         .setFooter({ text: 'You can start a new game now.' });
-      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+      await interaction.reply({ embeds: [embed], ephemeral: true });
       try {
         await sendLogMessage(
           interaction.client,
@@ -93,7 +93,7 @@ module.exports = {
       logger.info(`Stopped session ${session.sessionId} (${session.gameType}) for ${username} (${userId}) via modal`);
     } catch (error) {
       logger.error(`stopmysession confirm modal error: ${error.message}`);
-      try { await interaction.reply({ content: '❌ Failed to stop session.', flags: MessageFlags.Ephemeral }); } catch (_) {}
+      try { await interaction.reply({ content: '❌ Failed to stop session.', ephemeral: true }); } catch (_) {}
     }
   }
 };

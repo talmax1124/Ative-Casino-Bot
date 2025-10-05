@@ -46,7 +46,7 @@ module.exports = {
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'rps');
             if (!maintenanceCheck.allowed) {
-                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], ephemeral: true });
             }
 
             // Validate session before proceeding (via sessionGuard)
@@ -54,7 +54,7 @@ module.exports = {
             const check = await sessionGuard.check(userId, guildId, SMGameType.RPS, interaction.client);
             if (!check.allowed) {
                 const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription(check.message).setColor(0xFF0000);
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
 
             // Check if there's already an active RPS game in this channel
@@ -71,7 +71,7 @@ module.exports = {
                     footer: 'Wait for the current game to finish or use /stopgame'
                 });
 
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [embed], ephemeral: true });
                 return;
             }
 
@@ -92,7 +92,7 @@ module.exports = {
                     footer: 'Use /stopgame to cancel your active games'
                 });
                 
-                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [embed], ephemeral: true });
                 return;
             }*/
 
@@ -107,7 +107,7 @@ module.exports = {
             );
 
             if (!validationResult.isValid) {
-                await interaction.reply({ embeds: [validationResult.errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [validationResult.errorEmbed], ephemeral: true });
                 return;
             }
 
@@ -200,9 +200,9 @@ module.exports = {
             
             try {
                 if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                    await interaction.followUp({ embeds: [embed], ephemeral: true });
                 } else {
-                    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [embed], ephemeral: true });
                 }
             } catch (replyError) {
                 logger.error(`Failed to send RPS error reply: ${replyError.message}`);
@@ -266,7 +266,7 @@ module.exports = {
             if (!interaction.replied) {
                 await interaction.reply({
                     content: '❌ An error occurred while processing your RPS action.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
         }
@@ -290,7 +290,7 @@ module.exports = {
             if (player2Balance.wallet < game.potAmount) {
                 await interaction.reply({
                     content: `❌ You need ${fmt(game.potAmount)} to join this game! You only have ${fmt(player2Balance.wallet)}.`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -299,7 +299,7 @@ module.exports = {
             /*if (player2Balance.game_active) {
                 await interaction.reply({
                     content: '❌ You already have an active game session!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }*/
@@ -308,7 +308,7 @@ module.exports = {
             const sessionGuard = require('../UTILS/sessionGuard');
             const check = await sessionGuard.check(player2Id, guildId, SMGameType.RPS, interaction.client);
             if (!check.allowed) {
-                await interaction.reply({ content: `❌ ${check.message}`, flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: `❌ ${check.message}`, ephemeral: true });
                 return;
             }
             // Proceed to create session
@@ -333,7 +333,7 @@ module.exports = {
             if (!player2SessionResult.success) {
                 await interaction.reply({
                     content: `❌ Failed to create game session: ${player2SessionResult.error}`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -368,7 +368,7 @@ module.exports = {
             logger.error(`Error handling player join: ${error.message}`);
             await interaction.reply({
                 content: '❌ An error occurred while joining the game.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },

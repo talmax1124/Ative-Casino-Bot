@@ -51,7 +51,7 @@ class DailyCheckInTaskGame {
             if (existing.length > 0) {
                 await util.safeReply(interaction, {
                     content: `☑️ You've already done your ${checkType} check-in today!`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -108,7 +108,7 @@ class DailyCheckInTaskGame {
             logger.error(`Error in DailyCheckInTaskGame: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error with daily check-in.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -163,7 +163,7 @@ class DailyCheckInTaskGame {
             logger.error(`Error recording check-in: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error recording check-in.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }

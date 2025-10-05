@@ -78,7 +78,7 @@ module.exports = {
                     .setTitle('❌ Session Error')
                     .setDescription(check.message)
                     .setColor(0xFF0000);
-                await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [embed], ephemeral: true });
                 return;
             }
             
@@ -97,7 +97,7 @@ module.exports = {
             if (!validation.isValid) {
                 await interaction.followUp({
                     embeds: [validation.errorEmbed],
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -127,7 +127,7 @@ module.exports = {
                     .setDescription(`Failed to create game session: ${sessionResult.error}`)
                     .setColor(0xFF0000);
                 
-                await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [embed], ephemeral: true });
                 return;
             }
 
@@ -152,7 +152,7 @@ module.exports = {
                 await PayoutManager.refundBet(userId, guildId, betAmount, 'Failed to create BINGO game');
                 await interaction.followUp({
                     content: '❌ Failed to create game!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -196,7 +196,7 @@ module.exports = {
             
             await interaction.followUp({
                 content: '❌ An error occurred while creating the BINGO game. Please try again.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -238,13 +238,13 @@ module.exports = {
                         break;
                     case 'show_help':
                         const helpEmbed = BingoGameSession.getHelpEmbed();
-                        await interaction.reply({ embeds: [helpEmbed], flags: MessageFlags.Ephemeral });
+                        await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
                         break;
                 }
             } else {
                 await interaction.reply({
                     content: `❌ ${result.error || 'Unknown error occurred'}`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
         } catch (error) {
@@ -261,7 +261,7 @@ module.exports = {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: '❌ An error occurred while processing your BINGO action.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
         }
@@ -304,7 +304,7 @@ module.exports = {
             if (!game) {
                 await interaction.reply({
                     content: '❌ No BINGO game found!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -402,7 +402,7 @@ module.exports = {
             logger.error(`Error handling join modal: ${error.message}`);
             await interaction.reply({
                 content: '❌ An error occurred while joining the game.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -416,7 +416,7 @@ module.exports = {
             if (!game || !game.canStartGame()) {
                 await interaction.reply({
                     content: '❌ Need at least 2 players to start!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -465,7 +465,7 @@ module.exports = {
             logger.error(`Error starting BINGO game: ${error.message}`);
             await interaction.reply({
                 content: '❌ Failed to start the game.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -481,7 +481,7 @@ module.exports = {
             if (!game || !game.players.has(userId)) {
                 await interaction.reply({
                     content: '❌ You\'re not in this game!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -489,7 +489,7 @@ module.exports = {
             if (game.gameActive) {
                 await interaction.reply({
                     content: '❌ You can\'t leave during an active game!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -507,7 +507,7 @@ module.exports = {
             logger.error(`Error handling leave game: ${error.message}`);
             await interaction.reply({
                 content: '❌ Failed to process leaving the game.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -523,7 +523,7 @@ module.exports = {
             if (!game || !game.players.has(userId)) {
                 await interaction.reply({
                     content: '❌ You\'re not in this game!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -584,13 +584,13 @@ module.exports = {
             // Store interaction for auto-updates
             game.playerInteractions.set(userId, interaction);
             
-            await interaction.reply({ embeds: [embed], files: [attachment], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [embed], files: [attachment], ephemeral: true });
 
         } catch (error) {
             logger.error(`Error showing card: ${error.message}`);
             await interaction.reply({
                 content: '❌ Error creating your BINGO card!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -606,7 +606,7 @@ module.exports = {
             if (!game || !game.players.has(userId)) {
                 await interaction.reply({
                     content: '❌ You\'re not in this game!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -654,13 +654,13 @@ module.exports = {
 
             const buttons = interactiveView.createCardButtons();
             
-            await interaction.reply({ embeds: [embed], components: buttons, flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [embed], components: buttons, ephemeral: true });
 
         } catch (error) {
             logger.error(`Error showing interactive card: ${error.message}`);
             await interaction.reply({
                 content: '❌ Error creating your interactive BINGO card!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -675,7 +675,7 @@ module.exports = {
             if (!game) {
                 await interaction.reply({
                     content: '❌ No BINGO game found!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -740,13 +740,13 @@ module.exports = {
                 imageUrl: 'attachment://bingo_status.png'
             });
 
-            await interaction.reply({ embeds: [embed], files: [attachment], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [embed], files: [attachment], ephemeral: true });
 
         } catch (error) {
             logger.error(`Error showing game status: ${error.message}`);
             await interaction.reply({
                 content: '❌ Error creating game status!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -762,7 +762,7 @@ module.exports = {
             if (!game || !game.players.has(userId)) {
                 await interaction.reply({
                     content: '❌ You\'re not in this game!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -773,7 +773,7 @@ module.exports = {
             } else {
                 await interaction.reply({
                     content: '❌ Interactive card not found!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -781,7 +781,7 @@ module.exports = {
             logger.error(`Error handling card click: ${error.message}`);
             await interaction.reply({
                 content: '❌ Error processing your click!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },

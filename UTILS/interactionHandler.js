@@ -71,7 +71,7 @@ class SafeInteractionHandler {
             }
 
             await interaction.deferReply({ 
-                flags: ephemeral ? MessageFlags.Ephemeral : undefined 
+                ephemeral
             });
             return true;
 
@@ -135,10 +135,20 @@ class SafeInteractionHandler {
                 return await this.safeReply(interaction, options);
             }
 
-            await interaction.followUp({
-                ...options,
-                flags: options.ephemeral ? MessageFlags.Ephemeral : options.flags
-            });
+            {
+                const payload = { ...options };
+                // Normalize deprecated flags to ephemeral boolean
+                if ('flags' in payload) {
+                    try {
+                        const { MessageFlags } = require('discord.js');
+                        if (payload.flags === MessageFlags.Ephemeral) {
+                            payload.ephemeral = true;
+                        }
+                    } catch (_) {}
+                    delete payload.flags;
+                }
+                await interaction.followUp(payload);
+            }
             return true;
 
         } catch (error) {
@@ -255,7 +265,7 @@ class SafeInteractionHandler {
                 // Try to send error message if possible
                 await this.safeReply(interaction, {
                     content: '❌ An error occurred while processing your request.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
         };
@@ -291,7 +301,8 @@ class SafeInteractionHandler {
                 await this.safeEditReply(interaction, {
                     content: '❌ An error occurred while processing your request.',
                     embeds: [],
-                    components: []
+                    components: [],
+                    ephemeral: true
                 });
             }
         };

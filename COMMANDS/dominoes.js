@@ -257,7 +257,7 @@ function setupGameCollector(message, game) {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: '❌ An error occurred.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 }).catch(() => {});
             }
         }
@@ -279,7 +279,7 @@ async function handleGameInteraction(interaction, game) {
     const isPrivate = ['hand', 'play'].includes(action);
     
     if (!interaction.replied && !interaction.deferred) {
-        await interaction.deferReply({ flags: isPrivate ? MessageFlags.Ephemeral : undefined });
+        await interaction.deferReply({ ephemeral: !!isPrivate });
     }
     
     switch (action) {
@@ -541,7 +541,7 @@ async function handlePlayDomino(interaction, game) {
         const tileIndex = parseInt(selectInteraction.values[0]);
         const selectedTile = playableTiles[tileIndex];
         
-        await selectInteraction.deferReply({ flags: MessageFlags.Ephemeral });
+        await selectInteraction.deferReply({ ephemeral: true });
         
         // Check if we need to ask for side (left/right)
         if (game.board.length > 0 && 

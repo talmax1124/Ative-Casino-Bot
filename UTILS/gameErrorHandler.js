@@ -232,14 +232,14 @@ class GameErrorHandler {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({ 
                     embeds: [errorEmbed], 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             } else if (interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
                 await interaction.followUp({ 
                     embeds: [errorEmbed], 
-                    flags: MessageFlags.Ephemeral 
+                    ephemeral: true 
                 });
             }
             

@@ -48,7 +48,7 @@ module.exports = {
             if (!(await hasAdminRole(interaction.user.id, interaction.guildId, interaction.guild))) {
                 await interaction.reply({
                     content: '❌ This command is only available to administrators.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -449,17 +449,17 @@ module.exports = {
             } else if (customId === 'marriage_task_help') {
                 await buttonUtility.handleInteraction(interaction, async (i) => {
                     await this.showMarriageTaskHelp(i);
-                }, { flags: MessageFlags.Ephemeral });
+                }, { ephemeral: true });
             } else if (customId === 'marriage_task_history') {
                 await buttonUtility.handleInteraction(interaction, async (i) => {
                     await this.showMarriageTaskHistory(i);
-                }, { flags: MessageFlags.Ephemeral });
+                }, { ephemeral: true });
             }
         } catch (error) {
             logger.error(`Error in handleButtonInteractionWithUtility: ${error.message}`);
             await buttonUtility.safeReply(interaction, {
                 content: '❌ Error processing button interaction.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -497,7 +497,7 @@ module.exports = {
 
         await this.safeReply(interaction, {
             embeds: [helpEmbed],
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     },
 
@@ -564,14 +564,14 @@ module.exports = {
 
             await this.safeReply(interaction, {
                 embeds: [historyEmbed],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
 
         } catch (error) {
             logger.error('Error showing marriage task history:', error);
             await this.safeReply(interaction, {
                 content: '❌ Error loading task history. Please try again later.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -592,7 +592,7 @@ module.exports = {
     // Admin function to reset task progress
     async handleResetProgress(interaction) {
         try {
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            await interaction.deferReply({ ephemeral: true });
 
             // Clear all Week 5 task completions
             const clearQuery = `
@@ -957,7 +957,7 @@ module.exports = {
         logger.debug('Old handleButtonInteraction called - this should not happen');
         await this.safeReply(interaction, {
             content: '❌ Please try again - the button system has been updated.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
         return;
         
@@ -983,7 +983,7 @@ module.exports = {
                 console.log('❌ User not married, sending error message');
                 await interaction.reply({
                     content: '❌ You must be married to complete tasks!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -1027,7 +1027,7 @@ module.exports = {
                     console.log('❌ Unknown task action:', taskAction);
                     await interaction.reply({
                         content: '❌ Unknown task action.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
             }
             console.log('✅ Task handler completed successfully');
@@ -1447,7 +1447,7 @@ module.exports = {
                         if (!result.success) {
                             await this.safeInteractionReply(interaction, {
                                 content: `❌ ${result.message}`,
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                             return;
                         }
@@ -1458,14 +1458,14 @@ module.exports = {
                 } else {
                     await this.safeInteractionReply(interaction, {
                         content: '❌ No active tree found. Start a new tree with `/marriage-task task2`.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                     return;
                 }
             } else {
                 await this.safeInteractionReply(interaction, {
                     content: '❌ You must be married to care for a tree!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -1478,7 +1478,7 @@ module.exports = {
         if (interaction.user.id !== partner1.id && interaction.user.id !== partner2.id) {
             await this.safeInteractionReply(interaction, {
                 content: '❌ Only the married couple can care for their tree!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -1491,7 +1491,7 @@ module.exports = {
             if (tree.skipCount >= tree.maxSkips) {
                 await this.safeInteractionReply(interaction, {
                     content: `❌ You've already used ${tree.maxSkips} skips! No more skips allowed.`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -1501,7 +1501,7 @@ module.exports = {
             
             await this.safeInteractionReply(interaction, {
                 content: `⏭️ Skipped care for today. Skips used: ${tree.skipCount}/${tree.maxSkips}`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         } else {
             // Perform care action
@@ -1510,7 +1510,7 @@ module.exports = {
             if (!result.success) {
                 await this.safeInteractionReply(interaction, {
                     content: `❌ ${result.message}`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -1712,7 +1712,7 @@ module.exports = {
         if (!global.marriagePoems?.has(poemId)) {
             await this.safeInteractionReply(interaction, {
                 content: '❌ This poem session has expired or is invalid.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -1724,7 +1724,7 @@ module.exports = {
         if (interaction.user.id !== partner1.id && interaction.user.id !== partner2.id) {
             await this.safeInteractionReply(interaction, {
                 content: '❌ Only the married couple can work on their poem!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -1751,7 +1751,7 @@ module.exports = {
             const turnName = currentTurn === partner1.id ? partner1.name : partner2.name;
             await this.safeInteractionReply(interaction, {
                 content: `❌ It's ${turnName}'s turn to add a line!`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -1759,7 +1759,7 @@ module.exports = {
         if (poem.isComplete) {
             await this.safeInteractionReply(interaction, {
                 content: '❌ This poem is already complete!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -1925,14 +1925,14 @@ module.exports = {
             if (!oldChannel || !newChannel) {
                 await interaction.reply({
                     content: `❌ Could not access channels. Old: ${oldChannel ? '✅' : '❌'}, New: ${newChannel ? '✅' : '❌'}`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
 
             await interaction.reply({
                 content: '🔄 Starting poem migration... This may take a moment.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
 
             let migratedCount = 0;
@@ -2065,7 +2065,7 @@ module.exports = {
                 } else {
                     await interaction.reply({
                         content: '❌ Error occurred during migration. Check logs for details.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             } catch (replyError) {
@@ -2322,7 +2322,7 @@ module.exports = {
 
         await this.safeInteractionReply(interaction, {
             embeds: [embed],
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     },
 
@@ -2332,7 +2332,7 @@ module.exports = {
         if (!poem.isComplete) {
             await interaction.reply({
                 content: '❌ Poem must be complete (8 lines) before publishing!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -2340,7 +2340,7 @@ module.exports = {
         if (poem.published) {
             await interaction.reply({
                 content: '❌ This poem has already been published!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -2400,7 +2400,7 @@ module.exports = {
                 logger.warn(`Poem session not found for poemId: ${poemId}`);
                 await interaction.reply({
                     content: '❌ This poem session has expired.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -2418,7 +2418,7 @@ module.exports = {
             if (!result.success) {
                 await this.safeInteractionReply(interaction, {
                     content: `❌ ${result.message}`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -2457,7 +2457,7 @@ module.exports = {
             try {
                 await interaction.reply({
                     content: '❌ Something went wrong while adding your line. Please try again.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             } catch (replyError) {
                 logger.error(`Failed to send error reply: ${replyError.message}`);
@@ -2476,7 +2476,7 @@ module.exports = {
         if (!voteData) {
             await interaction.reply({
                 content: '❌ This poem voting has expired.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -2487,7 +2487,7 @@ module.exports = {
         if (voteData.voters.includes(userId)) {
             await interaction.reply({
                 content: '❌ You have already voted on this poem!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -2499,7 +2499,7 @@ module.exports = {
                 content: updateResult.reason === 'already_voted' ? 
                     '❌ You have already voted on this poem!' : 
                     '❌ Failed to record your vote. Please try again.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -2528,7 +2528,7 @@ module.exports = {
             logger.error(`Error updating poem vote buttons: ${error.message}`);
             await interaction.reply({
                 content: `✅ Vote recorded! 👍 ${voteData.upvotes} | 👎 ${voteData.downvotes}`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -2547,7 +2547,7 @@ module.exports = {
         if (!global.poemUpvotes?.has(poemId)) {
             await interaction.reply({
                 content: '❌ This poem upvote has expired.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -2558,7 +2558,7 @@ module.exports = {
         if (upvoteData.voters.has(userId)) {
             await interaction.reply({
                 content: '❌ You have already upvoted this poem!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -2585,13 +2585,13 @@ module.exports = {
             // Send confirmation to user
             await interaction.followUp({
                 content: `👍 You upvoted the poem by **${upvoteData.poem.authors.join(' & ')}**! (Total: ${upvoteData.upvotes} upvotes)`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         } catch (error) {
             logger.error(`Error updating poem upvote: ${error.message}`);
             await interaction.reply({
                 content: '✅ Your upvote has been recorded!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -2606,7 +2606,7 @@ module.exports = {
             if (!marriageData.married) {
                 await this.safeInteractionReply(interaction, {
                     content: '❌ You must be married to view poem history!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -2632,14 +2632,14 @@ module.exports = {
 
             await this.safeInteractionReply(interaction, {
                 embeds: [historyEmbed],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
 
         } catch (error) {
             logger.error(`Error showing poem history: ${error.message}`);
             await this.safeInteractionReply(interaction, {
                 content: '❌ Error loading poem history. Please try again.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -2654,7 +2654,7 @@ module.exports = {
         if (!gameId || !global.marriageGames?.has(gameId)) {
             await this.safeInteractionReply(interaction, {
                 content: '❌ This game has expired or is invalid.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -2667,7 +2667,7 @@ module.exports = {
         if (interaction.user.id !== currentPlayerId) {
             await this.safeInteractionReply(interaction, {
                 content: `❌ It's not your turn! Wait for ${game.currentPlayer === 'X' ? player1.name : player2.name} to play.`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -2677,7 +2677,7 @@ module.exports = {
         if (!moveSuccess) {
             await this.safeInteractionReply(interaction, {
                 content: '❌ Invalid move! That position is already taken.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -3228,7 +3228,7 @@ module.exports = {
         if (answerCategory[questionKey]) {
             await this.safeInteractionReply(interaction, {
                 content: '❌ You have already answered this question!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             return;
         }
@@ -3570,7 +3570,7 @@ module.exports = {
             if (!marriageData.married) {
                 await this.safeInteractionReply(interaction, {
                     content: '❌ You must be married to view quiz history!',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -3596,14 +3596,14 @@ module.exports = {
 
             await this.safeInteractionReply(interaction, {
                 embeds: [historyEmbed],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
 
         } catch (error) {
             logger.error(`Error showing quiz history: ${error.message}`);
             await this.safeInteractionReply(interaction, {
                 content: '❌ Error loading quiz history. Please try again.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     },
@@ -3648,7 +3648,7 @@ module.exports = {
      * Handle checking current task rotation status (Admin only)
      */
     async handleCheckRotation(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const currentTaskSet = marriageTaskRotation.getCurrentTaskSet();
@@ -3708,7 +3708,7 @@ module.exports = {
      * Handle forcing task rotation to a specific set (Admin only)
      */
     async handleForceRotation(interaction) {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             const allTaskSets = marriageTaskRotation.getAllTaskSets();
@@ -3842,7 +3842,7 @@ module.exports = {
                 console.log('❌ No current task set found');
                 await interaction.reply({
                     content: '❌ Unable to determine current task set. Please try again later.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -3870,7 +3870,7 @@ module.exports = {
                     console.log('❌ Unknown task set ID:', currentTaskSet.id);
                     await interaction.reply({
                         content: '❌ Unknown task set. Please contact an administrator.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                     break;
             }

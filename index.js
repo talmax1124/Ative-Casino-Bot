@@ -112,7 +112,7 @@ async function handleGameModalSubmit(interaction) {
             if (!session) {
                 return await interaction.reply({
                     content: '❌ Session expired. Please start the task again.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -129,7 +129,7 @@ async function handleGameModalSubmit(interaction) {
 
             await interaction.reply({
                 content: `✅ Line added: "${poemLine}"`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
 
         } else if (customId.startsWith('quiz_answer_')) {
@@ -142,7 +142,7 @@ async function handleGameModalSubmit(interaction) {
             if (!session) {
                 return await interaction.reply({
                     content: '❌ Session expired. Please start the task again.',
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
             }
 
@@ -157,7 +157,7 @@ async function handleGameModalSubmit(interaction) {
 
             await interaction.reply({
                 content: `✅ Answer recorded: "${quizAnswer}"`,
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         } else if (customId.startsWith('letter_modal_')) {
             // Handle love letter modal submission
@@ -177,7 +177,7 @@ async function handleGameModalSubmit(interaction) {
         logger.error(`Error in handleGameModalSubmit: ${error.message}`);
         await interaction.reply({
             content: '❌ Error processing your submission. Please try again.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 }
@@ -368,27 +368,54 @@ function getActivityTypeName(type) {
     }
 }
 
-// Send startup notification
+// Send startup notification (concise, actionable, and pinned)
 async function sendStartupNotification() {
     await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for bot to be ready
 
     try {
-        const startupType = '🚀 ATIVE Casino Bot Started';
-        const commandCount = client.commands.size;
+        // Collect key stats
+        const commandCount = client.commands?.size || 0;
+        const GAME_COMMANDS = new Set([
+            'blackjack','slots','crash','plinko','duck','treasurevault','fishing','uno','rps',
+            'multi-slots','roulette','keno','bingo','ceelo','russianroulette','mines','yahtzee','wordchain','riddle','scratch'
+        ]);
+        const gamesAvailable = Array.from(client.commands?.keys() || []).filter(k => GAME_COMMANDS.has(k)).length;
+        const cacheStats = (nodeCache.getStats && nodeCache.getStats()) || { cacheSize: 0, metrics: { hitRate: '0%' } };
+        const dbStatus = (dbManager.getFallbackStatus && dbManager.getFallbackStatus()) || { fallbackMode: false };
 
-        const embedDescription = `**Type**: ${startupType}\n` +
-            `**Environment**: ${ENVIRONMENT.toUpperCase()}\n` +
-            `**Bot User**: ${client.user} (\`${client.user.id}\`)\n` +
-            `**Commands Loaded**: ${commandCount}\n` +
-            `**Language**: JavaScript/Node.js\n` +
-            `**Features**: Casino Games, Economy, Admin Tools`;
+        const upSec = Math.max(0, Math.round(process.uptime()));
+        const h = Math.floor(upSec / 3600); const m = Math.floor((upSec % 3600) / 60); const s = upSec % 60;
+        const rssMB = (process.memoryUsage().rss / 1024 / 1024).toFixed(1);
 
-        await sendLogMessage(
-            client,
-            'info',
-            `✅ **ATIVE Casino Bot Started Successfully**\n${embedDescription}`,
-            null
-        );
+        const { EmbedBuilder } = require('discord.js');
+        const embed = new EmbedBuilder()
+            .setTitle('✅ ATIVE Casino Bot Ready')
+            .setDescription('Important alerts will appear here. Initialization noise is filtered.')
+            .setColor(0x3AA569)
+            .setTimestamp()
+            .addFields(
+                { name: '🧭 Environment', value: `${ENVIRONMENT.toUpperCase()}`, inline: true },
+                { name: '🤖 Bot', value: `${client.user} (\`${client.user.id}\`)`, inline: true },
+                { name: '🏠 Guilds', value: String(client.guilds?.cache?.size || 0), inline: true },
+            )
+            .addFields(
+                { name: '🧩 Commands', value: String(commandCount), inline: true },
+                { name: '🎮 Games', value: String(gamesAvailable), inline: true },
+                { name: '🗄️ Cache Keys', value: String(cacheStats.cacheSize ?? 0), inline: true },
+            )
+            .addFields(
+                { name: '📈 Cache Hit Rate', value: String(cacheStats.metrics?.hitRate ?? '0%'), inline: true },
+                { name: '🛢️ Database', value: dbStatus.fallbackMode ? 'FALLBACK' : 'ONLINE', inline: true },
+                { name: '🧠 Memory (RSS)', value: `${rssMB} MB`, inline: true },
+            )
+            .setFooter({ text: 'Errors and warnings will be highlighted' });
+
+        // Send directly to the logs channel and pin for quick visibility
+        const channel = await client.channels.fetch(LOG_CHANNEL_ID);
+        if (channel) {
+            const sent = await channel.send({ embeds: [embed] });
+            try { await sent.pin(); } catch (_) { /* ignore if no permission */ }
+        }
 
         logger.info('Startup notification sent successfully');
 
@@ -414,7 +441,7 @@ async function sendStartupNotification() {
 async function handleLotteryButtons(interaction, customId) {
     const lotteryCommand = client.commands.get('lottery');
     if (!lotteryCommand) {
-        await interaction.reply({ content: 'Lottery system not available.', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'Lottery system not available.', ephemeral: true });
         return;
     }
 
@@ -490,17 +517,17 @@ async function handleLotteryButtons(interaction, customId) {
                     .setFooter({ text: '🍀 Good luck! May the odds be in your favor!' })
                     .setTimestamp();
 
-                await interaction.reply({ embeds: [helpEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
                 break;
 
             default:
-                await interaction.reply({ content: 'Unknown lottery action.', flags: MessageFlags.Ephemeral });
+                await interaction.reply({ content: 'Unknown lottery action.', ephemeral: true });
         }
     } catch (error) {
         logger.error(`Error handling lottery button ${customId}: ${error.message}`);
         await interaction.reply({
             content: 'An error occurred while processing your lottery request.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 }
@@ -825,14 +852,24 @@ client.once('clientReady', async () => {
         logger.info('Running in production mode - no announcement message');
     }
 
-    // Show final startup status
+    // Show final startup status (clean systems check incl. VPS storage)
+    let storageSummary = null;
+    try {
+        storageSummary = await storageMonitor.snapshot();
+    } catch (_) { /* ignore */ }
+
     const systemStatus = {
-        'Database System': { online: true, details: 'NodeCache active, MariaDB connected' },
-        'Economic Engine': { online: true, details: 'Built-in analytics active' },
-        'Cache System': { online: true, details: 'NodeCache replacing Redis' },
-        'Economy System': { online: true, details: 'House Edge: 2.5% avg | Moved to UAS bot' },
-        'Game Sessions': { online: true, details: 'Session manager active' },
-        'Security': { online: true, details: 'Anti-abuse AI active' }
+        'Database': { online: true, details: 'NodeCache active, MariaDB connected' },
+        'Cache': { online: true, details: 'NodeCache operational' },
+        'Economy': { online: true, details: 'Built-in analytics active' },
+        'Sessions': { online: true, details: 'Session manager active' },
+        'Security': { online: true, details: 'Anti-abuse protections active' },
+        ...(storageSummary ? {
+            'Storage': { 
+                online: true, 
+                details: `${storageSummary.available} free • ${storageSummary.usage}% used (${storageSummary.used}/${storageSummary.total})`
+            }
+        } : {})
     };
 
     StartupBanner.showSystemStatus(systemStatus);
@@ -946,7 +983,7 @@ client.on('interactionCreate', async interaction => {
 
             await SafeInteractionHandler.safeReply(interaction, {
                 embeds: [errorEmbed],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -970,7 +1007,7 @@ client.on('interactionCreate', async interaction => {
                 if (isNaN(ticketCount) || ticketCount < 1 || ticketCount > 7) {
                     await interaction.reply({
                         content: '❌ Invalid ticket count! Please enter a number between 1 and 7.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                     return;
                 }
@@ -992,7 +1029,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: '❌ Lottery system not available.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -1005,7 +1042,7 @@ client.on('interactionCreate', async interaction => {
                     await crashGame.handleModalSubmit(interaction, client, game);
                 } else {
                     logger.error(`No crash game found for modal submit in channel ${interaction.channelId}`);
-                    await interaction.reply({ content: '❌ Game session expired. Please start a new game.', flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: '❌ Game session expired. Please start a new game.', ephemeral: true });
                 }
             }
             // stopmysession confirmation modal
@@ -1101,9 +1138,9 @@ client.on('interactionCreate', async interaction => {
                 .setColor(0xFF0000);
 
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
             }
         }
     }
@@ -1172,7 +1209,7 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
                             content: 'This menu is not for you!',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 }
@@ -1192,7 +1229,7 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
                             content: 'This is not your game!',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 }
@@ -1212,7 +1249,7 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
                             content: 'This is not your game!',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 }
@@ -1360,7 +1397,7 @@ client.on('interactionCreate', async interaction => {
                             if (interaction.deferred) {
                                 await interaction.editReply({ content: errorMessage, embeds: [], components: [] });
                             } else if (!interaction.replied) {
-                                await interaction.reply({ content: errorMessage, flags: MessageFlags.Ephemeral });
+                                await interaction.reply({ content: errorMessage, ephemeral: true });
                             }
                         } catch (finalError) {
                             logger.error(`Final error handler failed: ${finalError.message}`);
@@ -1384,7 +1421,7 @@ client.on('interactionCreate', async interaction => {
                 if (battleshipCommand && battleshipCommand.handleSelectMenu) {
                     await battleshipCommand.handleSelectMenu(interaction);
                 } else {
-                    await interaction.reply({ content: '❌ Battleship handler not available.', flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: '❌ Battleship handler not available.', ephemeral: true });
                 }
             }
             // Handle sportbet country selection
@@ -1472,7 +1509,7 @@ client.on('interactionCreate', async interaction => {
                         } else {
                             await interaction.followUp({
                                 content: '❌ Error starting blackjack game. Please try using `/blackjack` directly.',
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     } catch (updateError) {
@@ -1491,7 +1528,7 @@ client.on('interactionCreate', async interaction => {
                         logger.warn(`VPS select menu handler not found: ${interaction.customId}`);
                         await interaction.reply({
                             content: '❌ VPS management option not available.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 } catch (vpsError) {
@@ -1504,7 +1541,7 @@ client.on('interactionCreate', async interaction => {
                         isLoss: false
                     });
 
-                    await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 }
             }
 
@@ -1524,7 +1561,7 @@ client.on('interactionCreate', async interaction => {
 
             await SafeInteractionHandler.safeReply(interaction, {
                 embeds: [errorEmbed],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -1554,7 +1591,7 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
                             content: 'This is not your game!',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 }
@@ -1582,7 +1619,7 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
                             content: 'This button is not for you!',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 }
@@ -1603,7 +1640,7 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
                             content: 'This is not your game!',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 }
@@ -1622,7 +1659,7 @@ client.on('interactionCreate', async interaction => {
                         } else {
                             await SafeInteractionHandler.safeReply(interaction, {
                                 content: 'This is not your game!',
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     } else if (customId.startsWith('duck-cancel-')) {
@@ -1633,7 +1670,7 @@ client.on('interactionCreate', async interaction => {
                         } else {
                             await SafeInteractionHandler.safeReply(interaction, {
                                 content: 'This is not your game!',
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     } else if (customId.startsWith('duck-')) {
@@ -1645,7 +1682,7 @@ client.on('interactionCreate', async interaction => {
                         } else {
                             await SafeInteractionHandler.safeReply(interaction, {
                                 content: 'This is not your game!',
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     }
@@ -1663,7 +1700,7 @@ client.on('interactionCreate', async interaction => {
                     // Log all available games for debugging
                     const allGames = crashGame.crashManager.getAllChannelGames(interaction.channelId);
                     logger.warn(`No crash game found for button interaction: ${customId} by ${interaction.user.displayName} in channel ${interaction.channelId}. Total games in channel: ${allGames.length}`);
-                    await interaction.reply({ content: '❌ No active crash game found. The game may have ended or expired.', flags: MessageFlags.Ephemeral });
+                    await interaction.reply({ content: '❌ No active crash game found. The game may have ended or expired.', ephemeral: true });
                 }
             }
             // Handle scratch ticket buttons (claim_scratch_{ticketId} and scratch_{ticketId}_{position})
@@ -1674,7 +1711,7 @@ client.on('interactionCreate', async interaction => {
                     logger.error('Scratch ticket system not initialized');
                     await SafeInteractionHandler.safeReply(interaction, {
                         content: '❌ Scratch ticket system is not available.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -1710,7 +1747,7 @@ client.on('interactionCreate', async interaction => {
                         } else {
                             await interaction.reply({
                                 content: 'This is not your bonus game!',
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     } else if (customId.startsWith('bonus-')) {
@@ -1724,7 +1761,7 @@ client.on('interactionCreate', async interaction => {
                         } else {
                             await interaction.reply({
                                 content: 'This is not your bonus game!',
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     }
@@ -1743,7 +1780,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: 'This is not your fishing session!',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -1763,7 +1800,7 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
                             content: 'This is not your game!',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 }
@@ -1892,9 +1929,9 @@ client.on('interactionCreate', async interaction => {
                             .setColor(0xFF0000);
 
                         if (interaction.replied || interaction.deferred) {
-                            await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                         } else {
-                            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                         }
                     } catch (replyError) {
                         logger.error(`Failed to send help error reply: ${replyError.message}`);
@@ -1933,7 +1970,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: '❌ Treasure Vault game not available. Please try again.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -1945,7 +1982,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: '❌ Economy command handler not available.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -2022,7 +2059,7 @@ client.on('interactionCreate', async interaction => {
                         logger.error('Battleship command or handler not found');
                         await interaction.reply({
                             content: '❌ Battleship handler not available. Please try again.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 } catch (error) {
@@ -2033,9 +2070,9 @@ client.on('interactionCreate', async interaction => {
                         .setColor(0xFF0000);
 
                     if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                        await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                     } else {
-                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                     }
                 }
             }
@@ -2050,7 +2087,7 @@ client.on('interactionCreate', async interaction => {
                         logger.error('Plinko command or handler not found');
                         await interaction.reply({
                             content: '❌ Plinko handler not available. Please try again.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 } catch (error) {
@@ -2061,9 +2098,9 @@ client.on('interactionCreate', async interaction => {
                         .setColor(0xFF0000);
 
                     if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                        await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
                     } else {
-                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                     }
                 }
             }
@@ -2174,7 +2211,7 @@ client.on('interactionCreate', async interaction => {
                             if (interaction.deferred) {
                                 await interaction.editReply({ content: errorMessage, embeds: [], components: [] });
                             } else if (!interaction.replied) {
-                                await interaction.reply({ content: errorMessage, flags: MessageFlags.Ephemeral });
+                                await interaction.reply({ content: errorMessage, ephemeral: true });
                             }
                         } catch (finalError) {
                             logger.error(`Final help button error handler failed: ${finalError.message}`);
@@ -2193,7 +2230,7 @@ client.on('interactionCreate', async interaction => {
                         logger.warn(`VPS button handler not found: ${customId}`);
                         await interaction.reply({
                             content: '❌ VPS management function not available.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 } catch (vpsError) {
@@ -2209,7 +2246,7 @@ client.on('interactionCreate', async interaction => {
                     if (interaction.deferred || interaction.replied) {
                         await interaction.editReply({ embeds: [errorEmbed] });
                     } else {
-                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                     }
                 }
             }
@@ -2254,14 +2291,14 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await interaction.reply({
                             content: '❌ AI command not available.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 } catch (aiError) {
                     logger.error(`Error handling AI button ${customId}:`, aiError);
                     await interaction.reply({
                         content: '❌ AI command error occurred.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -2275,14 +2312,14 @@ client.on('interactionCreate', async interaction => {
                         logger.warn(`Shop admin command not found or missing button handler`);
                         await interaction.reply({
                             content: '❌ Shop administration not available.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 } catch (adminShopError) {
                     logger.error(`Error handling shop admin button ${customId}:`, adminShopError);
                     await interaction.reply({
                         content: '❌ Shop administration error occurred.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -2291,7 +2328,7 @@ client.on('interactionCreate', async interaction => {
                 const action = customId.startsWith('divorce_confirm_') ? 'confirm' : 'cancel';
                 const marriageId = customId.replace(`divorce_${action}_`, '');
                 
-                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+                await interaction.deferReply({ ephemeral: true });
                 
                 try {
                     const guildId = interaction.guild?.id;
@@ -2441,7 +2478,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: '❌ Shop not available at the moment.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -2492,7 +2529,7 @@ client.on('interactionCreate', async interaction => {
                         } catch (error) {
                             await interaction.reply({
                                 content: `❌ Error starting new game. Please use \`/blackjack bet:${betAmount}\` directly.`,
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     } else if (gameType === 'roulette' && betAmount > 0) {
@@ -2518,7 +2555,7 @@ client.on('interactionCreate', async interaction => {
                         } catch (error) {
                             await interaction.reply({
                                 content: `❌ Error starting new game. Please use \`/roulette amount:${betAmount}\` directly.`,
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     } else if (gameType === 'mines' && betAmount > 0) {
@@ -2542,13 +2579,13 @@ client.on('interactionCreate', async interaction => {
                         } catch (error) {
                             await interaction.reply({
                                 content: `❌ Error starting new game. Please use \`/mines amount:${betAmount}\` directly.`,
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     } else {
                         await interaction.reply({
                             content: `🎮 To play ${gameType || 'again'} with bet $${betAmount}, please use the command directly.`,
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 } else if (action === 'play_again') {
@@ -2605,13 +2642,13 @@ client.on('interactionCreate', async interaction => {
                             } else {
                                 await interaction.reply({
                                     content: '❌ Insufficient balance to play Blackjack. You need at least $10.',
-                                    flags: MessageFlags.Ephemeral
+                                    ephemeral: true
                                 });
                             }
                         } catch (error) {
                             await interaction.reply({
                                 content: '❌ Error loading bet selection. Please try using `/blackjack` directly.',
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     } else if (gameType === 'mines') {
@@ -2649,25 +2686,25 @@ client.on('interactionCreate', async interaction => {
                             } else {
                                 await interaction.reply({
                                     content: '❌ Insufficient balance to play Mines. You need at least $500.',
-                                    flags: MessageFlags.Ephemeral
+                                    ephemeral: true
                                 });
                             }
                         } catch (error) {
                             await interaction.reply({
                                 content: '❌ Error loading bet selection. Please try using `/mines` directly.',
-                                flags: MessageFlags.Ephemeral
+                                ephemeral: true
                             });
                         }
                     } else if (gameType) {
                         // For other games, just tell user to use command directly
                         await interaction.reply({
                             content: `🎮 To play ${gameType} again, please use the \`/${gameType}\` command.`,
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     } else {
                         await interaction.reply({
                             content: '❌ Unable to determine which game to restart. Please use the game command directly.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 } else if (action === 'quit') {
@@ -2686,7 +2723,7 @@ client.on('interactionCreate', async interaction => {
                 } else {
                     await interaction.reply({
                         content: `❌ Unknown game action: ${action}`,
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -2707,14 +2744,14 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await interaction.reply({
                             content: '❌ Unable to verify vote. Please make sure you voted and try again in a few minutes.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 } else if (customId === 'vote_reminder') {
                     // Set a reminder for when they can vote again
                     await interaction.reply({
                         content: '⏰ I\'ll remind you when you can vote again! (Note: This is a placeholder - actual reminder system would need to be implemented)',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }
@@ -2792,7 +2829,7 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
                             content: '❌ Unknown marriage task action.',
-                            flags: MessageFlags.Ephemeral
+                            ephemeral: true
                         });
                     }
                 }
@@ -2917,7 +2954,7 @@ client.on('interactionCreate', async interaction => {
             // Use safe interaction handler
             await SafeInteractionHandler.safeReply(interaction, {
                 embeds: [errorEmbed],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -2957,7 +2994,7 @@ client.on('interactionCreate', async interaction => {
             // Use safe interaction handler
             await SafeInteractionHandler.safeReply(interaction, {
                 embeds: [errorEmbed],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -3535,7 +3572,7 @@ async function showSlotsHelp(interaction) {
                 .setStyle(ButtonStyle.Success)
         );
 
-    await interaction.reply({ embeds: [embed], components: [closeButton], flags: MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [embed], components: [closeButton], ephemeral: true });
 }
 
 /**
@@ -3585,7 +3622,7 @@ async function showBlackjackHelp(interaction) {
                 .setStyle(ButtonStyle.Success)
         );
 
-    await interaction.reply({ embeds: [embed], components: [closeButton], flags: MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [embed], components: [closeButton], ephemeral: true });
 }
 
 /**
@@ -3635,7 +3672,7 @@ async function showFishingHelp(interaction) {
                 .setStyle(ButtonStyle.Success)
         );
 
-    await interaction.reply({ embeds: [embed], components: [closeButton], flags: MessageFlags.Ephemeral });
+    await interaction.reply({ embeds: [embed], components: [closeButton], ephemeral: true });
 }
 
 // Graceful shutdown utility to check for active games
@@ -3947,7 +3984,7 @@ async function showMarriageTaskHelp(interaction) {
     await SafeInteractionHandler.safeReply(interaction, {
         embeds: [helpEmbed],
         components: [backButton],
-        flags: MessageFlags.Ephemeral
+        ephemeral: true
     });
 }
 
@@ -3965,7 +4002,7 @@ async function showMarriageTaskHistory(interaction) {
         if (!marriageData.married) {
             return await SafeInteractionHandler.safeReply(interaction, {
                 content: '❌ You must be married to view task history!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
 
@@ -4038,14 +4075,14 @@ async function showMarriageTaskHistory(interaction) {
         await SafeInteractionHandler.safeReply(interaction, {
             embeds: [historyEmbed],
             components: [backButton],
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
 
     } catch (error) {
         logger.error('Error showing marriage task history:', error);
         await SafeInteractionHandler.safeReply(interaction, {
             content: '❌ Error loading task history. Please try again later.',
-            flags: MessageFlags.Ephemeral
+            ephemeral: true
         });
     }
 }

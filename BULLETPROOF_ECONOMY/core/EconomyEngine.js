@@ -42,7 +42,8 @@ class BulletproofEconomyEngine {
      * Initialize the bulletproof economy system
      */
     async initialize() {
-        console.log('🔐 Initializing Bulletproof Economy Engine...');
+        const logger = require('../../UTILS/logger');
+        logger.debug('🔐 Initializing Bulletproof Economy Engine...');
         
         // Initialize mathematical matrices
         await this.initializeMatrices();
@@ -53,7 +54,7 @@ class BulletproofEconomyEngine {
         // Calculate initial Nash equilibria
         await this.calculateNashEquilibria();
         
-        console.log('✅ Bulletproof Economy Engine initialized successfully');
+        logger.debug('✅ Bulletproof Economy Engine initialized successfully');
     }
 
     /**

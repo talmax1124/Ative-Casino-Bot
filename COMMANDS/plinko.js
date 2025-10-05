@@ -13,6 +13,7 @@ const SMGameType = { PLINKO: 'plinko' };
 const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const uasDataExporter = require('../UTILS/uasDataExporter');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -457,6 +458,28 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
     });
 
     await PayoutManager.processGamePayout(gameResult);
+
+    // Export to UAS for centralized analysis
+    try {
+        await uasDataExporter.exportGameResult({
+            userId,
+            guildId,
+            gameType: 'plinko',
+            betAmount,
+            winnings,
+            won,
+            metadata: {
+                mode,
+                finalSlot,
+                finalMultiplier,
+                dropSlot: finalSlot,
+                houseEdge: 0.15,
+                gameTimestamp: Date.now()
+            }
+        });
+    } catch (exportError) {
+        logger.debug(`Failed to export plinko result to UAS: ${exportError.message}`);
+    }
 
     // Record game result for AI learning
     try {

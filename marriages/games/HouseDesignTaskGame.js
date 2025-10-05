@@ -119,7 +119,7 @@ class HouseDesignTaskGame {
             logger.error(`Error in HouseDesignTaskGame.handleStart: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error starting house design quiz.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -185,7 +185,7 @@ class HouseDesignTaskGame {
                 if (reason === 'time' && collected.size === 0) {
                     interaction.followUp({
                         content: '⏰ Quiz timed out. Please restart.',
-                        flags: MessageFlags.Ephemeral
+                        ephemeral: true
                     });
                 }
             }

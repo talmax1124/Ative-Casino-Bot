@@ -50,7 +50,7 @@ class LoveLetterTaskGame {
                     
                 await util.safeReply(interaction, {
                     content: `💌 You've already written your letter! Waiting for ${partnerName} to write theirs.`,
-                    flags: MessageFlags.Ephemeral
+                    ephemeral: true
                 });
                 return;
             }
@@ -85,7 +85,7 @@ class LoveLetterTaskGame {
             await util.safeReply(interaction, {
                 embeds: [embed],
                 components: [button],
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
             
             const message = await interaction.fetchReply();
@@ -104,7 +104,7 @@ class LoveLetterTaskGame {
             logger.error(`Error in LoveLetterTaskGame.handleStart: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error starting love letter exchange.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }
@@ -199,7 +199,7 @@ class LoveLetterTaskGame {
 
             await interaction.reply({
                 content: '💌 Your love letter has been written and sealed!',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
 
             // Check if both partners have written letters
@@ -209,7 +209,7 @@ class LoveLetterTaskGame {
             logger.error(`Error handling letter modal: ${error.message}`);
             await interaction.reply({
                 content: '❌ Error saving your letter. Please try again.',
-                flags: MessageFlags.Ephemeral
+                ephemeral: true
             });
         }
     }

@@ -18,7 +18,7 @@ module.exports = {
         const reason = interaction.options.getString('reason') || 'No reason provided';
         const guildId = await getGuildId(interaction);
 
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
 
         try {
             // Check if user is married
