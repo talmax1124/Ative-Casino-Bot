@@ -394,6 +394,13 @@ class MarriageTaskUtil {
             const isCompleted = !!taskStatusData.tasks[`task${taskNumber}`]?.completed;
 
             if (isCompleted && !gameConfig.allowReplay) {
+                // For modal games, use reply instead of safeReply to avoid deferring
+                if (gameConfig.requiresModal) {
+                    return await interaction.reply({
+                        content: '✅ This task has already been completed!',
+                        ephemeral: true
+                    });
+                }
                 return await this.safeReply(interaction, {
                     content: '✅ This task has already been completed!',
                     ephemeral: true
@@ -429,7 +436,18 @@ class MarriageTaskUtil {
             // Call game-specific start handler if it exists
             if (gameConfig.startHandler && typeof gameConfig.startHandler === 'function') {
                 logger.info(`Starting ${gameType} game session for marriage ${marriage.id}`);
-                return await gameConfig.startHandler(interaction, session, this);
+                
+                // For modal-based games, call handler directly without deferring
+                if (gameConfig.requiresModal) {
+                    return await gameConfig.startHandler(interaction, session, this);
+                }
+                
+                // For non-modal games, defer first then call handler
+                if (!interaction.deferred && !interaction.replied) {
+                    await interaction.deferReply({ ephemeral: false });
+                }
+                const result = await gameConfig.startHandler(interaction, session, this);
+                return result;
             }
 
             // Default start behavior

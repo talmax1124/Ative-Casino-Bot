@@ -135,18 +135,11 @@ class Connect4TaskGame {
         rows.push(new ActionRowBuilder().addComponents(buttons.slice(0, 5)));
         rows.push(new ActionRowBuilder().addComponents(buttons.slice(5, 7)));
 
-        await util.safeReply(interaction, {
+        const message = await util.safeReply(interaction, {
             embeds: [embed],
-            components: rows
+            components: rows,
+            fetchReply: true
         });
-        
-        let message;
-        try {
-            message = await interaction.fetchReply();
-        } catch (fetchError) {
-            logger.warn(`Could not fetch reply for Connect4 collector setup: ${fetchError.message}`);
-            return; // Cannot setup collector without message reference
-        }
 
         // Setup collector
         buttonUtility.setupCollector(message, {

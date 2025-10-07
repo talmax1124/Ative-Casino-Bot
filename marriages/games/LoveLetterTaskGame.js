@@ -23,6 +23,7 @@ class LoveLetterTaskGame {
             color: 0xFF69B4,
             requiresBothPartners: false,
             autoComplete: false,
+            requiresModal: true, // Flag to indicate this game shows a modal immediately
             startHandler: this.handleStart.bind(this)
         });
 
