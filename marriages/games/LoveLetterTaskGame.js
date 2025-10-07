@@ -53,15 +53,26 @@ class LoveLetterTaskGame {
             const actionRow = new ActionRowBuilder().addComponents(letterInput);
             modal.addComponents(actionRow);
 
-            await interaction.showModal(modal);
+            // Check if interaction can show modal
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.showModal(modal);
+            } else {
+                logger.warn('Cannot show modal - interaction already handled');
+                return;
+            }
 
         } catch (error) {
             logger.error(`Error in simple love letter start: ${error.message}`);
+            // Only try to reply if we can
             if (!interaction.replied && !interaction.deferred) {
-                await util.safeReply(interaction, {
-                    content: '❌ Error starting love letter. Please try again.',
-                    flags: MessageFlags.Ephemeral
-                });
+                try {
+                    await util.safeReply(interaction, {
+                        content: '❌ Error starting love letter. Please try again.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                } catch (replyError) {
+                    logger.error(`Could not send error message: ${replyError.message}`);
+                }
             }
         }
     }
