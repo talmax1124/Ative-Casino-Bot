@@ -95,16 +95,24 @@ class LoveLetterTaskGame {
                 .setFooter({ text: 'Sent with love through Marriage Tasks' })
                 .setTimestamp();
 
+            // Validate interaction object
+            if (!interaction || !interaction.client) {
+                logger.error('Invalid interaction object in love letter submission');
+                return;
+            }
+
             // Try to send DM to partner
             try {
                 const partner = await interaction.client.users.fetch(partnerId);
                 await partner.send({ embeds: [letterEmbed] });
 
                 // Confirm to sender
-                await interaction.reply({
-                    content: `💌 Your love letter has been sent to ${partnerName} via DM!`,
-                    flags: MessageFlags.Ephemeral
-                });
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({
+                        content: `💌 Your love letter has been sent to ${partnerName} via DM!`,
+                        flags: MessageFlags.Ephemeral
+                    });
+                }
 
                 // Save to database for completion tracking
                 await this.saveLetter(marriage.id, userId, partnerId, letterContent);
@@ -114,10 +122,12 @@ class LoveLetterTaskGame {
 
             } catch (dmError) {
                 logger.error(`Failed to DM letter: ${dmError.message}`);
-                await interaction.reply({
-                    content: `❌ Couldn't send DM to ${partnerName}. Make sure they allow DMs from server members.`,
-                    flags: MessageFlags.Ephemeral
-                });
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({
+                        content: `❌ Couldn't send DM to ${partnerName}. Make sure they allow DMs from server members.`,
+                        flags: MessageFlags.Ephemeral
+                    });
+                }
             }
 
         } catch (error) {

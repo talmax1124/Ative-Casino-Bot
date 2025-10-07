@@ -77,6 +77,11 @@ async function getAggregatedUserLevel(userId) {
  */
 async function getAggregatedLeaderboard(limit = 8) {
     try {
+        // Validate limit parameter
+        if (!limit || limit < 1 || !Number.isInteger(limit)) {
+            logger.warn(`Invalid limit value received: ${limit}, using default 8`);
+            limit = 8;
+        }
         // Get aggregated XP data first
         const xpRecords = await dbManager.databaseAdapter.executeQuery(`
             SELECT 

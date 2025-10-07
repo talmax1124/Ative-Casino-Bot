@@ -441,7 +441,7 @@ class ScratchTicketSystem {
             if (userActiveTickets.length > 0) {
                 return await interaction.reply({
                     content: '❌ You already have an active scratch ticket! Finish scratching it before claiming another.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
