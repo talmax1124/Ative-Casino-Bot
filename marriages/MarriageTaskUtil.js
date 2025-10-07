@@ -137,9 +137,9 @@ class MarriageTaskUtil {
                 }
 
                 if (interaction.followUp && (interaction.replied || interaction.deferred)) {
-                    return await interaction.followUp({ content: options.content || 'An error occurred.', ephemeral: true });
+                    return await interaction.followUp({ content: options.content || 'An error occurred.', flags: MessageFlags.Ephemeral });
                 } else if (interaction.reply && !interaction.replied && !interaction.deferred) {
-                    return await interaction.reply({ content: options.content || 'An error occurred.', ephemeral: true });
+                    return await interaction.reply({ content: options.content || 'An error occurred.', flags: MessageFlags.Ephemeral });
                 } else if (interaction.editReply && (interaction.replied || interaction.deferred)) {
                     return await interaction.editReply({ content: options.content || 'An error occurred.' });
                 } else {
@@ -324,7 +324,7 @@ class MarriageTaskUtil {
             if (!gameConfig) {
                 return await this.safeReply(interaction, {
                     content: `❌ Task ${taskNumber} is not available yet.`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -343,7 +343,7 @@ class MarriageTaskUtil {
             logger.error(`Error in handleTaskDisplay: ${error.message}`);
             return await this.safeReply(interaction, {
                 content: `❌ ${error.message}`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -398,12 +398,12 @@ class MarriageTaskUtil {
                 if (gameConfig.requiresModal) {
                     return await interaction.reply({
                         content: '✅ This task has already been completed!',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
                 return await this.safeReply(interaction, {
                     content: '✅ This task has already been completed!',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -444,7 +444,7 @@ class MarriageTaskUtil {
                 
                 // For non-modal games, defer first then call handler
                 if (!interaction.deferred && !interaction.replied) {
-                    await interaction.deferReply({ ephemeral: false });
+                    await interaction.deferReply();
                 }
                 const result = await gameConfig.startHandler(interaction, session, this);
                 return result;
@@ -469,7 +469,7 @@ class MarriageTaskUtil {
             
             return await this.safeReply(interaction, {
                 content: errorMessage,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

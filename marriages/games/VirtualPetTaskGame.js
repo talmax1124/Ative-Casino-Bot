@@ -48,7 +48,7 @@ class VirtualPetTaskGame {
             logger.error(`Error in VirtualPetTaskGame: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error with virtual pet.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -307,7 +307,7 @@ class VirtualPetTaskGame {
             logger.error(`Error handling pet interaction: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error caring for pet.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -337,7 +337,7 @@ class VirtualPetTaskGame {
             logger.error(`Error respawning pet: ${error.message}`);
             await util.safeReply(interaction, {
                 content: '❌ Error respawning pet.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
