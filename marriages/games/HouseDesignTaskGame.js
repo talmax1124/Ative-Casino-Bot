@@ -163,7 +163,13 @@ class HouseDesignTaskGame {
             components: [buttons]
         });
         
-        const message = await interaction.fetchReply();
+        let message;
+        try {
+            message = await interaction.fetchReply();
+        } catch (fetchError) {
+            logger.warn(`Could not fetch reply for collector setup: ${fetchError.message}`);
+            return; // Cannot setup collector without message reference
+        }
 
         // Setup collector
         buttonUtility.setupCollector(message, {

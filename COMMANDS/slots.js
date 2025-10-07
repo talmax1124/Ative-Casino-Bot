@@ -400,8 +400,8 @@ module.exports = {
                     won: result.won,
                     multiplier: result.multiplier,
                     houseEdgeApplied: transparentResult?.houseEdge || null,
-                    userWealthBefore: balance?.wallet || null,
-                    userWealthAfter: updatedBalance?.wallet || null,
+                    userWealthBefore: userBalance?.wallet || null,
+                    userWealthAfter: finalBalance?.wallet || null,
                     metadata: {
                         symbols: symbols,
                         mode: selectedMode,

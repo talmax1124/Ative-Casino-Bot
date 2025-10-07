@@ -152,7 +152,13 @@ class VirtualPetTaskGame {
             });
 
             // Setup button collector
-            const message = await interaction.fetchReply();
+            let message;
+            try {
+                message = await interaction.fetchReply();
+            } catch (fetchError) {
+                logger.warn(`Could not fetch reply for pet collector setup: ${fetchError.message}`);
+                return; // Cannot setup collector without message reference
+            }
             const collector = buttonUtility.setupCollector(message, {
                 filter: (i) => i.customId.startsWith('pet_') && i.customId.includes(pet.pet_id),
                 time: 300000, // 5 minutes
@@ -188,7 +194,13 @@ class VirtualPetTaskGame {
                 });
 
                 // Setup respawn button collector
-                const message = await interaction.fetchReply();
+                let message;
+                try {
+                    message = await interaction.fetchReply();
+                } catch (fetchError) {
+                    logger.warn(`Could not fetch reply for respawn collector setup: ${fetchError.message}`);
+                    return; // Cannot setup collector without message reference
+                }
                 const collector = buttonUtility.setupCollector(message, {
                     filter: (i) => i.customId.startsWith('pet_respawn_') && i.customId.includes(pet.pet_id),
                     time: 300000, // 5 minutes

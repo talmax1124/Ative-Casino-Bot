@@ -370,6 +370,37 @@ class UITemplates {
     }
 
     /**
+     * Create info embed
+     * @param {string} title - Embed title
+     * @param {Object} options - Embed options
+     * @returns {EmbedBuilder} Info embed
+     */
+    static createInfoEmbed(title, options = {}) {
+        const embed = new EmbedBuilder()
+            .setColor(options.color || UI_COLORS.INFO)
+            .setTitle(title)
+            .setTimestamp();
+
+        if (options.description) {
+            embed.setDescription(options.description);
+        }
+
+        if (options.fields) {
+            embed.addFields(options.fields);
+        }
+
+        if (options.footer) {
+            embed.setFooter(options.footer);
+        }
+
+        if (options.thumbnail) {
+            embed.setThumbnail(options.thumbnail);
+        }
+
+        return embed;
+    }
+
+    /**
      * Get standard colors
      * @returns {Object} UI color constants
      */

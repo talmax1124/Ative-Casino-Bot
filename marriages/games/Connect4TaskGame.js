@@ -140,7 +140,13 @@ class Connect4TaskGame {
             components: rows
         });
         
-        const message = await interaction.fetchReply();
+        let message;
+        try {
+            message = await interaction.fetchReply();
+        } catch (fetchError) {
+            logger.warn(`Could not fetch reply for Connect4 collector setup: ${fetchError.message}`);
+            return; // Cannot setup collector without message reference
+        }
 
         // Setup collector
         buttonUtility.setupCollector(message, {

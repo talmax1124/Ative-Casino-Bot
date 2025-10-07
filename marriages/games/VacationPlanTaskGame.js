@@ -95,7 +95,13 @@ class VacationPlanTaskGame {
             });
 
             // Attach a collector to handle add/finish buttons for this message
-            const message = await interaction.fetchReply();
+            let message;
+            try {
+                message = await interaction.fetchReply();
+            } catch (fetchError) {
+                logger.warn(`Could not fetch reply for vacation collector setup: ${fetchError.message}`);
+                return; // Cannot setup collector without message reference
+            }
             const partners = new Set([marriage.partner1_id, marriage.partner2_id]);
             
             buttonUtility.setupCollector(message, {

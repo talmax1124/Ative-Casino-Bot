@@ -89,24 +89,24 @@ async function createRouletteWheelImage(game, showResult = false, frameIndex = 0
 }
 
 /**
- * Create payout information embed with current bet info and dynamic multipliers
+ * Create payout information embed with current bet info and FAIR multipliers
  */
 async function createPayoutEmbed(user, balance, currentBet = null) {
-    // Updated reduced payout rates for house edge
+    // FAIR CASINO PAYOUTS - Standard rates
     const personalizedConfig = { 
-        colorPayout: 1.8, 
-        dozenPayout: 2.5, 
-        singleNumberPayout: 4.5, 
-        greenPayout: 4.5, 
-        basketPayout: 2.2 
-    }; // Reduced values
+        colorPayout: 2.0,     // 1:1 bets (red/black/odd/even/low/high)
+        dozenPayout: 3.0,     // 2:1 bets (dozens/columns)
+        singleNumberPayout: 36.0,  // 35:1 single number
+        greenPayout: 36.0,    // 35:1 green
+        basketPayout: 7.0     // 6:1 basket
+    };
     
-    // Use updated payouts in the UI display
-    const colorPayout = (personalizedConfig.colorPayout || 1.8).toFixed(1);
-    const dozenPayout = (personalizedConfig.dozenPayout || 2.5).toFixed(1);  
-    const numberPayout = (personalizedConfig.singleNumberPayout || 4.5).toFixed(1);
-    const greenPayout = (personalizedConfig.greenPayout || 4.5).toFixed(1);
-    const basketPayout = (personalizedConfig.basketPayout || 2.2).toFixed(1);
+    // Use FAIR payouts in the UI display
+    const colorPayout = (personalizedConfig.colorPayout || 2.0).toFixed(1);
+    const dozenPayout = (personalizedConfig.dozenPayout || 3.0).toFixed(1);  
+    const numberPayout = (personalizedConfig.singleNumberPayout || 36.0).toFixed(1);
+    const greenPayout = (personalizedConfig.greenPayout || 36.0).toFixed(1);
+    const basketPayout = (personalizedConfig.basketPayout || 7.0).toFixed(1);
     
     // Show personalization status
     const personalizationStatus = '';
@@ -209,20 +209,32 @@ function createGameEmbed(game, user, balance = null) {
         });
     }
     
-    // Show current bet if game is active
+    // MOBILE-OPTIMIZED DISPLAY
+    
+    // Show current bet if game is active - LARGE FORMAT
     if (game.currentBet) {
+        const betDesc = game.getBetDescription(game.currentBet.type);
+        const betOdds = game.getPayoutOdds(game.currentBet.type);
         topFields.push({
-            name: '🎯 CURRENT BET',
-            value: `${game.currentBet.type}: ${fmt(game.currentBet.amount)}${game.currentBet.numbers ? ` (${game.currentBet.numbers.join(', ')})` : ''}`,
+            name: '🎯 YOUR BET',
+            value: `**${betDesc}**\n💰 Amount: **${fmt(game.currentBet.amount)}**\n🎲 Pays: **${betOdds}**${game.currentBet.numbers ? `\n🔢 Numbers: **${game.currentBet.numbers.join(', ')}**` : ''}`,
             inline: false
         });
     }
     
-    // Show last spin result if available
+    // Show last spin result if available - EXTRA LARGE FORMAT for mobile
     if (game.lastResult !== null) {
         const number = game.lastResult;
         const color = game.getNumberColor(number);
         const colorEmoji = color === 'red' ? '🔴' : color === 'black' ? '⚫' : '🟢';
+        
+        // Use the mobile wheel display for better visibility
+        const mobileDisplay = game.generateMobileWheelDisplay();
+        topFields.push({
+            name: '🎰 WINNING NUMBER',
+            value: `\`\`\`${mobileDisplay}\`\`\``,
+            inline: false
+        });
         
         topFields.push({
             name: '🎰 LAST RESULT',
@@ -792,15 +804,15 @@ module.exports = {
                         rules: [
                             'Place bets on numbers, colors, or groups',
                             'Ball lands on one of 38 slots (0, 00, 1-36)',
-                            'Winning bets are paid according to custom multipliers',
-                            'You can only place one bet per spin'
+                            'Winning bets are paid according to standard casino odds',
+                            'Green streaks are limited for better experience'
                         ],
                         commands: [
-                            '**Red/Black/Odd/Even/High/Low:** 1.8x payout',
-                            '**Dozens (1-12, 13-24, 25-36):** 2.5x payout',
-                            '**Single Numbers:** 4.5x payout',
-                            '**Green (0 or 00):** 4.5x payout',
-                            '**Basket (0, 00, 1, 2, 3):** 2.2x payout - Very slim!'
+                            '**Red/Black/Odd/Even/High/Low:** 2.0x payout',
+                            '**Dozens (1-12, 13-24, 25-36):** 3.0x payout',
+                            '**Single Numbers:** 36.0x payout',
+                            '**Green (0 or 00):** 36.0x payout',
+                            '**Basket (0, 00, 1, 2, 3):** 7.0x payout'
                         ],
                         tips: [
                             'American wheel has both 0 and 00',

@@ -26,45 +26,45 @@ const uasDataExporter = require('../UTILS/uasDataExporter');
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
 
-// PLAYER-FRIENDLY DIFFICULTY MODES - Improved odds and payouts
+// STANDARD BLACKJACK MODES with proper payouts
 const BLACKJACK_MODES = {
     safe: {
         name: '🛡️ Safe',
-        description: 'Player-friendly mode with great payouts',
+        description: 'Low stakes with standard payouts',
         minBet: 500,
-        blackjackMultiplier: 2.6,    // 2.6x for blackjack (improved!)
-        winMultiplier: 2.0,          // 2.0x for regular wins (nice improvement!)
-        houseEdge: 0.003,            // 0.3% house edge (even better!)
+        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
+        winMultiplier: 2.0,          // Standard 1:1 win payout
+        houseEdge: 0.005,            // 0.5% house edge
         emoji: '🛡️',
         color: '#4CAF50'
     },
     balanced: {
         name: '⚖️ Balanced',
-        description: 'Fair mode with good payouts',
+        description: 'Medium stakes with standard payouts',
         minBet: 1000,
-        blackjackMultiplier: 2.35,   // 2.35x for blackjack (improved!)
-        winMultiplier: 1.92,         // 1.92x for regular wins (better!)
-        houseEdge: 0.007,            // 0.7% house edge (improved!)
+        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
+        winMultiplier: 2.0,          // Standard 1:1 win payout
+        houseEdge: 0.005,            // 0.5% house edge
         emoji: '⚖️',
         color: '#FF9800'
     },
     risky: {
         name: '⚡ Risky',
-        description: 'Higher rewards with slightly more risk',
+        description: 'High stakes with standard payouts',
         minBet: 2500,
-        blackjackMultiplier: 2.1,    // 2.1x for blackjack (improved!)
-        winMultiplier: 1.82,         // 1.82x for regular wins (better!)
-        houseEdge: 0.015,            // 1.5% house edge (improved!)
+        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
+        winMultiplier: 2.0,          // Standard 1:1 win payout
+        houseEdge: 0.005,            // 0.5% house edge
         emoji: '⚡',
         color: '#FF8800'
     },
     extreme: {
         name: '🔥 Extreme',
-        description: 'Highest stakes with best potential returns',
+        description: 'Very high stakes with standard payouts',
         minBet: 5000,
-        blackjackMultiplier: 1.9,    // 1.9x for blackjack (improved!)
-        winMultiplier: 1.72,         // 1.72x for regular wins (better!)
-        houseEdge: 0.025,            // 2.5% house edge (improved!)
+        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
+        winMultiplier: 2.0,          // Standard 1:1 win payout
+        houseEdge: 0.005,            // 0.5% house edge
         emoji: '🔥',
         color: '#FF0000'
     }
@@ -306,10 +306,10 @@ module.exports = {
                 .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
                 .setRequired(false)
                 .addChoices(
-                    { name: '🛡️ Safe (Min: $500, BJ: 2.6x, Win: 2.0x)', value: 'safe' },
-                    { name: '⚖️ Balanced (Min: $1K, BJ: 2.35x, Win: 1.92x)', value: 'balanced' },
-                    { name: '⚡ Risky (Min: $2.5K, BJ: 2.1x, Win: 1.82x)', value: 'risky' },
-                    { name: '🔥 Extreme (Min: $5K, BJ: 1.9x, Win: 1.72x)', value: 'extreme' }
+                    { name: '🛡️ Safe (Min: $500)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K)', value: 'extreme' }
                 )
         ),
 
@@ -895,10 +895,10 @@ module.exports = {
                         '**Split:** Split pairs into two hands (doubles bet)'
                     ],
                     tips: [
-                        'Blackjack multipliers vary by mode (1.5x to 3.0x)',
-                        'Regular win multipliers vary by mode (1.1x to 2.0x)',
+                        'Blackjack pays 3:2 (2.5x your bet)',
+                        'Regular wins pay 1:1 (2x your bet)',
                         'Dealer must hit on 16 and stand on 17',
-                        'If dealer busts, all remaining players win'
+                        'Push returns your original bet'
                     ]
                 });
 
@@ -939,35 +939,8 @@ module.exports = {
                 return;
             }
             
-            // 🤖 Get AI-calculated dynamic multiplier from EconomyGuardian
-            let economicMultiplier = 1.0;
-            try {
-                // Get the stored AI result from the game session
-                const sessionData = activeGames.get(game.sessionId);
-                if (sessionData?.aiResult?.multiplierAdjustment?.finalMultiplier) {
-                    economicMultiplier = sessionData.aiResult.multiplierAdjustment.finalMultiplier;
-                    logger.info(`🤖 Applying AI multiplier for blackjack: ${economicMultiplier.toFixed(3)}x`);
-                } else {
-                    // Fallback: get fresh AI multiplier
-                    economicMultiplier = 1.0; // Default multiplier - EconomyGuardianInterface removed
-                }
-                economicMultiplier = Math.max(0.5, Math.min(1.5, economicMultiplier)); // Cap between 0.5x - 1.5x
-            } catch (error) {
-                logger.warn(`Failed to get AI economic multiplier for blackjack: ${error.message}`);
-                economicMultiplier = 1.0;
-            }
-            
-            // Personalized game helper removed - using bulletproof economy
-            const personalizedConfig = { blackjackPayout: 1.5, winPayout: 1.0 }; // Default values
-            
-            const results = await game.getResults({ 
-                economicMultiplier,
-                personalizedPayouts: {
-                    blackjack: personalizedConfig.blackjackPayout,
-                    win: personalizedConfig.winPayout,
-                    push: personalizedConfig.pushPayout
-                }
-            });
+            // Get game results with proper payout calculations
+            const results = await game.getResults();
             
             // Safety check - ensure we have results
             if (!results || results.length === 0) {
@@ -976,101 +949,53 @@ module.exports = {
             }
             
             let totalPayout = 0;
-            let winnings = 0;
+            let totalBetAmount = 0;
+            let totalInsuranceAmount = 0;
+            let totalInsurancePayout = 0;
+            let anyWon = false;
 
             // Process each hand result
             for (const result of results) {
                 totalPayout += result.payout || 0;
-                if (result.won) {
-                    winnings += (result.payout || 0) - result.betAmount; // Only count profit as winnings
-                }
-            }
-
-            // Calculate total bet amount including double downs
-            let totalBetAmount = 0;
-            for (const result of results) {
                 totalBetAmount += result.betAmount || game.betAmount;
+                totalInsuranceAmount += result.insuranceAmount || 0;
+                totalInsurancePayout += result.insurancePayout || 0;
+                if (result.won) anyWon = true;
             }
-            
-            // Calculate original net profit to determine if player actually won
-            const originalNetProfit = totalPayout - totalBetAmount;
-            const originalWon = originalNetProfit > 0;
-            
-            // Debug logging to track the issue
-            logger.info(`🔍 BLACKJACK CALCULATION: totalPayout=${totalPayout}, totalBetAmount=${totalBetAmount}, originalNetProfit=${originalNetProfit}, originalWon=${originalWon}`);
             
             // Check if this is a push (all hands are pushes)
             const isPush = results.every(r => r.outcome === 'PUSH');
             
-            let regulatedPayout;
-            let tuningAdjustment;
+            // Apply tuning and all-in adjustments ONLY to wins
+            let regulatedPayout = totalPayout;
+            let tuningAdjustment = { originalPayout: totalPayout, adjustedPayout: totalPayout, payoutDelta: 0, feeApplied: false };
             
-            if (isPush) {
-                // For pushes, return exactly the bet amount (no profit, no loss)
-                regulatedPayout = totalBetAmount;
-                tuningAdjustment = { 
-                    originalPayout: totalBetAmount, 
-                    adjustedPayout: totalBetAmount, 
-                    payoutDelta: 0, 
-                    feeApplied: false 
-                };
-            } else if (originalNetProfit <= 0) {
-                // For losses (including cases where totalPayout <= totalBetAmount), payout should be 0
-                regulatedPayout = 0;
-                tuningAdjustment = { 
-                    originalPayout: 0, 
-                    adjustedPayout: 0, 
-                    payoutDelta: 0, 
-                    feeApplied: false 
-                };
-            } else {
-                // 🎰 APPLY AI TUNING SYSTEM - ECONOMIC REGULATION (only for wins)
+            // Only apply adjustments to actual wins (not pushes or losses)
+            if (anyWon && totalPayout > totalBetAmount) {
+                // Apply tuning system
                 tuningAdjustment = await tuningManager.getAdjustedPayout('blackjack', totalPayout, totalBetAmount);
                 regulatedPayout = tuningAdjustment.adjustedPayout;
-                logger.info(`🔍 TUNING APPLIED: originalPayout=${totalPayout}, adjustedPayout=${regulatedPayout}, tuningAdjustment=${JSON.stringify(tuningAdjustment)}`);
-            }
-            
-            // 🎯 APPLY ALL-IN SYSTEM - DYNAMIC HOUSE EDGE (but not for pushes)
-            if (originalWon && regulatedPayout > 0 && !isPush) {
-                const allInAdjustment = await allInManager.adjustGameResult(userId, totalBetAmount, regulatedPayout, true, 'blackjack');
-                const preAllInPayout = regulatedPayout;
-                regulatedPayout = allInAdjustment.adjustedPayout;
-                logger.info(`🔍 ALL-IN APPLIED: preAllIn=${preAllInPayout}, postAllIn=${regulatedPayout}, allInAdjustment=${JSON.stringify(allInAdjustment)}`);
                 
-                // Log significant all-in adjustments
-                if (allInAdjustment.houseEdgeApplied > 0.05) {
-                    logger.info(`🎯 BLACKJACK ALL-IN EDGE: ${fmt(tuningAdjustment.adjustedPayout)} -> ${fmt(regulatedPayout)} (+${(allInAdjustment.houseEdgeApplied * 100).toFixed(1)}% house edge, ${(allInAdjustment.betRatio * 100).toFixed(1)}% of wealth)`);
-                }
+                // Apply all-in system
+                const allInAdjustment = await allInManager.adjustGameResult(userId, totalBetAmount, regulatedPayout, true, 'blackjack');
+                regulatedPayout = allInAdjustment.adjustedPayout;
+                
+                logger.info(`Blackjack adjustments: original=${totalPayout}, tuned=${tuningAdjustment.adjustedPayout}, final=${regulatedPayout}`);
             }
             
-            // Log tuning application for monitoring
-            if (tuningAdjustment.payoutDelta !== 0 || tuningAdjustment.feeApplied) {
-                logger.info(`🎛️ BLACKJACK TUNING: ${totalPayout} -> ${tuningAdjustment.adjustedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
-            }
+            // Final payout includes main payout plus insurance payouts
+            const finalPayout = regulatedPayout + totalInsurancePayout;
             
-            // Incorporate insurance side bet into final outcome
-            let totalInsuranceAmount = 0;
-            let totalInsurancePayout = 0;
-            for (const r of results) {
-                totalInsuranceAmount += r.insuranceAmount || 0;
-                totalInsurancePayout += r.insurancePayout || 0;
-            }
-
-            // Final payout includes main regulated payout plus insurance payouts
-            const finalPayout = (regulatedPayout || 0) + totalInsurancePayout;
-
-            // Determine if player won based on net profit including insurance
-            // Push: payout = bet (no profit), Loss: payout = 0, Win: payout > bet
-            const netProfit = finalPayout - totalBetAmount - totalInsuranceAmount;
-            const won = netProfit > 0; // Only true wins have positive net profit
+            // Calculate net profit
+            const totalInvested = totalBetAmount + totalInsuranceAmount;
+            const netProfit = finalPayout - totalInvested;
+            const won = netProfit > 0
             
-            // Final summary log to track win/loss determination
-            logger.info(`🔍 FINAL RESULT: netProfit=${netProfit}, won=${won}, regulatedPayout=${regulatedPayout}, totalBetAmount=${totalBetAmount}`);
+            // Log final result for debugging
+            logger.info(`Blackjack final: bet=${totalBetAmount}, insurance=${totalInsuranceAmount}, payout=${finalPayout}, netProfit=${netProfit}, won=${won}, isPush=${isPush}`);
             
-            // Use PayoutManager for consistent payout handling
-            // For losses, payout is 0 since bet was already deducted
-            // For pushes, payout equals bet amount (return bet, no profit)
-            // For wins, payout is greater than bet (bet + profit)
+            // CRITICAL: Use PayoutManager to handle the payout
+            // The bet was already deducted at game start, so we only need to pay out winnings
             const gameResult = new GameResult({
                 userId,
                 guildId,
@@ -1236,36 +1161,26 @@ module.exports = {
                     const playForRecipient = global.playForContext?.recipientName;
                     const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
                     
-                    // Display win/loss based on rules outcome and net profit (avoid calling a rules win a loss)
-                    if (result.outcome === 'PUSH' || (netProfit === 0 && regulatedPayout > 0)) {
-                        // Push: bet is returned (no profit, no loss)
+                    // Display win/loss based on outcome
+                    if (result.outcome === 'PUSH') {
+                        // Push: bet is returned
                         resultMessage = `🤝 **PUSH** - Your bet of ${fmt(totalBetAmount)} is returned.`;
-                    } else if (netProfit > 0) {
-                        // Win scenarios - show profit, not total payout
-                        if (result.outcome === 'BLACKJACK') {
-                            if (winningForSomeoneElse) {
-                                resultMessage = `🃏 **BLACKJACK!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
-                            } else {
-                                resultMessage = `🃏 **BLACKJACK!** Won ${fmt(netProfit)}`;
-                            }
+                    } else if (result.outcome === 'BLACKJACK') {
+                        // Blackjack win
+                        if (winningForSomeoneElse) {
+                            resultMessage = `🃏 **BLACKJACK!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
                         } else {
-                            if (winningForSomeoneElse) {
-                                resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
-                            } else {
-                                resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)}`;
-                            }
+                            resultMessage = `🃏 **BLACKJACK!** Won ${fmt(netProfit)}`;
                         }
                     } else if (result.won) {
-                        // Rules-based win, but no profit after adjustments — avoid saying "lose"
-                        if (result.outcome === 'BLACKJACK') {
-                            resultMessage = '🃏 **BLACKJACK!** (No profit)';
-                        } else if (result.outcome === 'DEALER BUSTED') {
-                            resultMessage = '🎉 **YOU WIN!** Dealer busted (No profit)';
+                        // Regular win
+                        if (winningForSomeoneElse) {
+                            resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
                         } else {
-                            resultMessage = '🎉 **YOU WIN!** (No profit)';
+                            resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)}`;
                         }
                     } else {
-                        // Loss scenarios (netProfit <= 0 and not a push)
+                        // Loss
                         if (winningForSomeoneElse) {
                             resultMessage = `💸 **YOU LOSE!** @${playForRecipient} gets nothing.`;
                         } else {

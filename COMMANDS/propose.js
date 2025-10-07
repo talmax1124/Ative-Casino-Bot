@@ -163,36 +163,32 @@ module.exports = {
                     return;
                 }
 
+                // Define embeds outside the scope
+                const acceptEmbed = new EmbedBuilder()
+                    .setTitle('💍 Proposal Accepted!')
+                    .setDescription(`**${recipient.displayName}** accepted **${proposer.displayName}**'s marriage proposal! 🎉`)
+                    .addFields({
+                        name: '💒 Next Steps',
+                        value: 'You can now use `/start-marriage` to begin your wedding ceremony!',
+                        inline: false
+                    })
+                    .setColor(0x00FF00)
+                    .setTimestamp();
+
+                const rejectEmbed = new EmbedBuilder()
+                    .setTitle('💔 Proposal Rejected')
+                    .setDescription(`**${recipient.displayName}** rejected **${proposer.displayName}**'s marriage proposal.`)
+                    .setColor(0xFF0000)
+                    .setTimestamp();
+
                 if (response === 'yes') {
-                    // Proposal accepted
-                    const acceptEmbed = new EmbedBuilder()
-                        .setTitle('💍 Proposal Accepted!')
-                        .setDescription(`**${recipient.displayName}** accepted **${proposer.displayName}**'s marriage proposal! 🎉`)
-                        .addFields({
-                            name: '💒 Next Steps',
-                            value: 'You can now use `/start-marriage` to begin your wedding ceremony!',
-                            inline: false
-                        })
-                        .setColor(0x00FF00)
-                        .setTimestamp();
-
-
                     // Notify the proposer via DM
                     try {
                         await proposer.send(`🎉 **${recipient.displayName}** accepted your marriage proposal! Use \`/start-marriage\` to begin your wedding ceremony!`);
                     } catch (dmError) {
                         logger.info(`Could not DM acceptance notification: ${dmError.message}`);
                     }
-
                 } else {
-                    // Proposal rejected
-                    const rejectEmbed = new EmbedBuilder()
-                        .setTitle('💔 Proposal Rejected')
-                        .setDescription(`**${recipient.displayName}** rejected **${proposer.displayName}**'s marriage proposal.`)
-                        .setColor(0xFF0000)
-                        .setTimestamp();
-
-
                     // Notify the proposer via DM
                     try {
                         await proposer.send(`💔 **${recipient.displayName}** rejected your marriage proposal.`);

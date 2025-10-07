@@ -1,11 +1,10 @@
 /**
- * Blackjack Game Logic
- * Contains all blackjack game mechanics and card logic
+ * Blackjack Game Logic - COMPLETELY REWRITTEN
+ * Fixed payout calculations and game mechanics
  */
 
 const { secureRandomShuffle } = require('../UTILS/rng');
 const logger = require('../UTILS/logger');
-const adaptiveGameMechanics = require('../UTILS/adaptiveGameMechanics');
 
 // Card definitions
 const SUITS = ['♠️', '♥️', '♦️', '♣️'];
@@ -164,9 +163,9 @@ class BlackjackGame {
         this.currentWealth = currentWealth;
         this.modeConfig = modeConfig || {
             name: 'Balanced',
-            blackjackMultiplier: 2.35,
-            winMultiplier: 1.92,
-            houseEdge: 0.007
+            blackjackMultiplier: 2.5,  // Standard 3:2 payout (bet + 1.5x profit)
+            winMultiplier: 2.0,         // Standard 1:1 payout (bet + 1x profit)
+            houseEdge: 0.005            // 0.5% house edge
         };
         this.deck = new Deck();
         this.playerHand = new BlackjackHand();
@@ -203,6 +202,7 @@ class BlackjackGame {
         // Insurance costs half the original bet
         this.insuranceAmount = Math.floor(this.betAmount / 2);
         this.insuranceTaken = true;
+        this.insuranceOffered = false;
         return true;
     }
 
@@ -225,9 +225,8 @@ class BlackjackGame {
         const currentHand = this.getCurrentHand();
         if (this.gameEnded) return false;
         if (!currentHand || !currentHand.cards || currentHand.cards.length !== 2) return false;
-        // Slightly reduce player edge: allow double only on 9-11
-        const val = currentHand.getValue();
-        return val === 9 || val === 10 || val === 11;
+        // Standard double down rules: any two cards
+        return true;
     }
 
     split() {
@@ -283,9 +282,9 @@ class BlackjackGame {
 
     doubleDown() {
         const currentHand = this.getCurrentHand();
-        if (!currentHand || !currentHand.cards || currentHand.cards.length !== 2) return false; // Can only double on first two cards
+        if (!currentHand || !currentHand.cards || currentHand.cards.length !== 2) return false;
         
-        // Mark the current hand as doubled (this tracks it per hand for splits)
+        // Mark the current hand as doubled
         currentHand.double();
         
         // If this is the main hand (no splits), also set the global doubled flag
@@ -293,7 +292,7 @@ class BlackjackGame {
             this.doubled = true;
         }
         
-        currentHand.addCard(this.deck.dealCard()); // Deal one more card
+        currentHand.addCard(this.deck.dealCard());
         this.nextHand(); // Automatically stand after doubling
         return true;
     }
@@ -307,14 +306,17 @@ class BlackjackGame {
     }
 
     dealerPlay() {
-        // Player-favorable rules: dealer hits on soft 17 (better for players)
-        while (this.dealerHand.getValue() < 17 || 
-               (this.dealerHand.getValue() === 17 && this.dealerHand.isSoft())) {
+        // Standard rules: dealer stands on all 17s
+        while (this.dealerHand.getValue() < 17) {
             this.dealerHand.addCard(this.deck.dealCard());
         }
         this.gameEnded = true;
     }
 
+    /**
+     * COMPLETELY REWRITTEN RESULT CALCULATION
+     * This is the core fix - proper payout calculation for all scenarios
+     */
     async getResults(options = {}) {
         const results = [];
         
@@ -337,99 +339,82 @@ class BlackjackGame {
         return results;
     }
 
+    /**
+     * CORE FIX: Proper payout calculation
+     * Returns the TOTAL amount to give back to the player (including their original bet)
+     */
     async calculateHandResult(playerHand, options = {}) {
         const playerValue = playerHand.getValue();
         const dealerValue = this.dealerHand.getValue();
-        
-        
-        let baseMultiplier = 0;
-        let outcome = '';
-
-        if (playerHand.isBlackjack() && this.dealerHand.isBlackjack()) {
-            // Both have blackjack - it's a PUSH (return bet)
-            baseMultiplier = 1;
-            outcome = 'PUSH';
-        } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
-            baseMultiplier = options.personalizedPayouts?.blackjack || this.modeConfig?.blackjackMultiplier || 2.6;
-            outcome = 'BLACKJACK';
-        } else if (playerValue === dealerValue && !playerHand.isBusted()) {
-            // Equal values are a push ONLY if neither player is busted
-            baseMultiplier = 1;  // Push returns bet (1x multiplier)
-            outcome = 'PUSH';
-        } else if (playerHand.isBusted()) {
-            // Player busted and dealer didn't have same value
-            baseMultiplier = 0;
-            outcome = 'BUSTED';
-        } else if (this.dealerHand.isBusted()) {
-            // Dealer busted and player didn't
-            baseMultiplier = options.personalizedPayouts?.win || this.modeConfig?.winMultiplier || 2.0;
-            outcome = 'DEALER BUSTED';
-        } else if (playerValue > dealerValue) {
-            baseMultiplier = options.personalizedPayouts?.win || this.modeConfig?.winMultiplier || 2.0;
-            outcome = 'WIN';
-        } else {
-            baseMultiplier = 0;
-            outcome = 'LOSE';
-        }
-
-        // Apply dynamic economic adjustments if winning
-        let finalMultiplier = baseMultiplier;
-        if (baseMultiplier > 1) {
-            if (options.economicMultiplier) {
-                // Legacy economic multiplier (for backward compatibility)
-                const adjustedMultiplier = (baseMultiplier - 1) * options.economicMultiplier + 1;
-                finalMultiplier = Math.max(1, adjustedMultiplier);
-                
-                if (finalMultiplier !== baseMultiplier) {
-                    logger.info(`Blackjack multiplier adjusted: ${baseMultiplier.toFixed(2)}x → ${finalMultiplier.toFixed(2)}x (${((1 - options.economicMultiplier) * 100).toFixed(1)}% reduction)`);
-                }
-            } else if (this.currentWealth && this.currentWealth > 10_000_000) {
-                // Use adaptive mechanics for wealthy players
-                try {
-                    const adaptedConfig = await adaptiveGameMechanics.getAdaptedGameConfig('blackjack', this.userId, this.currentWealth, this.betAmount);
-                    if (adaptedConfig && adaptedConfig.adaptedWinChance) {
-                        // Apply adaptive difficulty by reducing win chance (making the game harder)
-                        const adaptedMultiplier = baseMultiplier * adaptedConfig.adaptedWinChance / adaptedConfig.baseWinChance;
-                        finalMultiplier = Math.max(1, adaptedMultiplier);
-                        
-                        if (finalMultiplier !== baseMultiplier) {
-                            logger.info(`Blackjack adaptive adjustment: ${baseMultiplier.toFixed(2)}x → ${finalMultiplier.toFixed(2)}x (wealth-based adaptation)`);
-                        }
-                    }
-                } catch (error) {
-                    logger.error(`Blackjack adaptive mechanics error: ${error.message}`);
-                }
-            }
-        }
-
-        // Calculate the effective bet amount for this hand (including double down)
         const effectiveBet = this.betAmount * playerHand.getBetMultiplier();
         
-        // Determine if this is a "win" based on the base game outcome, not economic adjustments
-        const isGameWin = baseMultiplier > 1;  // True win/loss based on game rules, not economic multiplier
-        
-        // Calculate insurance payout (only for the first hand in split scenarios)
+        let payout = 0;  // Total amount to return to player
+        let outcome = '';
+        let won = false;
+
+        // CRITICAL FIX: Calculate payouts correctly
+        if (playerHand.isBusted()) {
+            // Player busted - loses bet (payout = 0)
+            payout = 0;
+            outcome = 'BUSTED';
+            won = false;
+        } else if (this.dealerHand.isBusted()) {
+            // Dealer busted - player wins
+            payout = effectiveBet * (this.modeConfig?.winMultiplier || 2.0);
+            outcome = 'DEALER BUSTED';
+            won = true;
+        } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
+            // Player blackjack (dealer doesn't have blackjack)
+            payout = effectiveBet * (this.modeConfig?.blackjackMultiplier || 2.5);
+            outcome = 'BLACKJACK';
+            won = true;
+        } else if (playerHand.isBlackjack() && this.dealerHand.isBlackjack()) {
+            // Both have blackjack - push
+            payout = effectiveBet;  // Return bet
+            outcome = 'PUSH';
+            won = false;
+        } else if (playerValue === dealerValue) {
+            // Push - return bet
+            payout = effectiveBet;  // Return bet
+            outcome = 'PUSH';
+            won = false;
+        } else if (playerValue > dealerValue) {
+            // Player wins
+            payout = effectiveBet * (this.modeConfig?.winMultiplier || 2.0);
+            outcome = 'WIN';
+            won = true;
+        } else {
+            // Player loses
+            payout = 0;
+            outcome = 'LOSE';
+            won = false;
+        }
+
+        // Calculate insurance payout if applicable
         let insurancePayout = 0;
         let insuranceWon = false;
         if (this.insuranceTaken && (this.splitHands.length === 0 || playerHand === this.splitHands[0])) {
             if (this.dealerHasBlackjack()) {
-                insurancePayout = this.insuranceAmount * 3; // Insurance pays 2:1 (returns 3x bet)
+                // Insurance wins - pays 2:1 (returns 3x the insurance bet)
+                insurancePayout = this.insuranceAmount * 3;
                 insuranceWon = true;
             }
+            // If dealer doesn't have blackjack, insurance bet is lost (no payout)
         }
+
+        logger.info(`Blackjack result: outcome=${outcome}, bet=${effectiveBet}, payout=${payout}, won=${won}`);
 
         return {
             outcome,
-            multiplier: finalMultiplier,
-            baseMultiplier: baseMultiplier,  // Store original for reference
-            payout: effectiveBet * finalMultiplier,  // Total amount to return to player (including bet)
-            won: isGameWin,  // Based on game outcome, not economic adjustments
-            betAmount: effectiveBet,  // The actual bet amount for this hand
-            doubled: playerHand.isDoubled(),  // Whether this hand was doubled
-            economicAdjusted: finalMultiplier !== baseMultiplier,  // Flag if economic system adjusted payout
-            insurancePayout: insurancePayout,  // Insurance payout amount
-            insuranceWon: insuranceWon,  // Whether insurance bet won
-            insuranceAmount: this.insuranceTaken ? this.insuranceAmount : 0  // Insurance bet amount
+            payout,  // Total amount to return (including original bet for wins/pushes)
+            won,
+            betAmount: effectiveBet,
+            doubled: playerHand.isDoubled(),
+            insurancePayout,
+            insuranceWon,
+            insuranceAmount: this.insuranceTaken ? this.insuranceAmount : 0,
+            playerValue,
+            dealerValue
         };
     }
 
@@ -438,9 +423,8 @@ class BlackjackGame {
      */
     isCurrentHandComplete() {
         if (this.splitHands.length > 0) {
-            // Use getCurrentHand() which has proper safety checks
             const currentHand = this.getCurrentHand();
-            if (!currentHand) return true; // If no valid hand, consider it complete
+            if (!currentHand) return true;
             return currentHand.isBusted() || currentHand.isStood();
         } else {
             return this.playerHand.isBusted() || this.gameEnded;
@@ -455,7 +439,6 @@ class BlackjackGame {
             return this.gameEnded || this.playerHand.isBusted();
         }
         
-        // Filter out any undefined hands and check completion
         return this.splitHands.filter(hand => hand && hand.cards).every(hand => hand.isBusted() || hand.isStood());
     }
 }

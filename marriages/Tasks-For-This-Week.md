@@ -1,4 +1,4 @@
-# Week of October 3, 2025 - Week 5 - New Interactive Challenges
+# Week of October 6, 2025 - Week 5 - New Interactive Challenges
 
 ## Tasks
 - [ ] Task 1: House Design & Furniture Quiz - Discover your dream home compatibility!

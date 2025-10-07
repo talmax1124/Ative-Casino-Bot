@@ -17,7 +17,7 @@ const nodeCache = require('./UTILS/nodeCache');
 const axios = require('axios');
 // Economy analyzer moved to UAS bot
 // Removed Firebase-dependent modules: economyMonitor, sessionManager
-const { sendLogMessage } = require('./UTILS/common');
+const { sendLogMessage, fmt } = require('./UTILS/common');
 const LogSummaryManager = require('./UTILS/logSummaryManager');
 const panelManager = require('./UTILS/panelManager');
 const SafeInteractionHandler = require('./UTILS/interactionHandler');
@@ -159,12 +159,11 @@ async function handleGameModalSubmit(interaction) {
                 content: `✅ Answer recorded: "${quizAnswer}"`,
                 ephemeral: true
             });
-        } else if (customId.startsWith('letter_modal_')) {
-            // Handle love letter modal submission
-            const sessionId = customId.replace('letter_modal_', '');
+        } else if (customId.startsWith('simple_letter_')) {
+            // Handle simple love letter modal submission
             const LoveLetterTaskGame = require('./marriages/games/LoveLetterTaskGame');
             const game = new LoveLetterTaskGame();
-            await game.handleModalSubmit(interaction, sessionId);
+            await game.handleModalSubmit(interaction);
         } else if (customId.startsWith('vacation_modal_')) {
             // Handle vacation planning modal submission
             const sessionId = customId.replace('vacation_modal_', '');
@@ -1124,7 +1123,7 @@ client.on('interactionCreate', async interaction => {
             else if (
                 interaction.customId.startsWith('poem_line_') ||
                 interaction.customId.startsWith('quiz_answer_') ||
-                interaction.customId.startsWith('letter_modal_') ||
+                interaction.customId.startsWith('simple_letter_') ||
                 interaction.customId.startsWith('vacation_modal_')
             ) {
                 await handleGameModalSubmit(interaction);
@@ -1835,7 +1834,13 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('bingo_')) {
                 const parts = customId.split('_');
 
-                if (parts[1] === 'card' && parts.length >= 6) {
+                if (parts[1] === 'card' && parts[2] === 'free') {
+                    // FREE space button click: bingo_card_free_{userId} - ignore clicks on FREE space
+                    await SafeInteractionHandler.safeReply(interaction, {
+                        content: '❌ The FREE space is already marked!',
+                        ephemeral: true
+                    });
+                } else if (parts[1] === 'card' && parts.length >= 6) {
                     // Interactive card button click: bingo_card_{userId}_{row}_{col}_{number}
                     const row = parseInt(parts[3]);
                     const col = parseInt(parts[4]);
@@ -2840,9 +2845,9 @@ client.on('interactionCreate', async interaction => {
                 const marriageTaskUtil = require('./marriages/MarriageTaskUtil');
                 await marriageTaskUtil.startGameSession(interaction, gameType);
             }
-            // Handle new marriage task game buttons
+            // Handle other marriage task game buttons
             else if (customId.startsWith('house_answer_') || customId.startsWith('c4_drop_') || customId.startsWith('c4_restart') ||
-                     customId.startsWith('letter_write_') || customId.startsWith('vacation_add_') || customId.startsWith('vacation_finish_') ||
+                     customId.startsWith('vacation_add_') || customId.startsWith('vacation_finish_') ||
                      customId.startsWith('vacation_view_') || customId.startsWith('checkin_morning_') || customId.startsWith('checkin_night_') ||
                      customId.startsWith('pet_feed_') || customId.startsWith('pet_water_') || customId.startsWith('pet_clean_') || 
                      customId.startsWith('pet_pet_') || customId.startsWith('pet_retry_') || customId.startsWith('pet_respawn_')) {
