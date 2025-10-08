@@ -63,12 +63,14 @@ class FairnessOverride {
             }
             
             // Only check house edge for winning games
+            // For wins, the payout should be >= bet amount
             // Calculate actual house edge from the calculated payout
             const actualEdge = 1 - (calculatedPayout / betAmount);
             const maxEdge = this.maxHouseEdges[gameType] || 0.05; // Default 5% max
 
             // Check if the calculated payout is unfairly low for a WIN
-            if (actualEdge > maxEdge) {
+            // Only trigger if house edge is positive (meaning player gets less than bet back)
+            if (actualEdge > 0 && actualEdge > maxEdge) {
                 // Calculate fair payout based on max allowed edge
                 const fairPayout = betAmount * (1 - maxEdge);
                 
@@ -93,7 +95,9 @@ class FairnessOverride {
             {
                 // Only apply emergency payout logic to games where the player actually won
                 const isLottery = gameType && (gameType.includes('lottery') || gameType.includes('scratch'));
-                const minWinPayout = isLottery ? betAmount : betAmount * 1.2; // Winners should get at least 120% (20% profit minimum)
+                // For most games, winners should get at least their bet back (100% payout)
+                // For lotteries, the payout can be lower since they have higher volatility
+                const minWinPayout = isLottery ? betAmount * 0.5 : betAmount; 
                 
                 if (calculatedPayout < minWinPayout) {
                     const emergencyPayout = Math.max(minWinPayout, betAmount * 1.5); // Emergency: 150% return for wins

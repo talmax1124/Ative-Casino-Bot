@@ -205,6 +205,17 @@ class DynamicHouseEdgeSystem {
             });
         });
         
+        // Economy commands (beg, crime) with low edges
+        ['beg', 'crime', 'daily', 'work'].forEach(gameType => {
+            this.baseEdges.set(gameType, {
+                minimum: 0.01,     // 1%
+                base: 0.02,        // 2%
+                maximum: 0.05,     // 5%
+                current: 0.02,
+                strictMode: false
+            });
+        });
+        
         // High-variance games (but reasonable edges)
         this.baseEdges.set('scratch', {
             minimum: 0.10,     // 10%

@@ -88,7 +88,7 @@ module.exports = {
 
     async execute(interaction) {
         const category = interaction.options.getString('category') || 'server';
-        const limit = interaction.options.getInteger('limit') || 8;
+        const limit = interaction.options.getInteger('limit') || 10;
         const guildId = await getGuildId(interaction);
         
         logger.info(`Leaderboard command called: category=${category}, limit=${limit}, guildId=${guildId}, user=${interaction.user.id}`);

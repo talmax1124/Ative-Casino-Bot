@@ -75,12 +75,15 @@ async function getAggregatedUserLevel(userId) {
 /**
  * Get aggregated leaderboard across all guilds
  */
-async function getAggregatedLeaderboard(limit = 8) {
+async function getAggregatedLeaderboard(limit = 10) {
     try {
         // Validate limit parameter
-        if (!limit || limit < 1 || !Number.isInteger(limit)) {
-            logger.warn(`Invalid limit value received: ${limit}, using default 8`);
-            limit = 8;
+        const numLimit = Number(limit);
+        if (!numLimit || numLimit < 1 || !Number.isInteger(numLimit) || numLimit > 100) {
+            logger.warn(`Invalid count value: ${limit}`);
+            limit = 10;
+        } else {
+            limit = numLimit;
         }
         // Get aggregated XP data first
         const xpRecords = await dbManager.databaseAdapter.executeQuery(`
@@ -249,7 +252,7 @@ async function showUserRank(interaction, targetUser, guildId) {
 
 async function showLeaderboard(interaction, guildId) {
     // Get aggregated leaderboard across all guilds
-    const leaderboard = await getAggregatedLeaderboard(8);
+    const leaderboard = await getAggregatedLeaderboard(10);
     
     if (leaderboard.length === 0) {
         const embed = new EmbedBuilder()

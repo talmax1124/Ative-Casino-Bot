@@ -158,7 +158,7 @@ class CrashGame {
     } else if (this.state === 'running') {
       title = `🚀 Crash - ${this.currentMultiplier.toFixed(2)}x`;
       color = 0xFFAA00;
-      description = `Crash at: ${this.crashPoint.toFixed(2)}x`;
+      description = `🎯 Cash out before it crashes!`;
     } else if (this.state === 'crashed') {
       title = `💥 CRASHED at ${this.crashPoint.toFixed(2)}x!`;
       color = 0xFF0000;

@@ -327,11 +327,14 @@ module.exports = {
         let validation; // Declare validation at function scope
         
         try {
+            // Defer immediately to prevent interaction timeouts
+            await interaction.deferReply();
+            
             // Check maintenance mode first
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'blackjack');
             if (!maintenanceCheck.allowed) {
-                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
+                return await interaction.editReply({ embeds: [maintenanceCheck.embed] });
             }
 
             // Validate session before proceeding using modern session system (via sessionGuard)
@@ -344,7 +347,7 @@ module.exports = {
                     .setDescription(check.message)
                     .setColor(0xFF0000)
                     .setTimestamp();
-                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
             // Ensure user exists and get balance
@@ -385,7 +388,7 @@ module.exports = {
             }
 
             if (!validation.isValid) {
-                return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
+                return await interaction.editReply({ embeds: [validation.errorEmbed] });
             }
             
             // Balance validation is handled by PayoutManager.validateAndDeductBet
@@ -539,21 +542,15 @@ module.exports = {
 
             // Enhanced error response handling
             try {
-                // Check if interaction is still valid before responding
-                if (interaction.isRepliable()) {
-                    if (!interaction.replied && !interaction.deferred) {
-                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-                    } else if (interaction.deferred) {
-                        await interaction.editReply({ embeds: [errorEmbed] });
-                    } else {
-                        await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
-                    }
-                } else {
-                    logger.warn('Interaction is no longer repliable for error reply');
-                }
+                // Since we always defer at the start, use editReply
+                await interaction.editReply({ embeds: [errorEmbed] });
             } catch (replyError) {
-                logger.error(`Failed to send error reply: ${replyError.message}`);
-                logger.error(`Interaction state - replied: ${interaction.replied}, deferred: ${interaction.deferred}`);
+                // Handle unknown interaction errors gracefully
+                if (replyError.code === 10062 || replyError.message.includes('Unknown interaction')) {
+                    logger.debug('Blackjack error response: interaction expired');
+                } else {
+                    logger.error(`Failed to send error reply: ${replyError.message}`);
+                }
             }
         }
     },
