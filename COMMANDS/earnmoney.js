@@ -312,7 +312,7 @@ module.exports = {
             return { earned: 0, cooldownRemaining: cooldown - (now - lastEarn), description: '' };
         }
         
-        const earning = secureRandomInt(15000, 30001);
+        const earning = secureRandomInt(75000, 150001);
         return { 
             earned: earning, 
             cooldownRemaining: 0, 
@@ -332,12 +332,12 @@ module.exports = {
         }
         
         const workScenarios = [
-            { job: 'Pizza Delivery Driver', min: 5000, max: 12000 },
-            { job: 'Dog Walker', min: 5000, max: 8000 },
-            { job: 'Uber Driver', min: 8000, max: 15000 },
-            { job: 'Freelance Web Designer', min: 12000, max: 20000 },
-            { job: 'Casino Dealer', min: 10000, max: 18000 },
-            { job: 'Security Guard', min: 6000, max: 14000 }
+            { job: 'Pizza Delivery Driver', min: 25000, max: 60000 },
+            { job: 'Dog Walker', min: 25000, max: 40000 },
+            { job: 'Uber Driver', min: 40000, max: 75000 },
+            { job: 'Freelance Web Designer', min: 60000, max: 100000 },
+            { job: 'Casino Dealer', min: 50000, max: 90000 },
+            { job: 'Security Guard', min: 30000, max: 70000 }
         ];
 
         const scenario = secureRandomChoice(workScenarios);
@@ -362,11 +362,11 @@ module.exports = {
         }
         
         const begScenarios = [
-            { person: 'a kind stranger', min: 1000, max: 3000 },
-            { person: 'a wealthy businessman', min: 2000, max: 5000 },
-            { person: 'a generous tourist', min: 1500, max: 4000 },
-            { person: 'a sympathetic casino employee', min: 2500, max: 6000 },
-            { person: 'a lucky high roller', min: 3000, max: 8000 }
+            { person: 'a kind stranger', min: 5000, max: 15000 },
+            { person: 'a wealthy businessman', min: 10000, max: 25000 },
+            { person: 'a generous tourist', min: 7500, max: 20000 },
+            { person: 'a sympathetic casino employee', min: 12500, max: 30000 },
+            { person: 'a lucky high roller', min: 15000, max: 40000 }
         ];
 
         const scenario = secureRandomChoice(begScenarios);
@@ -391,13 +391,13 @@ module.exports = {
         }
         
         const crimeScenarios = [
-            { crime: 'Pickpocketed a distracted gambler', min: 1000, max: 2500 },
-            { crime: 'Found forgotten chips under a slot machine', min: 1200, max: 3000 },
-            { crime: 'Swiped loose change from a fountain', min: 1000, max: 1800 },
-            { crime: 'Sold fake casino "insider tips"', min: 2000, max: 4000 },
-            { crime: 'Collected dropped betting slips', min: 1500, max: 3500 },
-            { crime: 'Scammed tourists with rigged dice', min: 2500, max: 5000 },
-            { crime: 'Snuck extra chips during confusion', min: 1800, max: 4200 }
+            { crime: 'Pickpocketed a distracted gambler', min: 5000, max: 12500 },
+            { crime: 'Found forgotten chips under a slot machine', min: 6000, max: 15000 },
+            { crime: 'Swiped loose change from a fountain', min: 5000, max: 9000 },
+            { crime: 'Sold fake casino "insider tips"', min: 10000, max: 20000 },
+            { crime: 'Collected dropped betting slips', min: 7500, max: 17500 },
+            { crime: 'Scammed tourists with rigged dice', min: 12500, max: 25000 },
+            { crime: 'Snuck extra chips during confusion', min: 9000, max: 21000 }
         ];
 
         const scenario = secureRandomChoice(crimeScenarios);
@@ -422,11 +422,11 @@ module.exports = {
         }
         
         const heistScenarios = [
-            { target: 'Casino Vault', min: 20000, max: 30000 },
-            { target: 'High-Stakes Poker Room', min: 15000, max: 25000 },
-            { target: 'VIP Lounge', min: 12000, max: 22000 },
-            { target: 'Sports Betting Counter', min: 18000, max: 28000 },
-            { target: 'Slot Machine Jackpot', min: 16000, max: 26000 }
+            { target: 'Casino Vault', min: 100000, max: 150000 },
+            { target: 'High-Stakes Poker Room', min: 75000, max: 125000 },
+            { target: 'VIP Lounge', min: 60000, max: 110000 },
+            { target: 'Sports Betting Counter', min: 90000, max: 140000 },
+            { target: 'Slot Machine Jackpot', min: 80000, max: 130000 }
         ];
 
         const scenario = secureRandomChoice(heistScenarios);
@@ -451,12 +451,12 @@ module.exports = {
         }
         
         const taskScenarios = [
-            { task: 'Cleaned casino floors', min: 5000, max: 8000 },
-            { task: 'Organized chip inventory', min: 6000, max: 10000 },
-            { task: 'Assisted VIP guests', min: 8000, max: 12000 },
-            { task: 'Maintained slot machines', min: 5500, max: 9500 },
-            { task: 'Counted card deck inventory', min: 7000, max: 11000 },
-            { task: 'Updated security protocols', min: 9000, max: 15000 }
+            { task: 'Cleaned casino floors', min: 25000, max: 40000 },
+            { task: 'Organized chip inventory', min: 30000, max: 50000 },
+            { task: 'Assisted VIP guests', min: 40000, max: 60000 },
+            { task: 'Maintained slot machines', min: 27500, max: 47500 },
+            { task: 'Counted card deck inventory', min: 35000, max: 55000 },
+            { task: 'Updated security protocols', min: 45000, max: 75000 }
         ];
 
         const scenario = secureRandomChoice(taskScenarios);
@@ -481,12 +481,12 @@ module.exports = {
         }
         
         const quizTopics = [
-            { topic: 'Casino History trivia', min: 3000, max: 5000 },
-            { topic: 'Poker knowledge quiz', min: 4000, max: 6000 },
-            { topic: 'Mathematics challenge', min: 3500, max: 5500 },
-            { topic: 'General knowledge test', min: 3000, max: 4500 },
-            { topic: 'Gaming strategy questions', min: 4500, max: 7000 },
-            { topic: 'Lucky number predictions', min: 5000, max: 8000 }
+            { topic: 'Casino History trivia', min: 15000, max: 25000 },
+            { topic: 'Poker knowledge quiz', min: 20000, max: 30000 },
+            { topic: 'Mathematics challenge', min: 17500, max: 27500 },
+            { topic: 'General knowledge test', min: 15000, max: 22500 },
+            { topic: 'Gaming strategy questions', min: 22500, max: 35000 },
+            { topic: 'Lucky number predictions', min: 25000, max: 40000 }
         ];
 
         const topic = secureRandomChoice(quizTopics);

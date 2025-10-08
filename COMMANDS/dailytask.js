@@ -19,7 +19,7 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('dailytask')
-        .setDescription('Complete a daily task to earn money (5K-15K every 24 hours)'),
+        .setDescription('Complete a daily task to earn money (25K-75K every 24 hours)'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -63,49 +63,49 @@ module.exports = {
                     task: 'Help an elderly person cross the street',
                     instruction: 'React with ❤️ to show you helped them',
                     emoji: '❤️',
-                    reward: { min: 8000, max: 12000 }
+                    reward: { min: 40000, max: 60000 }
                 },
                 { 
                     task: 'Clean up litter in the park',
                     instruction: 'React with 🌱 to confirm you cleaned up',
                     emoji: '🌱',
-                    reward: { min: 6000, max: 10000 }
+                    reward: { min: 30000, max: 50000 }
                 },
                 { 
                     task: 'Feed stray cats in the neighborhood',
                     instruction: 'React with 🐱 to show you fed them',
                     emoji: '🐱',
-                    reward: { min: 7000, max: 11000 }
+                    reward: { min: 35000, max: 55000 }
                 },
                 { 
                     task: 'Donate old clothes to charity',
                     instruction: 'React with 👕 to confirm your donation',
                     emoji: '👕',
-                    reward: { min: 9000, max: 13000 }
+                    reward: { min: 45000, max: 65000 }
                 },
                 { 
                     task: 'Volunteer at the local food bank',
                     instruction: 'React with 🍞 to confirm your volunteer work',
                     emoji: '🍞',
-                    reward: { min: 10000, max: 15000 }
+                    reward: { min: 50000, max: 75000 }
                 },
                 { 
                     task: 'Write a positive review for a local business',
                     instruction: 'React with ⭐ to show you wrote the review',
                     emoji: '⭐',
-                    reward: { min: 5000, max: 9000 }
+                    reward: { min: 25000, max: 45000 }
                 },
                 { 
                     task: 'Call a family member you haven\'t talked to in a while',
                     instruction: 'React with 📞 to confirm you made the call',
                     emoji: '📞',
-                    reward: { min: 8000, max: 12000 }
+                    reward: { min: 40000, max: 60000 }
                 },
                 { 
                     task: 'Plant a tree or flowers in your community',
                     instruction: 'React with 🌳 to show you planted something',
                     emoji: '🌳',
-                    reward: { min: 11000, max: 15000 }
+                    reward: { min: 55000, max: 75000 }
                 }
             ];
 

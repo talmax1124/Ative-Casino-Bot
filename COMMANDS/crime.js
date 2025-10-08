@@ -17,7 +17,7 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('crime')
-        .setDescription('Commit petty crimes for quick cash (1K-5K every 30 minutes)'),
+        .setDescription('Commit petty crimes for quick cash (5K-25K every 30 minutes)'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -55,15 +55,15 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // Crime scenarios (1K-5K range)
+            // Crime scenarios (5K-25K range)
             const crimeScenarios = [
-                { crime: 'Pickpocketed a distracted gambler', min: 1000, max: 2500 },
-                { crime: 'Found forgotten chips under a slot machine', min: 1200, max: 3000 },
-                { crime: 'Swiped loose change from a fountain', min: 1000, max: 1800 },
-                { crime: 'Sold fake casino "insider tips"', min: 2000, max: 4000 },
-                { crime: 'Collected dropped betting slips', min: 1500, max: 3500 },
-                { crime: 'Scammed tourists with rigged dice', min: 2500, max: 5000 },
-                { crime: 'Snuck extra chips during confusion', min: 1800, max: 4200 }
+                { crime: 'Pickpocketed a distracted gambler', min: 5000, max: 12500 },
+                { crime: 'Found forgotten chips under a slot machine', min: 6000, max: 15000 },
+                { crime: 'Swiped loose change from a fountain', min: 5000, max: 9000 },
+                { crime: 'Sold fake casino "insider tips"', min: 10000, max: 20000 },
+                { crime: 'Collected dropped betting slips', min: 7500, max: 17500 },
+                { crime: 'Scammed tourists with rigged dice', min: 12500, max: 25000 },
+                { crime: 'Snuck extra chips during confusion', min: 9000, max: 21000 }
             ];
 
             const scenario = secureRandomChoice(crimeScenarios);

@@ -15,7 +15,7 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('work')
-        .setDescription('Work for coins (5K-30K every hour)'),
+        .setDescription('Work for coins (25K-150K every hour)'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -54,17 +54,17 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // Work scenarios (5K-30K range)
+            // Work scenarios (25K-150K range)
             const workScenarios = [
-                { job: 'Pizza Delivery Driver', min: 5000, max: 12000 },
-                { job: 'Dog Walker', min: 5000, max: 8000 },
-                { job: 'Uber Driver', min: 8000, max: 15000 },
-                { job: 'Freelance Programmer', min: 15000, max: 30000 },
-                { job: 'Barista', min: 5000, max: 9000 },
-                { job: 'Cashier', min: 6000, max: 11000 },
-                { job: 'Casino Dealer', min: 10000, max: 25000 },
-                { job: 'Construction Worker', min: 12000, max: 22000 },
-                { job: 'Delivery Driver', min: 8000, max: 18000 }
+                { job: 'Pizza Delivery Driver', min: 25000, max: 60000 },
+                { job: 'Dog Walker', min: 25000, max: 40000 },
+                { job: 'Uber Driver', min: 40000, max: 75000 },
+                { job: 'Freelance Programmer', min: 75000, max: 150000 },
+                { job: 'Barista', min: 25000, max: 45000 },
+                { job: 'Cashier', min: 30000, max: 55000 },
+                { job: 'Casino Dealer', min: 50000, max: 125000 },
+                { job: 'Construction Worker', min: 60000, max: 110000 },
+                { job: 'Delivery Driver', min: 40000, max: 90000 }
             ];
 
             const scenario = secureRandomChoice(workScenarios);

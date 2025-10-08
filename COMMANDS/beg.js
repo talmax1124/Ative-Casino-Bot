@@ -17,7 +17,7 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('beg')
-        .setDescription('Beg for coins (1K-10K every hour)'),
+        .setDescription('Beg for coins (5K-50K every hour)'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -56,15 +56,15 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // Beg scenarios (1K-10K range)
+            // Beg scenarios (5K-50K range)
             const begScenarios = [
-                { person: 'a kind stranger', message: 'gave you some spare change', min: 1000, max: 3000 },
-                { person: 'a wealthy businessman', message: 'tossed you a few bills', min: 2000, max: 5000 },
-                { person: 'a generous tourist', message: 'shared their winnings', min: 1500, max: 4000 },
-                { person: 'a casino patron', message: 'felt lucky and shared', min: 3000, max: 8000 },
-                { person: 'a food truck owner', message: 'gave you their tips', min: 1200, max: 3500 },
-                { person: 'a street performer', message: 'shared their earnings', min: 1000, max: 2500 },
-                { person: 'a casino winner', message: 'shared their jackpot', min: 5000, max: 10000 }
+                { person: 'a kind stranger', message: 'gave you some spare change', min: 5000, max: 15000 },
+                { person: 'a wealthy businessman', message: 'tossed you a few bills', min: 10000, max: 25000 },
+                { person: 'a generous tourist', message: 'shared their winnings', min: 7500, max: 20000 },
+                { person: 'a casino patron', message: 'felt lucky and shared', min: 15000, max: 40000 },
+                { person: 'a food truck owner', message: 'gave you their tips', min: 6000, max: 17500 },
+                { person: 'a street performer', message: 'shared their earnings', min: 5000, max: 12500 },
+                { person: 'a casino winner', message: 'shared their jackpot', min: 25000, max: 50000 }
             ];
 
             const scenario = secureRandomChoice(begScenarios);

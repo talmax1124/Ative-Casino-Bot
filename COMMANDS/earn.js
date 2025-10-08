@@ -14,7 +14,7 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('earn')
-        .setDescription('Basic earning command (15K-30K every hour)'),
+        .setDescription('Basic earning command (75K-150K every hour)'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -51,15 +51,15 @@ module.exports = {
                 return await interaction.editReply({ embeds: [embed] });
             }
 
-            // Earn scenarios (15K-30K range)
+            // Earn scenarios (75K-150K range)
             const earnScenarios = [
-                { source: 'Daily login bonus', min: 15000, max: 25000 },
-                { source: 'Found money in couch cushions', min: 15000, max: 20000 },
-                { source: 'Cashback reward from purchases', min: 18000, max: 28000 },
-                { source: 'Interest from investments', min: 20000, max: 30000 },
-                { source: 'Refund from canceled subscription', min: 16000, max: 24000 },
-                { source: 'Bonus from loyalty program', min: 17000, max: 26000 },
-                { source: 'Gift card you forgot about', min: 15000, max: 22000 }
+                { source: 'Daily login bonus', min: 75000, max: 125000 },
+                { source: 'Found money in couch cushions', min: 75000, max: 100000 },
+                { source: 'Cashback reward from purchases', min: 90000, max: 140000 },
+                { source: 'Interest from investments', min: 100000, max: 150000 },
+                { source: 'Refund from canceled subscription', min: 80000, max: 120000 },
+                { source: 'Bonus from loyalty program', min: 85000, max: 130000 },
+                { source: 'Gift card you forgot about', min: 75000, max: 110000 }
             ];
 
             const scenario = secureRandomChoice(earnScenarios);
