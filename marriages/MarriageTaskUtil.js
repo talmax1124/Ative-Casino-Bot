@@ -371,19 +371,28 @@ class MarriageTaskUtil {
      */
     async startGameSession(interaction, gameType) {
         try {
+            logger.info(`Starting game session for gameType: ${gameType}, user: ${interaction.user.id}`);
+            
             // Ensure games are loaded
             await this.ensureGamesLoaded();
+            logger.info(`Games loaded, registered games: ${Array.from(this.registeredGames.keys()).join(', ')}`);
             
             const marriage = await this.getMarriageInfo(interaction);
+            logger.info(`Marriage info retrieved for user ${interaction.user.id}: marriage ID ${marriage.id}`);
+            
             const weekInfo = this.getCurrentWeekInfo();
+            logger.info(`Current week info: ${weekInfo.weekId}, looking for gameType: ${gameType}`);
             
             // Find the task number for this game type
             const taskEntry = Array.from(this.registeredGames.entries()).find(([key, config]) => 
                 key.startsWith(weekInfo.weekId) && config.gameType === gameType
             );
+            
+            logger.info(`Task entry search result: ${taskEntry ? taskEntry[0] : 'Not found'}`);
 
             if (!taskEntry) {
-                throw new Error(`Game type "${gameType}" not found for current week`);
+                logger.error(`Available games for ${weekInfo.weekId}: ${Array.from(this.registeredGames.entries()).filter(([key]) => key.startsWith(weekInfo.weekId)).map(([key, config]) => `${key}:${config.gameType}`).join(', ')}`);
+                throw new Error(`Game type "${gameType}" not found for current week "${weekInfo.weekId}"`);
             }
 
             const [taskId, gameConfig] = taskEntry;
@@ -458,19 +467,39 @@ class MarriageTaskUtil {
 
         } catch (error) {
             logger.error(`Error starting game session: ${error.message}`);
+            logger.error(`Error stack: ${error.stack}`);
             
             // More specific error messages
             let errorMessage = '❌ Failed to start the game. Please try again.';
             if (error.message.includes('married')) {
                 errorMessage = '❌ You must be married to access marriage tasks!';
             } else if (error.message.includes('not found')) {
-                errorMessage = '❌ This task is not available yet.';
+                errorMessage = `❌ This task is not available yet. Error: ${error.message}`;
+            } else if (error.message.includes('Unknown interaction')) {
+                errorMessage = '❌ Interaction expired. Please try clicking the button again.';
             }
             
-            return await this.safeReply(interaction, {
-                content: errorMessage,
-                flags: MessageFlags.Ephemeral
-            });
+            // Check if interaction can still be replied to
+            try {
+                if (!interaction.replied && !interaction.deferred) {
+                    return await interaction.reply({
+                        content: errorMessage,
+                        ephemeral: true
+                    });
+                } else if (interaction.deferred) {
+                    return await interaction.editReply({
+                        content: errorMessage
+                    });
+                } else {
+                    return await interaction.followUp({
+                        content: errorMessage,
+                        ephemeral: true
+                    });
+                }
+            } catch (replyError) {
+                logger.error(`Error replying to interaction: ${replyError.message}`);
+                // Interaction is likely expired, nothing we can do
+            }
         }
     }
 
