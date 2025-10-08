@@ -2854,7 +2854,8 @@ client.on('interactionCreate', async interaction => {
                      customId.startsWith('vacation_add_') || customId.startsWith('vacation_finish_') ||
                      customId.startsWith('vacation_view_') || customId.startsWith('checkin_morning_') || customId.startsWith('checkin_night_') ||
                      customId.startsWith('pet_feed_') || customId.startsWith('pet_water_') || customId.startsWith('pet_clean_') || 
-                     customId.startsWith('pet_pet_') || customId.startsWith('pet_retry_') || customId.startsWith('pet_respawn_')) {
+                     customId.startsWith('pet_pet_') || customId.startsWith('pet_retry_') || customId.startsWith('pet_respawn_') ||
+                     customId.startsWith('adopt_pet_')) {
                 // These interactions are handled by the marriage game collectors on the specific messages.
                 // Do not reply here to avoid double-acks and incorrect prompts mid-game.
                 logger.debug(`Marriage game component handled by game collectors: ${customId}`);

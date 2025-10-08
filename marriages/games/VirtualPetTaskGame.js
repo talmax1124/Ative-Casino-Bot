@@ -33,54 +33,123 @@ class VirtualPetTaskGame {
     async handleStart(interaction, session, util) {
         try {
             const marriage = session.marriage;
-            const petId = `pet_${marriage.id}_${Date.now()}`;
+            logger.info(`Pet task started for marriage ${marriage.id}`);
 
             // Check if they already have a pet
             const existingPet = await this.getActivePet(marriage.id);
+            logger.info(`Existing pet check: ${existingPet ? 'Found pet' : 'No pet found'}`);
             
             if (existingPet) {
                 await this.showPetStatus(interaction, existingPet, marriage, util);
             } else {
-                await this.adoptNewPet(interaction, marriage, petId, util);
+                await this.showAdoptionChoices(interaction, marriage, util);
             }
 
         } catch (error) {
             logger.error(`Error in VirtualPetTaskGame: ${error.message}`);
+            logger.error(`Error stack: ${error.stack}`);
             await util.safeReply(interaction, {
-                content: '❌ Error with virtual pet.',
+                content: '❌ Error with virtual pet system. Please try again.',
                 flags: MessageFlags.Ephemeral
             });
         }
     }
 
-    async adoptNewPet(interaction, marriage, petId, util) {
-        const petType = this.PET_TYPES[Math.floor(Math.random() * this.PET_TYPES.length)];
-        
-        // Create pet in database
-        const insertQuery = `
-            INSERT INTO marriage_virtual_pets 
-            (pet_id, marriage_id, pet_name, pet_type, hunger, thirst, cleanliness, happiness, 
-             lives_remaining, is_alive, created_at, last_interaction)
-            VALUES (?, ?, ?, ?, 50, 50, 50, 50, 3, TRUE, NOW(), NOW())
-        `;
-        
-        await dbManager.databaseAdapter.pool.execute(insertQuery, [
-            petId, marriage.id, 'Your Pet', petType
-        ]);
-
+    async showAdoptionChoices(interaction, marriage, util) {
         const embed = new EmbedBuilder()
-            .setTitle('🎉 Pet Adopted!')
-            .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}** have adopted a ${petType}!`)
-            .setColor(0x00FF00)
+            .setTitle('🐾 Adopt a Virtual Pet')
+            .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**, choose a pet to adopt!`)
+            .setColor(0x8B4513)
             .addFields(
-                { name: '📊 Stats', value: 'Hunger: 50%\nThirst: 50%\nCleanliness: 50%\nHappiness: 50%', inline: true },
-                { name: '❤️ Lives', value: '3/3', inline: true },
-                { name: '⏰ Goal', value: 'Keep alive for 2 weeks!', inline: false }
+                { name: '🎯 Goal', value: 'Keep your pet alive for 2 weeks by caring for it daily!', inline: false },
+                { name: '🎮 How to Play', value: '• Feed, water, clean, and pet your companion\n• Monitor its stats and happiness\n• Don\'t let hunger or thirst reach 0!\n• You have 3 lives total', inline: false }
             );
 
-        await util.safeReply(interaction, {
-            embeds: [embed]
+        const petButtons = this.PET_TYPES.map((petType, index) => {
+            return new ButtonBuilder()
+                .setCustomId(`adopt_pet_${marriage.id}_${index}`)
+                .setLabel(`Adopt ${petType}`)
+                .setStyle(ButtonStyle.Primary);
         });
+
+        const row = new ActionRowBuilder().addComponents(...petButtons);
+
+        await util.safeReply(interaction, {
+            embeds: [embed],
+            components: [row]
+        });
+
+        // Setup collector for adoption buttons
+        let message;
+        try {
+            message = await interaction.fetchReply();
+        } catch (fetchError) {
+            logger.warn(`Could not fetch reply for adoption collector: ${fetchError.message}`);
+            return;
+        }
+
+        const collector = buttonUtility.setupCollector(message, {
+            filter: (i) => i.customId.startsWith(`adopt_pet_${marriage.id}_`) && 
+                           (i.user.id === marriage.partner1_id || i.user.id === marriage.partner2_id),
+            time: 300000, // 5 minutes
+            onCollect: async (buttonInteraction) => {
+                await this.handleAdoption(buttonInteraction, marriage, util);
+            }
+        });
+    }
+
+    async handleAdoption(interaction, marriage, util) {
+        try {
+            const petIndex = parseInt(interaction.customId.split('_')[3]);
+            const petType = this.PET_TYPES[petIndex];
+            const petId = `pet_${marriage.id}_${Date.now()}`;
+            
+            logger.info(`Adopting ${petType} for marriage ${marriage.id}`);
+
+            // Create pet in database
+            const insertQuery = `
+                INSERT INTO marriage_virtual_pets 
+                (pet_id, marriage_id, pet_name, pet_type, hunger, thirst, cleanliness, happiness, 
+                 lives_remaining, is_alive, created_at, last_interaction)
+                VALUES (?, ?, ?, ?, 50, 50, 50, 50, 3, TRUE, NOW(), NOW())
+            `;
+            
+            await dbManager.databaseAdapter.pool.execute(insertQuery, [
+                petId, marriage.id, 'Your Pet', petType
+            ]);
+
+            logger.info(`Pet created in database with ID: ${petId}`);
+
+            // Get the newly created pet
+            const newPet = await this.getActivePet(marriage.id);
+            
+            if (newPet) {
+                await this.showPetStatus(interaction, newPet, marriage, util);
+            } else {
+                // Fallback if database query fails
+                const embed = new EmbedBuilder()
+                    .setTitle('🎉 Pet Adopted!')
+                    .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}** have adopted a ${petType}!`)
+                    .setColor(0x00FF00)
+                    .addFields(
+                        { name: '📊 Stats', value: 'Hunger: 50%\nThirst: 50%\nCleanliness: 50%\nHappiness: 50%', inline: true },
+                        { name: '❤️ Lives', value: '3/3', inline: true },
+                        { name: '⏰ Goal', value: 'Keep alive for 2 weeks!', inline: false },
+                        { name: '🔄 Next Step', value: 'Use `/marriage-task task6` to manage your pet!', inline: false }
+                    );
+
+                await util.safeReply(interaction, {
+                    embeds: [embed]
+                });
+            }
+
+        } catch (error) {
+            logger.error(`Error in handleAdoption: ${error.message}`);
+            await util.safeReply(interaction, {
+                content: '❌ Error adopting pet. Please try again.',
+                flags: MessageFlags.Ephemeral
+            });
+        }
     }
 
     async showPetStatus(interaction, pet, marriage, util) {
