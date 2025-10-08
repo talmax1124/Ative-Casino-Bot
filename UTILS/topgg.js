@@ -16,31 +16,31 @@ class TopGGManager {
         this.botId = process.env.CLIENT_ID;
         
         // Rank.Top configuration (voting only, autoposter disabled)
-        this.ranktopWebhookSecret = process.env.RANKTOP_WEBHOOK_SECRET || 'secure-ranktop-webhook-secret-2024';
+        this.ranktopWebhookSecret = 'AtiveTopVotes2025'; // Hardcoded auth token for rank.top webhook
         
         // Voting rewards configuration by type
         this.voteRewards = {
             bot: {
-                coins: 25000, // 25K coins per vote
+                coins: 75000, // 75K coins per vote (3x increase)
                 bonusMultiplier: 1.5, // Weekend bonus
                 streakBonuses: {
-                    7: 50000,   // 7 day streak: 50K bonus
-                    30: 200000, // 30 day streak: 200K bonus
-                    100: 1000000 // 100 day streak: 1M bonus
+                    7: 150000,   // 7 day streak: 150K bonus (3x increase)
+                    30: 600000,  // 30 day streak: 600K bonus (3x increase)
+                    100: 3000000 // 100 day streak: 3M bonus (3x increase)
                 }
             },
             server: {
-                coins: 25000, // Same as bot vote
+                coins: 75000, // Same as bot vote (3x increase)
                 bonusMultiplier: 1.5, // Weekend bonus
                 streakBonuses: {
-                    7: 50000,   // 7 day streak: 50K bonus
-                    30: 200000, // 30 day streak: 200K bonus
-                    100: 1000000 // 100 day streak: 1M bonus
+                    7: 150000,   // 7 day streak: 150K bonus (3x increase)
+                    30: 600000,  // 30 day streak: 600K bonus (3x increase)
+                    100: 3000000 // 100 day streak: 3M bonus (3x increase)
                 }
             },
             ranktop: {
                 coins: 0, // No coins for rank.top votes
-                lotteryTickets: 1, // 1 free lottery ticket per vote
+                lotteryTickets: 3, // 3 free lottery tickets per vote (3x increase)
                 bonusMultiplier: 1.0, // No weekend bonus for lottery tickets
                 streakBonuses: {} // No streak bonuses for lottery-only rewards
             }
@@ -102,19 +102,26 @@ class TopGGManager {
                         // Give free lottery tickets using designated server ID
                         const lotteryGuildId = process.env.DESIGNATED_SERVER_ID || '1403244656845787167';
                         lotteryTicketsGiven = await this.giveFreeLotteryTickets(userId, lotteryGuildId, rewardConfig.lotteryTickets);
-                        logger.info(`Gave ${lotteryTicketsGiven} free lottery tickets to user ${userId} for rank.top vote`);
+                        logger.info(`🎫 Gave ${lotteryTicketsGiven} free lottery tickets to user ${userId} for rank.top vote (requested: ${rewardConfig.lotteryTickets})`);
                     } catch (lotteryError) {
                         logger.error(`Failed to give lottery tickets to user ${userId}: ${lotteryError.message}`);
                     }
                 }
 
-                // Send notification for lottery tickets only
+                // Send notification for lottery tickets (always send notification, even if 0 tickets)
                 try {
+                    logger.info(`🎫 Sending Rank.Top notification to user ${userId} - ${lotteryTicketsGiven} tickets given`);
                     const user = await this.client.users.fetch(userId);
                     await this.sendVoteRewardNotification(user, 0, 0, 0, false, false, 0, voteType, lotteryTicketsGiven);
+                    logger.info(`✅ Rank.Top notification sent successfully to user ${userId}`);
                 } catch (userError) {
                     logger.error(`Failed to fetch user ${userId} for rank.top vote notification: ${userError.message}`);
-                    await this.sendVoteRewardNotification({ id: userId, username: 'Unknown User', displayAvatarURL: () => null }, 0, 0, 0, false, false, 0, voteType, lotteryTicketsGiven);
+                    try {
+                        await this.sendVoteRewardNotification({ id: userId, username: 'Unknown User', displayAvatarURL: () => null }, 0, 0, 0, false, false, 0, voteType, lotteryTicketsGiven);
+                        logger.info(`✅ Rank.Top fallback notification sent to user ${userId}`);
+                    } catch (fallbackError) {
+                        logger.error(`Failed to send Rank.Top fallback notification: ${fallbackError.message}`);
+                    }
                 }
 
                 logger.info(`Rank.top vote processed: User ${userId} received ${lotteryTicketsGiven} lottery tickets`);
@@ -240,7 +247,23 @@ class TopGGManager {
                 });
             }
 
-            if (lotteryTicketsGiven > 0) {
+            // Always show lottery ticket information for Rank.Top votes
+            if (voteType === 'ranktop') {
+                if (lotteryTicketsGiven > 0) {
+                    embed.addFields({
+                        name: '🎫 Lottery Tickets',
+                        value: `${lotteryTicketsGiven} free ticket${lotteryTicketsGiven > 1 ? 's' : ''} added!`,
+                        inline: true
+                    });
+                } else {
+                    embed.addFields({
+                        name: '🎫 Lottery Tickets',
+                        value: `Weekly limit reached (10/10 tickets)\nResets every Monday at 00:00 UTC\nThanks for voting!`,
+                        inline: true
+                    });
+                }
+            } else if (lotteryTicketsGiven > 0) {
+                // For non-ranktop votes, only show if tickets were given
                 embed.addFields({
                     name: '🎫 Lottery Tickets',
                     value: `${lotteryTicketsGiven} free ticket${lotteryTicketsGiven > 1 ? 's' : ''} added!`,
@@ -276,7 +299,7 @@ class TopGGManager {
                 if (isWeekend) {
                     embed.addFields({
                         name: '🎉 Weekend Bonus!',
-                        value: `+50% extra coins (${fmt(this.voteRewards.coins * 0.5)})`,
+                        value: `+50% extra coins (${fmt(this.voteRewards.bot.coins * 0.5)})`,
                         inline: false
                     });
                 }
@@ -314,9 +337,10 @@ class TopGGManager {
             // Try to DM user first
             let dmSent = false;
             try {
+                logger.debug(`📨 Attempting to DM user ${user.username || user.id} for ${voteType} vote`);
                 await user.send({ embeds: [embed] });
                 dmSent = true;
-                logger.debug(`✅ Vote confirmation DM sent to ${user.username || user.id}`);
+                logger.info(`✅ Vote confirmation DM sent to ${user.username || user.id} for ${voteType} vote`);
             } catch (dmError) {
                 // Common reason: user has DMs disabled - log as debug instead of error
                 if (dmError.code === 50007 || dmError.message.includes('Cannot send messages to this user')) {
@@ -329,7 +353,8 @@ class TopGGManager {
             // Always send to vote log channel as backup and for logging
             let logChannelSent = false;
             try {
-                const logChannelId = process.env.LOG_CHANNEL_ID || process.env.VOTE_LOG_CHANNEL_ID;
+                const logChannelId = process.env.LOG_CHANNEL_ID || process.env.VOTE_LOG_CHANNEL_ID || '1405096821512212521';
+                logger.debug(`📍 Attempting to send notification to log channel: ${logChannelId}`);
                 if (logChannelId) {
                     const logChannel = await this.client.channels.fetch(logChannelId);
                     if (logChannel && logChannel.isTextBased()) {
@@ -494,7 +519,7 @@ class TopGGManager {
             const actualTicketsToGive = Math.min(ticketCount, remainingSlots);
             
             if (actualTicketsToGive <= 0) {
-                logger.info(`User ${userId} already has maximum lottery tickets (${currentTickets}/10)`);
+                logger.info(`🎫 User ${userId} already has maximum lottery tickets (${currentTickets}/10) - no tickets given`);
                 return 0;
             }
 

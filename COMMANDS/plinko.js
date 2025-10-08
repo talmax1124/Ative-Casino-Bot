@@ -492,7 +492,7 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
             winnings,
             {
                 mode: mode,
-                slot: finalPosition,
+                slot: finalSlot,
                 multiplier: finalMultiplier,
                 houseEdge: 0.15,
                 gameType: 'plinko'

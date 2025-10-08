@@ -219,8 +219,8 @@ async function runAllTests() {
     if (passed === tests.length) {
         console.log(`\n${colors.green}🎉 All webhook endpoints are working correctly!${colors.reset}`);
         console.log(`${colors.green}✓ Users can now vote and receive rewards${colors.reset}`);
-        console.log(`${colors.green}✓ Bot votes → 25,000 coins + bonuses${colors.reset}`);
-        console.log(`${colors.green}✓ Rank.top votes → 1 free lottery ticket${colors.reset}`);
+        console.log(`${colors.green}✓ Bot votes → 75,000 coins + bonuses${colors.reset}`);
+        console.log(`${colors.green}✓ Rank.top votes → 3 free lottery tickets${colors.reset}`);
     } else {
         console.log(`\n${colors.red}❌ Some tests failed. Check the logs above for details.${colors.reset}`);
     }

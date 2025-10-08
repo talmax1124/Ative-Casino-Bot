@@ -149,7 +149,7 @@ module.exports = {
             },
             {
                 name: '💰 Vote Rewards',
-                value: '• **Bot Vote**: 25,000 coins + bonuses\n• **Rank.top Vote**: 1 free lottery ticket\n• **Server Vote**: Community support (no rewards)\n• **Weekend Bonus**: +50% extra coins\n• **Streak Bonuses**: Up to 1M coins!',
+                value: '• **Bot Vote**: 75,000 coins + bonuses\n• **Rank.top Vote**: 3 free lottery tickets\n• **Server Vote**: 75,000 coins + bonuses\n• **Weekend Bonus**: +50% extra coins\n• **Streak Bonuses**: Up to 3M coins!',
                 inline: false
             }
         );
@@ -365,7 +365,7 @@ module.exports = {
                 },
                 {
                     name: '💎 Streak Milestones',
-                    value: `**7 days:** ${status.currentStreak >= 7 ? '✅' : '🔒'} +50K coins\n**30 days:** ${status.currentStreak >= 30 ? '✅' : '🔒'} +200K coins\n**100 days:** ${status.currentStreak >= 100 ? '✅' : '🔒'} +1M coins`,
+                    value: `**7 days:** ${status.currentStreak >= 7 ? '✅' : '🔒'} +150K coins\n**30 days:** ${status.currentStreak >= 30 ? '✅' : '🔒'} +600K coins\n**100 days:** ${status.currentStreak >= 100 ? '✅' : '🔒'} +3M coins`,
                     inline: true
                 }
             )
@@ -411,17 +411,17 @@ module.exports = {
             .addFields(
                 {
                     name: '🗳️ Base Voting Rewards',
-                    value: '• **25,000 coins** per vote\n• Vote **every 12 hours**\n• Automatic reward delivery',
+                    value: '• **75,000 coins** per vote\n• Vote **every 12 hours**\n• Automatic reward delivery',
                     inline: false
                 },
                 {
                     name: '🎊 Weekend Bonus',
-                    value: '• **+50% extra coins** on weekends\n• Friday 6PM - Monday 6AM\n• **37,500 coins** per weekend vote!',
+                    value: '• **+50% extra coins** on weekends\n• Friday 6PM - Monday 6AM\n• **112,500 coins** per weekend vote!',
                     inline: true
                 },
                 {
                     name: '🔥 Streak Bonuses',
-                    value: '• **7 days:** +50,000 coins\n• **30 days:** +200,000 coins\n• **100 days:** +1,000,000 coins!',
+                    value: '• **7 days:** +150,000 coins\n• **30 days:** +600,000 coins\n• **100 days:** +3,000,000 coins!',
                     inline: true
                 },
                 {
@@ -821,9 +821,9 @@ module.exports = {
                 title: `🗳️ Vote for ATIVE Casino Bot`,
                 description: `Time to vote for ATIVE Casino Bot on Top.GG!\n\n` +
                            `Rewards:\n` +
-                           `• 25,000 coins per vote\n` +
+                           `• 75,000 coins per vote\n` +
                            `• Weekend bonus: +50% extra\n` +
-                           `• Streak bonuses up to 1M coins!\n\n` +
+                           `• Streak bonuses up to 3M coins!\n\n` +
                            `Vote here: https://top.gg/bot/1403236218900185088/vote`,
                 url: 'https://top.gg/bot/1403236218900185088/vote',
                 location: 'Discord - ATIVE Casino Bot',
@@ -870,9 +870,9 @@ module.exports = {
             dates: `${startTime}/${endTime}`,
             details: `Time to vote for ATIVE Casino Bot on Top.GG!\n\n` +
                     `Rewards:\n` +
-                    `• 25,000 coins per vote\n` +
+                    `• 75,000 coins per vote\n` +
                     `• Weekend bonus: +50% extra\n` +
-                    `• Streak bonuses up to 1M coins!\n\n` +
+                    `• Streak bonuses up to 3M coins!\n\n` +
                     `Vote here: https://top.gg/bot/1403236218900185088/vote`,
             location: 'Discord - ATIVE Casino Bot'
         };
@@ -912,7 +912,7 @@ module.exports = {
                         .addFields(
                             {
                                 name: '💰 Rewards',
-                                value: '25,000+ coins await!',
+                                value: '75,000+ coins await!',
                                 inline: true
                             },
                             {

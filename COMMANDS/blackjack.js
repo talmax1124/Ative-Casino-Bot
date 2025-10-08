@@ -1230,69 +1230,19 @@ module.exports = {
                     finalData.content = `🎰 Game Complete - Payout: ${fmt(finalPayout)}`;
                 }
                 
-                // Check if interaction is still valid before responding
-                if (interaction && typeof interaction.isRepliable === 'function' && interaction.isRepliable()) {
-                    if (interaction.deferred || interaction.replied) {
-                        await interaction.editReply(finalData);
-                    } else {
-                        await interaction.update(finalData);
-                    }
-                    logger.info(`Blackjack game successfully ended for user ${userId}`);
+                // Try interaction update with proper error handling
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.editReply(finalData);
                 } else {
-                    logger.warn('Interaction is no longer repliable for endGame update');
-                    // Fallback: try editing the original message or sending a new one to the channel
-                    if (interaction?.message?.editable) {
-                        try {
-                            await interaction.message.edit(finalData);
-                            logger.info('Blackjack endGame: edited original message as fallback');
-                        } catch (msgEditErr) {
-                            logger.warn(`Blackjack endGame: message edit fallback failed: ${msgEditErr.message}`);
-                            if (interaction.channel) {
-                                await interaction.channel.send(finalData);
-                                logger.info('Blackjack endGame: posted new message to channel as fallback');
-                            }
-                        }
-                    } else if (interaction?.channel) {
-                        await interaction.channel.send(finalData);
-                        logger.info('Blackjack endGame: posted new message to channel as fallback');
-                    }
+                    await interaction.update(finalData);
                 }
+                logger.info(`Blackjack game successfully ended for user ${userId}`);
+                
             } catch (interactionError) {
                 logger.error(`Failed to update interaction for blackjack endGame: ${interactionError.message}`);
                 
-                // Fallback: try to send a new reply if update fails
-                try {
-                    if (interaction && typeof interaction.isRepliable === 'function' && interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
-                        const fallbackData = {
-                            content: `🎰 Game Complete - Payout: ${fmt(finalPayout)}`,
-                            embeds: [finalEmbed],
-                            components: isPlayforGame ? [] : GamePanel.createGameButtons({ 
-                                actions: ['play_again_multi', 'quit'],
-                                lastBet: game.betAmount,
-                                balance: updatedBalance.wallet
-                            })
-                        };
-                        
-                        if (tableImage) {
-                            fallbackData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
-                            finalEmbed.setImage('attachment://blackjack-table.png');
-                        }
-                        
-                        await interaction.reply(fallbackData);
-                    } else if (interaction?.message?.editable) {
-                        // Try message edit fallback
-                        await interaction.message.edit(finalData);
-                        logger.info('Blackjack endGame: edited original message as second-level fallback');
-                    } else if (interaction?.channel) {
-                        // Last resort: send to channel
-                        await interaction.channel.send(finalData);
-                        logger.info('Blackjack endGame: posted new message to channel as second-level fallback');
-                    } else {
-                        logger.warn('Cannot send fallback reply - no valid interaction or channel available');
-                    }
-                } catch (fallbackError) {
-                    logger.error(`Failed fallback reply for blackjack endGame: ${fallbackError.message}`);
-                }
+                // Don't attempt any fallback replies - just log the error
+                // The game logic completed successfully, interaction update just failed
             }
 
             // Complete session if game has one

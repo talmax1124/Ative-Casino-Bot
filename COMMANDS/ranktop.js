@@ -20,12 +20,12 @@ module.exports = {
                 .addFields(
                     {
                         name: '🎁 Vote Rewards',
-                        value: '• **25,000 coins** per vote\n• **3 free lottery tickets**\n• **Weekend bonus** (+50% coins)\n• **Streak bonuses** for consecutive votes',
+                        value: '• **75,000 coins** per vote\n• **3 free lottery tickets**\n• **Weekend bonus** (+50% coins)\n• **Streak bonuses** for consecutive votes',
                         inline: false
                     },
                     {
                         name: '🏆 Streak Bonuses',
-                        value: '• **7 days**: +50,000 coins\n• **30 days**: +200,000 coins\n• **100 days**: +1,000,000 coins',
+                        value: '• **7 days**: +150,000 coins\n• **30 days**: +600,000 coins\n• **100 days**: +3,000,000 coins',
                         inline: false
                     },
                     {

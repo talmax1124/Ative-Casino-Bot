@@ -1394,7 +1394,7 @@ app.post('/topgg/webhook/legacy', async (req, res) => {
     console.log(`Top.GG vote received from user: ${userId}`);
 
     // Process vote reward (add coins to user)
-    const rewardAmount = 25000; // 25K coins per vote
+    const rewardAmount = 75000; // 75K coins per vote
     
     try {
       // Ensure user exists and add coins

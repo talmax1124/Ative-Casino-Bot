@@ -10,6 +10,10 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// Clean up all past logs on startup before initializing logger
+const logCleanup = require('./UTILS/logCleanup');
+logCleanup.cleanupLogs(); // Run cleanup synchronously
+
 const logger = require('./UTILS/logger');
 const StartupBanner = require('./UTILS/startupBanner');
 const dbManager = require('./UTILS/database');
@@ -3725,6 +3729,9 @@ const gracefulShutdown = require('./UTILS/gracefulShutdown');
 client.once('clientReady', async () => {
     StartupBanner.showBanner();
 
+    // Log cleanup was performed during startup
+    logger.info('🧹 [STARTUP] All past logs cleared - Fresh start with clean logs');
+
     // Clear any stale game sessions from previous runs
     const { clearActiveGame } = require('./UTILS/common');
     const sessionManager = require('./UTILS/sessionManager');
@@ -3939,7 +3946,7 @@ client.once('clientReady', () => {
     
     // Voting system status
     logger.info('✅ Voting system initialized successfully');
-    logger.info('🤖 Bot votes: 25K coins + bonuses (webhook)');
+    logger.info('🤖 Bot votes: 75K coins + bonuses (webhook)');
     logger.info('🎟️ Rank.top votes: Free lottery tickets (webhook)');
     logger.info('🤝 Server votes: Community support button (no automated rewards)');
 });
