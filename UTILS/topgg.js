@@ -457,12 +457,12 @@ class TopGGManager {
             });
             logger.info('Rank.Top webhook data received:', JSON.stringify(voteData));
             
-            // Handle test webhooks - if no user ID or empty body, it's a test
-            if (!voteData.user || Object.keys(voteData).length === 0) {
-                logger.info('✅ Rank.Top test webhook detected - responding with success');
+            // Handle truly empty webhooks (no user data at all)
+            if (Object.keys(voteData).length === 0) {
+                logger.info('✅ Rank.Top empty test webhook detected - responding with success');
                 return res.status(200).json({ 
                     success: true, 
-                    message: 'Webhook successfully received',
+                    message: 'Empty webhook successfully received',
                     test: true 
                 });
             }
@@ -473,9 +473,21 @@ class TopGGManager {
                 return res.status(401).json({ success: false, error: 'Invalid signature' });
             }
 
-            const userId = voteData.user;
+            // Extract user ID from webhook data (handle both 'user' and 'user_id' fields)
+            const userId = voteData.user_id || voteData.user;
             
-            logger.info(`✅ Rank.Top vote received from user: ${userId}`);
+            if (!userId) {
+                logger.error('No user ID in Rank.Top vote data:', voteData);
+                return res.status(400).json({ success: false, error: 'Missing user ID' });
+            }
+            
+            // Check if this is a test webhook but still process it
+            const isTestVote = voteData.is_test === true;
+            if (isTestVote) {
+                logger.info(`🧪 Rank.Top TEST vote received from user: ${userId} - processing as real vote for testing`);
+            } else {
+                logger.info(`✅ Rank.Top vote received from user: ${userId}`);
+            }
 
             // Process the vote reward with 'ranktop' type
             await this.processVoteReward(userId, voteData, 'ranktop');
