@@ -131,7 +131,7 @@ process.on('SIGINT', async () => {
 Run the test script to verify everything is working:
 
 ```bash
-node test-backup-system.js
+node tests/test-backup-system.js
 ```
 
 ## 🔐 Security Features
@@ -222,7 +222,7 @@ backups/                  # Local backup storage
 ├── backup_full_*.sql.gz.enc  # Backup files
 └── backup_full_*.meta        # Backup metadata
 
-test-backup-system.js     # System validation script
+tests/test-backup-system.js     # System validation script
 ```
 
 ## 🔄 Backup Lifecycle
@@ -247,7 +247,7 @@ test-backup-system.js     # System validation script
 ### If Backup System Fails
 
 1. Check logs for errors
-2. Run `node test-backup-system.js` to diagnose
+2. Run `node tests/test-backup-system.js` to diagnose
 3. Verify environment variables are set
 4. Check disk space and permissions
 5. Test database connectivity
@@ -288,7 +288,7 @@ test-backup-system.js     # System validation script
 ## 📞 Support
 
 If you encounter issues:
-1. Run the test script: `node test-backup-system.js`
+1. Run the test script: `node tests/test-backup-system.js`
 2. Check the bot logs for error messages
 3. Verify all environment variables are correctly set
 4. Test with a manual backup first: `/backup create`

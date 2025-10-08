@@ -54,7 +54,7 @@ npm install axios
 ```
 
 2. **Configure the test script**:
-Edit `test-voting.js` and set:
+Edit `tests/test-voting.js` and set:
 - `WEBHOOK_BASE_URL`: Your bot's webhook URL (or `http://localhost:3001` for local)
 - `TEST_USER_ID`: Your Discord user ID
 
@@ -62,15 +62,15 @@ Edit `test-voting.js` and set:
 
 ```bash
 # Test all voting types
-node test-voting.js
+node tests/test-voting.js
 
 # Interactive mode
-node test-voting.js -i
+node tests/test-voting.js -i
 
 # Test specific vote type
-node test-voting.js bot      # Test bot vote
-node test-voting.js server   # Test server vote  
-node test-voting.js ranktop  # Test Rank.top vote
+node tests/test-voting.js bot      # Test bot vote
+node tests/test-voting.js server   # Test server vote  
+node tests/test-voting.js ranktop  # Test Rank.top vote
 ```
 
 ### Method 2: Manual Testing with cURL
