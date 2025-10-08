@@ -2337,7 +2337,7 @@ client.on('interactionCreate', async interaction => {
                 const action = customId.startsWith('divorce_confirm_') ? 'confirm' : 'cancel';
                 const marriageId = customId.replace(`divorce_${action}_`, '');
                 
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferReply({ flags: 64 });
                 
                 try {
                     const guildId = interaction.guild?.id;
@@ -2838,7 +2838,7 @@ client.on('interactionCreate', async interaction => {
                     } else {
                         await SafeInteractionHandler.safeReply(interaction, {
                             content: '❌ Unknown marriage task action.',
-                            ephemeral: true
+                            flags: 64
                         });
                     }
                 }

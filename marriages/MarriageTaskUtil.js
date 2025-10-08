@@ -453,7 +453,24 @@ class MarriageTaskUtil {
                 
                 // For non-modal games, defer first then call handler
                 if (!interaction.deferred && !interaction.replied) {
-                    await interaction.deferReply();
+                    // Check if interaction is still valid before deferring
+                    if (!interaction.isRepliable || !interaction.isRepliable()) {
+                        logger.debug('Interaction no longer repliable, cannot defer');
+                        return await this.safeReply(interaction, {
+                            content: '❌ Interaction expired. Please try again.',
+                            flags: 64
+                        });
+                    }
+                    try {
+                        await interaction.deferReply();
+                    } catch (deferError) {
+                        logger.debug(`Failed to defer interaction: ${deferError.message}`);
+                        // If defer fails, try to use safeReply instead
+                        return await this.safeReply(interaction, {
+                            content: '❌ Failed to start game session. Please try again.',
+                            flags: 64
+                        });
+                    }
                 }
                 const result = await gameConfig.startHandler(interaction, session, this);
                 return result;
