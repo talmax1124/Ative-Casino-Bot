@@ -910,11 +910,31 @@ class DatabaseAdapter {
             const updateFields = ['wallet = ?', 'bank = ?', 'updated_at = NOW()'];
             const updateValues = [newWallet, newBank];
 
-            // Handle additional fields (exclude play-for metadata and excludeFromPlayfor flag)
+            // Handle additional fields - WHITELIST ONLY SAFE FIELDS to prevent cooldown bypass
+            const safeFields = [
+                'game_active',
+                'username',
+                'last_earn_ts',
+                'last_work_ts', 
+                'last_beg_ts',
+                'last_crime_ts',
+                'last_heist_ts',
+                'last_rob_ts',
+                'last_earnmoney_ts',
+                'last_dailytask_ts',
+                'last_quiz_ts',
+                'daily_sent',
+                'last_send_reset'
+            ];
+            
             for (const [key, value] of Object.entries(kwargs)) {
-                if (key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
+                // Only allow whitelisted fields and exclude metadata
+                if (safeFields.includes(key) && key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
                     updateFields.push(`${key} = ?`);
                     updateValues.push(value);
+                } else if (!safeFields.includes(key) && key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
+                    // Log potential security issue
+                    logger.warn(`updateUserBalance: Blocked unsafe field update attempt: ${key} = ${value} for user ${userId}`);
                 }
             }
 
@@ -969,11 +989,31 @@ class DatabaseAdapter {
                 updateValues.push(bankValue);
             }
 
-            // Handle additional fields (exclude play-for metadata and excludeFromPlayfor flag)
+            // Handle additional fields - WHITELIST ONLY SAFE FIELDS to prevent cooldown bypass
+            const safeFields = [
+                'game_active',
+                'username',
+                'last_earn_ts',
+                'last_work_ts', 
+                'last_beg_ts',
+                'last_crime_ts',
+                'last_heist_ts',
+                'last_rob_ts',
+                'last_earnmoney_ts',
+                'last_dailytask_ts',
+                'last_quiz_ts',
+                'daily_sent',
+                'last_send_reset'
+            ];
+            
             for (const [key, value] of Object.entries(kwargs)) {
-                if (key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
+                // Only allow whitelisted fields and exclude metadata
+                if (safeFields.includes(key) && key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
                     updateFields.push(`${key} = ?`);
                     updateValues.push(value);
+                } else if (!safeFields.includes(key) && key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
+                    // Log potential security issue
+                    logger.warn(`setUserBalance: Blocked unsafe field update attempt: ${key} = ${value} for user ${userId}`);
                 }
             }
 
