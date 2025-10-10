@@ -369,6 +369,12 @@ class BulletproofEconomyController {
                 console.warn(`⚠️ BulletproofEconomy: Invalid gameType (${gameType}) for user ${userId}, using fallback payout`);
                 return { adjustedPayout: originalPayout };
             }
+            
+            // ROULETTE SHOULD NOT BE ADJUSTED - Fair casino odds already applied
+            if (gameType === 'roulette') {
+                return { adjustedPayout: originalPayout };
+            }
+            
             // Record player choice/behavior for trend analysis
             if (this.trendAnalyzer && gameData.choice) {
                 await this.trendAnalyzer.recordChoice(gameType, userId, gameData.choice, {

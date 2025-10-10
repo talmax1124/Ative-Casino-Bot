@@ -173,7 +173,7 @@ Access health check: `http://your-bot-domain.com/health`
 ## 📝 Important Notes
 
 1. **Vote Cooldown**: 12 hours between votes on each platform
-2. **Streak System**: Must vote within 18 hours to maintain streak
+2. **Streak System**: Must vote within 19 hours to maintain streak
 3. **Lottery Limits**: Maximum 10 tickets per week per user
 4. **Weekend Bonus**: 50% extra coins on Saturday/Sunday (for coin rewards)
 

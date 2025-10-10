@@ -210,7 +210,7 @@ class RouletteGame {
             return 0;
         }
 
-        // FAIR PAYOUTS - Standard casino multipliers
+        // FAIR PAYOUTS - Standard casino odds (returns total amount including bet)
         let payout = 0;
         switch (type) {
             case 'red':
@@ -219,8 +219,8 @@ class RouletteGame {
             case 'even':
             case 'low':
             case 'high':
-                // 1:1 bets pay 2x (bet + profit)
-                payout = amount * 2.0;
+                // 1:1 odds - returns double the bet (bet + 1x profit)
+                payout = amount * 2;
                 break;
             case 'dozen1':
             case 'dozen2':
@@ -228,20 +228,20 @@ class RouletteGame {
             case 'column1':
             case 'column2':
             case 'column3':
-                // 2:1 bets pay 3x (bet + 2x profit)
-                payout = amount * 3.0;
+                // 2:1 odds - returns triple the bet (bet + 2x profit)
+                payout = amount * 3;
                 break;
             case 'number':
-                // Single number pays 35:1 (bet + 35x profit)
-                payout = amount * 36.0;
+                // 35:1 odds - returns 36x the bet (bet + 35x profit)
+                payout = amount * 36;
                 break;
             case 'green':
-                // Green pays 35:1 (same as single number)
-                payout = amount * 36.0;
+                // 35:1 odds - returns 36x the bet (same as single number)
+                payout = amount * 36;
                 break;
             case 'basket':
-                // Basket pays 6:1 (bet + 6x profit)
-                payout = amount * 7.0;
+                // 6:1 odds - returns 7x the bet (bet + 6x profit)
+                payout = amount * 7;
                 break;
             default:
                 payout = 0;

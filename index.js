@@ -35,15 +35,47 @@ const storageMonitor = require('./UTILS/storageMonitor');
 
 // Global error handling for unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-    // Specifically handle Discord API unknown interaction errors
-    if (reason && reason.message && reason.message.includes('Unknown interaction')) {
-        logger.debug('Unknown interaction error caught and handled:', reason.message);
-        return;
+    // Specifically handle Discord API interaction errors
+    if (reason && reason.message) {
+        // Handle unknown interaction errors (expired or invalid)
+        if (reason.message.includes('Unknown interaction')) {
+            logger.debug('Unknown interaction error caught and handled:', reason.message);
+            return;
+        }
+        
+        // Handle interaction not deferred/replied errors
+        if (reason.message.includes('The reply to this interaction has not been sent or deferred')) {
+            logger.debug('Interaction not deferred error caught:', reason.message);
+            return;
+        }
+        
+        // Handle already acknowledged interaction errors
+        if (reason.message.includes('Interaction has already been acknowledged')) {
+            logger.debug('Interaction already acknowledged error caught:', reason.message);
+            return;
+        }
+    }
+    
+    // Handle Discord API error codes
+    if (reason && reason.code) {
+        // 10062: Unknown interaction (expired)
+        if (reason.code === 10062) {
+            logger.debug('Interaction expired (10062)');
+            return;
+        }
+        
+        // 40060: Interaction already acknowledged
+        if (reason.code === 40060) {
+            logger.debug('Interaction already acknowledged (40060)');
+            return;
+        }
     }
 
     // Handle other unhandled rejections
     logger.error('Unhandled promise rejection:', reason instanceof Error ? reason.message : JSON.stringify(reason, null, 2));
-    logger.error('Promise:', promise ? JSON.stringify(promise, null, 2) : 'undefined');
+    if (reason instanceof Error && reason.stack) {
+        logger.error('Stack trace:', reason.stack);
+    }
 });
 
 process.on('uncaughtException', (error) => {

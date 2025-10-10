@@ -206,7 +206,7 @@ class DynamicHouseEdgeSystem {
         });
         
         // Economy commands (beg, crime) with low edges
-        ['beg', 'crime', 'daily', 'work'].forEach(gameType => {
+        ['beg', 'crime', 'daily', 'work', 'dailytask'].forEach(gameType => {
             this.baseEdges.set(gameType, {
                 minimum: 0.01,     // 1%
                 base: 0.02,        // 2%

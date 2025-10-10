@@ -29,8 +29,8 @@ module.exports = {
         .addChoices(
           { name: '🛡️ Safe (Min: $500, Max: 1.5x)', value: 'safe' },
           { name: '⚖️ Balanced (Min: $1K, Max: 2.0x)', value: 'balanced' },
-          { name: '⚡ Risky (Min: $2.5K, Max: 2.5x)', value: 'risky' },
-          { name: '🔥 Extreme (Min: $5K, Max: 3.0x)', value: 'extreme' }
+          { name: '⚡ Risky (Min: $2.5K, Max: 2.0x)', value: 'risky' },
+          { name: '🔥 Extreme (Min: $5K, Max: 2.0x)', value: 'extreme' }
         )
     ),
 

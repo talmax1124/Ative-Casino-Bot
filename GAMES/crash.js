@@ -26,6 +26,11 @@ const { GameType } = require('../UTILS/gameUtils');
 const logger = require('../UTILS/logger');
 const uasDataExporter = require('../UTILS/uasDataExporter');
 
+// Global crash parameters
+const GLOBAL_CRASH_MIN = 0.6; // Start multiplier
+const GLOBAL_CRASH_MAX = 2.0; // Absolute cap
+const GROWTH_PER_SECOND = 0.05; // Small increment per update tick (1s)
+
 const CRASH_MODES = {
   safe:   { name: '🛡️ Safe',    minBet: 500,  maxMultiplier: 1.5, color: 0x4CAF50 },
   balanced:{ name: '⚖️ Balanced', minBet: 1000, maxMultiplier: 2.0, color: 0xFF9800 },
@@ -36,35 +41,42 @@ const CRASH_MODES = {
 function randFloat() { return Math.random(); }
 
 function generateCrashPoint(maxMultiplier) {
-  // IMPROVED: More player-friendly distribution - higher crash points more likely
+  // Player-friendly distribution within [GLOBAL_CRASH_MIN, min(maxMultiplier, GLOBAL_CRASH_MAX)]
   const r = randFloat();
+  const effectiveMax = Math.min(maxMultiplier, GLOBAL_CRASH_MAX);
+  const base = GLOBAL_CRASH_MIN;
+  const span = Math.max(0.01, effectiveMax - base);
   let cp;
-  
-  // 70% chance for favorable crashes (75-90% of max multiplier range)
+
+  // 70% chance for favorable crashes (75-90% of range)
   if (r < 0.7) {
-    const minRange = 1.0 + (maxMultiplier - 1.0) * 0.75; // Start at 75% of max range
-    const maxRange = 1.0 + (maxMultiplier - 1.0) * 0.9;  // Up to 90% of max range
+    const minRange = base + span * 0.75;
+    const maxRange = base + span * 0.90;
     cp = minRange + (randFloat() * (maxRange - minRange));
   }
-  // 20% chance for mid-range crashes (50-75% of max multiplier range)
+  // 20% chance for mid-range crashes (50-75% of range)
   else if (r < 0.9) {
-    const minRange = 1.0 + (maxMultiplier - 1.0) * 0.5;  // Start at 50% of max range
-    const maxRange = 1.0 + (maxMultiplier - 1.0) * 0.75; // Up to 75% of max range
+    const minRange = base + span * 0.50;
+    const maxRange = base + span * 0.75;
     cp = minRange + (randFloat() * (maxRange - minRange));
   }
   // 10% chance for early crashes (keep some risk)
   else {
-    cp = 1.0 + (randFloat() * (maxMultiplier - 1.0) * 0.5);
+    const minRange = base + span * 0.10;
+    const maxRange = base + span * 0.50;
+    cp = minRange + (randFloat() * (maxRange - minRange));
   }
-  
-  return Math.min(maxMultiplier, Number(cp.toFixed(2)));
+
+  // Clamp and round
+  cp = Math.max(base, Math.min(effectiveMax, cp));
+  return Number(cp.toFixed(2));
 }
 
 function calcMultiplier(startTime, crashPoint) {
   const elapsed = (Date.now() - startTime) / 1000;
-  if (elapsed <= 0) return 1.0;
-  // Smooth growth towards crash point
-  const growth = Math.min(crashPoint, 1.0 + elapsed * 0.15 + Math.max(0, elapsed - 6) * 0.05);
+  if (elapsed <= 0) return GLOBAL_CRASH_MIN;
+  // Small, steady growth from GLOBAL_CRASH_MIN toward crash point
+  const growth = Math.min(crashPoint, GLOBAL_CRASH_MIN + (elapsed * GROWTH_PER_SECOND));
   return Number(growth.toFixed(2));
 }
 
@@ -80,7 +92,7 @@ class CrashGame {
     this.state = 'betting';
     this.startTime = null;
     this.crashPoint = generateCrashPoint(this.mode.maxMultiplier);
-    this.currentMultiplier = 1.0;
+    this.currentMultiplier = GLOBAL_CRASH_MIN;
     this.gameMessage = null;
     this.updateInterval = null;
     this.bettingTimeout = null;
@@ -153,8 +165,11 @@ class CrashGame {
       title = `💰 ${this.ownerUsername}'s Crash - Betting`;
       color = 0x00FF00;
       const timeRemaining = 60 - Math.floor((Date.now() - this.createdAt) / 1000);
-      description = `Mode: ${this.mode.name} • Min bet: ${fmt(this.mode.minBet)} • Max: ${this.mode.maxMultiplier}x\n` +
+      {
+        const displayMax = Math.min(this.mode.maxMultiplier, GLOBAL_CRASH_MAX);
+        description = `Mode: ${this.mode.name} • Min bet: ${fmt(this.mode.minBet)} • Max: ${displayMax}x\n` +
                     `⏱️ Time remaining: ${Math.max(0, timeRemaining)}s`;
+      }
     } else if (this.state === 'running') {
       title = `🚀 Crash - ${this.currentMultiplier.toFixed(2)}x`;
       color = 0xFFAA00;
@@ -194,11 +209,12 @@ class CrashGame {
     if (this.state !== 'betting' || this.players.size === 0) return false;
     this.state = 'running';
     this.startTime = Date.now();
-    this.currentMultiplier = 1.0;
+    this.currentMultiplier = GLOBAL_CRASH_MIN;
     if (this.bettingTimeout) { clearTimeout(this.bettingTimeout); this.bettingTimeout = null; }
+    // Update UI and state roughly every 0.7s for smoother increments
     this.updateInterval = setInterval(async () => {
       try { await this.updateGame(); } catch (e) { logger.error(`Crash update error: ${e.message}`); await this.crashGame('error'); }
-    }, 1000);
+    }, 700);
     await this.updateMessage();
     return true;
   }

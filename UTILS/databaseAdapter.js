@@ -2357,6 +2357,8 @@ class DatabaseAdapter {
 
     /**
      * Conduct lottery drawing with MariaDB integration for specific tier
+     * NOTE: Developer (ID: 466050111680544798) is excluded from winning
+     * If developer is selected, drawing continues to next participant
      */
     async conductLotteryDrawing(guildId, tier = 1) {
         const connection = await this.pool.getConnection();
@@ -2460,10 +2462,20 @@ class DatabaseAdapter {
             const usedUserIds = new Set();
             const { secureRandomInt } = require('./rng');
             
-            // Draw 3 unique winners
+            // Developer ID to exclude from winning
+            const DEVELOPER_ID = '466050111680544798';
+            
+            // Draw 3 unique winners (excluding developer)
             while (winners.length < 3 && usedUserIds.size < participants.length) {
                 const randomIndex = secureRandomInt(0, ticketPool.length);
                 const winnerId = ticketPool[randomIndex];
+                
+                // Skip if this is the developer's ID
+                if (winnerId === DEVELOPER_ID) {
+                    logger.info(`Developer ID ${DEVELOPER_ID} was selected but excluded from winning lottery tier ${tier}`);
+                    usedUserIds.add(winnerId); // Mark as used to avoid infinite loop
+                    continue;
+                }
                 
                 if (!usedUserIds.has(winnerId)) {
                     usedUserIds.add(winnerId);
@@ -2499,9 +2511,9 @@ class DatabaseAdapter {
                     [winner.userId, guildId, actualWeekStart, winner.ticketsOwned, totalTickets, winner.prize]
                 );
                 
-                // Award prize to winner
+                // Award prize to winner's BANK account (lottery prizes go to bank)
                 await connection.execute(
-                    'UPDATE user_balances SET wallet = wallet + ? WHERE user_id = ?',
+                    'UPDATE user_balances SET bank = bank + ? WHERE user_id = ?',
                     [winner.prize, winner.userId]
                 );
             }

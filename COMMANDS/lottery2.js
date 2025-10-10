@@ -138,11 +138,25 @@ module.exports = {
         const guildId = await getGuildId(interaction);
 
         try {
+            // Handle purchase actions
+            if (action.startsWith('purchase_')) {
+                const amount = parseInt(action.substring('purchase_'.length));
+                await this.processPurchase(interaction, userId, guildId, amount);
+                return;
+            }
+            
+            // Handle cancel from purchase screen
+            if (action === 'cancel') {
+                await this.showLottery2MainPanel(interaction, userId, guildId);
+                return;
+            }
+
             switch (action) {
                 case 'buy_tickets':
-                    // Redirect to purchaselottery2 command
-                    const purchaseCommand = require('./purchaselottery2');
-                    await purchaseCommand.showLottery2Interface(interaction, userId, guildId);
+                    // Defer the update first to prevent interaction timeout
+                    await interaction.deferUpdate();
+                    // Handle purchase directly
+                    await this.showPurchaseInterface(interaction, userId, guildId);
                     break;
 
                 case 'rules':
@@ -173,7 +187,12 @@ module.exports = {
                 error: error.message
             });
 
-            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+            // Check if we can reply or need to follow up
+            if (interaction.deferred || interaction.replied) {
+                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+            } else {
+                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            }
         }
     },
 
@@ -333,5 +352,210 @@ module.exports = {
         }
         
         return nextDrawing.tz('UTC').unix();
+    },
+
+    async processPurchase(interaction, userId, guildId, amount) {
+        await interaction.deferUpdate();
+        
+        try {
+            const ticketPrice = 200000; // $200K per ticket
+            const totalCost = ticketPrice * amount;
+            
+            // Get current balance and tickets
+            const userBalance = await dbManager.getUserBalance(userId, guildId);
+            const userTickets = await dbManager.getUserLotteryTickets(userId, guildId, 2); // Tier 2
+            const currentTickets = userTickets ? userTickets.length : 0;
+            
+            // Validate purchase
+            if (userBalance.wallet < totalCost) {
+                const embed = new EmbedBuilder()
+                    .setColor(UITemplates.getColors().ERROR)
+                    .setTitle('💸 Insufficient Funds')
+                    .setDescription(`You don't have enough money to purchase ${amount} ticket${amount > 1 ? 's' : ''}.`)
+                    .addFields(
+                        { name: 'Cost', value: fmt(totalCost), inline: true },
+                        { name: 'Your Balance', value: fmt(userBalance.wallet), inline: true },
+                        { name: 'Needed', value: fmt(totalCost - userBalance.wallet), inline: true }
+                    );
+                
+                await interaction.editReply({ embeds: [embed], components: [] });
+                return;
+            }
+            
+            if (currentTickets + amount > 10) {
+                const embed = new EmbedBuilder()
+                    .setColor(UITemplates.getColors().ERROR)
+                    .setTitle('🎟️ Too Many Tickets')
+                    .setDescription(`You can only have a maximum of 10 tier 2 lottery tickets.`)
+                    .addFields(
+                        { name: 'Current Tickets', value: `${currentTickets}`, inline: true },
+                        { name: 'Trying to Buy', value: `${amount}`, inline: true },
+                        { name: 'Maximum Allowed', value: '10', inline: true }
+                    );
+                
+                await interaction.editReply({ embeds: [embed], components: [] });
+                return;
+            }
+            
+            // Process the purchase
+            const newBalance = userBalance.wallet - totalCost;
+            await dbManager.setUserBalance(userId, guildId, newBalance, userBalance.bank);
+            
+            // Add tickets to database
+            for (let i = 0; i < amount; i++) {
+                await dbManager.purchaseLotteryTicket(userId, guildId, 2); // Tier 2
+            }
+            
+            // Update prize pool
+            await dbManager.addToLotteryPrize(guildId, totalCost, 2); // Tier 2
+            
+            // Get updated lottery info
+            const lotteryInfo = await dbManager.getLotteryInfo(guildId, 2); // Tier 2
+            
+            // Success embed
+            const embed = new EmbedBuilder()
+                .setColor(UITemplates.getColors().SUCCESS)
+                .setTitle('🎟️ Tier 2 Lottery Tickets Purchased!')
+                .setDescription(`You successfully purchased ${amount} tier 2 lottery ticket${amount > 1 ? 's' : ''}!`)
+                .addFields(
+                    { name: '🎫 Tickets Bought', value: `${amount} tickets`, inline: true },
+                    { name: '💵 Total Cost', value: fmt(totalCost), inline: true },
+                    { name: '💰 New Balance', value: fmt(newBalance), inline: true },
+                    { name: '🎟️ Your Total Tickets', value: `${currentTickets + amount}`, inline: true },
+                    { name: '🏆 Prize Pool', value: fmt(lotteryInfo.total_prize || 3000000), inline: true },
+                    { name: '⏰ Next Drawing', value: `<t:${this.getNextDrawingTimestamp()}:R>`, inline: true }
+                )
+                .setFooter({ text: '🍀 Good luck in the tier 2 drawing!' });
+            
+            // Add back to lottery button
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('lottery2_buy_tickets')
+                        .setLabel('Buy More Tickets')
+                        .setEmoji('🎟️')
+                        .setStyle(ButtonStyle.Primary)
+                        .setDisabled(currentTickets + amount >= 10),
+                    new ButtonBuilder()
+                        .setCustomId('lottery2_my_tickets')
+                        .setLabel('My Tickets')
+                        .setEmoji('📋')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+            
+            await interaction.editReply({ embeds: [embed], components: [row] });
+            
+            // Log the purchase
+            await sendLogMessage(
+                `🎰 **Tier 2 Lottery Purchase**: ${interaction.user.username} bought ${amount} ticket${amount > 1 ? 's' : ''} for ${fmt(totalCost)}\n` +
+                `Prize pool: ${fmt(lotteryInfo.total_prize || 3000000)}`,
+                guildId
+            );
+            
+        } catch (error) {
+            logger.error(`Error processing tier 2 lottery purchase: ${error.message}`);
+            const errorEmbed = UITemplates.createErrorEmbed('Purchase Failed', {
+                description: 'Failed to complete your ticket purchase',
+                error: error.message
+            });
+            await interaction.editReply({ embeds: [errorEmbed], components: [] });
+        }
+    },
+
+    async showPurchaseInterface(interaction, userId, guildId) {
+        try {
+            const userBalance = await dbManager.getUserBalance(userId, guildId);
+            const userTickets = await dbManager.getUserLotteryTickets(userId, guildId, 2); // Tier 2
+            const lotteryInfo = await dbManager.getLotteryInfo(guildId, 2); // Tier 2
+            
+            const ticketPrice = 200000; // $200K per ticket
+            const maxTickets = 10;
+            const currentTickets = userTickets ? userTickets.length : 0;
+            const availableTickets = maxTickets - currentTickets;
+            
+            if (availableTickets <= 0) {
+                const embed = new EmbedBuilder()
+                    .setColor(UITemplates.getColors().ERROR)
+                    .setTitle('🎟️ Maximum Tickets Reached')
+                    .setDescription('You have already purchased the maximum of 10 tickets for this tier 2 lottery draw.')
+                    .addFields(
+                        { name: 'Your Tickets', value: `${currentTickets}/${maxTickets}`, inline: true },
+                        { name: 'Next Drawing', value: `<t:${this.getNextDrawingTimestamp()}:R>`, inline: true }
+                    );
+                
+                await interaction.editReply({ embeds: [embed], components: [] });
+                return;
+            }
+            
+            const affordableTickets = Math.min(Math.floor(userBalance.wallet / ticketPrice), availableTickets);
+            
+            if (affordableTickets <= 0) {
+                const embed = new EmbedBuilder()
+                    .setColor(UITemplates.getColors().ERROR)
+                    .setTitle('💸 Insufficient Funds')
+                    .setDescription(`You need at least ${fmt(ticketPrice)} to purchase a tier 2 lottery ticket.`)
+                    .addFields(
+                        { name: 'Your Balance', value: fmt(userBalance.wallet), inline: true },
+                        { name: 'Ticket Price', value: fmt(ticketPrice), inline: true },
+                        { name: 'Needed', value: fmt(ticketPrice - userBalance.wallet), inline: true }
+                    );
+                
+                await interaction.editReply({ embeds: [embed], components: [] });
+                return;
+            }
+            
+            // Create purchase buttons
+            const buttons = [];
+            const rows = [];
+            
+            // Create buttons for different ticket amounts
+            const ticketAmounts = [1, 2, 5, 10].filter(amt => amt <= affordableTickets);
+            
+            for (const amount of ticketAmounts) {
+                buttons.push(
+                    new ButtonBuilder()
+                        .setCustomId(`lottery2_purchase_${amount}`)
+                        .setLabel(`Buy ${amount} Ticket${amount > 1 ? 's' : ''}`)
+                        .setEmoji('🎟️')
+                        .setStyle(ButtonStyle.Primary)
+                );
+            }
+            
+            // Add cancel button
+            buttons.push(
+                new ButtonBuilder()
+                    .setCustomId('lottery2_cancel')
+                    .setLabel('Cancel')
+                    .setStyle(ButtonStyle.Secondary)
+            );
+            
+            // Create action rows (max 5 buttons per row)
+            for (let i = 0; i < buttons.length; i += 5) {
+                rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, Math.min(i + 5, buttons.length))));
+            }
+            
+            const embed = new EmbedBuilder()
+                .setColor(UITemplates.getColors().PRIMARY_GAME)
+                .setTitle('🎰 Purchase Tier 2 Lottery Tickets')
+                .setDescription('Select how many tier 2 tickets you want to purchase:')
+                .addFields(
+                    { name: '💵 Your Balance', value: fmt(userBalance.wallet), inline: true },
+                    { name: '🎟️ Ticket Price', value: fmt(ticketPrice), inline: true },
+                    { name: '📊 Max Affordable', value: `${affordableTickets} tickets`, inline: true },
+                    { name: '🎫 Current Tickets', value: `${currentTickets}/${maxTickets}`, inline: true },
+                    { name: '💰 Prize Pool', value: fmt(lotteryInfo.total_prize || 3000000), inline: true },
+                    { name: '⏰ Next Drawing', value: `<t:${this.getNextDrawingTimestamp()}:R>`, inline: true }
+                );
+            
+            await interaction.editReply({ embeds: [embed], components: rows });
+            
+        } catch (error) {
+            logger.error(`Error showing tier 2 purchase interface: ${error.message}`);
+            const errorEmbed = UITemplates.createErrorEmbed('Purchase Error', {
+                description: 'Failed to load purchase interface',
+                error: error.message
+            });
+            await interaction.editReply({ embeds: [errorEmbed], components: [] });
+        }
     }
 };

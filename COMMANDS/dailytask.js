@@ -127,13 +127,34 @@ module.exports = {
 
             const reply = await interaction.editReply({ embeds: [taskEmbed] });
             
-            // Add the required reaction with error handling
+            // Add the required reaction with improved error handling
             try {
-                await reply.react(scenario.emoji);
+                // Ensure we have a valid message object with channel access
+                if (!reply.channel) {
+                    // If channel is not cached, fetch the message
+                    const channel = await interaction.client.channels.fetch(interaction.channelId);
+                    const message = await channel.messages.fetch(reply.id);
+                    await message.react(scenario.emoji);
+                } else {
+                    await reply.react(scenario.emoji);
+                }
             } catch (reactionError) {
                 logger.error(`Failed to add reaction: ${reactionError.message}`);
                 // Fall back to button completion if reactions don't work
-                return await this.handleButtonCompletion(interaction, scenario, userId, guildId, username, balance, now);
+                const buttonRow = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('complete_task')
+                            .setLabel('Complete Task')
+                            .setEmoji(scenario.emoji)
+                            .setStyle(ButtonStyle.Success)
+                    );
+                
+                await interaction.editReply({ 
+                    embeds: [taskEmbed],
+                    components: [buttonRow]
+                });
+                return;
             }
 
             // Wait for user reaction (30 seconds timeout)

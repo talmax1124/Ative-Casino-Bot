@@ -138,6 +138,37 @@ module.exports = {
         }
     },
 
+    // Helper: fetch Discord display names for users missing/placeholder names
+    async enrichUsernames(users, client) {
+        if (!Array.isArray(users) || users.length === 0) return users;
+        const needsLookup = users.filter(u => {
+            const name = (u.username || '').trim();
+            if (!name) return true;
+            const placeholder1 = /^User[\s-]?\d+$/i.test(name);
+            const placeholder2 = name === `User ${u.user_id}` || name === `User-${u.user_id}`;
+            return placeholder1 || placeholder2;
+        });
+
+        for (const u of needsLookup) {
+            try {
+                const discordUser = await client.users.fetch(u.user_id);
+                const resolved = discordUser?.displayName || discordUser?.globalName || discordUser?.username;
+                if (resolved) {
+                    u.username = resolved;
+                    // Best-effort: update DB username in background
+                    try {
+                        await dbManager.updateUsername(u.user_id, resolved);
+                    } catch (e) {
+                        // non-fatal
+                    }
+                }
+            } catch (e) {
+                // keep placeholder if fetch fails
+            }
+        }
+        return users;
+    },
+
     // Helper method to create navigation buttons
     createNavigationButtons(activeCategory) {
         const row1 = new ActionRowBuilder()
@@ -261,6 +292,8 @@ module.exports = {
         logger.info(`Starting server leaderboard query: guildId=${guildId}, limit=${limit}`);
         
         try {
+            // Over-fetch to ensure we can deduplicate to the requested limit
+            const fetchLimit = Math.min(limit * 5, 100);
             const users = await dbManager.databaseAdapter.executeQuery(`
                 SELECT DISTINCT
                     ub.user_id,
@@ -274,13 +307,14 @@ module.exports = {
                 FROM user_balances ub
                 LEFT JOIN user_stats us ON ub.user_id = us.user_id
                 WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL)
-                    AND (ub.wallet + ub.bank) > 1000
                     AND ub.user_id != '466050111680544798'
                 ORDER BY total_balance DESC
                 LIMIT ?
-            `, [limit]);
+            `, [fetchLimit]);
 
-            const uniqueUsers = this.removeDuplicateUsers(users);
+            // Ensure unique users and cap to requested limit
+            const uniqueUsers = this.removeDuplicateUsers(users).slice(0, limit);
+            await this.enrichUsernames(uniqueUsers, interaction.client);
             
             const totalUsers = await dbManager.databaseAdapter.executeQuery(`
                 SELECT COUNT(DISTINCT user_id) as count
@@ -318,6 +352,7 @@ module.exports = {
         logger.info(`Starting global leaderboard query: limit=${limit}`);
         
         try {
+            const fetchLimit = Math.min(limit * 5, 100);
             const users = await dbManager.databaseAdapter.executeQuery(`
                 SELECT DISTINCT
                     ub.user_id,
@@ -331,13 +366,13 @@ module.exports = {
                 FROM user_balances ub
                 LEFT JOIN user_stats us ON ub.user_id = us.user_id
                 WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL)
-                    AND (ub.wallet + ub.bank) > 1000
                     AND ub.user_id != '466050111680544798'
                 ORDER BY total_balance DESC
                 LIMIT ?
-            `, [limit]);
+            `, [fetchLimit]);
 
-            const uniqueUsers = this.removeDuplicateUsers(users);
+            const uniqueUsers = this.removeDuplicateUsers(users).slice(0, limit);
+            await this.enrichUsernames(uniqueUsers, interaction.client);
             
             const totalUsers = await dbManager.databaseAdapter.executeQuery(`
                 SELECT COUNT(DISTINCT user_id) as count
@@ -375,6 +410,7 @@ module.exports = {
         logger.info(`Starting win/loss leaderboard query: guildId=${guildId}, limit=${limit}`);
         
         try {
+            const fetchLimit = Math.min(limit * 5, 100);
             const users = await dbManager.databaseAdapter.executeQuery(`
                 SELECT DISTINCT
                     ub.user_id,
@@ -397,9 +433,10 @@ module.exports = {
                     AND COALESCE(us.total_games_played, 0) >= 5
                 ORDER BY win_rate DESC, total_games DESC
                 LIMIT ?
-            `, [limit]);
+            `, [fetchLimit]);
 
-            const uniqueUsers = this.removeDuplicateUsers(users);
+            const uniqueUsers = this.removeDuplicateUsers(users).slice(0, limit);
+            await this.enrichUsernames(uniqueUsers, interaction.client);
             
             const totalUsers = await dbManager.databaseAdapter.executeQuery(`
                 SELECT COUNT(DISTINCT ub.user_id) as count
@@ -469,6 +506,7 @@ module.exports = {
         logger.info(`Starting off economy leaderboard query: guildId=${guildId}, limit=${limit}`);
         
         try {
+            const fetchLimit = Math.min(limit * 5, 100);
             const users = await dbManager.databaseAdapter.executeQuery(`
                 SELECT DISTINCT
                     ub.user_id,
@@ -482,12 +520,12 @@ module.exports = {
                 FROM user_balances ub
                 LEFT JOIN user_stats us ON ub.user_id = us.user_id
                 WHERE ub.off_economy = TRUE 
-                    AND (ub.wallet + ub.bank) > 0
                 ORDER BY total_balance DESC
                 LIMIT ?
-            `, [limit]);
+            `, [fetchLimit]);
 
-            const uniqueUsers = this.removeDuplicateUsers(users);
+            const uniqueUsers = this.removeDuplicateUsers(users).slice(0, limit);
+            await this.enrichUsernames(uniqueUsers, interaction.client);
             
             const totalUsers = await dbManager.databaseAdapter.executeQuery(`
                 SELECT COUNT(DISTINCT user_id) as count
@@ -705,6 +743,9 @@ module.exports = {
                 ORDER BY ul.total_xp DESC, ul.level DESC
                 LIMIT ?
             `, [limit]);
+
+            // Resolve missing display names
+            await this.enrichUsernames(users, interaction.client);
 
             const totalUsers = await dbManager.databaseAdapter.executeQuery(`
                 SELECT COUNT(DISTINCT ul.user_id) as count

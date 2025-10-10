@@ -212,11 +212,9 @@ async function createGameButtons(userId, game = null) {
         rows.push(new ActionRowBuilder().addComponents(buttons));
     }
     
-    // Create grid buttons - max 5 buttons per row, max 4 rows for grid (reserving 1 for controls)
-    const gridDimension = Math.sqrt(game.gridSize);
-    const maxButtonsPerRow = Math.min(5, gridDimension); // Discord limit: 5 buttons per row
+    // Create grid buttons - always use 5 buttons per row for consistent mobile display
+    const BUTTONS_PER_ROW = 5; // Discord's max and optimal for mobile
     let currentRow = [];
-    let tileCount = 0;
     
     for (let i = 0; i < game.gridSize; i++) {
         const isRevealed = game.revealedTiles.includes(i);
@@ -265,10 +263,9 @@ async function createGameButtons(userId, game = null) {
             .setDisabled(disabled);
         
         currentRow.push(button);
-        tileCount++;
         
-        // Create new row when we hit the max buttons per row OR at grid boundaries
-        if (currentRow.length === maxButtonsPerRow || (tileCount % gridDimension === 0 && tileCount > 0)) {
+        // Create new row when we hit exactly 5 buttons (Discord's limit and best for mobile)
+        if (currentRow.length === BUTTONS_PER_ROW) {
             rows.push(new ActionRowBuilder().addComponents(currentRow));
             currentRow = [];
             

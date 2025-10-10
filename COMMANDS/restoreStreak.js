@@ -69,7 +69,7 @@ module.exports = {
             const { calculateVotingStatus } = require('./vote');
             const votingStatus = calculateVotingStatus(currentVoteData);
 
-            // Set the current time as the last vote time to start the 16-hour countdown
+            // Set the current time as the last vote time to start the 19-hour countdown
             const currentTime = Date.now();
             
             // Prepare updated vote data - set to specified streak count and reset timer
@@ -89,8 +89,8 @@ module.exports = {
                 // Log the action
                 logger.info(`Streak restored: ${interaction.user.username} (${interaction.user.id}) restored ${targetUser.username} (${targetUser.id}) streak to ${streakCount} days. Reason: ${reason}`);
 
-                // Calculate next voting deadline (16 hours from now)
-                const nextVoteDeadline = Math.floor((currentTime + (16 * 60 * 60 * 1000)) / 1000);
+                // Calculate next voting deadline (19 hours from now)
+                const nextVoteDeadline = Math.floor((currentTime + (19 * 60 * 60 * 1000)) / 1000);
 
                 // Create success embed
                 const successEmbed = new EmbedBuilder()
@@ -119,7 +119,7 @@ module.exports = {
                         },
                         {
                             name: '🎯 Status',
-                            value: '16-hour countdown started',
+                            value: '19-hour countdown started',
                             inline: true
                         },
                         {
@@ -171,12 +171,12 @@ module.exports = {
                             },
                             {
                                 name: '⚠️ Important',
-                                value: 'Your 16-hour countdown has started from now. You must vote within 16 hours to maintain your streak!',
+                                value: 'Your 19-hour countdown has started from now. You must vote within 19 hours to maintain your streak!',
                                 inline: false
                             },
                             {
                                 name: '🗳️ Keep Voting!',
-                                value: 'Remember to vote every 16 hours to maintain your streak!',
+                                value: 'Remember to vote every 12 hours for maximum rewards. Your streak remains safe for up to 19 hours.',
                                 inline: false
                             }
                         )
