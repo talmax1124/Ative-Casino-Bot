@@ -307,10 +307,19 @@ module.exports = {
 
     // Helper method to create progress bar
     createProgressBar(percent) {
-        const filledBars = Math.floor(percent / 10);
-        const emptyBars = 10 - filledBars;
+        // Ensure percent is valid and within bounds
+        const safePercent = Math.max(0, Math.min(100, percent || 0));
+        const filledBars = Math.floor(safePercent / 10);
+        const emptyBars = Math.max(0, 10 - filledBars);
+        
+        // Validate count values to prevent "Invalid count value" errors
+        if (filledBars < 0 || emptyBars < 0) {
+            logger.error(`Invalid progress bar values: filledBars=${filledBars}, emptyBars=${emptyBars}, percent=${percent}`);
+            return '⬜'.repeat(10) + ' 0%'; // Fallback to empty bar
+        }
+        
         const progressEmoji = '🟩'.repeat(filledBars) + '⬜'.repeat(emptyBars);
-        return `${progressEmoji} ${percent}%`;
+        return `${progressEmoji} ${safePercent}%`;
     },
 
     // Helper method to get week-specific colors
