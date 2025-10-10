@@ -195,17 +195,6 @@ async function handleGameModalSubmit(interaction) {
                 content: `✅ Answer recorded: "${quizAnswer}"`,
                 ephemeral: true
             });
-        } else if (customId.startsWith('simple_letter_')) {
-            // Handle simple love letter modal submission
-            const LoveLetterTaskGame = require('./marriages/games/LoveLetterTaskGame');
-            const game = new LoveLetterTaskGame();
-            await game.handleModalSubmit(interaction);
-        } else if (customId.startsWith('vacation_modal_')) {
-            // Handle vacation planning modal submission
-            const sessionId = customId.replace('vacation_modal_', '');
-            const VacationPlanTaskGame = require('./marriages/games/VacationPlanTaskGame');
-            const game = new VacationPlanTaskGame();
-            await game.handleModalSubmit(interaction, sessionId);
         }
 
     } catch (error) {

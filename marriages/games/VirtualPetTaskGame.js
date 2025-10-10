@@ -16,7 +16,7 @@ class VirtualPetTaskGame {
     }
 
     init() {
-        marriageTaskUtil.registerGame('week5_task6', 'pet', {
+        marriageTaskUtil.registerGame('week5_task1', 'pet', {
             title: '🐾 Virtual Pet Care',
             description: 'Raise a virtual pet together for 6 days!',
             instructions: '• Feed, water, clean, and pet daily\n• Keep it alive for 6 days\n• 5 lives total',
@@ -183,7 +183,7 @@ class VirtualPetTaskGame {
                     inline: false 
                 });
                 
-                await marriageTaskUtil.markTaskCompleted(marriage.id, 6, 'both', {
+                await marriageTaskUtil.markTaskCompleted(marriage.id, 1, 'both', {
                     petType: pet.pet_type,
                     daysAlive: daysAlive,
                     livesRemaining: pet.lives_remaining

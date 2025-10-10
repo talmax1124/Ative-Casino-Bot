@@ -19,13 +19,8 @@ class MarriageGameLoader {
             // Initialize database tables first
             await marriageTaskTables.createAllTables();
             
-            // Load all game modules
+            // Load only the pet game for now (as requested by user)
             const gameModules = [
-                require('./HouseDesignTaskGame'),
-                require('./Connect4TaskGame'), 
-                require('./LoveLetterTaskGame'),
-                require('./VacationPlanTaskGame'),
-                require('./DailyCheckInTaskGame'),
                 require('./VirtualPetTaskGame')
             ];
 
