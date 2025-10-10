@@ -133,7 +133,7 @@ async function showMainHelp(interaction) {
         .addFields(
             {
                 name: '📋 Basic Commands Overview',
-                value: '```yaml\n🎰 Games:     /slots, /blackjack, /roulette, /crash\n💰 Earning:   /work, /vote, /crime, /beg, /dailytask\n🏦 Banking:   /balance, /sendmoney, /deposit, /withdraw\n🎟️ Lottery:   Every Tuesday & Saturday at 10AM EST\n💕 Marriage:  /propose, /start-marriage, /marriage-bank\n🎖️ Progress:  /rank, /leaderboard, /stats\n```',
+                value: '```yaml\n🎰 Games:     /slots, /blackjack, /roulette, /crash\n💰 Earning:   /work, /vote, /crime, /beg, /dailytask\n🏦 Banking:   /balance, /sendmoney, /deposit, /withdraw\n🎟️ Lottery:   Every Tuesday & Saturday at 10AM EST\n💕 Marriage:  /propose, /start-marriage, /marriage-bank\n🎖️ Progress:  /leaderboard, /stats\n```',
                 inline: false
             },
             {

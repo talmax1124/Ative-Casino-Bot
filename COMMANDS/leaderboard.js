@@ -74,8 +74,7 @@ module.exports = {
                     { name: '🌍 All Players - Full Network', value: 'global' },
                     { name: '🏆 Wins/Losses - Game Performance', value: 'winloss' },
                     { name: '🔴 Off-Economy - Separate Rankings', value: 'offeco' },
-                    { name: '💕 Marriage Leaderboard - Top Couples', value: 'marriage' },
-                    { name: '⭐ XP Leaderboard - Level Rankings', value: 'xp' }
+                    { name: '💕 Marriage Leaderboard - Top Couples', value: 'marriage' }
                 )
         )
         .addIntegerOption(option =>
@@ -111,9 +110,6 @@ module.exports = {
                     break;
                 case 'marriage':
                     await this.showMarriageLeaderboard(interaction, guildId, limit);
-                    break;
-                case 'xp':
-                    await this.showXPLeaderboard(interaction, guildId, limit);
                     break;
                 default:
                     await this.showServerLeaderboard(interaction, guildId, limit);
@@ -201,12 +197,7 @@ module.exports = {
                     .setCustomId('leaderboard_marriage')
                     .setLabel('💕 Marriages')
                     .setStyle(ButtonStyle.Secondary)
-                    .setDisabled(activeCategory === 'marriage'),
-                new ButtonBuilder()
-                    .setCustomId('leaderboard_xp')
-                    .setLabel('⭐ XP/Levels')
-                    .setStyle(ButtonStyle.Secondary)
-                    .setDisabled(activeCategory === 'xp')
+                    .setDisabled(activeCategory === 'marriage')
             );
         
         return [row1, row2];
@@ -864,9 +855,6 @@ module.exports = {
                     case 'leaderboard_marriage':
                         await this.showMarriageLeaderboard(i, guildId, limit, true);
                         break;
-                    case 'leaderboard_xp':
-                        await this.showXPLeaderboard(i, guildId, limit, true);
-                        break;
                 }
             } catch (error) {
                 logger.error(`Leaderboard button error (${i.customId}): ${error.message}`);
@@ -904,11 +892,6 @@ module.exports = {
                     new ButtonBuilder()
                         .setCustomId('disabled_marriage')
                         .setLabel('💕 Marriages')
-                        .setStyle(ButtonStyle.Secondary)
-                        .setDisabled(true),
-                    new ButtonBuilder()
-                        .setCustomId('disabled_xp')
-                        .setLabel('⭐ XP/Levels')
                         .setStyle(ButtonStyle.Secondary)
                         .setDisabled(true)
                 );

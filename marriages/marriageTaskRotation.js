@@ -34,7 +34,7 @@ class MarriageTaskRotation {
             const defaultConfig = {
                 currentRotation: 0,
                 rotationStartDate: new Date().toISOString(),
-                rotationIntervalDays: 7, // Switch tasks every 7 days
+                rotationIntervalDays: 14, // Switch tasks every 14 days (biweekly)
                 taskSets: [
                     {
                         id: 'week1',

@@ -1,6 +1,6 @@
 /**
  * Virtual Pet Care Task Game
- * Raise a virtual pet together for 2 weeks with 3 lives
+ * Raise a virtual pet together for 6 days with 5 lives
  */
 
 const marriageTaskUtil = require('../MarriageTaskUtil');
@@ -18,8 +18,8 @@ class VirtualPetTaskGame {
     init() {
         marriageTaskUtil.registerGame('week5_task6', 'pet', {
             title: '🐾 Virtual Pet Care',
-            description: 'Raise a virtual pet together for 2 weeks!',
-            instructions: '• Feed, water, clean, and pet daily\n• Keep it alive for 2 weeks\n• 3 lives total',
+            description: 'Raise a virtual pet together for 6 days!',
+            instructions: '• Feed, water, clean, and pet daily\n• Keep it alive for 6 days\n• 5 lives total',
             buttonLabel: 'Adopt Pet',
             buttonEmoji: '🐾',
             color: 0x8B4513,
@@ -61,8 +61,8 @@ class VirtualPetTaskGame {
             .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**, choose a pet to adopt!`)
             .setColor(0x8B4513)
             .addFields(
-                { name: '🎯 Goal', value: 'Keep your pet alive for 2 weeks by caring for it daily!', inline: false },
-                { name: '🎮 How to Play', value: '• Feed, water, clean, and pet your companion\n• Stats decrease slowly over time (check daily)\n• Don\'t let hunger or thirst reach 0!\n• You have 3 lives total', inline: false }
+                { name: '🎯 Goal', value: 'Keep your pet alive for 6 days by caring for it daily!', inline: false },
+                { name: '🎮 How to Play', value: '• Feed, water, clean, and pet your companion\n• Stats decrease slowly over time (check every 1-2 days)\n• Don\'t let hunger or thirst reach 0!\n• You have 5 lives total', inline: false }
             );
 
         const petButtons = this.PET_TYPES.map((petType, index) => {
@@ -111,7 +111,7 @@ class VirtualPetTaskGame {
                 INSERT INTO marriage_virtual_pets 
                 (pet_id, marriage_id, pet_name, pet_type, hunger, thirst, cleanliness, happiness, 
                  lives_remaining, is_alive, created_at, last_interaction)
-                VALUES (?, ?, ?, ?, 50, 50, 50, 50, 3, TRUE, NOW(), NOW())
+                VALUES (?, ?, ?, ?, 70, 70, 70, 70, 5, TRUE, NOW(), NOW())
             `;
             
             await dbManager.databaseAdapter.pool.execute(insertQuery, [
@@ -132,9 +132,9 @@ class VirtualPetTaskGame {
                     .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}** have adopted a ${petType}!`)
                     .setColor(0x00FF00)
                     .addFields(
-                        { name: '📊 Stats', value: 'Hunger: 50%\nThirst: 50%\nCleanliness: 50%\nHappiness: 50%', inline: true },
-                        { name: '❤️ Lives', value: '3/3', inline: true },
-                        { name: '⏰ Goal', value: 'Keep alive for 2 weeks!', inline: false },
+                        { name: '📊 Stats', value: 'Hunger: 70%\nThirst: 70%\nCleanliness: 70%\nHappiness: 70%', inline: true },
+                        { name: '❤️ Lives', value: '5/5', inline: true },
+                        { name: '⏰ Goal', value: 'Keep alive for 6 days!', inline: false },
                         { name: '🔄 Next Step', value: 'Use `/marriage-task task6` to manage your pet!', inline: false }
                     );
 
@@ -168,18 +168,18 @@ class VirtualPetTaskGame {
                     value: `🍖 Hunger: ${pet.hunger}%\n💧 Thirst: ${pet.thirst}%\n🧼 Cleanliness: ${pet.cleanliness}%\n😊 Happiness: ${pet.happiness}%`, 
                     inline: true 
                 },
-                { name: '❤️ Lives', value: `${pet.lives_remaining}/3`, inline: true }
+                { name: '❤️ Lives', value: `${pet.lives_remaining}/5`, inline: true }
             );
 
             // Calculate days alive
             const daysAlive = Math.floor((Date.now() - new Date(pet.created_at).getTime()) / (1000 * 60 * 60 * 24));
-            embed.addFields({ name: '📅 Days Alive', value: `${daysAlive}/14`, inline: false });
+            embed.addFields({ name: '📅 Days Alive', value: `${daysAlive}/6`, inline: false });
 
-            // Check if task complete (14 days)
-            if (daysAlive >= 14) {
+            // Check if task complete (6 days)
+            if (daysAlive >= 6) {
                 embed.addFields({ 
                     name: '🎉 Task Complete!', 
-                    value: 'You\'ve kept your pet alive for 2 weeks!', 
+                    value: 'You\'ve kept your pet alive for 6 days!', 
                     inline: false 
                 });
                 
@@ -238,7 +238,7 @@ class VirtualPetTaskGame {
         } else {
             embed.addFields(
                 { name: '💀 Status', value: 'Your pet has passed away...', inline: false },
-                { name: '❤️ Lives Remaining', value: `${pet.lives_remaining}/3`, inline: true }
+                { name: '❤️ Lives Remaining', value: `${pet.lives_remaining}/5`, inline: true }
             );
 
             if (pet.lives_remaining > 0) {
@@ -295,11 +295,11 @@ class VirtualPetTaskGame {
         const hoursSinceInteraction = Math.floor((Date.now() - new Date(pet.last_interaction).getTime()) / (1000 * 60 * 60));
         
         if (hoursSinceInteraction > 0 && pet.is_alive) {
-            // Decrease stats over time (reduced rates for easier gameplay)
-            pet.hunger = Math.max(0, pet.hunger - (hoursSinceInteraction * 2));
-            pet.thirst = Math.max(0, pet.thirst - (hoursSinceInteraction * 3));
-            pet.cleanliness = Math.max(0, pet.cleanliness - (hoursSinceInteraction * 1));
-            pet.happiness = Math.max(0, pet.happiness - (hoursSinceInteraction * 1));
+            // Decrease stats over time (VERY slow decay for easy gameplay)
+            pet.hunger = Math.max(0, pet.hunger - (hoursSinceInteraction * 0.8));      // Reduced from 2 to 0.8
+            pet.thirst = Math.max(0, pet.thirst - (hoursSinceInteraction * 1.2));     // Reduced from 3 to 1.2
+            pet.cleanliness = Math.max(0, pet.cleanliness - (hoursSinceInteraction * 0.5)); // Reduced from 1 to 0.5
+            pet.happiness = Math.max(0, pet.happiness - (hoursSinceInteraction * 0.3));     // Reduced from 1 to 0.3
 
             // Check if pet dies
             if (pet.hunger <= 0 || pet.thirst <= 0) {
@@ -342,19 +342,19 @@ class VirtualPetTaskGame {
         try {
             const actionType = interaction.customId.split('_')[1]; // feed, water, clean, pet
             
-            // Update pet based on action (increased benefits for easier gameplay)
+            // Update pet based on action (MUCH higher benefits for easy gameplay)
             switch (actionType) {
                 case 'feed':
-                    pet.hunger = Math.min(100, pet.hunger + 35);
+                    pet.hunger = Math.min(100, pet.hunger + 50);     // Increased from 35 to 50
                     break;
                 case 'water':
-                    pet.thirst = Math.min(100, pet.thirst + 40);
+                    pet.thirst = Math.min(100, pet.thirst + 55);     // Increased from 40 to 55
                     break;
                 case 'clean':
-                    pet.cleanliness = Math.min(100, pet.cleanliness + 45);
+                    pet.cleanliness = Math.min(100, pet.cleanliness + 60); // Increased from 45 to 60
                     break;
                 case 'pet':
-                    pet.happiness = Math.min(100, pet.happiness + 30);
+                    pet.happiness = Math.min(100, pet.happiness + 45);     // Increased from 30 to 45
                     break;
             }
 
@@ -383,10 +383,10 @@ class VirtualPetTaskGame {
 
     async handleRespawn(interaction, pet, marriage, util) {
         try {
-            // Respawn pet with reduced lives
+            // Respawn pet with reduced lives (higher starting stats for easier gameplay)
             const updateQuery = `
                 UPDATE marriage_virtual_pets 
-                SET is_alive = TRUE, hunger = 50, thirst = 50, cleanliness = 50, happiness = 50, last_interaction = NOW()
+                SET is_alive = TRUE, hunger = 70, thirst = 70, cleanliness = 70, happiness = 70, last_interaction = NOW()
                 WHERE pet_id = ?
             `;
             
@@ -394,10 +394,10 @@ class VirtualPetTaskGame {
             
             // Update local pet object
             pet.is_alive = true;
-            pet.hunger = 50;
-            pet.thirst = 50;
-            pet.cleanliness = 50;
-            pet.happiness = 50;
+            pet.hunger = 70;
+            pet.thirst = 70;
+            pet.cleanliness = 70;
+            pet.happiness = 70;
 
             // Show updated status
             await this.showPetStatus(interaction, pet, marriage, util);

@@ -1,7 +1,7 @@
 {
   "currentRotation": 4,
   "rotationStartDate": "2025-10-03T05:01:00.000Z",
-  "rotationIntervalDays": 7,
+  "rotationIntervalDays": 14,
   "taskSets": [
     {
       "id": "week1",
@@ -49,15 +49,10 @@
     },
     {
       "id": "week5",
-      "name": "Week 5 - New Interactive Challenges",
+      "name": "Biweekly Period - Pet Care Focus",
       "startDate": "2025-10-07T01:05:59.698Z",
       "tasks": [
-        "House Design & Furniture Quiz - Discover your dream home compatibility!",
-        "Connect 4 Challenge - Play until there's a winner!",
-        "Love Letter Exchange - Write heartfelt letters to each other.",
-        "Vacation Planning - Plan your dream vacation together.",
-        "Daily Check-In - Check in with each other for 4 days.",
-        "Virtual Pet Care - Raise a virtual pet together for 2 weeks!"
+        "Virtual Pet Care - Raise a virtual pet together for 6 days!"
       ]
     }
   ]

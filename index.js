@@ -3073,9 +3073,7 @@ client.on('messageCreate', async message => {
         // - Daily tasks (Complete button)
         // - Marriage task confirmations (Start buttons)
 
-        // Guild-specific message reward system (3K-15K every 15-30 messages)
-        const { messageRewardSystem } = require('./UTILS/messageRewardSystem');
-        await messageRewardSystem.processMessage(message);
+        // Message reward system disabled (migrated to UAS-Standalone-Bot)
 
     } catch (error) {
         logger.error('Error in messageCreate handler:', error);
