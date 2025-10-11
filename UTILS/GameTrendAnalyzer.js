@@ -276,6 +276,12 @@ class GameTrendAnalyzer {
             // Normalize gameType to prevent inconsistencies
             gameType = String(gameType).toLowerCase().trim();
             
+            // Ensure all required Maps are initialized (defensive programming)
+            if (!this.statisticalModels) {
+                logger.warn('StatisticalModels not initialized, reinitializing...');
+                this.statisticalModels = new Map();
+            }
+            
             if (!this.trendData.has(gameType)) {
                 // Auto-initialize unknown game types with generic structure
                 logger.info(`Auto-initializing trend analysis for new game type: "${gameType}"`);
@@ -1721,34 +1727,44 @@ class GameTrendAnalyzer {
      * Initialize a new game type dynamically
      */
     initializeGameType(gameType) {
-        // Create generic structure for unknown game types
-        this.trendData.set(gameType, {
-            choices: new Map(),
-            patterns: new Map(),
-            totalChoices: 0,
-            lastAnalysis: Date.now(),
-            currentAdjustment: 0,
-            bigWins: [],
-            recentChoices: []
-        });
-        
-        this.nashEquilibriumState.set(gameType, {
-            dominantStrategy: null,
-            strategyDistribution: new Map(),
-            equilibriumPoint: 0,
-            lastShift: Date.now()
-        });
-        
-        this.statisticalModels.set(gameType, {
-            mean: 0,
-            variance: 0,
-            standardDeviation: 0,
-            confidenceIntervals: { lower: 0, upper: 0 },
-            outliers: [],
-            trend: 'neutral'
-        });
-        
-        logger.info(`✅ Initialized new game type: ${gameType}`);
+        try {
+            // Ensure all Maps are initialized before use (defensive programming)
+            if (!this.trendData) this.trendData = new Map();
+            if (!this.nashEquilibriumState) this.nashEquilibriumState = new Map();
+            if (!this.statisticalModels) this.statisticalModels = new Map();
+            
+            // Create generic structure for unknown game types
+            this.trendData.set(gameType, {
+                choices: new Map(),
+                patterns: new Map(),
+                totalChoices: 0,
+                lastAnalysis: Date.now(),
+                currentAdjustment: 0,
+                bigWins: [],
+                recentChoices: []
+            });
+            
+            this.nashEquilibriumState.set(gameType, {
+                dominantStrategy: null,
+                strategyDistribution: new Map(),
+                equilibriumPoint: 0,
+                lastShift: Date.now()
+            });
+            
+            this.statisticalModels.set(gameType, {
+                mean: 0,
+                variance: 0,
+                standardDeviation: 0,
+                confidenceIntervals: { lower: 0, upper: 0 },
+                outliers: [],
+                trend: 'neutral'
+            });
+            
+            logger.info(`✅ Initialized new game type: ${gameType}`);
+        } catch (error) {
+            logger.error(`Failed to initialize game type ${gameType}: ${error.message}`);
+            throw error;
+        }
     }
     
     /**

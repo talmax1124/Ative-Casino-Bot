@@ -577,12 +577,22 @@ module.exports = {
             }
             
             if (!game || !sessionId) {
-                logger.warn(`Blackjack action failed: game=${!!game}, sessionId=${sessionId}, activeSession=${JSON.stringify(activeSession)}`);
+                logger.debug(`Blackjack action failed: game=${!!game}, sessionId=${sessionId}, user=${userId} - likely clicking old buttons`);
                 try {
                     await interaction.deferUpdate();
-                    await interaction.followUp({ content: 'No active blackjack game found.', flags: 64 });
+                    const embed = new EmbedBuilder()
+                        .setColor('#ff9900')
+                        .setTitle('🎯 No Active Game')
+                        .setDescription('This blackjack game has already ended or the buttons are from an old game.')
+                        .addFields({
+                            name: '🎲 Start New Game',
+                            value: 'Use `/blackjack` to start a new game!',
+                            inline: false
+                        });
+                    
+                    await interaction.followUp({ embeds: [embed], flags: 64 });
                 } catch (err) {
-                    logger.warn('Cannot send game not found reply - interaction error');
+                    logger.debug('Cannot send game not found reply - interaction likely expired');
                 }
                 return;
             }
