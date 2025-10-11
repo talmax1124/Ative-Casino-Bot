@@ -86,7 +86,7 @@ module.exports = {
                 .addFields(
                     { name: '\u200B', value: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', inline: false },
                     { 
-                        name: 'Balance Overview', 
+                        name: 'Financial Overview', 
                         value: `\`\`\`yaml\nWallet: ${fmt(balance.wallet)}\nBank:   ${fmt(balance.bank)}\nTotal:  ${fmt(totalBalance)}\`\`\``, 
                         inline: false 
                     },
