@@ -650,7 +650,7 @@ module.exports = {
             if (marriages.length === 0) {
                 embed.addFields({
                     name: '💔 No Active Marriages',
-                    value: 'No active marriages found yet!\n\nUse `/propose @user` to start a marriage!',
+                    value: 'No active marriages found yet!\n\nUse `/marriage propose @user` to start a marriage!',
                     inline: false
                 });
             } else {

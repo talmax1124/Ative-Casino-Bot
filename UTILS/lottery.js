@@ -200,7 +200,7 @@ async function updateLotteryPanel(bot, guildId) {
                 },
                 {
                     name: '🛒 How to Play',
-                    value: '**Tier 1:** Use `/lottery` and `/purchaselottery`\n**Tier 2:** Use `/lottery2` and `/purchaselottery2`\n• Each tier has separate tickets and prizes\n• You can play both tiers simultaneously\n• Tickets reset after each drawing',
+                    value: '**Tier 1:** Use `/lottery viewstatus` and `/lottery purchasetier1`\n**Tier 2:** Use `/lottery viewstatus` and `/lottery purchasetier2`\n• Each tier has separate tickets and prizes\n• You can play both tiers simultaneously\n• Tickets reset after each drawing',
                     inline: false
                 },
                 {
@@ -215,7 +215,7 @@ async function updateLotteryPanel(bot, guildId) {
                 },
                 {
                     name: '📋 Lottery Commands',
-                    value: '**Tier 1:**\n`/lottery` - Check tier 1 status\n`/purchaselottery` - Buy tier 1 tickets\n\n**Tier 2:**\n`/lottery2` - Check tier 2 status\n`/purchaselottery2` - Buy tier 2 tickets',
+                    value: '**Both Tiers:**\n`/lottery viewstatus` - Check your ticket status\n`/lottery purchasetier1 <count>` - Buy tier 1 tickets\n`/lottery purchasetier2 <count>` - Buy tier 2 tickets',
                     inline: false
                 }
             )

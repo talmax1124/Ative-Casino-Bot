@@ -60,7 +60,7 @@ async function createLotteryPanel(interaction, lotteryInfo = {}) {
                 },
                 {
                     name: '💎 **TIER 2 - HIGH STAKES**',
-                    value: `💰 **Prize Pool:** ${fmt(tier2Prize)} (Max: $20M)\n🎫 **Tickets Sold:** ${tier2TicketCount}\n💳 **Price:** $200,000 per ticket\n📊 **Max:** 10 tickets per person\n🎮 **Commands:** \`/lottery2\`, \`/purchaselottery2\``,
+                    value: `💰 **Prize Pool:** ${fmt(tier2Prize)} (Max: $20M)\n🎫 **Tickets Sold:** ${tier2TicketCount}\n💳 **Price:** $200,000 per ticket\n📊 **Max:** 10 tickets per person\n🎮 **Commands:** \`/lottery viewstatus\`, \`/lottery purchasetier2\``,
                     inline: true
                 },
                 {

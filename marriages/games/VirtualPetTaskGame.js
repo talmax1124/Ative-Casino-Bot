@@ -135,7 +135,7 @@ class VirtualPetTaskGame {
                         { name: '📊 Stats', value: 'Hunger: 70%\nThirst: 70%\nCleanliness: 70%\nHappiness: 70%', inline: true },
                         { name: '❤️ Lives', value: '5/5', inline: true },
                         { name: '⏰ Goal', value: 'Keep alive for 6 days!', inline: false },
-                        { name: '🔄 Next Step', value: 'Use `/marriage-task task6` to manage your pet!', inline: false }
+                        { name: '🔄 Next Step', value: 'Use `/marriage tasks` to manage your pet!', inline: false }
                     );
 
                 await util.safeReply(interaction, {

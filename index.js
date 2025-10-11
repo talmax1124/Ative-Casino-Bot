@@ -1916,14 +1916,14 @@ client.on('interactionCreate', async interaction => {
                     }
                 }
             }
-            // Handle lottery2 buttons
+            // Handle lottery2 buttons (now handled by consolidated lottery command)
             else if (customId.startsWith('lottery2_')) {
                 const action = customId.substring('lottery2_'.length);
-                const lottery2Command = client.commands.get('lottery2');
-                if (lottery2Command && lottery2Command.handleButtonInteraction) {
-                    await lottery2Command.handleButtonInteraction(interaction, action);
+                const lotteryCommand = client.commands.get('lottery');
+                if (lotteryCommand && lotteryCommand.handleButtonInteraction) {
+                    await lotteryCommand.handleButtonInteraction(interaction, action);
                 } else {
-                    logger.warn(`No handler found for lottery2 button: ${customId}`);
+                    logger.warn(`No handler found for lottery2 button: ${customId} - using consolidated lottery command`);
                 }
             }
             // Handle mystats buttons
@@ -2790,7 +2790,7 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('marriage_task_') || customId === 'open_marriage_tasks' || customId === 'refresh_tasks') {
                 if (customId === 'open_marriage_tasks') {
                     // Handle View Tasks button from marriage-profile
-                    const marriageTaskCommand = client.commands.get('marriage-task');
+                    const marriageTaskCommand = client.commands.get('marriage');
                     if (marriageTaskCommand) {
                         // Create a fake interaction for the view action
                         const fakeInteraction = {
@@ -2806,7 +2806,7 @@ client.on('interactionCreate', async interaction => {
                     }
                 } else if (customId === 'refresh_tasks') {
                     // Handle refresh button in marriage-task
-                    const marriageTaskCommand = client.commands.get('marriage-task');
+                    const marriageTaskCommand = client.commands.get('marriage');
                     if (marriageTaskCommand) {
                         const fakeInteraction = {
                             ...interaction,
@@ -2838,7 +2838,7 @@ client.on('interactionCreate', async interaction => {
                         });
                     } else if (customId === 'refresh_tasks') {
                         // Handle refresh button
-                        const marriageTaskCommand = client.commands.get('marriage-task');
+                        const marriageTaskCommand = client.commands.get('marriage');
                         if (marriageTaskCommand) {
                             const fakeInteraction = {
                                 ...interaction,
@@ -2890,14 +2890,14 @@ client.on('interactionCreate', async interaction => {
             }
             // Handle confirmed task start buttons
             else if (customId.startsWith('confirmed_start_')) {
-                const marriageTaskCommand = client.commands.get('marriage-task');
+                const marriageTaskCommand = client.commands.get('marriage');
                 if (marriageTaskCommand && marriageTaskCommand.handleConfirmedStart) {
                     await marriageTaskCommand.handleConfirmedStart(interaction);
                 }
             }
             // Handle tic tac toe game moves
             else if (customId.startsWith('ttt_move_')) {
-                const marriageTaskCommand = client.commands.get('marriage-task');
+                const marriageTaskCommand = client.commands.get('marriage');
                 if (marriageTaskCommand && marriageTaskCommand.handleTicTacToeMove) {
                     await marriageTaskCommand.handleTicTacToeMove(interaction);
                 }
@@ -2911,7 +2911,7 @@ client.on('interactionCreate', async interaction => {
                 }
                 // Also check if it's from the marriage task system
                 else if (customId.startsWith('tree_care_') || customId.startsWith('tree_refresh_')) {
-                    const marriageTaskCommand = client.commands.get('marriage-task');
+                    const marriageTaskCommand = client.commands.get('marriage');
                     if (marriageTaskCommand && marriageTaskCommand.handleTreeCare) {
                         await marriageTaskCommand.handleTreeCare(interaction);
                     }
@@ -2919,7 +2919,7 @@ client.on('interactionCreate', async interaction => {
             }
             // Handle poem interaction buttons
             else if (customId.startsWith('poem_add_') || customId.startsWith('poem_preview_') || customId.startsWith('poem_publish_') || customId.startsWith('poem_vote_') || customId.startsWith('poem_upvote_') || customId === 'add_verse' || customId === 'finish_poem' || customId === 'poem_history') {
-                const marriageTaskCommand = client.commands.get('marriage-task');
+                const marriageTaskCommand = client.commands.get('marriage');
                 if (marriageTaskCommand) {
                     if (customId.startsWith('poem_vote_')) {
                         await marriageTaskCommand.handlePoemVote(interaction);
@@ -2934,14 +2934,14 @@ client.on('interactionCreate', async interaction => {
             }
             // Handle quiz answer buttons
             else if (customId.startsWith('quiz_answer_')) {
-                const marriageTaskCommand = client.commands.get('marriage-task');
+                const marriageTaskCommand = client.commands.get('marriage');
                 if (marriageTaskCommand && marriageTaskCommand.handleQuizAnswer) {
                     await marriageTaskCommand.handleQuizAnswer(interaction);
                 }
             }
             // Handle quiz history button
             else if (customId === 'quiz_history') {
-                const marriageTaskCommand = client.commands.get('marriage-task');
+                const marriageTaskCommand = client.commands.get('marriage');
                 if (marriageTaskCommand && marriageTaskCommand.handleQuizHistory) {
                     await marriageTaskCommand.handleQuizHistory(interaction);
                 }
@@ -2996,7 +2996,7 @@ client.on('interactionCreate', async interaction => {
         try {
             // Handle poem line input modals
             if (customId.startsWith('poem_line_input_')) {
-                const marriageTaskCommand = client.commands.get('marriage-task');
+                const marriageTaskCommand = client.commands.get('marriage');
                 if (marriageTaskCommand && marriageTaskCommand.handlePoemLineSubmission) {
                     await marriageTaskCommand.handlePoemLineSubmission(interaction);
                 }

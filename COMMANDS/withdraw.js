@@ -1,24 +1,26 @@
 /**
  * Withdraw command for ATIVE Casino Bot
- * Allows users to withdraw money from bank to wallet
+ * Simple, clear interface for withdrawing money from bank
  */
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtDelta, getGuildId, sendLogMessage, parseAmount, resolveAmount } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage, resolveAmount } = require('../UTILS/common');
 const sessionManager = require('../UTILS/sessionManager');
-const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
+
+// Simple transaction lock to prevent duplicate executions
+const transactionLocks = new Map();
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('withdraw')
-        .setDescription('🏧 Withdraw money from your bank to your wallet')
+        .setDescription('🏧 Move money from bank → wallet (for spending)')
         .addStringOption(option =>
             option.setName('amount')
-                .setDescription('Amount to withdraw (supports K/M/B, "all", "half")')
+                .setDescription('Amount to withdraw (number, "all", "half")')
                 .setRequired(true)
-                    ),
+        ),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -26,8 +28,35 @@ module.exports = {
         const guildId = await getGuildId(interaction);
         const amountStr = interaction.options.getString('amount');
 
+        await interaction.deferReply();
+
+        // Create transaction lock key
+        const lockKey = `${userId}:withdraw:${Date.now()}`;
+        
+        // Check if there's already a pending withdrawal
+        const existingLock = Array.from(transactionLocks.keys()).find(key => key.startsWith(`${userId}:withdraw:`));
+        if (existingLock) {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('⏳ Please Wait')
+                .setDescription('You already have a withdrawal in progress.')
+                .setColor(0xFFAA00)
+                .setFooter({ text: 'ATIVE Casino' });
+            
+            await interaction.editReply({ embeds: [errorEmbed] });
+            return;
+        }
+
+        // Set transaction lock
+        transactionLocks.set(lockKey, Date.now());
+
         try {
-            await interaction.deferReply();
+            // Clean up old locks (older than 30 seconds)
+            const now = Date.now();
+            for (const [key, timestamp] of transactionLocks.entries()) {
+                if (now - timestamp > 30000) {
+                    transactionLocks.delete(key);
+                }
+            }
 
             // Ensure user exists
             await dbManager.ensureUser(userId, username);
@@ -35,217 +64,156 @@ module.exports = {
             // Check if user has an active game session
             const activeSession = sessionManager.getUserActiveSession(userId);
             if (activeSession) {
-                const errorEmbed = buildSessionEmbed({
-                    title: '❌ Withdrawal Blocked',
-                    topFields: [
-                        { name: '🎮 Active Game Detected', value: `You cannot withdraw money while playing **${activeSession.gameType}**!\n\nFinish your current game first, then try again.` }
-                    ],
-                    stageText: 'GAME IN PROGRESS',
-                    color: 0xFF0000,
-                    footer: 'Complete your game to continue'
-                });
-
-                return await interaction.editReply({ embeds: [errorEmbed] });
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('🎮 Game in Progress')
+                    .setDescription(`Finish your **${activeSession.gameType}** game first!`)
+                    .setColor(0xFF6600)
+                    .setFooter({ text: 'Complete your game to withdraw' });
+                
+                await interaction.editReply({ embeds: [errorEmbed] });
+                return;
             }
 
             // Get current balance
             const balance = await dbManager.getUserBalance(userId, guildId);
             const currentWallet = parseFloat(balance.wallet) || 0;
             const currentBank = parseFloat(balance.bank) || 0;
-            
-            // Validate balance data
-            if (!balance || typeof balance !== 'object') {
-                const errorEmbed = buildSessionEmbed({
-                    title: '❌ Withdrawal Failed',
-                    topFields: [
-                        { name: '🔍 Balance Error', value: 'Unable to retrieve your balance. Please try again.' }
-                    ],
-                    stageText: 'ERROR',
-                    color: 0xFF0000,
-                    footer: 'Bank System Error'
-                });
 
-                return await interaction.editReply({ embeds: [errorEmbed] });
+            // Check if bank is empty
+            if (currentBank <= 0) {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('🏦 Bank is Empty')
+                    .setDescription('You have no money in your bank to withdraw.')
+                    .addFields(
+                        { name: '💵 Wallet', value: fmt(currentWallet), inline: true },
+                        { name: '🏦 Bank', value: fmt(0), inline: true }
+                    )
+                    .setColor(0xFF0000)
+                    .setFooter({ text: 'Deposit money first to withdraw later' });
+                
+                await interaction.editReply({ embeds: [errorEmbed] });
+                return;
             }
 
-            // Parse and resolve amount
-            let resolvedAmount;
+            // Parse amount
+            let withdrawAmount;
             try {
-                const parsed = parseAmount(amountStr);
-                if (parsed === null) {
-                    throw new Error('Invalid amount format');
-                }
-                
-                resolvedAmount = resolveAmount(parsed, currentBank);
-                if (resolvedAmount === null || resolvedAmount <= 0) {
-                    throw new Error('Invalid amount format');
+                withdrawAmount = resolveAmount(amountStr, currentBank);
+                if (withdrawAmount === null || withdrawAmount <= 0) {
+                    throw new Error('Invalid amount');
                 }
             } catch (error) {
-                const errorEmbed = buildSessionEmbed({
-                    title: '❌ Invalid Amount',
-                    topFields: [
-                        { name: '💰 Input Error', value: `"${amountStr}" is not a valid amount.` },
-                        { name: '📝 Valid Formats', value: '• Numbers: 1000, 1.5k, 2.3m\n• Shortcuts: all, half' }
-                    ],
-                    stageText: 'INVALID INPUT',
-                    color: 0xFF0000,
-                    footer: 'Check your amount format'
-                });
-
-                return await interaction.editReply({ embeds: [errorEmbed] });
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Invalid Amount')
+                    .setDescription(`**"${amountStr}"** is not valid`)
+                    .addFields({
+                        name: '✅ Valid Examples',
+                        value: '• `1000` or `1k`\n• `all` (entire bank)\n• `half` (50% of bank)',
+                        inline: false
+                    })
+                    .setColor(0xFF0000)
+                    .setFooter({ text: 'Try again with a valid amount' });
+                
+                await interaction.editReply({ embeds: [errorEmbed] });
+                return;
             }
 
-            // Validate amount
-            if (resolvedAmount <= 0) {
-                let errorMessage = 'Withdrawal amount must be greater than $0.';
+            // Check if user has enough money in bank
+            if (withdrawAmount > currentBank) {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Not Enough in Bank')
+                    .setColor(0xFF0000)
+                    .addFields(
+                        { name: '🏦 Your Bank', value: fmt(currentBank), inline: true },
+                        { name: '📤 Trying to Withdraw', value: fmt(withdrawAmount), inline: true }
+                    )
+                    .setFooter({ text: 'You cannot withdraw more than you have' });
                 
-                if (amountStr.toLowerCase().includes('all') && currentBank === 0) {
-                    errorMessage = `You don't have any money in your bank to withdraw!`;
-                } else if (amountStr.toLowerCase().includes('half') && currentBank === 0) {
-                    errorMessage = `You don't have any money in your bank to withdraw!`;
-                }
-                
-                const errorEmbed = buildSessionEmbed({
-                    title: '❌ Insufficient Funds',
-                    topFields: [
-                        { name: '🏦 Bank Balance', value: fmt(currentBank) },
-                        { name: '💰 Wallet Balance', value: fmt(currentWallet) }
-                    ],
-                    stageText: errorMessage,
-                    color: 0xFF0000,
-                    footer: 'Bank System'
-                });
-
-                return await interaction.editReply({ embeds: [errorEmbed] });
-            }
-
-            if (resolvedAmount > currentBank) {
-                const errorEmbed = buildSessionEmbed({
-                    title: '❌ Insufficient Bank Funds',
-                    topFields: [
-                        { name: '💸 Requested Amount', value: fmt(resolvedAmount) },
-                        { name: '🏦 Available in Bank', value: fmt(currentBank) },
-                        { name: '💰 Current Wallet', value: fmt(currentWallet) }
-                    ],
-                    stageText: 'NOT ENOUGH FUNDS',
-                    color: 0xFF0000,
-                    footer: 'Bank System'
-                });
-
-                return await interaction.editReply({ embeds: [errorEmbed] });
+                await interaction.editReply({ embeds: [errorEmbed] });
+                return;
             }
 
             // Round to 2 decimal places
-            const withdrawAmount = Math.floor(resolvedAmount * 100) / 100;
+            withdrawAmount = Math.floor(withdrawAmount * 100) / 100;
 
-            // Update balance (move from bank to wallet)
+            // Process the withdrawal
             const success = await dbManager.updateUserBalance(
                 userId,
                 guildId,
-                withdrawAmount, // Add to wallet
-                -withdrawAmount // Remove from bank
+                withdrawAmount,  // Add to wallet
+                -withdrawAmount  // Remove from bank
             );
 
             if (!success) {
-                const errorEmbed = buildSessionEmbed({
-                    title: '❌ Transaction Failed',
-                    topFields: [
-                        { name: '🔧 System Error', value: 'Failed to process your withdrawal. Please try again.' }
-                    ],
-                    stageText: 'TRANSACTION FAILED',
-                    color: 0xFF0000,
-                    footer: 'Bank System Error'
-                });
-
-                return await interaction.editReply({ embeds: [errorEmbed] });
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Transaction Failed')
+                    .setDescription('Could not process your withdrawal. Please try again.')
+                    .setColor(0xFF0000)
+                    .setFooter({ text: 'ATIVE Casino' });
+                
+                await interaction.editReply({ embeds: [errorEmbed] });
+                return;
             }
 
-            // Force cache refresh to ensure immediate balance display
+            // Force cache refresh
             try {
                 const nodeCache = require('../UTILS/nodeCache');
                 const cacheKey = `casino:balance:${userId}:${guildId}`;
                 await nodeCache.del(cacheKey);
-                logger.debug(`🔄 Forced cache refresh for withdraw display`);
             } catch (cacheError) {
-                logger.debug(`Cache refresh failed: ${cacheError.message}`);
+                // Silent fail
             }
 
-            // Get updated balance for display
+            // Get updated balance
             const newBalance = await dbManager.getUserBalance(userId, guildId);
+            const newWallet = parseFloat(newBalance.wallet);
+            const newBank = parseFloat(newBalance.bank);
 
-            // Create success embed
-            const successEmbed = buildSessionEmbed({
-                title: `🏧 ${username}'s Bank Withdrawal`,
-                topFields: [
-                    { 
-                        name: '💸 WITHDRAWAL COMPLETE', 
-                        value: `**Successfully withdrew from bank**\n\`\`\`diff\n- Bank: ${fmt(currentBank)}\n+ Wallet: ${fmt(newBalance.wallet)}\n+ Amount: ${fmt(withdrawAmount)}\`\`\``, 
-                        inline: false 
-                    }
-                ],
-                bankFields: [
-                    { name: '💵 Wallet Balance', value: fmt(newBalance.wallet), inline: true },
-                    { name: '🏦 Bank Balance', value: fmt(newBalance.bank), inline: true },
-                    { name: '💎 Total Worth', value: fmt(parseFloat(newBalance.wallet) + parseFloat(newBalance.bank)), inline: true }
-                ],
-                stageText: 'WITHDRAWAL SUCCESS',
-                color: 0x00FF00,
-                footer: '🏧 Bank System • ATIVE Casino'
-            });
+            // Create success embed with clear separation
+            const successEmbed = new EmbedBuilder()
+                .setTitle('✅ Withdrawal Successful')
+                .setColor(0x00FF00)
+                .setDescription(`**Moved ${fmt(withdrawAmount)} to your wallet**`)
+                .addFields(
+                    { name: '\u200B', value: '**📤 FROM BANK**', inline: false },
+                    { name: 'Before', value: fmt(currentBank), inline: true },
+                    { name: 'After', value: fmt(newBank), inline: true },
+                    { name: 'Change', value: `-${fmt(withdrawAmount)}`, inline: true },
+                    { name: '\u200B', value: '**📥 TO WALLET**', inline: false },
+                    { name: 'Before', value: fmt(currentWallet), inline: true },
+                    { name: 'After', value: fmt(newWallet), inline: true },
+                    { name: 'Change', value: `+${fmt(withdrawAmount)}`, inline: true }
+                )
+                .setFooter({ text: 'Your money is ready to use!' })
+                .setTimestamp();
 
             await interaction.editReply({ embeds: [successEmbed] });
 
             // Log transaction
             logger.info(`User ${username} (${userId}) withdrew ${fmt(withdrawAmount)} from bank`);
-
-            // Send log message
-            try {
-                await sendLogMessage(
-                    interaction.client,
-                    'economy',
-                    `Bank withdrawal: ${username} withdrew ${fmt(withdrawAmount)} (Wallet: ${fmt(newBalance.wallet)}, Bank: ${fmt(newBalance.bank)})`,
-                    userId,
-                    guildId
-                );
-            } catch (logError) {
-                logger.error(`Failed to send withdrawal log: ${logError.message}`);
-            }
+            
+            await sendLogMessage(
+                interaction.client,
+                'economy',
+                `Withdrawal: ${username} moved ${fmt(withdrawAmount)} from bank`,
+                userId,
+                guildId
+            );
 
         } catch (error) {
             logger.error(`Error in withdraw command: ${error.message}`);
 
-            try {
-                const errorEmbed = buildSessionEmbed({
-                    title: '❌ Withdrawal Error',
-                    topFields: [
-                        { name: '🔧 System Error', value: 'An error occurred while processing your withdrawal.' }
-                    ],
-                    stageText: 'SYSTEM ERROR',
-                    color: 0xFF0000,
-                    footer: 'Please try again later'
-                });
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ System Error')
+                .setDescription('Something went wrong. Please try again.')
+                .setColor(0xFF0000)
+                .setFooter({ text: 'ATIVE Casino' });
+            
+            await interaction.editReply({ embeds: [errorEmbed] });
 
-                if (interaction.deferred) {
-                    await interaction.editReply({ embeds: [errorEmbed] });
-                } else {
-                    await interaction.reply({ embeds: [errorEmbed], flags: 64 });
-                }
-
-                // Send error log
-                try {
-                    await sendLogMessage(
-                        interaction.client,
-                        'error',
-                        `Withdraw error for ${username} (${userId}) with amount "${amountStr}" — ${error.message}`,
-                        userId,
-                        guildId
-                    );
-                } catch (logError) {
-                    logger.error(`Failed to send error log: ${logError.message}`);
-                }
-            } catch (replyError) {
-                logger.error(`Failed to send error reply in withdraw command: ${replyError.message}`);
-            }
+        } finally {
+            // Always release the transaction lock
+            transactionLocks.delete(lockKey);
         }
     }
 };

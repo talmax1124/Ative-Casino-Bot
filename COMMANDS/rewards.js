@@ -1,11 +1,11 @@
 /**
- * Consolidated Earn command for ATIVE Casino Bot
- * Combines beg, crime, work, and earnmoney functionality
+ * Consolidated Rewards command for ATIVE Casino Bot
+ * Combines dailytask, weekly, monthly, and vote functionality
  */
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus, resolveAmount } = require('../UTILS/common');
+const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PayoutManager, GameResult } = require('../UTILS/gameUtils');
@@ -15,37 +15,43 @@ const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
 
 // Import original command modules for their logic
-const begCommand = require('./beg');
-const crimeCommand = require('./crime');
-const workCommand = require('./work');
-const earnmoneyCommand = require('./earnmoney');
+const dailytaskCommand = require('./dailytask');
+const weeklyCommand = require('./weekly');
+const monthlyCommand = require('./monthly');
+const voteCommand = require('./vote');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('earn')
-        .setDescription('💼 Earn money through various activities')
+        .setName('rewards')
+        .setDescription('⏰ Claim time-based rewards and manage voting')
         .addSubcommand(subcommand =>
             subcommand
-                .setName('beg')
-                .setDescription('🤲 Beg for coins (5K-50K every hour)')
+                .setName('daily')
+                .setDescription('📅 Complete a daily task to earn money (25K-75K every 24 hours)')
         )
         .addSubcommand(subcommand =>
             subcommand
-                .setName('crime')
-                .setDescription('🚨 Commit petty crimes for quick cash (5K-25K every 30 minutes)')
+                .setName('weekly')
+                .setDescription('📅 Claim weekly reward (every 7 days)')
         )
         .addSubcommand(subcommand =>
             subcommand
-                .setName('work')
-                .setDescription('💼 Work for coins (25K-150K every hour)')
+                .setName('monthly')
+                .setDescription('📅 Claim monthly reward (every 30 days)')
         )
         .addSubcommand(subcommand =>
             subcommand
-                .setName('bonus')
-                .setDescription('🎁 Claim voting bonus rewards (requires 10+ votes)')
+                .setName('vote')
+                .setDescription('🗳️ Vote for the bot and claim rewards')
                 .addStringOption(option =>
-                    option.setName('amount')
-                        .setDescription('Amount to earn (number, "all", "half")')
+                    option.setName('action')
+                        .setDescription('Vote action to perform')
+                        .addChoices(
+                            { name: 'Status - Check voting status', value: 'status' },
+                            { name: 'Info - Voting information', value: 'info' },
+                            { name: 'Leaderboard - Top voters', value: 'leaderboard' },
+                            { name: 'Reminder - Set vote reminder', value: 'reminder' }
+                        )
                         .setRequired(false)
                 )
         ),
@@ -56,14 +62,14 @@ module.exports = {
         try {
             // Route to appropriate subcommand handler
             switch (subcommand) {
-                case 'beg':
-                    return await begCommand.execute(interaction);
-                case 'crime':
-                    return await crimeCommand.execute(interaction);
-                case 'work':
-                    return await workCommand.execute(interaction);
-                case 'bonus':
-                    return await earnmoneyCommand.execute(interaction);
+                case 'daily':
+                    return await dailytaskCommand.execute(interaction);
+                case 'weekly':
+                    return await weeklyCommand.execute(interaction);
+                case 'monthly':
+                    return await monthlyCommand.execute(interaction);
+                case 'vote':
+                    return await voteCommand.execute(interaction);
                 default:
                     return await interaction.reply({
                         content: '❌ Unknown subcommand.',
@@ -71,7 +77,7 @@ module.exports = {
                     });
             }
         } catch (error) {
-            logger.error('Error in earn command:', error);
+            logger.error('Error in rewards command:', error);
             
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({

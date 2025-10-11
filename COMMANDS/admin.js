@@ -1,78 +1,107 @@
 /**
- * Admin Portal Command - Casino Bot
- * Economy commands (editmoney, drawlottery) moved to UAS bot
+ * Consolidated Admin command for ATIVE Casino Bot
+ * Combines setup, backup, and release functionality
  */
 
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const dbManager = require('../UTILS/database');
+const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const logger = require('../UTILS/logger');
 
-// Portal Command (kept in main casino bot)
-const portalCommand = {
+// Import original command modules for their logic
+const setupCommand = require('./setup');
+const releaseCommand = require('./release');
+
+// Developer user ID for admin verification
+const DEVELOPER_USER_ID = process.env.DEVELOPER_USER_ID || '466050111680544798';
+
+// Helper function to check developer permissions
+function isDeveloper(userId) {
+    return userId === DEVELOPER_USER_ID;
+}
+
+module.exports = {
     data: new SlashCommandBuilder()
-        .setName('portal')
-        .setDescription('Display bot information and links'),
+        .setName('admin')
+        .setDescription('🔧 Administrative commands (Developer only)')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('setup')
+                .setDescription('⚙️ Setup bot configuration and permissions')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('release')
+                .setDescription('🚀 Manage bot releases and updates')
+                .addStringOption(option =>
+                    option.setName('action')
+                        .setDescription('Release action to perform')
+                        .addChoices(
+                            { name: 'Info - Current release info', value: 'info' },
+                            { name: 'Deploy - Deploy new release', value: 'deploy' },
+                            { name: 'Status - Check deployment status', value: 'status' }
+                        )
+                        .setRequired(false)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('backup')
+                .setDescription('💾 Database backup and maintenance (Currently disabled)')
+        ),
 
     async execute(interaction) {
-        try {
-            const embed = new EmbedBuilder()
-                .setTitle('🎰 ATIVE Casino Bot - Portal')
-                .setDescription('Welcome to the ATIVE Casino Bot portal!')
-                .addFields([
-                    {
-                        name: '🎮 Casino Games',
-                        value: 'Play slots, blackjack, fishing, and more casino games!',
-                        inline: false
-                    },
-                    {
-                        name: '🎯 Mini Games',
-                        value: 'Enjoy UNO, Battleship, Duck Hunt, and other fun games!',
-                        inline: false
-                    },
-                    {
-                        name: '💰 Economy System',
-                        value: 'Economy commands have been moved to the UAS bot for better management.',
-                        inline: false
-                    },
-                    {
-                        name: '📊 XP System',
-                        value: 'Level up by playing games and chatting! XP tracking moved to UAS.',
-                        inline: false
-                    },
-                    {
-                        name: '🎫 Lottery System',
-                        value: 'Use `/purchaselottery` to buy tickets for the weekly drawing!',
-                        inline: false
-                    },
-                    {
-                        name: '🔧 Admin Commands',
-                        value: 'Admin economy commands are now available in the UAS bot.',
-                        inline: false
-                    }
-                ])
-                .setColor(0x3498DB)
-                .setFooter({
-                    text: 'ATIVE Casino Bot • Enjoy responsible gaming!',
-                    iconURL: interaction.client.user.displayAvatarURL()
-                })
-                .setTimestamp();
+        const subcommand = interaction.options.getSubcommand();
+        const userId = interaction.user.id;
 
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+        // Check if user is developer
+        if (!isDeveloper(userId)) {
+            return await interaction.reply({
+                embeds: [new EmbedBuilder()
+                    .setTitle('🚫 Access Denied')
+                    .setDescription('This command is restricted to developers only.')
+                    .setColor(0xFF0000)
+                ],
+                ephemeral: true
+            });
+        }
+
+        try {
+            // Route to appropriate subcommand handler
+            switch (subcommand) {
+                case 'setup':
+                    return await setupCommand.execute(interaction);
+                case 'release':
+                    return await releaseCommand.execute(interaction);
+                case 'backup':
+                    return await interaction.reply({
+                        embeds: [new EmbedBuilder()
+                            .setTitle('💾 Database Backup')
+                            .setDescription('Backup functionality is currently disabled. Contact developer for manual backups.')
+                            .setColor(0xFFAA00)
+                        ],
+                        ephemeral: true
+                    });
+                default:
+                    return await interaction.reply({
+                        content: '❌ Unknown subcommand.',
+                        ephemeral: true
+                    });
+            }
         } catch (error) {
-            logger.error(`Error in portal command: ${error.message}`);
+            logger.error('Error in admin command:', error);
             
-            const errorEmbed = new EmbedBuilder()
-                .setTitle('❌ Error')
-                .setDescription('Failed to load portal information.')
-                .setColor(0xFF0000)
-                .setTimestamp();
-            
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({
+                    content: '❌ An error occurred while processing your request.',
+                    ephemeral: true
+                });
+            } else if (interaction.deferred) {
+                await interaction.editReply({
+                    content: '❌ An error occurred while processing your request.'
+                });
+            }
         }
     }
-};
-
-// Export the portal command only
-module.exports = {
-    data: portalCommand.data,
-    execute: portalCommand.execute
 };
