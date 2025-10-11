@@ -63,7 +63,7 @@ module.exports = {
                     .setDescription('This command is restricted to developers only.')
                     .setColor(0xFF0000)
                 ],
-                ephemeral: true
+                flags: 64
             });
         }
 
@@ -81,12 +81,12 @@ module.exports = {
                             .setDescription('Backup functionality is currently disabled. Contact developer for manual backups.')
                             .setColor(0xFFAA00)
                         ],
-                        ephemeral: true
+                        flags: 64
                     });
                 default:
                     return await interaction.reply({
                         content: '❌ Unknown subcommand.',
-                        ephemeral: true
+                        flags: 64
                     });
             }
         } catch (error) {
@@ -95,7 +95,7 @@ module.exports = {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: '❌ An error occurred while processing your request.',
-                    ephemeral: true
+                    flags: 64
                 });
             } else if (interaction.deferred) {
                 await interaction.editReply({

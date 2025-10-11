@@ -580,7 +580,7 @@ module.exports = {
                 logger.warn(`Blackjack action failed: game=${!!game}, sessionId=${sessionId}, activeSession=${JSON.stringify(activeSession)}`);
                 try {
                     await interaction.deferUpdate();
-                    await interaction.followUp({ content: 'No active blackjack game found.', ephemeral: true });
+                    await interaction.followUp({ content: 'No active blackjack game found.', flags: 64 });
                 } catch (err) {
                     logger.warn('Cannot send game not found reply - interaction error');
                 }
@@ -626,7 +626,7 @@ module.exports = {
                         }
                         await interaction.followUp({ 
                             content: '❌ An error occurred while hitting. Please try again.', 
-                            ephemeral: true 
+                            flags: 64 
                         });
                     } catch (interactionError) {
                         logger.error(`Failed to send hit error response: ${interactionError.message}`);
@@ -670,7 +670,7 @@ module.exports = {
                     if (!game.canDouble()) {
                         try {
                             await interaction.deferUpdate();
-                            await interaction.followUp({ content: 'Cannot double down now.', ephemeral: true });
+                            await interaction.followUp({ content: 'Cannot double down now.', flags: 64 });
                         } catch (err) {
                             logger.warn('Cannot send double down error - interaction error');
                         }
@@ -683,7 +683,7 @@ module.exports = {
                             await interaction.deferUpdate();
                             await interaction.followUp({ 
                                 content: `Insufficient funds to double down! You need ${fmt(game.betAmount)} more.`, 
-                                ephemeral: true 
+                                flags: 64 
                             });
                         } catch (err) {
                             logger.warn('Cannot send insufficient funds error - interaction error');
@@ -727,7 +727,7 @@ module.exports = {
                         }
                         await interaction.followUp({ 
                             content: '❌ An error occurred while doubling down. Please try again.', 
-                            ephemeral: true 
+                            flags: 64 
                         });
                     } catch (interactionError) {
                         logger.error(`Failed to send double error response: ${interactionError.message}`);
@@ -741,7 +741,7 @@ module.exports = {
                 if (!game.canSplit()) {
                     try {
                         await interaction.deferUpdate();
-                        await interaction.followUp({ content: 'Cannot split this hand.', ephemeral: true });
+                        await interaction.followUp({ content: 'Cannot split this hand.', flags: 64 });
                     } catch (err) {
                         logger.warn('Cannot send split error - interaction error');
                     }
@@ -754,7 +754,7 @@ module.exports = {
                         await interaction.deferUpdate();
                         await interaction.followUp({ 
                             content: `Insufficient funds to split! You need ${fmt(game.betAmount)} more.`, 
-                            ephemeral: true 
+                            flags: 64 
                         });
                     } catch (err) {
                         logger.warn('Cannot send split insufficient funds error - interaction error');
@@ -792,7 +792,7 @@ module.exports = {
                 if (!game.canOfferInsurance()) {
                     try {
                         await interaction.deferUpdate();
-                        await interaction.followUp({ content: 'Insurance is not available.', ephemeral: true });
+                        await interaction.followUp({ content: 'Insurance is not available.', flags: 64 });
                     } catch (err) {
                         logger.warn('Cannot send insurance error - interaction error');
                     }
@@ -805,7 +805,7 @@ module.exports = {
                         await interaction.deferUpdate();
                         await interaction.followUp({ 
                             content: `Insufficient funds for insurance! You need ${fmt(game.insuranceAmount)} more.`, 
-                            ephemeral: true 
+                            flags: 64 
                         });
                     } catch (err) {
                         logger.warn('Cannot send insurance insufficient funds error - interaction error');
@@ -890,7 +890,7 @@ module.exports = {
 
                 try {
                     await interaction.deferUpdate();
-                    await interaction.followUp({ embeds: [helpEmbed], components: helpComponents, ephemeral: true });
+                    await interaction.followUp({ embeds: [helpEmbed], components: helpComponents, flags: 64 });
                 } catch (err) {
                     logger.warn('Cannot send help reply - interaction error');
                 }
@@ -913,7 +913,7 @@ module.exports = {
                 if (!interaction.replied && !interaction.deferred) {
                     await interaction.deferUpdate();
                 }
-                await interaction.followUp({ content: '❌ Error processing action.', ephemeral: true });
+                await interaction.followUp({ content: '❌ Error processing action.', flags: 64 });
             } catch (interactionErr) {
                 logger.warn('Cannot send action error reply - interaction error');
             }
@@ -1324,7 +1324,7 @@ module.exports = {
             
             try {
                 const errorMessage = 'Failed to start new game. Please use `/blackjack` command directly.';
-                await interaction.followUp({ content: errorMessage, ephemeral: true });
+                await interaction.followUp({ content: errorMessage, flags: 64 });
             } catch (replyError) {
                 logger.error(`Failed to send error message: ${replyError.message}`);
             }

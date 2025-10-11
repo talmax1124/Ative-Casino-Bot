@@ -24,7 +24,7 @@ class AdvancedTrendAdjuster {
         this.config = {
             // Base house edges by game
             baseHouseEdge: {
-                'blackjack': 0.01,      // 1% base
+                'blackjack': 0.08,      // 8% base (increased from 1%)
                 'roulette': 0.027,      // 2.7% base
                 'slots': 0.05,          // 5% base
                 'crash': 0.03,          // 3% base
@@ -59,15 +59,15 @@ class AdvancedTrendAdjuster {
             
             // Win rate modifiers
             winRateModifiers: {
-                base: 0.48,            // Base 48% win rate
+                base: 0.42,            // Base 42% win rate (decreased from 48%)
                 minimum: 0.15,         // Never below 15%
-                maximum: 0.65,         // Never above 65%
+                maximum: 0.55,         // Never above 55% (decreased from 65%)
                 
-                // Skill-based modifiers
-                novice: 0.52,          // 52% for new players
-                intermediate: 0.45,    // 45% for regular players
-                expert: 0.38,          // 38% for skilled players
-                exploiter: 0.20        // 20% for exploiters
+                // Skill-based modifiers for blackjack specifically
+                novice: 0.45,          // 45% for new players (decreased from 52%)
+                intermediate: 0.38,    // 38% for regular players (decreased from 45%)
+                expert: 0.30,          // 30% for skilled players (decreased from 38%)
+                exploiter: 0.18        // 18% for exploiters (decreased from 20%)
             },
             
             // Thresholds for detection
@@ -132,6 +132,12 @@ class AdvancedTrendAdjuster {
             // Apply game-specific adjustments
             const gameAdjustment = this.activeAdjustments.get(`${gameType}_${userId}`) || 0;
             winRate *= (1 - gameAdjustment);
+            
+            // Special blackjack adjustment - additional 15% reduction
+            if (gameType === 'blackjack') {
+                winRate *= 0.85; // Additional 15% reduction specifically for blackjack
+                logger.debug(`🃏 Blackjack-specific adjustment applied: -15%`);
+            }
             
             // Ensure within bounds
             winRate = Math.max(this.config.winRateModifiers.minimum, 
@@ -238,13 +244,13 @@ class AdvancedTrendAdjuster {
     applySkillModifier(winRate, skillLevel) {
         switch (skillLevel) {
             case 'novice':
-                return winRate * 1.08; // Slight boost for beginners
+                return winRate * 0.95; // Small penalty even for beginners (reduced from 1.08)
             case 'intermediate':
-                return winRate * 0.94; // Small penalty
+                return winRate * 0.85; // Moderate penalty (reduced from 0.94)
             case 'expert':
-                return winRate * 0.79; // Significant penalty
+                return winRate * 0.70; // Large penalty (reduced from 0.79)
             case 'exploiter':
-                return winRate * 0.42; // Severe penalty
+                return winRate * 0.35; // Severe penalty (reduced from 0.42)
             default:
                 return winRate;
         }

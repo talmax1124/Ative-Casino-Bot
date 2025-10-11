@@ -65,6 +65,11 @@ class GameTrendAnalyzer {
         // Initialize data structures
         this.initializeDataStructures();
         
+        // Initialize statistical models Map
+        if (!this.statisticalModels) {
+            this.statisticalModels = new Map();
+        }
+        
         // Load existing trend data (async, fire-and-forget)
         this.loadExistingTrendData().catch(error => {
             logger.error(`Failed to load existing trend data: ${error.message}`);
@@ -243,6 +248,16 @@ class GameTrendAnalyzer {
                 strategyDistribution: new Map(),
                 equilibriumPoint: 0,
                 lastShift: Date.now()
+            });
+            
+            // Initialize statistical model for each game type
+            this.statisticalModels.set(gameType, {
+                mean: 0,
+                variance: 0,
+                standardDeviation: 0,
+                confidenceIntervals: { lower: 0, upper: 0 },
+                outliers: [],
+                trend: 'neutral'
             });
         }
     }

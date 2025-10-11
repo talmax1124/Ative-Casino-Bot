@@ -709,7 +709,7 @@ async function safeInteractionUpdate(interaction, options) {
             logger.warn('Interaction expired, using followUp instead');
             const followUpOptions = {
                 ...options,
-                ephemeral: true
+                flags: 64
             };
             return await interaction.followUp(followUpOptions);
         } else {

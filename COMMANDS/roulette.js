@@ -822,7 +822,7 @@ module.exports = {
                         ]
                     });
 
-                    await interaction.reply({ embeds: [helpEmbed], components: helpComponents, ephemeral: true });
+                    await interaction.reply({ embeds: [helpEmbed], components: helpComponents, flags: 64 });
                     break;
             }
         } catch (actionError) {
@@ -1180,7 +1180,7 @@ module.exports = {
             
             const game = activeGames.get(activeSession.sessionId);
             if (!game) {
-                return await interaction.reply({ content: 'Game not found.', ephemeral: true });
+                return await interaction.reply({ content: 'Game not found.', flags: 64 });
             }
 
             // Place number bet - handle both numeric and string values (for '00')
@@ -1222,7 +1222,7 @@ module.exports = {
             
             const game = activeGames.get(activeSession.sessionId);
             if (!game) {
-                return await interaction.reply({ content: 'Game not found.', ephemeral: true });
+                return await interaction.reply({ content: 'Game not found.', flags: 64 });
             }
 
             // Place dozen bet
@@ -1276,9 +1276,9 @@ module.exports = {
             try {
                 const errorMessage = 'Failed to start new game. Please use `/roulette` command directly.';
                 if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({ content: errorMessage, ephemeral: true });
+                    await interaction.reply({ content: errorMessage, flags: 64 });
                 } else {
-                    await interaction.followUp({ content: errorMessage, ephemeral: true });
+                    await interaction.followUp({ content: errorMessage, flags: 64 });
                 }
             } catch (replyError) {
                 logger.error(`Failed to send error message: ${replyError.message}`);

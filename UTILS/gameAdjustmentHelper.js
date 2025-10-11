@@ -283,7 +283,7 @@ class GameAdjustmentHelper {
                         action.reason = rec;
                     } else if (rec.includes('LIMIT')) {
                         action.restrictions.push('bet_limit');
-                        action.adjustments.maxBet = 10000;
+                        action.adjustments.maxBet = 100000000; // 100M - effectively no limit
                     } else if (rec.includes('MONITOR')) {
                         action.restrictions.push('monitoring');
                     }

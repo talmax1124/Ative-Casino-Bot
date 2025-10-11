@@ -35,7 +35,7 @@ class WealthBasedBetLimits {
             'crash': 0.7,           // 30% reduction (very high variance)  
             'plinko': 0.6,          // 40% reduction (extreme variance)
             'treasurevault': 0.9,   // 10% reduction (multiple rounds)
-            'blackjack': 1.1,       // 10% increase (skill-based)
+            'blackjack': 10.0,      // 1000% increase - effectively no limits
             'roulette': 1.0,        // Standard limits
             'lottery': 2.0,         // Higher limits (external draw)
             'scratch': 1.2,         // Slightly higher (fixed odds)

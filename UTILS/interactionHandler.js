@@ -265,7 +265,7 @@ class SafeInteractionHandler {
                 // Try to send error message if possible
                 await this.safeReply(interaction, {
                     content: '❌ An error occurred while processing your request.',
-                    ephemeral: true
+                    flags: 64
                 });
             }
         };
@@ -302,7 +302,7 @@ class SafeInteractionHandler {
                     content: '❌ An error occurred while processing your request.',
                     embeds: [],
                     components: [],
-                    ephemeral: true
+                    flags: 64
                 });
             }
         };

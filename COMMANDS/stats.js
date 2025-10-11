@@ -83,7 +83,7 @@ module.exports = {
                 default:
                     return await interaction.reply({
                         content: '❌ Unknown subcommand.',
-                        ephemeral: true
+                        flags: 64
                     });
             }
         } catch (error) {
@@ -92,7 +92,7 @@ module.exports = {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: '❌ An error occurred while processing your request.',
-                    ephemeral: true
+                    flags: 64
                 });
             } else if (interaction.deferred) {
                 await interaction.editReply({

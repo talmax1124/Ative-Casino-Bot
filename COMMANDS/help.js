@@ -114,9 +114,9 @@ async function handleHelpError(interaction, error) {
         if (interaction.deferred) {
             await interaction.editReply({ embeds: [errorEmbed], components: [] });
         } else if (interaction.replied) {
-            await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.followUp({ embeds: [errorEmbed], flags: 64 });
         } else {
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed], flags: 64 });
         }
     } catch (replyError) {
         logger.error(`Failed to send help error message: ${replyError.message}`);
