@@ -377,13 +377,38 @@ class TopGGManager {
                 logger.warn(`❌ Failed to send vote notification to log channel: ${channelError.message}`);
             }
 
-            // Only warn if both DM and log channel failed
-            if (!dmSent && !logChannelSent) {
-                logger.error(`⚠️ Vote confirmation could not be delivered to user ${user.username || user.id} - both DM and log channel failed`);
-            } else if (!dmSent && logChannelSent) {
-                logger.info(`✅ Vote confirmation delivered via log channel for user ${user.username || user.id} (DMs disabled)`);
-            } else if (dmSent) {
-                logger.info(`✅ Vote confirmation delivered via DM to user ${user.username || user.id}`);
+            // Also send to public vote channel 1426387298940883105 for users without DMs
+            let publicChannelSent = false;
+            try {
+                const publicVoteChannelId = '1426387298940883105';
+                logger.debug(`📢 Attempting to send public vote notification to channel: ${publicVoteChannelId}`);
+                const publicChannel = await this.client.channels.fetch(publicVoteChannelId);
+                if (publicChannel && publicChannel.isTextBased()) {
+                    const publicEmbed = new EmbedBuilder(embed);
+                    // Modify description to indicate this is a public announcement
+                    const voteTypeText = voteType === 'server' ? 'server' : voteType === 'ranktop' ? 'Rank.Top' : 'bot';
+                    publicEmbed.setDescription(`🗳️ **${user.username || user.id}** just voted for our ${voteTypeText}! Thank you for your support! 🎉`);
+                    
+                    await publicChannel.send({ embeds: [publicEmbed] });
+                    publicChannelSent = true;
+                    logger.info(`📢 Public vote notification sent to channel ${publicChannel.name}`);
+                } else {
+                    logger.warn(`❌ Public vote channel ${publicVoteChannelId} not found or not text-based`);
+                }
+            } catch (publicChannelError) {
+                logger.warn(`❌ Failed to send vote notification to public channel: ${publicChannelError.message}`);
+            }
+
+            // Log delivery status
+            const deliveryMethods = [];
+            if (dmSent) deliveryMethods.push('DM');
+            if (logChannelSent) deliveryMethods.push('log channel');
+            if (publicChannelSent) deliveryMethods.push('public channel');
+
+            if (deliveryMethods.length === 0) {
+                logger.error(`⚠️ Vote confirmation could not be delivered to user ${user.username || user.id} - all delivery methods failed`);
+            } else {
+                logger.info(`✅ Vote confirmation delivered via ${deliveryMethods.join(', ')} for user ${user.username || user.id}`);
             }
 
         } catch (error) {
