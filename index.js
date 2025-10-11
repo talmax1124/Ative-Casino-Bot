@@ -1590,6 +1590,69 @@ client.on('interactionCreate', async interaction => {
                     await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
                 }
             }
+            // Handle cog updater select menu
+            else if (interaction.customId === 'update_cog_select') {
+                try {
+                    const cogManager = require('./UTILS/cogManager');
+                    const cogUpdater = require('./UTILS/cogUpdater');
+                    
+                    // Check if user is authorized to update cogs
+                    if (!cogManager.isUserAuthorized(interaction.user.id)) {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: '❌ Only authorized users can update cogs.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+
+                    const selectedCategory = interaction.values[0];
+                    const categoryInfo = cogManager.getCategoryInfo(selectedCategory);
+                    
+                    if (!categoryInfo) {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: '❌ Invalid cog category selected.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+
+                    const embed = new EmbedBuilder()
+                        .setColor('#0099ff')
+                        .setTitle(`🔄 Update: ${categoryInfo.name}`)
+                        .setDescription(`**Description:** ${categoryInfo.description}\n**Commands:** ${categoryInfo.commands.length}\n**Command List:** ${categoryInfo.commands.join(', ')}`)
+                        .addFields({
+                            name: '⚠️ Warning',
+                            value: 'This will download and update files from GitHub. A backup will be created automatically.',
+                            inline: false
+                        });
+
+                    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+                    const buttons = new ActionRowBuilder()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`update_confirm_${selectedCategory}`)
+                                .setLabel('Confirm Update')
+                                .setStyle(ButtonStyle.Success)
+                                .setEmoji('✅'),
+                            new ButtonBuilder()
+                                .setCustomId('update_cancel')
+                                .setLabel('Cancel')
+                                .setStyle(ButtonStyle.Secondary)
+                                .setEmoji('❌')
+                        );
+
+                    await interaction.update({
+                        embeds: [embed],
+                        components: [buttons]
+                    });
+                } catch (error) {
+                    logger.error(`Error handling update cog select: ${error.message}`);
+                    await SafeInteractionHandler.safeReply(interaction, {
+                        content: '❌ An error occurred while processing cog selection.',
+                        ephemeral: true
+                    });
+                }
+            }
             // Handle cog management select menu
             else if (interaction.customId === 'cog_select') {
                 try {
@@ -3053,6 +3116,136 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('wc-word:')) {
                 // Word chain input buttons are handled within the wordchain command's collector
                 // No additional handling needed here - the command's own collector handles these
+            }
+            // Handle cog updater buttons
+            else if (customId.startsWith('update_')) {
+                try {
+                    const cogManager = require('./UTILS/cogManager');
+                    const cogUpdater = require('./UTILS/cogUpdater');
+                    
+                    // Check if user is authorized to update cogs
+                    if (!cogManager.isUserAuthorized(interaction.user.id)) {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: '❌ Only authorized users can update cogs.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+
+                    if (customId.startsWith('update_confirm_')) {
+                        const categoryName = customId.replace('update_confirm_', '');
+                        
+                        await interaction.deferUpdate();
+                        
+                        const loadingEmbed = new EmbedBuilder()
+                            .setColor('#ffff00')
+                            .setTitle('🔄 Updating Cog')
+                            .setDescription(`Starting update of ${categoryName} cog from GitHub...\n\n⏳ This may take a few moments.`);
+                        
+                        await interaction.editReply({ embeds: [loadingEmbed], components: [] });
+                        
+                        try {
+                            const result = await cogUpdater.updateCogOrCommand(
+                                categoryName, 
+                                'cog', 
+                                cogManager, 
+                                interaction.client
+                            );
+                            
+                            const finalEmbed = new EmbedBuilder()
+                                .setColor(result.success ? '#00ff00' : '#ff9900')
+                                .setTitle(`🔄 Update ${result.success ? 'Complete' : 'Partial'}`)
+                                .setDescription(`Update of cog \`${categoryName}\` ${result.success ? 'completed successfully' : 'completed with some failures'}.`)
+                                .addFields(
+                                    { name: '✅ Success', value: result.successCount.toString(), inline: true },
+                                    { name: '❌ Failed', value: result.failCount.toString(), inline: true },
+                                    { name: '📁 Total Files', value: result.totalFiles.toString(), inline: true }
+                                );
+
+                            if (result.hasBackup) {
+                                finalEmbed.addFields({
+                                    name: '💾 Backup',
+                                    value: `Created backup: \`${result.backupInfo.name}\``,
+                                    inline: false
+                                });
+                            }
+                            
+                            await interaction.editReply({ embeds: [finalEmbed] });
+                        } catch (error) {
+                            logger.error(`Update failed for cog '${categoryName}':`, error);
+                            
+                            const errorEmbed = new EmbedBuilder()
+                                .setColor('#ff0000')
+                                .setTitle('❌ Update Failed')
+                                .setDescription(`Failed to update cog \`${categoryName}\`: ${error.message}`);
+                            
+                            await interaction.editReply({ embeds: [errorEmbed] });
+                        }
+                    }
+                    else if (customId === 'update_cancel') {
+                        const embed = new EmbedBuilder()
+                            .setColor('#6c757d')
+                            .setTitle('❌ Update Cancelled')
+                            .setDescription('Cog update has been cancelled.');
+                        
+                        await interaction.update({ embeds: [embed], components: [] });
+                    }
+                    else if (customId === 'update_show_backups') {
+                        const backups = await cogUpdater.getAvailableBackups();
+                        
+                        const embed = new EmbedBuilder()
+                            .setColor('#0099ff')
+                            .setTitle('💾 Available Backups')
+                            .setDescription(backups.length > 0 ? 'Recent backups available for rollback:' : 'No backups available.');
+                        
+                        if (backups.length > 0) {
+                            const backupList = backups.slice(0, 10).map(backup => {
+                                const age = Math.round(backup.age / (1000 * 60));
+                                const ageText = age < 60 ? `${age}m ago` : `${Math.round(age / 60)}h ago`;
+                                return `• **${backup.name}** (${backup.fileCount} files, ${ageText})`;
+                            }).join('\n');
+                            
+                            embed.addFields({
+                                name: '📋 Backup List',
+                                value: backupList,
+                                inline: false
+                            });
+                        }
+                        
+                        await interaction.update({ embeds: [embed], components: [] });
+                    }
+                    else if (customId === 'update_cleanup') {
+                        await interaction.deferUpdate();
+                        
+                        const cleaned = await cogUpdater.cleanOldBackups();
+                        
+                        const embed = new EmbedBuilder()
+                            .setColor('#00ff00')
+                            .setTitle('🧹 Cleanup Complete')
+                            .setDescription(`Cleaned ${cleaned} old backups.`);
+                        
+                        await interaction.editReply({ embeds: [embed], components: [] });
+                    }
+                    else if (customId === 'update_refresh') {
+                        // Re-run the panel command
+                        const cogupdaterCommand = client.commands.get('cogupdater');
+                        if (cogupdaterCommand) {
+                            const fakeInteraction = {
+                                ...interaction,
+                                options: {
+                                    getSubcommand: () => 'panel'
+                                }
+                            };
+                            await cogupdaterCommand.execute(fakeInteraction);
+                        }
+                    }
+                } catch (error) {
+                    logger.error(`Error handling update button ${customId}:`, error);
+                    await SafeInteractionHandler.safeReply(interaction, {
+                        content: '❌ An error occurred while processing the update.',
+                        ephemeral: true
+                    });
+                }
             }
             // Handle cog management buttons
             else if (customId.startsWith('cog_')) {

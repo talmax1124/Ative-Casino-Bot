@@ -1,0 +1,17 @@
+{
+  "name": "test_backup",
+  "timestamp": "2025-10-11T21-56-10-954Z",
+  "files": [
+    {
+      "path": "COMMANDS/help.js",
+      "size": 26997,
+      "backed_up": true
+    },
+    {
+      "path": "UTILS/logger.js",
+      "size": 4833,
+      "backed_up": true
+    }
+  ],
+  "path": "/Users/carlosdiazplaza/ative_casino_bot/backups/cogs/test_backup_2025-10-11T21-56-10-954Z"
+}
