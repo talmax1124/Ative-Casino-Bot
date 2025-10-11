@@ -9,13 +9,13 @@ class GameInputValidator {
     /**
      * SECURITY: Validate bet amounts across all games
      */
-    static validateBetAmount(amount, minBet = 1, maxBet = 1000000) {
+    static validateBetAmount(amount, minBet = 1, maxBet = Infinity) {
         // Type validation
         if (typeof amount !== 'number') {
             throw new Error(`Invalid bet amount type: expected number, got ${typeof amount}`);
         }
         
-        // Finite validation
+        // Finite validation (but allow very large numbers)
         if (!Number.isFinite(amount)) {
             throw new Error(`Invalid bet amount: must be finite, got ${amount}`);
         }
@@ -29,9 +29,10 @@ class GameInputValidator {
             throw new Error(`Bet amount too small: minimum ${minBet}, got ${amount}`);
         }
         
-        if (amount > maxBet) {
-            throw new Error(`Bet amount too large: maximum ${maxBet}, got ${amount}`);
-        }
+        // NO MAXIMUM BET LIMIT - REMOVED
+        // if (amount > maxBet) {
+        //     throw new Error(`Bet amount too large: maximum ${maxBet}, got ${amount}`);
+        // }
         
         // Integer validation for currency
         if (!Number.isInteger(amount)) {

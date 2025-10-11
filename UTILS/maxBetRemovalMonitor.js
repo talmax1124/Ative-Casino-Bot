@@ -25,6 +25,8 @@ class MaxBetRemovalMonitor {
         this.lastNotification = 0;
         this.readinessHistory = [];
         this.isMonitoring = false;
+        this.disabled = true; // PERMANENTLY DISABLED - ALL BET LIMITS REMOVED
+        logger.info('🚫 Max Bet Removal Monitor DISABLED - All bet limits permanently removed');
     }
 
     /**

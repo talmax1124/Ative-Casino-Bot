@@ -54,9 +54,8 @@ class WealthBasedBetLimits {
      */
     async calculateMaxBet(userId, guildId, gameType) {
         try {
-            // Get user's current wealth
-            const balance = await dbManager.getUserBalance(userId, guildId);
-            const totalWealth = balance.wallet + balance.bank;
+            // NO LIMITS FOR ANY GAMES
+            return Infinity;
             
             // Find applicable wealth tier
             const wealthTier = this.wealthTiers.find(tier => 
@@ -204,20 +203,10 @@ class WealthBasedBetLimits {
      */
     async validateBetAmount(userId, guildId, betAmount, gameType) {
         try {
-            const maxAllowed = await this.calculateMaxBet(userId, guildId, gameType);
-            
-            if (betAmount > maxAllowed) {
-                return {
-                    isValid: false,
-                    maxAllowed,
-                    reason: 'BET_LIMIT_EXCEEDED',
-                    message: `Maximum bet allowed: ${fmt(maxAllowed)} (you tried to bet ${fmt(betAmount)})`
-                };
-            }
-            
+            // NO LIMITS FOR ANY GAMES - ALWAYS VALID
             return {
                 isValid: true,
-                maxAllowed,
+                maxAllowed: Infinity,
                 reason: null,
                 message: null
             };
