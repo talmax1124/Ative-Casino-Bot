@@ -20,7 +20,7 @@ class CogUpdater {
         this.githubRepo = 'talmax1124/Ative-Casino-Bot';
         this.githubBranch = 'main';
         this.repositoryExists = false; // Will be checked on first use
-        this.githubToken = process.env.GITHUB_TOKEN || null;
+        this.githubToken = process.env.GITHUB_TOKEN || process.env.ACCESS_TOKEN || null;
         
         // Ensure backup directory exists
         this.ensureBackupDirectory();
