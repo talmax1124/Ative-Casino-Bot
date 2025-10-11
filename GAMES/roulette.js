@@ -5,6 +5,7 @@
  */
 
 const crypto = require('crypto');
+const GameInputValidator = require('../UTILS/gameInputValidator');
 
 // Global streak tracking to prevent excessive green runs
 const globalStreakTracker = {
@@ -42,9 +43,13 @@ const globalStreakTracker = {
 
 class RouletteGame {
     constructor(userId, betAmount) {
+        // SECURITY: Validate bet amount before creating game
+        this.validateBetAmount(betAmount);
+        
         this.userId = userId;
         this.betAmount = betAmount;
         this.currentBet = null;
+        this.currentBets = []; // SECURITY: Track multiple bets properly
         this.lastResult = null;
         this.lastPayout = 0;
         this.isSpinning = false;
@@ -58,6 +63,24 @@ class RouletteGame {
         this.redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
         this.blackNumbers = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35];
         this.greenNumbers = [0, '00'];
+        
+        // Maximum bet limits for security
+        this.MAX_BET_AMOUNT = 10000000; // 10M max bet
+        this.MIN_BET_AMOUNT = 1; // $1 minimum bet
+    }
+
+    /**
+     * SECURITY: Validate bet amount using centralized validator
+     */
+    validateBetAmount(amount) {
+        return GameInputValidator.validateBetAmount(amount, this.MIN_BET_AMOUNT, this.MAX_BET_AMOUNT);
+    }
+
+    /**
+     * SECURITY: Validate roulette outcome using centralized validator
+     */
+    validateOutcome(outcome) {
+        return GameInputValidator.validateRouletteOutcome(outcome);
     }
 
     /**
@@ -76,6 +99,69 @@ class RouletteGame {
             throw new Error('Cannot place bet while game is in progress or ended');
         }
 
+        // SECURITY: Validate bet amount and type
+        this.validateBetAmount(amount);
+        this.validateBetType(betType, numbers);
+
+        this.currentBet = {
+            type: betType,
+            amount: amount,
+            numbers: numbers
+        };
+    }
+
+    /**
+     * SECURITY: Validate bet type to prevent invalid bets
+     */
+    validateBetType(betType, numbers) {
+        const validBetTypes = [
+            'red', 'black', 'odd', 'even', 'low', 'high',
+            'dozen1', 'dozen2', 'dozen3',
+            'column1', 'column2', 'column3',
+            'number', 'green', 'basket'
+        ];
+
+        if (!validBetTypes.includes(betType)) {
+            throw new Error(`Invalid bet type: ${betType}`);
+        }
+
+        // Special validation for number bets
+        if (betType === 'number') {
+            if (!Array.isArray(numbers) || numbers.length === 0) {
+                throw new Error('Number bet requires valid numbers array');
+            }
+            
+            // Validate each number in the array
+            for (const num of numbers) {
+                if (!this.wheelNumbers.includes(num)) {
+                    throw new Error(`Invalid number for bet: ${num}`);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * SECURITY: Add multiple bets support for proper payout calculation
+     */
+    addBet(betType, amount, numbers = null) {
+        if (this.isSpinning || this.gameEnded) {
+            throw new Error('Cannot place bet while game is in progress or ended');
+        }
+
+        // SECURITY: Validate bet amount and type
+        this.validateBetAmount(amount);
+        this.validateBetType(betType, numbers);
+
+        // Add to multiple bets array
+        this.currentBets.push({
+            type: betType,
+            amount: amount,
+            numbers: numbers
+        });
+
+        // Also set as current bet for backward compatibility
         this.currentBet = {
             type: betType,
             amount: amount,
@@ -91,6 +177,140 @@ class RouletteGame {
             throw new Error('Cannot clear bet while game is spinning');
         }
         this.currentBet = null;
+        this.currentBets = []; // SECURITY: Clear all bets
+    }
+
+    /**
+     * SECURITY: Calculate total payout for all bets
+     */
+    calculateTotalPayout(result) {
+        // SECURITY: Validate outcome before processing
+        this.validateOutcome(result);
+        
+        let totalPayout = 0;
+        
+        // Calculate payout for each bet
+        for (const bet of this.currentBets) {
+            const betPayout = this.calculateSingleBetPayout(result, bet);
+            totalPayout += betPayout;
+        }
+        
+        // If no multiple bets, use single bet for backward compatibility
+        if (this.currentBets.length === 0 && this.currentBet) {
+            totalPayout = this.calculateSingleBetPayout(result, this.currentBet);
+        }
+        
+        this.lastPayout = totalPayout;
+        return totalPayout;
+    }
+
+    /**
+     * SECURITY: Calculate payout for a single bet
+     */
+    calculateSingleBetPayout(result, bet) {
+        const { type, amount, numbers } = bet;
+        
+        // SECURITY: Validate bet amount
+        this.validateBetAmount(amount);
+        
+        let won = false;
+
+        // Convert result to number for comparisons (except '00')
+        const numResult = result === '00' ? '00' : Number(result);
+
+        switch (type) {
+            case 'red':
+                won = typeof numResult === 'number' && this.redNumbers.includes(numResult);
+                break;
+            case 'black':
+                won = typeof numResult === 'number' && this.blackNumbers.includes(numResult);
+                break;
+            case 'odd':
+                won = typeof numResult === 'number' && numResult > 0 && numResult % 2 === 1;
+                break;
+            case 'even':
+                won = typeof numResult === 'number' && numResult > 0 && numResult % 2 === 0;
+                break;
+            case 'low':
+                won = typeof numResult === 'number' && numResult >= 1 && numResult <= 18;
+                break;
+            case 'high':
+                won = typeof numResult === 'number' && numResult >= 19 && numResult <= 36;
+                break;
+            case 'dozen1':
+                won = typeof numResult === 'number' && numResult >= 1 && numResult <= 12;
+                break;
+            case 'dozen2':
+                won = typeof numResult === 'number' && numResult >= 13 && numResult <= 24;
+                break;
+            case 'dozen3':
+                won = typeof numResult === 'number' && numResult >= 25 && numResult <= 36;
+                break;
+            case 'column1':
+                won = typeof numResult === 'number' && numResult > 0 && (numResult - 1) % 3 === 0;
+                break;
+            case 'column2':
+                won = typeof numResult === 'number' && numResult > 0 && (numResult - 2) % 3 === 0;
+                break;
+            case 'column3':
+                won = typeof numResult === 'number' && numResult > 0 && (numResult - 3) % 3 === 0;
+                break;
+            case 'number':
+                won = numbers && (numbers.includes(numResult) || numbers.includes(result));
+                break;
+            case 'green':
+                won = result === 0 || result === '00';
+                break;
+            case 'basket':
+                // Basket bet covers 0, 00, 1, 2, 3
+                won = result === 0 || result === '00' || numResult === 1 || numResult === 2 || numResult === 3;
+                break;
+            default:
+                won = false;
+        }
+
+        if (!won) {
+            return 0;
+        }
+
+        // FAIR PAYOUTS - Standard casino odds (returns total amount including bet)
+        let payout = 0;
+        switch (type) {
+            case 'red':
+            case 'black':
+            case 'odd':
+            case 'even':
+            case 'low':
+            case 'high':
+                // 1:1 odds - returns double the bet (bet + 1x profit)
+                payout = amount * 2;
+                break;
+            case 'dozen1':
+            case 'dozen2':
+            case 'dozen3':
+            case 'column1':
+            case 'column2':
+            case 'column3':
+                // 2:1 odds - returns triple the bet (bet + 2x profit)
+                payout = amount * 3;
+                break;
+            case 'number':
+                // 35:1 odds - returns 36x the bet (bet + 35x profit)
+                payout = amount * 36;
+                break;
+            case 'green':
+                // 35:1 odds - returns 36x the bet (same as single number)
+                payout = amount * 36;
+                break;
+            case 'basket':
+                // 6:1 odds - returns 7x the bet (bet + 6x profit)
+                payout = amount * 7;
+                break;
+            default:
+                payout = 0;
+        }
+
+        return payout;
     }
 
     /**
@@ -144,11 +364,18 @@ class RouletteGame {
      * Calculate payout based on bet and result with FAIR multipliers
      */
     calculatePayout(result) {
+        // SECURITY: Validate outcome before processing
+        this.validateOutcome(result);
+        
         if (!this.currentBet) {
             return 0;
         }
 
         const { type, amount, numbers } = this.currentBet;
+        
+        // SECURITY: Validate bet amount again during payout calculation
+        this.validateBetAmount(amount);
+        
         let won = false;
 
         // Convert result to number for comparisons (except '00')

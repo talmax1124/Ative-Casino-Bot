@@ -61,22 +61,58 @@ class PlinkoGameSession {
     /**
      * Get final multipliers with adaptive adjustment for player wealth
      * Automatically adjusts multipliers based on wealth while keeping them honest
+     * SECURITY: Enhanced with comprehensive validation and caps
      */
     async getFinalMultipliers() {
-        // Get adaptive multipliers based on player wealth
-        const adaptedMultipliers = await adaptiveGameMechanics.getAdaptedPlinkoMultipliers(
-            this.userId, 
-            this.currentWealth, 
-            this.betAmount
-        );
+        let multipliers;
         
-        // Apply to the selected mode if we got adapted multipliers
-        if (adaptedMultipliers && adaptedMultipliers.length > 0) {
-            return adaptedMultipliers;
+        try {
+            // Get adaptive multipliers based on player wealth
+            const adaptedMultipliers = await adaptiveGameMechanics.getAdaptedPlinkoMultipliers(
+                this.userId, 
+                this.currentWealth, 
+                this.betAmount
+            );
+            
+            // Apply to the selected mode if we got adapted multipliers
+            if (adaptedMultipliers && Array.isArray(adaptedMultipliers) && adaptedMultipliers.length > 0) {
+                multipliers = adaptedMultipliers;
+            } else {
+                // Fallback to fixed multipliers for the selected mode
+                multipliers = [...this.modes[this.mode].multipliers]; // Create copy to avoid mutation
+            }
+        } catch (adaptError) {
+            logger.warn(`Error getting adaptive multipliers: ${adaptError.message}, using fallback`);
+            multipliers = [...this.modes[this.mode].multipliers];
         }
         
-        // Fallback to fixed multipliers for the selected mode
-        return this.modes[this.mode].multipliers;
+        // CRITICAL SECURITY: Validate and cap ALL multipliers to prevent exploitation
+        const ABSOLUTE_MAX_MULTIPLIER = 3.0; // Hard cap - NO EXCEPTIONS
+        const validatedMultipliers = multipliers.map((multiplier, index) => {
+            // Validate multiplier is a finite positive number
+            if (!Number.isFinite(multiplier) || multiplier < 0) {
+                logger.warn(`SECURITY: Invalid multiplier at position ${index}: ${multiplier}, using 0.0`);
+                return 0.0;
+            }
+            
+            // Cap multiplier to prevent exploitation
+            const originalMultiplier = multiplier;
+            const cappedMultiplier = Math.min(multiplier, ABSOLUTE_MAX_MULTIPLIER);
+            
+            if (originalMultiplier > ABSOLUTE_MAX_MULTIPLIER) {
+                logger.warn(`SECURITY: Plinko multiplier capped from ${originalMultiplier} to ${cappedMultiplier} at position ${index}`);
+            }
+            
+            return cappedMultiplier;
+        });
+        
+        // SECURITY: Ensure we have the correct number of multipliers (9 for plinko)
+        if (validatedMultipliers.length !== 9) {
+            logger.error(`SECURITY: Invalid multiplier array length: ${validatedMultipliers.length}, expected 9. Using fallback.`);
+            return this.modes[this.mode].multipliers.map(m => Math.min(m, ABSOLUTE_MAX_MULTIPLIER));
+        }
+        
+        return validatedMultipliers;
     }
 
     async generateBoard() {
@@ -112,33 +148,113 @@ class PlinkoGameSession {
     }
 
     async simulateDrop(dropPosition) {
+        // SECURITY: Validate drop position
+        if (!Number.isInteger(dropPosition) || dropPosition < 0 || dropPosition >= 9) {
+            throw new Error(`Invalid drop position: ${dropPosition}. Must be 0-8.`);
+        }
+        
         // Simulate ball drop physics with PROPER RANDOMIZATION
         let position = dropPosition;
         const path = [position];
+        
+        // SECURITY: Get validated multipliers with caps already applied
         const multipliers = await this.getFinalMultipliers();
+        
+        // SECURITY: Validate multipliers array
+        if (!Array.isArray(multipliers) || multipliers.length !== 9) {
+            throw new Error(`Invalid multipliers array: ${multipliers}`);
+        }
         
         // Simulate bounces down the board - PURE RANDOM, NO MANIPULATION
         for (let row = 1; row < 10; row++) {
-            // True 50/50 chance to bounce left or right
+            // True 50/50 chance to bounce left or right using CSPRNG
             const bounce = secureRandomInt(0, 2);
+            
+            // SECURITY: Validate random value
+            if (!Number.isInteger(bounce) || bounce < 0 || bounce >= 2) {
+                logger.warn(`Invalid random bounce value: ${bounce}, using fallback`);
+                // Fallback to safer random method
+                const fallbackBounce = Math.random() < 0.5 ? 0 : 1;
+                bounce = fallbackBounce;
+            }
+            
             if (bounce === 0 && position > 0) {
                 position -= 1; // Bounce left
             } else if (bounce === 1 && position < row) {
                 position += 1; // Bounce right
             }
-            // Clamp position to valid range
+            
+            // Clamp position to valid range with extra validation
             position = Math.max(0, Math.min(position, row));
+            
+            // SECURITY: Validate position is within bounds
+            if (!Number.isInteger(position) || position < 0 || position > row) {
+                logger.error(`Invalid position during bounce: ${position} at row ${row}`);
+                position = Math.max(0, Math.min(dropPosition, row)); // Reset to safe position
+            }
+            
             path.push(position);
         }
         
-        // Final slot is determined by last position
-        const finalSlot = Math.min(position, multipliers.length - 1);
-        const multiplier = multipliers[finalSlot];
+        // Final slot is determined by last position with bounds checking
+        const finalSlot = Math.max(0, Math.min(position, multipliers.length - 1));
+        
+        // SECURITY: Validate final slot
+        if (!Number.isInteger(finalSlot) || finalSlot < 0 || finalSlot >= multipliers.length) {
+            throw new Error(`Invalid final slot: ${finalSlot}. Array length: ${multipliers.length}`);
+        }
+        
+        let multiplier = multipliers[finalSlot];
+        
+        // SECURITY: Final validation of multiplier (should already be capped by getFinalMultipliers)
+        const ABSOLUTE_MAX_MULTIPLIER = 3.0;
+        if (!Number.isFinite(multiplier) || multiplier < 0) {
+            logger.error(`CRITICAL: Invalid multiplier at slot ${finalSlot}: ${multiplier}, using 0.0`);
+            multiplier = 0.0;
+        } else if (multiplier > ABSOLUTE_MAX_MULTIPLIER) {
+            logger.error(`CRITICAL: Multiplier exceeded cap at slot ${finalSlot}: ${multiplier}, capping to ${ABSOLUTE_MAX_MULTIPLIER}`);
+            multiplier = ABSOLUTE_MAX_MULTIPLIER;
+        }
+        
+        // SECURITY: Validate bet amount before calculation
+        if (!Number.isFinite(this.betAmount) || this.betAmount <= 0) {
+            throw new Error(`Invalid bet amount: ${this.betAmount}`);
+        }
+        
         const winnings = Math.floor(this.betAmount * multiplier);
         
-        // Log suspicious high wins for monitoring
-        if (multiplier >= 5.0) {
+        // SECURITY: Validate winnings calculation
+        if (!Number.isFinite(winnings) || winnings < 0) {
+            logger.error(`Invalid winnings calculation: ${winnings} (bet: ${this.betAmount}, multiplier: ${multiplier})`);
+            throw new Error('Winnings calculation error');
+        }
+        
+        // SECURITY: Cap maximum possible winnings to prevent exploitation
+        const maxPossibleWinnings = this.betAmount * ABSOLUTE_MAX_MULTIPLIER;
+        const cappedWinnings = Math.min(winnings, maxPossibleWinnings);
+        
+        if (winnings > maxPossibleWinnings) {
+            logger.error(`CRITICAL: Winnings exceeded maximum possible: ${winnings} > ${maxPossibleWinnings}, capping`);
+        }
+        
+        // Log suspicious high wins for monitoring (lowered threshold due to security cap)
+        if (multiplier >= 2.5) {
             logger.warn(`Plinko High Win Alert: User ${this.userId} hit ${multiplier}x multiplier on ${this.mode} mode`);
+            
+            // Log to security system
+            try {
+                const securityLogger = require('../UTILS/securityLogger');
+                securityLogger.logSecurityEvent(this.userId, 'GAME_HIGH_WIN', {
+                    game: 'plinko',
+                    mode: this.mode,
+                    multiplier: multiplier,
+                    betAmount: this.betAmount,
+                    winnings: cappedWinnings,
+                    finalSlot: finalSlot
+                });
+            } catch (secLogError) {
+                logger.error(`Security logging error: ${secLogError.message}`);
+            }
         }
         
         // Log all zero multiplier hits (total losses)
@@ -150,8 +266,8 @@ class PlinkoGameSession {
             path,
             finalSlot,
             multiplier,
-            winnings,
-            profit: winnings - this.betAmount,
+            winnings: cappedWinnings,
+            profit: cappedWinnings - this.betAmount,
             mode: this.mode,
             betAmount: this.betAmount
         };

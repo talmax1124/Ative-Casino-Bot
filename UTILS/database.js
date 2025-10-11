@@ -63,22 +63,26 @@ class DatabaseFallbackSystem {
             return this.inMemoryCache.get(userId);
         }
 
-        // Return safe default user data - MINIMAL BALANCE TO PREVENT EXPLOITS
+        // SECURITY FIX: Return safe default user data - NO BALANCE TO PREVENT EXPLOITS
         const defaultUser = {
             user_id: userId,
-            wallet: 0.0, // Start with $0 to prevent balance exploits
-            bank: 0.0,
-            last_earn_ts: 0.0,
-            last_rob_ts: 0.0,
-            game_active: false,
-            last_work_ts: 0.0,
-            last_beg_ts: 0.0,
-            last_crime_ts: 0.0,
-            last_heist_ts: 0.0,
+            wallet: 0.0, // Always $0 in fallback mode
+            bank: 0.0,   // Always $0 in fallback mode
+            last_earn_ts: Date.now(), // Set current time to prevent immediate cooldown bypass
+            last_rob_ts: Date.now(),
+            game_active: true, // Mark as active to prevent game participation
+            last_work_ts: Date.now(),
+            last_beg_ts: Date.now(),
+            last_crime_ts: Date.now(),
+            last_heist_ts: Date.now(),
             created_at: new Date(),
             updated_at: new Date(),
-            fallback_mode: true // Mark as fallback data
+            fallback_mode: true, // Mark as fallback data
+            security_locked: true // SECURITY: Lock account in fallback mode
         };
+        
+        // SECURITY: Log fallback user creation
+        logger.warn(`SECURITY: Created fallback user with locked state for ${userId}`);
 
         this.inMemoryCache.set(userId, defaultUser);
         return defaultUser;
@@ -252,6 +256,25 @@ class DatabaseManager {
     async updateUserBalance(userId, guildId = null, walletChange = 0, bankChange = 0, kwargs = {}) {
         // Check for play-for context and redirect winnings (but exclude level rewards and other non-game payouts)
         if (kwargs.playFor && walletChange > 0 && !kwargs.excludeFromPlayfor) {
+            // CRITICAL SECURITY FIX: Validate PlayFor context to prevent exploitation
+            const playForValidation = this.validatePlayForContext(userId, kwargs.playFor, walletChange);
+            if (!playForValidation.valid) {
+                logger.error(`SECURITY ALERT: Invalid PlayFor context detected! User: ${userId}, Reason: ${playForValidation.reason}`);
+                // Send security alert
+                if (global.discordClient) {
+                    try {
+                        const logChannel = global.discordClient.channels.cache.get('1406136478714826824');
+                        if (logChannel) {
+                            logChannel.send(`🚨 **PLAYFOR EXPLOIT ATTEMPT** 🚨\nUser: ${userId}\nReason: ${playForValidation.reason}\nAmount blocked: ${walletChange}`);
+                        }
+                    } catch (alertError) {
+                        logger.error(`Failed to send PlayFor security alert: ${alertError.message}`);
+                    }
+                }
+                // Block the transfer and give money to original player
+                return await this.updateUserBalance(userId, guildId, walletChange, bankChange, { ...kwargs, playFor: null });
+            }
+            
             logger.info(`PlayFor: Redirecting ${walletChange} from ${userId} to ${kwargs.playFor.recipientId}`);
             logger.info(`PlayFor: Global context exists: ${!!global.playForContext}, Client exists: ${!!global.discordClient}`);
             
@@ -328,6 +351,23 @@ class DatabaseManager {
             }
             
             return result;
+        }
+
+        // SECURITY: Check for fallback mode and block operations if in security-locked state
+        if (fallbackSystem.fallbackMode) {
+            logger.error(`SECURITY: Blocked balance update during fallback mode for user ${userId}. Amount: ${walletChange}`);
+            // Send security alert
+            if (global.discordClient && Math.abs(walletChange) > 1000) {
+                try {
+                    const logChannel = global.discordClient.channels.cache.get('1406136478714826824');
+                    if (logChannel) {
+                        logChannel.send(`🚨 **FALLBACK EXPLOIT BLOCKED** 🚨\nUser: ${userId}\nAttempted change: ${walletChange}\nSystem in fallback mode - all transactions blocked`);
+                    }
+                } catch (alertError) {
+                    logger.error(`Failed to send fallback security alert: ${alertError.message}`);
+                }
+            }
+            return false; // Block all balance changes during fallback
         }
 
         // Try primary database connection with fallback system
@@ -1950,6 +1990,170 @@ class DatabaseManager {
             return await this.databaseAdapter.initializeMarriageXPTables();
         }
         throw new Error('Database adapter not available');
+    }
+
+    /**
+     * SECURITY: Force balance verification by bypassing cache
+     */
+    async forceBalanceVerification(userId, guildId = null) {
+        try {
+            // SECURITY: Always bypass cache for verification
+            await this.invalidateUserBalanceCache(userId, guildId);
+            
+            // Get fresh balance directly from database
+            let verifiedBalance;
+            if (this.usingAdapter && !fallbackSystem.fallbackMode) {
+                verifiedBalance = await this.databaseAdapter.getUserBalance(userId, guildId);
+            } else {
+                // If in fallback mode, return locked state
+                logger.warn(`SECURITY: Balance verification blocked in fallback mode for ${userId}`);
+                return {
+                    wallet: 0,
+                    bank: 0,
+                    verified: false,
+                    reason: 'System in fallback mode - games disabled'
+                };
+            }
+            
+            // SECURITY: Validate balance integrity
+            if (verifiedBalance.wallet < 0 || verifiedBalance.bank < 0) {
+                logger.error(`SECURITY: Negative balance detected for user ${userId}: wallet=${verifiedBalance.wallet}, bank=${verifiedBalance.bank}`);
+                // Send security alert
+                if (global.discordClient) {
+                    try {
+                        const logChannel = global.discordClient.channels.cache.get('1406136478714826824');
+                        if (logChannel) {
+                            logChannel.send(`🚨 **NEGATIVE BALANCE DETECTED** 🚨\nUser: ${userId}\nWallet: ${verifiedBalance.wallet}\nBank: ${verifiedBalance.bank}`);
+                        }
+                    } catch (alertError) {
+                        logger.error(`Failed to send negative balance alert: ${alertError.message}`);
+                    }
+                }
+                // Reset to zero
+                verifiedBalance.wallet = Math.max(0, verifiedBalance.wallet);
+                verifiedBalance.bank = Math.max(0, verifiedBalance.bank);
+            }
+            
+            return {
+                ...verifiedBalance,
+                verified: true,
+                verifiedAt: Date.now()
+            };
+            
+        } catch (error) {
+            logger.error(`Forced balance verification failed for ${userId}: ${error.message}`);
+            return {
+                wallet: 0,
+                bank: 0,
+                verified: false,
+                reason: `Verification failed: ${error.message}`
+            };
+        }
+    }
+
+    /**
+     * SECURITY: Validate bet amount against user's total wealth to prevent exploitation
+     */
+    async validateBetAmount(userId, guildId, betAmount, gameType = 'unknown') {
+        try {
+            const balance = await this.getUserBalance(userId, guildId);
+            const totalWealth = parseFloat(balance.wallet) + parseFloat(balance.bank);
+            
+            // SECURITY: Prevent all-in exploits and excessive betting
+            const maxBetPercentage = 0.25; // Maximum 25% of total wealth per bet
+            const maxAllowedBet = totalWealth * maxBetPercentage;
+            
+            // SECURITY: Prevent small account manipulation
+            if (totalWealth < 1000 && betAmount > 500) {
+                return {
+                    valid: false,
+                    reason: `Bet too high for account size. Account: ${totalWealth}, Bet: ${betAmount}`,
+                    suggestedMax: Math.min(500, totalWealth * 0.1)
+                };
+            }
+            
+            // SECURITY: Prevent large bet exploitation
+            if (betAmount > maxAllowedBet) {
+                return {
+                    valid: false,
+                    reason: `Bet exceeds ${Math.round(maxBetPercentage * 100)}% of total wealth. Max allowed: ${Math.floor(maxAllowedBet)}`,
+                    suggestedMax: Math.floor(maxAllowedBet)
+                };
+            }
+            
+            // SECURITY: Absolute maximum bet regardless of wealth
+            const absoluteMaxBet = 500000; // 500K max bet
+            if (betAmount > absoluteMaxBet) {
+                return {
+                    valid: false,
+                    reason: `Bet exceeds absolute maximum of ${absoluteMaxBet}`,
+                    suggestedMax: absoluteMaxBet
+                };
+            }
+            
+            // SECURITY: Check for wallet funds (don't allow bank-only bets without transfer)
+            if (betAmount > balance.wallet) {
+                return {
+                    valid: false,
+                    reason: `Insufficient wallet funds. Wallet: ${balance.wallet}, Bet: ${betAmount}`,
+                    suggestedMax: Math.floor(balance.wallet)
+                };
+            }
+            
+            return { valid: true, reason: 'Bet amount validated' };
+            
+        } catch (error) {
+            logger.error(`Bet validation error: ${error.message}`);
+            return { 
+                valid: false, 
+                reason: `Validation error: ${error.message}`, 
+                suggestedMax: 1000 
+            };
+        }
+    }
+
+    /**
+     * SECURITY: Validate PlayFor context to prevent exploitation
+     */
+    validatePlayForContext(userId, playForData, amount) {
+        try {
+            // Check if PlayFor data exists
+            if (!playForData || !playForData.recipientId) {
+                return { valid: false, reason: 'Missing PlayFor recipient data' };
+            }
+
+            // Check if global context exists and matches
+            if (!global.playForContext) {
+                return { valid: false, reason: 'No global PlayFor context found' };
+            }
+
+            // Validate recipient ID matches global context
+            if (global.playForContext.recipientId !== playForData.recipientId) {
+                return { valid: false, reason: 'PlayFor recipient ID mismatch' };
+            }
+
+            // Check if trying to PlayFor self (exploitation attempt)
+            if (userId === playForData.recipientId) {
+                return { valid: false, reason: 'Cannot PlayFor yourself (self-exploitation attempt)' };
+            }
+
+            // Check for excessively large amounts (potential exploitation)
+            if (amount > 1000000) { // 1M coin limit per PlayFor transaction
+                return { valid: false, reason: `PlayFor amount too large: ${amount} (max: 1M)` };
+            }
+
+            // Check if recipient ID is valid Discord user ID format
+            if (!playForData.recipientId || typeof playForData.recipientId !== 'string' || !/^\d{17,19}$/.test(playForData.recipientId)) {
+                return { valid: false, reason: 'Invalid recipient Discord ID format' };
+            }
+
+            // All checks passed
+            return { valid: true, reason: 'PlayFor context validated' };
+
+        } catch (error) {
+            logger.error(`PlayFor validation error: ${error.message}`);
+            return { valid: false, reason: `Validation error: ${error.message}` };
+        }
     }
 }
 

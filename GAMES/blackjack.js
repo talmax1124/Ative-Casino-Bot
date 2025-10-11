@@ -5,6 +5,8 @@
 
 const { secureRandomShuffle } = require('../UTILS/rng');
 const logger = require('../UTILS/logger');
+const securityLogger = require('../UTILS/securityLogger');
+const GameInputValidator = require('../UTILS/gameInputValidator');
 
 // Card definitions
 const SUITS = ['♠️', '♥️', '♦️', '♣️'];
@@ -12,14 +14,39 @@ const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 
 class Card {
     constructor(rank, suit) {
+        // SECURITY: Validate card rank and suit
+        this.validateRank(rank);
+        this.validateSuit(suit);
+        
         this.rank = rank;
         this.suit = suit;
+    }
+
+    /**
+     * SECURITY: Validate card rank using centralized validator
+     */
+    validateRank(rank) {
+        return GameInputValidator.validateCardRank(rank);
+    }
+
+    /**
+     * SECURITY: Validate card suit using centralized validator
+     */
+    validateSuit(suit) {
+        return GameInputValidator.validateCardSuit(suit);
     }
 
     getValue() {
         if (this.rank === 'A') return 11;
         if (['J', 'Q', 'K'].includes(this.rank)) return 10;
-        return parseInt(this.rank);
+        
+        // SECURITY: Validate numerical rank before parsing
+        const numValue = parseInt(this.rank);
+        if (isNaN(numValue) || numValue < 2 || numValue > 10) {
+            throw new Error(`Invalid numerical card rank: ${this.rank}`);
+        }
+        
+        return numValue;
     }
 
     toString() {
@@ -30,28 +57,123 @@ class Card {
 class Deck {
     constructor() {
         this.cards = [];
+        this.dealtCards = []; // Track dealt cards to prevent duplication
+        this.shuffleCount = 0;
         this.reset();
     }
 
     reset() {
         this.cards = [];
+        this.dealtCards = [];
+        this.shuffleCount = 0;
+        
+        // SECURITY: Create deck with integrity validation
         for (const suit of SUITS) {
             for (const rank of RANKS) {
                 this.cards.push(new Card(rank, suit));
             }
         }
+        
+        // SECURITY: Validate deck has correct number of cards
+        if (this.cards.length !== 52) {
+            throw new Error(`Deck creation failed: expected 52 cards, got ${this.cards.length}`);
+        }
+        
         this.shuffle();
     }
 
     shuffle() {
+        // SECURITY: Ensure deck has cards to shuffle
+        if (!Array.isArray(this.cards) || this.cards.length === 0) {
+            throw new Error('Cannot shuffle empty deck');
+        }
+        
+        // SECURITY: Validate deck integrity before shuffling
+        this.validateDeckIntegrity();
+        
         secureRandomShuffle(this.cards);
+        this.shuffleCount++;
+        
+        // SECURITY: Log excessive shuffling (potential manipulation attempt)
+        if (this.shuffleCount > 10) {
+            logger.warn(`SECURITY: Excessive deck shuffling detected: ${this.shuffleCount} shuffles`);
+        }
+    }
+
+    /**
+     * SECURITY: Validate deck integrity to prevent card duplication
+     */
+    validateDeckIntegrity() {
+        const cardSet = new Set();
+        const duplicates = [];
+        
+        for (const card of this.cards) {
+            if (!card || !card.rank || !card.suit) {
+                throw new Error('Deck contains invalid card object');
+            }
+            
+            const cardKey = `${card.rank}${card.suit}`;
+            
+            if (cardSet.has(cardKey)) {
+                duplicates.push(cardKey);
+            } else {
+                cardSet.add(cardKey);
+            }
+        }
+        
+        if (duplicates.length > 0) {
+            throw new Error(`Deck integrity violation: duplicate cards found: ${duplicates.join(', ')}`);
+        }
+        
+        // SECURITY: Check for missing cards
+        const expectedCards = SUITS.length * RANKS.length;
+        if (this.cards.length + this.dealtCards.length !== expectedCards) {
+            throw new Error(`Deck integrity violation: expected ${expectedCards} total cards, got ${this.cards.length + this.dealtCards.length}`);
+        }
+        
+        return true;
     }
 
     dealCard() {
+        // SECURITY: Validate deck state before dealing
+        if (!Array.isArray(this.cards)) {
+            throw new Error('Deck cards array is invalid');
+        }
+        
         if (this.cards.length === 0) {
+            // SECURITY: Log deck reset for monitoring
+            logger.info('Deck exhausted, resetting and reshuffling');
             this.reset();
         }
-        return this.cards.pop();
+        
+        const card = this.cards.pop();
+        
+        // SECURITY: Validate dealt card
+        if (!card || !card.rank || !card.suit) {
+            throw new Error('Dealt card is invalid');
+        }
+        
+        // SECURITY: Track dealt card to prevent re-dealing
+        const cardKey = `${card.rank}${card.suit}`;
+        if (this.dealtCards.includes(cardKey)) {
+            throw new Error(`Card already dealt: ${cardKey}`);
+        }
+        
+        this.dealtCards.push(cardKey);
+        
+        return card;
+    }
+
+    /**
+     * SECURITY: Get deck status for monitoring
+     */
+    getDeckStatus() {
+        return {
+            cardsRemaining: this.cards.length,
+            cardsDealt: this.dealtCards.length,
+            shuffleCount: this.shuffleCount,
+            isValid: this.cards.length + this.dealtCards.length === 52
+        };
     }
 }
 
@@ -89,16 +211,48 @@ class BlackjackHand {
     }
 
     getValue() {
+        // SECURITY: Validate hand is not empty
+        if (!Array.isArray(this.cards) || this.cards.length === 0) {
+            return 0;
+        }
+
         let value = 0;
         let aces = 0;
 
         for (const card of this.cards) {
-            if (card.rank === 'A') {
-                aces++;
-                value += 11;
-            } else {
-                value += card.getValue();
+            // SECURITY: Validate card object
+            if (!card || typeof card !== 'object') {
+                throw new Error('Invalid card object in hand');
             }
+
+            // SECURITY: Validate card has required properties
+            if (!card.rank || !card.suit) {
+                throw new Error('Card missing rank or suit property');
+            }
+
+            try {
+                if (card.rank === 'A') {
+                    aces++;
+                    value += 11;
+                } else {
+                    // This will throw an error for invalid cards due to our Card validation
+                    const cardValue = card.getValue();
+                    
+                    // SECURITY: Ensure card value is valid
+                    if (!Number.isFinite(cardValue) || cardValue < 1 || cardValue > 11) {
+                        throw new Error(`Invalid card value: ${cardValue} for rank ${card.rank}`);
+                    }
+                    
+                    value += cardValue;
+                }
+            } catch (error) {
+                throw new Error(`Error calculating card value for ${card.rank}${card.suit}: ${error.message}`);
+            }
+        }
+
+        // SECURITY: Validate calculated value is reasonable
+        if (!Number.isFinite(value) || value < 0) {
+            throw new Error(`Invalid hand value calculated: ${value}`);
         }
 
         // Adjust for aces
@@ -159,7 +313,8 @@ class BlackjackHand {
 class BlackjackGame {
     constructor(userId, betAmount, modeConfig = null, currentWealth = 0) {
         this.userId = userId;
-        this.betAmount = betAmount;
+        // SECURITY: Validate and cap bet amount
+        this.betAmount = Math.max(0, Math.min(betAmount || 0, 500000)); // Cap at 500K
         this.currentWealth = currentWealth;
         this.modeConfig = modeConfig || {
             name: 'Balanced',
@@ -360,14 +515,26 @@ class BlackjackGame {
             won = false;
         } else if (this.dealerHand.isBusted()) {
             // Dealer busted - player wins
-            payout = effectiveBet * (this.modeConfig?.winMultiplier || 2.0);
+            const rawPayout = effectiveBet * (this.modeConfig?.winMultiplier || 2.0);
+            // SECURITY FIX: Cap dealer bust payouts to prevent exploitation
+            const maxPayout = effectiveBet * 2.0; // Max 2x for dealer bust
+            payout = Math.min(rawPayout, maxPayout);
             outcome = 'DEALER BUSTED';
             won = true;
+            if (rawPayout > maxPayout) {
+                logger.warn(`SECURITY: Dealer bust payout capped from ${rawPayout} to ${maxPayout} for user ${this.userId}`);
+            }
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
             // Player blackjack (dealer doesn't have blackjack)
-            payout = effectiveBet * (this.modeConfig?.blackjackMultiplier || 2.5);
+            const rawPayout = effectiveBet * (this.modeConfig?.blackjackMultiplier || 2.5);
+            // SECURITY FIX: Cap blackjack payouts to prevent exploitation
+            const maxPayout = effectiveBet * 2.5; // Max 2.5x even for blackjack
+            payout = Math.min(rawPayout, maxPayout);
             outcome = 'BLACKJACK';
             won = true;
+            if (rawPayout > maxPayout) {
+                logger.warn(`SECURITY: Blackjack payout capped from ${rawPayout} to ${maxPayout} for user ${this.userId}`);
+            }
         } else if (playerHand.isBlackjack() && this.dealerHand.isBlackjack()) {
             // Both have blackjack - push
             payout = effectiveBet;  // Return bet
@@ -380,9 +547,15 @@ class BlackjackGame {
             won = false;
         } else if (playerValue > dealerValue) {
             // Player wins
-            payout = effectiveBet * (this.modeConfig?.winMultiplier || 2.0);
+            const rawPayout = effectiveBet * (this.modeConfig?.winMultiplier || 2.0);
+            // SECURITY FIX: Cap all win payouts to prevent exploitation
+            const maxPayout = effectiveBet * 2.0; // Max 2x for regular wins
+            payout = Math.min(rawPayout, maxPayout);
             outcome = 'WIN';
             won = true;
+            if (rawPayout > maxPayout) {
+                logger.warn(`SECURITY: Blackjack win payout capped from ${rawPayout} to ${maxPayout} for user ${this.userId}`);
+            }
         } else {
             // Player loses
             payout = 0;
@@ -396,17 +569,71 @@ class BlackjackGame {
         if (this.insuranceTaken && (this.splitHands.length === 0 || playerHand === this.splitHands[0])) {
             if (this.dealerHasBlackjack()) {
                 // Insurance wins - pays 2:1 (returns 3x the insurance bet)
-                insurancePayout = this.insuranceAmount * 3;
+                const rawInsurancePayout = this.insuranceAmount * 3;
+                // SECURITY FIX: Cap insurance payouts to prevent exploitation
+                const maxInsurancePayout = this.insuranceAmount * 3; // Standard 2:1 insurance payout
+                insurancePayout = Math.min(rawInsurancePayout, maxInsurancePayout);
                 insuranceWon = true;
+                if (rawInsurancePayout > maxInsurancePayout) {
+                    logger.warn(`SECURITY: Insurance payout capped from ${rawInsurancePayout} to ${maxInsurancePayout} for user ${this.userId}`);
+                }
             }
             // If dealer doesn't have blackjack, insurance bet is lost (no payout)
         }
 
-        logger.info(`Blackjack result: outcome=${outcome}, bet=${effectiveBet}, payout=${payout}, won=${won}`);
+        // CRITICAL SECURITY CHECK: Final payout validation to prevent ANY exploitation
+        const totalPayout = payout + insurancePayout;
+        const maxAllowedPayout = effectiveBet * 3.0; // Maximum possible payout is 3x bet (blackjack + insurance)
+        const finalPayout = Math.min(totalPayout, maxAllowedPayout);
+        
+        if (totalPayout > maxAllowedPayout) {
+            logger.error(`CRITICAL SECURITY ALERT: Blackjack payout exceeded maximum allowed! User: ${this.userId}, Attempted: ${totalPayout}, Capped: ${finalPayout}`);
+            // Send alert to admin channel
+            if (global.discordClient) {
+                try {
+                    const logChannel = global.discordClient.channels.cache.get('1406136478714826824'); // Replace with actual log channel
+                    if (logChannel) {
+                        logChannel.send(`🚨 **SECURITY ALERT** 🚨\nBlackjack payout exploitation attempt!\nUser: ${this.userId}\nAttempted payout: ${totalPayout}\nCapped to: ${finalPayout}`);
+                    }
+                } catch (alertError) {
+                    logger.error(`Failed to send security alert: ${alertError.message}`);
+                }
+            }
+        }
+
+        logger.info(`Blackjack result: outcome=${outcome}, bet=${effectiveBet}, payout=${payout}, insurance=${insurancePayout}, total=${finalPayout}, won=${won}`);
+
+        // SECURITY: Log game result for monitoring
+        try {
+            if (won) {
+                securityLogger.logSecurityEvent(this.userId, 'GAME_WIN', {
+                    game: 'blackjack',
+                    amount: finalPayout,
+                    betAmount: effectiveBet,
+                    outcome: outcome,
+                    multiplier: finalPayout / effectiveBet
+                });
+            } else {
+                securityLogger.logSecurityEvent(this.userId, 'GAME_LOSS', {
+                    game: 'blackjack',
+                    amount: effectiveBet,
+                    betAmount: effectiveBet,
+                    outcome: outcome
+                });
+            }
+            
+            // Log bet for activity monitoring
+            securityLogger.logSecurityEvent(this.userId, 'GAME_BET', {
+                game: 'blackjack',
+                amount: effectiveBet
+            });
+        } catch (securityLogError) {
+            logger.error(`Security logging error: ${securityLogError.message}`);
+        }
 
         return {
             outcome,
-            payout,  // Total amount to return (including original bet for wins/pushes)
+            payout: finalPayout,  // Use security-capped final payout
             won,
             betAmount: effectiveBet,
             doubled: playerHand.isDoubled(),

@@ -72,11 +72,28 @@ function generateCrashPoint(maxMultiplier) {
   return Number(cp.toFixed(2));
 }
 
-function calcMultiplier(startTime, crashPoint) {
-  const elapsed = (Date.now() - startTime) / 1000;
+function calcMultiplier(startTime, crashPoint, timestamp = null) {
+  const currentTime = timestamp || Date.now();
+  const elapsed = (currentTime - startTime) / 1000;
+  
+  // SECURITY: Validate elapsed time is positive
   if (elapsed <= 0) return GLOBAL_CRASH_MIN;
+  
+  // SECURITY: Prevent impossible elapsed times (anti-manipulation)
+  if (elapsed > 300) { // 5 minutes is unreasonable for crash game
+    logger.warn(`SECURITY: Excessive elapsed time detected: ${elapsed}s, capping to 300s`);
+    elapsed = 300;
+  }
+  
   // Small, steady growth from GLOBAL_CRASH_MIN toward crash point
   const growth = Math.min(crashPoint, GLOBAL_CRASH_MIN + (elapsed * GROWTH_PER_SECOND));
+  
+  // SECURITY: Validate calculated growth
+  if (!Number.isFinite(growth) || growth < GLOBAL_CRASH_MIN) {
+    logger.warn(`SECURITY: Invalid growth calculated: ${growth}, using minimum`);
+    return GLOBAL_CRASH_MIN;
+  }
+  
   return Number(growth.toFixed(2));
 }
 
@@ -123,15 +140,87 @@ class CrashGame {
     return { success: true };
   }
 
-  cashOut(userId) {
-    if (this.state !== 'running') return null;
+  cashOut(userId, cashOutTimestamp = null) {
+    // SECURITY: Validate game state
+    if (this.state !== 'running') {
+      logger.warn(`SECURITY: Cashout attempted when game not running. State: ${this.state}, User: ${userId}`);
+      return { success: false, reason: 'GAME_NOT_RUNNING' };
+    }
+    
     const p = this.players.get(userId);
-    if (!p || p.cashedOut) return null;
+    if (!p || p.cashedOut) {
+      logger.warn(`SECURITY: Invalid cashout attempt. User: ${userId}, Player exists: ${!!p}, Already cashed out: ${p?.cashedOut}`);
+      return { success: false, reason: 'INVALID_PLAYER_STATE' };
+    }
+    
+    // SECURITY: Server-side timestamp validation to prevent race conditions
+    const serverTimestamp = Date.now();
+    const providedTimestamp = cashOutTimestamp || serverTimestamp;
+    
+    // SECURITY: Check if cashout happened before crash point was reached
+    const timeAtCashout = providedTimestamp - this.startTime;
+    const multiplierAtCashout = calcMultiplier(this.startTime, this.crashPoint, providedTimestamp);
+    
+    // SECURITY: Prevent cashouts after crash point determination
+    if (multiplierAtCashout >= this.crashPoint) {
+      logger.warn(`SECURITY: Cashout attempted after crash point reached. User: ${userId}, Multiplier: ${multiplierAtCashout}, Crash point: ${this.crashPoint}`);
+      
+      // Log security event
+      try {
+        const securityLogger = require('../UTILS/securityLogger');
+        securityLogger.logSecurityEvent(userId, 'CRASH_EXPLOIT_ATTEMPT', {
+          game: 'crash',
+          attemptedCashout: multiplierAtCashout,
+          crashPoint: this.crashPoint,
+          timeDifference: timeAtCashout,
+          serverTime: serverTimestamp,
+          providedTime: providedTimestamp
+        });
+      } catch (secLogError) {
+        logger.error(`Security logging error: ${secLogError.message}`);
+      }
+      
+      return { success: false, reason: 'TOO_LATE' };
+    }
+    
+    // SECURITY: Validate multiplier is within reasonable bounds
+    const ABSOLUTE_MAX_MULTIPLIER = 3.0; // Hard cap
+    let validatedMultiplier = Math.min(multiplierAtCashout, ABSOLUTE_MAX_MULTIPLIER);
+    
+    // SECURITY: Ensure multiplier is not less than game minimum
+    validatedMultiplier = Math.max(validatedMultiplier, GLOBAL_CRASH_MIN);
+    
+    // SECURITY: Validate multiplier is finite and positive
+    if (!Number.isFinite(validatedMultiplier) || validatedMultiplier <= 0) {
+      logger.error(`SECURITY: Invalid multiplier calculated: ${validatedMultiplier}, using minimum`);
+      validatedMultiplier = GLOBAL_CRASH_MIN;
+    }
+    
+    // SECURITY: Cap winnings calculation
+    const calculatedWinnings = Math.floor(p.bet * validatedMultiplier);
+    const maxPossibleWinnings = Math.floor(p.bet * ABSOLUTE_MAX_MULTIPLIER);
+    const cappedWinnings = Math.min(calculatedWinnings, maxPossibleWinnings);
+    
+    if (calculatedWinnings > maxPossibleWinnings) {
+      logger.warn(`SECURITY: Crash winnings capped from ${calculatedWinnings} to ${cappedWinnings} for user ${userId}`);
+    }
+    
+    // SECURITY: Validate winnings are reasonable
+    if (!Number.isFinite(cappedWinnings) || cappedWinnings < 0) {
+      logger.error(`SECURITY: Invalid winnings calculated: ${cappedWinnings} for bet ${p.bet} and multiplier ${validatedMultiplier}`);
+      return { success: false, reason: 'CALCULATION_ERROR' };
+    }
+    
+    // Mark player as cashed out with validated values
     p.cashedOut = true;
-    p.cashOutMultiplier = this.currentMultiplier;
-    p.winnings = Math.floor(p.bet * this.currentMultiplier);
+    p.cashOutMultiplier = validatedMultiplier;
+    p.winnings = cappedWinnings;
+    p.cashOutTimestamp = serverTimestamp; // Track when they actually cashed out
+    
     // Credit winnings (bet already deducted)
-    dbManager.updateUserBalance(userId, this.guildId, p.winnings, 0).catch(() => {});
+    dbManager.updateUserBalance(userId, this.guildId, cappedWinnings, 0).catch(balanceError => {
+      logger.error(`Failed to credit crash winnings: ${balanceError.message}`);
+    });
     
     // Export to UAS for centralized analysis
     try {
@@ -140,13 +229,15 @@ class CrashGame {
         guildId: this.guildId,
         gameType: 'crash',
         betAmount: p.bet,
-        winnings: p.winnings,
+        winnings: cappedWinnings,
         won: true, // They cashed out successfully
         metadata: {
           mode: this.modeKey,
-          cashOutMultiplier: this.currentMultiplier,
+          cashOutMultiplier: validatedMultiplier,
           crashPoint: this.crashPoint,
-          gameTimestamp: Date.now()
+          gameTimestamp: serverTimestamp,
+          cashOutTimestamp: serverTimestamp,
+          providedTimestamp: providedTimestamp
         }
       }).catch(exportError => {
         logger.debug(`Failed to export crash result to UAS: ${exportError.message}`);
@@ -154,9 +245,13 @@ class CrashGame {
     } catch (_) {}
     
     try {
-      sendLogMessage(require('..').client || null, 'game', `Crash cashout: ${p.username} at ${this.currentMultiplier.toFixed(2)}x -> +${fmt(p.winnings)}`, userId, this.guildId);
+      sendLogMessage(require('..').client || null, 'game', `Crash cashout: ${p.username} at ${validatedMultiplier.toFixed(2)}x -> +${fmt(cappedWinnings)}`, userId, this.guildId);
     } catch (_) {}
-    return p.winnings;
+    
+    // SECURITY: Log successful cashout for monitoring
+    logger.info(`Crash cashout successful: User ${userId}, Multiplier: ${validatedMultiplier}, Winnings: ${cappedWinnings}`);
+    
+    return { success: true, winnings: cappedWinnings, multiplier: validatedMultiplier };
   }
 
   createEmbed() {
@@ -307,11 +402,39 @@ const crashManager = new CrashManager();
       await game.startGame();
       await interaction.deferUpdate();
     } else if (action === 'cashout') {
-      const winnings = game.cashOut(interaction.user.id);
-      if (winnings === null) return await interaction.reply({ content: '❌ You are not in this game or already cashed out!', flags: MessageFlags.Ephemeral });
-      await interaction.reply({ content: `✅ Cashed out at ${game.currentMultiplier.toFixed(2)}x → +${fmt(winnings)}`, flags: MessageFlags.Ephemeral });
+      // SECURITY: Pass interaction timestamp to prevent timing exploits
+      const cashoutResult = game.cashOut(interaction.user.id, Date.now());
+      
+      if (!cashoutResult.success) {
+        let errorMsg = '❌ Cashout failed';
+        switch (cashoutResult.reason) {
+          case 'GAME_NOT_RUNNING':
+            errorMsg = '❌ Game is not running!';
+            break;
+          case 'INVALID_PLAYER_STATE':
+            errorMsg = '❌ You are not in this game or already cashed out!';
+            break;
+          case 'TOO_LATE':
+            errorMsg = '❌ Too late! The game has already crashed!';
+            break;
+          case 'CALCULATION_ERROR':
+            errorMsg = '❌ Error processing cashout. Please try again!';
+            break;
+          default:
+            errorMsg = '❌ Cashout failed. Please try again!';
+        }
+        return await interaction.reply({ content: errorMsg, flags: MessageFlags.Ephemeral });
+      }
+      
+      // Success case
+      const { winnings, multiplier } = cashoutResult;
+      await interaction.reply({ 
+        content: `✅ Cashed out at ${multiplier.toFixed(2)}x → +${fmt(winnings)}`, 
+        flags: MessageFlags.Ephemeral 
+      });
+      
       try {
-        await sendLogMessage(client, 'game', `Crash cashout: ${interaction.user.displayName} at ${game.currentMultiplier.toFixed(2)}x -> +${fmt(winnings)}`, interaction.user.id, interaction.guildId);
+        await sendLogMessage(client, 'game', `Crash cashout: ${interaction.user.displayName} at ${multiplier.toFixed(2)}x -> +${fmt(winnings)}`, interaction.user.id, interaction.guildId);
       } catch (_) {}
     } else if (action === 'play_again') {
       // new game in same channel

@@ -95,17 +95,25 @@ class HonestPayoutManager {
         } catch (error) {
             logger.error(`Honest payout calculation failed: ${error.message}`);
             
-            // Emergency fallback - return exact multiplier with no house edge
-            const emergencyPayout = betAmount * multiplier;
+            // SECURITY FIX: Apply maximum house edge in emergency fallback to prevent exploitation
+            const maxHouseEdge = this.honestConfig.houseEdges[gameType] || 0.05; // Default 5% if not found
+            const emergencyPayout = betAmount * multiplier * (1 - maxHouseEdge); // Apply house edge even in emergency
+            
+            // SECURITY: Cap emergency payouts to prevent exploitation
+            const maxEmergencyPayout = betAmount * 3.0; // Max 3x bet amount in emergency
+            const cappedEmergencyPayout = Math.min(emergencyPayout, maxEmergencyPayout);
+            
+            logger.warn(`SECURITY: Emergency payout capped from ${emergencyPayout} to ${cappedEmergencyPayout} for user ${userId}`);
             
             return {
-                displayedMultiplier: multiplier,
-                actualPayout: emergencyPayout,
+                displayedMultiplier: cappedEmergencyPayout / betAmount,
+                actualPayout: cappedEmergencyPayout,
                 betAmount: betAmount,
-                houseEdge: 0,
+                houseEdge: maxHouseEdge,
                 gameType: gameType,
                 transparencyGuarantee: true,
                 emergencyFallback: true,
+                securityCapped: true,
                 timestamp: Date.now()
             };
         }

@@ -124,32 +124,150 @@ async function loadSymbolImage(symbol) {
     }
 }
 
+// Global distribution tracking for security monitoring
+const DISTRIBUTION_TRACKER = {
+    regular: {},
+    matrix: {},
+    totalSpins: { regular: 0, matrix: 0 },
+    resetInterval: 10000 // Reset every 10,000 spins for accuracy
+};
+
 /**
- * Get weighted random symbol with entropy seeding
+ * SECURITY: Reset distribution tracking to prevent memory buildup
+ */
+function resetDistributionTracking() {
+    DISTRIBUTION_TRACKER.regular = {};
+    DISTRIBUTION_TRACKER.matrix = {};
+    DISTRIBUTION_TRACKER.totalSpins.regular = 0;
+    DISTRIBUTION_TRACKER.totalSpins.matrix = 0;
+}
+
+/**
+ * SECURITY: Validate symbol distribution and detect anomalies
+ */
+function validateSymbolDistribution(matrixMode = false) {
+    const mode = matrixMode ? 'matrix' : 'regular';
+    const symbolDict = matrixMode ? MATRIX_SYMBOLS : SLOT_SYMBOLS;
+    const tracker = DISTRIBUTION_TRACKER[mode];
+    const totalSpins = DISTRIBUTION_TRACKER.totalSpins[mode];
+    
+    if (totalSpins < 1000) return; // Need sufficient sample size
+    
+    Object.keys(symbolDict).forEach(symbol => {
+        const expected = symbolDict[symbol].rarity;
+        const actual = (tracker[symbol] || 0) / totalSpins * 100;
+        const deviation = Math.abs(actual - expected) / expected;
+        
+        // SECURITY: Alert if deviation exceeds 50% (indicates potential manipulation)
+        if (deviation > 0.5) {
+            logger.warn(`SECURITY: Symbol distribution anomaly detected - Symbol: ${symbol}, Expected: ${expected.toFixed(4)}%, Actual: ${actual.toFixed(4)}%, Deviation: ${(deviation * 100).toFixed(1)}%`);
+            
+            // Log to security system
+            try {
+                const securityLogger = require('../UTILS/securityLogger');
+                securityLogger.logSecurityEvent('SYSTEM', 'RNG_ANOMALY', {
+                    game: 'slots',
+                    mode: mode,
+                    symbol: symbol,
+                    expected: expected,
+                    actual: actual,
+                    deviation: deviation,
+                    totalSample: totalSpins
+                });
+            } catch (secLogError) {
+                logger.error(`Security logging error: ${secLogError.message}`);
+            }
+        }
+    });
+    
+    // Reset tracking periodically to prevent memory buildup
+    if (totalSpins >= DISTRIBUTION_TRACKER.resetInterval) {
+        logger.info(`Resetting RNG distribution tracking after ${totalSpins} spins`);
+        resetDistributionTracking();
+    }
+}
+
+/**
+ * Get weighted random symbol with enhanced security and distribution tracking
  */
 function getWeightedSymbol(matrixMode = false, entropy = 0, adaptedSymbols = null) {
     const symbolDict = matrixMode ? MATRIX_SYMBOLS : (adaptedSymbols || SLOT_SYMBOLS);
     const symbols = Object.keys(symbolDict);
     
-    // Add entropy-based weight adjustment to reduce patterns
+    // SECURITY: Validate symbol dictionary integrity
+    if (!symbols.length) {
+        throw new Error('Symbol dictionary is empty');
+    }
+    
+    // SECURITY: Validate all symbol rarities are positive numbers
+    for (const symbol of symbols) {
+        const rarity = symbolDict[symbol].rarity;
+        if (!Number.isFinite(rarity) || rarity <= 0) {
+            throw new Error(`Invalid rarity for symbol ${symbol}: ${rarity}`);
+        }
+    }
+    
+    // Add entropy-based weight adjustment to reduce patterns (reduced from ±5% to ±2%)
     const baseWeights = symbols.map(symbol => symbolDict[symbol].rarity);
     const adjustedWeights = baseWeights.map((weight, index) => {
-        // Use entropy to slightly adjust weights (±5% variation)
-        const adjustment = Math.sin(entropy + index * 0.7) * 0.05;
-        return Math.max(0.01, weight * (1 + adjustment));
+        // SECURITY: Reduced entropy variation to prevent exploitation
+        const adjustment = Math.sin(entropy + index * 0.7) * 0.02; // Reduced from 0.05 to 0.02
+        const adjustedWeight = Math.max(0.01, weight * (1 + adjustment));
+        
+        // SECURITY: Validate adjusted weight
+        if (!Number.isFinite(adjustedWeight) || adjustedWeight <= 0) {
+            logger.warn(`Invalid adjusted weight for ${symbol}: ${adjustedWeight}, using base weight: ${weight}`);
+            return weight;
+        }
+        
+        return adjustedWeight;
     });
     
-    // Weighted choice using CSPRNG
+    // SECURITY: Validate total weight before selection
     const totalWeight = adjustedWeights.reduce((sum, weight) => sum + weight, 0);
+    if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
+        throw new Error(`Invalid total weight: ${totalWeight}`);
+    }
+    
+    // Weighted choice using CSPRNG
     const randomValue = secureRandomFloat(0, totalWeight);
+    
+    // SECURITY: Validate random value
+    if (!Number.isFinite(randomValue) || randomValue < 0) {
+        throw new Error(`Invalid random value: ${randomValue}`);
+    }
+    
     let currentWeight = 0;
+    let selectedSymbol = null;
+    
     for (let i = 0; i < symbols.length; i++) {
         currentWeight += adjustedWeights[i];
         if (randomValue <= currentWeight) {
-            return symbols[i];
+            selectedSymbol = symbols[i];
+            break;
         }
     }
-    return symbols[0];
+    
+    // SECURITY: Ensure a symbol was selected (fallback to first symbol)
+    if (!selectedSymbol) {
+        logger.warn(`No symbol selected with randomValue ${randomValue} and totalWeight ${totalWeight}, using fallback`);
+        selectedSymbol = symbols[0];
+    }
+    
+    // SECURITY: Track distribution for anomaly detection
+    const mode = matrixMode ? 'matrix' : 'regular';
+    if (!DISTRIBUTION_TRACKER[mode][selectedSymbol]) {
+        DISTRIBUTION_TRACKER[mode][selectedSymbol] = 0;
+    }
+    DISTRIBUTION_TRACKER[mode][selectedSymbol]++;
+    DISTRIBUTION_TRACKER.totalSpins[mode]++;
+    
+    // SECURITY: Periodically validate distribution
+    if (DISTRIBUTION_TRACKER.totalSpins[mode] % 500 === 0) {
+        validateSymbolDistribution(matrixMode);
+    }
+    
+    return selectedSymbol;
 }
 
 /**
@@ -218,8 +336,17 @@ function calculatePayout(symbols, betAmount, personalizedPayouts = null, modeCon
             multiplier = Math.min(multiplier, modeConfig.maxMatrixMultiplier);
         }
         
-        const originalMultiplier = symbolData.payout;
+        // CRITICAL SECURITY FIX: Hard cap ALL multipliers to prevent exploitation
+        const ABSOLUTE_MAX_MULTIPLIER = 3.0; // No multiplier can exceed 3x EVER
+        const originalMultiplier = multiplier;
+        multiplier = Math.min(multiplier, ABSOLUTE_MAX_MULTIPLIER);
+        
         const payout = betAmount * multiplier;
+        
+        // SECURITY: Log any multiplier capping for monitoring
+        if (originalMultiplier > ABSOLUTE_MAX_MULTIPLIER) {
+            logger.warn(`SECURITY: Slots multiplier capped from ${originalMultiplier} to ${multiplier} for bet ${betAmount}`);
+        }
         
         // Final validation to prevent NaN payout
         if (isNaN(payout) || !isFinite(payout)) {
@@ -323,9 +450,22 @@ function calculateMatrixPayout(matrix, betAmount, modeConfig = null) {
                 if (modeConfig && modeConfig.maxMatrixMultiplier) {
                     bonusMultiplier = Math.min(bonusMultiplier, modeConfig.maxMatrixMultiplier);
                 }
+                // CRITICAL SECURITY FIX: Cap buffalo bonuses to prevent stacking exploits
+                bonusMultiplier = Math.min(bonusMultiplier, 2.5); // Hard cap at 2.5x
                 const bonusPayout = betAmount * bonusMultiplier;
-                totalPayout += bonusPayout;
-                resultMessages.push(`🦬 BUFFALO BONUS! Line: +${bonusPayout.toLocaleString()}`);
+                
+                // SECURITY: Prevent unlimited stacking by capping total payout per spin
+                const proposedTotal = totalPayout + bonusPayout;
+                const maxTotalPayout = betAmount * 10.0; // Maximum 10x total per spin
+                if (proposedTotal > maxTotalPayout) {
+                    const cappedBonus = maxTotalPayout - totalPayout;
+                    logger.warn(`SECURITY: Buffalo bonus capped from ${bonusPayout} to ${cappedBonus} to prevent stacking exploit`);
+                    totalPayout = maxTotalPayout;
+                    resultMessages.push(`🦬 BUFFALO BONUS! Line: +${cappedBonus.toLocaleString()} (CAPPED)`);
+                } else {
+                    totalPayout += bonusPayout;
+                    resultMessages.push(`🦬 BUFFALO BONUS! Line: +${bonusPayout.toLocaleString()}`);
+                }
                 winningLines.push({ type: 'horizontal', row, col: 0, endRow: row, endCol: 2 });
                 buffaloBonus = true;
             } else {
@@ -333,9 +473,21 @@ function calculateMatrixPayout(matrix, betAmount, modeConfig = null) {
                 if (modeConfig && modeConfig.maxMatrixMultiplier) {
                     lineMultiplier = Math.min(lineMultiplier, modeConfig.maxMatrixMultiplier);
                 }
+                // SECURITY: Cap all line multipliers
+                lineMultiplier = Math.min(lineMultiplier, 3.0);
                 const linePayout = betAmount * lineMultiplier;
-                totalPayout += linePayout;
-                resultMessages.push(`${symbolData.name} Line: +${linePayout.toLocaleString()}`);
+                
+                // SECURITY: Check total payout cap
+                const proposedTotal = totalPayout + linePayout;
+                const maxTotalPayout = betAmount * 10.0;
+                if (proposedTotal > maxTotalPayout) {
+                    const cappedPayout = maxTotalPayout - totalPayout;
+                    totalPayout = maxTotalPayout;
+                    resultMessages.push(`${symbolData.name} Line: +${cappedPayout.toLocaleString()} (CAPPED)`);
+                } else {
+                    totalPayout += linePayout;
+                    resultMessages.push(`${symbolData.name} Line: +${linePayout.toLocaleString()}`);
+                }
                 winningLines.push({ type: 'horizontal', row, col: 0, endRow: row, endCol: 2 });
             }
         }
@@ -353,9 +505,22 @@ function calculateMatrixPayout(matrix, betAmount, modeConfig = null) {
                 if (modeConfig && modeConfig.maxMatrixMultiplier) {
                     bonusMultiplier = Math.min(bonusMultiplier, modeConfig.maxMatrixMultiplier);
                 }
+                // SECURITY: Cap buffalo bonuses
+                bonusMultiplier = Math.min(bonusMultiplier, 2.5);
                 const bonusPayout = betAmount * bonusMultiplier;
-                totalPayout += bonusPayout;
-                resultMessages.push(`🦬 BUFFALO BONUS! Column: +${bonusPayout.toLocaleString()}`);
+                
+                // SECURITY: Prevent stacking exploits
+                const proposedTotal = totalPayout + bonusPayout;
+                const maxTotalPayout = betAmount * 10.0;
+                if (proposedTotal > maxTotalPayout) {
+                    const cappedBonus = maxTotalPayout - totalPayout;
+                    logger.warn(`SECURITY: Buffalo column bonus capped from ${bonusPayout} to ${cappedBonus}`);
+                    totalPayout = maxTotalPayout;
+                    resultMessages.push(`🦬 BUFFALO BONUS! Column: +${cappedBonus.toLocaleString()} (CAPPED)`);
+                } else {
+                    totalPayout += bonusPayout;
+                    resultMessages.push(`🦬 BUFFALO BONUS! Column: +${bonusPayout.toLocaleString()}`);
+                }
                 winningLines.push({ type: 'vertical', row: 0, col, endRow: 2, endCol: col });
                 buffaloBonus = true;
             } else {
@@ -363,9 +528,21 @@ function calculateMatrixPayout(matrix, betAmount, modeConfig = null) {
                 if (modeConfig && modeConfig.maxMatrixMultiplier) {
                     lineMultiplier = Math.min(lineMultiplier, modeConfig.maxMatrixMultiplier);
                 }
+                // SECURITY: Cap line multipliers
+                lineMultiplier = Math.min(lineMultiplier, 3.0);
                 const linePayout = betAmount * lineMultiplier;
-                totalPayout += linePayout;
-                resultMessages.push(`${symbolData.name} Column: +${linePayout.toLocaleString()}`);
+                
+                // SECURITY: Check total payout cap
+                const proposedTotal = totalPayout + linePayout;
+                const maxTotalPayout = betAmount * 10.0;
+                if (proposedTotal > maxTotalPayout) {
+                    const cappedPayout = maxTotalPayout - totalPayout;
+                    totalPayout = maxTotalPayout;
+                    resultMessages.push(`${symbolData.name} Column: +${cappedPayout.toLocaleString()} (CAPPED)`);
+                } else {
+                    totalPayout += linePayout;
+                    resultMessages.push(`${symbolData.name} Column: +${linePayout.toLocaleString()}`);
+                }
                 winningLines.push({ type: 'vertical', row: 0, col, endRow: 2, endCol: col });
             }
         }
@@ -382,9 +559,22 @@ function calculateMatrixPayout(matrix, betAmount, modeConfig = null) {
             if (modeConfig && modeConfig.maxMatrixMultiplier) {
                 bonusMultiplier = Math.min(bonusMultiplier, modeConfig.maxMatrixMultiplier);
             }
+            // SECURITY: Cap buffalo bonuses
+            bonusMultiplier = Math.min(bonusMultiplier, 2.5);
             const bonusPayout = betAmount * bonusMultiplier;
-            totalPayout += bonusPayout;
-            resultMessages.push(`🦬 BUFFALO BONUS! Diagonal: +${bonusPayout.toLocaleString()}`);
+            
+            // SECURITY: Prevent stacking exploits
+            const proposedTotal = totalPayout + bonusPayout;
+            const maxTotalPayout = betAmount * 10.0;
+            if (proposedTotal > maxTotalPayout) {
+                const cappedBonus = maxTotalPayout - totalPayout;
+                logger.warn(`SECURITY: Buffalo diagonal1 bonus capped from ${bonusPayout} to ${cappedBonus}`);
+                totalPayout = maxTotalPayout;
+                resultMessages.push(`🦬 BUFFALO BONUS! Diagonal: +${cappedBonus.toLocaleString()} (CAPPED)`);
+            } else {
+                totalPayout += bonusPayout;
+                resultMessages.push(`🦬 BUFFALO BONUS! Diagonal: +${bonusPayout.toLocaleString()}`);
+            }
             winningLines.push({ type: 'diagonal1', row: 0, col: 0, endRow: 2, endCol: 2 });
             buffaloBonus = true;
         } else {
@@ -392,9 +582,21 @@ function calculateMatrixPayout(matrix, betAmount, modeConfig = null) {
             if (modeConfig && modeConfig.maxMatrixMultiplier) {
                 lineMultiplier = Math.min(lineMultiplier, modeConfig.maxMatrixMultiplier);
             }
+            // SECURITY: Cap line multipliers
+            lineMultiplier = Math.min(lineMultiplier, 3.0);
             const linePayout = betAmount * lineMultiplier;
-            totalPayout += linePayout;
-            resultMessages.push(`${symbolData.name} Diagonal: +${linePayout.toLocaleString()}`);
+            
+            // SECURITY: Check total payout cap
+            const proposedTotal = totalPayout + linePayout;
+            const maxTotalPayout = betAmount * 10.0;
+            if (proposedTotal > maxTotalPayout) {
+                const cappedPayout = maxTotalPayout - totalPayout;
+                totalPayout = maxTotalPayout;
+                resultMessages.push(`${symbolData.name} Diagonal: +${cappedPayout.toLocaleString()} (CAPPED)`);
+            } else {
+                totalPayout += linePayout;
+                resultMessages.push(`${symbolData.name} Diagonal: +${linePayout.toLocaleString()}`);
+            }
             winningLines.push({ type: 'diagonal1', row: 0, col: 0, endRow: 2, endCol: 2 });
         }
     }
@@ -409,9 +611,22 @@ function calculateMatrixPayout(matrix, betAmount, modeConfig = null) {
             if (modeConfig && modeConfig.maxMatrixMultiplier) {
                 bonusMultiplier = Math.min(bonusMultiplier, modeConfig.maxMatrixMultiplier);
             }
+            // SECURITY: Cap buffalo bonuses
+            bonusMultiplier = Math.min(bonusMultiplier, 2.5);
             const bonusPayout = betAmount * bonusMultiplier;
-            totalPayout += bonusPayout;
-            resultMessages.push(`🦬 BUFFALO BONUS! Diagonal: +${bonusPayout.toLocaleString()}`);
+            
+            // SECURITY: Prevent stacking exploits
+            const proposedTotal = totalPayout + bonusPayout;
+            const maxTotalPayout = betAmount * 10.0;
+            if (proposedTotal > maxTotalPayout) {
+                const cappedBonus = maxTotalPayout - totalPayout;
+                logger.warn(`SECURITY: Buffalo diagonal2 bonus capped from ${bonusPayout} to ${cappedBonus}`);
+                totalPayout = maxTotalPayout;
+                resultMessages.push(`🦬 BUFFALO BONUS! Diagonal: +${cappedBonus.toLocaleString()} (CAPPED)`);
+            } else {
+                totalPayout += bonusPayout;
+                resultMessages.push(`🦬 BUFFALO BONUS! Diagonal: +${bonusPayout.toLocaleString()}`);
+            }
             winningLines.push({ type: 'diagonal2', row: 0, col: 2, endRow: 2, endCol: 0 });
             buffaloBonus = true;
         } else {
@@ -419,8 +634,19 @@ function calculateMatrixPayout(matrix, betAmount, modeConfig = null) {
             if (modeConfig && modeConfig.maxMatrixMultiplier) {
                 lineMultiplier = Math.min(lineMultiplier, modeConfig.maxMatrixMultiplier);
             }
+            // SECURITY: Cap line multipliers
+            lineMultiplier = Math.min(lineMultiplier, 3.0);
             const linePayout = betAmount * lineMultiplier;
-            totalPayout += linePayout;
+            
+            // SECURITY: Check total payout cap
+            const proposedTotal = totalPayout + linePayout;
+            const maxTotalPayout = betAmount * 10.0;
+            if (proposedTotal > maxTotalPayout) {
+                const cappedPayout = maxTotalPayout - totalPayout;
+                totalPayout = maxTotalPayout;
+            } else {
+                totalPayout += linePayout;
+            }
             resultMessages.push(`${symbolData.name} Diagonal: +${linePayout.toLocaleString()}`);
             winningLines.push({ type: 'diagonal2', row: 0, col: 2, endRow: 2, endCol: 0 });
         }
