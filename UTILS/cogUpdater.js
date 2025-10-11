@@ -258,7 +258,7 @@ class CogUpdater {
     }
 
     /**
-     * Update a single file
+     * Update a single file (without backup)
      */
     async updateFile(filePath, client = null) {
         try {
@@ -296,6 +296,42 @@ class CogUpdater {
                 reloaded: !!reloadResult,
                 reloadResult
             };
+        } catch (error) {
+            return { success: false, file: filePath, error: error.message };
+        }
+    }
+
+    /**
+     * Update a single file with backup and automatic cleanup
+     */
+    async updateFileWithBackup(filePath, client = null) {
+        try {
+            // Create backup for this single file
+            const backupInfo = await this.createBackup([filePath], `single_file_${path.basename(filePath, '.js')}`);
+            
+            // Update the file
+            const result = await this.updateFile(filePath, client);
+            
+            if (result.success) {
+                // Remove backup after successful update
+                try {
+                    await fs.rm(backupInfo.path, { recursive: true, force: true });
+                    logger.info(`✅ Backup removed after successful file update: ${backupInfo.name}_${backupInfo.timestamp}`);
+                    result.backupRemoved = true;
+                    result.hasBackup = false;
+                } catch (removeError) {
+                    logger.warn(`Failed to remove backup after successful file update: ${removeError.message}`);
+                    result.backupRemoved = false;
+                    result.hasBackup = true;
+                }
+            } else {
+                // Keep backup if update failed
+                result.hasBackup = true;
+                result.backupRemoved = false;
+                result.backupInfo = backupInfo;
+            }
+            
+            return result;
         } catch (error) {
             return { success: false, file: filePath, error: error.message };
         }
@@ -409,6 +445,18 @@ class CogUpdater {
             
             logger.info(`Update completed for ${type} '${name}': ${successCount}/${files.length} files updated`);
             
+            // Remove backup if update was completely successful
+            let backupRemoved = false;
+            if (failCount === 0) {
+                try {
+                    await fs.rm(backupInfo.path, { recursive: true, force: true });
+                    backupRemoved = true;
+                    logger.info(`✅ Backup removed after successful update: ${backupInfo.name}_${backupInfo.timestamp}`);
+                } catch (removeError) {
+                    logger.warn(`Failed to remove backup after successful update: ${removeError.message}`);
+                }
+            }
+            
             return {
                 success: failCount === 0,
                 name,
@@ -418,7 +466,8 @@ class CogUpdater {
                 failCount,
                 results,
                 backupInfo,
-                hasBackup: true
+                hasBackup: !backupRemoved,
+                backupRemoved
             };
             
         } catch (error) {
@@ -493,7 +542,7 @@ class CogUpdater {
                     
                     for (const backup of toDelete) {
                         try {
-                            await fs.rmdir(backup.path, { recursive: true });
+                            await fs.rm(backup.path, { recursive: true, force: true });
                             cleaned++;
                             logger.debug(`Cleaned old backup: ${backup.name}_${backup.timestamp}`);
                         } catch (error) {
