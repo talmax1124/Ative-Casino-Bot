@@ -27,6 +27,7 @@ module.exports = {
                     option.setName('name')
                         .setDescription('Name of the cog or command to enable')
                         .setRequired(true)
+                        .setAutocomplete(true)
                 )
         )
         .addSubcommand(subcommand =>
@@ -45,6 +46,7 @@ module.exports = {
                     option.setName('name')
                         .setDescription('Name of the cog or command to disable')
                         .setRequired(true)
+                        .setAutocomplete(true)
                 )
         )
         .addSubcommand(subcommand =>
@@ -305,3 +307,74 @@ async function handlePanel(interaction) {
         ephemeral: true
     });
 }
+
+module.exports.autocomplete = async function(interaction) {
+    try {
+        const focusedOption = interaction.options.getFocused(true);
+        const subcommand = interaction.options.getSubcommand();
+        
+        // Only provide autocomplete for the 'name' field in enable/disable subcommands
+        if ((subcommand === 'enable' || subcommand === 'disable') && focusedOption.name === 'name') {
+            const typeOption = interaction.options.getString('type');
+            const focused = focusedOption.value.toLowerCase();
+            
+            let choices = [];
+            
+            if (typeOption === 'cog') {
+                // Show cog categories
+                const categories = cogManager.getCategories();
+                choices = categories.map(category => {
+                    const categoryInfo = cogManager.getCategoryInfo(category);
+                    return {
+                        name: `${categoryInfo.name} (${category})`,
+                        value: category
+                    };
+                });
+            } else if (typeOption === 'command') {
+                // Show all available commands from all categories
+                const allCommands = [];
+                const categories = cogManager.getCategories();
+                
+                for (const category of categories) {
+                    const categoryInfo = cogManager.getCategoryInfo(category);
+                    for (const command of categoryInfo.commands) {
+                        allCommands.push({
+                            name: `${command} (${categoryInfo.name})`,
+                            value: command
+                        });
+                    }
+                }
+                choices = allCommands;
+            } else {
+                // If type not selected yet, show both categories and commands
+                const categories = cogManager.getCategories();
+                choices = [
+                    ...categories.map(category => {
+                        const categoryInfo = cogManager.getCategoryInfo(category);
+                        return {
+                            name: `📁 ${categoryInfo.name} (${category})`,
+                            value: category
+                        };
+                    }),
+                    // Add some popular commands as examples
+                    { name: '🎮 blackjack (Games)', value: 'blackjack' },
+                    { name: '🎮 slots (Games)', value: 'slots' },
+                    { name: '💰 balance (Economy)', value: 'balance' },
+                    { name: '💼 work (Earn Commands)', value: 'work' },
+                    { name: '🛠️ help (Utility)', value: 'help' }
+                ];
+            }
+            
+            // Filter choices based on user input
+            const filtered = choices.filter(choice => 
+                choice.name.toLowerCase().includes(focused) || 
+                choice.value.toLowerCase().includes(focused)
+            ).slice(0, 25); // Discord limit is 25 choices
+            
+            await interaction.respond(filtered);
+        }
+    } catch (error) {
+        logger.error('Error in cogmanage autocomplete:', error);
+        await interaction.respond([]);
+    }
+};

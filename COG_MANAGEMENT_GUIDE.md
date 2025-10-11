@@ -49,7 +49,25 @@ Sports betting and prediction commands
 
 ## How to Use
 
-### Interactive Panel Method (Recommended)
+### 🚀 Autocomplete Feature (NEW!)
+
+All cog and command names now have **smart autocomplete**! 
+
+**How it works:**
+1. Start typing `/cogmanage enable` or `/cogmanage disable`
+2. Select the type (Cog Category or Individual Command)
+3. When you reach the `name` field, **Discord will show suggestions**
+4. Suggestions are **filtered as you type**
+5. See friendly names like "Games (games)" or "blackjack (Games)"
+
+**Examples:**
+- Type "ga" → See "Games" and "Advanced Games" 
+- Type "black" → See "blackjack (Games)"
+- Type "work" → See "work (Earn Commands)"
+
+No more guessing cog or command names! 🎯
+
+### Interactive Panel Method (Also Recommended)
 
 1. Use `/cogmanage panel` to open the interactive management interface
 2. Select a cog category from the dropdown menu
@@ -70,6 +88,7 @@ Shows the current status of all cogs and their commands.
 /cogmanage enable type:Cog Category name:games
 ```
 Enables all commands in the "games" category.
+💡 **Tip**: The `name` field has autocomplete! Start typing and Discord will show available options.
 
 #### Disable a Cog Category  
 ```
@@ -82,6 +101,7 @@ Disables all commands in the "economy" category.
 /cogmanage enable type:Individual Command name:blackjack
 ```
 Enables just the blackjack command.
+💡 **Tip**: After selecting "Individual Command", autocomplete will show all available commands with their categories.
 
 #### Disable Individual Command
 ```
