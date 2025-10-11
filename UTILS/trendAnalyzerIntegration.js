@@ -5,11 +5,13 @@
 
 const GameTrendAnalyzer = require('./GameTrendAnalyzer');
 const BehavioralPatternAnalyzer = require('./BehavioralPatternAnalyzer');
+const AdvancedTrendAdjuster = require('./AdvancedTrendAdjuster');
 const logger = require('./logger');
 
 // Global singleton instances
 let globalTrendAnalyzer = null;
 let globalBehavioralAnalyzer = null;
+let globalAdvancedAdjuster = AdvancedTrendAdjuster; // Already a singleton
 
 /**
  * Initialize the global trend analyzer
@@ -170,6 +172,83 @@ function getTrendSummary() {
     }
 }
 
+/**
+ * Get adjusted win rate for a player
+ */
+async function getAdjustedWinRate(userId, gameType, baseWinRate = null) {
+    try {
+        return await globalAdvancedAdjuster.getAdjustedWinRate(userId, gameType, baseWinRate);
+    } catch (error) {
+        logger.error(`Error getting adjusted win rate: ${error.message}`);
+        return baseWinRate || 0.48;
+    }
+}
+
+/**
+ * Get adjusted house edge based on patterns
+ */
+async function getAdjustedHouseEdge(userId, gameType, patterns = null) {
+    try {
+        return await globalAdvancedAdjuster.getAdjustedHouseEdge(userId, gameType, patterns);
+    } catch (error) {
+        logger.error(`Error getting adjusted house edge: ${error.message}`);
+        return 0.03; // Default 3%
+    }
+}
+
+/**
+ * Apply outcome adjustment based on win rate
+ */
+async function applyOutcomeAdjustment(userId, gameType, originalOutcome) {
+    try {
+        return await globalAdvancedAdjuster.applyOutcomeAdjustment(userId, gameType, originalOutcome);
+    } catch (error) {
+        logger.error(`Error applying outcome adjustment: ${error.message}`);
+        return originalOutcome;
+    }
+}
+
+/**
+ * Calculate adjusted multiplier
+ */
+async function calculateMultiplierAdjustment(userId, gameType, baseMultiplier, patterns = null) {
+    try {
+        return await globalAdvancedAdjuster.calculateMultiplierAdjustment(userId, gameType, baseMultiplier, patterns);
+    } catch (error) {
+        logger.error(`Error calculating multiplier adjustment: ${error.message}`);
+        return baseMultiplier;
+    }
+}
+
+/**
+ * Update player profile with game result
+ */
+async function updatePlayerProfile(userId, gameResult) {
+    try {
+        await globalAdvancedAdjuster.updatePlayerProfile(userId, gameResult);
+        await globalAdvancedAdjuster.updateGameMetrics(
+            gameResult.gameType,
+            gameResult.betAmount,
+            gameResult.payout,
+            gameResult.won
+        );
+    } catch (error) {
+        logger.error(`Error updating player profile: ${error.message}`);
+    }
+}
+
+/**
+ * Get player report
+ */
+async function getPlayerReport(userId) {
+    try {
+        return await globalAdvancedAdjuster.getPlayerReport(userId);
+    } catch (error) {
+        logger.error(`Error getting player report: ${error.message}`);
+        return null;
+    }
+}
+
 module.exports = {
     initializeTrendAnalyzer,
     initializeBehavioralAnalyzer,
@@ -181,5 +260,12 @@ module.exports = {
     checkSuspiciousActivity,
     getComprehensiveAnalysis,
     getTrendAdjustment,
-    getTrendSummary
+    getTrendSummary,
+    // New advanced adjustment functions
+    getAdjustedWinRate,
+    getAdjustedHouseEdge,
+    applyOutcomeAdjustment,
+    calculateMultiplierAdjustment,
+    updatePlayerProfile,
+    getPlayerReport
 };

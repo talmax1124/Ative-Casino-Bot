@@ -2368,10 +2368,22 @@ class DatabaseAdapter {
             logger.info(`Conducting lottery drawing for guild ${guildId || 'global'} tier ${tier}`);
             
             // Get lottery info for specific tier
-            const [lotteryInfo] = await connection.execute(
-                'SELECT * FROM lottery_info WHERE guild_id = ? AND tier = ?',
-                [guildId, tier]
-            );
+            let lotteryInfo;
+            if (tier === 2) {
+                // Tier 2 uses a separate table
+                const [tier2Info] = await connection.execute(
+                    'SELECT *, 2 as tier FROM lottery_info_tier2 WHERE guild_id = ?',
+                    [guildId]
+                );
+                lotteryInfo = tier2Info;
+            } else {
+                // Tier 1 uses the main lottery_info table
+                const [tier1Info] = await connection.execute(
+                    'SELECT * FROM lottery_info WHERE guild_id = ? AND (tier = 1 OR tier IS NULL)',
+                    [guildId]
+                );
+                lotteryInfo = tier1Info;
+            }
             
             if (!lotteryInfo.length) {
                 await connection.rollback();

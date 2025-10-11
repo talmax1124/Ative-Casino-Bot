@@ -814,7 +814,7 @@ module.exports = {
                 }
                 
                 // Deduct insurance amount
-                await dbManager.updateBalance(userId, guildId, -game.insuranceAmount, 0);
+                await dbManager.updateUserBalance(userId, guildId, -game.insuranceAmount, 0);
                 game.takeInsurance();
                 
                 // Update game display

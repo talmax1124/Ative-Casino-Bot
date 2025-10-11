@@ -71,6 +71,7 @@ module.exports = {
                     .setFooter({ text: 'Complete your game to deposit' });
                 
                 await interaction.editReply({ embeds: [errorEmbed] });
+                transactionLocks.delete(lockKey);
                 return;
             }
 
@@ -99,6 +100,7 @@ module.exports = {
                     .setFooter({ text: 'Try again with a valid amount' });
                 
                 await interaction.editReply({ embeds: [errorEmbed] });
+                transactionLocks.delete(lockKey);
                 return;
             }
 
@@ -114,6 +116,7 @@ module.exports = {
                     .setFooter({ text: 'You cannot deposit more than you have' });
                 
                 await interaction.editReply({ embeds: [errorEmbed] });
+                transactionLocks.delete(lockKey);
                 return;
             }
 
@@ -136,6 +139,7 @@ module.exports = {
                     .setFooter({ text: 'ATIVE Casino' });
                 
                 await interaction.editReply({ embeds: [errorEmbed] });
+                transactionLocks.delete(lockKey);
                 return;
             }
 

@@ -160,9 +160,8 @@ class SecurityLogger {
         try {
             const alertMessage = this.buildAlertMessage(userId, suspiciousPattern);
             
-            // Log to console and file
-            logger.error(`🚨 SECURITY ALERT: ${suspiciousPattern.type} - User: ${userId}`);
-            logger.error(`Details: ${suspiciousPattern.details}`);
+            // Log to console and file (single line to avoid duplicates)
+            logger.error(`🚨 SECURITY ALERT: ${suspiciousPattern.type} - User: ${userId} - Details: ${suspiciousPattern.details}`);
             
             // Send to Discord admin channel
             if (global.discordClient) {

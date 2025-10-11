@@ -23,6 +23,8 @@ class GameTrendAnalyzer {
         this.playerBehaviorProfiles = new Map();
         this.gameAdjustments = new Map();
         this.nashEquilibriumState = new Map();
+        this.patternCache = new Map(); // Cache for pattern analysis
+        this.statisticalModels = new Map(); // Statistical models per game
         
         // Trend analysis configuration
         this.config = {
@@ -42,6 +44,8 @@ class GameTrendAnalyzer {
             // Pattern detection
             minSampleSize: 20,           // Minimum choices before analysis (reduced from 100)
             patternConfidence: 0.65,     // 65% confidence for pattern detection (reduced from 0.85)
+            patternCacheExpiry: 300000,  // 5 minutes cache expiry
+            maxCacheSize: 1000,          // Maximum pattern cache entries
             
             // Game-specific sensitivities
             gameSensitivities: {
@@ -248,15 +252,19 @@ class GameTrendAnalyzer {
      */
     async recordChoice(gameType, userId, choice, metadata = {}) {
         try {
-            // Handle undefined/null gameType
-            if (!gameType || gameType === 'undefined' || gameType === undefined) {
-                logger.warn(`Undefined game type for trend analysis (gameType: ${gameType}, userId: ${userId}, choice: ${choice})`);
+            // Handle undefined/null gameType with better validation
+            if (!gameType || gameType === 'undefined' || gameType === undefined || gameType === null || gameType === 'null') {
+                logger.warn(`Invalid game type for trend analysis (gameType: ${gameType}, userId: ${userId}, choice: ${choice})`);
                 return;
             }
             
+            // Normalize gameType to prevent inconsistencies
+            gameType = String(gameType).toLowerCase().trim();
+            
             if (!this.trendData.has(gameType)) {
-                logger.warn(`Unknown game type for trend analysis: "${gameType}" (type: ${typeof gameType}, userId: ${userId})`);
-                return;
+                // Auto-initialize unknown game types with generic structure
+                logger.info(`Auto-initializing trend analysis for new game type: "${gameType}"`);
+                this.initializeGameType(gameType);
             }
             
             const gameData = this.trendData.get(gameType);
@@ -664,9 +672,12 @@ class GameTrendAnalyzer {
         gameProfile.choices.push(choiceRecord);
         gameProfile.sessions++;
         
-        // Keep only recent choices
-        if (gameProfile.choices.length > 100) {
-            gameProfile.choices.splice(0, 50);
+        // Keep only recent choices with sliding window
+        const maxChoices = 200; // Increased for better pattern detection
+        if (gameProfile.choices.length > maxChoices) {
+            // Keep most recent 75% when pruning
+            const keepCount = Math.floor(maxChoices * 0.75);
+            gameProfile.choices = gameProfile.choices.slice(-keepCount);
         }
         
         // Update metrics
@@ -1689,6 +1700,312 @@ class GameTrendAnalyzer {
         } catch (error) {
             logger.error(`Error sending big win alert: ${error.message}`);
         }
+    }
+    
+    /**
+     * Initialize a new game type dynamically
+     */
+    initializeGameType(gameType) {
+        // Create generic structure for unknown game types
+        this.trendData.set(gameType, {
+            choices: new Map(),
+            patterns: new Map(),
+            totalChoices: 0,
+            lastAnalysis: Date.now(),
+            currentAdjustment: 0,
+            bigWins: [],
+            recentChoices: []
+        });
+        
+        this.nashEquilibriumState.set(gameType, {
+            dominantStrategy: null,
+            strategyDistribution: new Map(),
+            equilibriumPoint: 0,
+            lastShift: Date.now()
+        });
+        
+        this.statisticalModels.set(gameType, {
+            mean: 0,
+            variance: 0,
+            standardDeviation: 0,
+            confidenceIntervals: { lower: 0, upper: 0 },
+            outliers: [],
+            trend: 'neutral'
+        });
+        
+        logger.info(`✅ Initialized new game type: ${gameType}`);
+    }
+    
+    /**
+     * Enhanced pattern detection with caching
+     */
+    detectPatternWithCache(gameType, data, patternType) {
+        const cacheKey = `${gameType}_${patternType}_${Date.now()}`;
+        
+        // Check cache first
+        if (this.patternCache.has(cacheKey)) {
+            const cached = this.patternCache.get(cacheKey);
+            if (Date.now() - cached.timestamp < this.config.patternCacheExpiry) {
+                return cached.result;
+            }
+        }
+        
+        // Perform pattern detection
+        const result = this.performPatternDetection(data, patternType);
+        
+        // Cache result
+        this.patternCache.set(cacheKey, {
+            result,
+            timestamp: Date.now()
+        });
+        
+        // Clean old cache entries
+        this.cleanPatternCache();
+        
+        return result;
+    }
+    
+    /**
+     * Perform actual pattern detection
+     */
+    performPatternDetection(data, patternType) {
+        switch (patternType) {
+            case 'sequential':
+                return this.detectSequentialPattern(data);
+            case 'cyclic':
+                return this.detectCyclicPattern(data);
+            case 'clustering':
+                return this.detectClusteringPattern(data);
+            case 'markov':
+                return this.detectMarkovChain(data);
+            default:
+                return { detected: false, confidence: 0 };
+        }
+    }
+    
+    /**
+     * Detect sequential patterns (A->B->C predictable sequences)
+     */
+    detectSequentialPattern(data) {
+        if (!Array.isArray(data) || data.length < 3) {
+            return { detected: false, confidence: 0 };
+        }
+        
+        const sequences = new Map();
+        for (let i = 0; i < data.length - 2; i++) {
+            const seq = `${data[i]}_${data[i+1]}_${data[i+2]}`;
+            sequences.set(seq, (sequences.get(seq) || 0) + 1);
+        }
+        
+        const maxCount = Math.max(...sequences.values());
+        const confidence = maxCount / (data.length - 2);
+        
+        return {
+            detected: confidence > this.config.patternConfidence,
+            confidence,
+            pattern: [...sequences.entries()].find(([, count]) => count === maxCount)?.[0]
+        };
+    }
+    
+    /**
+     * Detect cyclic patterns (repeating cycles)
+     */
+    detectCyclicPattern(data) {
+        if (!Array.isArray(data) || data.length < 4) {
+            return { detected: false, confidence: 0 };
+        }
+        
+        // Check for cycles of length 2-5
+        for (let cycleLen = 2; cycleLen <= Math.min(5, Math.floor(data.length / 2)); cycleLen++) {
+            let matches = 0;
+            let checks = 0;
+            
+            for (let i = cycleLen; i < data.length; i++) {
+                if (data[i] === data[i - cycleLen]) {
+                    matches++;
+                }
+                checks++;
+            }
+            
+            const confidence = matches / checks;
+            if (confidence > this.config.patternConfidence) {
+                return {
+                    detected: true,
+                    confidence,
+                    cycleLength: cycleLen
+                };
+            }
+        }
+        
+        return { detected: false, confidence: 0 };
+    }
+    
+    /**
+     * Detect clustering patterns
+     */
+    detectClusteringPattern(data) {
+        if (!Array.isArray(data) || data.length < 5) {
+            return { detected: false, confidence: 0 };
+        }
+        
+        // Group consecutive similar values
+        const clusters = [];
+        let currentCluster = { value: data[0], count: 1 };
+        
+        for (let i = 1; i < data.length; i++) {
+            if (data[i] === currentCluster.value) {
+                currentCluster.count++;
+            } else {
+                clusters.push(currentCluster);
+                currentCluster = { value: data[i], count: 1 };
+            }
+        }
+        clusters.push(currentCluster);
+        
+        // Check if clustering is significant
+        const avgClusterSize = clusters.reduce((sum, c) => sum + c.count, 0) / clusters.length;
+        const expectedClusterSize = 1 / (new Set(data).size); // Expected size if random
+        
+        const clusteringStrength = avgClusterSize / expectedClusterSize;
+        
+        return {
+            detected: clusteringStrength > 1.5, // 50% more clustering than random
+            confidence: Math.min(clusteringStrength / 2, 1),
+            avgClusterSize,
+            clusters: clusters.slice(0, 5) // Return top 5 clusters
+        };
+    }
+    
+    /**
+     * Detect Markov chain patterns (state transitions)
+     */
+    detectMarkovChain(data) {
+        if (!Array.isArray(data) || data.length < 10) {
+            return { detected: false, confidence: 0 };
+        }
+        
+        // Build transition matrix
+        const transitions = new Map();
+        const states = new Set(data);
+        
+        for (let i = 0; i < data.length - 1; i++) {
+            const from = data[i];
+            const to = data[i + 1];
+            const key = `${from}_${to}`;
+            transitions.set(key, (transitions.get(key) || 0) + 1);
+        }
+        
+        // Check for strong transition patterns
+        let maxTransitionProb = 0;
+        let dominantTransition = null;
+        
+        for (const state of states) {
+            let stateTotal = 0;
+            let maxStateTransition = 0;
+            let maxStateTarget = null;
+            
+            for (const [key, count] of transitions) {
+                if (key.startsWith(`${state}_`)) {
+                    stateTotal += count;
+                    if (count > maxStateTransition) {
+                        maxStateTransition = count;
+                        maxStateTarget = key.split('_')[1];
+                    }
+                }
+            }
+            
+            if (stateTotal > 0) {
+                const prob = maxStateTransition / stateTotal;
+                if (prob > maxTransitionProb) {
+                    maxTransitionProb = prob;
+                    dominantTransition = { from: state, to: maxStateTarget, probability: prob };
+                }
+            }
+        }
+        
+        return {
+            detected: maxTransitionProb > this.config.patternConfidence,
+            confidence: maxTransitionProb,
+            dominantTransition,
+            transitions: Object.fromEntries([...transitions.entries()].slice(0, 10))
+        };
+    }
+    
+    /**
+     * Clean pattern cache
+     */
+    cleanPatternCache() {
+        if (this.patternCache.size > this.config.maxCacheSize) {
+            // Remove oldest entries
+            const entries = [...this.patternCache.entries()];
+            entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+            
+            const toRemove = entries.slice(0, Math.floor(this.config.maxCacheSize / 2));
+            toRemove.forEach(([key]) => this.patternCache.delete(key));
+        }
+    }
+    
+    /**
+     * Calculate statistical model for game data
+     */
+    calculateStatisticalModel(gameType, values) {
+        if (!Array.isArray(values) || values.length === 0) {
+            return this.statisticalModels.get(gameType) || {};
+        }
+        
+        // Calculate mean
+        const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+        
+        // Calculate variance and standard deviation
+        const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+        const standardDeviation = Math.sqrt(variance);
+        
+        // Calculate confidence intervals (95%)
+        const marginOfError = 1.96 * (standardDeviation / Math.sqrt(values.length));
+        const confidenceIntervals = {
+            lower: mean - marginOfError,
+            upper: mean + marginOfError
+        };
+        
+        // Detect outliers (values beyond 3 standard deviations)
+        const outliers = values.filter(val => Math.abs(val - mean) > 3 * standardDeviation);
+        
+        // Determine trend using linear regression
+        const trend = this.calculateTrend(values);
+        
+        const model = {
+            mean,
+            variance,
+            standardDeviation,
+            confidenceIntervals,
+            outliers,
+            trend,
+            sampleSize: values.length
+        };
+        
+        this.statisticalModels.set(gameType, model);
+        return model;
+    }
+    
+    /**
+     * Calculate trend using simple linear regression
+     */
+    calculateTrend(values) {
+        if (values.length < 2) return 'neutral';
+        
+        // Create time series (index as time)
+        const n = values.length;
+        const sumX = (n * (n - 1)) / 2; // Sum of 0 to n-1
+        const sumY = values.reduce((sum, val) => sum + val, 0);
+        const sumXY = values.reduce((sum, val, i) => sum + i * val, 0);
+        const sumX2 = (n * (n - 1) * (2 * n - 1)) / 6; // Sum of squares
+        
+        // Calculate slope
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        
+        // Determine trend based on slope
+        if (Math.abs(slope) < 0.01) return 'neutral';
+        return slope > 0 ? 'increasing' : 'decreasing';
     }
 }
 
