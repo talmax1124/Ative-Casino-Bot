@@ -8,6 +8,7 @@ const path = require('path');
 const https = require('https');
 const logger = require('./logger');
 const cogFileMapper = require('./cogFileMapper');
+const tokenSecurity = require('./tokenSecurity');
 
 class CogUpdater {
     constructor() {
@@ -20,7 +21,8 @@ class CogUpdater {
         this.githubRepo = 'talmax1124/Ative-Casino-Bot';
         this.githubBranch = 'main';
         this.repositoryExists = false; // Will be checked on first use
-        this.githubToken = process.env.GITHUB_TOKEN || process.env.ACCESS_TOKEN || null;
+        // Use secure token system that supports encrypted fallback
+        this.githubToken = tokenSecurity.getGitHubToken();
         
         // Ensure backup directory exists
         this.ensureBackupDirectory();
@@ -93,13 +95,14 @@ class CogUpdater {
     }
 
     /**
-     * Download file from GitHub
+     * Download file from GitHub (supports private repositories)
      */
     async downloadFromGithub(filePath) {
         return new Promise((resolve, reject) => {
-            const url = cogFileMapper.getGithubUrl(filePath);
+            // For private repositories, use GitHub API instead of raw.githubusercontent.com
+            const url = `${this.githubApi}/repos/${this.githubRepo}/contents/${filePath}?ref=${this.githubBranch}`;
             
-            https.get(url, (res) => {
+            https.get(url, { headers: this.getGithubHeaders() }, (res) => {
                 if (res.statusCode !== 200) {
                     reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage} for ${filePath}`));
                     return;
@@ -108,7 +111,20 @@ class CogUpdater {
                 let data = '';
                 res.setEncoding('utf8');
                 res.on('data', chunk => data += chunk);
-                res.on('end', () => resolve(data));
+                res.on('end', () => {
+                    try {
+                        const response = JSON.parse(data);
+                        if (response.content) {
+                            // Decode base64 content
+                            const content = Buffer.from(response.content, 'base64').toString('utf8');
+                            resolve(content);
+                        } else {
+                            reject(new Error(`No content found in response for ${filePath}`));
+                        }
+                    } catch (parseError) {
+                        reject(new Error(`Failed to parse GitHub API response for ${filePath}: ${parseError.message}`));
+                    }
+                });
             }).on('error', reject);
         });
     }
@@ -502,6 +518,7 @@ class CogUpdater {
      * Get updater status
      */
     getStatus() {
+        const tokenInfo = tokenSecurity.getTokenInfo();
         return {
             isUpdating: this.isUpdating,
             queueSize: this.updateQueue.size,
@@ -509,7 +526,9 @@ class CogUpdater {
             githubRepo: this.githubRepo,
             githubBranch: this.githubBranch,
             hasGithubToken: !!this.githubToken,
-            repositoryExists: this.repositoryExists
+            repositoryExists: this.repositoryExists,
+            tokenSource: tokenInfo.source,
+            tokenAvailable: tokenInfo.available
         };
     }
 }

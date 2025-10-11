@@ -183,7 +183,7 @@ async function handleStatus(interaction) {
                     `**Queue:** ${updaterStatus.queueSize} pending`,
                     `**Repository:** ${updaterStatus.githubRepo}`,
                     `**Branch:** ${updaterStatus.githubBranch}`,
-                    `**Auth:** ${updaterStatus.hasGithubToken ? '🔑 Token Available' : '❌ No Token'}`
+                    `**Auth:** ${updaterStatus.hasGithubToken ? `🔑 Token (${updaterStatus.tokenSource})` : '❌ No Token'}`
                 ].join('\n'),
                 inline: true
             },
