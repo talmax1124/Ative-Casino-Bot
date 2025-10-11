@@ -961,6 +961,28 @@ client.on('interactionCreate', async interaction => {
             return;
         }
 
+        // Check if command is disabled via cog management
+        try {
+            const cogManager = require('./UTILS/cogManager');
+            if (cogManager.initialized && !cogManager.isCommandEnabled(interaction.commandName)) {
+                const embed = new EmbedBuilder()
+                    .setColor('#ff0000')
+                    .setTitle('❌ Command Disabled')
+                    .setDescription(`The command \`${interaction.commandName}\` is currently disabled.`)
+                    .addFields({
+                        name: 'ℹ️ Information',
+                        value: 'This command has been disabled by a server administrator. Contact them if you need access to this feature.',
+                        inline: false
+                    });
+                
+                await interaction.reply({ embeds: [embed], ephemeral: true });
+                return;
+            }
+        } catch (error) {
+            // If cog manager isn't available, continue with command execution
+            logger.debug('Cog manager not available, skipping command check:', error.message);
+        }
+
         // Command disabling functionality moved to developer panel
         // (commented out since devModule was removed)
         
@@ -1566,6 +1588,71 @@ client.on('interactionCreate', async interaction => {
                     });
 
                     await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                }
+            }
+            // Handle cog management select menu
+            else if (interaction.customId === 'cog_select') {
+                try {
+                    const cogManager = require('./UTILS/cogManager');
+                    
+                    // Check if user is authorized to manage cogs
+                    if (!cogManager.isUserAuthorized(interaction.user.id)) {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: '❌ Only authorized users can manage cogs.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+                    const selectedCategory = interaction.values[0];
+                    const categoryInfo = cogManager.getCategoryInfo(selectedCategory);
+                    
+                    if (!categoryInfo) {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: '❌ Invalid cog category selected.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+
+                    const isEnabled = cogManager.isCogEnabled(selectedCategory);
+                    const statusIcon = isEnabled ? '🟢' : '🔴';
+                    const statusText = isEnabled ? 'Enabled' : 'Disabled';
+                    
+                    const embed = new EmbedBuilder()
+                        .setColor(isEnabled ? '#00ff00' : '#ff0000')
+                        .setTitle(`🔧 Managing: ${categoryInfo.name}`)
+                        .setDescription(`**Status:** ${statusIcon} ${statusText}\n**Description:** ${categoryInfo.description}\n**Commands in category:** ${categoryInfo.commands.length}`)
+                        .addFields({
+                            name: 'Commands',
+                            value: categoryInfo.commands.map(cmd => `\`${cmd}\``).join(', '),
+                            inline: false
+                        });
+
+                    const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+                    const buttons = new ActionRowBuilder()
+                        .addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`cog_toggle_${selectedCategory}`)
+                                .setLabel(isEnabled ? 'Disable Cog' : 'Enable Cog')
+                                .setStyle(isEnabled ? ButtonStyle.Danger : ButtonStyle.Success)
+                                .setEmoji(isEnabled ? '🔴' : '🟢'),
+                            new ButtonBuilder()
+                                .setCustomId(`cog_commands_${selectedCategory}`)
+                                .setLabel('Manage Commands')
+                                .setStyle(ButtonStyle.Secondary)
+                                .setEmoji('⚙️')
+                        );
+
+                    await interaction.update({
+                        embeds: [embed],
+                        components: [buttons]
+                    });
+                } catch (error) {
+                    logger.error(`Error handling cog select: ${error.message}`);
+                    await SafeInteractionHandler.safeReply(interaction, {
+                        content: '❌ An error occurred while processing cog selection.',
+                        ephemeral: true
+                    });
                 }
             }
 
@@ -2966,6 +3053,89 @@ client.on('interactionCreate', async interaction => {
             else if (customId.startsWith('wc-word:')) {
                 // Word chain input buttons are handled within the wordchain command's collector
                 // No additional handling needed here - the command's own collector handles these
+            }
+            // Handle cog management buttons
+            else if (customId.startsWith('cog_')) {
+                try {
+                    const cogManager = require('./UTILS/cogManager');
+                    
+                    // Check if user is authorized to manage cogs
+                    if (!cogManager.isUserAuthorized(interaction.user.id)) {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: '❌ Only authorized users can manage cogs.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
+                    
+                    if (!cogManager.initialized) {
+                        await cogManager.createTables();
+                        await cogManager.initialize();
+                    }
+
+                    if (customId.startsWith('cog_toggle_')) {
+                        const categoryName = customId.replace('cog_toggle_', '');
+                        const isCurrentlyEnabled = cogManager.isCogEnabled(categoryName);
+                        
+                        if (isCurrentlyEnabled) {
+                            await cogManager.disableCog(categoryName);
+                            const embed = new EmbedBuilder()
+                                .setColor('#ff9900')
+                                .setTitle('🔴 Cog Disabled')
+                                .setDescription(`Successfully disabled the **${cogManager.getCategoryInfo(categoryName).name}** cog category.`);
+                            await interaction.update({ embeds: [embed], components: [] });
+                        } else {
+                            await cogManager.enableCog(categoryName);
+                            const embed = new EmbedBuilder()
+                                .setColor('#00ff00')
+                                .setTitle('✅ Cog Enabled')
+                                .setDescription(`Successfully enabled the **${cogManager.getCategoryInfo(categoryName).name}** cog category.`);
+                            await interaction.update({ embeds: [embed], components: [] });
+                        }
+                    }
+                    else if (customId === 'cog_enable_all') {
+                        await interaction.deferUpdate();
+                        const results = await cogManager.enableAllCogs();
+                        const successCount = results.filter(r => r.success).length;
+                        
+                        const embed = new EmbedBuilder()
+                            .setColor('#00ff00')
+                            .setTitle('✅ All Cogs Enabled')
+                            .setDescription(`Successfully enabled ${successCount} cog categories.`);
+                        await interaction.editReply({ embeds: [embed], components: [] });
+                    }
+                    else if (customId === 'cog_disable_all') {
+                        await interaction.deferUpdate();
+                        const results = await cogManager.disableAllCogs();
+                        const successCount = results.filter(r => r.success).length;
+                        
+                        const embed = new EmbedBuilder()
+                            .setColor('#ff9900')
+                            .setTitle('🔴 All Cogs Disabled')
+                            .setDescription(`Successfully disabled ${successCount} cog categories.`);
+                        await interaction.editReply({ embeds: [embed], components: [] });
+                    }
+                    else if (customId === 'cog_refresh') {
+                        // Refresh and show the panel again
+                        const cogmanageCommand = client.commands.get('cogmanage');
+                        if (cogmanageCommand) {
+                            // Re-run the panel subcommand
+                            const fakeInteraction = {
+                                ...interaction,
+                                options: {
+                                    getSubcommand: () => 'panel'
+                                }
+                            };
+                            await cogmanageCommand.execute(fakeInteraction);
+                        }
+                    }
+                } catch (error) {
+                    logger.error(`Error handling cog button ${customId}:`, error);
+                    await SafeInteractionHandler.safeReply(interaction, {
+                        content: '❌ An error occurred while managing cogs.',
+                        ephemeral: true
+                    });
+                }
             }
 
         } catch (error) {
