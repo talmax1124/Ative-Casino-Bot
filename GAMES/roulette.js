@@ -6,6 +6,7 @@
 
 const crypto = require('crypto');
 const GameInputValidator = require('../UTILS/gameInputValidator');
+const dynamicGameAdjuster = require('../UTILS/dynamicGameAdjuster');
 
 // Global streak tracking to prevent excessive green runs
 const globalStreakTracker = {
@@ -43,10 +44,18 @@ const globalStreakTracker = {
 
 class RouletteGame {
     constructor(userId, betAmount) {
-        // SECURITY: Validate bet amount before creating game
+        this.userId = userId;
+        this.originalBetAmount = betAmount;
+        
+        // Get dynamic bet limits and UI config from market cap system
+        this.betLimits = dynamicGameAdjuster.getAdjustedBetLimits('roulette');
+        this.uiConfig = dynamicGameAdjuster.getGameUIConfig('roulette');
+        this.MAX_BET_AMOUNT = this.betLimits.max;
+        this.MIN_BET_AMOUNT = this.betLimits.min;
+        
+        // SECURITY: Validate bet amount with dynamic limits
         this.validateBetAmount(betAmount);
         
-        this.userId = userId;
         this.betAmount = betAmount;
         this.currentBet = null;
         this.currentBets = []; // SECURITY: Track multiple bets properly
@@ -63,10 +72,6 @@ class RouletteGame {
         this.redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
         this.blackNumbers = [2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35];
         this.greenNumbers = [0, '00'];
-        
-        // Maximum bet limits for security
-        this.MAX_BET_AMOUNT = 10000000; // 10M max bet
-        this.MIN_BET_AMOUNT = 1; // $1 minimum bet
     }
 
     /**
