@@ -14,7 +14,7 @@ class CogFileMapper {
         this.scanInterval = 5 * 60 * 1000; // 5 minutes cache
         
         // GitHub repository information
-        this.githubRepo = 'talmax1124/ative-casino-bot';
+        this.githubRepo = 'talmax1124/Ative-Casino-Bot';
         this.githubBranch = 'main';
         this.githubBaseUrl = `https://raw.githubusercontent.com/${this.githubRepo}/${this.githubBranch}`;
         

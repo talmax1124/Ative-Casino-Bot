@@ -1733,6 +1733,12 @@ class GameTrendAnalyzer {
             if (!this.nashEquilibriumState) this.nashEquilibriumState = new Map();
             if (!this.statisticalModels) this.statisticalModels = new Map();
             
+            // Check if already initialized to prevent race conditions
+            if (this.trendData.has(gameType)) {
+                logger.debug(`Game type ${gameType} already initialized, skipping...`);
+                return;
+            }
+            
             // Create generic structure for unknown game types
             this.trendData.set(gameType, {
                 choices: new Map(),

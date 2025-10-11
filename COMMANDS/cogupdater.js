@@ -141,8 +141,11 @@ module.exports = {
                 const backups = await cogUpdater.getAvailableBackups();
                 
                 const choices = backups.map(backup => {
-                    const age = Math.round(backup.age / (1000 * 60)); // minutes
-                    const ageText = age < 60 ? `${age}m ago` : `${Math.round(age / 60)}h ago`;
+                    let ageText = 'Unknown age';
+                    if (backup.age && !isNaN(backup.age)) {
+                        const age = Math.round(backup.age / (1000 * 60)); // minutes
+                        ageText = age < 60 ? `${age}m ago` : `${Math.round(age / 60)}h ago`;
+                    }
                     
                     return {
                         name: `${backup.name} (${backup.fileCount} files, ${ageText})`,
@@ -179,7 +182,8 @@ async function handleStatus(interaction) {
                     `**Active:** ${updaterStatus.isUpdating ? '🟡 Updating...' : '🟢 Ready'}`,
                     `**Queue:** ${updaterStatus.queueSize} pending`,
                     `**Repository:** ${updaterStatus.githubRepo}`,
-                    `**Branch:** ${updaterStatus.githubBranch}`
+                    `**Branch:** ${updaterStatus.githubBranch}`,
+                    `**Auth:** ${updaterStatus.hasGithubToken ? '🔑 Token Available' : '❌ No Token'}`
                 ].join('\n'),
                 inline: true
             },
@@ -206,8 +210,11 @@ async function handleStatus(interaction) {
 
     if (backups.length > 0) {
         const recentBackups = backups.slice(0, 5).map(backup => {
-            const age = Math.round(backup.age / (1000 * 60));
-            const ageText = age < 60 ? `${age}m ago` : `${Math.round(age / 60)}h ago`;
+            let ageText = 'Unknown age';
+            if (backup.age && !isNaN(backup.age)) {
+                const age = Math.round(backup.age / (1000 * 60));
+                ageText = age < 60 ? `${age}m ago` : `${Math.round(age / 60)}h ago`;
+            }
             return `• ${backup.name} (${backup.fileCount} files, ${ageText})`;
         }).join('\n');
         

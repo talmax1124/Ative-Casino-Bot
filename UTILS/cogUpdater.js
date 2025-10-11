@@ -17,8 +17,10 @@ class CogUpdater {
         
         // GitHub API configuration
         this.githubApi = 'https://api.github.com';
-        this.githubRepo = 'talmax1124/ative-casino-bot';
+        this.githubRepo = 'talmax1124/Ative-Casino-Bot';
         this.githubBranch = 'main';
+        this.repositoryExists = false; // Will be checked on first use
+        this.githubToken = process.env.GITHUB_TOKEN || null;
         
         // Ensure backup directory exists
         this.ensureBackupDirectory();
@@ -37,17 +39,56 @@ class CogUpdater {
     }
 
     /**
+     * Get headers for GitHub API requests
+     */
+    getGithubHeaders() {
+        const headers = { 'User-Agent': 'ATIVE-Casino-Bot' };
+        if (this.githubToken) {
+            headers['Authorization'] = `Bearer ${this.githubToken}`;
+        }
+        return headers;
+    }
+
+    /**
      * Check if file exists on GitHub
      */
     async checkGithubFileExists(filePath) {
         return new Promise((resolve) => {
-            const url = `${this.githubApi}/repos/${this.githubRepo}/contents/${filePath}?ref=${this.githubBranch}`;
-            
-            https.get(url, { headers: { 'User-Agent': 'ATIVE-Casino-Bot' } }, (res) => {
-                resolve(res.statusCode === 200);
-            }).on('error', () => {
-                resolve(false);
-            });
+            // First check if repository exists
+            if (!this.repositoryExists) {
+                const repoUrl = `${this.githubApi}/repos/${this.githubRepo}`;
+                https.get(repoUrl, { headers: this.getGithubHeaders() }, (repoRes) => {
+                    if (repoRes.statusCode !== 200) {
+                        if (repoRes.statusCode === 404) {
+                            logger.warn(`Repository ${this.githubRepo} not found (404). It may be private or the name is incorrect.`);
+                        } else if (repoRes.statusCode === 401) {
+                            logger.warn(`Repository ${this.githubRepo} requires authentication (401). Please set GITHUB_TOKEN environment variable.`);
+                        } else {
+                            logger.warn(`Repository ${this.githubRepo} returned ${repoRes.statusCode}: ${repoRes.statusMessage}`);
+                        }
+                        resolve(false);
+                        return;
+                    }
+                    this.repositoryExists = true;
+                    
+                    // Now check file
+                    const url = `${this.githubApi}/repos/${this.githubRepo}/contents/${filePath}?ref=${this.githubBranch}`;
+                    https.get(url, { headers: this.getGithubHeaders() }, (res) => {
+                        resolve(res.statusCode === 200);
+                    }).on('error', () => {
+                        resolve(false);
+                    });
+                }).on('error', () => {
+                    resolve(false);
+                });
+            } else {
+                const url = `${this.githubApi}/repos/${this.githubRepo}/contents/${filePath}?ref=${this.githubBranch}`;
+                https.get(url, { headers: this.getGithubHeaders() }, (res) => {
+                    resolve(res.statusCode === 200);
+                }).on('error', () => {
+                    resolve(false);
+                });
+            }
         });
     }
 
@@ -385,12 +426,15 @@ class CogUpdater {
                     const metadataPath = path.join(this.backupDir, dir, 'backup_info.json');
                     const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
                     
+                    const timestampDate = new Date(metadata.timestamp);
+                    const age = isNaN(timestampDate.getTime()) ? 0 : Date.now() - timestampDate.getTime();
+                    
                     backups.push({
                         name: metadata.name,
                         timestamp: metadata.timestamp,
                         fileCount: metadata.files.length,
                         path: path.join(this.backupDir, dir),
-                        age: Date.now() - new Date(metadata.timestamp).getTime()
+                        age: age
                     });
                 } catch (error) {
                     // Skip invalid backup directories
@@ -463,7 +507,9 @@ class CogUpdater {
             queueSize: this.updateQueue.size,
             backupDir: this.backupDir,
             githubRepo: this.githubRepo,
-            githubBranch: this.githubBranch
+            githubBranch: this.githubBranch,
+            hasGithubToken: !!this.githubToken,
+            repositoryExists: this.repositoryExists
         };
     }
 }

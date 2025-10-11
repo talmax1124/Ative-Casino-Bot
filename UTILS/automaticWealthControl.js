@@ -14,7 +14,7 @@ class AutomaticWealthControl {
         // Adjust thresholds to be less harsh but still effective
         this.CRITICAL_THRESHOLD = 3_000_000_000; // $3B threshold (increased from $800M)
         this.ULTRA_THRESHOLD = 8_000_000_000;    // $8B threshold for maximum intervention (increased from $1B)
-        this.CHECK_INTERVAL = 2 * 60 * 60 * 1000; // Check every 2 hours
+        this.CHECK_INTERVAL = 24 * 60 * 60 * 1000; // Check every 24 hours
         this.isProcessing = false;
         this.lastCheck = null;
         this.interventionHistory = new Map();
@@ -26,7 +26,7 @@ class AutomaticWealthControl {
      * Start automatic monitoring system
      */
     startAutomonitor() {
-        logger.info('🛡️ Automatic Wealth Control System initialized - checking every 2 hours');
+        logger.info('🛡️ Automatic Wealth Control System initialized - checking every 24 hours');
         
         // Run initial check after 1 minute
         setTimeout(() => {
