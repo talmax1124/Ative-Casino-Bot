@@ -1,6 +1,8 @@
 /**
  * Blackjack game command for the casino bot
  * Classic blackjack with hit, stand, double down, and split functionality
+ * 
+ * I am just here because why not to test the cog updater
  */
 
 const { SlashCommandBuilder, MessageFlags, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
