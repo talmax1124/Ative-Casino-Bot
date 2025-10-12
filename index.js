@@ -1593,6 +1593,16 @@ client.on('interactionCreate', async interaction => {
             // Handle cog updater select menu
             else if (interaction.customId === 'update_cog_select') {
                 try {
+                    // Block cog updater UI if there are active game sessions
+                    const sessionManager = require('./UTILS/sessionManager');
+                    const activeCount = sessionManager.getActiveSessionCount ? sessionManager.getActiveSessionCount() : 0;
+                    if (activeCount > 0) {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: `⏸️ Cog updater is blocked while ${activeCount} game session(s) are active. Use /stopmysession or /stopgame to end them first.`,
+                            flags: MessageFlags.Ephemeral
+                        });
+                        return;
+                    }
                     const cogManager = require('./UTILS/cogManager');
                     const cogUpdater = require('./UTILS/cogUpdater');
                     
@@ -1656,6 +1666,16 @@ client.on('interactionCreate', async interaction => {
             // Handle cog management select menu
             else if (interaction.customId === 'cog_select') {
                 try {
+                    // Block cog management UI if there are active game sessions
+                    const sessionManager = require('./UTILS/sessionManager');
+                    const activeCount = sessionManager.getActiveSessionCount ? sessionManager.getActiveSessionCount() : 0;
+                    if (activeCount > 0) {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: `⏸️ Cog management is blocked while ${activeCount} game session(s) are active. Use /stopmysession or /stopgame to end them first.`,
+                            flags: MessageFlags.Ephemeral
+                        });
+                        return;
+                    }
                     const cogManager = require('./UTILS/cogManager');
                     
                     // Check if user is authorized to manage cogs
@@ -3120,6 +3140,16 @@ client.on('interactionCreate', async interaction => {
             // Handle cog updater buttons
             else if (customId.startsWith('update_')) {
                 try {
+                    // Block most updater actions if sessions are active, but allow end-sessions
+                    const sessionManager = require('./UTILS/sessionManager');
+                    const activeCount = sessionManager.getActiveSessionCount ? sessionManager.getActiveSessionCount() : 0;
+                    if (customId !== 'update_end_sessions' && activeCount > 0) {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: `⏸️ Cog updater is blocked while ${activeCount} game session(s) are active. Use /stopmysession or /stopgame to end them first.`,
+                            flags: MessageFlags.Ephemeral
+                        });
+                        return;
+                    }
                     const cogManager = require('./UTILS/cogManager');
                     const cogUpdater = require('./UTILS/cogUpdater');
                     
@@ -3132,7 +3162,28 @@ client.on('interactionCreate', async interaction => {
                         return;
                     }
 
-                    if (customId.startsWith('update_confirm_')) {
+                    if (customId === 'update_end_sessions') {
+                        await interaction.deferUpdate();
+                        const result = await sessionManager.endAllSessions();
+                        try {
+                            await interaction.followUp({
+                                content: `✅ Ended ${result.ended} active session(s).`,
+                                flags: MessageFlags.Ephemeral
+                            });
+                        } catch (_) {}
+                        // Re-open updater panel
+                        const updaterCmd = client.commands.get('cogupdater');
+                        if (updaterCmd) {
+                            const fakeInteraction = {
+                                ...interaction,
+                                options: {
+                                    getSubcommand: () => 'panel'
+                                }
+                            };
+                            await updaterCmd.execute(fakeInteraction);
+                        }
+                    }
+                    else if (customId.startsWith('update_confirm_')) {
                         const categoryName = customId.replace('update_confirm_', '');
                         
                         await interaction.deferUpdate();
@@ -3250,6 +3301,16 @@ client.on('interactionCreate', async interaction => {
             // Handle cog management buttons
             else if (customId.startsWith('cog_')) {
                 try {
+                    const sessionManager = require('./UTILS/sessionManager');
+                    const activeCount = sessionManager.getActiveSessionCount ? sessionManager.getActiveSessionCount() : 0;
+                    // Allow the dedicated end-sessions button even if sessions are active
+                    if (customId !== 'cog_end_sessions' && activeCount > 0) {
+                        await SafeInteractionHandler.safeReply(interaction, {
+                            content: `⏸️ Cog management is blocked while ${activeCount} game session(s) are active. Use /stopmysession or /stopgame to end them first.`,
+                            flags: MessageFlags.Ephemeral
+                        });
+                        return;
+                    }
                     const cogManager = require('./UTILS/cogManager');
                     
                     // Check if user is authorized to manage cogs
@@ -3266,7 +3327,29 @@ client.on('interactionCreate', async interaction => {
                         await cogManager.initialize();
                     }
 
-                    if (customId.startsWith('cog_toggle_')) {
+                    if (customId === 'cog_end_sessions') {
+                        await interaction.deferUpdate();
+                        const result = await sessionManager.endAllSessions();
+                        try {
+                            await interaction.followUp({
+                                content: `✅ Ended ${result.ended} active session(s).`,
+                                flags: MessageFlags.Ephemeral
+                            });
+                        } catch (_) {}
+
+                        // Re-open the panel to reflect new state
+                        const cogmanageCommand = client.commands.get('cogmanage');
+                        if (cogmanageCommand) {
+                            const fakeInteraction = {
+                                ...interaction,
+                                options: {
+                                    getSubcommand: () => 'panel'
+                                }
+                            };
+                            await cogmanageCommand.execute(fakeInteraction);
+                        }
+                    }
+                    else if (customId.startsWith('cog_toggle_')) {
                         const categoryName = customId.replace('cog_toggle_', '');
                         const isCurrentlyEnabled = cogManager.isCogEnabled(categoryName);
                         

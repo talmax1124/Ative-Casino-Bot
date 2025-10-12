@@ -2213,7 +2213,11 @@ async function processBetResult(betId, result, finalScore) {
 
         const betData = bet[0];
         const won = betData.selection === result;
-        const payout = won ? Math.floor(betData.amount * betData.odds) : 0;
+        let payout = won ? Math.floor(betData.amount * betData.odds) : 0;
+        // Fairness: ensure a winning bet never pays less than the stake (pre-deducted at placement)
+        if (won && payout < betData.amount) {
+            payout = betData.amount;
+        }
 
         // Update bet status
         await dbManager.databaseAdapter.executeQuery(

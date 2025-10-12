@@ -73,6 +73,22 @@ module.exports = {
 
             const subcommand = interaction.options.getSubcommand();
 
+            // Safety: block updater actions/panels if any active game sessions exist
+            if (subcommand !== 'status') {
+                try {
+                    const sessionManager = require('../UTILS/sessionManager');
+                    const activeCount = sessionManager.getActiveSessionCount ? sessionManager.getActiveSessionCount() : 0;
+                    if (activeCount > 0) {
+                        const warnEmbed = new EmbedBuilder()
+                            .setColor('#ff9900')
+                            .setTitle('⏸️ Updater Blocked')
+                            .setDescription(`There are currently **${activeCount}** active game session(s). Please end all sessions before running cog updates.`)
+                            .addFields({ name: 'How to proceed', value: 'Use `/stopmysession` or `/stopgame` to end sessions, or wait for games to finish.' });
+                        return await interaction.reply({ embeds: [warnEmbed], flags: MessageFlags.Ephemeral });
+                    }
+                } catch (_) { /* ignore guard failure */ }
+            }
+
             switch (subcommand) {
                 case 'status':
                     await handleStatus(interaction);
@@ -414,29 +430,39 @@ async function handleRollback(interaction) {
 
 async function handlePanel(interaction) {
     const summary = await cogFileMapper.getCogSummary(cogManager);
+    const sessionManager = require('../UTILS/sessionManager');
+    const activeCount = sessionManager.getActiveSessionCount ? sessionManager.getActiveSessionCount() : 0;
     
     const embed = new EmbedBuilder()
         .setColor('#0099ff')
         .setTitle('🎛️ Interactive Cog Update Panel')
-        .setDescription('Select a cog category to update, or use the action buttons below.')
+        .setDescription(activeCount > 0
+            ? `⏸️ ${activeCount} active game session(s) detected. End all sessions to run updates.`
+            : 'Select a cog category to update, or use the action buttons below.'
+        )
         .setTimestamp();
 
-    // Create dropdown for cog selection
-    const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId('update_cog_select')
-        .setPlaceholder('Select a cog category to update...');
+    // Create dropdown for cog selection (hide when sessions active)
+    let selectRow = null;
+    if (activeCount === 0) {
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('update_cog_select')
+            .setPlaceholder('Select a cog category to update...');
 
-    for (const [categoryName, categoryInfo] of Object.entries(summary)) {
-        selectMenu.addOptions({
-            label: `${categoryInfo.name}`,
-            description: `${categoryInfo.fileCount} files, ${categoryInfo.commandCount} commands`,
-            value: categoryName
-        });
+        for (const [categoryName, categoryInfo] of Object.entries(summary)) {
+            selectMenu.addOptions({
+                label: `${categoryInfo.name}`,
+                description: `${categoryInfo.fileCount} files, ${categoryInfo.commandCount} commands`,
+                value: categoryName
+            });
+        }
+        selectRow = new ActionRowBuilder().addComponents(selectMenu);
     }
 
     // Create action buttons
-    const buttons = new ActionRowBuilder()
-        .addComponents(
+    const buttons = new ActionRowBuilder();
+    if (activeCount === 0) {
+        buttons.addComponents(
             new ButtonBuilder()
                 .setCustomId('update_show_backups')
                 .setLabel('View Backups')
@@ -451,14 +477,33 @@ async function handlePanel(interaction) {
                 .setCustomId('update_refresh')
                 .setLabel('Refresh Panel')
                 .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🔄'),
+            new ButtonBuilder()
+                .setCustomId('update_end_sessions')
+                .setLabel('Force End All Sessions')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('⏹️')
+        );
+    } else {
+        buttons.addComponents(
+            new ButtonBuilder()
+                .setCustomId('update_end_sessions')
+                .setLabel('Force End All Sessions')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('⏹️'),
+            new ButtonBuilder()
+                .setCustomId('update_refresh')
+                .setLabel('Refresh Panel')
+                .setStyle(ButtonStyle.Secondary)
                 .setEmoji('🔄')
         );
+    }
 
-    const selectRow = new ActionRowBuilder().addComponents(selectMenu);
+    const components = selectRow ? [selectRow, buttons] : [buttons];
 
     await interaction.reply({
         embeds: [embed],
-        components: [selectRow, buttons],
+        components,
         flags: MessageFlags.Ephemeral
     });
 }

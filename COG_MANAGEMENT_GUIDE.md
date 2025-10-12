@@ -114,6 +114,7 @@ Disables just the slots command.
 - **Authorized Users Only**: Only specific authorized users can use cog management commands
   - User IDs: `466050111680544798`, `1326438668591829068`, `1399233099224846460`
 - **Bot Permissions**: The bot needs database access to store cog states
+ - **No Active Games**: Cog management and updates are blocked while any game sessions are active. End sessions with `/stopmysession` or `/stopgame` first. Status views remain available.
 
 ## Technical Details
 

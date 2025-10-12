@@ -375,14 +375,18 @@ class BulletproofEconomyController {
                 return { adjustedPayout: originalPayout };
             }
             
-            // Record player choice/behavior for trend analysis
-            if (this.trendAnalyzer && gameData.choice) {
-                await this.trendAnalyzer.recordChoice(gameType, userId, gameData.choice, {
-                    betAmount,
-                    won,
-                    originalPayout,
-                    ...gameData.metadata
-                });
+            // Record player choice/behavior for trend analysis (guarded)
+            try {
+                if (this.trendAnalyzer && typeof this.trendAnalyzer.recordChoice === 'function' && gameData.choice) {
+                    await this.trendAnalyzer.recordChoice(gameType, userId, gameData.choice, {
+                        betAmount,
+                        won,
+                        originalPayout,
+                        ...gameData.metadata
+                    });
+                }
+            } catch (trendErr) {
+                console.warn(`Trend recording failed for ${gameType}: ${trendErr.message}`);
             }
             
             // Ensure components are initialized
@@ -466,7 +470,13 @@ class BulletproofEconomyController {
             }
             
             // Calculate final adjusted payout
-            const adjustedPayout = Math.floor(originalPayout * adjustmentMultiplier);
+            let adjustedPayout = Math.floor(originalPayout * adjustmentMultiplier);
+
+            // SAFETY FLOOR: Never let a WIN pay back less than the bet (net-negative wins feel like losses)
+            // This preserves fairness regardless of any risk/edge adjustments applied above.
+            if (won && Number.isFinite(betAmount) && betAmount > 0 && adjustedPayout < betAmount) {
+                adjustedPayout = betAmount;
+            }
             
             // Update performance metrics
             this.updatePostGameMetrics(gameData, adjustedPayout);

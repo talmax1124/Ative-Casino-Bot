@@ -313,8 +313,8 @@ class BlackjackHand {
 class BlackjackGame {
     constructor(userId, betAmount, modeConfig = null, currentWealth = 0) {
         this.userId = userId;
-        // SECURITY: Validate and cap bet amount
-        this.betAmount = Math.max(0, Math.min(betAmount || 0, 500000)); // Cap at 500K
+        // SECURITY: Validate bet amount (no cap - handled by PayoutManager)
+        this.betAmount = Math.max(0, betAmount || 0);
         this.currentWealth = currentWealth;
         this.modeConfig = modeConfig || {
             name: 'Balanced',

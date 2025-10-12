@@ -189,6 +189,12 @@ class CrashGame {
     
     // SECURITY: Ensure multiplier is not less than game minimum
     validatedMultiplier = Math.max(validatedMultiplier, GLOBAL_CRASH_MIN);
+
+    // FAIRNESS: A successful cashout should never reduce the wallet
+    // If a player manages to cash out (a "win" event), guarantee at least break-even (1.0x)
+    if (validatedMultiplier < 1.0) {
+      validatedMultiplier = 1.0;
+    }
     
     // SECURITY: Validate multiplier is finite and positive
     if (!Number.isFinite(validatedMultiplier) || validatedMultiplier <= 0) {

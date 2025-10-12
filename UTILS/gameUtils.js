@@ -36,21 +36,26 @@ const sessionManager = require('./sessionManager');
 let bulletproofEconomy = null;
 let economicDashboard = null;
 
-(async () => {
-    try {
-        bulletproofEconomy = new BulletproofEconomyController();
-        await bulletproofEconomy.initialize();
-        logger.info('✅ Bulletproof Economy Controller initialized successfully');
-        
-        // Initialize economic dashboard
-        economicDashboard = new EconomicDashboard();
-        logger.info('✅ Economic Dashboard initialized successfully');
-        
-        // Client will be set later via setDiscordClient function
-    } catch (error) {
-        logger.error(`Failed to initialize economic systems: ${error.message}`);
-    }
-})();
+// Heavy systems initialization (skipped in UNIT_TEST mode to enable fast local tests)
+if (!process.env.UNIT_TEST) {
+    (async () => {
+        try {
+            bulletproofEconomy = new BulletproofEconomyController();
+            await bulletproofEconomy.initialize();
+            logger.info('✅ Bulletproof Economy Controller initialized successfully');
+            
+            // Initialize economic dashboard
+            economicDashboard = new EconomicDashboard();
+            logger.info('✅ Economic Dashboard initialized successfully');
+            
+            // Client will be set later via setDiscordClient function
+        } catch (error) {
+            logger.error(`Failed to initialize economic systems: ${error.message}`);
+        }
+    })();
+} else {
+    logger.info('🧪 UNIT_TEST mode detected: Skipping heavy economic system initialization');
+}
 
 // ========================= ENUMS AND CONSTANTS =========================
 

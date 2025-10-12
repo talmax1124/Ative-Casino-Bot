@@ -8,6 +8,8 @@
     "build": "echo 'Discord bot build complete'",
     "dev": "nodemon index.js",
     "test": "node test.js",
+    "unit:test": "UNIT_TEST=1 node tests/test_win_payout_floor.js && UNIT_TEST=1 node tests/test_win_never_loses_wallet.js && UNIT_TEST=1 node tests/test_more_games_win_floor.js",
+    "ci:test": "npm run unit:test",
     "test:health": "node test-health-check.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
