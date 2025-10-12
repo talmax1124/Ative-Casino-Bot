@@ -84,7 +84,16 @@ module.exports = {
             await dbManager.ensureUser(senderId, interaction.user.displayName);
             await dbManager.ensureUser(targetUser.id, targetUser.displayName);
 
-            // Get sender's balance
+            // SECURITY FIX: Invalidate cache BEFORE reading to prevent stale data
+            try {
+                const nodeCache = require('../UTILS/nodeCache');
+                const cacheKey = `casino:balance:${senderId}:${guildId}`;
+                await nodeCache.del(cacheKey);
+            } catch (cacheError) {
+                logger.debug(`Pre-read cache invalidation failed: ${cacheError.message}`);
+            }
+
+            // Get sender's balance with fresh data
             const senderBalance = await dbManager.getUserBalance(senderId, guildId);
             
             // Check and reset daily send limit if needed
@@ -93,7 +102,7 @@ module.exports = {
             
             let dailySent = parseFloat(senderBalance.daily_sent) || 0;
             if (today > lastResetDay) {
-                // Reset daily limit in database immediately
+                // Reset daily limit in database immediately with cache invalidation
                 dailySent = 0;
                 await dbManager.updateUserBalance(
                     senderId,
@@ -105,6 +114,15 @@ module.exports = {
                         last_send_reset: now
                     }
                 );
+                
+                // Invalidate cache again after reset
+                try {
+                    const nodeCache = require('../UTILS/nodeCache');
+                    const cacheKey = `casino:balance:${senderId}:${guildId}`;
+                    await nodeCache.del(cacheKey);
+                } catch (cacheError) {
+                    logger.debug(`Post-reset cache invalidation failed: ${cacheError.message}`);
+                }
             }
             
             // Validate and parse amount
@@ -119,9 +137,11 @@ module.exports = {
             
             const amount = validation.amount;
             
-            // Check daily send limit ($45M)
+            // SECURITY FIX: Atomic limit check and pre-increment to prevent race conditions
             const DAILY_SEND_LIMIT = 45000000;
-            if (dailySent + amount > DAILY_SEND_LIMIT) {
+            const newDailySent = dailySent + amount;
+            
+            if (newDailySent > DAILY_SEND_LIMIT) {
                 const remaining = DAILY_SEND_LIMIT - dailySent;
                 await interaction.editReply({
                     content: `❌ **Daily Send Limit Reached!**\n\n` +
@@ -131,6 +151,34 @@ module.exports = {
                             `Limit resets at midnight UTC.`
                 });
                 return;
+            }
+
+            // SECURITY FIX: Pre-increment daily_sent in database to claim the limit atomically
+            const preIncrementSuccess = await dbManager.updateUserBalance(
+                senderId,
+                guildId,
+                0, // No wallet change yet
+                0, // No bank change yet
+                {
+                    daily_sent: newDailySent,
+                    last_send_reset: now
+                }
+            );
+
+            if (!preIncrementSuccess) {
+                await interaction.editReply({
+                    content: '❌ Failed to update send limit. Please try again.'
+                });
+                return;
+            }
+
+            // Invalidate cache after pre-increment
+            try {
+                const nodeCache = require('../UTILS/nodeCache');
+                const cacheKey = `casino:balance:${senderId}:${guildId}`;
+                await nodeCache.del(cacheKey);
+            } catch (cacheError) {
+                logger.debug(`Post-increment cache invalidation failed: ${cacheError.message}`);
             }
 
             // Check if users are married for reduced tax rate
@@ -143,6 +191,7 @@ module.exports = {
             const netAmount = amount - taxAmount; // Amount recipient receives
 
             // Process the transfer using a transaction
+            // NOTE: daily_sent already incremented above, so pass newDailySent
             const transferResult = await this.processMoneyTransfer(
                 senderId, 
                 targetUser.id, 
@@ -151,7 +200,7 @@ module.exports = {
                 netAmount, 
                 taxAmount,
                 interaction,
-                dailySent + amount,
+                newDailySent, // Already incremented above
                 now
             );
 
@@ -254,6 +303,27 @@ module.exports = {
                 }
 
             } else {
+                // SECURITY FIX: Rollback daily_sent increment if transfer fails
+                await dbManager.updateUserBalance(
+                    senderId,
+                    guildId,
+                    0, // No wallet change
+                    0, // No bank change
+                    {
+                        daily_sent: dailySent, // Rollback to original value
+                        last_send_reset: now
+                    }
+                );
+                
+                // Invalidate cache after rollback
+                try {
+                    const nodeCache = require('../UTILS/nodeCache');
+                    const cacheKey = `casino:balance:${senderId}:${guildId}`;
+                    await nodeCache.del(cacheKey);
+                } catch (cacheError) {
+                    logger.debug(`Rollback cache invalidation failed: ${cacheError.message}`);
+                }
+                
                 throw new Error(transferResult.error || 'Transfer failed');
             }
 
@@ -271,6 +341,32 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error in sendmoney command: ${error.message}`);
+            
+            // SECURITY FIX: Attempt to rollback daily_sent increment on any error
+            try {
+                // Only rollback if we have the original dailySent value (meaning we got past validation)
+                if (typeof dailySent !== 'undefined') {
+                    await dbManager.updateUserBalance(
+                        senderId,
+                        guildId,
+                        0, // No wallet change
+                        0, // No bank change
+                        {
+                            daily_sent: dailySent, // Rollback to original value
+                            last_send_reset: now
+                        }
+                    );
+                    
+                    // Invalidate cache after rollback
+                    const nodeCache = require('../UTILS/nodeCache');
+                    const cacheKey = `casino:balance:${senderId}:${guildId}`;
+                    await nodeCache.del(cacheKey);
+                    
+                    logger.info(`Rolled back daily_sent for user ${senderId} due to error: ${error.message}`);
+                }
+            } catch (rollbackError) {
+                logger.error(`Failed to rollback daily_sent: ${rollbackError.message}`);
+            }
             
             try {
                 const errorEmbed = new EmbedBuilder()
@@ -311,16 +407,13 @@ module.exports = {
             const newSenderWallet = senderBalance.wallet - grossAmount;
             const newRecipientWallet = parseFloat(recipientBalance.wallet) + netAmount;
 
-            // Update sender balance with daily send tracking
+            // Update sender balance - daily_sent already incremented in main function
             const senderUpdateSuccess = await dbManager.updateUserBalance(
                 senderId, 
                 guildId, 
                 -grossAmount, // Deduct from wallet
-                0, // No bank change
-                {
-                    daily_sent: newDailySent,
-                    last_send_reset: timestamp
-                }
+                0 // No bank change
+                // NOTE: daily_sent already updated above, don't update again
             );
 
             if (!senderUpdateSuccess) {
@@ -347,15 +440,13 @@ module.exports = {
 
             if (!recipientUpdateSuccess) {
                 // Rollback sender balance if recipient update fails
+                // NOTE: Don't rollback daily_sent here as it will be handled by main function
                 await dbManager.updateUserBalance(
                     senderId, 
                     guildId, 
                     grossAmount, // Add back to wallet
-                    0, // No bank change
-                    {
-                        daily_sent: senderBalance.daily_sent || 0, // Reset to original
-                        last_send_reset: senderBalance.last_send_reset || 0 // Reset to original
-                    }
+                    0 // No bank change
+                    // daily_sent rollback will be handled by main function
                 );
                 throw new Error('Failed to update recipient balance');
             }
