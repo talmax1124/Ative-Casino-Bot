@@ -14,6 +14,7 @@ const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 const uasDataExporter = require('../UTILS/uasDataExporter');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -131,7 +132,7 @@ module.exports = {
             
             // Use FIXED multipliers from plinko.js - NO DYNAMIC ADJUSTMENTS
             const { startPlinkoGame } = require('../GAMES/plinko');
-            const { secureRandomFloat, secureRandomInt } = require('../UTILS/rng');
+            // RNG functions available from top-level import
             const normalizedMode = selectedMode.toLowerCase(); // Convert to lowercase
             const gameSession = startPlinkoGame(userId, username, betAmount, interaction.channelId, normalizedMode);
             
@@ -519,17 +520,6 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
     // Award XP for playing Plinko
     try {
         const levelingSystem = require('../UTILS/levelingSystem');
-// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
-const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
-const securityLogger = require('../UTILS/securityLogger');
-const sessionGuard = require('../UTILS/sessionGuard');
-const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-
-// Initialize game integrator
-const gameIntegrator = new UniversalGameIntegrator('plinko');
-
         const specialResult = winnings >= betAmount * 5 ? 'big_win' : 
                             winnings >= betAmount * 20 ? 'massive_win' : null;
         

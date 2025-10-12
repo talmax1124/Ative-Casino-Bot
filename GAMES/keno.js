@@ -11,7 +11,7 @@ const dbManager = require('../UTILS/database');
 const sessionManager = require('../UTILS/sessionManager');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomInt, secureRandomFloat, secureRandomBytes } = require('../UTILS/rng');
 const BulletproofEconomyController = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
 // UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
 const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
@@ -19,7 +19,6 @@ const securityLogger = require('../UTILS/securityLogger');
 const sessionGuard = require('../UTILS/sessionGuard');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
 
 // Initialize game integrator
 const gameIntegrator = new UniversalGameIntegrator('keno');

@@ -5,7 +5,7 @@
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
-const { secureRandomInt } = require('../UTILS/rng');
+const { secureRandomInt, secureRandomFloat, secureRandomBytes } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const sessionManager = require('../UTILS/sessionManager');
@@ -16,7 +16,6 @@ const securityLogger = require('../UTILS/securityLogger');
 const sessionGuard = require('../UTILS/sessionGuard');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
 
 // Initialize game integrator
 const gameIntegrator = new UniversalGameIntegrator('bingo');
