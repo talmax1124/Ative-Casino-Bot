@@ -874,7 +874,7 @@ module.exports = {
             if (success) {
                 const unoReply = await interaction.reply({
                     content: '🔥 **UNO!** You called UNO!',
-                    ephemeral: false
+                    flags: undefined
                 });
 
                 // Notify other players

@@ -286,7 +286,7 @@ module.exports = {
             
             // Apply AI multiplier adjustment to tuning-regulated payout
             const aiMultiplier = aiResult?.multiplierAdjustment?.finalMultiplier || 1.0;
-            const aiAdjustedPayout = regulatedPayout > 0 ? Math.floor(regulatedPayout * aiMultiplier) : 0;
+            const aiAdjustedPayout = regulatedPayout > 0 ? Math.round((regulatedPayout * aiMultiplier) * 100) / 100 : 0;
             const aiAdjustedResult = {
                 ...baseResult,
                 payout: aiAdjustedPayout
@@ -326,7 +326,7 @@ module.exports = {
             const result = {
                 ...baseResult,
                 multiplier: transparentResult.displayedMultiplier,  // Show transparent multiplier
-                payout: Math.max(0, Math.floor(finalActualPayout)), // Ensure non-negative integer
+                payout: Math.max(0, Math.round(finalActualPayout * 100) / 100), // Ensure non-negative with consistent rounding
                 displayMultiplier: transparentResult.displayedMultiplier,
                 actualMultiplier: baseResult.multiplier,
                 aiMultiplier: aiMultiplier,                  // Track AI adjustment

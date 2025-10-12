@@ -71,7 +71,7 @@ class SafeInteractionHandler {
             }
 
             await interaction.deferReply({ 
-                ephemeral
+                flags: ephemeral ? require('discord.js').MessageFlags.Ephemeral : undefined
             });
             return true;
 

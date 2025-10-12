@@ -432,7 +432,7 @@ class YahtzeeGame {
         return {
             outcome: this.totalScore >= 150 ? 'WIN' : 'LOSS',
             multiplier,
-            payout: Math.floor(this.betAmount * multiplier),
+            payout: Math.round((this.betAmount * multiplier) * 100) / 100,
             score: this.totalScore,
             won: multiplier > 1
         };

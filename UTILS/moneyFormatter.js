@@ -78,30 +78,33 @@ function parseAmount(amountStr) {
  * @returns {number|null} Resolved amount or null if invalid
  */
 function resolveAmount(amount, walletAmount, minAmount = 1, maxAmount = null) {
+    // SECURITY FIX: Use consistent rounding to match parseAmount()
+    const round = (num) => Math.round(num * 100) / 100; // Round to 2 decimal places
+    
     if (typeof amount === 'number') {
-        return Math.floor(amount);
+        return round(amount);
     }
     
     const maxAllowed = maxAmount || walletAmount;
     
     if (amount === 'all') {
-        return Math.floor(Math.min(walletAmount, maxAllowed));
+        return round(Math.min(walletAmount, maxAllowed));
     }
     
     if (amount === 'half') {
-        return Math.floor(Math.min(walletAmount / 2, maxAllowed));
+        return round(Math.min(walletAmount / 2, maxAllowed));
     }
     
     if (amount === 'quarter') {
-        return Math.floor(Math.min(walletAmount / 4, maxAllowed));
+        return round(Math.min(walletAmount / 4, maxAllowed));
     }
     
     if (amount === 'min') {
-        return Math.floor(minAmount);
+        return round(minAmount);
     }
     
     const parsed = parseAmount(amount);
-    return parsed !== null ? Math.floor(Math.min(parsed, maxAllowed)) : null;
+    return parsed !== null ? round(Math.min(parsed, maxAllowed)) : null;
 }
 
 /**

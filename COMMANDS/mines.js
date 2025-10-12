@@ -645,7 +645,7 @@ module.exports = {
             }
             
             const currentMultiplier = await game.getCurrentMultiplier();
-            const originalPayout = won ? Math.floor(game.betAmount * currentMultiplier) : 0;
+            const originalPayout = won ? Math.round((game.betAmount * currentMultiplier) * 100) / 100 : 0;
             
             // 🎰 APPLY AI TUNING SYSTEM - ECONOMIC REGULATION
             const tuningAdjustment = await tuningManager.getAdjustedPayout('mines', originalPayout, game.betAmount);

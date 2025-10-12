@@ -304,7 +304,7 @@ async function playAnimatedPlinko(interaction, gameData, guildId) {
         const finalMultiplier = multipliers[finalSlot];
         
         // Calculate winnings using the same multiplier shown in UI
-        const winnings = Math.floor(betAmount * finalMultiplier);
+        const winnings = Math.round((betAmount * finalMultiplier) * 100) / 100;
         const won = winnings > betAmount; // Win if they get more than their bet back
 
         // Create animation frames using the same multipliers shown to player

@@ -90,7 +90,7 @@ class ButtonUtility {
                 if (updateMessage) {
                     await interaction.deferUpdate();
                 } else {
-                    await interaction.deferReply({ ephemeral });
+                    await interaction.deferReply({ flags: ephemeral ? MessageFlags.Ephemeral : undefined });
                 }
                 state.deferred = true;
             }
@@ -151,7 +151,7 @@ class ButtonUtility {
                     if (interaction?.isRepliable && interaction.isRepliable()) {
                         await this.safeReply(interaction, {
                             content: errorMessage,
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                 } catch (_) {

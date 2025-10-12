@@ -922,18 +922,18 @@ module.exports = {
                 spinningEmbed.setImage('attachment://roulette-wheel.png');
             }
             
-            await interaction.update(spinningData);
-
-            // Use existing roulette-spin.gif asset
-            logger.info('Loading existing roulette-spin.gif...');
-            const fs = require('fs');
-            const path = require('path');
+            // SECURITY FIX: Use only one interaction method to avoid "already replied" error
+            let hasUpdated = false;
             
+            // Try to load the spinning GIF first, then do single update
             try {
+                logger.info('Loading existing roulette-spin.gif...');
+                const fs = require('fs');
+                const path = require('path');
                 const gifPath = path.join(__dirname, '..', 'assets', 'roulette-spin.gif');
                 const spinningGIF = fs.readFileSync(gifPath);
                 
-                // Update with the spinning GIF
+                // Update with the spinning GIF - single update with GIF
                 const spinningGIFData = {
                     embeds: [spinningEmbed],
                     components: disabledRows,
@@ -943,13 +943,21 @@ module.exports = {
                 spinningEmbed.setImage('attachment://roulette-spin.gif');
                 spinningEmbed.setDescription('🎲 **Spinning the wheel...**\n🌪️ Watch the ball bounce around the wheel!');
                 
-                await interaction.editReply(spinningGIFData);
+                await interaction.update(spinningGIFData);
+                hasUpdated = true;
                 
                 // Wait for 3 seconds as requested
                 await new Promise(resolve => setTimeout(resolve, 3000));
                 
             } catch (error) {
                 logger.warn(`Failed to load roulette-spin.gif: ${error.message}, using fallback`);
+                
+                // Fallback: update with static image if GIF failed and we haven't updated yet
+                if (!hasUpdated) {
+                    await interaction.update(spinningData);
+                    hasUpdated = true;
+                }
+                
                 await new Promise(resolve => setTimeout(resolve, 3000));
             }
 
@@ -959,8 +967,8 @@ module.exports = {
             const result = game.spin();
             const payout = game.calculatePayout(result);
             
-            // Process payout
-            await this.endGame(interaction, game, userId, guildId, result, payout);
+            // Process payout  
+            await this.endGame(interaction, game, userId, guildId, result, payout, hasUpdated);
             
         } catch (error) {
             logger.error(`Error spinning roulette: ${error.message}`);
@@ -982,7 +990,7 @@ module.exports = {
         }
     },
 
-    async endGame(interaction, game, userId, guildId, result, payout) {
+    async endGame(interaction, game, userId, guildId, result, payout, hasUpdated = false) {
         try {
             const won = payout > 0;
             const netChange = won ? (payout - game.betAmount) : -game.betAmount;
@@ -1158,7 +1166,14 @@ module.exports = {
                 finalEmbed.setImage('attachment://roulette-wheel.png');
             }
             
-            await interaction.editReply(finalData);
+            // SECURITY FIX: Check if we already updated in spinRoulette to avoid double reply
+            if (hasUpdated) {
+                // Use editReply since we already called update() in spinRoulette
+                await interaction.editReply(finalData);
+            } else {
+                // Fallback case - should not happen but safe to use update
+                await interaction.update(finalData);
+            }
 
             // Complete session
             if (game.sessionId) {

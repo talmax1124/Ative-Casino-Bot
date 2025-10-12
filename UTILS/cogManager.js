@@ -7,6 +7,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const logger = require('./logger');
 const dbManager = require('./database');
+const { MessageFlags } = require('discord.js');
 
 // Authorized users who can manage cogs
 const AUTHORIZED_COG_MANAGERS = ['466050111680544798', '1326438668591829068', '1399233099224846460'];
@@ -316,7 +317,7 @@ class CogManager {
             if (!this.isCommandEnabled(commandName)) {
                 return interaction.reply({
                     content: `❌ The command \`${commandName}\` is currently disabled.`,
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
             return next();

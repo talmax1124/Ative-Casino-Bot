@@ -430,7 +430,7 @@ class KenoGame {
         
         const payoutTable = PAYOUT_TABLE[this.spots];
         this.multiplier = payoutTable[this.matches] || 0;
-        this.payout = Math.floor(this.betAmount * this.multiplier);
+        this.payout = Math.round((this.betAmount * this.multiplier) * 100) / 100;
     }
 
     /**

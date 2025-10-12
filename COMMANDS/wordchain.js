@@ -414,7 +414,7 @@ module.exports = {
                 if (!game.start()) {
                     return i.reply({ content: '❌ Need at least 2 players to start.', flags: MessageFlags.Ephemeral });
                 }
-                await i.reply({ content: '🔗 Game started! Click the button when it\'s your turn to enter words.', ephemeral: false });
+                await i.reply({ content: '🔗 Game started! Click the button when it\'s your turn to enter words.', flags: undefined });
                 await updatePanel();
                 // Register active game for all participants
                 for (const p of game.players.values()) setActiveGame(p.user.id, 'wordchain');

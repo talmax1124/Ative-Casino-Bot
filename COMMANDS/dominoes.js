@@ -279,7 +279,7 @@ async function handleGameInteraction(interaction, game) {
     const isPrivate = ['hand', 'play'].includes(action);
     
     if (!interaction.replied && !interaction.deferred) {
-        await interaction.deferReply({ ephemeral: !!isPrivate });
+        await interaction.deferReply({ flags: isPrivate ? MessageFlags.Ephemeral : undefined });
     }
     
     switch (action) {

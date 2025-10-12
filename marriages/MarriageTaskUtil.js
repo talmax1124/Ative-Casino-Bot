@@ -501,7 +501,7 @@ class MarriageTaskUtil {
                 if (!interaction.replied && !interaction.deferred) {
                     return await interaction.reply({
                         content: errorMessage,
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 } else if (interaction.deferred) {
                     return await interaction.editReply({
@@ -510,7 +510,7 @@ class MarriageTaskUtil {
                 } else {
                     return await interaction.followUp({
                         content: errorMessage,
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             } catch (replyError) {

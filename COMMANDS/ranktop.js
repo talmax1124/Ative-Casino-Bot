@@ -52,7 +52,7 @@ module.exports = {
             await interaction.reply({
                 embeds: [embed],
                 components: [voteRow],
-                ephemeral: false
+                flags: undefined
             });
 
         } catch (error) {

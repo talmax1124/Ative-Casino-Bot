@@ -517,25 +517,36 @@ module.exports = {
             partner = { displayName: 'Unknown User', id: partnerId };
         }
 
-        const marriageDate = new Date(marriage.created_at);
-        const daysTogether = Math.floor((Date.now() - marriageDate) / (1000 * 60 * 60 * 24));
+        // Fix NaN anniversary date issue
+        const marriageDate = marriage.created_at ? new Date(marriage.created_at) : new Date();
+        const daysTogether = marriage.created_at ? Math.floor((Date.now() - marriageDate) / (1000 * 60 * 60 * 24)) : 0;
         
         // Get task progress
         const weeklyTasks = marriage.weekly_tasks || [];
         const completedTasks = weeklyTasks.filter(task => task.completed).length;
         const totalTasks = weeklyTasks.length;
 
-        // Get stock portfolio value
-        const portfolio = await dbManager.getMarriageStockPortfolio(marriage.marriage_id);
+        // Get stock portfolio value with proper error handling
         let portfolioValue = 0;
-        
-        if (portfolio && portfolio.length > 0) {
-            for (const stock of portfolio) {
-                const cachedPrice = await nodeCache.get(`stock:${stock.symbol}:price`);
-                if (cachedPrice) {
-                    portfolioValue += cachedPrice * stock.shares;
+        try {
+            // Fix undefined parameter issue by ensuring marriage_id exists
+            if (marriage.marriage_id) {
+                const portfolio = await dbManager.getMarriageStockPortfolio(marriage.marriage_id);
+                
+                if (portfolio && portfolio.length > 0) {
+                    for (const stock of portfolio) {
+                        if (stock.symbol && stock.shares) {
+                            const cachedPrice = await nodeCache.get(`stock:${stock.symbol}:price`);
+                            if (cachedPrice && !isNaN(cachedPrice)) {
+                                portfolioValue += cachedPrice * stock.shares;
+                            }
+                        }
+                    }
                 }
             }
+        } catch (portfolioError) {
+            logger.error(`Error getting marriage stock portfolio: ${portfolioError.message}`);
+            portfolioValue = 0; // Default to 0 on error
         }
 
         const profileEmbed = new EmbedBuilder()
@@ -550,7 +561,7 @@ module.exports = {
                 },
                 {
                     name: '📅 Anniversary',
-                    value: `${marriageDate.toLocaleDateString()}\n(${daysTogether} days together)`,
+                    value: marriage.created_at ? `${marriageDate.toLocaleDateString()}\n(${daysTogether} days together)` : 'Date not set',
                     inline: true
                 },
                 {
@@ -565,7 +576,7 @@ module.exports = {
                 },
                 {
                     name: '📊 Marriage Stats',
-                    value: `**Level:** ${marriage.level || 1}\n**XP:** ${marriage.xp || 0}/${(marriage.level || 1) * 100}\n**Tasks:** ${completedTasks}/${totalTasks} this week`,
+                    value: `**Level:** ${marriage.level || 1}\n**XP:** ${marriage.xp || 0}/${this.calculateXPNeeded(marriage.level || 1)}\n**Tasks:** ${completedTasks}/${totalTasks} this week`,
                     inline: true
                 },
                 {
@@ -579,6 +590,11 @@ module.exports = {
             .setFooter({ text: '💒 ATIVE Casino Marriage System' });
 
         await interaction.editReply({ embeds: [profileEmbed] });
+    },
+
+    calculateXPNeeded(level) {
+        // Progressive XP requirement: Level 1 = 100 XP, Level 2 = 150 XP, etc.
+        return Math.floor(100 + (level - 1) * 50);
     },
 
     getAchievements(marriage, daysTogether) {

@@ -221,7 +221,7 @@ class PlinkoGameSession {
             throw new Error(`Invalid bet amount: ${this.betAmount}`);
         }
         
-        const winnings = Math.floor(this.betAmount * multiplier);
+        const winnings = Math.round((this.betAmount * multiplier) * 100) / 100;
         
         // SECURITY: Validate winnings calculation
         if (!Number.isFinite(winnings) || winnings < 0) {

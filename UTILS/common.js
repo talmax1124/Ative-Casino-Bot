@@ -380,20 +380,23 @@ function parseAmount(amountStr) {
  * @returns {number|null} Resolved amount or null if invalid
  */
 function resolveAmount(amount, walletAmount) {
+    // SECURITY FIX: Use consistent rounding to match parseAmount()
+    const round = (num) => Math.round(num * 100) / 100; // Round to 2 decimal places
+    
     if (typeof amount === 'number') {
-        return Math.floor(amount);
+        return round(amount);
     }
     
     if (amount === 'all' || amount === 'a') {
-        return Math.floor(walletAmount);
+        return round(walletAmount);
     }
     
     if (amount === 'half') {
-        return Math.floor(walletAmount / 2);
+        return round(walletAmount / 2);
     }
     
     const parsed = parseAmount(amount);
-    return parsed === null ? null : Math.floor(parsed);
+    return parsed === null ? null : round(parsed);
 }
 
 // ========================= GAME REGISTRY =========================
