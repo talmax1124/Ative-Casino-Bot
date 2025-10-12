@@ -186,12 +186,13 @@ module.exports = {
                 betAmount: betAmount,
                 payout: result.payout,
                 won: result.won,
+            });
 
-        // BULLETPROOF ECONOMY AND SECURITY PROCESSING
-        try {
-            const gameResult = await gameIntegrator.processGameResult({
-                userId,
-                guildId,
+            // BULLETPROOF ECONOMY AND SECURITY PROCESSING
+            try {
+                const processedResult = await gameIntegrator.processGameResult({
+                    userId,
+                    guildId,
                 gameType: 'multi-slots',
                 betAmount,
                 originalPayout: result.payout || 0,
@@ -204,9 +205,6 @@ module.exports = {
         } catch (gameError) {
             logger.warn(`Game result processing failed: ${gameError.message}`);
         }
-
-                specialResult: buffaloBonus ? 'Buffalo Bonus Triggered' : result.type
-            });
 
             // Process payout
             const payoutResult = await PayoutManager.processGamePayout(gameResult);
@@ -281,16 +279,6 @@ module.exports = {
             const animatedGIF = await createSpinningMatrixGIF(matrix);
 
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
-const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
-const securityLogger = require('../UTILS/securityLogger');
-const sessionGuard = require('../UTILS/sessionGuard');
-const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-
-// Initialize game integrator
-const gameIntegrator = new UniversalGameIntegrator('multi-slots');
 
             const spinningEmbed = buildSessionEmbed({
                 title: `🎰 ${interaction.user.displayName}'s Matrix Slots`,

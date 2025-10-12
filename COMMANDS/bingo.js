@@ -72,16 +72,6 @@ module.exports = {
 
             // Session guard check
             const sessionGuard = require('../UTILS/sessionGuard');
-// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
-const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
-const securityLogger = require('../UTILS/securityLogger');
-const sessionGuard = require('../UTILS/sessionGuard');
-const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-
-// Initialize game integrator
-const gameIntegrator = new UniversalGameIntegrator('bingo');
 
             const check = await sessionGuard.check(userId, guildId, 'bingo', interaction.client);
             if (!check.allowed) {

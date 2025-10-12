@@ -51,16 +51,6 @@ module.exports = {
 
             // Validate session before proceeding (via sessionGuard)
             const sessionGuard = require('../UTILS/sessionGuard');
-// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
-const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
-const securityLogger = require('../UTILS/securityLogger');
-const sessionGuard = require('../UTILS/sessionGuard');
-const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-
-// Initialize game integrator
-const gameIntegrator = new UniversalGameIntegrator('rps');
 
             const check = await sessionGuard.check(userId, guildId, SMGameType.RPS, interaction.client);
             if (!check.allowed) {

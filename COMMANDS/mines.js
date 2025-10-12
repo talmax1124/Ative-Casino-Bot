@@ -326,16 +326,6 @@ module.exports = {
 
             // Validate session before proceeding using modern session system (via sessionGuard)
             const sessionGuard = require('../UTILS/sessionGuard');
-// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
-const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
-const securityLogger = require('../UTILS/securityLogger');
-const sessionGuard = require('../UTILS/sessionGuard');
-const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-
-// Initialize game integrator
-const gameIntegrator = new UniversalGameIntegrator('mines');
 
             const check = await sessionGuard.check(userId, guildId, SMGameType.MINES, interaction.client);
             logger.debug(`canCreateSession result for ${userId}: ${JSON.stringify({ allowed: check.allowed, reason: check.code })}`);

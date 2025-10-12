@@ -150,17 +150,6 @@ module.exports = {
 
       // Start crash game with selected mode - don't pre-deduct money
       const { startCrashGame } = require('../GAMES/crash');
-// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
-const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
-const securityLogger = require('../UTILS/securityLogger');
-const sessionGuard = require('../UTILS/sessionGuard');
-const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-
-// Initialize game integrator
-const gameIntegrator = new UniversalGameIntegrator('crash');
-
       await startCrashGame(interaction, selectedMode, 0); // Pass 0 to prevent auto-betting
 
     } catch (error) {
