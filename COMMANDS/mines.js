@@ -326,6 +326,17 @@ module.exports = {
 
             // Validate session before proceeding using modern session system (via sessionGuard)
             const sessionGuard = require('../UTILS/sessionGuard');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('mines');
+
             const check = await sessionGuard.check(userId, guildId, SMGameType.MINES, interaction.client);
             logger.debug(`canCreateSession result for ${userId}: ${JSON.stringify({ allowed: check.allowed, reason: check.code })}`);
             if (!check.allowed) {
@@ -369,6 +380,20 @@ module.exports = {
             }
 
             const betAmount = validation.parsedAmount;
+
+        // ENHANCED SESSION SECURITY CHECK
+        const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'mines', betAmount);
+        if (!sessionCheck.allowed) {
+            return await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setTimestamp()],
+                ephemeral: true
+            });
+        }
+
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
 
             // Create game session with enhanced protection

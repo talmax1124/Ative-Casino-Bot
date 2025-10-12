@@ -26,6 +26,24 @@ const { GameType } = require('../UTILS/gameUtils');
 const logger = require('../UTILS/logger');
 const uasDataExporter = require('../UTILS/uasDataExporter');
 
+// ENHANCED SYSTEM INTEGRATIONS
+const { secureRandomFloat, secureRandomInt } = require('../UTILS/rng');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const securityLogger = require('../UTILS/securityLogger');
+const tuningManager = require('../UTILS/tuningManager');
+const BulletproofEconomyController = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
+
+// Initialize bulletproof economy if available
+let bulletproofEconomy = null;
+try {
+    bulletproofEconomy = new BulletproofEconomyController();
+    bulletproofEconomy.initialize().catch(err => {
+        logger.warn(`Bulletproof Economy initialization failed: ${err.message}`);
+    });
+} catch (e) {
+    logger.warn(`Bulletproof Economy not available: ${e.message}`);
+}
+
 // Global crash parameters
 const GLOBAL_CRASH_MIN = 0.6; // Start multiplier
 const GLOBAL_CRASH_MAX = 2.0; // Absolute cap
@@ -38,24 +56,43 @@ const CRASH_MODES = {
   extreme:{ name: '🔥 Extreme', minBet: 5000, maxMultiplier: 3.0, color: 0x9C27B0 }
 };
 
-function randFloat() { return Math.random(); }
+// SECURE CRYPTOGRAPHIC RANDOM NUMBER GENERATION
+function randFloat() { 
+    return secureRandomFloat(); // Use CSPRNG instead of gameIntegrator.secureRandom()
+}
 
-function generateCrashPoint(maxMultiplier) {
-  // Player-friendly distribution within [GLOBAL_CRASH_MIN, min(maxMultiplier, GLOBAL_CRASH_MAX)]
-  const r = randFloat();
+function randInt(min, max) {
+    return secureRandomInt(min, max);
+}
+
+function generateCrashPoint(maxMultiplier, playerProfile = null, houseEdge = 0.05) {
+  // ENHANCED CRASH POINT GENERATION WITH HOUSE EDGE ENFORCEMENT
+  // Uses multiple CSPRNG sources for maximum security
+  const r1 = randFloat();
+  const r2 = randFloat();
+  const r3 = randFloat();
+  
+  // Combine multiple random sources for enhanced unpredictability
+  const combinedRandom = (r1 + r2 + r3) / 3;
+  
   const effectiveMax = Math.min(maxMultiplier, GLOBAL_CRASH_MAX);
   const base = GLOBAL_CRASH_MIN;
   const span = Math.max(0.01, effectiveMax - base);
+  
+  // Apply house edge to crash probability distribution
+  const houseEdgeAdjustment = 1 - houseEdge;
+  const adjustedSpan = span * houseEdgeAdjustment;
+  
   let cp;
 
   // 70% chance for favorable crashes (75-90% of range)
-  if (r < 0.7) {
+  if (combinedRandom < 0.65) {
     const minRange = base + span * 0.75;
     const maxRange = base + span * 0.90;
     cp = minRange + (randFloat() * (maxRange - minRange));
   }
   // 20% chance for mid-range crashes (50-75% of range)
-  else if (r < 0.9) {
+  else if (combinedRandom < 0.85) {
     const minRange = base + span * 0.50;
     const maxRange = base + span * 0.75;
     cp = minRange + (randFloat() * (maxRange - minRange));
@@ -108,7 +145,7 @@ class CrashGame {
     this.players = new Map(); // userId -> { username, bet, cashedOut, winnings, cashOutMultiplier }
     this.state = 'betting';
     this.startTime = null;
-    this.crashPoint = generateCrashPoint(this.mode.maxMultiplier);
+    this.crashPoint = generateCrashPoint(this.mode.maxMultiplier, null, 0.05);
     this.currentMultiplier = GLOBAL_CRASH_MIN;
     this.gameMessage = null;
     this.updateInterval = null;
@@ -252,6 +289,17 @@ class CrashGame {
     
     try {
       sendLogMessage(require('..').client || null, 'game', `Crash cashout: ${p.username} at ${validatedMultiplier.toFixed(2)}x -> +${fmt(cappedWinnings)}`, userId, this.guildId);
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('crash');
+
     } catch (_) {}
     
     // SECURITY: Log successful cashout for monitoring

@@ -4,6 +4,7 @@
  */
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { randFloat } = require('../UTILS/rng');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage, getEconomicTier } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
@@ -128,7 +129,7 @@ module.exports = {
                 'Fortune favors the bold!',
                 'Every dollar counts!'
             ];
-            const randomFooter = footerMessages[Math.floor(Math.random() * footerMessages.length)];
+            const randomFooter = footerMessages[Math.floor(randFloat() * footerMessages.length)];
             
             embed.setFooter({ text: `💰 ${randomFooter} • ATIVE Casino` })
                 .setTimestamp();

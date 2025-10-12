@@ -124,6 +124,20 @@ module.exports = {
             }
 
             const betAmount = validation.parsedAmount;
+
+        // ENHANCED SESSION SECURITY CHECK
+        const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'multi-slots', betAmount);
+        if (!sessionCheck.allowed) {
+            return await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setTimestamp()],
+                ephemeral: true
+            });
+        }
+
             const oldWallet = validation.newWallet + betAmount;
 
             // Create game session
@@ -172,6 +186,25 @@ module.exports = {
                 betAmount: betAmount,
                 payout: result.payout,
                 won: result.won,
+
+        // BULLETPROOF ECONOMY AND SECURITY PROCESSING
+        try {
+            const gameResult = await gameIntegrator.processGameResult({
+                userId,
+                guildId,
+                gameType: 'multi-slots',
+                betAmount,
+                originalPayout: result.payout || 0,
+                won: result.won || false
+            });
+            
+            if (gameResult.success) {
+                result.payout = gameResult.finalPayout;
+            }
+        } catch (gameError) {
+            logger.warn(`Game result processing failed: ${gameError.message}`);
+        }
+
                 specialResult: buffaloBonus ? 'Buffalo Bonus Triggered' : result.type
             });
 
@@ -248,6 +281,17 @@ module.exports = {
             const animatedGIF = await createSpinningMatrixGIF(matrix);
 
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('multi-slots');
+
             const spinningEmbed = buildSessionEmbed({
                 title: `🎰 ${interaction.user.displayName}'s Matrix Slots`,
                 topFields: [

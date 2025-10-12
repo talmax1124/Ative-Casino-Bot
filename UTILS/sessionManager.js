@@ -11,6 +11,7 @@
 const dbManager = require('./database');
 const logger = require('./logger');
 const { sendLogMessage } = require('./common');
+const securityLogger = require('./securityLogger');
 const { EventEmitter } = require('events');
 const nodeCache = require('./nodeCache');
 
@@ -180,6 +181,7 @@ class UnifiedSessionManager extends EventEmitter {
         // Rate limiting and locks
         this.rateLimits = new Map(); // userId -> timestamp
         this.locks = new Map(); // userId -> lock data
+        this.abuseCooldowns = new Map(); // userId -> untilTimestamp
         
         // Configuration
         this.config = {
@@ -237,6 +239,93 @@ class UnifiedSessionManager extends EventEmitter {
      */
     async canCreateSession(userId, guildId, gameType) {
         try {
+            // Enforce anti-abuse cooldowns for rapid betting
+            const cooldownUntil = this.abuseCooldowns.get(userId);
+            if (cooldownUntil && Date.now() < cooldownUntil) {
+                const retryAfter = cooldownUntil - Date.now();
+                return {
+                    allowed: false,
+                    reason: 'ABUSE_COOLDOWN',
+                    message: 'High-frequency betting detected. Temporary cooldown applied.',
+                    retryAfter
+                };
+            }
+
+            // Check for security lockouts FIRST
+            const lockoutStatus = typeof securityLogger.isUserLockedOut === 'function'
+                ? securityLogger.isUserLockedOut(userId)
+                : false;
+            
+            if (lockoutStatus && lockoutStatus.locked) {
+                const remainingMinutes = Math.ceil(lockoutStatus.remainingMs / 60000);
+                logger.warn(`User ${userId} is locked out (Level ${lockoutStatus.level}, ${lockoutStatus.violations} violations)`);
+                return {
+                    allowed: false,
+                    reason: 'SECURITY_LOCKOUT',
+                    message: `You are temporarily locked out due to excessive betting. Try again in ${remainingMinutes} minute${remainingMinutes > 1 ? 's' : ''}.`,
+                    retryAfter: lockoutStatus.remainingMs,
+                    lockoutLevel: lockoutStatus.level,
+                    violations: lockoutStatus.violations
+                };
+            }
+            
+            // ENHANCED: Check for win momentum patterns
+            try {
+                const winMomentum = securityLogger.advancedPatterns?.winMomentum?.get(userId);
+                if (winMomentum && winMomentum.momentum > 0.8) {
+                    logger.warn(`User ${userId} has high win momentum (${(winMomentum.momentum * 100).toFixed(1)}%) - applying cooldown`);
+                    return {
+                        allowed: false,
+                        reason: 'HIGH_MOMENTUM',
+                        message: 'You are on a winning streak. Please take a short break before continuing.',
+                        retryAfter: 120000, // 2 minutes
+                        momentum: winMomentum.momentum
+                    };
+                }
+            } catch (momentumError) {
+                // Silent fail - don't block if momentum check fails
+            }
+            
+            // ENHANCED: Check for game hopping patterns
+            try {
+                const gameHopping = securityLogger.advancedPatterns?.gameHopping?.get(userId);
+                if (gameHopping) {
+                    const recentGames = gameHopping.recentGames.filter(g => Date.now() - g.time < 300000);
+                    const uniqueGames = [...new Set(recentGames.map(g => g.game))];
+                    
+                    if (uniqueGames.length > 3) {
+                        logger.warn(`User ${userId} is game hopping (${uniqueGames.length} games in 5min)`);
+                        return {
+                            allowed: false,
+                            reason: 'GAME_HOPPING',
+                            message: 'Please focus on one game at a time. Wait a moment before switching games.',
+                            retryAfter: 90000, // 1.5 minutes
+                            gamesPlayed: uniqueGames
+                        };
+                    }
+                }
+            } catch (hoppingError) {
+                // Silent fail
+            }
+
+            // Detect excessive bet frequency over the last 5 minutes
+            const recentBets = typeof securityLogger.getRecentBetCount === 'function'
+                ? securityLogger.getRecentBetCount(userId, 300000)
+                : 0;
+
+            // If a user exceeds 100 bets in 5 minutes, apply a short cooldown window
+            if (recentBets >= 100) {
+                const cooldownMs = 180000; // 3 minutes
+                this.abuseCooldowns.set(userId, Date.now() + cooldownMs);
+                logger.warn(`Rapid betting cooldown applied to ${userId}: ${recentBets} bets/5min`);
+                return {
+                    allowed: false,
+                    reason: 'ABUSE_COOLDOWN',
+                    message: 'High-frequency betting detected. Temporary cooldown applied.',
+                    retryAfter: cooldownMs
+                };
+            }
+
             // Rate limiting check - only apply if user has active sessions or multiple rapid attempts
             const lastAttempt = this.rateLimits.get(userId);
             if (lastAttempt && Date.now() - lastAttempt < this.config.rateLimitWindow) {

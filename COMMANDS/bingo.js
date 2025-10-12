@@ -72,6 +72,17 @@ module.exports = {
 
             // Session guard check
             const sessionGuard = require('../UTILS/sessionGuard');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('bingo');
+
             const check = await sessionGuard.check(userId, guildId, 'bingo', interaction.client);
             if (!check.allowed) {
                 const embed = new EmbedBuilder()
@@ -103,6 +114,20 @@ module.exports = {
             }
             
             const betAmount = validation.parsedAmount;
+
+        // ENHANCED SESSION SECURITY CHECK
+        const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'bingo', betAmount);
+        if (!sessionCheck.allowed) {
+            return await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setTimestamp()],
+                ephemeral: true
+            });
+        }
+
 
             // Create game session
             const sessionResult = await sessionManager.createSession({

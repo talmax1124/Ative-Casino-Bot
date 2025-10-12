@@ -13,6 +13,24 @@ const { SessionState } = sessionManager;
 const logger = require('../UTILS/logger');
 const allInManager = require('../UTILS/allInManager');
 
+// BULLETPROOF ECONOMY AND SECURITY INTEGRATIONS
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const securityLogger = require('../UTILS/securityLogger');
+const tuningManager = require('../UTILS/tuningManager');
+const sessionGuard = require('../UTILS/sessionGuard');
+const BulletproofEconomyController = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
+
+// Initialize bulletproof economy
+let bulletproofEconomy = null;
+try {
+    bulletproofEconomy = new BulletproofEconomyController();
+    bulletproofEconomy.initialize().catch(err => {
+        logger.warn(`Crash: Bulletproof Economy initialization failed: ${err.message}`);
+    });
+} catch (e) {
+    logger.warn(`Crash: Bulletproof Economy not available: ${e.message}`);
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('crash')
@@ -72,6 +90,20 @@ module.exports = {
 
       // Resolve the actual bet amount
       const betAmount = await resolveAmount(parsedAmount, userBalance.wallet);
+
+        // ENHANCED SESSION SECURITY CHECK
+        const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'crash', betAmount);
+        if (!sessionCheck.allowed) {
+            return await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setTimestamp()],
+                ephemeral: true
+            });
+        }
+
       if (betAmount === null || betAmount <= 0) {
         const embed = new EmbedBuilder()
           .setTitle('❌ Invalid Bet Amount')
@@ -118,6 +150,17 @@ module.exports = {
 
       // Start crash game with selected mode - don't pre-deduct money
       const { startCrashGame } = require('../GAMES/crash');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('crash');
+
       await startCrashGame(interaction, selectedMode, 0); // Pass 0 to prevent auto-betting
 
     } catch (error) {

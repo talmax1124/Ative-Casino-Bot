@@ -8,6 +8,18 @@ const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const UITemplates = require('../UTILS/uiTemplates');
 const logger = require('../UTILS/logger');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const sessionManager = require('../UTILS/sessionManager');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('lottery');
+
 
 // Developer/Admin IDs
 const DEVELOPER_IDS = ['466050111680544798', '1158137066246176808']; 

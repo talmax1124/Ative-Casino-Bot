@@ -51,6 +51,17 @@ module.exports = {
 
             // Validate session before proceeding (via sessionGuard)
             const sessionGuard = require('../UTILS/sessionGuard');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('rps');
+
             const check = await sessionGuard.check(userId, guildId, SMGameType.RPS, interaction.client);
             if (!check.allowed) {
                 const errorEmbed = new EmbedBuilder().setTitle("❌ Session Error").setDescription(check.message).setColor(0xFF0000);
@@ -112,6 +123,20 @@ module.exports = {
             }
 
             const betAmount = validationResult.parsedAmount;
+
+        // ENHANCED SESSION SECURITY CHECK
+        const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'rps', betAmount);
+        if (!sessionCheck.allowed) {
+            return await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setTimestamp()],
+                ephemeral: true
+            });
+        }
+
             const newWalletBalance = validationResult.newWallet;
 
             // Create game session

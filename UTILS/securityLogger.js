@@ -10,13 +10,49 @@ class SecurityLogger {
         this.suspiciousActivity = new Map(); // Track per user
         this.alertThresholds = {
             highWinStreak: 10,        // 10 wins in a row
-            rapidBetting: 50,         // 50 bets in 5 minutes
+            rapidBetting: 30,         // Lowered from 50 to 30 bets in 5 minutes
+            severeBetting: 50,        // 50 bets in 5 minutes triggers lockout
+            extremeBetting: 100,      // 100 bets in 5 minutes triggers extended lockout
             largeWinAmount: 100000,   // 100K+ single win
             totalWinToday: 1000000,   // 1M+ total wins today
             negativeBalance: -1       // Any negative balance
         };
         this.userActivityWindows = new Map(); // Track activity windows
         this.cleanupInterval = setInterval(() => this.cleanup(), 300000); // Cleanup every 5 minutes
+
+        // Alert throttling
+        this.alertCooldownMs = 30000; // 30s cooldown between identical alerts per user
+        this.lastAlertTime = new Map(); // key: `${userId}:${type}` -> timestamp
+        this.lastRapidBetAlertCount = new Map(); // userId -> last count that triggered alert
+        
+        // Progressive lockout system
+        this.lockouts = new Map(); // userId -> { until: timestamp, level: number, violations: number }
+        this.lockoutDurations = {
+            1: 60000,      // Level 1: 1 minute
+            2: 300000,     // Level 2: 5 minutes
+            3: 900000,     // Level 3: 15 minutes
+            4: 3600000,    // Level 4: 1 hour
+            5: 86400000    // Level 5: 24 hours
+        };
+        
+        // ADVANCED PATTERN DETECTION
+        this.advancedPatterns = {
+            winMomentum: new Map(),        // Track win momentum per user
+            gameHopping: new Map(),        // Track game switching patterns
+            timePatterns: new Map(),       // Track temporal betting patterns
+            valueEscalation: new Map(),    // Track bet size escalation
+            crossGameWins: new Map()       // Track wins across different games
+        };
+        
+        // ULTRA-STRICT THRESHOLDS
+        this.ultraThresholds = {
+            winMomentum: 0.6,              // 60% momentum triggers intervention
+            gameHoppingWindow: 300000,     // 5-minute window for game hopping detection
+            maxGamesPerWindow: 3,          // Max 3 different games in window
+            escalationThreshold: 2.0,      // 2x bet increase triggers alert
+            crossGameWinLimit: 2,          // Max 2 consecutive wins across games
+            temporalConcentration: 0.7     // 70% of bets in short timeframe
+        };
     }
 
     /**
@@ -90,18 +126,41 @@ class SecurityLogger {
             userActivity.winStreak = 0;
         }
 
-        // Pattern 3: Rapid betting (50+ bets in 5 minutes)
+        // Pattern 3: Progressive rapid betting detection with lockout
         const recentBets = userActivity.events.filter(event => 
             (event.type === 'GAME_BET' || event.type === 'GAME_WIN' || event.type === 'GAME_LOSS') && 
             event.timestamp > fiveMinutesAgo
         ).length;
 
-        if (recentBets >= this.alertThresholds.rapidBetting) {
+        if (recentBets >= this.alertThresholds.extremeBetting) {
+            // Extreme betting - immediate level 5 lockout
+            this.applyLockout(userId, 5);
+            return {
+                detected: true,
+                type: 'EXTREME_RAPID_BETTING',
+                severity: 'CRITICAL',
+                details: `${recentBets} bets in 5 minutes - User locked out for 24 hours`,
+                data: { betCount: recentBets, lockoutLevel: 5 }
+            };
+        } else if (recentBets >= this.alertThresholds.severeBetting) {
+            // Severe betting - progressive lockout
+            const lockoutLevel = this.getNextLockoutLevel(userId);
+            this.applyLockout(userId, lockoutLevel);
+            return {
+                detected: true,
+                type: 'SEVERE_RAPID_BETTING',
+                severity: 'HIGH',
+                details: `${recentBets} bets in 5 minutes - User locked out (Level ${lockoutLevel})`,
+                data: { betCount: recentBets, lockoutLevel }
+            };
+        } else if (recentBets >= this.alertThresholds.rapidBetting) {
+            // Warning level - flag user but no lockout yet
+            userActivity.flagged = true;
             return {
                 detected: true,
                 type: 'RAPID_BETTING',
                 severity: 'MEDIUM',
-                details: `${recentBets} bets in 5 minutes`,
+                details: `${recentBets} bets in 5 minutes - User flagged for monitoring`,
                 data: { betCount: recentBets }
             };
         }
@@ -150,6 +209,70 @@ class SecurityLogger {
             };
         }
 
+        // Pattern 8: Large payout adjustments (transparency logging)
+        if (eventType === 'LARGE_PAYOUT_ADJUSTMENT') {
+            return {
+                detected: true,
+                type: 'LARGE_PAYOUT_ADJUSTMENT',
+                severity: 'HIGH',
+                details: `${data.gameType} payout adjusted by ${data.adjustmentPercent}% (${data.originalPayout} → ${data.adjustedPayout})`,
+                data: data
+            };
+        }
+        
+        // Pattern 9: Win momentum detection
+        if (eventType === 'GAME_WIN') {
+            const momentum = this.calculateWinMomentum(userId, data);
+            if (momentum > this.ultraThresholds.winMomentum) {
+                return {
+                    detected: true,
+                    type: 'HIGH_WIN_MOMENTUM',
+                    severity: 'HIGH',
+                    details: `Win momentum ${(momentum * 100).toFixed(1)}% detected`,
+                    data: { momentum, ...data }
+                };
+            }
+        }
+        
+        // Pattern 10: Game hopping detection
+        if (eventType === 'GAME_BET' || eventType === 'GAME_WIN') {
+            const hopping = this.detectGameHopping(userId, data.game);
+            if (hopping.detected) {
+                return {
+                    detected: true,
+                    type: 'GAME_HOPPING',
+                    severity: 'MEDIUM',
+                    details: `Game hopping detected: ${hopping.games.join(' → ')}`,
+                    data: { games: hopping.games, ...data }
+                };
+            }
+        }
+        
+        // Pattern 11: Cross-game consecutive wins
+        if (eventType === 'GAME_WIN') {
+            const crossWins = this.trackCrossGameWins(userId, data.game);
+            if (crossWins > this.ultraThresholds.crossGameWinLimit) {
+                return {
+                    detected: true,
+                    type: 'CROSS_GAME_WIN_STREAK',
+                    severity: 'HIGH',
+                    details: `${crossWins} consecutive wins across different games`,
+                    data: { consecutiveWins: crossWins, ...data }
+                };
+            }
+        }
+        
+        // Pattern 12: Forced streak break events
+        if (eventType === 'FORCED_STREAK_BREAK') {
+            return {
+                detected: true,
+                type: 'FORCED_STREAK_BREAK',
+                severity: 'CRITICAL',
+                details: data.reason || 'Automated streak breaking applied',
+                data: data
+            };
+        }
+
         return { detected: false };
     }
 
@@ -158,6 +281,26 @@ class SecurityLogger {
      */
     async sendSecurityAlert(userId, suspiciousPattern) {
         try {
+            // Throttle betting alerts to avoid spam
+            if (suspiciousPattern.type === 'RAPID_BETTING' || 
+                suspiciousPattern.type === 'SEVERE_RAPID_BETTING' ||
+                suspiciousPattern.type === 'EXTREME_RAPID_BETTING') {
+                const key = `${userId}:RAPID_BETTING`;
+                const now = Date.now();
+                const lastTime = this.lastAlertTime.get(key) || 0;
+                const lastCount = this.lastRapidBetAlertCount.get(userId) || 0;
+                const currentCount = suspiciousPattern?.data?.betCount || 0;
+
+                // Only alert at step increases and with a time cooldown
+                const stepped = currentCount >= 50 && (currentCount === 50 || currentCount % 25 === 0 || currentCount - lastCount >= 25);
+                const cooled = now - lastTime >= this.alertCooldownMs;
+                if (!stepped || !cooled) {
+                    return; // Skip redundant alert
+                }
+                this.lastRapidBetAlertCount.set(userId, currentCount);
+                this.lastAlertTime.set(key, now);
+            }
+
             const alertMessage = this.buildAlertMessage(userId, suspiciousPattern);
             
             // Log to console and file (single line to avoid duplicates)
@@ -208,6 +351,69 @@ class SecurityLogger {
     }
 
     /**
+     * Apply progressive lockout to user
+     */
+    applyLockout(userId, level) {
+        const duration = this.lockoutDurations[level] || this.lockoutDurations[1];
+        const until = Date.now() + duration;
+        
+        const currentLockout = this.lockouts.get(userId);
+        const violations = (currentLockout?.violations || 0) + 1;
+        
+        this.lockouts.set(userId, {
+            until,
+            level,
+            violations,
+            appliedAt: Date.now()
+        });
+        
+        logger.warn(`LOCKOUT APPLIED: User ${userId} locked out until ${new Date(until).toISOString()} (Level ${level}, Violations: ${violations})`);
+    }
+    
+    /**
+     * Get next lockout level for user based on violation history
+     */
+    getNextLockoutLevel(userId) {
+        const currentLockout = this.lockouts.get(userId);
+        if (!currentLockout) return 1;
+        
+        // If lockout expired, reset to level 1
+        if (currentLockout.until < Date.now()) {
+            return 1;
+        }
+        
+        // Progressive increase based on violations
+        const violations = currentLockout.violations || 0;
+        if (violations >= 10) return 5;  // Max level
+        if (violations >= 5) return 4;
+        if (violations >= 3) return 3;
+        if (violations >= 2) return 2;
+        return 1;
+    }
+    
+    /**
+     * Check if user is currently locked out
+     */
+    isUserLockedOut(userId) {
+        const lockout = this.lockouts.get(userId);
+        if (!lockout) return false;
+        
+        if (lockout.until > Date.now()) {
+            return {
+                locked: true,
+                until: lockout.until,
+                level: lockout.level,
+                remainingMs: lockout.until - Date.now(),
+                violations: lockout.violations
+            };
+        }
+        
+        // Lockout expired, remove it
+        this.lockouts.delete(userId);
+        return false;
+    }
+    
+    /**
      * Clean up old activity data
      */
     cleanup() {
@@ -240,6 +446,19 @@ class SecurityLogger {
     }
 
     /**
+     * Get count of recent bets within a time window (default 5 minutes)
+     */
+    getRecentBetCount(userId, windowMs = 300000) {
+        const activity = this.userActivityWindows.get(userId);
+        if (!activity) return 0;
+        const cutoff = Date.now() - windowMs;
+        return activity.events.filter(event => (
+            (event.type === 'GAME_BET' || event.type === 'GAME_WIN' || event.type === 'GAME_LOSS') &&
+            event.timestamp > cutoff
+        )).length;
+    }
+
+    /**
      * Manually flag/unflag a user
      */
     setUserFlag(userId, flagged = true, reason = '') {
@@ -252,7 +471,97 @@ class SecurityLogger {
     }
 
     /**
-     * Get security statistics
+     * Calculate win momentum for a user
+     */
+    calculateWinMomentum(userId, data) {
+        const now = Date.now();
+        const momentum = this.advancedPatterns.winMomentum.get(userId) || {
+            recentWins: [],
+            totalValue: 0,
+            momentum: 0
+        };
+        
+        // Add current win
+        momentum.recentWins.push({
+            time: now,
+            value: data.amount || 0,
+            game: data.game
+        });
+        
+        // Keep only recent wins (last 10 minutes)
+        momentum.recentWins = momentum.recentWins.filter(w => now - w.time < 600000);
+        
+        // Calculate momentum based on win frequency and value
+        const winCount = momentum.recentWins.length;
+        const totalValue = momentum.recentWins.reduce((sum, w) => sum + w.value, 0);
+        
+        momentum.momentum = Math.min(1.0, (winCount * 0.2) + (totalValue / 100000));
+        momentum.totalValue = totalValue;
+        
+        this.advancedPatterns.winMomentum.set(userId, momentum);
+        return momentum.momentum;
+    }
+    
+    /**
+     * Detect game hopping patterns
+     */
+    detectGameHopping(userId, currentGame) {
+        const now = Date.now();
+        const hopping = this.advancedPatterns.gameHopping.get(userId) || {
+            recentGames: [],
+            lastUpdate: now
+        };
+        
+        // Add current game
+        if (hopping.recentGames.length === 0 || 
+            hopping.recentGames[hopping.recentGames.length - 1].game !== currentGame) {
+            hopping.recentGames.push({ game: currentGame, time: now });
+        }
+        
+        // Keep only recent games (last 5 minutes)
+        hopping.recentGames = hopping.recentGames.filter(g => now - g.time < this.ultraThresholds.gameHoppingWindow);
+        
+        const uniqueGames = [...new Set(hopping.recentGames.map(g => g.game))];
+        hopping.lastUpdate = now;
+        
+        this.advancedPatterns.gameHopping.set(userId, hopping);
+        
+        return {
+            detected: uniqueGames.length > this.ultraThresholds.maxGamesPerWindow,
+            games: uniqueGames
+        };
+    }
+    
+    /**
+     * Track cross-game consecutive wins
+     */
+    trackCrossGameWins(userId, currentGame) {
+        const now = Date.now();
+        const crossWins = this.advancedPatterns.crossGameWins.get(userId) || {
+            streak: 0,
+            lastGame: null,
+            lastWin: 0
+        };
+        
+        // Check if this extends the cross-game win streak
+        if (crossWins.lastGame && crossWins.lastGame !== currentGame && 
+            now - crossWins.lastWin < 300000) { // Within 5 minutes
+            crossWins.streak++;
+        } else if (crossWins.lastGame === currentGame) {
+            // Same game, don't increment cross-game streak
+        } else {
+            crossWins.streak = 1; // Start new streak
+        }
+        
+        crossWins.lastGame = currentGame;
+        crossWins.lastWin = now;
+        
+        this.advancedPatterns.crossGameWins.set(userId, crossWins);
+        return crossWins.streak;
+    }
+    
+    /**
+     * Get enhanced security statistics
      */
     getSecurityStats() {
         let totalUsers = 0;
@@ -269,7 +578,13 @@ class SecurityLogger {
             totalUsers,
             flaggedUsers,
             totalEvents,
-            activeMonitoring: this.userActivityWindows.size
+            activeMonitoring: this.userActivityWindows.size,
+            activeLockouts: this.lockouts.size,
+            advancedPatterns: {
+                winMomentumTracked: this.advancedPatterns.winMomentum.size,
+                gameHoppingTracked: this.advancedPatterns.gameHopping.size,
+                crossGameStreaks: this.advancedPatterns.crossGameWins.size
+            }
         };
     }
 }

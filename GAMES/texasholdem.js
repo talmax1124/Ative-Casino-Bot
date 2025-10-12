@@ -8,6 +8,9 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const { secureRandomInt, secureRandomShuffle } = require('../UTILS/rng');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const integrator = new UniversalGameIntegrator();
 
 // Card suits and ranks for poker
 const POKER_SUITS = ['♠️', '♥️', '♦️', '♣️'];

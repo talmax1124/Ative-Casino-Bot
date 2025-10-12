@@ -9,6 +9,17 @@ const dbManager = require('../UTILS/database');
 const { fmt, sendLogMessage } = require('../UTILS/common');
 // RNG imports removed - not used in lottery.js
 const logger = require('../UTILS/logger');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('lottery');
+
 // Canvas removed - no image generation
 
 // Lottery configuration

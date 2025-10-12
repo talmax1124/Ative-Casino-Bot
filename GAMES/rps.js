@@ -8,6 +8,17 @@ const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const { secureRandomChoice } = require('../UTILS/rng');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('rps');
+
 
 // Game choices
 const CHOICES = {

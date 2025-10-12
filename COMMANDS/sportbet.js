@@ -11,6 +11,9 @@ const logger = require('../UTILS/logger');
 const sportsApiManager = require('../UTILS/sportsApiManager');
 const { getSportBranding, getTeamLogo, getLeagueLogo, getEnhancedLeagueLogo, getGradientColor, getMarketStyle, formatOdds, getTimeBasedGreeting, generateProgressBar, getDynamicBanner, getPromotionalOverlay, getEventCountdown } = require('../UTILS/sportsImages');
 const { formatAdvancedOdds, getLiveStatus, generateMarketSummary, getBettingConfidence } = require('../UTILS/oddsUtils');
+const { randFloat } = require('../UTILS/rng');
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const integrator = new UniversalGameIntegrator();
 
 // Active bets storage
 const pendingGames = new Map();
@@ -1622,21 +1625,21 @@ async function showMarketBets(interaction, sport, marketType, tempId, tier) {
                 }
                 break;
             case 'spreads':
-                const spreadHome = Math.random() > 0.5 ? '+' : '-';
-                const spreadValue = (Math.random() * 3 + 0.5).toFixed(1);
-                marketOptions = `🏠 ${game.home_team} ${spreadHome}${spreadValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**\n✈️ ${game.away_team} ${spreadHome === '+' ? '-' : '+'}${spreadValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**`;
+                const spreadHome = randFloat() > 0.5 ? '+' : '-';
+                const spreadValue = (randFloat() * 3 + 0.5).toFixed(1);
+                marketOptions = `🏠 ${game.home_team} ${spreadHome}${spreadValue}: **${(1.8 + randFloat() * 0.4).toFixed(2)}**\n✈️ ${game.away_team} ${spreadHome === '+' ? '-' : '+'}${spreadValue}: **${(1.8 + randFloat() * 0.4).toFixed(2)}**`;
                 break;
             case 'totals':
-                const totalValue = Math.floor(Math.random() * 4 + 2.5);
-                marketOptions = `📈 Over ${totalValue}: **${(1.85 + Math.random() * 0.3).toFixed(2)}**\n📉 Under ${totalValue}: **${(1.85 + Math.random() * 0.3).toFixed(2)}**`;
+                const totalValue = Math.floor(randFloat() * 4 + 2.5);
+                marketOptions = `📈 Over ${totalValue}: **${(1.85 + randFloat() * 0.3).toFixed(2)}**\n📉 Under ${totalValue}: **${(1.85 + randFloat() * 0.3).toFixed(2)}**`;
                 break;
             case 'btts':
-                marketOptions = `✅ Yes: **${(1.7 + Math.random() * 0.5).toFixed(2)}**\n❌ No: **${(1.9 + Math.random() * 0.4).toFixed(2)}**`;
+                marketOptions = `✅ Yes: **${(1.7 + randFloat() * 0.5).toFixed(2)}**\n❌ No: **${(1.9 + randFloat() * 0.4).toFixed(2)}**`;
                 break;
             default:
                 // Generate generic over/under for other markets
-                const overUnderValue = Math.floor(Math.random() * 6 + 8);
-                marketOptions = `📈 Over ${overUnderValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**\n📉 Under ${overUnderValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**`;
+                const overUnderValue = Math.floor(randFloat() * 6 + 8);
+                marketOptions = `📈 Over ${overUnderValue}: **${(1.8 + randFloat() * 0.4).toFixed(2)}**\n📉 Under ${overUnderValue}: **${(1.8 + randFloat() * 0.4).toFixed(2)}**`;
         }
 
         embed.addFields({
@@ -1717,21 +1720,21 @@ async function showMarketBetsUpdate(interaction, sport, marketType, tempId, tier
                 }
                 break;
             case 'spreads':
-                const spreadHome = Math.random() > 0.5 ? '+' : '-';
-                const spreadValue = (Math.random() * 3 + 0.5).toFixed(1);
-                marketOptions = `🏠 ${game.home_team} ${spreadHome}${spreadValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**\n✈️ ${game.away_team} ${spreadHome === '+' ? '-' : '+'}${spreadValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**`;
+                const spreadHome = randFloat() > 0.5 ? '+' : '-';
+                const spreadValue = (randFloat() * 3 + 0.5).toFixed(1);
+                marketOptions = `🏠 ${game.home_team} ${spreadHome}${spreadValue}: **${(1.8 + randFloat() * 0.4).toFixed(2)}**\n✈️ ${game.away_team} ${spreadHome === '+' ? '-' : '+'}${spreadValue}: **${(1.8 + randFloat() * 0.4).toFixed(2)}**`;
                 break;
             case 'totals':
-                const totalValue = Math.floor(Math.random() * 4 + 2.5);
-                marketOptions = `📈 Over ${totalValue}: **${(1.85 + Math.random() * 0.3).toFixed(2)}**\n📉 Under ${totalValue}: **${(1.85 + Math.random() * 0.3).toFixed(2)}**`;
+                const totalValue = Math.floor(randFloat() * 4 + 2.5);
+                marketOptions = `📈 Over ${totalValue}: **${(1.85 + randFloat() * 0.3).toFixed(2)}**\n📉 Under ${totalValue}: **${(1.85 + randFloat() * 0.3).toFixed(2)}**`;
                 break;
             case 'btts':
-                marketOptions = `✅ Yes: **${(1.7 + Math.random() * 0.5).toFixed(2)}**\n❌ No: **${(1.9 + Math.random() * 0.4).toFixed(2)}**`;
+                marketOptions = `✅ Yes: **${(1.7 + randFloat() * 0.5).toFixed(2)}**\n❌ No: **${(1.9 + randFloat() * 0.4).toFixed(2)}**`;
                 break;
             default:
                 // Generate generic over/under for other markets
-                const overUnderValue = Math.floor(Math.random() * 6 + 8);
-                marketOptions = `📈 Over ${overUnderValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**\n📉 Under ${overUnderValue}: **${(1.8 + Math.random() * 0.4).toFixed(2)}**`;
+                const overUnderValue = Math.floor(randFloat() * 6 + 8);
+                marketOptions = `📈 Over ${overUnderValue}: **${(1.8 + randFloat() * 0.4).toFixed(2)}**\n📉 Under ${overUnderValue}: **${(1.8 + randFloat() * 0.4).toFixed(2)}**`;
         }
 
         embed.addFields({
@@ -2639,7 +2642,7 @@ module.exports.handleMarketGameSelection = async function(interaction) {
             break;
             
         case 'totals':
-            const totalValue = Math.floor(Math.random() * 4 + 2.5);
+            const totalValue = Math.floor(randFloat() * 4 + 2.5);
             buttons.push(
                 new ButtonBuilder()
                     .setCustomId(`sportbet_final_bet_${tempId}_${gameIdx}_over_${(1.9).toFixed(2)}`)

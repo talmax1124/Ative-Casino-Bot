@@ -19,6 +19,14 @@ function mapReason(userId, gameType, details) {
     }
     case 'RATE_LIMITED':
       return 'Please wait a brief moment before starting a new game.';
+    case 'ABUSE_COOLDOWN':
+      return 'High-frequency betting detected. Please wait a few minutes before starting another game.';
+    case 'SECURITY_LOCKOUT':
+      return details.message || 'You are temporarily locked out due to excessive betting.';
+    case 'HIGH_MOMENTUM':
+      return details.message || 'You are on a winning streak. Please take a short break before continuing.';
+    case 'GAME_HOPPING':
+      return details.message || 'Please focus on one game at a time. Wait a moment before switching games.';
     case 'INSUFFICIENT_FUNDS':
       return 'Insufficient funds for this bet.';
     case 'ERROR':
@@ -46,4 +54,3 @@ async function check(userId, guildId, gameType, client = null) {
 module.exports = {
   check,
 };
-

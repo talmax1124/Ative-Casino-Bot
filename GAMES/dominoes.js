@@ -3,7 +3,9 @@
  * Traditional domino game with simple mechanics
  */
 
-const { secureRandomShuffle, secureRandomChoice } = require('../UTILS/rng');
+const { secureRandomShuffle, secureRandomChoice, randFloat } = require('../UTILS/rng');
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const integrator = new UniversalGameIntegrator();
 const logger = require('../UTILS/logger');
 
 class DominoTile {
@@ -312,7 +314,7 @@ class DominoGame {
             if (this.board.length > 0 && 
                 tile.canConnectTo(this.leftEnd) && 
                 tile.canConnectTo(this.rightEnd)) {
-                side = Math.random() < 0.5 ? 'left' : 'right';
+                side = randFloat() < 0.5 ? 'left' : 'right';
             }
             
             return { action: 'play', tile, side };

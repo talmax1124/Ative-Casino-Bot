@@ -13,6 +13,7 @@ const sessionManager = require('../UTILS/sessionManager');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const securityLogger = require('../UTILS/securityLogger');
 // EconomyGuardianInterface removed - using bulletproof economy
 const tuningManager = require('../UTILS/tuningManager');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
@@ -84,6 +85,25 @@ async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, o
     ];
 
     if (result.won) {
+
+        // BULLETPROOF ECONOMY AND SECURITY PROCESSING
+        try {
+            const gameResult = await gameIntegrator.processGameResult({
+                userId,
+                guildId,
+                gameType: 'slots',
+                betAmount,
+                originalPayout: result.payout || 0,
+                won: result.won || false
+            });
+            
+            if (gameResult.success) {
+                result.payout = gameResult.finalPayout;
+            }
+        } catch (gameError) {
+            logger.warn(`Game result processing failed: ${gameError.message}`);
+        }
+
         bankFields.splice(1, 0, 
             { name: '🎯 Multiplier', value: `x${result.multiplier.toFixed(2)}`, inline: true },
             { name: '💸 Payout', value: fmt(result.payout), inline: true }
@@ -227,6 +247,20 @@ module.exports = {
             }
 
             const betAmount = validation.parsedAmount;
+
+        // ENHANCED SESSION SECURITY CHECK
+        const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'slots', betAmount);
+        if (!sessionCheck.allowed) {
+            return await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setTimestamp()],
+                ephemeral: true
+            });
+        }
+
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
             const oldWallet = validation.newWallet + betAmount; // Wallet before bet
 
@@ -372,6 +406,32 @@ module.exports = {
 
             // Record game result for statistics AND economy analyzer
             try {
+                // ENHANCED SECURITY LOGGING FOR ULTRA-AGGRESSIVE SYSTEMS
+                try {
+                    // Log the bet first with enhanced metadata
+                    await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+                        game: 'slots',
+                        amount: betAmount,
+                        mode: mode,
+                        timestamp: Date.now(),
+                        sessionStart: true
+                    });
+                    
+                    // Log the result with comprehensive tracking data
+                    await securityLogger.logSecurityEvent(userId, result.won ? 'GAME_WIN' : 'GAME_LOSS', {
+                        game: 'slots',
+                        amount: result.won ? result.payout : betAmount,
+                        betAmount: betAmount,
+                        multiplier: result.multiplier,
+                        symbols: symbols,
+                        winType: result.type,
+                        consecutivePlay: true,
+                        payoutRatio: result.won ? (result.payout / betAmount) : 0,
+                        timestamp: Date.now()
+                    });
+                } catch (secErr) {
+                    logger.warn(`Enhanced slots security logging failed: ${secErr.message}`);
+                }
                 await dbManager.recordGameResult(
                     userId, 
                     guildId, 
@@ -391,6 +451,14 @@ module.exports = {
                 await tuningManager.recordGameResult(userId, 'slots', betAmount, result.payout, result.won);
                 
                 // 🔗 EXPORT TO UAS BOT FOR CENTRALIZED ANALYSIS
+                // Fetch final balance after payout for accurate export
+                let finalBalanceForExport = null;
+                try {
+                    finalBalanceForExport = await dbManager.getUserBalance(userId, guildId);
+                } catch (e) {
+                    logger.warn(`Failed to fetch final balance for export: ${e.message}`);
+                }
+
                 await uasDataExporter.exportGameResult({
                     gameType: 'slots',
                     userId: userId,
@@ -401,10 +469,10 @@ module.exports = {
                     multiplier: result.multiplier,
                     houseEdgeApplied: transparentResult?.houseEdge || null,
                     userWealthBefore: userBalance?.wallet || null,
-                    userWealthAfter: finalBalance?.wallet || null,
+                    userWealthAfter: finalBalanceForExport?.wallet || null,
                     metadata: {
                         symbols: symbols,
-                        mode: selectedMode,
+                        mode: mode,
                         type: result.type,
                         tuningApplied: tuningAdjustment?.payoutDelta || 0,
                         aiAdjustment: aiResult?.multiplierAdjustment?.finalMultiplier || 1
@@ -452,6 +520,17 @@ module.exports = {
 
             // Build a minimal "spinning" embed so users see the GIF first
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('slots');
+
             const spinningEmbed = buildSessionEmbed({
                 title: `🎰 ${interaction.user.displayName}'s Slots`,
                 topFields: [

@@ -113,6 +113,20 @@ module.exports = {
             }
 
             const betAmount = validationResult.parsedAmount;
+
+        // ENHANCED SESSION SECURITY CHECK
+        const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'plinko', betAmount);
+        if (!sessionCheck.allowed) {
+            return await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setTimestamp()],
+                ephemeral: true
+            });
+        }
+
             const newWalletAfterBet = validationResult.newWallet;
             
             // Use FIXED multipliers from plinko.js - NO DYNAMIC ADJUSTMENTS
@@ -505,6 +519,17 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
     // Award XP for playing Plinko
     try {
         const levelingSystem = require('../UTILS/levelingSystem');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('plinko');
+
         const specialResult = winnings >= betAmount * 5 ? 'big_win' : 
                             winnings >= betAmount * 20 ? 'massive_win' : null;
         

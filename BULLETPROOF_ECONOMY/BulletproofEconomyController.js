@@ -45,31 +45,37 @@ class BulletproofEconomyController {
             lastOptimization: null
         };
         
-        // ENHANCED ECONOMIC SAFETY SYSTEMS - Stricter Controls
+        // ENHANCED ECONOMIC SAFETY SYSTEMS - Ultra-Strict Controls
         this.safeguards = {
-            maximumLossPerHour: 500000,      // $500K max loss per hour (reduced)
-            maximumPlayerWinRate: 0.55,      // 55% max sustained win rate (reduced)
-            minimumHouseEdge: 0.025,         // 2.5% minimum house edge (increased)
-            emergencyShutdownThreshold: 0.75, // 75% risk threshold (reduced)
+            maximumLossPerHour: 250000,      // $250K max loss per hour (heavily reduced)
+            maximumPlayerWinRate: 0.52,      // 52% max sustained win rate (near break-even)
+            minimumHouseEdge: 0.035,         // 3.5% minimum house edge (significantly increased)
+            emergencyShutdownThreshold: 0.60, // 60% risk threshold (much stricter)
             isEmergencyMode: false,
             
-            // NEW STRICT REGULATIONS
-            maxConsecutiveWins: 5,           // Max 5 consecutive wins before forced adjustment
-            maxWinStreakValue: 100000,       // Max $100K in consecutive wins
-            suspiciousActivityThreshold: 0.8, // 80% win rate triggers investigation
-            automaticHouseEdgeIncrease: 0.01, // 1% auto-increase on losses
-            emergencyHouseEdgeBoost: 0.05,   // 5% emergency boost
+            // AGGRESSIVE ANTI-ABUSE REGULATIONS
+            maxConsecutiveWins: 3,           // Max 3 consecutive wins before forced adjustment
+            maxWinStreakValue: 50000,        // Max $50K in consecutive wins (halved)
+            suspiciousActivityThreshold: 0.65, // 65% win rate triggers investigation (lower threshold)
+            automaticHouseEdgeIncrease: 0.02, // 2% auto-increase on losses (doubled)
+            emergencyHouseEdgeBoost: 0.08,   // 8% emergency boost (increased)
             
-            // PAYOUT RESTRICTIONS
-            maxPayoutRatio: 50,              // Max 50x payout on any game
-            bigWinThreshold: 50000,          // $50K+ wins require validation
-            maxDailyPayouts: 2000000,        // $2M max daily payouts total
+            // STRICTER PAYOUT RESTRICTIONS
+            maxPayoutRatio: 25,              // Max 25x payout on any game (halved)
+            bigWinThreshold: 25000,          // $25K+ wins require validation (halved)
+            maxDailyPayouts: 1000000,        // $1M max daily payouts total (halved)
             
-            // PATTERN DETECTION
+            // ENHANCED PATTERN DETECTION
             patternDetectionEnabled: true,
             antiExploitMode: true,
-            behaviorAnalysisDepth: 100,      // Analyze last 100 games
-            riskAssessmentFrequency: 300000  // Every 5 minutes
+            behaviorAnalysisDepth: 200,      // Analyze last 200 games (doubled)
+            riskAssessmentFrequency: 180000, // Every 3 minutes (more frequent)
+            
+            // NEW: RAPID BETTING PENALTIES
+            rapidBetPenalty: 0.03,           // 3% extra house edge for rapid betters
+            rapidBetThreshold: 30,           // 30+ bets/5min triggers penalty
+            extremeRapidPenalty: 0.06,       // 6% extra for extreme rapid betting
+            extremeRapidThreshold: 50        // 50+ bets/5min triggers extreme penalty
         };
         
         // Quantum-resistant security
@@ -96,6 +102,42 @@ class BulletproofEconomyController {
             volatilityIndex: 0,
             riskLevel: 0.5,
             lastUpdate: Date.now()
+        };
+        
+        // ULTRA-AGGRESSIVE MOMENTUM TRACKING
+        this.momentumTracker = {
+            userMomentum: new Map(), // userId -> momentum data
+            globalMomentum: 0,       // Overall casino momentum
+            momentumDecay: 0.95,     // How fast momentum decays
+            momentumThreshold: 0.7,  // When to apply momentum penalties
+            lastMomentumUpdate: Date.now()
+        };
+        
+        // STREAK BREAKING SYSTEM
+        this.streakBreaker = {
+            enabled: true,
+            maxWinStreak: 2,         // Max consecutive wins before forced intervention
+            maxWinValue: 25000,      // Max value in consecutive wins
+            forceBreakThreshold: 3,  // Force break after this many wins
+            breakIntensity: 0.8,     // How aggressively to break streaks (80% reduction)
+            temporalWindow: 300000   // 5-minute window for streak tracking
+        };
+        
+        // TEMPORAL PATTERN DETECTION
+        this.temporalDetector = {
+            enabled: true,
+            timeSlots: new Map(),    // Track activity by time periods
+            patternThreshold: 0.6,   // Pattern detection sensitivity
+            rapidWinPenalty: 0.5,    // Penalty for rapid consecutive wins
+            coolingPeriod: 60000     // 1-minute cooling between big wins
+        };
+        
+        // CROSS-GAME INTELLIGENCE
+        this.crossGameIntel = {
+            enabled: true,
+            gameCorrelations: new Map(), // Track cross-game patterns
+            switchPenalty: 0.3,      // Penalty for game switching after wins
+            memoryWindow: 1800000    // 30-minute memory window
         };
     }
 
@@ -413,60 +455,189 @@ class BulletproofEconomyController {
                 };
             }
             
-            // 2. Calculate dynamic house edge for this game result with fallback
+            // 2. Calculate dynamic house edge for this game result with enhanced adjustments
             let houseEdge = 0.05; // Default 5% house edge
             try {
+                // Base house edge from dynamic system
                 houseEdge = this.houseEdgeSystem.calculateDynamicEdge(
                     gameType, userId, betAmount, playerProfile
                 );
                 
-                // 2.5. Apply Nash equilibrium trend-based adjustments
+                // Apply minimum house edge enforcement
+                houseEdge = Math.max(houseEdge, this.safeguards.minimumHouseEdge);
+                
+                // 2.5. Apply Nash equilibrium trend-based adjustments (AGGRESSIVE)
                 if (this.trendAnalyzer) {
-                    const trendAdjustment = this.trendAnalyzer.getTrendAdjustment(gameType);
+                    const rawTrendAdj = this.trendAnalyzer.getTrendAdjustment(gameType);
+                    const trendAdjustment = Math.min(0.05, rawTrendAdj * 2.5); // amplify up to +5%
                     if (trendAdjustment > 0) {
                         houseEdge += trendAdjustment;
                         console.log(`🎯 Applied trend adjustment to ${gameType}: +${(trendAdjustment * 100).toFixed(3)}% house edge`);
                     }
                 }
+                
+                // 2.6. Real-time performance adjustment
+                if (this.globalMetrics) {
+                    const recentLoss = this.globalMetrics.totalProfitLoss < 0;
+                    const lossRatio = Math.abs(this.globalMetrics.totalProfitLoss) / 1000000; // Per million loss
+                    
+                    if (recentLoss) {
+                        // Increase house edge based on recent losses
+                        const lossAdjustment = Math.min(0.05, lossRatio * 0.02); // Up to 5% extra
+                        houseEdge += lossAdjustment;
+                        
+                        if (lossAdjustment > 0.01) {
+                            console.log(`📊 Loss protection adjustment: +${(lossAdjustment * 100).toFixed(2)}% house edge`);
+                        }
+                    }
+                    
+                    // Win rate based adjustment
+                    if (playerProfile.historicalWinRate > 0.55) {
+                        const winRateAdjustment = (playerProfile.historicalWinRate - 0.5) * 0.2; // 20% per 10% over 50%
+                        houseEdge += winRateAdjustment;
+                        console.log(`📊 Win rate adjustment: +${(winRateAdjustment * 100).toFixed(2)}% house edge`);
+                    }
+                }
+                
+                // 2.7. Game-specific adjustments
+                const gameSpecificEdges = {
+                    'slots': 0.01,      // Extra 1% for slots
+                    'crash': 0.015,     // Extra 1.5% for crash
+                    'blackjack': 0.005, // Extra 0.5% for blackjack
+                    'roulette': 0       // Roulette already has built-in edge
+                };
+                
+                const gameBoost = gameSpecificEdges[gameType] || 0;
+                houseEdge += gameBoost;
+                
+                // Cap maximum house edge at 30%
+                houseEdge = Math.min(0.30, houseEdge);
+                
             } catch (edgeError) {
-                console.warn(`Dynamic house edge calculation failed for ${gameType}, using default: ${edgeError.message}`);
+                console.warn(`Dynamic house edge calculation failed for ${gameType}, using enhanced default: ${edgeError.message}`);
+                houseEdge = this.safeguards.minimumHouseEdge * 1.5; // Use 1.5x minimum as fallback
             }
             
             // 3. Determine payout adjustment based on multiple factors
             let adjustmentMultiplier = 1.0;
             
-            // Factor 1: Player risk level (REDUCED to prevent over-penalization)
-            if (won && playerProfile.riskLevel > 0.8) { // Increased threshold from 0.7 to 0.8
-                adjustmentMultiplier *= (1 - (playerProfile.riskLevel - 0.8) * 0.3); // Reduced penalty from 0.5 to 0.3
+            // Factor 1: Player risk level (AGGRESSIVE enforcement)
+            if (won && playerProfile.riskLevel > 0.6) { // Lower threshold for intervention
+                const riskPenalty = Math.pow((playerProfile.riskLevel - 0.5), 1.5) * 0.5; // Exponential penalty
+                adjustmentMultiplier *= (1 - riskPenalty); // Can reduce up to 50%
             }
             
-            // Factor 2: Win rate optimization (REDUCED to prevent over-penalization)
-            if (won && playerProfile.historicalWinRate > 0.75) { // Increased threshold from 0.6 to 0.75
-                const winRatePenalty = Math.pow((playerProfile.historicalWinRate - 0.65) * 1.5, 1.2); // Reduced multiplier and exponent
-                adjustmentMultiplier *= (1 - winRatePenalty * 0.15); // Reduced penalty from 0.3 to 0.15
+            // Factor 2: Win rate optimization (AGGRESSIVE)
+            if (won && playerProfile.historicalWinRate > 0.55) { // Much lower threshold
+                const winRatePenalty = Math.pow((playerProfile.historicalWinRate - 0.5) * 3, 1.5); // Harsh exponential
+                adjustmentMultiplier *= Math.max(0.5, 1 - winRatePenalty * 0.4); // Up to 40% reduction
             }
             
-            // Factor 3: Economic stability protection
+            // Factor 3: Economic stability protection (AGGRESSIVE)
             const profitMargin = won ? (originalPayout - betAmount) : betAmount;
             const totalProfitLoss = this.globalMetrics?.totalProfitLoss || 0;
-            if (totalProfitLoss < -1000000 && won && profitMargin > 100000) { // Higher thresholds
-                // Reduce large payouts when casino is losing money (REDUCED impact)
-                adjustmentMultiplier *= 0.9; // Reduced from 0.8 to 0.9 (only 10% reduction vs 20%)
+            if (totalProfitLoss < -500000 && won && profitMargin > 50000) { // Lower thresholds
+                // Heavily reduce large payouts when casino is losing
+                adjustmentMultiplier *= 0.75; // 25% reduction
+            } else if (totalProfitLoss < -250000 && won && profitMargin > 25000) {
+                // Medium losses trigger moderate reduction
+                adjustmentMultiplier *= 0.85; // 15% reduction
             }
             
-            // Factor 4: House edge enforcement (REDUCED to prevent over-taxation)
+            // Factor 4: House edge enforcement (AGGRESSIVE)
             if (won) {
                 const impliedEdge = 1 - (originalPayout / betAmount);
-                // Only enforce if implied edge is significantly below target AND below 8%
-                if (impliedEdge < houseEdge && impliedEdge < 0.08) {
-                    const edgeDeficit = houseEdge - impliedEdge;
-                    // Only apply if deficit is substantial (>3%)
-                    if (edgeDeficit > 0.03) {
-                        // Much gentler adjustment to prevent massive payout reductions
-                        const gentleAdjustment = 1 - (edgeDeficit * 0.5); // Only apply 50% of the deficit
-                        adjustmentMultiplier *= Math.max(0.85, gentleAdjustment); // Never reduce below 85%
-                    }
+                const targetEdge = Math.max(houseEdge, this.safeguards.minimumHouseEdge);
+                
+                if (impliedEdge < targetEdge) {
+                    const edgeDeficit = targetEdge - impliedEdge;
+                    // Apply full deficit plus penalty
+                    const edgeEnforcement = 1 - (edgeDeficit * 1.2); // 120% of deficit
+                    adjustmentMultiplier *= Math.max(0.6, edgeEnforcement); // Can reduce up to 40%
                 }
+            }
+            
+            // Factor 5: Rapid betting penalty (NEW)
+            const recentBetCount = typeof securityLogger.getRecentBetCount === 'function'
+                ? securityLogger.getRecentBetCount(userId, 300000)
+                : 0;
+            
+            if (won && recentBetCount >= this.safeguards.extremeRapidThreshold) {
+                // Extreme rapid betting - severe penalty
+                adjustmentMultiplier *= (1 - this.safeguards.extremeRapidPenalty);
+                houseEdge = Math.min(0.25, houseEdge + this.safeguards.extremeRapidPenalty);
+            } else if (won && recentBetCount >= this.safeguards.rapidBetThreshold) {
+                // Regular rapid betting - moderate penalty
+                adjustmentMultiplier *= (1 - this.safeguards.rapidBetPenalty);
+                houseEdge = Math.min(0.20, houseEdge + this.safeguards.rapidBetPenalty);
+            }
+
+            // Factor 6: Security flagging and abuse patterns (AGGRESSIVE)
+            try {
+                const securityLogger = require('../UTILS/securityLogger');
+                const isFlagged = typeof securityLogger.isUserFlagged === 'function' && securityLogger.isUserFlagged(userId);
+                const isLockedOut = typeof securityLogger.isUserLockedOut === 'function' && securityLogger.isUserLockedOut(userId);
+                
+                // Lockout users shouldn't even be playing, but if they somehow are, maximum penalty
+                if (isLockedOut && isLockedOut.locked && won) {
+                    adjustmentMultiplier *= 0.5; // 50% reduction for lockout violators
+                    houseEdge = 0.30; // 30% house edge
+                }
+                // Flagged users get significant penalty
+                else if (isFlagged && won) {
+                    adjustmentMultiplier *= 0.7; // 30% reduction for flagged users
+                    houseEdge = Math.min(0.25, houseEdge + 0.05); // +5% edge
+                }
+            } catch (_) {
+                // Non-fatal if security logger not available
+            }
+            
+            // Factor 7: MOMENTUM-BASED ULTRA-AGGRESSIVE PENALTIES
+            const userMomentum = this.calculateUserMomentum(userId, won, originalPayout);
+            const temporalPenalty = this.calculateTemporalPenalty(userId, gameType, won);
+            const streakPenalty = this.calculateStreakPenalty(userId, won, originalPayout);
+            const crossGamePenalty = this.calculateCrossGamePenalty(userId, gameType, won);
+            
+            // Apply momentum penalty
+            if (userMomentum > this.momentumTracker.momentumThreshold && won) {
+                const momentumPenalty = Math.min(0.7, userMomentum - this.momentumTracker.momentumThreshold);
+                adjustmentMultiplier *= (1 - momentumPenalty);
+                console.log(`🔥 Momentum penalty applied: -${(momentumPenalty * 100).toFixed(1)}% for user ${userId}`);
+            }
+            
+            // Apply temporal penalty (rapid wins)
+            if (temporalPenalty > 0 && won) {
+                adjustmentMultiplier *= (1 - temporalPenalty);
+                console.log(`⏰ Temporal penalty applied: -${(temporalPenalty * 100).toFixed(1)}% for rapid wins`);
+            }
+            
+            // Apply streak breaking penalty
+            if (streakPenalty > 0 && won) {
+                adjustmentMultiplier *= (1 - streakPenalty);
+                console.log(`🚫 Streak breaking penalty: -${(streakPenalty * 100).toFixed(1)}% applied`);
+            }
+            
+            // Apply cross-game switching penalty
+            if (crossGamePenalty > 0 && won) {
+                adjustmentMultiplier *= (1 - crossGamePenalty);
+                console.log(`🎯 Cross-game penalty: -${(crossGamePenalty * 100).toFixed(1)}% for game switching`);
+            }
+            
+            // FORCED STREAK BREAKING - Nuclear option
+            if (this.shouldForceStreakBreak(userId, won, originalPayout)) {
+                adjustmentMultiplier *= 0.2; // 80% reduction - basically force a loss
+                console.log(`💥 FORCED STREAK BREAK applied to user ${userId} - Extreme penalty`);
+                
+                // Log this extreme action
+                try {
+                    const securityLogger = require('../UTILS/securityLogger');
+                    await securityLogger.logSecurityEvent(userId, 'FORCED_STREAK_BREAK', {
+                        gameType,
+                        originalPayout,
+                        reason: 'Excessive winning streak detected',
+                        severity: 'EXTREME'
+                    });
+                } catch (_) {}
             }
             
             // Calculate final adjusted payout
@@ -481,10 +652,34 @@ class BulletproofEconomyController {
             // Update performance metrics
             this.updatePostGameMetrics(gameData, adjustedPayout);
             
-            // Log significant adjustments
-            if (Math.abs(adjustmentMultiplier - 1.0) > 0.1) {
-                console.log(`🎯 Bulletproof Economy: ${gameType} payout adjusted by ${((adjustmentMultiplier - 1) * 100).toFixed(1)}% for user ${userId}`);
+            // Enhanced logging for all adjustments
+            if (Math.abs(adjustmentMultiplier - 1.0) > 0.05) { // Log even smaller adjustments
+                const adjustmentPercent = ((adjustmentMultiplier - 1) * 100).toFixed(1);
+                const lockoutStatus = typeof securityLogger.isUserLockedOut === 'function' ? securityLogger.isUserLockedOut(userId) : null;
+                const rapidBets = typeof securityLogger.getRecentBetCount === 'function' ? securityLogger.getRecentBetCount(userId, 300000) : 0;
+                
+                console.log(`🎯 Bulletproof Economy: ${gameType} payout adjusted by ${adjustmentPercent}% for user ${userId}`);
                 console.log(`   Risk Level: ${(playerProfile.riskLevel * 100).toFixed(1)}% | Win Rate: ${(playerProfile.historicalWinRate * 100).toFixed(1)}% | House Edge: ${(houseEdge * 100).toFixed(2)}%`);
+                console.log(`   Rapid Bets: ${rapidBets}/5min | Locked: ${lockoutStatus ? 'Yes' : 'No'} | Profit/Loss: ${this.globalMetrics?.totalProfitLoss || 0}`);
+                
+                // Send to security channel for transparency if adjustment is significant
+                if (Math.abs(adjustmentMultiplier - 1.0) > 0.2) {
+                    try {
+                        const securityLogger = require('../UTILS/securityLogger');
+                        await securityLogger.logSecurityEvent(userId, 'LARGE_PAYOUT_ADJUSTMENT', {
+                            gameType,
+                            originalPayout,
+                            adjustedPayout,
+                            adjustmentPercent: parseFloat(adjustmentPercent),
+                            houseEdge: (houseEdge * 100).toFixed(2) + '%',
+                            riskLevel: (playerProfile.riskLevel * 100).toFixed(1) + '%',
+                            winRate: (playerProfile.historicalWinRate * 100).toFixed(1) + '%',
+                            rapidBets
+                        });
+                    } catch (secLogError) {
+                        // Silent fail
+                    }
+                }
             }
             
             return {
@@ -845,6 +1040,177 @@ class BulletproofEconomyController {
     updateGameMetrics(result) { this.performanceMetrics.totalGamesProcessed++; }
     
     /**
+     * Calculate user momentum based on recent performance
+     */
+    calculateUserMomentum(userId, won, payout) {
+        const now = Date.now();
+        let userMomentum = this.momentumTracker.userMomentum.get(userId) || {
+            value: 0,
+            lastUpdate: now,
+            recentWins: [],
+            totalValue: 0
+        };
+        
+        // Decay momentum over time
+        const timeDelta = now - userMomentum.lastUpdate;
+        const decayFactor = Math.pow(this.momentumTracker.momentumDecay, timeDelta / 60000); // Per minute
+        userMomentum.value *= decayFactor;
+        
+        // Add current game to momentum
+        if (won) {
+            const momentumIncrease = Math.min(0.3, payout / 100000); // Scale by payout size
+            userMomentum.value += momentumIncrease;
+            userMomentum.recentWins.push({ time: now, payout });
+            userMomentum.totalValue += payout;
+        } else {
+            userMomentum.value *= 0.8; // Reduce momentum on loss
+        }
+        
+        // Clean old wins (keep only last 10 minutes)
+        userMomentum.recentWins = userMomentum.recentWins.filter(w => now - w.time < 600000);
+        
+        userMomentum.lastUpdate = now;
+        this.momentumTracker.userMomentum.set(userId, userMomentum);
+        
+        return Math.min(1.0, userMomentum.value);
+    }
+    
+    /**
+     * Calculate temporal penalty for rapid wins
+     */
+    calculateTemporalPenalty(userId, gameType, won) {
+        if (!won) return 0;
+        
+        const now = Date.now();
+        const timeSlot = Math.floor(now / 60000); // 1-minute slots
+        const userSlots = this.temporalDetector.timeSlots.get(userId) || new Map();
+        const currentSlotData = userSlots.get(timeSlot) || { wins: 0, value: 0 };
+        
+        // Check last few time slots for rapid wins
+        let rapidWins = 0;
+        let rapidValue = 0;
+        for (let i = 0; i < 5; i++) { // Check last 5 minutes
+            const slot = userSlots.get(timeSlot - i);
+            if (slot) {
+                rapidWins += slot.wins;
+                rapidValue += slot.value;
+            }
+        }
+        
+        // Penalty increases with rapid wins
+        let penalty = 0;
+        if (rapidWins >= 3) {
+            penalty = Math.min(0.6, (rapidWins - 2) * 0.15); // 15% per extra win
+        }
+        if (rapidValue > 50000) {
+            penalty += Math.min(0.4, (rapidValue - 50000) / 100000 * 0.2); // Extra penalty for value
+        }
+        
+        return penalty;
+    }
+    
+    /**
+     * Calculate streak penalty
+     */
+    calculateStreakPenalty(userId, won, payout) {
+        if (!won) return 0;
+        
+        const userMomentum = this.momentumTracker.userMomentum.get(userId);
+        if (!userMomentum) return 0;
+        
+        const recentWins = userMomentum.recentWins.length;
+        const recentValue = userMomentum.totalValue;
+        
+        let penalty = 0;
+        
+        // Escalating penalty based on consecutive wins
+        if (recentWins >= this.streakBreaker.maxWinStreak) {
+            penalty = Math.min(0.5, (recentWins - 1) * 0.15); // 15% per win over limit
+        }
+        
+        // Extra penalty based on total value
+        if (recentValue > this.streakBreaker.maxWinValue) {
+            penalty += Math.min(0.3, (recentValue - this.streakBreaker.maxWinValue) / 50000 * 0.1);
+        }
+        
+        return penalty;
+    }
+    
+    /**
+     * Calculate cross-game switching penalty
+     */
+    calculateCrossGamePenalty(userId, gameType, won) {
+        if (!won) return 0;
+        
+        const now = Date.now();
+        const userGames = this.crossGameIntel.gameCorrelations.get(userId) || [];
+        
+        // Check if user switched games recently after winning
+        const recentGames = userGames.filter(g => now - g.time < this.crossGameIntel.memoryWindow);
+        
+        if (recentGames.length > 1) {
+            const lastGame = recentGames[recentGames.length - 1];
+            const secondLastGame = recentGames[recentGames.length - 2];
+            
+            // Penalty if switched games after a win
+            if (lastGame.gameType !== gameType && secondLastGame.won) {
+                return this.crossGameIntel.switchPenalty;
+            }
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * Determine if streak should be forcibly broken
+     */
+    shouldForceStreakBreak(userId, won, payout) {
+        if (!won || !this.streakBreaker.enabled) return false;
+        
+        const userMomentum = this.momentumTracker.userMomentum.get(userId);
+        if (!userMomentum) return false;
+        
+        const recentWins = userMomentum.recentWins.length;
+        const totalValue = userMomentum.recentWins.reduce((sum, w) => sum + w.payout, 0);
+        
+        // Force break conditions
+        return (
+            recentWins >= this.streakBreaker.forceBreakThreshold ||
+            totalValue > this.streakBreaker.maxWinValue * 2 ||
+            userMomentum.value > 0.9 // Extremely high momentum
+        );
+    }
+    
+    /**
+     * Update post-game tracking data
+     */
+    updateGameTracking(userId, gameType, won, payout) {
+        const now = Date.now();
+        
+        // Update temporal tracking
+        const timeSlot = Math.floor(now / 60000);
+        const userSlots = this.temporalDetector.timeSlots.get(userId) || new Map();
+        const currentSlotData = userSlots.get(timeSlot) || { wins: 0, value: 0, games: 0 };
+        
+        currentSlotData.games++;
+        if (won) {
+            currentSlotData.wins++;
+            currentSlotData.value += payout;
+        }
+        
+        userSlots.set(timeSlot, currentSlotData);
+        this.temporalDetector.timeSlots.set(userId, userSlots);
+        
+        // Update cross-game tracking
+        const userGames = this.crossGameIntel.gameCorrelations.get(userId) || [];
+        userGames.push({ gameType, won, payout, time: now });
+        
+        // Keep only recent games
+        const recentGames = userGames.filter(g => now - g.time < this.crossGameIntel.memoryWindow);
+        this.crossGameIntel.gameCorrelations.set(userId, recentGames);
+    }
+    
+    /**
      * Update metrics after post-game payout adjustment
      */
     updatePostGameMetrics(gameData, adjustedPayout) {
@@ -883,6 +1249,9 @@ class BulletproofEconomyController {
         }
         
         this.performanceMetrics.lastOptimization = Date.now();
+        
+        // Update advanced tracking systems
+        this.updateGameTracking(gameData.userId, gameData.gameType || 'unknown', gameData.won, adjustedPayout);
     }
     
     async validateGameResult(result) { return true; }

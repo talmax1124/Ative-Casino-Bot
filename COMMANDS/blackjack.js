@@ -25,6 +25,11 @@ const tuningManager = require('../UTILS/tuningManager');
 const allInManager = require('../UTILS/allInManager');
 const uasDataExporter = require('../UTILS/uasDataExporter');
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const gameIntegrator = new UniversalGameIntegrator('blackjack');
+
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
 
@@ -187,6 +192,25 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
                 stageText = 'PUSH';
                 color = 0xFFFF00;
             } else if (result.won) {
+
+        // BULLETPROOF ECONOMY AND SECURITY PROCESSING
+        try {
+            const gameResult = await gameIntegrator.processGameResult({
+                userId,
+                guildId,
+                gameType: 'blackjack',
+                betAmount,
+                originalPayout: result.payout || 0,
+                won: result.won || false
+            });
+            
+            if (gameResult.success) {
+                result.payout = gameResult.finalPayout;
+            }
+        } catch (gameError) {
+            logger.warn(`Game result processing failed: ${gameError.message}`);
+        }
+
                 stageText = 'WIN';
                 color = 0x00ff00;
             } else {
@@ -396,6 +420,20 @@ module.exports = {
             // Balance validation is handled by PayoutManager.validateAndDeductBet
 
             const betAmount = validation.parsedAmount;
+
+        // ENHANCED SESSION SECURITY CHECK
+        const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'blackjack', betAmount);
+        if (!sessionCheck.allowed) {
+            return await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setTimestamp()],
+                ephemeral: true
+            });
+        }
+
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
 
             // Create game session with enhanced protection

@@ -271,6 +271,8 @@ class DatabaseManager {
                         logger.error(`Failed to send PlayFor security alert: ${alertError.message}`);
                     }
                 }
+                // Clear any stale global play-for context to prevent repeated misuse
+                try { global.playForContext = null; } catch {}
                 // Block the transfer and give money to original player
                 return await this.updateUserBalance(userId, guildId, walletChange, bankChange, { ...kwargs, playFor: null });
             }
@@ -2148,8 +2150,8 @@ class DatabaseManager {
             }
 
             // Check for excessively large amounts (potential exploitation)
-            if (amount > 1000000) { // 1M coin limit per PlayFor transaction
-                return { valid: false, reason: `PlayFor amount too large: ${amount} (max: 1M)` };
+            if (amount > 500000) { // 500K coin limit per PlayFor transaction (reduced from 1M)
+                return { valid: false, reason: `PlayFor amount too large: ${amount} (max: 500K)` };
             }
 
             // Check if recipient ID is valid Discord user ID format

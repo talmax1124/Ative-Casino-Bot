@@ -565,6 +565,20 @@ module.exports = {
             }
 
             const betAmount = validation.parsedAmount;
+
+        // ENHANCED SESSION SECURITY CHECK
+        const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'roulette', betAmount);
+        if (!sessionCheck.allowed) {
+            return await interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setTimestamp()],
+                ephemeral: true
+            });
+        }
+
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
 
             // Create game session
@@ -932,6 +946,17 @@ module.exports = {
                 logger.info('Attempting spinning GIF update...');
                 const fs = require('fs');
                 const path = require('path');
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const tuningManager = require('../UTILS/tuningManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('roulette');
+
                 const gifPath = path.join(__dirname, '..', 'assets', 'roulette-spin.gif');
                 const spinningGIF = fs.readFileSync(gifPath);
                 
