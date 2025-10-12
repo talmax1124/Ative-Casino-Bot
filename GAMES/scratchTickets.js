@@ -4,7 +4,7 @@
  */
 
 const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
-const { secureRandomInt, secureRandomFloat, secureRandomChoice } = require('../UTILS/rng');
+const { secureRandomInt, secureRandomFloat, secureRandomChoice, secureRandomBytes } = require('../UTILS/rng');
 const { fmtFull, sendLogMessage } = require('../UTILS/common');
 const dbManager = require('../UTILS/database');
 const { PayoutManager, GameResult, GameType } = require('../UTILS/gameUtils');
@@ -15,7 +15,6 @@ const securityLogger = require('../UTILS/securityLogger');
 const sessionGuard = require('../UTILS/sessionGuard');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
 
 // Initialize game integrator
 const gameIntegrator = new UniversalGameIntegrator('scratchtickets');

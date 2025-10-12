@@ -27,7 +27,7 @@ const logger = require('../UTILS/logger');
 const uasDataExporter = require('../UTILS/uasDataExporter');
 
 // ENHANCED SYSTEM INTEGRATIONS
-const { secureRandomFloat, secureRandomInt } = require('../UTILS/rng');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 const securityLogger = require('../UTILS/securityLogger');
 const tuningManager = require('../UTILS/tuningManager');
@@ -289,17 +289,6 @@ class CrashGame {
     
     try {
       sendLogMessage(require('..').client || null, 'game', `Crash cashout: ${p.username} at ${validatedMultiplier.toFixed(2)}x -> +${fmt(cappedWinnings)}`, userId, this.guildId);
-// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
-const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
-const securityLogger = require('../UTILS/securityLogger');
-const sessionGuard = require('../UTILS/sessionGuard');
-const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-
-// Initialize game integrator
-const gameIntegrator = new UniversalGameIntegrator('crash');
-
     } catch (_) {}
     
     // SECURITY: Log successful cashout for monitoring

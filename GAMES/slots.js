@@ -7,7 +7,7 @@ const Canvas = require('canvas');
 const GIFEncoder = require('gif-encoder-2');
 const path = require('path');
 const logger = require('../UTILS/logger');
-const { secureRandomFloat, secureRandomInt, secureRandomChoice } = require('../UTILS/rng');
+const { secureRandomFloat, secureRandomInt, secureRandomChoice, secureRandomBytes } = require('../UTILS/rng');
 
 // BASE slot symbols - These get automatically adapted based on player wealth
 // Players always see honest multipliers - the symbols adapt behind the scenes
@@ -164,18 +164,6 @@ function validateSymbolDistribution(matrixMode = false) {
             
             // Log to security system
             try {
-                const securityLogger = require('../UTILS/securityLogger');
-// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
-const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
-const securityLogger = require('../UTILS/securityLogger');
-const sessionGuard = require('../UTILS/sessionGuard');
-const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-
-// Initialize game integrator
-const gameIntegrator = new UniversalGameIntegrator('slots');
-
                 securityLogger.logSecurityEvent('SYSTEM', 'RNG_ANOMALY', {
                     game: 'slots',
                     mode: mode,

@@ -18,7 +18,7 @@ const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
 const { PayoutManager, GameResult } = require('../UTILS/gameUtils');
-const { secureRandomBool, secureRandomInt, secureRandomFloat } = require('../UTILS/rng');
+const { secureRandomBool, secureRandomInt, secureRandomFloat, secureRandomBytes } = require('../UTILS/rng');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 // UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
 const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
@@ -26,7 +26,6 @@ const securityLogger = require('../UTILS/securityLogger');
 const sessionGuard = require('../UTILS/sessionGuard');
 const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
 
 // Initialize game integrator
 const gameIntegrator = new UniversalGameIntegrator('russianroulette');
