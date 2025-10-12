@@ -889,7 +889,8 @@ module.exports = {
     async spinRoulette(interaction, game, userId, guildId) {
         try {
             if (!game.currentBet) {
-                return await interaction.reply({
+                // Interaction already deferred in handleRouletteAction; use followUp
+                return await interaction.followUp({
                     content: 'You must place a bet before spinning!',
                     flags: MessageFlags.Ephemeral
                 });
@@ -897,7 +898,8 @@ module.exports = {
 
             // Check if already spinning or ended
             if (game.isSpinning || game.gameEnded) {
-                return await interaction.reply({
+                // Interaction already deferred in handleRouletteAction; use followUp
+                return await interaction.followUp({
                     content: 'Game already in progress or completed!',
                     flags: MessageFlags.Ephemeral
                 });
@@ -922,12 +924,12 @@ module.exports = {
                 spinningEmbed.setImage('attachment://roulette-wheel.png');
             }
             
-            // SECURITY FIX: Use only one interaction method to avoid "already replied" error
+            // SECURITY FIX: Use only editReply after deferUpdate to avoid double reply
             let hasUpdated = false;
             
             // Try to load the spinning GIF first, then do single update
             try {
-                logger.info('Loading existing roulette-spin.gif...');
+                logger.info('Attempting spinning GIF update...');
                 const fs = require('fs');
                 const path = require('path');
                 const gifPath = path.join(__dirname, '..', 'assets', 'roulette-spin.gif');
@@ -942,19 +944,19 @@ module.exports = {
                 
                 spinningEmbed.setImage('attachment://roulette-spin.gif');
                 spinningEmbed.setDescription('🎲 **Spinning the wheel...**\n🌪️ Watch the ball bounce around the wheel!');
-                
-                await interaction.update(spinningGIFData);
+                // Important: interaction was deferred; use editReply, not update
+                await interaction.editReply(spinningGIFData);
                 hasUpdated = true;
                 
                 // Wait for 3 seconds as requested
                 await new Promise(resolve => setTimeout(resolve, 3000));
-                
             } catch (error) {
-                logger.warn(`Failed to load roulette-spin.gif: ${error.message}, using fallback`);
+                // This can fail due to missing asset or invalid interaction state
+                logger.warn(`Spinning GIF update failed: ${error.message}; using fallback static update`);
                 
                 // Fallback: update with static image if GIF failed and we haven't updated yet
                 if (!hasUpdated) {
-                    await interaction.update(spinningData);
+                    await interaction.editReply(spinningData);
                     hasUpdated = true;
                 }
                 
@@ -1166,14 +1168,8 @@ module.exports = {
                 finalEmbed.setImage('attachment://roulette-wheel.png');
             }
             
-            // SECURITY FIX: Check if we already updated in spinRoulette to avoid double reply
-            if (hasUpdated) {
-                // Use editReply since we already called update() in spinRoulette
-                await interaction.editReply(finalData);
-            } else {
-                // Fallback case - should not happen but safe to use update
-                await interaction.update(finalData);
-            }
+            // Always use editReply after deferUpdate to finalize the result
+            await interaction.editReply(finalData);
 
             // Complete session
             if (game.sessionId) {

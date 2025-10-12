@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Quick conflict resolution for cogupdate workflow
+# This handles the common case where cogupdate + other changes cause conflicts
+
+echo "🔧 Quick Conflict Resolution for Cog Updates"
+echo "============================================="
+
+# Check if we're in the right directory
+if [ ! -f "COMMANDS/cogupdater.js" ]; then
+    echo "❌ Not in the casino bot directory"
+    exit 1
+fi
+
+# Run the full resolution script in auto mode
+./resolve-conflicts.sh --auto
+
+echo ""
+echo "✅ Conflicts should now be resolved!"
+echo "💡 If you need more control, use: ./resolve-conflicts.sh (interactive mode)"
+echo "💡 For force resolution: ./resolve-conflicts.sh --auto --force"
