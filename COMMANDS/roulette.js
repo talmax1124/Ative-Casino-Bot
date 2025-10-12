@@ -734,6 +734,16 @@ module.exports = {
         const guildId = await getGuildId(interaction);
         logger.debug(`Roulette action '${actionId}' by ${userId} in guild ${guildId}`);
         
+        // Defer the update immediately to prevent timeout
+        if (!interaction.deferred && !interaction.replied) {
+            try {
+                await interaction.deferUpdate();
+            } catch (deferError) {
+                logger.debug(`Could not defer interaction: ${deferError.message}`);
+                return;
+            }
+        }
+        
         try {
             // Find active game by user's session
             let game = null;
@@ -747,7 +757,7 @@ module.exports = {
             }
             
             if (!game || !sessionId) {
-                return await interaction.reply({ content: 'No active roulette game found.', flags: MessageFlags.Ephemeral });
+                return await interaction.editReply({ content: 'No active roulette game found.' });
             }
 
             const userBalance = await dbManager.getUserBalance(userId, guildId);
@@ -766,19 +776,17 @@ module.exports = {
                     
                 case 'dozen':
                     const dozenSelector = createDozenSelector(userId);
-                    await interaction.reply({
+                    await interaction.editReply({
                         content: 'Select a dozen to bet on:',
-                        components: dozenSelector,
-                        flags: MessageFlags.Ephemeral
+                        components: dozenSelector
                     });
                     break;
                     
                 case 'numbers':
                     const numberSelector = createNumberSelector(userId, game.betAmount);
-                    await interaction.reply({
+                    await interaction.editReply({
                         content: 'Select a number to bet on:',
-                        components: numberSelector,
-                        flags: MessageFlags.Ephemeral
+                        components: numberSelector
                     });
                     break;
                     
@@ -790,7 +798,7 @@ module.exports = {
                     game.clearBet();
                     const clearEmbed = createGameEmbed(game, interaction.user, userBalance);
                     const clearRows = createBettingButtons(userId, game);
-                    await interaction.update({
+                    await interaction.editReply({
                         embeds: [clearEmbed],
                         components: clearRows
                     });
@@ -822,7 +830,7 @@ module.exports = {
                         ]
                     });
 
-                    await interaction.reply({ embeds: [helpEmbed], components: helpComponents, flags: 64 });
+                    await interaction.editReply({ embeds: [helpEmbed], components: helpComponents });
                     break;
             }
         } catch (actionError) {
@@ -836,8 +844,11 @@ module.exports = {
                     guildId
                 );
             } catch (_) {}
-            if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ content: '❌ Error processing action.', flags: MessageFlags.Ephemeral });
+            // Since we already deferred, try to edit the reply
+            try {
+                await interaction.editReply({ content: '❌ Error processing action.' });
+            } catch (editError) {
+                logger.debug(`Could not edit reply: ${editError.message}`);
             }
         }
     },
@@ -855,13 +866,23 @@ module.exports = {
                 components: actionRows
             };
             
-            await interaction.update(updateData);
+            // Since we deferred the update in handleRouletteAction, use editReply
+            await interaction.editReply(updateData);
         } catch (error) {
             logger.error(`Error placing bet: ${error.message}`);
-            await interaction.reply({
-                content: '❌ Failed to place bet. Please try again.',
-                flags: MessageFlags.Ephemeral
-            });
+            
+            // Only try to respond if we haven't already
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    await interaction.reply({
+                        content: '❌ Failed to place bet. Please try again.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                } catch (replyError) {
+                    // Interaction expired, just log it
+                    logger.debug(`Could not send error message, interaction expired: ${replyError.message}`);
+                }
+            }
         }
     },
 
