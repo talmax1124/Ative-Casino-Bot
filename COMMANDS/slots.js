@@ -520,17 +520,7 @@ module.exports = {
 
             // Build a minimal "spinning" embed so users see the GIF first
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
-const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
-const securityLogger = require('../UTILS/securityLogger');
-const sessionGuard = require('../UTILS/sessionGuard');
-const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-
-// Initialize game integrator
-const gameIntegrator = new UniversalGameIntegrator('slots');
-
+            
             const spinningEmbed = buildSessionEmbed({
                 title: `🎰 ${interaction.user.displayName}'s Slots`,
                 topFields: [
@@ -558,13 +548,16 @@ const gameIntegrator = new UniversalGameIntegrator('slots');
                     if (interaction.replied || interaction.deferred) {
                         const staticImage = await createSlotsImage(symbols, result.won);
                         
+                        // Get fresh balance for the embed to avoid scoping issues
+                        const currentBalance = await dbManager.getUserBalance(userId, guildId);
+                        
                         // Create final result embed
                         const finalEmbed = await createSlotsEmbed(
                             interaction.user,
                             symbols,
                             result,
                             betAmount,
-                            finalBalance,
+                            currentBalance,
                             oldWallet,
                             aiResult
                         );
