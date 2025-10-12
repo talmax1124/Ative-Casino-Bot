@@ -15,6 +15,7 @@ const EconomicOversightSystem = require('../UTILS/economicOversightSystem');
 
 const crypto = require('crypto');
 const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+const securityLogger = require('../UTILS/securityLogger');
 
 class BulletproofEconomyController {
     constructor() {
