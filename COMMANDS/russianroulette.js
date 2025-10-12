@@ -188,7 +188,7 @@ module.exports = {
                 if (interaction.deferred || interaction.replied) {
                     await interaction.editReply({ embeds: [embed] });
                 } else {
-                    await interaction.reply({ embeds: [embed], ephemeral: true });
+                    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 }
             } catch (replyError) {
                 logger.error(`Failed to send error reply: ${replyError.message}`);

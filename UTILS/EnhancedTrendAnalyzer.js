@@ -85,8 +85,8 @@ class EnhancedTrendAnalyzer extends GameTrendAnalyzer {
             predictions: new Map()
         };
         
-        // Statistical models
-        this.statisticalModels = {
+        // Enhanced statistical models (separate from parent's statisticalModels)
+        this.enhancedModels = {
             markovChains: new Map(),      // For sequence prediction
             bayesianNetworks: new Map(),   // For probabilistic inference
             timeSeries: new Map()          // For temporal patterns
@@ -634,7 +634,7 @@ class EnhancedTrendAnalyzer extends GameTrendAnalyzer {
             
             // Build Markov chain for sequence prediction
             const markovChain = this.buildMarkovChain(gameType, gameData);
-            this.statisticalModels.markovChains.set(gameType, markovChain);
+            this.enhancedModels.markovChains.set(gameType, markovChain);
             
             // Generate predictions
             const predictions = this.predictNextChoices(markovChain, 10);

@@ -96,9 +96,9 @@ module.exports = {
                 .setFooter({ text: 'ATIVE Casino' });
             
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
         }
     },
@@ -362,7 +362,7 @@ module.exports = {
                 .setColor(0xFF0000)
                 .setFooter({ text: 'Developer access required' });
             
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             return;
         }
 

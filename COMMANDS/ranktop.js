@@ -66,9 +66,9 @@ module.exports = {
                         .setColor(0xFF0000);
 
                     if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp({ embeds: [errorEmbed], ephemeral: true });
+                        await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                     } else {
-                        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                        await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
                     }
                 } catch (replyError) {
                     console.error('[ERROR] Failed to send error message:', replyError);

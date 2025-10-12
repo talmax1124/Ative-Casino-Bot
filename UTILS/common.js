@@ -381,18 +381,19 @@ function parseAmount(amountStr) {
  */
 function resolveAmount(amount, walletAmount) {
     if (typeof amount === 'number') {
-        return amount;
+        return Math.floor(amount);
     }
     
     if (amount === 'all' || amount === 'a') {
-        return walletAmount;
+        return Math.floor(walletAmount);
     }
     
     if (amount === 'half') {
-        return Math.floor(walletAmount / 2 * 100) / 100; // Round down to 2 decimal places
+        return Math.floor(walletAmount / 2);
     }
     
-    return parseAmount(amount);
+    const parsed = parseAmount(amount);
+    return parsed === null ? null : Math.floor(parsed);
 }
 
 // ========================= GAME REGISTRY =========================

@@ -62,7 +62,7 @@ module.exports = {
                 .setColor('#ff0000')
                 .setTitle('❌ Access Denied')
                 .setDescription('Only authorized users can manage cogs.');
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         try {
@@ -98,7 +98,7 @@ module.exports = {
             if (interaction.replied || interaction.deferred) {
                 await interaction.editReply({ embeds: [embed] });
             } else {
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
         }
     }
@@ -158,7 +158,7 @@ async function handleEnable(interaction) {
                     .setColor('#ff0000')
                     .setTitle('❌ Invalid Cog')
                     .setDescription(`Cog category \`${name}\` does not exist.\n\n**Available categories:** ${availableCategories}`);
-                return await interaction.reply({ embeds: [embed], ephemeral: true });
+                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
             await cogManager.enableCog(name);
@@ -197,7 +197,7 @@ async function handleEnable(interaction) {
             .setColor('#ff0000')
             .setTitle('❌ Error')
             .setDescription(`Failed to enable ${type} \`${name}\`: ${error.message}`);
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 }
 
@@ -213,7 +213,7 @@ async function handleDisable(interaction) {
                     .setColor('#ff0000')
                     .setTitle('❌ Invalid Cog')
                     .setDescription(`Cog category \`${name}\` does not exist.\n\n**Available categories:** ${availableCategories}`);
-                return await interaction.reply({ embeds: [embed], ephemeral: true });
+                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
             await cogManager.disableCog(name);
@@ -252,7 +252,7 @@ async function handleDisable(interaction) {
             .setColor('#ff0000')
             .setTitle('❌ Error')
             .setDescription(`Failed to disable ${type} \`${name}\`: ${error.message}`);
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     }
 }
 
@@ -304,7 +304,7 @@ async function handlePanel(interaction) {
     await interaction.reply({
         embeds: [embed],
         components: [selectRow, buttons],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
     });
 }
 

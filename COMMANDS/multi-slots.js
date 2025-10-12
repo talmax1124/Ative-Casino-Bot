@@ -95,7 +95,7 @@ module.exports = {
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'multi-slots');
             if (!maintenanceCheck.allowed) {
-                return await interaction.reply({ embeds: [maintenanceCheck.embed], ephemeral: true });
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
             }
 
             // Guard session before any processing
@@ -103,7 +103,7 @@ module.exports = {
             const check = await sessionGuard.check(userId, guildId, 'multi-slots', interaction.client);
             if (!check.allowed) {
                 const embed = new EmbedBuilder().setTitle('❌ Session Error').setDescription(check.message).setColor(0xFF0000);
-                return await interaction.reply({ embeds: [embed], ephemeral: true });
+                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
             // Ensure user exists and get balance
             await dbManager.ensureUser(userId, username);
@@ -120,7 +120,7 @@ module.exports = {
             );
 
             if (!validation.isValid) {
-                return await interaction.reply({ embeds: [validation.errorEmbed], ephemeral: true });
+                return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
             const betAmount = validation.parsedAmount;
@@ -151,7 +151,7 @@ module.exports = {
                     .setDescription(`Failed to create game session: ${sessionResult.error}`)
                     .setColor(0xFF0000);
                 
-                return await interaction.reply({ embeds: [embed], ephemeral: true });
+                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
             // Defer reply for animation and image generation
@@ -378,7 +378,7 @@ module.exports = {
             if (interaction.replied || interaction.deferred) {
                 await interaction.editReply({ embeds: [errorEmbed] });
             } else {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
         }
     },
@@ -393,7 +393,7 @@ module.exports = {
             if (!result.success) {
                 return await interaction.followUp({
                     content: result.error || 'An error occurred during the bonus game.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -416,7 +416,7 @@ module.exports = {
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
                     content: 'An error occurred during the bonus game.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
         }

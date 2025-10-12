@@ -79,29 +79,29 @@ function parseAmount(amountStr) {
  */
 function resolveAmount(amount, walletAmount, minAmount = 1, maxAmount = null) {
     if (typeof amount === 'number') {
-        return amount;
+        return Math.floor(amount);
     }
     
     const maxAllowed = maxAmount || walletAmount;
     
     if (amount === 'all') {
-        return Math.min(walletAmount, maxAllowed);
+        return Math.floor(Math.min(walletAmount, maxAllowed));
     }
     
     if (amount === 'half') {
-        return Math.min(Math.floor(walletAmount / 2 * 100) / 100, maxAllowed);
+        return Math.floor(Math.min(walletAmount / 2, maxAllowed));
     }
     
     if (amount === 'quarter') {
-        return Math.min(Math.floor(walletAmount / 4 * 100) / 100, maxAllowed);
+        return Math.floor(Math.min(walletAmount / 4, maxAllowed));
     }
     
     if (amount === 'min') {
-        return minAmount;
+        return Math.floor(minAmount);
     }
     
     const parsed = parseAmount(amount);
-    return parsed !== null ? Math.min(parsed, maxAllowed) : null;
+    return parsed !== null ? Math.floor(Math.min(parsed, maxAllowed)) : null;
 }
 
 /**

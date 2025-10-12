@@ -61,7 +61,7 @@ module.exports = {
                 .setColor('#ff0000')
                 .setTitle('❌ Access Denied')
                 .setDescription('Only authorized users can update cogs.');
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         try {
@@ -100,7 +100,7 @@ module.exports = {
             if (interaction.replied || interaction.deferred) {
                 await interaction.editReply({ embeds: [embed] });
             } else {
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
         }
     },
@@ -240,7 +240,7 @@ async function handleUpdate(interaction) {
                 .setColor('#ff0000')
                 .setTitle('❌ Invalid Cog')
                 .setDescription(`Cog category '${name}' does not exist.`);
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
     }
 
@@ -459,7 +459,7 @@ async function handlePanel(interaction) {
     await interaction.reply({
         embeds: [embed],
         components: [selectRow, buttons],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
     });
 }
 

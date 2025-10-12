@@ -281,7 +281,7 @@ async function sendPrivateHandsToPlayers(game, interaction) {
                 // For the interaction user, use editReply or followUp
                 const messageData = { 
                     embeds: [privateData.embed], 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 };
                 if (privateData.image) {
                     messageData.files = [{ attachment: privateData.image, name: 'private-hand.png' }];
@@ -341,7 +341,7 @@ async function updateGameStateForAllPlayers(game, interaction) {
             const privateData = await createPrivatePlayerEmbed(game, interaction.user.id);
             const messageData = { 
                 embeds: [privateData.embed], 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             };
             if (privateData.image) {
                 messageData.files = [{ attachment: privateData.image, name: 'private-hand.png' }];
@@ -845,7 +845,7 @@ module.exports = {
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'texasholdem');
             if (!maintenanceCheck.allowed) {
-                return await interaction.reply({ embeds: [maintenanceCheck.embed], ephemeral: true });
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
             }
 
             // Check if game already exists in this channel
@@ -866,7 +866,7 @@ module.exports = {
                         const privateData = await createPrivatePlayerEmbed(existingGame, userId);
                         const messageData = { 
                             embeds: [privateData.embed], 
-                            ephemeral: true 
+                            flags: MessageFlags.Ephemeral 
                         };
                         if (privateData.image) {
                             messageData.files = [{ attachment: privateData.image, name: 'private-hand.png' }];
@@ -890,7 +890,7 @@ module.exports = {
                     .setDescription(check.message)
                     .setColor(0xFF0000)
                     .setTimestamp();
-                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
             // Parse and validate buy-in amount
@@ -902,7 +902,7 @@ module.exports = {
                     .setTitle('❌ Invalid Buy-in')
                     .setDescription(`Buy-in must be at least ${fmt(MIN_BUY_IN)}`)
                     .setColor(0xFF0000);
-                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
             
             if (buyInAmount > MAX_BUY_IN) {
@@ -910,7 +910,7 @@ module.exports = {
                     .setTitle('❌ Invalid Buy-in')
                     .setDescription(`Buy-in cannot exceed ${fmt(MAX_BUY_IN)}`)
                     .setColor(0xFF0000);
-                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
             // Check if user has sufficient funds
@@ -920,7 +920,7 @@ module.exports = {
                     .setTitle('❌ Insufficient Funds')
                     .setDescription(`You need ${fmt(buyInAmount)} but only have ${fmt(totalFunds)}`)
                     .setColor(0xFF0000);
-                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
             // Initialize AI systems
@@ -969,7 +969,7 @@ module.exports = {
                 .setColor(0xFF0000);
 
             if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {
                 logger.warn('Cannot send main execute error reply - interaction not repliable or already handled');
             }
@@ -990,7 +990,7 @@ module.exports = {
                 if (interaction.isRepliable()) {
                     return await interaction.reply({ 
                         content: 'No active Texas Hold\'em game found in this channel.', 
-                        ephemeral: true 
+                        flags: MessageFlags.Ephemeral 
                     });
                 } else {
                     logger.warn('Cannot send game not found reply - interaction not repliable');
@@ -1008,7 +1008,7 @@ module.exports = {
                         if (interaction.isRepliable()) {
                             return await interaction.reply({ 
                                 content: 'You are already in the game!', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral 
                             });
                         } else {
                             logger.warn('Cannot send already in game reply - interaction not repliable');
@@ -1020,7 +1020,7 @@ module.exports = {
                         if (interaction.isRepliable()) {
                             return await interaction.reply({ 
                                 content: 'Cannot join game in progress.', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral 
                             });
                         } else {
                             logger.warn('Cannot send join in progress reply - interaction not repliable');
@@ -1038,7 +1038,7 @@ module.exports = {
                     );
 
                     if (!validation.isValid) {
-                        return await interaction.reply({ embeds: [validation.errorEmbed], ephemeral: true });
+                        return await interaction.reply({ embeds: [validation.errorEmbed], flags: MessageFlags.Ephemeral });
                     }
 
                     // Add player to game
@@ -1061,7 +1061,7 @@ module.exports = {
                         if (interaction.isRepliable()) {
                             return await interaction.reply({ 
                                 content: 'You are not in the game!', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral 
                             });
                         } else {
                             logger.warn('Cannot send not in game reply - interaction not repliable');
@@ -1093,7 +1093,7 @@ module.exports = {
                         if (interaction.isRepliable()) {
                             return await interaction.reply({ 
                                 content: 'Only the game creator can start the game!', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral 
                             });
                         } else {
                             logger.warn('Cannot send creator only reply - interaction not repliable');
@@ -1105,7 +1105,7 @@ module.exports = {
                         if (interaction.isRepliable()) {
                             return await interaction.reply({ 
                                 content: `Need at least ${game.minPlayers} players to start!`, 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral 
                             });
                         } else {
                             logger.warn('Cannot send min players reply - interaction not repliable');
@@ -1134,7 +1134,7 @@ module.exports = {
                     if (game.creatorId !== userId) {
                         return await interaction.reply({ 
                             content: 'Only the game creator can cancel the game!', 
-                            ephemeral: true 
+                            flags: MessageFlags.Ephemeral 
                         });
                     }
 
@@ -1169,7 +1169,7 @@ module.exports = {
                         if (interaction.isRepliable()) {
                             return await interaction.reply({ 
                                 content: 'Game is not active!', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral 
                             });
                         } else {
                             logger.warn('Cannot send game not active reply - interaction not repliable');
@@ -1181,7 +1181,7 @@ module.exports = {
                         if (interaction.isRepliable()) {
                             return await interaction.reply({ 
                                 content: 'It\'s not your turn!', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral 
                             });
                         } else {
                             logger.warn('Cannot send not your turn reply - interaction not repliable');
@@ -1228,7 +1228,7 @@ module.exports = {
                         if (interaction.isRepliable()) {
                             return await interaction.reply({ 
                                 content: 'Game is not active!', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral 
                             });
                         } else {
                             logger.warn('Cannot send game not active reply - interaction not repliable');
@@ -1240,7 +1240,7 @@ module.exports = {
                         if (interaction.isRepliable()) {
                             return await interaction.reply({ 
                                 content: 'It\'s not your turn!', 
-                                ephemeral: true 
+                                flags: MessageFlags.Ephemeral 
                             });
                         } else {
                             logger.warn('Cannot send not your turn reply - interaction not repliable');
@@ -1256,7 +1256,7 @@ module.exports = {
                         const minBet = Math.max(game.currentBet + game.minRaise, callAmount + game.minRaise);
                         const maxBet = player.chipCount + player.currentBet;
                         if (minBet > maxBet) {
-                            return await interaction.reply({ content: 'Insufficient chips to raise.', ephemeral: true });
+                            return await interaction.reply({ content: 'Insufficient chips to raise.', flags: MessageFlags.Ephemeral });
                         }
                         const modal = createCustomAmountModal(BETTING_ACTIONS.RAISE, minBet, maxBet);
                         await interaction.showModal(modal);
@@ -1273,13 +1273,13 @@ module.exports = {
                             }
                             await interaction.update(messageData);
                             const privateData = await createPrivatePlayerEmbed(game, userId);
-                            const privateMessageData = { embeds: [privateData.embed], ephemeral: true };
+                            const privateMessageData = { embeds: [privateData.embed], flags: MessageFlags.Ephemeral };
                             if (privateData.image) {
                                 privateMessageData.files = [{ attachment: privateData.image, name: 'private-hand.png' }];
                             }
                             await interaction.followUp(privateMessageData);
                         } else {
-                            return await interaction.reply({ content: 'Invalid betting action!', ephemeral: true });
+                            return await interaction.reply({ content: 'Invalid betting action!', flags: MessageFlags.Ephemeral });
                         }
                     }
                     break;
@@ -1290,7 +1290,7 @@ module.exports = {
                     if (!game.gameActive || !game.readyForNextHand) {
                         return await interaction.reply({ 
                             content: 'Cannot continue - game is not ready for next hand!', 
-                            ephemeral: true 
+                            flags: MessageFlags.Ephemeral 
                         });
                     }
                     
@@ -1308,7 +1308,7 @@ module.exports = {
                     if (!game.players.has(userId)) {
                         return await interaction.reply({ 
                             content: 'You are not in the game!', 
-                            ephemeral: true 
+                            flags: MessageFlags.Ephemeral 
                         });
                     }
                     
@@ -1345,14 +1345,14 @@ module.exports = {
                     if (!game.gameActive) {
                         return await interaction.reply({ 
                             content: 'No active game to check hand!', 
-                            ephemeral: true 
+                            flags: MessageFlags.Ephemeral 
                         });
                     }
 
                     const privateData = await createPrivatePlayerEmbed(game, userId);
                     const messageData = { 
                         embeds: [privateData.embed], 
-                        ephemeral: true 
+                        flags: MessageFlags.Ephemeral 
                     };
                     if (privateData.image) {
                         messageData.files = [{ attachment: privateData.image, name: 'private-hand.png' }];
@@ -1392,7 +1392,7 @@ module.exports = {
                         .setTimestamp();
 
                     if (interaction.isRepliable()) {
-                        await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
+                        await interaction.reply({ embeds: [helpEmbed], flags: MessageFlags.Ephemeral });
                     } else {
                         logger.warn('Cannot send help reply - interaction not repliable');
                     }
@@ -1404,7 +1404,7 @@ module.exports = {
                     if (interaction.isRepliable()) {
                         await interaction.reply({ 
                             content: 'Unknown action!', 
-                            ephemeral: true 
+                            flags: MessageFlags.Ephemeral 
                         });
                     } else {
                         logger.warn('Cannot send unknown action reply - interaction not repliable');
@@ -1418,7 +1418,7 @@ module.exports = {
             if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
                 await interaction.reply({ 
                     content: '❌ Error processing action. Please try again.', 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
             } else {
                 logger.warn('Cannot send action error reply - interaction not repliable or already handled');
@@ -1437,7 +1437,7 @@ module.exports = {
                 if (interaction.isRepliable()) {
                     return await interaction.reply({ 
                         content: 'No active game found!', 
-                        ephemeral: true 
+                        flags: MessageFlags.Ephemeral 
                     });
                 } else {
                     logger.warn('Cannot send no active game reply - interaction not repliable');
@@ -1449,7 +1449,7 @@ module.exports = {
                 if (interaction.isRepliable()) {
                     return await interaction.reply({ 
                         content: 'It\'s not your turn!', 
-                        ephemeral: true 
+                        flags: MessageFlags.Ephemeral 
                     });
                 } else {
                     logger.warn('Cannot send not your turn reply - interaction not repliable');
@@ -1483,7 +1483,7 @@ module.exports = {
                 if (interaction.isRepliable()) {
                     return await interaction.reply({ 
                         content: 'Invalid amount!', 
-                        ephemeral: true 
+                        flags: MessageFlags.Ephemeral 
                     });
                 } else {
                     logger.warn('Cannot send invalid amount reply - interaction not repliable');
@@ -1507,7 +1507,7 @@ module.exports = {
             if (interaction.isRepliable()) {
                 await interaction.reply({ 
                     content: `❌ Error: ${error.message}`, 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
             } else {
                 logger.warn('Cannot send bet error reply - interaction not repliable');
@@ -1526,14 +1526,14 @@ module.exports = {
             if (!game || !game.gameActive) {
                 return await interaction.reply({ 
                     content: 'No active game found!', 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
             }
 
             if (!game.isPlayerTurn(userId)) {
                 return await interaction.reply({ 
                     content: 'It\'s not your turn!', 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
             }
 
@@ -1543,7 +1543,7 @@ module.exports = {
             if (!amount || amount <= 0) {
                 return await interaction.reply({ 
                     content: 'Please enter a valid amount!', 
-                    ephemeral: true 
+                    flags: MessageFlags.Ephemeral 
                 });
             }
 
@@ -1562,7 +1562,7 @@ module.exports = {
             
             await interaction.reply({ 
                 content: `❌ Error: ${error.message}`, 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
     }

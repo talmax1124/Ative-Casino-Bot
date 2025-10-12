@@ -23,7 +23,7 @@ module.exports = {
                     .setColor(0xF39C12)
                     .setFooter({ text: 'ATIVE Casino Bot Setup', iconURL: interaction.client?.user?.displayAvatarURL() || null });
                 
-                return await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                return await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             }
 
             // Create new setup wizard instance
@@ -79,7 +79,7 @@ module.exports = {
                 return await interaction.reply({ 
                     embeds: [rerunEmbed], 
                     components: [row],
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -92,7 +92,7 @@ module.exports = {
             await interaction.reply({
                 embeds: step1Response.embeds,
                 components: step1Response.components,
-                ephemeral: true // Keep setup private to reduce clutter
+                flags: MessageFlags.Ephemeral // Keep setup private to reduce clutter
             });
 
             // Log the setup start
@@ -125,7 +125,7 @@ module.exports = {
                 .setFooter({ text: '🛠️ Setup Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
                 .setTimestamp();
 
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }
     }
 };

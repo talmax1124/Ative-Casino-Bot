@@ -449,14 +449,14 @@ class ScratchTicketSystem {
             if (!ticket) {
                 return await interaction.reply({
                     content: '❌ This scratch ticket is no longer available.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
             if (ticket.status !== 'active' || ticket.user_id !== 'UNCLAIMED') {
                 return await interaction.reply({
                     content: '❌ This scratch ticket has already been claimed or expired.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -477,7 +477,7 @@ class ScratchTicketSystem {
             } else {
                 await interaction.reply({
                     content: '❌ Failed to claim the ticket. Please try again.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -485,7 +485,7 @@ class ScratchTicketSystem {
             logger.error(`Error claiming ticket: ${error.message}`);
             await interaction.reply({
                 content: '❌ An error occurred while claiming the ticket.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -602,14 +602,14 @@ class ScratchTicketSystem {
             if (!ticket || ticket.user_id !== userId) {
                 return await interaction.reply({
                     content: '❌ This is not your scratch ticket.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
             if (ticket.status !== 'scratching') {
                 return await interaction.reply({
                     content: '❌ This scratch ticket is no longer active.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -622,7 +622,7 @@ class ScratchTicketSystem {
             if (scratchedPositions.includes(position)) {
                 return await interaction.reply({
                     content: '❌ You already scratched this position.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -689,7 +689,7 @@ class ScratchTicketSystem {
             logger.error(`Error scratching position: ${error.message}`);
             await interaction.reply({
                 content: '❌ An error occurred while scratching.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }
@@ -860,7 +860,7 @@ class ScratchTicketSystem {
                 if (!interaction.replied && !interaction.deferred) {
                     await interaction.reply({
                         content: '❌ An error occurred while processing your request.',
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             } catch (replyError) {
@@ -876,7 +876,7 @@ class ScratchTicketSystem {
         try {
             // Defer the interaction immediately to prevent timeouts
             if (!interaction.deferred && !interaction.replied) {
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             }
             
             logger.info(`[SCRATCH DEBUG] User ${interaction.user.tag} (${interaction.user.id}) attempting to claim ticket ${ticketId}`);
@@ -940,7 +940,7 @@ class ScratchTicketSystem {
                     content: null,
                     embeds: scratchEmbed.embeds,
                     components: scratchEmbed.components,
-                    ephemeral: false
+                    flags: 0
                 });
                 
                 logger.info(`User ${interaction.user.tag} (${interaction.user.id}) successfully claimed scratch ticket ${ticketId}`);

@@ -32,7 +32,7 @@ module.exports = {
             if (targetUser.id !== interaction.user.id && !isAdmin) {
                 return await SafeInteractionHandler.safeReply(interaction, {
                     embeds: [this.createErrorEmbed('❌ Access Denied', 'You can only release your own sessions. Admins can target other users.')],
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -44,7 +44,7 @@ module.exports = {
             
             await SafeInteractionHandler.safeReply(interaction, { 
                 embeds: [errorEmbed], 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
     },
@@ -53,7 +53,7 @@ module.exports = {
      * Release sessions for a specific user
      */
     async releaseUserSessions(interaction, targetUser) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             const userSessions = sessionManager.getUserSessions(targetUser.id).filter(s => s.state === 'active');
@@ -203,7 +203,7 @@ module.exports = {
 
         const row = new ActionRowBuilder().addComponents(selectMenu);
 
-        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+        await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
     },
 
     /**
@@ -269,7 +269,7 @@ module.exports = {
 
         const row = new ActionRowBuilder().addComponents(selectMenu);
 
-        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+        await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
     },
 
     /**
@@ -295,7 +295,7 @@ module.exports = {
             return await interaction.showModal(modal);
         }
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             let clearedCount = 0;
@@ -443,7 +443,7 @@ module.exports = {
 
         const row = new ActionRowBuilder().addComponents(selectMenu);
 
-        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+        await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
     },
 
     /**
@@ -466,7 +466,7 @@ module.exports = {
         if (confirmation !== 'RELEASE') {
             return await interaction.reply({
                 embeds: [this.createErrorEmbed('❌ Invalid Confirmation', 'You must type "RELEASE" to confirm this action.')],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -493,7 +493,7 @@ module.exports = {
                     if (!isAdmin) {
                         return await interaction.reply({
                             embeds: [this.createErrorEmbed('❌ Access Denied', 'Administrator permissions required.')],
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                     return await this.showAdminPanel(interaction);
@@ -502,7 +502,7 @@ module.exports = {
                     if (!isAdmin) {
                         return await interaction.reply({
                             embeds: [this.createErrorEmbed('❌ Access Denied', 'Administrator permissions required.')],
-                            ephemeral: true
+                            flags: MessageFlags.Ephemeral
                         });
                     }
                     return await this.showSystemOverview(interaction);
@@ -521,7 +521,7 @@ module.exports = {
             logger.error(`Release menu interaction error: ${error.message}`);
             
             const errorEmbed = this.createErrorEmbed('❌ Action Failed', 'An error occurred while processing the action.');
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }
     },
 
@@ -592,7 +592,7 @@ module.exports = {
         if (interaction.replied || interaction.deferred) {
             await interaction.editReply({ embeds: [embed], components: [row] });
         } else {
-            await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+            await interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
         }
     },
 
@@ -607,7 +607,7 @@ module.exports = {
                 if (!isDeveloper) {
                     return await interaction.reply({
                         embeds: [this.createErrorEmbed('❌ Access Denied', 'Developer permissions required.')],
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
                 return await this.performForceCleanup(interaction);
@@ -616,7 +616,7 @@ module.exports = {
                 if (!isDeveloper) {
                     return await interaction.reply({
                         embeds: [this.createErrorEmbed('❌ Access Denied', 'Developer permissions required.')],
-                        ephemeral: true
+                        flags: MessageFlags.Ephemeral
                     });
                 }
                 return await this.performEmergencyClearAll(interaction);
@@ -630,7 +630,7 @@ module.exports = {
      * Perform force cleanup of stale sessions
      */
     async performForceCleanup(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             const result = { staleSessions: 0, cleaned: 0 };
@@ -683,11 +683,11 @@ module.exports = {
         if (confirmation !== 'EMERGENCY CLEAR') {
             return await interaction.reply({
                 embeds: [this.createErrorEmbed('❌ Invalid Confirmation', 'You must type "EMERGENCY CLEAR" to confirm this action.')],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             // Clear session manager

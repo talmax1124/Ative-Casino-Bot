@@ -120,7 +120,7 @@ module.exports = {
             const maintenanceGuard = require('../UTILS/maintenanceGuard');
             const maintenanceCheck = await maintenanceGuard.check(guildId, 'battleship');
             if (!maintenanceCheck.allowed) {
-                return await interaction.reply({ embeds: [maintenanceCheck.embed], ephemeral: true });
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: MessageFlags.Ephemeral });
             }
 
             // Session guard check
@@ -128,7 +128,7 @@ module.exports = {
             const check = await sessionGuard.check(userId, guildId, 'battleship', interaction.client);
             if (!check.allowed) {
                 const embed = UITemplates.createErrorEmbed('❌ Session Error', check.message);
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
             // Prevent multiple games in same channel
@@ -142,7 +142,7 @@ module.exports = {
                     '❌ Game Already Active',
                     `A Battleship game is already running here.\n\n**Players:**\n\`\`\`${playerList}\`\`\``
                 );
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
@@ -161,7 +161,7 @@ module.exports = {
             if (!validation.isValid) {
                 await interaction.reply({
                     embeds: [validation.errorEmbed],
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
                 return;
             }
@@ -187,7 +187,7 @@ module.exports = {
             
             if (!sessionResult.success) {
                 const embed = UITemplates.createErrorEmbed('❌ Session Error', `Failed to create game session: ${sessionResult.error}`);
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                 return;
             }
 
@@ -233,7 +233,7 @@ module.exports = {
                 );
             } catch (_) {}
             const embed = UITemplates.createErrorEmbed('❌ Game Error', 'Failed to start Battleship game.');
-            await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => {});
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => {});
         }
     },
 
@@ -245,7 +245,7 @@ module.exports = {
         const game = getBattleshipGame(channelId);
         if (!game) {
             const embed = UITemplates.createErrorEmbed('❌ No Active Game', 'No active Battleship game found in this channel.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -284,13 +284,13 @@ module.exports = {
                     const messageLink = `https://discord.com/channels/${interaction.guildId}/${game.channelId}/${game.message.id}`;
                     await interaction.reply({ 
                         content: `🎮 **[Click here to go to the main game panel](${messageLink})**\n\nUse the Attack button on the main panel to make your move!`,
-                        ephemeral: true 
+                        flags: MessageFlags.Ephemeral 
                     });
                     break;
                     
                 case 'help':
                     const helpEmbed = BattleshipGameSession.createHelpEmbed();
-                    await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
+                    await interaction.reply({ embeds: [helpEmbed], flags: MessageFlags.Ephemeral });
                     break;
                     
                 case 'place_ship':
@@ -317,7 +317,7 @@ module.exports = {
                         await this.handleCancelAttack(interaction);
                     } else {
                         const embed = UITemplates.createErrorEmbed('❌ Unknown Action', 'Unknown Battleship action.');
-                        await interaction.reply({ embeds: [embed], ephemeral: true });
+                        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
                     }
             }
 
@@ -334,7 +334,7 @@ module.exports = {
             } catch (_) {}
             const embed = UITemplates.createErrorEmbed('❌ Button Error', 'Error processing button action.');
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
         }
     },
@@ -344,19 +344,19 @@ module.exports = {
         
         if (game.state !== 'lobby') {
             const embed = UITemplates.createErrorEmbed('❌ Game Started', 'Game has already started.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
         
         if (game.players.has(userId)) {
             const embed = UITemplates.createErrorEmbed('❌ Already Joined', 'You are already in this game.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
         
         if (game.players.size >= 2) {
             const embed = UITemplates.createErrorEmbed('❌ Game Full', 'Game is full (2 players maximum).');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -372,7 +372,7 @@ module.exports = {
         if (!joinValidation.isValid) {
             await interaction.reply({
                 embeds: [joinValidation.errorEmbed],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
             return;
         }
@@ -381,7 +381,7 @@ module.exports = {
         const activeGame = getUserGame(userId);
         if (activeGame) {
             const embed = UITemplates.createErrorEmbed('❌ Already In Game', 'You are already in another game! Finish it first.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -390,7 +390,7 @@ module.exports = {
         const check = await sessionGuard.check(userId, guildId, 'battleship', interaction.client);
         if (!check.allowed) {
             const embed2 = UITemplates.createErrorEmbed('❌ Session Error', check.message);
-            await interaction.reply({ embeds: [embed2], ephemeral: true });
+            await interaction.reply({ embeds: [embed2], flags: MessageFlags.Ephemeral });
             return;
         }
         // Proceed to create session
@@ -412,7 +412,7 @@ module.exports = {
         
         if (!sessionResult.success) {
             const embed = UITemplates.createErrorEmbed('❌ Session Error', `Failed to create game session: ${sessionResult.error}`);
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -423,7 +423,7 @@ module.exports = {
             // Refund on failure using PayoutManager
             await PayoutManager.refundBet(userId, guildId, game.betAmount, 'Failed to join Battleship game');
             const embed = UITemplates.createErrorEmbed('❌ Join Failed', 'Failed to join the game.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -436,7 +436,7 @@ module.exports = {
         if (game.players.size === 2) {
             await interaction.followUp({ 
                 content: '⚓ **All aboard!** Game is ready to start. Host can begin the battle!',
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
     },
@@ -444,13 +444,13 @@ module.exports = {
     async handleStart(interaction, game) {
         if (interaction.user.id !== game.hostUser.id) {
             const embed = UITemplates.createErrorEmbed('❌ Host Only', 'Only the host can start the game.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
         
         if (!game.canStart()) {
             const embed = UITemplates.createErrorEmbed('❌ Cannot Start', 'Need exactly 2 players to start.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
         
@@ -458,7 +458,7 @@ module.exports = {
         const success = game.startPlacement();
         if (!success) {
             const embed = UITemplates.createErrorEmbed('❌ Error', 'Failed to start game. Please try again.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
         
@@ -484,13 +484,13 @@ module.exports = {
         
         if (!game.players.has(userId)) {
             const embed = UITemplates.createErrorEmbed('❌ Not In Game', 'You are not a player in this game.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
         
         if (game.state !== 'placing') {
             const embed = UITemplates.createErrorEmbed('❌ Wrong Phase', 'Ship placement is not available right now.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -541,7 +541,7 @@ module.exports = {
             footer: 'Private ship placement • Strategic deployment'
         }).setImage('attachment://placement.png');
 
-        await interaction.reply({ embeds: [placementEmbed], files: [attachment], components: [row], ephemeral: true });
+        await interaction.reply({ embeds: [placementEmbed], files: [attachment], components: [row], flags: MessageFlags.Ephemeral });
     },
 
     async handleAttack(interaction, game) {
@@ -549,19 +549,19 @@ module.exports = {
         
         if (!game.players.has(userId)) {
             const embed = UITemplates.createErrorEmbed('❌ Not In Game', 'You are not a player in this game.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
         
         if (game.state !== 'playing') {
             const embed = UITemplates.createErrorEmbed('❌ Wrong Phase', 'The battle has not started yet.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
         
         if (game.currentTurn !== userId) {
             const embed = UITemplates.createErrorEmbed('❌ Not Your Turn', 'Wait for your turn to attack.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -590,7 +590,7 @@ module.exports = {
         
         if (!game.players.has(userId)) {
             const embed = UITemplates.createErrorEmbed('❌ Not In Game', 'You are not a player in this game.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -641,7 +641,7 @@ module.exports = {
             .setFooter({ text: 'Private fleet view • ATIVE Casino' });
 
         const attachment = new AttachmentBuilder(boardImage, { name: 'fleet.png' });
-        await interaction.reply({ embeds: [embed], files: [attachment], ephemeral: true });
+        await interaction.reply({ embeds: [embed], files: [attachment], flags: MessageFlags.Ephemeral });
     },
 
     async handleViewBoard(interaction, game) {
@@ -649,7 +649,7 @@ module.exports = {
         
         if (!game.players.has(userId)) {
             const embed = UITemplates.createErrorEmbed('❌ Not In Game', 'You are not a player in this game.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -695,7 +695,7 @@ module.exports = {
             footer: 'Private fleet overview • Your ships and positions • ATIVE Casino'
         }).setImage('attachment://boards.png');
 
-        await interaction.reply({ embeds: [viewEmbed], files: [attachment], ephemeral: true });
+        await interaction.reply({ embeds: [viewEmbed], files: [attachment], flags: MessageFlags.Ephemeral });
     },
 
     /**
@@ -764,19 +764,19 @@ module.exports = {
         
         if (!game.players.has(userId)) {
             const embed = UITemplates.createErrorEmbed('❌ Not In Game', 'You are not a player in this game.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
         
         if (game.state !== 'playing') {
             const embed = UITemplates.createErrorEmbed('❌ Wrong Phase', 'The battle has not started yet.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
         
         if (game.currentTurn !== userId) {
             const embed = UITemplates.createErrorEmbed('❌ Not Your Turn', 'Wait for your turn to attack.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -784,7 +784,7 @@ module.exports = {
         const selection = this.attackSelections.get(userId);
         if (!selection || typeof selection.row !== 'number' || typeof selection.col !== 'number') {
             const embed = UITemplates.createErrorEmbed('❌ Select Target', 'Please select both row and column first using the dropdowns above.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -800,7 +800,7 @@ module.exports = {
 
         if (result === 'already_attacked') {
             const embed = UITemplates.createErrorEmbed('❌ Already Attacked', `You already attacked ${coord.label}.`);
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -848,7 +848,7 @@ module.exports = {
         }
 
         // Send attack result
-        await interaction.reply({ content: resultMessage, ephemeral: true });
+        await interaction.reply({ content: resultMessage, flags: MessageFlags.Ephemeral });
     },
 
     /**
@@ -977,7 +977,7 @@ module.exports = {
             // Send result message to the player who made the winning move
             await interaction.reply({ 
                 content: resultMessage + `\n\n🎉 **CONGRATULATIONS!** You've won the battle!`, 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
 
             // Try to update database stats if available
@@ -1014,7 +1014,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
             logger.error(`Error handling game win: ${error.message}`);
             await interaction.followUp({ 
                 content: 'Game completed but there was an error processing the results.', 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
     },
@@ -1027,7 +1027,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
         
         if (!currentShip) {
             const embed = UITemplates.createErrorEmbed('❌ All Ships Placed', 'All ships are already placed.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1115,7 +1115,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
         const replyData = {
             embeds: [embed],
             components,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         };
 
         if (boardImage) {
@@ -1264,14 +1264,14 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
         
         if (playerBoard.allShipsPlaced()) {
             const embed = UITemplates.createErrorEmbed('❌ Ships Already Placed', 'Your ships are already placed.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
         const success = await autoPlaceAllShips(playerBoard);
         if (!success) {
             const embed = UITemplates.createErrorEmbed('❌ Auto-Placement Failed', 'Auto-placement failed. Try manual placement.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1293,7 +1293,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
             color: 0x00FF00
         }).setImage('attachment://placement.png');
 
-        await interaction.reply({ embeds: [successEmbed], files: [attachment], ephemeral: true });
+        await interaction.reply({ embeds: [successEmbed], files: [attachment], flags: MessageFlags.Ephemeral });
     },
 
     async handleReady(interaction, game) {
@@ -1302,7 +1302,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
         
         if (!playerBoard.allShipsPlaced()) {
             const embed = UITemplates.createErrorEmbed('❌ Ships Not Placed', 'You must place all ships first.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1337,7 +1337,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
                 color: 0xFF0000
             });
             
-            await interaction.reply({ embeds: [readyEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [readyEmbed], flags: MessageFlags.Ephemeral });
 
             // Send turn notification to current player
             await this.sendTurnNotification(game, interaction.client);
@@ -1348,7 +1348,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
                 color: 0xFFA500
             });
             
-            await interaction.reply({ embeds: [waitEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [waitEmbed], flags: MessageFlags.Ephemeral });
         }
     },
 
@@ -1360,7 +1360,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
         
         if (!game) {
             const embed = UITemplates.createErrorEmbed('❌ No Active Game', 'No active Battleship game found.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1371,13 +1371,13 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
                 await this.handleAttackModal(interaction, game, guildId);
             } else {
                 const embed = UITemplates.createErrorEmbed('❌ Unknown Modal', 'Unknown modal interaction.');
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
         } catch (error) {
             logger.error(`Battleship modal error: ${error.message}`);
             const embed = UITemplates.createErrorEmbed('❌ Modal Error', 'Error processing modal submission.');
             if (!interaction.replied) {
-                await interaction.reply({ embeds: [embed], ephemeral: true });
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
         }
     },
@@ -1389,7 +1389,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
         
         if (!currentShip) {
             const embed = UITemplates.createErrorEmbed('❌ No Ship to Place', 'All ships are already placed.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1401,14 +1401,14 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
         
         if (!coord || !direction) {
             const embed = UITemplates.createErrorEmbed('❌ Invalid Input', 'Invalid coordinate or direction. Use A1-J10 and H/V.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
         const success = playerBoard.placeShip(currentShip, coord.row, coord.col, direction);
         if (!success) {
             const embed = UITemplates.createErrorEmbed('❌ Invalid Placement', 'Cannot place ship there (overlapping or out of bounds).');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1434,7 +1434,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
             color: 0x00FF00
         }).setImage('attachment://placement.png');
 
-        await interaction.reply({ embeds: [successEmbed], files: [attachment], ephemeral: true });
+        await interaction.reply({ embeds: [successEmbed], files: [attachment], flags: MessageFlags.Ephemeral });
     },
 
     async handleAttackModal(interaction, game, guildId) {
@@ -1443,7 +1443,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
         
         if (game.currentTurn !== userId) {
             const embed = UITemplates.createErrorEmbed('❌ Not Your Turn', 'Wait for your turn to attack.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1452,7 +1452,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
         
         if (!coord) {
             const embed = UITemplates.createErrorEmbed('❌ Invalid Coordinate', 'Invalid coordinate. Use A1-J10 format.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1462,7 +1462,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
 
         if (result === 'already_attacked') {
             const embed = UITemplates.createErrorEmbed('❌ Already Attacked', `You already attacked ${coord.label}.`);
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1574,7 +1574,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
                 footer: winningForSomeoneElse ? `Winnings sent to @${playForRecipient}` : undefined
             });
             
-            await interaction.reply({ embeds: [winEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [winEmbed], flags: MessageFlags.Ephemeral });
             removeBattleshipGame(channelId);
             return;
         }
@@ -1609,7 +1609,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
             color: embedColor
         });
         
-        await interaction.reply({ embeds: [attackEmbed], ephemeral: true });
+        await interaction.reply({ embeds: [attackEmbed], flags: MessageFlags.Ephemeral });
     },
 
     async handleConfirmPlacement(interaction, game) {
@@ -1619,14 +1619,14 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
 
         if (!selection || typeof selection.row !== 'number' || typeof selection.col !== 'number' || typeof selection.direction !== 'number') {
             const embed = UITemplates.createErrorEmbed('❌ Incomplete Selection', 'Please select row, column, and direction first.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
         const currentShip = playerBoard.getCurrentShip();
         if (!currentShip) {
             const embed = UITemplates.createErrorEmbed('❌ No Ship to Place', 'All ships have been placed.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1635,7 +1635,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
         
         if (!success) {
             const embed = UITemplates.createErrorEmbed('❌ Invalid Placement', 'Cannot place ship at that location. Try a different position.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 
@@ -1663,7 +1663,7 @@ const { secureRandomBool, secureRandomInt } = require('../UTILS/rng');
 
         if (!selection || typeof selection.attackRow !== 'number' || typeof selection.attackCol !== 'number') {
             const embed = UITemplates.createErrorEmbed('❌ Incomplete Selection', 'Please select target row and column first.');
-            await interaction.reply({ embeds: [embed], ephemeral: true });
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             return;
         }
 

@@ -108,7 +108,7 @@ module.exports = {
                 .setColor(0xFF0000)
                 .setTimestamp();
             
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         const subcommand = interaction.options.getSubcommand();
@@ -147,7 +147,7 @@ module.exports = {
                 .setTimestamp();
 
             if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
             } else {
                 await interaction.editReply({ embeds: [errorEmbed] });
             }
@@ -166,7 +166,7 @@ module.exports = {
     async handleCreateBackup(interaction) {
         const type = interaction.options.getString('type') || 'full';
         
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const embed = new EmbedBuilder()
             .setTitle('🔄 Creating Backup')
@@ -222,7 +222,7 @@ module.exports = {
     async handleListBackups(interaction) {
         const limit = interaction.options.getInteger('limit') || 10;
         
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             const backupManager = new BackupManager();
@@ -267,7 +267,7 @@ module.exports = {
     },
 
     async handleStatus(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             const backupManager = new BackupManager();
@@ -316,10 +316,10 @@ module.exports = {
                 .setColor(0xFFFF00)
                 .setTimestamp();
 
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const warningEmbed = new EmbedBuilder()
             .setTitle('⚠️ DANGEROUS OPERATION')
@@ -371,7 +371,7 @@ module.exports = {
     async handleSchedule(interaction) {
         const action = interaction.options.getString('action');
         
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             const scheduler = new BackupScheduler();
@@ -434,7 +434,7 @@ module.exports = {
     async handleCloud(interaction) {
         const action = interaction.options.getString('action');
         
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             const cloudStorage = new CloudStorage();

@@ -4668,6 +4668,33 @@ class DatabaseAdapter {
     }
 
     /**
+     * Get marriage stock portfolio
+     */
+    async getMarriageStockPortfolio(marriageId) {
+        try {
+            const query = `
+                SELECT symbol, shares, average_price, total_invested
+                FROM marriage_stock_portfolio 
+                WHERE marriage_id = ?
+                ORDER BY total_invested DESC
+            `;
+            
+            const [rows] = await this.pool.execute(query, [marriageId]);
+            
+            return rows.map(row => ({
+                symbol: row.symbol,
+                shares: row.shares,
+                averagePrice: row.average_price,
+                totalInvested: row.total_invested
+            }));
+            
+        } catch (error) {
+            logger.error(`Error getting marriage stock portfolio: ${error.message}`);
+            return [];
+        }
+    }
+
+    /**
      * Debug method to check what's in the task completions table
      */
     async debugTaskCompletions(marriageId) {

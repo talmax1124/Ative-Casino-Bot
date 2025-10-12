@@ -1877,6 +1877,16 @@ class DatabaseManager {
     }
 
     /**
+     * Get marriage stock portfolio
+     */
+    async getMarriageStockPortfolio(marriageId) {
+        if (this.usingAdapter) {
+            return await this.databaseAdapter.getMarriageStockPortfolio(marriageId);
+        }
+        return [];
+    }
+
+    /**
      * Get marriage task history
      */
     async getMarriageTaskHistory(marriageId, limit = 10) {

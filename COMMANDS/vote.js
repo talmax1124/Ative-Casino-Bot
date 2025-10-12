@@ -25,7 +25,7 @@ module.exports = {
             console.error('Vote command error:', error);
             await interaction.reply({
                 content: '❌ An error occurred while processing the vote command.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     },
@@ -58,7 +58,7 @@ module.exports = {
             console.error('Error showing unified vote interface:', error);
             await interaction.reply({
                 content: '❌ Failed to load voting interface.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     },
@@ -300,7 +300,7 @@ module.exports = {
                 console.error('Collector error:', error);
                 await SafeInteractionHandler.safeReply(i, {
                     content: '❌ An error occurred while processing your request.',
-                    ephemeral: true
+                    flags: MessageFlags.Ephemeral
                 });
             }
         });
@@ -546,7 +546,7 @@ module.exports = {
             console.error('Error showing leaderboard:', error);
             await interaction.reply({
                 content: '❌ Failed to load leaderboard.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     },
@@ -667,7 +667,7 @@ module.exports = {
         await interaction.reply({
             embeds: [reminderEmbed],
             components: [menuRow],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
 
         // Collect the selection

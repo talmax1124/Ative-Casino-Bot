@@ -171,7 +171,7 @@ module.exports = {
                 .setDescription('You need at least 2 options for a poll.')
                 .setColor(0xFF0000);
             
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         if (options.length > 10) {
@@ -180,7 +180,7 @@ module.exports = {
                 .setDescription('Polls can have at most 10 options.')
                 .setColor(0xFF0000);
             
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         // Parse duration
@@ -191,7 +191,7 @@ module.exports = {
                 .setDescription('Duration must be in format like "30m", "2h", or "1d".')
                 .setColor(0xFF0000);
             
-            return await interaction.reply({ embeds: [embed], ephemeral: true });
+            return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         try {
@@ -264,7 +264,7 @@ module.exports = {
                 .setDescription('Failed to create poll. Please try again.')
                 .setColor(0xFF0000);
 
-            await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
         }
     }
 };
@@ -287,7 +287,7 @@ module.exports.buttonHandlers = {
         if (!pollData || !pollData.active) {
             return await interaction.reply({ 
                 content: 'This poll is no longer active.', 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
 
@@ -295,7 +295,7 @@ module.exports.buttonHandlers = {
         if (pollData.voters.includes(userId)) {
             return await interaction.reply({ 
                 content: 'You have already voted in this poll.', 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
 
@@ -319,7 +319,7 @@ module.exports.buttonHandlers = {
         // Send confirmation
         await interaction.followUp({ 
             content: `✅ Your vote for "${pollData.options[optionIndex]}" has been recorded!`, 
-            ephemeral: true 
+            flags: MessageFlags.Ephemeral 
         });
     },
 
@@ -329,7 +329,7 @@ module.exports.buttonHandlers = {
         if (!await hasModPermissions(interaction.member)) {
             return await interaction.reply({ 
                 content: 'You need mod/admin permissions to end polls.', 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
 
@@ -346,7 +346,7 @@ module.exports.buttonHandlers = {
         if (!pollData || !pollData.active) {
             return await interaction.reply({ 
                 content: 'This poll is already ended.', 
-                ephemeral: true 
+                flags: MessageFlags.Ephemeral 
             });
         }
 

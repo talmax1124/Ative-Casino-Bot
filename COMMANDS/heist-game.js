@@ -121,7 +121,7 @@ module.exports = {
                     .setTitle('🔒 Developer Only')
                     .setDescription('This command is restricted to developers only.')
                     .setColor(0xFF0000);
-                return await interaction.reply({ embeds: [embed], ephemeral: true });
+                return await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
 
             // Defer reply immediately

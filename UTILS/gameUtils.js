@@ -218,6 +218,9 @@ class PayoutManager {
             });
         }
         
+        // Ensure bet amount is an integer for currency consistency
+        parsedAmount = Math.floor(parsedAmount);
+        
         // Check minimum bet
         if (parsedAmount < minBet) {
             return new ValidationResult({
@@ -330,6 +333,9 @@ class PayoutManager {
                 errorEmbed: buildInvalidBetEmbed('Bet amount must be greater than 0.')
             });
         }
+        
+        // Ensure bet amount is an integer for currency consistency
+        parsedAmount = Math.floor(parsedAmount);
         
         // Check minimum bet
         if (parsedAmount < minBet) {
