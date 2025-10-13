@@ -352,40 +352,30 @@ module.exports = {
                 logger.info(`🎛️ SLOTS TUNING: ${baseResult.payout} -> ${regulatedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
             }
             
-            // Apply transparent payout system - show full multiplier in UI but adjust actual payout
-            const transparentResult = await transparentPayoutManager.calculateHonestPayout(
-                userId,
-                'slots',
-                betAmount,
-                baseResult.multiplier,
-                { symbols, winType: baseResult.type }
+            // Calculate transparent multiplier for display
+            const transparentMultiplier = transparentPayoutManager.calculateTransparentMultiplier(
+                baseResult.multiplier, 
+                'slots'
             );
             
-            // Validate transparent payout result to prevent NaN propagation
-            if (isNaN(transparentResult.actualPayout) || !isFinite(transparentResult.actualPayout) || 
-                isNaN(transparentResult.displayedMultiplier) || !isFinite(transparentResult.displayedMultiplier)) {
-                logger.error(`Invalid transparent payout result: actualPayout=${transparentResult.actualPayout}, displayedMultiplier=${transparentResult.displayedMultiplier}, betAmount=${betAmount}`);
-                throw new Error('Invalid transparent payout calculation - game cancelled');
-            }
-            
-            // Combine AI multiplier with transparent payout - AI takes precedence for actual payout
-            const finalActualPayout = aiAdjustedResult.won ? Math.min(aiAdjustedPayout, transparentResult.actualPayout) : 0;
+            // Final payout is the AI-adjusted payout
+            const finalActualPayout = aiAdjustedResult.won ? aiAdjustedPayout : 0;
             
             // Final validation to prevent NaN values from reaching PayoutManager
             if (isNaN(finalActualPayout) || !isFinite(finalActualPayout)) {
-                logger.error(`Invalid final payout calculation: finalActualPayout=${finalActualPayout}, aiAdjustedPayout=${aiAdjustedPayout}, transparentPayout=${transparentResult.actualPayout}`);
+                logger.error(`Invalid final payout calculation: finalActualPayout=${finalActualPayout}, aiAdjustedPayout=${aiAdjustedPayout}`);
                 throw new Error('Invalid final payout calculation - game cancelled');
             }
             
-            // Use UI multiplier for display, AI-adjusted payout for winnings
+            // Use transparent multiplier for display, AI-adjusted payout for winnings
             const result = {
                 ...baseResult,
-                multiplier: transparentResult.displayedMultiplier,  // Show transparent multiplier
+                multiplier: transparentMultiplier,  // Show transparent multiplier
                 payout: Math.max(0, Math.round(finalActualPayout * 100) / 100), // Ensure non-negative with consistent rounding
-                displayMultiplier: transparentResult.displayedMultiplier,
+                displayMultiplier: transparentMultiplier,
                 actualMultiplier: baseResult.multiplier,
                 aiMultiplier: aiMultiplier,                  // Track AI adjustment
-                transparentPayout: transparentResult.actualPayout
+                transparentPayout: finalActualPayout
             };
 
             // Update session with spin results
@@ -488,7 +478,7 @@ module.exports = {
                     payout: result.payout,
                     won: result.won,
                     multiplier: result.multiplier,
-                    houseEdgeApplied: transparentResult?.houseEdge || null,
+                    houseEdgeApplied: null,
                     userWealthBefore: userBalance?.wallet || null,
                     userWealthAfter: finalBalanceForExport?.wallet || null,
                     metadata: {

@@ -655,7 +655,8 @@ class BulletproofEconomyController {
             // FORCED STREAK BREAKING - Nuclear option
             if (this.shouldForceStreakBreak(userId, won, originalPayout)) {
                 adjustmentMultiplier *= 0.2; // 80% reduction - basically force a loss
-                console.log(`💥 FORCED STREAK BREAK applied to user ${userId} - Extreme penalty`);
+                // Log forced streak break (only to file, not console spam)
+                logger.info(`[ECONOMY] Forced streak break applied to user ${userId}`);
                 
                 // Log this extreme action
                 try {

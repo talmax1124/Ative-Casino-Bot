@@ -770,10 +770,22 @@ class DatabaseAdapter {
             const safeUserId = userId ?? null;
             const safeGuildId = guildId ?? null;
 
+            // Ensure off_economy_users table exists
+            await this.ensureOffEconomyTable();
+
             const rows = await this.executeQuery(
-                'SELECT * FROM user_balances WHERE user_id = ?', 
+                `SELECT ub.*, COALESCE(o.active, 0) AS off_economy
+                 FROM user_balances ub
+                 LEFT JOIN off_economy_users o ON o.user_id = ub.user_id
+                 WHERE ub.user_id = ?`, 
                 [safeUserId]
             );
+            
+            // Debug logging for off-economy detection
+            if (rows.length > 0) {
+                const debugOffEconomy = rows[0].off_economy;
+                logger.debug(`Off-economy check for user ${safeUserId}: ${debugOffEconomy} (type: ${typeof debugOffEconomy})`);
+            }
             
             if (rows.length > 0) {
                 const row = rows[0];
@@ -3990,12 +4002,42 @@ class DatabaseAdapter {
      * @param {boolean} offEconomyStatus - New off-economy status (true = off economy, false = on economy)
      * @returns {boolean} Success status
      */
+    /**
+     * Ensure off_economy_users table exists
+     */
+    async ensureOffEconomyTable() {
+        try {
+            await this.executeQuery(`
+                CREATE TABLE IF NOT EXISTS off_economy_users (
+                    user_id VARCHAR(255) PRIMARY KEY,
+                    active TINYINT(1) DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            `);
+        } catch (error) {
+            logger.error(`Failed to ensure off_economy_users table: ${error.message}`);
+        }
+    }
+
     async toggleOffEconomy(userId, offEconomyStatus) {
         try {
-            await this.executeQuery(
-                'UPDATE user_balances SET off_economy = ? WHERE user_id = ?',
-                [offEconomyStatus, userId]
-            );
+            // Ensure table exists first
+            await this.ensureOffEconomyTable();
+            
+            if (offEconomyStatus) {
+                // Add user to off_economy_users table
+                await this.executeQuery(
+                    'INSERT INTO off_economy_users (user_id, active) VALUES (?, 1) ON DUPLICATE KEY UPDATE active = 1',
+                    [userId]
+                );
+            } else {
+                // Remove user from off_economy_users table or set inactive
+                await this.executeQuery(
+                    'INSERT INTO off_economy_users (user_id, active) VALUES (?, 0) ON DUPLICATE KEY UPDATE active = 0',
+                    [userId]
+                );
+            }
             
             logger.info(`Toggled off-economy status for ${userId} to ${offEconomyStatus}`);
             return true;

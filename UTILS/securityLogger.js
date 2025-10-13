@@ -11,30 +11,30 @@ class SecurityLogger {
     constructor() {
         this.suspiciousActivity = new Map(); // Track per user
         this.alertThresholds = {
-            highWinStreak: 15,        // 15 wins in a row (was 10)
-            rapidBetting: 60,         // 60 bets in 5 minutes (was 30) - warning only
-            severeBetting: 100,       // 100 bets in 5 minutes triggers lockout (was 50)
-            extremeBetting: 200,      // 200 bets in 5 minutes triggers extended lockout (was 100)
-            largeWinAmount: 500000,   // 500K+ single win (was 100K)
-            totalWinToday: 5000000,   // 5M+ total wins today (was 1M)
+            highWinStreak: 25,        // 25 wins in a row (increased from 15)
+            rapidBetting: 150,        // 150 bets in 5 minutes (increased from 60) - warning only
+            severeBetting: 300,       // 300 bets in 5 minutes triggers lockout (increased from 100)
+            extremeBetting: 500,      // 500 bets in 5 minutes triggers extended lockout (increased from 200)
+            largeWinAmount: 1000000,  // 1M+ single win (increased from 500K)
+            totalWinToday: 10000000,  // 10M+ total wins today (increased from 5M)
             negativeBalance: -1       // Any negative balance
         };
         this.userActivityWindows = new Map(); // Track activity windows
         this.cleanupInterval = setInterval(() => this.cleanup(), 300000); // Cleanup every 5 minutes
 
         // Alert throttling
-        this.alertCooldownMs = 30000; // 30s cooldown between identical alerts per user
+        this.alertCooldownMs = 120000; // 2 minute cooldown between identical alerts per user (increased from 30s)
         this.lastAlertTime = new Map(); // key: `${userId}:${type}` -> timestamp
         this.lastRapidBetAlertCount = new Map(); // userId -> last count that triggered alert
         
         // Progressive lockout system
         this.lockouts = new Map(); // userId -> { until: timestamp, level: number, violations: number }
         this.lockoutDurations = {
-            1: 30000,      // Level 1: 30 seconds (was 1 minute)
-            2: 120000,     // Level 2: 2 minutes (was 5 minutes)
-            3: 300000,     // Level 3: 5 minutes (was 15 minutes)
-            4: 900000,     // Level 4: 15 minutes (was 1 hour)
-            5: 3600000     // Level 5: 1 hour (was 24 hours)
+            1: 15000,      // Level 1: 15 seconds (reduced from 30s)
+            2: 60000,      // Level 2: 1 minute (reduced from 2m)
+            3: 180000,     // Level 3: 3 minutes (reduced from 5m)
+            4: 600000,     // Level 4: 10 minutes (reduced from 15m)
+            5: 1800000     // Level 5: 30 minutes (reduced from 1h)
         };
         
         // ADVANCED PATTERN DETECTION
@@ -327,8 +327,14 @@ class SecurityLogger {
 
             const alertMessage = this.buildAlertMessage(userId, suspiciousPattern);
             
-            // Log to console and file (single line to avoid duplicates)
-            logger.error(`🚨 SECURITY ALERT: ${suspiciousPattern.type} - User: ${userId} - Details: ${suspiciousPattern.details}`);
+            // Log based on severity level to reduce console spam
+            if (suspiciousPattern.severity === 'CRITICAL') {
+                logger.error(`🚨 SECURITY ALERT: ${suspiciousPattern.type} - User: ${userId} - Details: ${suspiciousPattern.details}`);
+            } else if (suspiciousPattern.severity === 'HIGH') {
+                logger.warn(`⚠️ Security Alert: ${suspiciousPattern.type} - User: ${userId} - Details: ${suspiciousPattern.details}`);
+            } else {
+                logger.info(`🔍 Security Notice: ${suspiciousPattern.type} - User: ${userId} - Details: ${suspiciousPattern.details}`);
+            }
             
             // Send to Discord admin channel
             if (global.discordClient) {

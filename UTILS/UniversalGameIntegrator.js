@@ -210,7 +210,7 @@ class UniversalGameIntegrator {
                 success: true,
                 originalPayout,
                 adjustedPayout,
-                finalPayout: transparentResult.finalPayout || adjustedPayout,
+                finalPayout: adjustedPayout,
                 economyAdjustments: this.bulletproofEconomy ? true : false
             };
 

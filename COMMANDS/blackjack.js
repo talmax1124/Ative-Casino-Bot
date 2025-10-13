@@ -1292,15 +1292,11 @@ module.exports = {
             // Check if this is a playfor game - disable buttons if so
             const isPlayforGame = global.playForContext?.recipientId;
             
-            // Enhanced interaction update with validation
+            // Send final result without buttons first
             const finalData = {
                 content: resultMessage || `🎰 Game Complete - Total Payout: ${fmt(finalPayout)}`,
                 embeds: [finalEmbed],
-                components: isPlayforGame ? [] : GamePanel.createGameButtons({ 
-                    actions: ['play_again_multi', 'quit'],
-                    lastBet: game.betAmount,
-                    balance: updatedBalance.wallet
-                })
+                components: []
             };
             
             if (tableImage) {
@@ -1327,6 +1323,23 @@ module.exports = {
                 
                 // Don't attempt any fallback replies - just log the error
                 // The game logic completed successfully, interaction update just failed
+            }
+
+            // Send play again buttons in a separate message (if not a playfor game)
+            if (!isPlayforGame) {
+                try {
+                    await interaction.followUp({
+                        content: '🎮 **Ready for another round?**',
+                        components: GamePanel.createGameButtons({ 
+                            actions: ['play_again_multi', 'quit'],
+                            lastBet: game.betAmount,
+                            balance: updatedBalance.wallet
+                        }),
+                        ephemeral: false
+                    });
+                } catch (playAgainError) {
+                    logger.warn(`Failed to send play again buttons: ${playAgainError.message}`);
+                }
             }
 
             // Complete session if game has one
