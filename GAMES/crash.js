@@ -44,6 +44,10 @@ try {
     logger.warn(`Bulletproof Economy not available: ${e.message}`);
 }
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const gameIntegrator = new UniversalGameIntegrator('crash');
+
 // Global crash parameters
 const GLOBAL_CRASH_MIN = 0.6; // Start multiplier
 const GLOBAL_CRASH_MAX = 2.0; // Absolute cap

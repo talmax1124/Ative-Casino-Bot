@@ -88,6 +88,11 @@ const gamePanelUtil = new GamePanelUtil();
  * Create game embed with consistent styling using gameSessionKit
  */
 async function createGameEmbed(game, user, showDealer = false, balance = null, economicIndicators = null, regulatedPayout = null) {
+    // Extract userId from user parameter
+    const userId = user ? user.id : null;
+    const guildId = game ? game.guildId : null;
+    const betAmount = game ? game.betAmount : 0;
+    
     // Economy badge removed - using bulletproof economy system
     // Check for playfor context
     const playForRecipient = global.playForContext?.recipientName;

@@ -31,6 +31,10 @@ try {
     logger.warn(`Crash: Bulletproof Economy not available: ${e.message}`);
 }
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const gameIntegrator = new UniversalGameIntegrator('crash');
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('crash')

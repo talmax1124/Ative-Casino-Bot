@@ -12,6 +12,11 @@ const sessionGuard = require('./sessionGuard');
 const BulletproofEconomyController = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
 const logger = require('./logger');
 
+// Singleton instance for shared bulletproof economy
+let sharedBulletproofEconomy = null;
+let economyInitialized = false;
+let economyInitializing = false;
+
 class UniversalGameIntegrator {
     constructor(gameName) {
         this.gameName = gameName;
@@ -21,15 +26,41 @@ class UniversalGameIntegrator {
     }
 
     /**
-     * Initialize bulletproof economy for this game
+     * Initialize bulletproof economy for this game (shared singleton)
      */
     async initializeBulletproofEconomy() {
         try {
-            this.bulletproofEconomy = new BulletproofEconomyController();
-            await this.bulletproofEconomy.initialize();
+            // Use shared instance to prevent multiple initializations
+            if (economyInitialized) {
+                this.bulletproofEconomy = sharedBulletproofEconomy;
+                this.initialized = true;
+                return;
+            }
+
+            if (economyInitializing) {
+                // Wait for ongoing initialization
+                while (economyInitializing) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                this.bulletproofEconomy = sharedBulletproofEconomy;
+                this.initialized = true;
+                return;
+            }
+
+            // First initialization
+            if (!sharedBulletproofEconomy) {
+                economyInitializing = true;
+                sharedBulletproofEconomy = new BulletproofEconomyController();
+                await sharedBulletproofEconomy.initialize();
+                economyInitialized = true;
+                economyInitializing = false;
+                logger.info(`✅ Bulletproof Economy initialized (shared instance)`);
+            }
+
+            this.bulletproofEconomy = sharedBulletproofEconomy;
             this.initialized = true;
-            logger.info(`✅ ${this.gameName}: Bulletproof Economy initialized`);
         } catch (error) {
+            economyInitializing = false;
             logger.warn(`⚠️ ${this.gameName}: Bulletproof Economy initialization failed: ${error.message}`);
         }
     }
@@ -105,6 +136,29 @@ class UniversalGameIntegrator {
      */
     async processGameResult(gameData) {
         const { userId, guildId, gameType, betAmount, originalPayout, won } = gameData;
+
+        // Validate required parameters
+        if (!userId) {
+            logger.error(`Game result processing failed for ${gameType}: userId is not defined`);
+            return {
+                success: false,
+                error: 'userId is not defined',
+                originalPayout: originalPayout || 0,
+                adjustedPayout: originalPayout || 0,
+                finalPayout: originalPayout || 0
+            };
+        }
+
+        if (!gameType) {
+            logger.error(`Game result processing failed: gameType is not defined for user ${userId}`);
+            return {
+                success: false,
+                error: 'gameType is not defined',
+                originalPayout: originalPayout || 0,
+                adjustedPayout: originalPayout || 0,
+                finalPayout: originalPayout || 0
+            };
+        }
 
         try {
             // Log game result for security monitoring

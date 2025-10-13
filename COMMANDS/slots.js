@@ -19,6 +19,10 @@ const tuningManager = require('../UTILS/tuningManager');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 const uasDataExporter = require('../UTILS/uasDataExporter');
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const gameIntegrator = new UniversalGameIntegrator('slots');
+
 // SLOTS DIFFICULTY MODES - Progressive risk/reward system
 const SLOTS_MODES = {
     safe: {
@@ -50,7 +54,10 @@ const SLOTS_MODES = {
 /**
  * Create slots result embed using gameSessionKit style
  */
-async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWallet, aiResult = null) {
+async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWallet, guildId = null, aiResult = null) {
+    // Extract userId for game result processing
+    const userId = user ? user.id : null;
+    
     // Economy badge removed - using bulletproof economy system
     const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
     
@@ -559,6 +566,7 @@ module.exports = {
                             betAmount,
                             currentBalance,
                             oldWallet,
+                            guildId,
                             aiResult
                         );
                         

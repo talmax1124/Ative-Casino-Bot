@@ -57,10 +57,10 @@ class BuffaloBonusSession {
         // BULLETPROOF ECONOMY AND SECURITY PROCESSING
         try {
             const gameResult = await gameIntegrator.processGameResult({
-                userId,
-                guildId,
+                userId: this.userId,
+                guildId: this.guildId,
                 gameType: 'multi-slots',
-                betAmount,
+                betAmount: this.bonusBetAmount,
                 originalPayout: result.payout || 0,
                 won: result.won || false
             });

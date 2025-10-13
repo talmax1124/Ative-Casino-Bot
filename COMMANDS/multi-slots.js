@@ -23,6 +23,10 @@ const sessionManager = require('../UTILS/sessionManager');
 const logger = require('../UTILS/logger');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const gameIntegrator = new UniversalGameIntegrator('multi-slots');
+
 // PROGRESSIVE DIFFICULTY MODES
 const MULTI_SLOTS_MODES = {
     safe: {

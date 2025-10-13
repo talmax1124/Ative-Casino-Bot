@@ -9,6 +9,10 @@ const { fmt, sendLogMessage } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const adaptiveGameMechanics = require('../UTILS/adaptiveGameMechanics');
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const gameIntegrator = new UniversalGameIntegrator('plinko');
+
 class PlinkoGameSession {
     constructor(userId, username, betAmount, channelId, mode = 'easy', currentWealth = 0) {
         this.userId = userId;

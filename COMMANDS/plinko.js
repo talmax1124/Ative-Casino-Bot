@@ -16,6 +16,10 @@ const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
 const uasDataExporter = require('../UTILS/uasDataExporter');
 const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const gameIntegrator = new UniversalGameIntegrator('plinko');
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('plinko')

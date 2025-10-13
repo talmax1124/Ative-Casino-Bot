@@ -14,6 +14,10 @@ const logger = require('../UTILS/logger');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 const tuningManager = require('../UTILS/tuningManager');
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const gameIntegrator = new UniversalGameIntegrator('russianroulette');
+
 // Russian Roulette Configuration
 const ROULETTE_CONFIG = {
     MIN_BET: 50,           // Minimum $50 entry

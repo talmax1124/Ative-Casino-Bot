@@ -137,11 +137,22 @@ module.exports = {
             
             const amount = validation.amount;
             
+            // Check if user has exemption roles (Admin, Developer, Moderator)
+            const member = interaction.member;
+            const hasExemptRole = member && member.roles.cache.some(role => {
+                const roleName = role.name.toLowerCase();
+                return roleName.includes('admin') || 
+                       roleName.includes('developer') || 
+                       roleName.includes('moderator') ||
+                       roleName.includes('mod');
+            });
+
             // SECURITY FIX: Atomic limit check and pre-increment to prevent race conditions
             const DAILY_SEND_LIMIT = 45000000;
             const newDailySent = dailySent + amount;
             
-            if (newDailySent > DAILY_SEND_LIMIT) {
+            // Apply daily limit only to non-exempt users
+            if (!hasExemptRole && newDailySent > DAILY_SEND_LIMIT) {
                 const remaining = DAILY_SEND_LIMIT - dailySent;
                 await interaction.editReply({
                     content: `❌ **Daily Send Limit Reached!**\n\n` +
@@ -153,23 +164,26 @@ module.exports = {
                 return;
             }
 
-            // SECURITY FIX: Pre-increment daily_sent in database to claim the limit atomically
-            const preIncrementSuccess = await dbManager.updateUserBalance(
-                senderId,
-                guildId,
-                0, // No wallet change yet
-                0, // No bank change yet
-                {
-                    daily_sent: newDailySent,
-                    last_send_reset: now
-                }
-            );
+            // SECURITY FIX: Pre-increment daily_sent in database for non-exempt users only
+            let preIncrementSuccess = true;
+            if (!hasExemptRole) {
+                preIncrementSuccess = await dbManager.updateUserBalance(
+                    senderId,
+                    guildId,
+                    0, // No wallet change yet
+                    0, // No bank change yet
+                    {
+                        daily_sent: newDailySent,
+                        last_send_reset: now
+                    }
+                );
 
-            if (!preIncrementSuccess) {
-                await interaction.editReply({
-                    content: '❌ Failed to update send limit. Please try again.'
-                });
-                return;
+                if (!preIncrementSuccess) {
+                    await interaction.editReply({
+                        content: '❌ Failed to update send limit. Please try again.'
+                    });
+                    return;
+                }
             }
 
             // Invalidate cache after pre-increment
@@ -303,25 +317,27 @@ module.exports = {
                 }
 
             } else {
-                // SECURITY FIX: Rollback daily_sent increment if transfer fails
-                await dbManager.updateUserBalance(
-                    senderId,
-                    guildId,
-                    0, // No wallet change
-                    0, // No bank change
-                    {
-                        daily_sent: dailySent, // Rollback to original value
-                        last_send_reset: now
+                // SECURITY FIX: Rollback daily_sent increment if transfer fails (only for non-exempt users)
+                if (!hasExemptRole) {
+                    await dbManager.updateUserBalance(
+                        senderId,
+                        guildId,
+                        0, // No wallet change
+                        0, // No bank change
+                        {
+                            daily_sent: dailySent, // Rollback to original value
+                            last_send_reset: now
+                        }
+                    );
+                    
+                    // Invalidate cache after rollback
+                    try {
+                        const nodeCache = require('../UTILS/nodeCache');
+                        const cacheKey = `casino:balance:${senderId}:${guildId}`;
+                        await nodeCache.del(cacheKey);
+                    } catch (cacheError) {
+                        logger.debug(`Rollback cache invalidation failed: ${cacheError.message}`);
                     }
-                );
-                
-                // Invalidate cache after rollback
-                try {
-                    const nodeCache = require('../UTILS/nodeCache');
-                    const cacheKey = `casino:balance:${senderId}:${guildId}`;
-                    await nodeCache.del(cacheKey);
-                } catch (cacheError) {
-                    logger.debug(`Rollback cache invalidation failed: ${cacheError.message}`);
                 }
                 
                 throw new Error(transferResult.error || 'Transfer failed');

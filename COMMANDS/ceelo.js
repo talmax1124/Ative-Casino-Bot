@@ -14,6 +14,10 @@ const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 const tuningManager = require('../UTILS/tuningManager');
 const uasDataExporter = require('../UTILS/uasDataExporter');
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const gameIntegrator = new UniversalGameIntegrator('ceelo');
+
 // CEELO Configuration - IMPROVED: Restored fair 1:1 payouts
 const CEELO_CONFIG = {
     MIN_BET: 5,            // Minimum $5 entry

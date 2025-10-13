@@ -18,6 +18,10 @@ const levelingSystem = require('../UTILS/levelingSystem');
 const tuningManager = require('../UTILS/tuningManager');
 const allInManager = require('../UTILS/allInManager');
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const gameIntegrator = new UniversalGameIntegrator('mines');
+
 // Game type constant
 const SMGameType = { MINES: 'mines' };
 

@@ -22,6 +22,10 @@ const logger = require('../UTILS/logger');
 const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 const tuningManager = require('../UTILS/tuningManager');
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const gameIntegrator = new UniversalGameIntegrator('bingo');
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('bingo')
