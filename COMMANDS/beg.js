@@ -1,6 +1,6 @@
 /**
  * Beg command for earning small amounts of money
- * 1K-10K range with 1 hour cooldown
+ * 5K-50K range with no cooldown
  */
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
@@ -17,7 +17,7 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('beg')
-        .setDescription('Beg for coins (5K-50K every hour)'),
+        .setDescription('Beg for coins (5K-50K with no cooldown)'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -30,31 +30,7 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // Independent cooldown - no global restriction
-
-            // Check beg-specific cooldown (1 hour)
-            const now = Date.now() / 1000;
-            const lastBeg = balance.last_beg_ts || 0;
-            const cooldown = 3600; // 1 hour
-
-            if (now - lastBeg < cooldown) {
-                const remainingTime = Math.ceil(cooldown - (now - lastBeg));
-                const hours = Math.floor(remainingTime / 3600);
-                const minutes = Math.floor((remainingTime % 3600) / 60);
-                const seconds = remainingTime % 60;
-
-                const embed = buildSessionEmbed({
-                    title: `🤲 ${username}'s Begging Status`,
-                    topFields: [
-                        { name: '⏰ Already Begged', value: `You already begged recently!\nCome back in ${hours}h ${minutes}m ${seconds}s` }
-                    ],
-                    stageText: 'ON COOLDOWN',
-                    color: 0xFFAA00,
-                    footer: 'Beg Command • 1 hour cooldown'
-                });
-
-                return await interaction.editReply({ embeds: [embed] });
-            }
+            // No cooldown restrictions - beg anytime!
 
             // Beg scenarios (5K-50K range)
             const begScenarios = [
@@ -99,11 +75,9 @@ module.exports = {
             // Process payout through modern payout manager
             const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
             
-            // Update balance and timestamp
+            // Update balance (no timestamp needed)
             const newWallet = balance.wallet + totalEarning;
-            await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank, {
-                last_beg_ts: now
-            });
+            await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank);
 
 
             // Build earnings display with tuning and booster bonus if applicable
@@ -129,7 +103,7 @@ module.exports = {
             const bankFields = [
                 { name: 'Amount Received', value: fmt(totalEarning), inline: true },
                 { name: 'Current Balance', value: fmt(newWallet), inline: true },
-                { name: boosterInfo.isBooster ? '🚀 Booster Status' : 'Next Beg Available', value: boosterInfo.isBooster ? 'Active (+5%)' : 'In 1 hour', inline: true }
+                { name: boosterInfo.isBooster ? '🚀 Booster Status' : 'Beg Status', value: boosterInfo.isBooster ? 'Active (+5%)' : 'Ready to beg again!', inline: true }
             ];
 
             // Stage text for current status
@@ -142,7 +116,7 @@ module.exports = {
                 bankFields,
                 stageText,
                 color: 0x32CD32,
-                footer: '🤲 Beg • 1 hour cooldown • ATIVE Casino'
+                footer: '🤲 Beg • No cooldown • ATIVE Casino'
             });
 
             await interaction.editReply({ embeds: [embed] });

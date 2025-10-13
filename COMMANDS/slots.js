@@ -268,6 +268,20 @@ module.exports = {
             });
         }
 
+        // Get balance adjustments for display purposes
+        const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.4, betAmount * modeConfig.maxMultiplier, 0.25);
+        if (balanceAdjustments) {
+            logger.debug(`Balance adjustments for ${username}: ${JSON.stringify(balanceAdjustments)}`);
+        }
+
+        // Security logging with balance context
+        await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+            amount: betAmount,
+            game: 'slots',
+            mode: mode,
+            balanceAdjustments: balanceAdjustments
+        }, guildId);
+
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
             const oldWallet = validation.newWallet + betAmount; // Wallet before bet
 

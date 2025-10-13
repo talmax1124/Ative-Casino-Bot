@@ -10,6 +10,8 @@ const securityLogger = require('./securityLogger');
 const tuningManager = require('./tuningManager');
 const sessionGuard = require('./sessionGuard');
 const BulletproofEconomyController = require('../BULLETPROOF_ECONOMY/BulletproofEconomyController');
+const balanceBasedAdjuster = require('./balanceBasedAdjuster');
+const dbManager = require('./database');
 const logger = require('./logger');
 
 // Singleton instance for shared bulletproof economy
@@ -184,14 +186,21 @@ class UniversalGameIntegrator {
                 adjustedPayout = economyResult.adjustedPayout || originalPayout;
             }
 
-            // Process through transparent payout manager
-            const transparentResult = await transparentPayoutManager.processGamePayout({
-                userId,
-                guildId,
+            // Verify payout transparency (ensure what's displayed matches what's paid)
+            const transparentMultiplier = transparentPayoutManager.calculateTransparentMultiplier(
+                adjustedPayout / betAmount, 
+                gameType
+            );
+            
+            // Record payout audit for transparency
+            transparentPayoutManager.recordPayoutAudit(userId, {
                 gameType,
                 betAmount,
-                originalPayout: adjustedPayout,
-                won
+                originalPayout,
+                adjustedPayout,
+                displayedMultiplier: transparentMultiplier,
+                actualPayout: adjustedPayout,
+                timestamp: Date.now()
             });
 
             // Record for tuning manager
@@ -218,11 +227,41 @@ class UniversalGameIntegrator {
     }
 
     /**
-     * Enhanced random distribution for game outcomes
+     * Enhanced random distribution for game outcomes with balance-based adjustments
      */
-    generateGameOutcome(winProbability, houseEdge = 0.05, playerProfile = null) {
+    async generateGameOutcome(winProbability, houseEdge = 0.05, playerProfile = null, userId = null, guildId = null) {
         // Apply house edge to win probability
-        const adjustedWinProb = winProbability * (1 - houseEdge);
+        let adjustedWinProb = winProbability * (1 - houseEdge);
+        
+        // Apply balance-based adjustments if user info is provided
+        if (userId && guildId) {
+            try {
+                const userBalance = await dbManager.getUserBalance(userId, guildId);
+                const totalBalance = (userBalance.wallet || 0) + (userBalance.bank || 0);
+                const offEconomy = Boolean(userBalance.off_economy);
+                
+                // Get balance-based adjustments
+                const balanceAdjustments = balanceBasedAdjuster.getBalanceAdjustments(
+                    totalBalance, 
+                    adjustedWinProb, 
+                    0, // payout will be calculated separately
+                    houseEdge,
+                    offEconomy
+                );
+                
+                // Apply balance-based win rate adjustment
+                adjustedWinProb = balanceAdjustments.adjustedWinRate;
+                
+                // Log the adjustment for transparency
+                balanceBasedAdjuster.logBalanceAdjustment(userId, this.gameName, balanceAdjustments);
+                
+                // Store adjustment info for later use
+                this.lastBalanceAdjustment = balanceAdjustments;
+                
+            } catch (error) {
+                logger.warn(`Failed to apply balance-based adjustments: ${error.message}`);
+            }
+        }
         
         // Apply player-specific adjustments
         let finalWinProb = adjustedWinProb;
@@ -243,14 +282,37 @@ class UniversalGameIntegrator {
     }
 
     /**
-     * Calculate payout with mathematical house edge enforcement
+     * Calculate payout with mathematical house edge enforcement and balance-based adjustments
      */
-    calculatePayout(betAmount, multiplier, won, houseEdge = 0.05) {
+    async calculatePayout(betAmount, multiplier, won, houseEdge = 0.05, userId = null, guildId = null) {
         if (!won) return 0;
 
         // Apply house edge to multiplier
-        const adjustedMultiplier = multiplier * (1 - houseEdge);
-        const basePayout = betAmount * adjustedMultiplier;
+        let adjustedMultiplier = multiplier * (1 - houseEdge);
+        let basePayout = betAmount * adjustedMultiplier;
+
+        // Apply balance-based payout adjustments if user info is provided
+        if (userId && guildId) {
+            try {
+                const userBalance = await dbManager.getUserBalance(userId, guildId);
+                const totalBalance = (userBalance.wallet || 0) + (userBalance.bank || 0);
+                const offEconomy = Boolean(userBalance.off_economy);
+                
+                // Get comprehensive balance-based adjustments
+                const balanceAdjustments = balanceBasedAdjuster.getBalanceAdjustments(
+                    totalBalance, 
+                    0.5, // win rate not relevant for payout calculation
+                    basePayout, 
+                    houseEdge,
+                    offEconomy
+                );
+                
+                basePayout = balanceAdjustments.adjustedPayout;
+                
+            } catch (error) {
+                logger.warn(`Failed to apply balance-based payout adjustment: ${error.message}`);
+            }
+        }
 
         // Ensure minimum house edge is maintained
         const impliedEdge = 1 - (basePayout / betAmount);
@@ -264,6 +326,28 @@ class UniversalGameIntegrator {
     }
 
     /**
+     * Get balance-based adjustments for a user
+     */
+    async getBalanceAdjustments(userId, guildId, baseWinRate = 0.5, basePayout = 100, baseHouseEdge = 0.05) {
+        try {
+            const userBalance = await dbManager.getUserBalance(userId, guildId);
+            const totalBalance = (userBalance.wallet || 0) + (userBalance.bank || 0);
+            const offEconomy = Boolean(userBalance.off_economy);
+            
+            return balanceBasedAdjuster.getBalanceAdjustments(
+                totalBalance, 
+                baseWinRate, 
+                basePayout, 
+                baseHouseEdge,
+                offEconomy
+            );
+        } catch (error) {
+            logger.warn(`Failed to get balance adjustments: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
      * Get comprehensive game statistics
      */
     getGameStats() {
@@ -272,6 +356,7 @@ class UniversalGameIntegrator {
             bulletproofEconomyActive: this.initialized,
             securityIntegrated: true,
             csprngEnabled: true,
+            balanceBasedAdjustments: true,
             allSystemsIntegrated: this.initialized
         };
     }

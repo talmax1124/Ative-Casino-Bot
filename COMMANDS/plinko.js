@@ -18,6 +18,7 @@ const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UT
 
 // UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
 const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
 const gameIntegrator = new UniversalGameIntegrator('plinko');
 
 module.exports = {
@@ -131,6 +132,20 @@ module.exports = {
                 ephemeral: true
             });
         }
+
+        // Get balance adjustments for display purposes
+        const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.4, betAmount * 2.0, 0.15);
+        if (balanceAdjustments) {
+            logger.debug(`Balance adjustments for ${username}: ${JSON.stringify(balanceAdjustments)}`);
+        }
+
+        // Security logging with balance context
+        await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+            amount: betAmount,
+            game: 'plinko',
+            mode: selectedMode,
+            balanceAdjustments: balanceAdjustments
+        }, guildId);
 
             const newWalletAfterBet = validationResult.newWallet;
             
@@ -460,13 +475,42 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
         logger.error(`Failed to complete plinko session: ${sessionError.message}`);
     }
 
+    // BULLETPROOF ECONOMY AND SECURITY PROCESSING
+    let processedWinnings = winnings;
+    try {
+        const processedResult = await gameIntegrator.processGameResult({
+            userId,
+            guildId,
+            gameType: 'plinko',
+            betAmount,
+            originalPayout: winnings,
+            won
+        });
+        
+        if (processedResult.success) {
+            processedWinnings = processedResult.finalPayout;
+            
+            // Security logging for game result
+            await securityLogger.logSecurityEvent(userId, won ? 'GAME_WIN' : 'GAME_LOSS', {
+                amount: processedWinnings,
+                game: 'plinko',
+                originalPayout: winnings,
+                adjustedPayout: processedResult.finalPayout,
+                multiplier: finalMultiplier,
+                mode: mode
+            }, guildId);
+        }
+    } catch (gameError) {
+        logger.warn(`Game result processing failed: ${gameError.message}`);
+    }
+
     // Record game result
     const gameResult = new GameResult({
         userId,
         guildId,
         gameType: GameType.PLINKO,
         betAmount,
-        payout: winnings,
+        payout: processedWinnings,
         won,
         metadata: {
             mode,

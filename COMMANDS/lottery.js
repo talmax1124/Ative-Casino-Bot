@@ -223,6 +223,29 @@ module.exports = {
                 return;
             }
 
+            // Enhanced session security check
+            const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'lottery', totalCost);
+            if (!sessionCheck.allowed) {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setColor(0xff0000);
+                await interaction.editReply({ embeds: [errorEmbed] });
+                return;
+            }
+
+            // Get balance adjustments
+            const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.3, totalCost * 0.7, 0.1);
+            
+            // Security logging with balance context
+            await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+                amount: totalCost,
+                game: 'lottery',
+                tier: 1,
+                ticketCount: ticketCount,
+                balanceAdjustments: balanceAdjustments
+            }, guildId);
+
             // Process purchase
             const success = await dbManager.databaseAdapter.purchaseLotteryTickets(userId, guildId, 1, ticketCount);
             
@@ -316,6 +339,29 @@ module.exports = {
                 await interaction.editReply({ embeds: [errorEmbed] });
                 return;
             }
+
+            // Enhanced session security check
+            const sessionCheck = await gameIntegrator.checkGameSession(userId, guildId, 'lottery', totalCost);
+            if (!sessionCheck.allowed) {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Game Access Denied')
+                    .setDescription(sessionCheck.message)
+                    .setColor(0xff0000);
+                await interaction.editReply({ embeds: [errorEmbed] });
+                return;
+            }
+
+            // Get balance adjustments
+            const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.2, totalCost * 0.6, 0.15);
+            
+            // Security logging with balance context
+            await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+                amount: totalCost,
+                game: 'lottery',
+                tier: 2,
+                ticketCount: ticketCount,
+                balanceAdjustments: balanceAdjustments
+            }, guildId);
 
             // Process purchase
             const success = await dbManager.databaseAdapter.purchaseLotteryTickets(userId, guildId, 2, ticketCount);

@@ -25,6 +25,7 @@ const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 
 // UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
 const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
 const gameIntegrator = new UniversalGameIntegrator('multi-slots');
 
 // PROGRESSIVE DIFFICULTY MODES
@@ -142,6 +143,20 @@ module.exports = {
             });
         }
 
+        // Get balance adjustments for display purposes
+        const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.4, betAmount * 3.0, 0.25);
+        if (balanceAdjustments) {
+            logger.debug(`Balance adjustments for ${username}: ${JSON.stringify(balanceAdjustments)}`);
+        }
+
+        // Security logging with balance context
+        await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+            amount: betAmount,
+            game: 'multi-slots',
+            mode: selectedMode,
+            balanceAdjustments: balanceAdjustments
+        }, guildId);
+
             const oldWallet = validation.newWallet + betAmount;
 
             // Create game session
@@ -203,8 +218,18 @@ module.exports = {
                 won: result.won || false
             });
             
-            if (gameResult.success) {
-                result.payout = gameResult.finalPayout;
+            if (processedResult.success) {
+                result.payout = processedResult.finalPayout;
+                
+                // Security logging for game result
+                await securityLogger.logSecurityEvent(userId, result.won ? 'GAME_WIN' : 'GAME_LOSS', {
+                    amount: result.payout,
+                    game: 'multi-slots',
+                    originalPayout: result.originalPayout,
+                    adjustedPayout: processedResult.finalPayout,
+                    multiplier: result.multiplier,
+                    buffaloBonus: buffaloBonus
+                }, guildId);
             }
         } catch (gameError) {
             logger.warn(`Game result processing failed: ${gameError.message}`);

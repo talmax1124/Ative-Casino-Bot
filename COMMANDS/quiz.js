@@ -1,7 +1,7 @@
 /**
  * Quiz command - Answer trivia questions to earn money
  * 3K-8K reward for correct answers
- * 2 hour cooldown
+ * No cooldown restrictions
  */
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -19,7 +19,7 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('quiz')
-        .setDescription('Answer trivia questions to earn money (3K-8K every 2 hours)'),
+        .setDescription('Answer trivia questions to earn money (3K-8K)'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -32,31 +32,7 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // Independent cooldown - no global restriction
-
-            // Check quiz-specific cooldown (2 hours)
-            const now = Date.now() / 1000;
-            const lastQuiz = balance.last_quiz_ts || 0;
-            const cooldown = 7200; // 2 hours
-
-            if (now - lastQuiz < cooldown) {
-                const remainingTime = Math.ceil(cooldown - (now - lastQuiz));
-                const hours = Math.floor(remainingTime / 3600);
-                const minutes = Math.floor((remainingTime % 3600) / 60);
-                const seconds = remainingTime % 60;
-
-                const embed = buildSessionEmbed({
-                    title: `🧠 ${username}'s Quiz Status`,
-                    topFields: [
-                        { name: '⏰ Brain Recharging', value: `Your brain needs a break!\nCome back in ${hours}h ${minutes}m ${seconds}s` }
-                    ],
-                    stageText: 'BRAIN COOLDOWN',
-                    color: 0xFFAA00,
-                    footer: 'Quiz Command • 2 hour cooldown'
-                });
-
-                return await interaction.editReply({ embeds: [embed] });
-            }
+            // No cooldown restrictions - quiz available anytime
 
             // Fun and generic quiz questions database
             const quizQuestions = [
@@ -263,9 +239,7 @@ module.exports = {
                     const currentBank = parseFloat(balance.bank) || 0;
                     const newWallet = currentWallet + totalEarning;
                     
-                    await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
-                        last_quiz_ts: now
-                    });
+                    await dbManager.setUserBalance(userId, guildId, newWallet, currentBank);
 
 
                     // Build success display
@@ -301,11 +275,11 @@ module.exports = {
                         bankFields: [
                             { name: '🧠 Quiz Reward', value: fmt(totalEarning), inline: true },
                             { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                            { name: '📅 Next Quiz', value: 'In 2 hours', inline: true }
+                            { name: '✅ Status', value: 'Quiz Complete', inline: true }
                         ],
                         stageText: 'QUIZ SUCCESS',
                         color: 0x00FF00,
-                        footer: '🧠 Correct Answer! • Come back in 2 hours for another quiz!'
+                        footer: '🧠 Correct Answer! • Ready for another quiz anytime!'
                     });
 
                     await interaction.editReply({ embeds: [successEmbed], components: [] });
@@ -383,9 +357,7 @@ module.exports = {
                     const currentBank = parseFloat(balance.bank) || 0;
                     const newWallet = currentWallet + consolationPrize;
                     
-                    await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
-                        last_quiz_ts: now
-                    });
+                    await dbManager.setUserBalance(userId, guildId, newWallet, currentBank);
 
 
                     const wrongEmbed = buildSessionEmbed({
@@ -399,11 +371,11 @@ module.exports = {
                         bankFields: [
                             { name: '💔 Consolation', value: fmt(consolationPrize), inline: true },
                             { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                            { name: '📅 Next Quiz', value: 'In 2 hours', inline: true }
+                            { name: '♾️ Status', value: 'Try Again', inline: true }
                         ],
                         stageText: 'QUIZ ATTEMPT',
                         color: 0xFF6B6B,
-                        footer: '🧠 Better luck next time! • Come back in 2 hours for another quiz!'
+                        footer: '🧠 Better luck next time! • Ready for another quiz anytime!'
                     });
 
                     await interaction.editReply({ embeds: [wrongEmbed], components: [] });
@@ -463,7 +435,7 @@ module.exports = {
                     ],
                     stageText: 'QUIZ TIMEOUT',
                     color: 0xFFAA00,
-                    footer: 'Quiz Timeout • Try again in 2 hours!'
+                    footer: 'Quiz Timeout • Try again anytime!'
                 });
 
                 await interaction.editReply({ embeds: [timeoutEmbed], components: [] });

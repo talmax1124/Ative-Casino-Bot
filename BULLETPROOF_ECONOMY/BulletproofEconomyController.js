@@ -12,6 +12,8 @@ const GameTrendAnalyzer = require('../UTILS/GameTrendAnalyzer');
 const EnhancedTrendAnalyzer = require('../UTILS/EnhancedTrendAnalyzer');
 const EnhancedEconomicAnalyzer = require('../UTILS/EnhancedEconomicAnalyzer');
 const EconomicOversightSystem = require('../UTILS/economicOversightSystem');
+const balanceBasedAdjuster = require('../UTILS/balanceBasedAdjuster');
+const dbManager = require('../UTILS/database');
 
 const crypto = require('crypto');
 const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
@@ -521,6 +523,32 @@ class BulletproofEconomyController {
             
             // 3. Determine payout adjustment based on multiple factors
             let adjustmentMultiplier = 1.0;
+            
+            // Factor 0: Balance-based adjustments (COMPREHENSIVE INTEGRATION)
+            try {
+                const userBalance = await dbManager.getUserBalance(userId, guildId);
+                const totalBalance = (userBalance.wallet || 0) + (userBalance.bank || 0);
+                
+                const balanceAdjustments = balanceBasedAdjuster.getBalanceAdjustments(
+                    totalBalance,
+                    0.5, // base win rate
+                    originalPayout,
+                    houseEdge
+                );
+                
+                // Apply balance-based payout multiplier
+                const balanceMultiplier = balanceAdjustments.payoutMultiplier;
+                adjustmentMultiplier *= balanceMultiplier;
+                
+                // Also adjust house edge based on balance
+                const balanceHouseEdgeAdjustment = balanceAdjustments.houseEdgeAdjustment;
+                houseEdge = Math.max(0.005, houseEdge - balanceHouseEdgeAdjustment);
+                
+                console.log(`⚖️ Balance-based adjustment: Tier ${balanceAdjustments.balanceTier} | Payout: ${(balanceMultiplier * 100).toFixed(1)}% | House Edge: ${balanceHouseEdgeAdjustment > 0 ? '-' : '+'}${Math.abs(balanceHouseEdgeAdjustment * 100).toFixed(1)}%`);
+                
+            } catch (balanceError) {
+                console.warn(`Balance-based adjustment failed: ${balanceError.message}`);
+            }
             
             // Factor 1: Player risk level (AGGRESSIVE enforcement)
             if (won && playerProfile.riskLevel > 0.6) { // Lower threshold for intervention

@@ -589,6 +589,20 @@ module.exports = {
             });
         }
 
+        // Get balance adjustments for display purposes
+        const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.5, betAmount * 36.0, modeConfig.houseEdge);
+        if (balanceAdjustments) {
+            logger.debug(`Balance adjustments for ${username}: ${JSON.stringify(balanceAdjustments)}`);
+        }
+
+        // Security logging with balance context
+        await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+            amount: betAmount,
+            game: 'roulette',
+            mode: selectedMode,
+            balanceAdjustments: balanceAdjustments
+        }, guildId);
+
             logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
 
             // Create game session

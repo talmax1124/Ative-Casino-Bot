@@ -28,31 +28,6 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // Independent cooldown - no global restriction
-
-            // Check work-specific cooldown (1 hour)
-            const now = Date.now() / 1000;
-            const lastWork = balance.last_work_ts || 0;
-            const cooldown = 3600; // 1 hour
-
-            if (now - lastWork < cooldown) {
-                const remainingTime = Math.ceil(cooldown - (now - lastWork));
-                const hours = Math.floor(remainingTime / 3600);
-                const minutes = Math.floor((remainingTime % 3600) / 60);
-                const seconds = remainingTime % 60;
-
-                const embed = buildSessionEmbed({
-                    title: `💼 ${username}'s Work Status`,
-                    topFields: [
-                        { name: '⏰ Still Working', value: `You're still at work!\nCome back in ${hours}h ${minutes}m ${seconds}s` }
-                    ],
-                    stageText: 'WORK IN PROGRESS',
-                    color: 0xFFAA00,
-                    footer: 'Work Command • 1 hour cooldown'
-                });
-
-                return await interaction.editReply({ embeds: [embed] });
-            }
 
             // Work scenarios (25K-150K range)
             const workScenarios = [
@@ -83,11 +58,9 @@ module.exports = {
             const currentWallet = parseFloat(balance.wallet) || 0;
             const currentBank = parseFloat(balance.bank) || 0;
             
-            // Update balance and timestamp
+            // Update balance
             const newWallet = currentWallet + totalEarning;
-            await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
-                last_work_ts: now
-            });
+            await dbManager.setUserBalance(userId, guildId, newWallet, currentBank);
 
             // Build earnings display with shop and server boosts
             const hasShopBoosts = boostResult.boosted;
@@ -155,7 +128,7 @@ module.exports = {
                 bankFields.push(
                     { name: '💎 Total Earned', value: fmt(totalEarning), inline: true },
                     { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                    { name: '📅 Next Work', value: 'In 1 hour', inline: true }
+                    { name: '🔄 Status', value: 'Ready anytime!', inline: true }
                 );
             }
             
@@ -166,7 +139,7 @@ module.exports = {
                 bankFields,
                 stageText,
                 color: 0x0099FF,
-                footer: '💼 Work • 1 hour cooldown • ATIVE Casino'
+                footer: '💼 Work • ATIVE Casino'
             });
 
             await interaction.editReply({ embeds: [embed] });

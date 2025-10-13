@@ -30,30 +30,6 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // Independent cooldown - no global restriction
-
-            // Check crime-specific cooldown (30 minutes)
-            const now = Date.now() / 1000;
-            const lastCrime = balance.last_crime_ts || 0;
-            const cooldown = 1800; // 30 minutes
-
-            if (now - lastCrime < cooldown) {
-                const remainingTime = Math.ceil(cooldown - (now - lastCrime));
-                const minutes = Math.floor(remainingTime / 60);
-                const seconds = remainingTime % 60;
-
-                const embed = buildSessionEmbed({
-                    title: `🚨 ${username}'s Criminal Status`,
-                    topFields: [
-                        { name: '🚨 Laying Low', value: `The heat is still on!\nLay low for ${minutes}m ${seconds}s before your next crime` }
-                    ],
-                    stageText: 'HIDING FROM POLICE',
-                    color: 0xFF6B6B,
-                    footer: 'Crime Command • 30 minute cooldown'
-                });
-
-                return await interaction.editReply({ embeds: [embed] });
-            }
 
             // Crime scenarios (5K-25K range)
             const crimeScenarios = [
@@ -102,11 +78,9 @@ module.exports = {
             const currentWallet = parseFloat(balance.wallet) || 0;
             const currentBank = parseFloat(balance.bank) || 0;
             
-            // Update balance and timestamp
+            // Update balance
             const newWallet = currentWallet + totalEarning;
-            await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
-                last_crime_ts: now
-            });
+            await dbManager.setUserBalance(userId, guildId, newWallet, currentBank);
 
 
             // Build earnings display with tuning and booster bonus if applicable
@@ -132,7 +106,7 @@ module.exports = {
             const bankFields = [
                 { name: 'Crime Earnings', value: fmt(totalEarning), inline: true },
                 { name: 'Current Balance', value: fmt(newWallet), inline: true },
-                { name: boosterInfo.isBooster ? '🚀 Booster Status' : 'Next Crime Available', value: boosterInfo.isBooster ? 'Active (+5%)' : 'In 30 minutes', inline: true }
+                { name: boosterInfo.isBooster ? '🚀 Booster Status' : 'Crime Status', value: boosterInfo.isBooster ? 'Active (+5%)' : 'Ready anytime!', inline: true }
             ];
 
             // Stage text for current status
@@ -145,7 +119,7 @@ module.exports = {
                 bankFields,
                 stageText,
                 color: 0x8B0000,
-                footer: '🦹 Crime • 30 minute cooldown • ATIVE Casino'
+                footer: '🦹 Crime • ATIVE Casino'
             });
 
             await interaction.editReply({ embeds: [embed] });

@@ -24,6 +24,7 @@ const tuningManager = require('../UTILS/tuningManager');
 
 // UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
 const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
 const gameIntegrator = new UniversalGameIntegrator('bingo');
 
 module.exports = {
@@ -122,6 +123,12 @@ module.exports = {
             });
         }
 
+        // Get balance adjustments for display purposes
+        const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.5, betAmount * 2, 0.05);
+        if (balanceAdjustments) {
+            logger.debug(`Balance adjustments for ${username}: ${JSON.stringify(balanceAdjustments)}`);
+        }
+
 
             // Create game session
             const sessionResult = await sessionManager.createSession({
@@ -189,6 +196,14 @@ module.exports = {
             const buttons = game.createLobbyButtons();
 
             await interaction.followUp({ embeds: [embed], components: buttons });
+
+            // Security logging with balance context
+            await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+                amount: betAmount,
+                game: 'bingo',
+                gameType: 'multiplayer',
+                balanceAdjustments: balanceAdjustments
+            }, guildId);
 
             // Log game creation
             logger.info(`BINGO game created: ${username} (${userId}) bet ${betAmount} in channel ${channelId}`);
@@ -379,6 +394,13 @@ module.exports = {
                 await interaction.update({ embeds: [embed], components: buttons });
                 return;
             }
+
+            // Security logging for player join
+            await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+                amount: game.starterBet,
+                game: 'bingo',
+                gameType: 'multiplayer_join'
+            }, guildId);
 
             // Create a unified session for the joining player (bet already deducted)
             try {

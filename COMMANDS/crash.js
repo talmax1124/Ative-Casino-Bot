@@ -108,6 +108,20 @@ module.exports = {
             });
         }
 
+        // Get balance adjustments for display purposes
+        const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.5, betAmount * 2.0, 0.05);
+        if (balanceAdjustments) {
+            logger.debug(`Balance adjustments for ${username}: ${JSON.stringify(balanceAdjustments)}`);
+        }
+
+        // Security logging with balance context
+        await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+            amount: betAmount,
+            game: 'crash',
+            mode: selectedMode,
+            balanceAdjustments: balanceAdjustments
+        }, guildId);
+
       if (betAmount === null || betAmount <= 0) {
         const embed = new EmbedBuilder()
           .setTitle('❌ Invalid Bet Amount')

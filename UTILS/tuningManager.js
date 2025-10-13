@@ -1,9 +1,12 @@
 /**
  * Tuning Manager - Real-time economic regulation for casino games
  * Connects AI-generated tuning values to actual game mechanics
+ * Enhanced with balance-based adjustments
  */
 
 const logger = require('./logger');
+const balanceBasedAdjuster = require('./balanceBasedAdjuster');
+const dbManager = require('./database');
 
 class TuningManager {
     constructor() {
@@ -113,9 +116,9 @@ class TuningManager {
 
     /**
      * Apply payout multiplier tuning for a game
-     * Returns adjusted payout based on AI recommendations
+     * Returns adjusted payout based on AI recommendations and balance-based adjustments
      */
-    async getAdjustedPayout(gameName, basePayout, betAmount = 0) {
+    async getAdjustedPayout(gameName, basePayout, betAmount = 0, userId = null, guildId = null) {
         try {
             // Get game-specific payout adjustment
             const payoutDelta = await this.getTuning(gameName, 'payoutMultDelta', 0);
@@ -126,6 +129,32 @@ class TuningManager {
             // Apply payout adjustment (multiplicative) - IMPROVED: Cap adjustment to ±5%
             const cappedPayoutDelta = Math.max(-0.05, Math.min(0.05, payoutDelta));
             let adjustedPayout = basePayout * (1 + cappedPayoutDelta);
+            
+            // Apply balance-based adjustments if user info provided
+            let balanceMultiplier = 1.0;
+            let balanceTier = 'NORMAL';
+            if (userId && guildId) {
+                try {
+                    const userBalance = await dbManager.getUserBalance(userId, guildId);
+                    const totalBalance = (userBalance.wallet || 0) + (userBalance.bank || 0);
+                    
+                    const balanceAdjustments = balanceBasedAdjuster.getBalanceAdjustments(
+                        totalBalance,
+                        0.5, // base win rate
+                        adjustedPayout,
+                        0.05 // base house edge
+                    );
+                    
+                    balanceMultiplier = balanceAdjustments.payoutMultiplier;
+                    balanceTier = balanceAdjustments.balanceTier;
+                    adjustedPayout *= balanceMultiplier;
+                    
+                    logger.debug(`Balance adjustment applied: ${balanceTier} tier, ${(balanceMultiplier * 100).toFixed(1)}% payout multiplier`);
+                    
+                } catch (balanceError) {
+                    logger.warn(`Balance adjustment failed in tuning manager: ${balanceError.message}`);
+                }
+            }
             
             // Apply fee adjustment (subtractive from winnings) - IMPROVED: Cap fee to max 3%
             const cappedFeeDelta = Math.max(0, Math.min(3, feeDelta));
@@ -143,7 +172,9 @@ class TuningManager {
                 originalPayout: basePayout,
                 adjustedPayout: Math.floor(adjustedPayout),
                 payoutDelta: cappedPayoutDelta,
-                feeApplied: cappedFeeDelta > 0 ? (adjustedPayout < basePayout) : false
+                feeApplied: cappedFeeDelta > 0 ? (adjustedPayout < basePayout) : false,
+                balanceMultiplier: balanceMultiplier,
+                balanceTier: balanceTier
             };
             
         } catch (error) {

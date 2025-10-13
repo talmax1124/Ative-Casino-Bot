@@ -812,6 +812,7 @@ class DatabaseAdapter {
                     last_beg_ts: parseFloat(row.last_beg_ts),
                     last_crime_ts: parseFloat(row.last_crime_ts),
                     last_heist_ts: parseFloat(row.last_heist_ts),
+                    off_economy: Boolean(row.off_economy || false),
                     created_at: row.created_at,
                     updated_at: row.updated_at
                 };
@@ -828,6 +829,7 @@ class DatabaseAdapter {
                     last_beg_ts: 0.0,
                     last_crime_ts: 0.0,
                     last_heist_ts: 0.0,
+                    off_economy: false,
                     created_at: new Date(),
                     updated_at: new Date()
                 };
@@ -859,6 +861,7 @@ class DatabaseAdapter {
                         last_beg_ts: parseFloat(row.last_beg_ts),
                         last_crime_ts: parseFloat(row.last_crime_ts),
                         last_heist_ts: parseFloat(row.last_heist_ts),
+                        off_economy: Boolean(row.off_economy || false),
                         created_at: row.created_at,
                         updated_at: row.updated_at
                     };

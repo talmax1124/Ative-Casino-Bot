@@ -1,7 +1,7 @@
 /**
  * Daily Task command - Complete simple tasks to earn money
  * 5K-15K reward based on task completion
- * 24 hour cooldown for new tasks
+ * No cooldown restrictions
  */
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -19,7 +19,7 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('dailytask')
-        .setDescription('Complete a daily task to earn money (25K-75K every 24 hours)'),
+        .setDescription('Complete a daily task to earn money (25K-75K)'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -32,30 +32,7 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // Independent cooldown - no global restriction
-
-            // Check dailytask-specific cooldown (24 hours)
-            const now = Date.now() / 1000;
-            const lastTask = balance.last_dailytask_ts || 0;
-            const cooldown = 86400; // 24 hours
-
-            if (now - lastTask < cooldown) {
-                const remainingTime = Math.ceil(cooldown - (now - lastTask));
-                const hours = Math.floor(remainingTime / 3600);
-                const minutes = Math.floor((remainingTime % 3600) / 60);
-
-                const embed = buildSessionEmbed({
-                    title: `📋 ${username}'s Daily Task Status`,
-                    topFields: [
-                        { name: '⏰ Task Completed', value: `You already completed today's task!\nCome back in ${hours}h ${minutes}m for a new one` }
-                    ],
-                    stageText: 'DAILY TASK COMPLETE',
-                    color: 0x00AA00,
-                    footer: 'Daily Task • 24 hour cooldown'
-                });
-
-                return await interaction.editReply({ embeds: [embed] });
-            }
+            // No cooldown restrictions - tasks available anytime
 
             // Daily task scenarios
             const taskScenarios = [
@@ -204,14 +181,12 @@ module.exports = {
                 // Process payout through modern payout manager
                 const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
 
-                // Update balance and timestamp
+                // Update balance
                 const currentWallet = parseFloat(balance.wallet) || 0;
                 const currentBank = parseFloat(balance.bank) || 0;
                 const newWallet = currentWallet + totalEarning;
                 
-                await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
-                    last_dailytask_ts: now
-                });
+                await dbManager.setUserBalance(userId, guildId, newWallet, currentBank);
 
 
                 // Build success display
@@ -259,11 +234,11 @@ module.exports = {
                     bankFields: [
                         { name: '💎 Task Reward', value: fmt(totalEarning), inline: true },
                         { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                        { name: '📅 Next Task', value: 'In 24 hours', inline: true }
+                        { name: '✅ Status', value: 'Task Complete', inline: true }
                     ],
                     stageText,
                     color: 0x00FF00,
-                    footer: '📋 Daily Task Complete • Come back tomorrow for a new task!'
+                    footer: '📋 Task Complete • Ready for another task anytime!'
                 });
 
                 await interaction.editReply({ embeds: [successEmbed] });
@@ -329,7 +304,7 @@ module.exports = {
                     ],
                     stageText: 'TASK TIMEOUT',
                     color: 0xFFAA00,
-                    footer: 'Daily Task • Try again tomorrow!'
+                    footer: 'Daily Task • Try again anytime!'
                 });
 
                 await interaction.editReply({ embeds: [timeoutEmbed] });
@@ -401,14 +376,12 @@ module.exports = {
             // Process payout through modern payout manager
             const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
 
-            // Update balance and timestamp
+            // Update balance
             const currentWallet = parseFloat(balance.wallet) || 0;
             const currentBank = parseFloat(balance.bank) || 0;
             const newWallet = currentWallet + totalEarning;
             
-            await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
-                last_dailytask_ts: now
-            });
+            await dbManager.setUserBalance(userId, guildId, newWallet, currentBank);
 
             // Update completion embed
             const { buildSessionEmbed } = require('../UTILS/gameSessionKit');

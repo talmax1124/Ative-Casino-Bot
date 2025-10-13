@@ -2,6 +2,7 @@
  * Rob command - steal money from other users with tier restrictions
  * Takes 8% of target's balance on success, 4% penalty on failure
  * Cannot rob 3+ tiers higher or the developer
+ * No cooldown restrictions
  */
 
 const { SlashCommandBuilder } = require('discord.js');
@@ -13,7 +14,7 @@ const logger = require('../UTILS/logger');
 const robStatsManager = require('../UTILS/robStatsManager');
 
 const DEVELOPER_ID = '466050111680544798'; // From CLAUDE.md
-const ROB_COOLDOWN = 3600; // 1 hour cooldown
+// Cooldown functionality removed
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -75,27 +76,8 @@ module.exports = {
             const robberBalance = await dbManager.getUserBalance(userId, guildId);
             const targetBalance = await dbManager.getUserBalance(targetId, guildId);
 
-            // Check cooldown
+            // No cooldown restrictions - robbery available anytime
             const now = Date.now() / 1000;
-            const lastRob = robberBalance.last_rob_ts || 0;
-
-            if (now - lastRob < ROB_COOLDOWN) {
-                const remainingTime = Math.ceil(ROB_COOLDOWN - (now - lastRob));
-                const minutes = Math.floor(remainingTime / 60);
-                const seconds = remainingTime % 60;
-
-                const cooldownEmbed = buildSessionEmbed({
-                    title: '⏰ Robbery Cooldown',
-                    topFields: [
-                        { name: '🕐 Still Laying Low', value: `You must wait ${minutes}m ${seconds}s before your next robbery attempt.` }
-                    ],
-                    stageText: 'COOLDOWN ACTIVE',
-                    color: 0xFFAA00,
-                    footer: 'Rob Command • 1 hour cooldown'
-                });
-
-                return await interaction.editReply({ embeds: [cooldownEmbed] });
-            }
 
             // Check tier restrictions
             const robberTier = getEconomicTier(robberBalance.wallet + robberBalance.bank);
@@ -155,9 +137,7 @@ module.exports = {
 
                 // Update balances (target bank remains unchanged)
                 await dbManager.setUserBalance(targetId, guildId, newTargetWallet, targetBalance.bank);
-                await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank, {
-                    last_rob_ts: now
-                });
+                await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank);
 
                 resultEmbed = buildSessionEmbed({
                     title: `🎭 ${username}'s Robbery Success!`,
@@ -170,11 +150,11 @@ module.exports = {
                     bankFields: [
                         { name: 'Your New Balance', value: fmt(newRobberWallet), inline: true },
                         { name: 'Target Wallet Remaining', value: fmt(newTargetWallet), inline: true },
-                        { name: 'Next Rob Available', value: 'In 1 hour', inline: true }
+                        { name: '✅ Status', value: 'Robbery Success', inline: true }
                     ],
                     stageText: 'ROBBERY SUCCESS',
                     color: 0x8B0000,
-                    footer: '🎭 Rob Command • 1 hour cooldown • ATIVE Casino'
+                    footer: '🎭 Rob Command • Ready for another attempt • ATIVE Casino'
                 });
 
                 // Log successful robbery
@@ -191,9 +171,7 @@ module.exports = {
                 actualPenalty = Math.min(penaltyAmount, robberBalance.wallet);
                 const newRobberWallet = robberBalance.wallet - actualPenalty;
 
-                await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank, {
-                    last_rob_ts: now
-                });
+                await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank);
 
                 resultEmbed = buildSessionEmbed({
                     title: `🚨 ${username}'s Robbery Failed!`,
@@ -207,7 +185,7 @@ module.exports = {
                     bankFields: [
                         { name: 'Penalty Lost', value: fmt(actualPenalty), inline: true },
                         { name: 'Your New Balance', value: fmt(newRobberWallet), inline: true },
-                        { name: 'Next Attempt', value: 'In 1 hour', inline: true }
+                        { name: '♾️ Status', value: 'Try Again', inline: true }
                     ],
                     stageText: 'ROBBERY FAILED',
                     color: 0xFF0000,

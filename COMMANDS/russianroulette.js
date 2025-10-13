@@ -16,6 +16,7 @@ const tuningManager = require('../UTILS/tuningManager');
 
 // UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
 const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
 const gameIntegrator = new UniversalGameIntegrator('russianroulette');
 
 // Russian Roulette Configuration
@@ -113,6 +114,21 @@ module.exports = {
                 ephemeral: true
             });
         }
+
+        // Get balance adjustments for display purposes
+        const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.8, betAmount * 5, 0.08);
+        if (balanceAdjustments) {
+            logger.debug(`Balance adjustments for ${username}: ${JSON.stringify(balanceAdjustments)}`);
+        }
+
+        // Security logging with balance context
+        await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+            amount: betAmount,
+            game: 'russianroulette',
+            joinTime: joinTime,
+            forceStart: forceStart,
+            balanceAdjustments: balanceAdjustments
+        }, guildId);
 
             logger.info(`Russian Roulette started by ${username} (${userId}) with bet ${fmt(betAmount)}`);
 

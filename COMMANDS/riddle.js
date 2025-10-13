@@ -1,7 +1,7 @@
 /**
  * Riddle command - Solve riddles to earn money
  * 4K-10K reward for correct answers
- * 3 hour cooldown
+ * No cooldown restrictions
  */
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
@@ -15,7 +15,7 @@ const logger = require('../UTILS/logger');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('riddle')
-        .setDescription('Solve riddles to earn money (4K-10K every 3 hours)')
+        .setDescription('Solve riddles to earn money (4K-10K)')
         .addStringOption(option =>
             option.setName('answer')
                 .setDescription('Your answer to the riddle')
@@ -33,29 +33,8 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // Check cooldown (3 hours)
+            // No cooldown restrictions - riddles available anytime
             const now = Date.now() / 1000;
-            const lastRiddle = balance.last_riddle_ts || 0;
-            const cooldown = 10800; // 3 hours
-
-            if (now - lastRiddle < cooldown) {
-                const remainingTime = Math.ceil(cooldown - (now - lastRiddle));
-                const hours = Math.floor(remainingTime / 3600);
-                const minutes = Math.floor((remainingTime % 3600) / 60);
-                const seconds = remainingTime % 60;
-
-                const embed = buildSessionEmbed({
-                    title: `🤔 ${username}'s Riddle Status`,
-                    topFields: [
-                        { name: '⏰ Thinking Time', value: `Your brain is still processing the last riddle!\nCome back in ${hours}h ${minutes}m ${seconds}s` }
-                    ],
-                    stageText: 'RIDDLE COOLDOWN',
-                    color: 0xFFAA00,
-                    footer: 'Riddle Command • 3 hour cooldown'
-                });
-
-                return await interaction.editReply({ embeds: [embed] });
-            }
 
             // Store the current riddle in user's profile temporarily
             const currentRiddleKey = `current_riddle_${userId}`;
@@ -210,9 +189,7 @@ module.exports = {
                 const currentBank = parseFloat(balance.bank) || 0;
                 const newWallet = currentWallet + totalEarning;
                 
-                await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
-                    last_riddle_ts: now
-                });
+                await dbManager.setUserBalance(userId, guildId, newWallet, currentBank);
 
                 // Build success display
                 const hasShopBoosts = boostResult.boosted;
@@ -242,11 +219,11 @@ module.exports = {
                     bankFields: [
                         { name: '🧩 Riddle Reward', value: fmt(totalEarning), inline: true },
                         { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                        { name: '📅 Next Riddle', value: 'In 3 hours', inline: true }
+                        { name: '✅ Status', value: 'Riddle Solved', inline: true }
                     ],
                     stageText: 'RIDDLE SOLVED',
                     color: 0x00FF00,
-                    footer: '🤔 Riddle Solved! • Come back in 3 hours for another riddle!'
+                    footer: '🤔 Riddle Solved! • Ready for another riddle anytime!'
                 });
 
                 await interaction.editReply({ embeds: [successEmbed] });
@@ -292,9 +269,7 @@ module.exports = {
                 const currentBank = parseFloat(balance.bank) || 0;
                 const newWallet = currentWallet + consolationPrize;
                 
-                await dbManager.setUserBalance(userId, guildId, newWallet, currentBank, {
-                    last_riddle_ts: now
-                });
+                await dbManager.setUserBalance(userId, guildId, newWallet, currentBank);
 
                 const wrongEmbed = buildSessionEmbed({
                     title: `🤔 ${username}'s Riddle Attempt`,
@@ -307,11 +282,11 @@ module.exports = {
                     bankFields: [
                         { name: '💔 Consolation', value: fmt(consolationPrize), inline: true },
                         { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                        { name: '📅 Next Riddle', value: 'In 3 hours', inline: true }
+                        { name: '♾️ Status', value: 'Try Again', inline: true }
                     ],
                     stageText: 'RIDDLE ATTEMPT',
                     color: 0xFF6B6B,
-                    footer: '🤔 Better luck next time! • Come back in 3 hours for another riddle!'
+                    footer: '🤔 Better luck next time! • Ready for another riddle anytime!'
                 });
 
                 await interaction.editReply({ embeds: [wrongEmbed] });
