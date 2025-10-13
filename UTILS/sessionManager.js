@@ -313,9 +313,9 @@ class UnifiedSessionManager extends EventEmitter {
                 ? securityLogger.getRecentBetCount(userId, 300000)
                 : 0;
 
-            // If a user exceeds 100 bets in 5 minutes, apply a short cooldown window
-            if (recentBets >= 100) {
-                const cooldownMs = 180000; // 3 minutes
+            // If a user exceeds 150 bets in 5 minutes, apply a short cooldown window
+            if (recentBets >= 150) {
+                const cooldownMs = 60000; // 1 minute (was 3 minutes)
                 this.abuseCooldowns.set(userId, Date.now() + cooldownMs);
                 logger.warn(`Rapid betting cooldown applied to ${userId}: ${recentBets} bets/5min`);
                 return {

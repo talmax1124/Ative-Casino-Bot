@@ -105,22 +105,22 @@ class BulletproofEconomyController {
             lastUpdate: Date.now()
         };
         
-        // ULTRA-AGGRESSIVE MOMENTUM TRACKING
+        // RELAXED MOMENTUM TRACKING - More lenient for better user experience
         this.momentumTracker = {
             userMomentum: new Map(), // userId -> momentum data
             globalMomentum: 0,       // Overall casino momentum
-            momentumDecay: 0.95,     // How fast momentum decays
-            momentumThreshold: 0.7,  // When to apply momentum penalties
+            momentumDecay: 0.90,     // How fast momentum decays (faster decay = more lenient)
+            momentumThreshold: 0.9,  // When to apply momentum penalties (was 0.7)
             lastMomentumUpdate: Date.now()
         };
         
-        // STREAK BREAKING SYSTEM
+        // RELAXED STREAK BREAKING SYSTEM - More lenient for better user experience
         this.streakBreaker = {
             enabled: true,
-            maxWinStreak: 2,         // Max consecutive wins before forced intervention
-            maxWinValue: 25000,      // Max value in consecutive wins
-            forceBreakThreshold: 3,  // Force break after this many wins
-            breakIntensity: 0.8,     // How aggressively to break streaks (80% reduction)
+            maxWinStreak: 8,         // Max consecutive wins before intervention (was 2)
+            maxWinValue: 200000,     // Max value in consecutive wins (was 25K)
+            forceBreakThreshold: 12, // Force break after this many wins (was 3)
+            breakIntensity: 0.3,     // How aggressively to break streaks (was 80%, now 30%)
             temporalWindow: 300000   // 5-minute window for streak tracking
         };
         
@@ -599,9 +599,9 @@ class BulletproofEconomyController {
             const streakPenalty = this.calculateStreakPenalty(userId, won, originalPayout);
             const crossGamePenalty = this.calculateCrossGamePenalty(userId, gameType, won);
             
-            // Apply momentum penalty
+            // Apply momentum penalty (more lenient)
             if (userMomentum > this.momentumTracker.momentumThreshold && won) {
-                const momentumPenalty = Math.min(0.7, userMomentum - this.momentumTracker.momentumThreshold);
+                const momentumPenalty = Math.min(0.3, (userMomentum - this.momentumTracker.momentumThreshold) * 0.5);
                 adjustmentMultiplier *= (1 - momentumPenalty);
                 console.log(`🔥 Momentum penalty applied: -${(momentumPenalty * 100).toFixed(1)}% for user ${userId}`);
             }
@@ -1098,13 +1098,13 @@ class BulletproofEconomyController {
             }
         }
         
-        // Penalty increases with rapid wins
+        // Penalty increases with rapid wins (more lenient)
         let penalty = 0;
-        if (rapidWins >= 3) {
-            penalty = Math.min(0.6, (rapidWins - 2) * 0.15); // 15% per extra win
+        if (rapidWins >= 8) { // Increased from 3 to 8 wins
+            penalty = Math.min(0.3, (rapidWins - 7) * 0.05); // 5% per extra win (was 15%)
         }
-        if (rapidValue > 50000) {
-            penalty += Math.min(0.4, (rapidValue - 50000) / 100000 * 0.2); // Extra penalty for value
+        if (rapidValue > 200000) { // Increased from 50K to 200K
+            penalty += Math.min(0.2, (rapidValue - 200000) / 500000 * 0.1); // Extra penalty for value (halved)
         }
         
         return penalty;
@@ -1124,14 +1124,14 @@ class BulletproofEconomyController {
         
         let penalty = 0;
         
-        // Escalating penalty based on consecutive wins
+        // Escalating penalty based on consecutive wins (more lenient)
         if (recentWins >= this.streakBreaker.maxWinStreak) {
-            penalty = Math.min(0.5, (recentWins - 1) * 0.15); // 15% per win over limit
+            penalty = Math.min(0.2, (recentWins - this.streakBreaker.maxWinStreak) * 0.05); // 5% per win over limit (was 15%)
         }
         
-        // Extra penalty based on total value
+        // Extra penalty based on total value (more lenient)
         if (recentValue > this.streakBreaker.maxWinValue) {
-            penalty += Math.min(0.3, (recentValue - this.streakBreaker.maxWinValue) / 50000 * 0.1);
+            penalty += Math.min(0.15, (recentValue - this.streakBreaker.maxWinValue) / 500000 * 0.05); // Much more lenient
         }
         
         return penalty;

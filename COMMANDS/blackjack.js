@@ -165,6 +165,26 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
 
     if (game.gameEnded) {
         const results = await game.getResults();
+        
+        // BULLETPROOF ECONOMY AND SECURITY PROCESSING
+        try {
+            const result = results[0];
+            const gameResult = await gameIntegrator.processGameResult({
+                userId,
+                guildId,
+                gameType: 'blackjack',
+                betAmount,
+                originalPayout: result.payout || 0,
+                won: result.won || false
+            });
+            
+            if (gameResult.success) {
+                result.payout = gameResult.finalPayout;
+            }
+        } catch (gameError) {
+            logger.warn(`Game result processing failed: ${gameError.message}`);
+        }
+        
         // Determine display strictly from game outcomes, not payout adjustments
         if (results.length > 1) {
             const allPush = results.every(r => r.outcome === 'PUSH');
@@ -192,25 +212,6 @@ async function createGameEmbed(game, user, showDealer = false, balance = null, e
                 stageText = 'PUSH';
                 color = 0xFFFF00;
             } else if (result.won) {
-
-        // BULLETPROOF ECONOMY AND SECURITY PROCESSING
-        try {
-            const gameResult = await gameIntegrator.processGameResult({
-                userId,
-                guildId,
-                gameType: 'blackjack',
-                betAmount,
-                originalPayout: result.payout || 0,
-                won: result.won || false
-            });
-            
-            if (gameResult.success) {
-                result.payout = gameResult.finalPayout;
-            }
-        } catch (gameError) {
-            logger.warn(`Game result processing failed: ${gameError.message}`);
-        }
-
                 stageText = 'WIN';
                 color = 0x00ff00;
             } else {
@@ -561,6 +562,20 @@ module.exports = {
                 }
             } catch (parseError) {
                 logger.warn(`Could not determine refund amount: ${parseError.message}`);
+            }
+            
+            // Process refund if amount was determined
+            if (refundAmount > 0) {
+                try {
+                    await dbManager.updateUserBalance(userId, guildId, refundAmount, 0, {
+                        game_active: false,
+                        refund_reason: 'Blackjack initialization error',
+                        refund_timestamp: Date.now()
+                    });
+                    logger.info(`Refunded ${refundAmount} to user ${userId} for blackjack error`);
+                } catch (refundError) {
+                    logger.error(`Failed to process blackjack refund: ${refundError.message}`);
+                }
             }
             
             // Handle session error and cleanup
@@ -1347,27 +1362,38 @@ module.exports = {
     },
 
     /**
-     * Start a new blackjack game from dropdown selection
+     * Start a new blackjack game from dropdown selection (creates NEW message)
      */
     async startNewGame(interaction, betAmount) {
         try {
+            // Don't defer - we want to acknowledge the interaction with a follow-up
             await interaction.deferUpdate();
             
-            // Extract the bet amount and start a new game by calling the main execute function
-            const fakeInteraction = {
+            // Create a new interaction that will use followUp to create a NEW message
+            const newGameInteraction = {
                 ...interaction,
                 options: {
                     getString: (key) => key === 'amount' ? betAmount.toString() : null
                 },
-                deferReply: () => Promise.resolve(),
-                reply: interaction.editReply.bind(interaction),
-                editReply: interaction.editReply.bind(interaction),
+                deferReply: async () => {
+                    // Already deferred above, so just return resolved promise
+                    return Promise.resolve();
+                },
+                reply: async (data) => {
+                    // Use followUp to create a NEW message instead of updating existing one
+                    return await interaction.followUp(data);
+                },
+                editReply: async (data) => {
+                    // For consistency, still use followUp for any editReply calls
+                    return await interaction.followUp(data);
+                },
+                followUp: interaction.followUp.bind(interaction),
                 replied: false,
                 deferred: true
             };
 
-            // Call the main blackjack execute function with the fake interaction
-            await this.execute(fakeInteraction);
+            // Call the main blackjack execute function with the new interaction
+            await this.execute(newGameInteraction);
             
         } catch (error) {
             logger.error(`Error starting new blackjack game from dropdown: ${error.message}`);

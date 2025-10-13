@@ -1505,64 +1505,6 @@ client.on('interactionCreate', async interaction => {
                     await sportbetCommand.handleMarketGameSelection(interaction);
                 }
             }
-            // Handle blackjack bet selection for Play Again
-            else if (interaction.customId === 'blackjack_bet_select') {
-                const betAmount = interaction.values[0];
-
-                // Create a proper mock slash command interaction for blackjack
-                const mockInteraction = {
-                    ...interaction,
-                    options: {
-                        getString: (name) => name === 'amount' ? betAmount : null,
-                        getInteger: (name) => name === 'amount' ? parseInt(betAmount) : null
-                    },
-                    // Override interaction response methods to use update instead of reply
-                    reply: async (data) => {
-                        return await interaction.update(data);
-                    },
-                    editReply: async (data) => {
-                        return await interaction.editReply(data);
-                    },
-                    followUp: async (data) => {
-                        return await interaction.followUp(data);
-                    },
-                    // Track interaction state
-                    replied: false,
-                    deferred: false
-                };
-
-                try {
-                    const blackjackCommand = client.commands.get('blackjack');
-                    if (blackjackCommand) {
-                        await blackjackCommand.execute(mockInteraction);
-                    } else {
-                        await interaction.update({
-                            content: '❌ Blackjack command not available. Please try again.',
-                            embeds: [],
-                            components: []
-                        });
-                    }
-                } catch (error) {
-                    logger.error(`Error starting blackjack from Play Again: ${error.message}`);
-
-                    try {
-                        if (!interaction.replied) {
-                            await interaction.update({
-                                content: '❌ Error starting blackjack game. Please try using `/blackjack` directly.',
-                                embeds: [],
-                                components: []
-                            });
-                        } else {
-                            await interaction.followUp({
-                                content: '❌ Error starting blackjack game. Please try using `/blackjack` directly.',
-                                flags: MessageFlags.Ephemeral
-                            });
-                        }
-                    } catch (updateError) {
-                        logger.error(`Failed to send error message: ${updateError.message}`);
-                    }
-                }
-            }
 
             // Handle VPS management select menus (future expansion)
             else if (interaction.customId.startsWith('vps_')) {

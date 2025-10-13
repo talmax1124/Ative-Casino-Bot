@@ -5,7 +5,7 @@
 
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
-const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { fmt, fmtDelta, getGuildId, sendLogMessage, parseAmount } = require('../UTILS/common');
 const { spinSlots, calculatePayout, createSlotDisplay, createSlotsImage, createSpinningSlotGIF } = require('../GAMES/slots');
 // economyAnalyzer moved to UAS bot - using static base modes for now
 const SMGameType = { SLOTS: 'slots' };
@@ -687,7 +687,20 @@ module.exports = {
                 );
             } catch (_) {}
             
-            // Handle game error with session cleanup and refund
+            // Process refund if we can determine the bet amount
+            let refundAmount = 0;
+            try {
+                const amount = interaction.options.getString('amount');
+                const parsedAmount = parseAmount(amount);
+                if (parsedAmount > 0) {
+                    refundAmount = parsedAmount;
+                    await PayoutManager.refundBet(userId, guildId, refundAmount, 'Slots game error');
+                    logger.info(`Refunded ${refundAmount} to user ${userId} for slots error`);
+                }
+            } catch (refundError) {
+                logger.error(`Failed to process slots refund: ${refundError.message}`);
+            }
+            
             // Handle session error and cleanup
             try {
                 const userSession = sessionManager.getUserActiveSession(userId);

@@ -9,12 +9,12 @@ class SecurityLogger {
     constructor() {
         this.suspiciousActivity = new Map(); // Track per user
         this.alertThresholds = {
-            highWinStreak: 10,        // 10 wins in a row
-            rapidBetting: 30,         // Lowered from 50 to 30 bets in 5 minutes
-            severeBetting: 50,        // 50 bets in 5 minutes triggers lockout
-            extremeBetting: 100,      // 100 bets in 5 minutes triggers extended lockout
-            largeWinAmount: 100000,   // 100K+ single win
-            totalWinToday: 1000000,   // 1M+ total wins today
+            highWinStreak: 15,        // 15 wins in a row (was 10)
+            rapidBetting: 60,         // 60 bets in 5 minutes (was 30) - warning only
+            severeBetting: 100,       // 100 bets in 5 minutes triggers lockout (was 50)
+            extremeBetting: 200,      // 200 bets in 5 minutes triggers extended lockout (was 100)
+            largeWinAmount: 500000,   // 500K+ single win (was 100K)
+            totalWinToday: 5000000,   // 5M+ total wins today (was 1M)
             negativeBalance: -1       // Any negative balance
         };
         this.userActivityWindows = new Map(); // Track activity windows
@@ -28,11 +28,11 @@ class SecurityLogger {
         // Progressive lockout system
         this.lockouts = new Map(); // userId -> { until: timestamp, level: number, violations: number }
         this.lockoutDurations = {
-            1: 60000,      // Level 1: 1 minute
-            2: 300000,     // Level 2: 5 minutes
-            3: 900000,     // Level 3: 15 minutes
-            4: 3600000,    // Level 4: 1 hour
-            5: 86400000    // Level 5: 24 hours
+            1: 30000,      // Level 1: 30 seconds (was 1 minute)
+            2: 120000,     // Level 2: 2 minutes (was 5 minutes)
+            3: 300000,     // Level 3: 5 minutes (was 15 minutes)
+            4: 900000,     // Level 4: 15 minutes (was 1 hour)
+            5: 3600000     // Level 5: 1 hour (was 24 hours)
         };
         
         // ADVANCED PATTERN DETECTION
@@ -44,14 +44,14 @@ class SecurityLogger {
             crossGameWins: new Map()       // Track wins across different games
         };
         
-        // ULTRA-STRICT THRESHOLDS
+        // RELAXED THRESHOLDS - More lenient for better user experience
         this.ultraThresholds = {
-            winMomentum: 0.6,              // 60% momentum triggers intervention
+            winMomentum: 0.85,             // 85% momentum triggers intervention (was 60%)
             gameHoppingWindow: 300000,     // 5-minute window for game hopping detection
-            maxGamesPerWindow: 3,          // Max 3 different games in window
-            escalationThreshold: 2.0,      // 2x bet increase triggers alert
-            crossGameWinLimit: 2,          // Max 2 consecutive wins across games
-            temporalConcentration: 0.7     // 70% of bets in short timeframe
+            maxGamesPerWindow: 6,          // Max 6 different games in window (was 3)
+            escalationThreshold: 5.0,      // 5x bet increase triggers alert (was 2x)
+            crossGameWinLimit: 5,          // Max 5 consecutive wins across games (was 2)
+            temporalConcentration: 0.9     // 90% of bets in short timeframe (was 70%)
         };
     }
 

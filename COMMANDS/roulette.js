@@ -21,6 +21,16 @@ const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
 const tuningManager = require('../UTILS/tuningManager');
 const uasDataExporter = require('../UTILS/uasDataExporter');
 
+// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
+const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
+const securityLogger = require('../UTILS/securityLogger');
+const sessionGuard = require('../UTILS/sessionGuard');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
+
+// Initialize game integrator
+const gameIntegrator = new UniversalGameIntegrator('roulette');
+
 // Game type constant
 const SMGameType = { ROULETTE: 'roulette' };
 
@@ -711,6 +721,20 @@ module.exports = {
                 logger.warn(`Could not determine refund amount: ${parseError.message}`);
             }
             
+            // Process refund if amount was determined
+            if (refundAmount > 0) {
+                try {
+                    await dbManager.updateUserBalance(userId, guildId, refundAmount, 0, {
+                        game_active: false,
+                        refund_reason: 'Roulette initialization error',
+                        refund_timestamp: Date.now()
+                    });
+                    logger.info(`Refunded ${refundAmount} to user ${userId} for roulette error`);
+                } catch (refundError) {
+                    logger.error(`Failed to process roulette refund: ${refundError.message}`);
+                }
+            }
+            
             // Handle session cleanup
             try {
                 const userSession = sessionManager.getUserActiveSession(userId);
@@ -946,16 +970,6 @@ module.exports = {
                 logger.info('Attempting spinning GIF update...');
                 const fs = require('fs');
                 const path = require('path');
-// UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
-const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
-const securityLogger = require('../UTILS/securityLogger');
-const sessionGuard = require('../UTILS/sessionGuard');
-const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
-const tuningManager = require('../UTILS/tuningManager');
-const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-
-// Initialize game integrator
-const gameIntegrator = new UniversalGameIntegrator('roulette');
 
                 const gifPath = path.join(__dirname, '..', 'assets', 'roulette-spin.gif');
                 const spinningGIF = fs.readFileSync(gifPath);
