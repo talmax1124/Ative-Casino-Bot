@@ -378,14 +378,14 @@ module.exports = {
         let finalOutcome = doorOutcome;
         if (typeof doorOutcome === 'number' && trendAnalyzer) {
             try {
-                const trendAdjustment = trendAnalyzer.getTrendAdjustment('treasurevault');
-                if (trendAdjustment > 0) {
-                    // Reduce multiplier based on trend analysis
-                    finalOutcome = Math.max(1.01, doorOutcome * (1 - trendAdjustment));
-                    logger.debug(`Trend adjustment applied: ${doorOutcome}x -> ${finalOutcome.toFixed(3)}x`);
+                const fairness = trendAnalyzer.getFairnessAdjustment?.('treasurevault', interaction.user.id);
+                if (fairness && fairness.payoutBoost) {
+                    const boostMultiplier = 1 + fairness.payoutBoost;
+                    finalOutcome = doorOutcome * boostMultiplier;
+                    logger.debug(`Fairness boost applied: ${doorOutcome}x -> ${finalOutcome.toFixed(3)}x (boost ${(fairness.payoutBoost * 100).toFixed(1)}%)`);
                 }
             } catch (error) {
-                logger.debug('Trend adjustment failed:', error.message);
+                logger.debug('Fairness adjustment lookup failed:', error.message);
             }
         }
         

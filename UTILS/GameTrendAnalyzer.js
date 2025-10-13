@@ -59,6 +59,23 @@ class GameTrendAnalyzer {
                 'treasurevault': 1.8,    // Increased sensitivity
                 'ceelo': 2.0,            // Added ceelo with high sensitivity
                 'mines': 2.2             // High sensitivity for strategic grid games
+            },
+
+            // Fairness monitoring
+            fairness: {
+                defaultTargetEdge: 0.04,     // Aim for ~4% house edge across games
+                tolerance: 0.01,             // Allow ±1% variance before adjusting
+                recentWindow: 200,           // Use last 200 results for fairness calculations
+                payoutBoostCap: 0.20,        // Maximum 20% payout boost for cold streaks
+                positiveAdjustmentCap: 0.02, // Limit house edge increases to 2%
+                targets: {
+                    roulette: 0.027,
+                    blackjack: 0.01,
+                    crash: 0.02,
+                    slots: 0.025,
+                    plinko: 0.02,
+                    mines: 0.05
+                }
             }
         };
         
@@ -305,6 +322,7 @@ class GameTrendAnalyzer {
             
             // Add to game-specific tracking
             await this.recordGameSpecificChoice(gameType, choiceRecord);
+            this.recordFairnessSample(gameType, choiceRecord);
             
             // Update player behavior profile
             await this.updatePlayerProfile(userId, gameType, choiceRecord);
@@ -371,6 +389,50 @@ class GameTrendAnalyzer {
                 const count = gameData.choices.get(choice) || 0;
                 gameData.choices.set(choice, count + 1);
         }
+    }
+
+    /**
+     * Track recent outcomes for fairness analysis
+     */
+    recordFairnessSample(gameType, choiceRecord) {
+        const gameData = this.trendData.get(gameType);
+        if (!gameData) return;
+        
+        const { metadata } = choiceRecord;
+        const bet = Number(metadata.betAmount || 0);
+        if (!Number.isFinite(bet) || bet <= 0) {
+            return;
+        }
+
+        const payout = Number(
+            metadata.adjustedPayout ??
+            metadata.payout ??
+            metadata.originalPayout ??
+            (metadata.gameResult || metadata.won ? metadata.betAmount : 0)
+        );
+
+        const won = Boolean(metadata.gameResult ?? metadata.won);
+        const sample = {
+            timestamp: Date.now(),
+            userId: choiceRecord.userId,
+            bet,
+            payout: Math.max(0, payout),
+            won,
+            net: Math.max(0, payout) - bet
+        };
+
+        gameData.recentResults = gameData.recentResults || [];
+        gameData.recentResults.push(sample);
+        if (gameData.recentResults.length > this.config.fairness.recentWindow) {
+            gameData.recentResults.shift();
+        }
+
+        const stats = gameData.fairnessStats || { totalBet: 0, totalPayout: 0, sampleSize: 0, winCount: 0 };
+        stats.totalBet += bet;
+        stats.totalPayout += Math.max(0, payout);
+        stats.sampleSize += 1;
+        if (won) stats.winCount += 1;
+        gameData.fairnessStats = stats;
     }
     
     /**
@@ -1067,27 +1129,84 @@ class GameTrendAnalyzer {
      * Calculate Nash equilibrium adjustment
      */
     calculateNashAdjustment(gameType, trendAnalysis) {
-        const { exploitation, confidence } = trendAnalysis;
+        const fairness = this.calculateFairnessAdjustment(gameType);
+        let adjustment = fairness.adjustment || 0;
         
-        if (exploitation <= 0 || confidence < 0.5) {
-            return 0; // No adjustment needed
+        // If a dominant strategy is detected with high confidence, allow a light corrective adjustment
+        const { exploitation, confidence } = trendAnalysis;
+        if (exploitation > 0 && confidence >= 0.7) {
+            const baseAdjustment = exploitation * this.config.nashSensitivity * confidence;
+            const sensitivity = this.config.gameSensitivities[gameType] || 1.0;
+            const cappedAdjustment = Math.min(
+                this.config.fairness.positiveAdjustmentCap,
+                baseAdjustment * sensitivity
+            );
+            adjustment += cappedAdjustment;
         }
         
-        // Base adjustment proportional to exploitation level
-        let adjustment = exploitation * this.config.nashSensitivity * 10;
+        // Clamp within global bounds
+        adjustment = Math.max(-this.config.maxAdjustment, Math.min(this.config.maxAdjustment, adjustment));
+        return adjustment;
+    }
+
+    /**
+     * Calculate fairness-oriented adjustment based on recent outcomes
+     */
+    calculateFairnessAdjustment(gameType) {
+        const gameData = this.trendData.get(gameType);
+        const windowSize = this.config.fairness.recentWindow;
         
-        // Apply game-specific sensitivity
-        const gameSensitivity = this.config.gameSensitivities[gameType] || 1.0;
-        adjustment *= gameSensitivity;
+        if (!gameData || !Array.isArray(gameData.recentResults) || gameData.recentResults.length < 10) {
+            const fallback = gameData?.lastFairness || { adjustment: 0, payoutBoost: 0, stats: null, direction: 'neutral', computedAt: Date.now() };
+            gameData && (gameData.lastFairness = fallback);
+            return fallback;
+        }
         
-        // Apply confidence scaling
-        adjustment *= confidence;
+        const recent = gameData.recentResults.slice(-windowSize);
+        const totalBet = recent.reduce((sum, r) => sum + (r.bet || 0), 0);
+        const totalPayout = recent.reduce((sum, r) => sum + (r.payout || 0), 0);
+        const winCount = recent.filter(r => r.won).length;
+        const sampleSize = recent.length;
         
-        // Cap the adjustment
-        adjustment = Math.min(adjustment, this.config.maxAdjustment);
+        if (totalBet <= 0) {
+            const fallback = { adjustment: 0, payoutBoost: 0, stats: null, direction: 'neutral', computedAt: Date.now() };
+            gameData.lastFairness = fallback;
+            return fallback;
+        }
         
-        // Nash theory: Only increase house edge, never decrease (prevent exploitation)
-        return Math.max(0, adjustment);
+        const actualEdge = (totalBet - totalPayout) / totalBet;
+        const targetEdge = (this.config.fairness.targets && this.config.fairness.targets[gameType]) || this.config.fairness.defaultTargetEdge;
+        const tolerance = this.config.fairness.tolerance;
+        
+        let adjustment = 0;
+        let payoutBoost = 0;
+        let direction = 'neutral';
+        
+        if (actualEdge > targetEdge + tolerance) {
+            // Players are losing more than intended - reduce house edge and offer payout boosts
+            const excess = actualEdge - targetEdge;
+            adjustment = -Math.min(this.config.maxAdjustment, excess);
+            payoutBoost = Math.min(this.config.fairness.payoutBoostCap, excess * 2.5);
+            direction = 'player_support';
+        } else if (actualEdge < targetEdge - tolerance) {
+            // Casino is losing more than expected - allow a gentle recovery
+            const deficit = targetEdge - actualEdge;
+            adjustment = Math.min(this.config.fairness.positiveAdjustmentCap, deficit);
+            direction = 'house_recovery';
+        }
+        
+        const stats = {
+            targetEdge,
+            actualEdge,
+            totalBet,
+            totalPayout,
+            winRate: sampleSize > 0 ? winCount / sampleSize : 0,
+            sampleSize
+        };
+        
+        const result = { adjustment, payoutBoost, stats, direction, computedAt: Date.now() };
+        gameData.lastFairness = result;
+        return result;
     }
     
     /**
@@ -1096,33 +1215,44 @@ class GameTrendAnalyzer {
     async applyTrendAdjustment(gameType, adjustment, trendAnalysis) {
         const gameData = this.trendData.get(gameType);
         const currentAdjustment = gameData.currentAdjustment || 0;
-        
-        // Calculate new total adjustment
-        const newAdjustment = Math.min(
-            currentAdjustment + adjustment,
-            this.config.maxAdjustment
+        const fairness = gameData.lastFairness || this.calculateFairnessAdjustment(gameType);
+
+        // Calculate new total adjustment within symmetric bounds
+        const newAdjustment = Math.max(
+            -this.config.maxAdjustment,
+            Math.min(this.config.maxAdjustment, currentAdjustment + adjustment)
         );
-        
-        // Store adjustment
+
         gameData.currentAdjustment = newAdjustment;
         this.gameAdjustments.set(gameType, {
             houseEdgeAdjustment: newAdjustment,
+            payoutBoost: fairness.payoutBoost || 0,
             reason: trendAnalysis.pattern,
             confidence: trendAnalysis.confidence,
             dominantStrategy: trendAnalysis.dominantStrategy,
+            fairnessDirection: fairness.direction,
+            fairnessStats: fairness.stats,
             appliedAt: Date.now(),
             decayRate: this.config.adjustmentDecay
         });
-        
-        // Log significant adjustments
-        if (adjustment > 0.001) {
-            logger.warn(`🎯 NASH EQUILIBRIUM ADJUSTMENT: ${gameType} +${(adjustment * 100).toFixed(3)}% house edge`);
-            logger.warn(`   Reason: ${trendAnalysis.pattern} (${trendAnalysis.dominantStrategy})`);
-            logger.warn(`   Confidence: ${(trendAnalysis.confidence * 100).toFixed(1)}%`);
-            logger.warn(`   Total Adjustment: ${(newAdjustment * 100).toFixed(3)}%`);
-            
-            // Send to log channel if significant
-            if (adjustment > 0.01) {
+
+        const adjustmentPercent = (adjustment * 100).toFixed(3);
+        const totalPercent = (newAdjustment * 100).toFixed(3);
+        const fairnessPercent = ((fairness.adjustment || 0) * 100).toFixed(3);
+
+        if (Math.abs(adjustment) > 0.001 || Math.abs(fairness.adjustment || 0) > 0.001) {
+            const directionEmoji = fairness.direction === 'player_support' ? '🤝' : fairness.direction === 'house_recovery' ? '🏦' : '⚖️';
+            logger.warn(`${directionEmoji} Fairness adjustment for ${gameType}: ${adjustmentPercent}% (total ${totalPercent}%)`);
+            if (fairness.payoutBoost) {
+                logger.warn(`   Payout boost active: ${(fairness.payoutBoost * 100).toFixed(1)}% for cold streak relief`);
+            }
+            if (trendAnalysis.pattern) {
+                logger.warn(`   Trend pattern: ${trendAnalysis.pattern} (${(trendAnalysis.confidence * 100).toFixed(1)}% confidence)`);
+            }
+            logger.warn(`   Fairness component: ${fairnessPercent}% | Direction: ${fairness.direction}`);
+
+            // Notify monitoring if significant
+            if (Math.abs(adjustment) > 0.01 || Math.abs(fairness.adjustment || 0) > 0.01) {
                 this.sendAdjustmentAlert(gameType, adjustment, trendAnalysis, newAdjustment);
             }
         }
@@ -1140,6 +1270,62 @@ class GameTrendAnalyzer {
         const decayFactor = Math.pow(adjustment.decayRate, age / 86400000); // Decay per day
         
         return adjustment.houseEdgeAdjustment * decayFactor;
+    }
+
+    /**
+     * Retrieve fairness-focused adjustment details
+     */
+    getFairnessAdjustment(gameType, userId = null) {
+        const gameData = this.trendData.get(gameType);
+        if (!gameData) {
+            return {
+                payoutBoost: 0,
+                houseEdgeOffset: 0,
+                stats: null,
+                direction: 'neutral'
+            };
+        }
+
+        const fairness = this.calculateFairnessAdjustment(gameType);
+        let payoutBoost = fairness.payoutBoost || 0;
+
+        if (userId && Array.isArray(gameData.recentResults)) {
+            let lossCount = 0;
+            let lossAmount = 0;
+            const recent = [...gameData.recentResults].reverse();
+
+            for (const result of recent) {
+                if (result.userId !== userId) {
+                    continue;
+                }
+
+                if (result.won) {
+                    break; // streak ended
+                }
+
+                lossCount += 1;
+                lossAmount += Math.abs(result.net);
+
+                if (lossCount >= 10) {
+                    break;
+                }
+            }
+
+            if (lossCount > 0) {
+                const streakBoost = Math.min(
+                    this.config.fairness.payoutBoostCap,
+                    (lossCount * 0.02) + (lossAmount / 250000) // scale by losses
+                );
+                payoutBoost = Math.min(this.config.fairness.payoutBoostCap, payoutBoost + streakBoost);
+            }
+        }
+
+        return {
+            payoutBoost,
+            houseEdgeOffset: fairness.adjustment || 0,
+            stats: fairness.stats,
+            direction: fairness.direction
+        };
     }
     
     /**
@@ -1191,13 +1377,14 @@ class GameTrendAnalyzer {
     async decayAdjustments() {
         for (const [gameType, adjustment] of this.gameAdjustments) {
             const newAdjustment = adjustment.houseEdgeAdjustment * adjustment.decayRate;
+            const newPayoutBoost = (adjustment.payoutBoost || 0) * adjustment.decayRate;
             
-            if (newAdjustment < 0.0001) {
-                // Remove negligible adjustments
+            if (Math.abs(newAdjustment) < 0.0001 && newPayoutBoost < 0.0001) {
                 this.gameAdjustments.delete(gameType);
                 logger.debug(`Removed decayed adjustment for ${gameType}`);
             } else {
                 adjustment.houseEdgeAdjustment = newAdjustment;
+                adjustment.payoutBoost = newPayoutBoost;
             }
         }
     }
@@ -1413,42 +1600,18 @@ class GameTrendAnalyzer {
      */
     async applyEmergencyAdjustment(gameType, winAmount, multiplier) {
         try {
-            // Calculate emergency adjustment based on win size
-            let emergencyAdjustment = 0;
-            
-            if (winAmount >= 50000000) { // 50M+
-                emergencyAdjustment = 0.1; // 10% house edge increase
-            } else if (winAmount >= 20000000) { // 20M+
-                emergencyAdjustment = 0.07; // 7% house edge increase
-            } else if (winAmount >= 10000000) { // 10M+
-                emergencyAdjustment = 0.05; // 5% house edge increase
-            } else if (multiplier >= 1000) { // 1000x+ multiplier
-                emergencyAdjustment = 0.08; // 8% house edge increase
-            } else if (multiplier >= 500) { // 500x+ multiplier
-                emergencyAdjustment = 0.06; // 6% house edge increase
-            } else if (multiplier >= 100) { // 100x+ multiplier
-                emergencyAdjustment = 0.04; // 4% house edge increase
-            }
-            
-            if (emergencyAdjustment > 0) {
-                const trendAnalysis = {
-                    exploitation: 1.0, // Maximum exploitation
-                    confidence: 1.0,   // Maximum confidence
-                    dominantStrategy: 'big_win_detected',
-                    pattern: `emergency_big_win_${winAmount}`
+            logger.info(`🎉 Massive win detected for ${gameType}: ${winAmount} (${multiplier.toFixed(1)}x). Fairness system will monitor without penalizing players.`);
+            const gameData = this.trendData.get(gameType);
+            if (gameData) {
+                gameData.lastFairness = {
+                    ...(gameData.lastFairness || {}),
+                    notedBigWin: true,
+                    computedAt: Date.now()
                 };
-                
-                await this.applyTrendAdjustment(gameType, emergencyAdjustment, trendAnalysis);
-                
-                logger.warn(`🚨 EMERGENCY ADJUSTMENT: ${gameType} +${(emergencyAdjustment * 100).toFixed(1)}% house edge`);
-                logger.warn(`   Reason: Massive win of ${winAmount} (${multiplier.toFixed(1)}x multiplier)`);
-                
-                // Send critical alert to log channel
-                this.sendBigWinAlert(gameType, winAmount, multiplier, emergencyAdjustment);
             }
-            
+            this.sendBigWinAlert(gameType, winAmount, multiplier, 0);
         } catch (error) {
-            logger.error(`Error applying emergency adjustment: ${error.message}`);
+            logger.error(`Error handling massive win notification: ${error.message}`);
         }
     }
     
@@ -1506,7 +1669,6 @@ class GameTrendAnalyzer {
     async checkRapidWealthAccumulation(userId, bigWinRecord) {
         try {
             const { fmt } = require('./common');
-            const wealthBasedBetLimits = require('./wealthBasedBetLimits');
             
             // Check if this user is accumulating wealth too rapidly
             const now = Date.now();
@@ -1578,21 +1740,13 @@ class GameTrendAnalyzer {
                 emergencyReason += ` | 5+ big wins reaching 1B+ wealth`;
             }
             
-            // Apply emergency brakes if triggered
             if (emergencyTriggered) {
-                logger.error(`🚨 EMERGENCY BRAKES ACTIVATED for user ${userId}`);
-                logger.error(`   Reason: ${emergencyReason}`);
-                logger.error(`   Current Wealth: ${fmt(currentWealth)}`);
-                logger.error(`   Recent Wins: 1h=${hourlyWins.length}, 6h=${sixHourWins.length}, 24h=${dailyWins.length}`);
-                
-                // TODO: Implement emergency actions:
-                // 1. Temporarily reduce max bet limits for this user
-                // 2. Flag account for manual review
-                // 3. Apply additional house edge penalties
-                // 4. Notify administrators
-                
-                // For now, log the emergency condition
-                const emergencyData = {
+                logger.warn(`⚠️ Wealth surge detected for user ${userId}`);
+                logger.warn(`   Reason: ${emergencyReason}`);
+                logger.warn(`   Current Wealth: ${fmt(currentWealth)}`);
+                logger.warn(`   Recent Wins: 1h=${hourlyWins.length}, 6h=${sixHourWins.length}, 24h=${dailyWins.length}`);
+
+                const surgeData = {
                     userId,
                     triggerTime: now,
                     reason: emergencyReason,
@@ -1608,9 +1762,24 @@ class GameTrendAnalyzer {
                         daily: dailyGrowthRate
                     }
                 };
-                
-                // Store emergency flag (implementation depends on your data storage)
-                // await this.storeEmergencyFlag(userId, emergencyData);
+
+                try {
+                    const monitoringChannel = process.env.LOG_CHANNEL_ID;
+                    if (monitoringChannel && global.discordClient) {
+                        const channel = await global.discordClient.channels.fetch(monitoringChannel).catch(() => null);
+                        if (channel) {
+                            await channel.send(`⚠️ **Wealth Surge Notice**
+User: <@${userId}>
+Reason: ${emergencyReason}
+Current Wealth: ${fmt(currentWealth)}
+Status: Monitoring only. No automated penalties applied.`);
+                        }
+                    }
+                } catch (discordError) {
+                    logger.error(`Failed to send wealth surge alert: ${discordError.message}`);
+                }
+
+                logger.debug(`Wealth surge data: ${JSON.stringify(surgeData)}`);
             }
             
         } catch (error) {
@@ -1632,7 +1801,8 @@ class GameTrendAnalyzer {
         // Collect adjustment data
         for (const [gameType, adjustment] of this.gameAdjustments) {
             summary.activeAdjustments[gameType] = {
-                houseEdgeIncrease: `+${(adjustment.houseEdgeAdjustment * 100).toFixed(3)}%`,
+                houseEdgeImpact: `${(adjustment.houseEdgeAdjustment * 100).toFixed(3)}%`,
+                payoutBoost: adjustment.payoutBoost ? `${(adjustment.payoutBoost * 100).toFixed(1)}%` : '0%',
                 reason: adjustment.reason,
                 confidence: `${(adjustment.confidence * 100).toFixed(1)}%`,
                 dominantStrategy: adjustment.dominantStrategy
@@ -1747,7 +1917,14 @@ class GameTrendAnalyzer {
                 lastAnalysis: Date.now(),
                 currentAdjustment: 0,
                 bigWins: [],
-                recentChoices: []
+                recentChoices: [],
+                recentResults: [],
+                fairnessStats: {
+                    totalBet: 0,
+                    totalPayout: 0,
+                    sampleSize: 0,
+                    winCount: 0
+                }
             });
             
             this.nashEquilibriumState.set(gameType, {

@@ -86,22 +86,9 @@ class UniversalGameIntegrator {
     /**
      * Generate cryptographically secure random with house edge enforcement
      */
-    generateSecureRandomWithEdge(houseEdge = 0.05, playerProfile = null) {
+    generateSecureRandomWithEdge(houseEdge = 0.05) {
         const baseRandom = this.secureRandom();
-        
-        // Apply house edge adjustment
-        let adjustedRandom = baseRandom * (1 - houseEdge);
-        
-        // Apply player-specific adjustments
-        if (playerProfile) {
-            if (playerProfile.riskLevel > 0.7) {
-                adjustedRandom *= 0.95; // 5% reduction for high-risk players
-            }
-            if (playerProfile.historicalWinRate > 0.6) {
-                adjustedRandom *= 0.9; // 10% reduction for high win rate players
-            }
-        }
-
+        const adjustedRandom = baseRandom * (1 - houseEdge);
         return Math.max(0, Math.min(1, adjustedRandom));
     }
 
@@ -174,6 +161,7 @@ class UniversalGameIntegrator {
 
             // Process through bulletproof economy if available
             let adjustedPayout = originalPayout;
+            let economyMetadata = null;
             if (this.bulletproofEconomy && won) {
                 const economyResult = await this.bulletproofEconomy.adjustPostGamePayout({
                     gameType,
@@ -184,6 +172,12 @@ class UniversalGameIntegrator {
                     guildId
                 });
                 adjustedPayout = economyResult.adjustedPayout || originalPayout;
+                economyMetadata = {
+                    payoutMultiplier: economyResult.payoutMultiplier,
+                    houseEdge: economyResult.houseEdge,
+                    fairness: economyResult.fairness,
+                    stability: economyResult.stability
+                };
             }
 
             // Verify payout transparency (ensure what's displayed matches what's paid)
@@ -211,7 +205,8 @@ class UniversalGameIntegrator {
                 originalPayout,
                 adjustedPayout,
                 finalPayout: adjustedPayout,
-                economyAdjustments: this.bulletproofEconomy ? true : false
+                economyAdjustments: this.bulletproofEconomy ? true : false,
+                economyMetadata
             };
 
         } catch (error) {
@@ -263,22 +258,9 @@ class UniversalGameIntegrator {
             }
         }
         
-        // Apply player-specific adjustments
-        let finalWinProb = adjustedWinProb;
-        if (playerProfile) {
-            // High-risk players get worse odds
-            if (playerProfile.riskLevel > 0.7) {
-                finalWinProb *= 0.9;
-            }
-            // High win rate players get worse odds
-            if (playerProfile.historicalWinRate > 0.6) {
-                finalWinProb *= 0.85;
-            }
-        }
-
         // Generate secure random outcome
-        const randomValue = this.generateSecureRandomWithEdge(houseEdge, playerProfile);
-        return randomValue < finalWinProb;
+        const randomValue = this.generateSecureRandomWithEdge(houseEdge);
+        return randomValue < adjustedWinProb;
     }
 
     /**

@@ -20,13 +20,13 @@ function mapReason(userId, gameType, details) {
     case 'RATE_LIMITED':
       return 'Please wait a brief moment before starting a new game.';
     case 'ABUSE_COOLDOWN':
-      return 'High-frequency betting detected. Please wait a few minutes before starting another game.';
+      return details.message || 'The system is still wrapping up your last action. Try again in a moment.';
     case 'SECURITY_LOCKOUT':
-      return details.message || 'You are temporarily locked out due to excessive betting.';
+      return details.message || 'Temporary pause in effect. Please try again shortly.';
     case 'HIGH_MOMENTUM':
-      return details.message || 'You are on a winning streak. Please take a short break before continuing.';
+      return details.message || 'Let the system catch up for a moment and then try again.';
     case 'GAME_HOPPING':
-      return details.message || 'Please focus on one game at a time. Wait a moment before switching games.';
+      return details.message || 'The previous game is finishing up. Give it a second and try again.';
     case 'INSUFFICIENT_FUNDS':
       return 'Insufficient funds for this bet.';
     case 'ERROR':

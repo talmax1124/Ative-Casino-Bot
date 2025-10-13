@@ -105,6 +105,29 @@ function getTrendAdjustment(gameType) {
     }
 }
 
+function getFairnessAdjustment(gameType, userId = null) {
+    try {
+        const analyzer = getTrendAnalyzer();
+        if (typeof analyzer.getFairnessAdjustment === 'function') {
+            return analyzer.getFairnessAdjustment(gameType, userId);
+        }
+        return {
+            payoutBoost: 0,
+            houseEdgeOffset: 0,
+            stats: null,
+            direction: 'neutral'
+        };
+    } catch (error) {
+        logger.error(`Error getting fairness adjustment: ${error.message}`);
+        return {
+            payoutBoost: 0,
+            houseEdgeOffset: 0,
+            stats: null,
+            direction: 'neutral'
+        };
+    }
+}
+
 /**
  * Report any game result to behavioral analyzer
  */
@@ -260,6 +283,7 @@ module.exports = {
     checkSuspiciousActivity,
     getComprehensiveAnalysis,
     getTrendAdjustment,
+    getFairnessAdjustment,
     getTrendSummary,
     // New advanced adjustment functions
     getAdjustedWinRate,

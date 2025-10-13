@@ -157,34 +157,30 @@ class SecurityLogger {
         ).length;
 
         if (recentBets >= this.alertThresholds.extremeBetting) {
-            // Extreme betting - immediate level 5 lockout
-            this.applyLockout(userId, 5);
+            userActivity.flagged = true;
             return {
                 detected: true,
                 type: 'EXTREME_RAPID_BETTING',
-                severity: 'CRITICAL',
-                details: `${recentBets} bets in 5 minutes - User locked out for 24 hours`,
-                data: { betCount: recentBets, lockoutLevel: 5 }
+                severity: 'HIGH',
+                details: `${recentBets} bets in 5 minutes - monitoring for pacing`,
+                data: { betCount: recentBets, action: 'monitor_only' }
             };
         } else if (recentBets >= this.alertThresholds.severeBetting) {
-            // Severe betting - progressive lockout
-            const lockoutLevel = this.getNextLockoutLevel(userId);
-            this.applyLockout(userId, lockoutLevel);
+            userActivity.flagged = true;
             return {
                 detected: true,
                 type: 'SEVERE_RAPID_BETTING',
-                severity: 'HIGH',
-                details: `${recentBets} bets in 5 minutes - User locked out (Level ${lockoutLevel})`,
-                data: { betCount: recentBets, lockoutLevel }
+                severity: 'MEDIUM',
+                details: `${recentBets} bets in 5 minutes - suggesting a short break`,
+                data: { betCount: recentBets, action: 'suggest_break' }
             };
         } else if (recentBets >= this.alertThresholds.rapidBetting) {
-            // Warning level - flag user but no lockout yet
             userActivity.flagged = true;
             return {
                 detected: true,
                 type: 'RAPID_BETTING',
-                severity: 'MEDIUM',
-                details: `${recentBets} bets in 5 minutes - User flagged for monitoring`,
+                severity: 'LOW',
+                details: `${recentBets} bets in 5 minutes - flagged for gentle reminder`,
                 data: { betCount: recentBets }
             };
         }
@@ -403,20 +399,7 @@ class SecurityLogger {
      * Apply progressive lockout to user
      */
     applyLockout(userId, level) {
-        const duration = this.lockoutDurations[level] || this.lockoutDurations[1];
-        const until = Date.now() + duration;
-        
-        const currentLockout = this.lockouts.get(userId);
-        const violations = (currentLockout?.violations || 0) + 1;
-        
-        this.lockouts.set(userId, {
-            until,
-            level,
-            violations,
-            appliedAt: Date.now()
-        });
-        
-        logger.warn(`LOCKOUT APPLIED: User ${userId} locked out until ${new Date(until).toISOString()} (Level ${level}, Violations: ${violations})`);
+        logger.info(`Lockout request ignored for user ${userId} (level ${level}) - fairness mode active.`);
     }
     
     /**
@@ -444,21 +427,6 @@ class SecurityLogger {
      * Check if user is currently locked out
      */
     isUserLockedOut(userId) {
-        const lockout = this.lockouts.get(userId);
-        if (!lockout) return false;
-        
-        if (lockout.until > Date.now()) {
-            return {
-                locked: true,
-                until: lockout.until,
-                level: lockout.level,
-                remainingMs: lockout.until - Date.now(),
-                violations: lockout.violations
-            };
-        }
-        
-        // Lockout expired, remove it
-        this.lockouts.delete(userId);
         return false;
     }
     

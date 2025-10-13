@@ -47,16 +47,16 @@ class BalanceBasedAdjuster {
     defineAdjustmentRules() {
         return {
             ULTRA_LOW: {
-                winRateMultiplier: 1.15,    // +15% win rate bonus
-                payoutMultiplier: 1.10,     // +10% payout bonus
-                houseEdgeReduction: 0.02,   // -2% house edge
-                description: 'Helping new players grow'
+                winRateMultiplier: 1.12,    // +12% win rate bonus
+                payoutMultiplier: 1.08,     // +8% payout bonus
+                houseEdgeReduction: 0.015,  // -1.5% house edge
+                description: 'Helping new players rebuild their balance'
             },
             LOW: {
-                winRateMultiplier: 1.08,    // +8% win rate bonus
-                payoutMultiplier: 1.05,     // +5% payout bonus
+                winRateMultiplier: 1.05,    // +5% win rate bonus
+                payoutMultiplier: 1.04,     // +4% payout bonus
                 houseEdgeReduction: 0.01,   // -1% house edge
-                description: 'Slight assistance for low balance'
+                description: 'Gentle boost for growing balances'
             },
             NORMAL: {
                 winRateMultiplier: 1.00,    // Standard rates
@@ -65,28 +65,28 @@ class BalanceBasedAdjuster {
                 description: 'Standard game rates'
             },
             HIGH: {
-                winRateMultiplier: 0.95,    // -5% win rate
-                payoutMultiplier: 0.97,     // -3% payout
-                houseEdgeReduction: -0.01,  // +1% house edge
-                description: 'Slightly tougher for high balance'
+                winRateMultiplier: 1.00,    // No penalty for doing well
+                payoutMultiplier: 1.00,     // Keep payouts fair
+                houseEdgeReduction: 0.00,   // No extra edge applied
+                description: 'Fair play for established players'
             },
             VERY_HIGH: {
-                winRateMultiplier: 0.90,    // -10% win rate
-                payoutMultiplier: 0.93,     // -7% payout
-                houseEdgeReduction: -0.02,  // +2% house edge
-                description: 'Moderate challenge for very high balance'
+                winRateMultiplier: 1.00,    // No penalty
+                payoutMultiplier: 1.00,     // No penalty
+                houseEdgeReduction: 0.00,   // Maintain base edge
+                description: 'Consistent odds regardless of balance'
             },
             ULTRA_HIGH: {
-                winRateMultiplier: 0.85,    // -15% win rate
-                payoutMultiplier: 0.88,     // -12% payout
-                houseEdgeReduction: -0.03,  // +3% house edge
-                description: 'Significant challenge for ultra high balance'
+                winRateMultiplier: 1.00,    // No penalty
+                payoutMultiplier: 1.00,     // No penalty
+                houseEdgeReduction: 0.00,   // Maintain base edge
+                description: 'High rollers keep the same odds'
             },
             MEGA_WHALE: {
-                winRateMultiplier: 0.80,    // -20% win rate
-                payoutMultiplier: 0.85,     // -15% payout
-                houseEdgeReduction: -0.04,  // +4% house edge
-                description: 'Maximum challenge for mega whales'
+                winRateMultiplier: 1.00,    // No penalty
+                payoutMultiplier: 1.00,     // No penalty
+                houseEdgeReduction: 0.00,   // Maintain base edge
+                description: 'Mega players enjoy the same fair odds'
             }
         };
     }

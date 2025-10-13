@@ -19,6 +19,8 @@ class DatabaseAdapter {
         
         // Migration flags to prevent duplicate executions
         this.balanceIntegrityApplied = false;
+        this.offEconomyColumnEnsured = false;
+        this.offEconomyFlagSynchronized = false;
     }
 
     // Helper function to calculate consistent week start (Thursday at 00:00:00 UTC)
@@ -1682,6 +1684,11 @@ class DatabaseAdapter {
      * Record game result for statistics
      */
     async recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
+        if (!this.pool) {
+            logger.warn('recordGameResult skipped: database pool not initialized');
+            return false;
+        }
+
         try {
             // Convert undefined to null for SQL compatibility
             const safeUserId = userId ?? null;
@@ -3988,8 +3995,41 @@ class DatabaseAdapter {
      */
     async isOffEconomy(userId) {
         try {
-            const DEVELOPER_ID = '466050111680544798'; // Developer ID hardcoded
-            return userId === DEVELOPER_ID;
+            if (!userId) {
+                return false;
+            }
+
+            const DEVELOPER_ID = '466050111680544798';
+            if (userId === DEVELOPER_ID) {
+                return true;
+            }
+
+            if (!this.pool) {
+                logger.warn('isOffEconomy check skipped: database pool not initialized');
+                return false;
+            }
+
+            await this.ensureOffEconomyTable();
+
+            const statusRows = await this.executeQuery(
+                'SELECT active FROM off_economy_users WHERE user_id = ? LIMIT 1',
+                [userId]
+            );
+
+            if (statusRows.length > 0) {
+                return Boolean(statusRows[0].active);
+            }
+
+            const balanceRows = await this.executeQuery(
+                'SELECT off_economy FROM user_balances WHERE user_id = ? LIMIT 1',
+                [userId]
+            );
+
+            if (balanceRows.length > 0 && balanceRows[0].off_economy !== null && balanceRows[0].off_economy !== undefined) {
+                return Boolean(balanceRows[0].off_economy);
+            }
+
+            return false;
         } catch (error) {
             logger.error(`Error checking off economy status: ${error.message}`);
             return false;
@@ -3997,15 +4037,14 @@ class DatabaseAdapter {
     }
     
     /**
-     * Toggle user's off-economy status
-     * @param {string} userId - User ID
-     * @param {boolean} offEconomyStatus - New off-economy status (true = off economy, false = on economy)
-     * @returns {boolean} Success status
-     */
-    /**
      * Ensure off_economy_users table exists
      */
     async ensureOffEconomyTable() {
+        if (!this.pool) {
+            logger.warn('ensureOffEconomyTable skipped: database pool not initialized');
+            return;
+        }
+
         try {
             await this.executeQuery(`
                 CREATE TABLE IF NOT EXISTS off_economy_users (
@@ -4015,28 +4054,100 @@ class DatabaseAdapter {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `);
+
+            await this.ensureOffEconomyColumn();
         } catch (error) {
             logger.error(`Failed to ensure off_economy_users table: ${error.message}`);
         }
     }
 
+    /**
+     * Ensure off_economy column exists on user_balances (legacy compatibility)
+     */
+    async ensureOffEconomyColumn() {
+        if (this.offEconomyColumnEnsured || !this.pool) {
+            return;
+        }
+
+        try {
+            const [columns] = await this.pool.execute(
+                `SELECT COLUMN_NAME 
+                 FROM INFORMATION_SCHEMA.COLUMNS 
+                 WHERE TABLE_SCHEMA = DATABASE() 
+                   AND TABLE_NAME = 'user_balances' 
+                   AND COLUMN_NAME = 'off_economy'`
+            );
+
+            if (!Array.isArray(columns) || columns.length === 0) {
+                await this.pool.execute(
+                    'ALTER TABLE user_balances ADD COLUMN off_economy TINYINT(1) NOT NULL DEFAULT 0'
+                );
+                logger.info('Added off_economy column to user_balances table');
+            }
+
+            await this.synchronizeOffEconomyFlag();
+            this.offEconomyColumnEnsured = true;
+        } catch (error) {
+            logger.error(`Failed to ensure off_economy column: ${error.message}`);
+        }
+    }
+
+    /**
+     * Synchronize legacy off_economy column with new mapping table
+     */
+    async synchronizeOffEconomyFlag() {
+        if (this.offEconomyFlagSynchronized || !this.pool) {
+            return;
+        }
+
+        try {
+            await this.pool.execute(`
+                UPDATE user_balances ub
+                LEFT JOIN off_economy_users o ON o.user_id = ub.user_id
+                SET ub.off_economy = COALESCE(o.active, 0)
+            `);
+            this.offEconomyFlagSynchronized = true;
+        } catch (error) {
+            logger.warn(`Unable to synchronize off_economy flags: ${error.message}`);
+        }
+    }
+
+    /**
+     * Toggle user's off-economy status
+     * @param {string} userId - User ID
+     * @param {boolean} offEconomyStatus - New off-economy status (true = off economy, false = on economy)
+     * @returns {boolean} Success status
+     */
     async toggleOffEconomy(userId, offEconomyStatus) {
         try {
-            // Ensure table exists first
+            if (!this.pool) {
+                logger.warn('toggleOffEconomy skipped: database pool not initialized');
+                return false;
+            }
+
             await this.ensureOffEconomyTable();
-            
+
+            const activeValue = offEconomyStatus ? 1 : 0;
+
             if (offEconomyStatus) {
-                // Add user to off_economy_users table
                 await this.executeQuery(
                     'INSERT INTO off_economy_users (user_id, active) VALUES (?, 1) ON DUPLICATE KEY UPDATE active = 1',
                     [userId]
                 );
             } else {
-                // Remove user from off_economy_users table or set inactive
                 await this.executeQuery(
                     'INSERT INTO off_economy_users (user_id, active) VALUES (?, 0) ON DUPLICATE KEY UPDATE active = 0',
                     [userId]
                 );
+            }
+
+            try {
+                await this.executeQuery(
+                    'UPDATE user_balances SET off_economy = ? WHERE user_id = ?',
+                    [activeValue, userId]
+                );
+            } catch (updateError) {
+                logger.warn(`Unable to sync off_economy flag on user_balances for ${userId}: ${updateError.message}`);
             }
             
             logger.info(`Toggled off-economy status for ${userId} to ${offEconomyStatus}`);
