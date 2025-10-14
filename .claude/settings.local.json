@@ -4,7 +4,10 @@
       "Bash(rm:*)",
       "Bash(npm install)",
       "Bash(npm start)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(node analyze-economy.js)",
+      "Bash(node test-game-balance.js)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
