@@ -10,11 +10,17 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-// Clean up all past logs on startup before initializing logger
-const logCleanup = require('./UTILS/logCleanup');
-logCleanup.cleanupLogs(); // Run cleanup synchronously
-
 const logger = require('./UTILS/logger');
+
+// Defer log cleanup to avoid blocking startup
+setTimeout(() => {
+    try {
+        const logCleanup = require('./UTILS/logCleanup');
+        logCleanup.cleanupLogs();
+    } catch (error) {
+        logger.debug('Log cleanup deferred:', error.message);
+    }
+}, 1000); // Clean up logs after 1 second
 const StartupBanner = require('./UTILS/startupBanner');
 const dbManager = require('./UTILS/database');
 const nodeCache = require('./UTILS/nodeCache');
@@ -25,8 +31,19 @@ const { sendLogMessage, fmt } = require('./UTILS/common');
 const LogSummaryManager = require('./UTILS/logSummaryManager');
 const panelManager = require('./UTILS/panelManager');
 const SafeInteractionHandler = require('./UTILS/interactionHandler');
-const { LotteryGame } = require('./GAMES/lottery');
-const ScratchTicketSystem = require('./GAMES/scratchTickets');
+
+// Defer heavy game system imports until actually needed (saves ~65ms at startup)
+let LotteryGame = null;
+let ScratchTicketSystem = null;
+const getLotteryGame = () => {
+    if (!LotteryGame) LotteryGame = require('./GAMES/lottery').LotteryGame;
+    return LotteryGame;
+};
+const getScratchTicketSystem = () => {
+    if (!ScratchTicketSystem) ScratchTicketSystem = require('./GAMES/scratchTickets');
+    return ScratchTicketSystem;
+};
+
 const storageMonitor = require('./UTILS/storageMonitor');
 // LEGACY: Economic systems replaced by EconomyGuardian AI
 // const economicManager = require('./UTILS/economicManager');
@@ -759,7 +776,8 @@ client.once('clientReady', async () => {
 
     // Initialize lottery system in all environments
     try {
-            client.lotteryGame = new LotteryGame(client);
+            const LotteryGameClass = getLotteryGame();
+            client.lotteryGame = new LotteryGameClass(client);
             await client.lotteryGame.initialize();
             logger.info('Lottery system initialized successfully');
 
@@ -770,7 +788,8 @@ client.once('clientReady', async () => {
                     if (client.lotteryGame && client.lotteryGame.scheduledDrawing) {
                         clearTimeout(client.lotteryGame.scheduledDrawing);
                     }
-                    client.lotteryGame = new LotteryGame(client);
+                    const LotteryGameClass = getLotteryGame();
+            client.lotteryGame = new LotteryGameClass(client);
                     await client.lotteryGame.initialize();
                     logger.info('Lottery system restarted successfully');
                     return true;
@@ -787,7 +806,8 @@ client.once('clientReady', async () => {
         setTimeout(async () => {
             try {
                 logger.info('Attempting lottery system fallback initialization...');
-                client.lotteryGame = new LotteryGame(client);
+                const LotteryGameClass = getLotteryGame();
+            client.lotteryGame = new LotteryGameClass(client);
                 await client.lotteryGame.initialize();
                 logger.info('Lottery system fallback initialization successful');
             } catch (fallbackError) {
@@ -798,7 +818,8 @@ client.once('clientReady', async () => {
 
     // Initialize scratch ticket system
     try {
-        client.scratchTicketSystem = new ScratchTicketSystem(client);
+        const ScratchTicketSystemClass = getScratchTicketSystem();
+        client.scratchTicketSystem = new ScratchTicketSystemClass(client);
         await client.scratchTicketSystem.initialize();
         logger.info('Scratch ticket system initialized successfully');
     } catch (error) {

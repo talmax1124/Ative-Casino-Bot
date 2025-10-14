@@ -1,280 +1,822 @@
 /**
- * 🚀 ENGINE-POWERED SLOTS COMMAND
- * Simplified and enhanced with the new Engine system
- * 80% less code with MORE features than the original!
+ * 🚀 HYBRID ENGINE-POWERED SLOTS COMMAND
+ * Combines original animations/Canvas with new Engine system
+ * Best of both worlds: Rich visuals + Advanced analytics!
  */
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
+const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
+const { spinSlots, calculatePayout, createSlotDisplay, createSlotsImage, createSpinningSlotGIF } = require('../GAMES/slots');
 
-// Import the unified engine system
+// 🚀 HYBRID ENGINE SYSTEM - Analytics + Animations Integration
 const GameEngine = require('../ENGINES/GameEngine');
 const CommunicationEngine = require('../ENGINES/CommunicationEngine');
 const AnalyticsEngine = require('../ENGINES/AnalyticsEngine');
 
-// Import existing slots logic for symbols
-const { spinSlots, createSlotDisplay } = require('../GAMES/slots');
+// 💎 LUXURY UI ENHANCEMENT SYSTEM
+const { 
+    LUXURY_ICONS, 
+    LUXURY_COLORS, 
+    createLuxuryEmbed, 
+    enhanceGameResult, 
+    createProgressAnimation,
+    formatLuxuryCurrency,
+    getTierColors
+} = require('../UTILS/luxuryUI');
+
+// 🎪 TEXT ANIMATION SYSTEM
+const {
+    createSlotAnimation,
+    createWinAnimation,
+    playAnimation,
+    addSparkleEffect,
+    createDramaticPause
+} = require('../UTILS/textAnimations');
+
+const SMGameType = { SLOTS: 'slots' };
+const sessionManager = require('../UTILS/sessionManager');
+const dbManager = require('../UTILS/database');
+const logger = require('../UTILS/logger');
+const transparentPayoutManager = require('../UTILS/transparentPayoutManager');
+const securityLogger = require('../UTILS/securityLogger');
+const tuningManager = require('../UTILS/tuningManager');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
+const uasDataExporter = require('../UTILS/uasDataExporter');
+
+// SLOTS DIFFICULTY MODES - Progressive risk/reward system
+const SLOTS_MODES = {
+    safe: {
+        name: '🛡️ Safe',
+        minBet: 500,
+        maxMultiplier: 1.8,
+        description: 'Min: $500, Max Multiplier: 1.8x'
+    },
+    balanced: {
+        name: '⚖️ Balanced', 
+        minBet: 1000,
+        maxMultiplier: 2.0,
+        description: 'Min: $1K, Max Multiplier: 2.0x'
+    },
+    risky: {
+        name: '⚡ Risky',
+        minBet: 2500, 
+        maxMultiplier: 2.2,
+        description: 'Min: $2.5K, Max Multiplier: 2.2x'
+    },
+    extreme: {
+        name: '🔥 Extreme',
+        minBet: 5000,
+        maxMultiplier: 2.2,
+        description: 'Min: $5K, Max Multiplier: 2.2x'
+    }
+};
+
+/**
+ * Create slots result embed using gameSessionKit style
+ */
+async function createSlotsEmbed(user, symbols, result, betAmount, userBalance, oldWallet, aiResult = null) {
+    // Economy badge removed - using bulletproof economy system
+    const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
+    
+    const topFields = [];
+    
+    // Check if this is a playfor game
+    const playForRecipient = global.playForContext?.recipientName;
+    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+    
+    // Slot display (raw text; formatted by buildSessionEmbed)
+    const slotDisplay = createSlotDisplay(symbols);
+    topFields.push({
+        name: '🎲 SLOT RESULT',
+        value: slotDisplay,
+        inline: false
+    });
+    
+    // Add playfor context if applicable
+    if (winningForSomeoneElse) {
+        topFields.push({
+            name: '🎁 Playing For',
+            value: `@${playForRecipient}`,
+            inline: true
+        });
+    }
+
+    // Banking fields
+    const bankFields = [
+        { name: '💰 Bet', value: fmt(betAmount), inline: true },
+        { name: '💵 Wallet', value: fmt(userBalance.wallet), inline: true },
+        { name: '🏦 Bank', value: fmt(userBalance.bank), inline: true }
+    ];
+
+    if (result.won) {
+        bankFields.splice(1, 0, 
+            { name: '🎯 Multiplier', value: `x${result.multiplier.toFixed(2)}`, inline: true },
+            { name: '💸 Payout', value: fmt(result.payout), inline: true }
+        );
+    }
+
+    // Determine game state and color
+    let stageText = '';
+    let color = 0x00ff00; // Default green
+
+    if (result.won) {
+        if (winningForSomeoneElse) {
+            if (result.multiplier >= 100) {
+                stageText = `INCREDIBLE WIN FOR @${playForRecipient}!`;
+                color = 0xFFD700; // Gold
+            } else if (result.multiplier >= 50) {
+                stageText = `AMAZING WIN FOR @${playForRecipient}!`;
+                color = 0x00ff00; // Green
+            } else {
+                stageText = `WON FOR @${playForRecipient}!`;
+                color = 0x00ff00; // Green
+            }
+        } else {
+            if (result.multiplier >= 100) {
+                stageText = 'INCREDIBLE WIN!';
+                color = 0xFFD700; // Gold
+            } else if (result.multiplier >= 50) {
+                stageText = 'AMAZING WIN!';
+                color = 0x00ff00; // Green
+            } else {
+                stageText = 'WINNER!';
+                color = 0x00ff00; // Green
+            }
+        }
+    } else {
+        stageText = 'TRY AGAIN';
+        color = 0xff0000; // Red
+    }
+
+    // Get economic indicators if AI result is available
+    let economicFooter = result.won ? result.type : 'Better luck next time!';
+    if (winningForSomeoneElse && result.won) {
+        economicFooter = `${result.type} - Winnings sent to @${playForRecipient}!`;
+    }
+    if (aiResult) {
+        // EconomyGuardianInterface removed - using bulletproof economy
+    }
+
+    // Protection systems are invisible to players - they just see their actual odds/results
+
+    return buildSessionEmbed({
+        title: `🎰 ${user.displayName}'s Slots`,
+        topFields,
+        bankFields,
+        stageText,
+        color,
+        footer: economicFooter
+    });
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('slots')
-        .setDescription('🎰 Classic Slots powered by the Engine system')
+        .setDescription('Play the slot machine!')
         .addStringOption(option =>
             option.setName('amount')
-                .setDescription('Amount to bet')
-                .setRequired(true))
+                .setDescription('Amount to bet (supports K/M/B, "all", "half")')
+                .setRequired(true)
+        )
         .addStringOption(option =>
             option.setName('mode')
-            .setDescription('Game difficulty mode')
-            .addChoices(
-                { name: '🛡️ Safe (Lower stakes)', value: 'safe' },
-                { name: '⚖️ Balanced (Standard)', value: 'balanced' },
-                { name: '⚡ Risky (Higher stakes)', value: 'risky' },
-                { name: '🔥 Extreme (Highest stakes)', value: 'extreme' }
-            )),
+                .setDescription('Risk mode (higher modes have better multipliers but higher minimum bets)')
+                .setRequired(false)
+                .addChoices(
+                    { name: '🛡️ Safe (Min: $500, Max: 2x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, Max: 2.5x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, Max: 3x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, Max: 3.5x)', value: 'extreme' }
+                )
+        ),
 
     async execute(interaction) {
         const userId = interaction.user.id;
-        const guildId = interaction.guild?.id;
-        const amountStr = interaction.options.getString('amount');
-        const mode = interaction.options.getString('mode') || 'balanced';
-
-        await interaction.deferReply();
+        const username = interaction.user.displayName || 'Player';
+        const amount = interaction.options.getString('amount');
+        const mode = interaction.options.getString('mode') || 'balanced'; // Default to balanced mode
+        const guildId = await getGuildId(interaction);
+        
+        // Get mode configuration
+        const modeConfig = SLOTS_MODES[mode];
+        if (!modeConfig) {
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Invalid Mode')
+                .setDescription('Invalid game mode selected.')
+                .setColor(0xFF0000);
+            return await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+        }
 
         try {
-            // Parse bet amount
-            const { parseAmount } = require('../UTILS/common');
-            const betAmount = parseAmount(amountStr);
+            logger.debug(`Slots execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}' and mode '${mode}'`);
             
-            if (!betAmount || betAmount <= 0) {
-                return await interaction.editReply({
-                    content: '❌ Invalid bet amount. Please enter a valid number.',
-                    ephemeral: true
-                });
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'slots');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.reply({ embeds: [maintenanceCheck.embed], flags: 64 });
+            }
+            
+            // Validate session before proceeding (via sessionGuard)
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, SMGameType.SLOTS, interaction.client);
+            logger.debug(`canCreateSession result for ${userId}: ${JSON.stringify({ allowed: check.allowed, reason: check.code })}`);
+            if (!check.allowed) {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Session Error')
+                    .setDescription(check.message)
+                    .setColor(0xFF0000)
+                    .setTimestamp();
+                return await interaction.reply({ embeds: [errorEmbed], flags: 64 });
             }
 
-            // Define mode configurations
-            const modeConfigs = {
-                safe: {
-                    name: '🛡️ Safe',
-                    maxMultiplier: 1.8,
-                    minBet: 500,
-                    baseWinRate: 0.45,
-                    houseEdge: 0.20
-                },
-                balanced: {
-                    name: '⚖️ Balanced',
-                    maxMultiplier: 2.0,
-                    minBet: 1000,
-                    baseWinRate: 0.40,
-                    houseEdge: 0.25
-                },
-                risky: {
-                    name: '⚡ Risky',
-                    maxMultiplier: 2.2,
-                    minBet: 2500,
-                    baseWinRate: 0.35,
-                    houseEdge: 0.30
-                },
-                extreme: {
-                    name: '🔥 Extreme',
-                    maxMultiplier: 2.5,
-                    minBet: 5000,
-                    baseWinRate: 0.30,
-                    houseEdge: 0.35
-                }
-            };
+            // 🎛️ INITIALIZE AI TUNING SYSTEM
+            await tuningManager.initialize();
+            
+            // Ensure user exists and get balance
+            await dbManager.ensureUser(userId, username);
+            const userBalance = await dbManager.getUserBalance(userId, guildId);
+            logger.debug(`Fetched user balance for ${userId}: wallet=${userBalance.wallet}, bank=${userBalance.bank}`);
 
-            const modeConfig = modeConfigs[mode];
+            // Validate and deduct bet using mode-specific minimum
+            const validation = await PayoutManager.validateAndDeductBet(
+                interaction,
+                amount,
+                GameType.SLOTS,
+                modeConfig.minBet,  // Mode-specific minimum bet
+                null                // No max bet limit - bulletproof economy handles risk
+            );
 
-            // Check minimum bet for mode
-            if (betAmount < modeConfig.minBet) {
-                return await interaction.editReply({
-                    content: `❌ Minimum bet for ${modeConfig.name} mode is ${modeConfig.minBet.toLocaleString()}`,
-                    ephemeral: true
-                });
+            if (!validation.isValid) {
+                return await interaction.reply({ embeds: [validation.errorEmbed], flags: 64 });
             }
 
-            // 🎮 START GAME - One line with full validation, security, balance checks
-            const gameResult = await GameEngine.startGame('slots', userId, guildId, betAmount, {
+            const betAmount = validation.parsedAmount;
+            logger.debug(`Bet validated for ${userId}: parsedAmount=${betAmount}`);
+            const oldWallet = validation.newWallet + betAmount; // Wallet before bet
+
+            // EconomyGuardianInterface removed - using bulletproof economy
+            const aiResult = null;
+
+            // Create game session
+            const sessionResult = await sessionManager.createSession({
+                userId,
+                guildId,
+                channelId: interaction.channelId,
+                gameType: SMGameType.SLOTS,
+                betAmount,
+                betPreDeducted: true,
+                timeout: 60000, // 1 minute
+                metadata: {
+                    gamePhase: 'spinning',
+                    symbols: [],
+                    mode: mode,
+                    modeConfig: modeConfig
+                },
+                interaction
+            });
+
+            if (!sessionResult.success) {
+                throw new Error(`Session creation failed: ${sessionResult.error}`);
+            }
+
+            const sessionId = sessionResult.sessionId;
+            logger.debug(`Slots session created: ${sessionId} for ${userId}`);
+
+            // 🎮 START GAME USING HYBRID ENGINE SYSTEM - Analytics + Original Animations
+            const engineGameResult = await GameEngine.startGame('slots', userId, guildId, betAmount, {
                 mode: mode,
                 modeConfig: modeConfig
             });
 
-            if (!gameResult.success) {
-                return await interaction.editReply({
-                    content: `❌ Cannot start game: ${gameResult.error}`,
+            if (!engineGameResult.success) {
+                return await interaction.reply({
+                    content: `❌ Cannot start game: ${engineGameResult.error}`,
                     ephemeral: true
                 });
             }
 
-            const { gameId, settings } = gameResult;
+            const { gameId: engineGameId, settings } = engineGameResult;
 
-            // 🎰 SPIN THE SLOTS
-            const spinResult = spinSlots();
-            const slotDisplay = createSlotDisplay(spinResult);
+            // Defer reply for animation and image generation
+            await interaction.deferReply();
 
-            // 🎲 GENERATE OUTCOME - Automatic balance adjustments, house edge, security
-            const outcome = await GameEngine.generateGameOutcome(gameId);
+            // Personalized game helper removed - using bulletproof economy
+            const personalizedConfig = { payouts: { cherry: 2, lemon: 3, orange: 5, bar: 10, seven: 20 } }; // Default payouts
             
-            // Calculate slots-specific payout
-            let payout = 0;
-            let multiplier = 0;
-            let payoutType = 'No Match';
-            
-            if (outcome.won) {
-                // Base payout calculation from symbols
-                const basePayout = this.calculateSlotsPayout(spinResult, betAmount, modeConfig);
-                payout = Math.floor(basePayout.payout * (outcome.adjustments?.adjustedPayout || 1));
-                multiplier = payout / betAmount;
-                payoutType = basePayout.type;
-            }
-            
-            // 🏁 END GAME - Automatic payout, statistics, cleanup
-            const finalResult = await GameEngine.endGame(gameId, {
-                won: outcome.won,
-                payout: payout,
-                gameData: {
-                    spinResult,
-                    slotDisplay,
-                    multiplier,
-                    payoutType,
-                    betAmount,
-                    mode
+            // 🎰 GENERATE ENGINE OUTCOME - Analytics + Original Logic
+            const engineOutcome = await GameEngine.generateGameOutcome(engineGameId, {
+                gameType: 'slots',
+                betAmount: betAmount,
+                playerData: {
+                    userId: userId,
+                    guildId: guildId,
+                    tier: settings.playerTier || 'Bronze'
+                },
+                gameConfig: {
+                    mode: mode,
+                    modeConfig: modeConfig
                 }
             });
+            
+            // Spin the slots for real result immediately
+            const symbols = spinSlots();
+            const baseResult = calculatePayout(symbols, betAmount, personalizedConfig.payouts, modeConfig);
+            
+            // 📊 RECORD ENGINE ANALYTICS
+            const analyticsEngine = AnalyticsEngine.getInstance();
+            await analyticsEngine.recordGameEvent(userId, guildId, 'slots_spin', {
+                gameId: engineGameId,
+                betAmount: betAmount,
+                symbols: symbols,
+                baseMultiplier: baseResult.multiplier,
+                mode: mode,
+                playerTier: settings.playerTier || 'Bronze'
+            });
+            
+            // Validate base result to prevent NaN propagation
+            if (isNaN(baseResult.payout) || isNaN(baseResult.multiplier) || !isFinite(baseResult.payout) || !isFinite(baseResult.multiplier)) {
+                logger.error(`Invalid base result from calculatePayout: payout=${baseResult.payout}, multiplier=${baseResult.multiplier}, symbols=${JSON.stringify(symbols)}, betAmount=${betAmount}`);
+                throw new Error('Invalid payout calculation - game cancelled');
+            }
+            
+            // 🎰 APPLY AI TUNING SYSTEM - REAL ECONOMIC REGULATION
+            const tuningAdjustment = await tuningManager.getAdjustedPayout('slots', baseResult.payout, betAmount);
+            const regulatedPayout = baseResult.won ? tuningAdjustment.adjustedPayout : 0;
+            
+            // Validate tuning adjustment to prevent NaN propagation
+            if (isNaN(tuningAdjustment.adjustedPayout) || !isFinite(tuningAdjustment.adjustedPayout)) {
+                logger.error(`Invalid tuning adjustment: adjustedPayout=${tuningAdjustment.adjustedPayout}, originalPayout=${baseResult.payout}, betAmount=${betAmount}`);
+                throw new Error('Invalid tuning calculation - game cancelled');
+            }
+            
+            // Apply AI multiplier adjustment to tuning-regulated payout
+            const aiMultiplier = aiResult?.multiplierAdjustment?.finalMultiplier || 1.0;
+            const aiAdjustedPayout = regulatedPayout > 0 ? Math.round((regulatedPayout * aiMultiplier) * 100) / 100 : 0;
+            const aiAdjustedResult = {
+                ...baseResult,
+                payout: aiAdjustedPayout
+            };
+            
+            // Log tuning application for monitoring
+            if (tuningAdjustment.payoutDelta !== 0 || tuningAdjustment.feeApplied) {
+                logger.info(`🎛️ SLOTS TUNING: ${baseResult.payout} -> ${regulatedPayout} (delta: ${(tuningAdjustment.payoutDelta * 100).toFixed(1)}%, fee: ${tuningAdjustment.feeApplied})`);
+            }
+            
+            // Apply transparent payout system - show full multiplier in UI but adjust actual payout
+            const transparentResult = await transparentPayoutManager.calculateHonestPayout(
+                userId,
+                'slots',
+                betAmount,
+                baseResult.multiplier,
+                { symbols, winType: baseResult.type }
+            );
+            
+            // Validate transparent payout result to prevent NaN propagation
+            if (isNaN(transparentResult.actualPayout) || !isFinite(transparentResult.actualPayout) || 
+                isNaN(transparentResult.displayedMultiplier) || !isFinite(transparentResult.displayedMultiplier)) {
+                logger.error(`Invalid transparent payout result: actualPayout=${transparentResult.actualPayout}, displayedMultiplier=${transparentResult.displayedMultiplier}, betAmount=${betAmount}`);
+                throw new Error('Invalid transparent payout calculation - game cancelled');
+            }
+            
+            // Combine AI multiplier with transparent payout - AI takes precedence for actual payout
+            const finalActualPayout = aiAdjustedResult.won ? Math.min(aiAdjustedPayout, transparentResult.actualPayout) : 0;
+            
+            // Final validation to prevent NaN values from reaching PayoutManager
+            if (isNaN(finalActualPayout) || !isFinite(finalActualPayout)) {
+                logger.error(`Invalid final payout calculation: finalActualPayout=${finalActualPayout}, aiAdjustedPayout=${aiAdjustedPayout}, transparentPayout=${transparentResult.actualPayout}`);
+                throw new Error('Invalid final payout calculation - game cancelled');
+            }
+            
+            // Use UI multiplier for display, AI-adjusted payout for winnings
+            const result = {
+                ...baseResult,
+                multiplier: transparentResult.displayedMultiplier,  // Show transparent multiplier
+                payout: Math.max(0, Math.round(finalActualPayout * 100) / 100), // Ensure non-negative with consistent rounding
+                displayMultiplier: transparentResult.displayedMultiplier,
+                actualMultiplier: baseResult.multiplier,
+                aiMultiplier: aiMultiplier,                  // Track AI adjustment
+                transparentPayout: transparentResult.actualPayout
+            };
 
-            // 🎨 GENERATE UI - Create embed
-            const embed = {
-                title: outcome.won ? '🎉 Slots Win!' : '💔 Slots Loss!',
-                description: `**Mode:** ${modeConfig.name}`,
+            // Update session with spin results
+            await sessionManager.updateSession(sessionId, {
+                gameData: {
+                    symbols,
+                    result,
+                    gamePhase: 'completed',
+                    gameStarted: true
+                }
+            }, 'spin_complete');
+
+            // Create game result
+            const gameResult = new GameResult({
+                userId: userId,
+                guildId: guildId,
+                gameType: GameType.SLOTS,
+                betAmount: betAmount,
+                payout: result.payout,
+                won: result.won,
+                specialResult: result.type
+            });
+
+            // Process payout (pass interaction for profile capture)
+            const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
+
+            if (!payoutResult.success) {
+                logger.error(`Failed to process slots payout for user ${userId}`);
+                // Refund the bet
+                await PayoutManager.refundBet(userId, guildId, betAmount, 'Payout processing failed');
+                
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Game Error')
+                    .setDescription('An error occurred processing your game. Your bet has been refunded.')
+                    .setColor(0xFF0000);
+                
+                return await interaction.editReply({ embeds: [errorEmbed] });
+            }
+
+            // Record game result for statistics AND economy analyzer
+            try {
+                // ENHANCED SECURITY LOGGING FOR ULTRA-AGGRESSIVE SYSTEMS
+                try {
+                    // Log the bet first with enhanced metadata
+                    await securityLogger.logSecurityEvent(userId, 'GAME_BET', {
+                        game: 'slots',
+                        amount: betAmount,
+                        mode: mode,
+                        timestamp: Date.now(),
+                        sessionStart: true
+                    });
+                    
+                    // Log the result with comprehensive tracking data
+                    await securityLogger.logSecurityEvent(userId, result.won ? 'GAME_WIN' : 'GAME_LOSS', {
+                        game: 'slots',
+                        amount: result.won ? result.payout : betAmount,
+                        betAmount: betAmount,
+                        multiplier: result.multiplier,
+                        symbols: symbols,
+                        winType: result.type,
+                        consecutivePlay: true,
+                        payoutRatio: result.won ? (result.payout / betAmount) : 0,
+                        timestamp: Date.now()
+                    });
+                } catch (secErr) {
+                    logger.warn(`Enhanced slots security logging failed: ${secErr.message}`);
+                }
+                await dbManager.recordGameResult(
+                    userId, 
+                    guildId, 
+                    'slots', 
+                    result.won, 
+                    betAmount, 
+                    result.payout,
+                    {
+                        multiplier: result.multiplier,
+                        symbols: result.symbols,
+                        type: result.type,
+                        lines: result.winningLines?.length || 0
+                    }
+                );
+                
+                // 📊 RECORD FOR AI ECONOMY ANALYZER
+                await tuningManager.recordGameResult(userId, 'slots', betAmount, result.payout, result.won);
+                
+                // 🔗 EXPORT TO UAS BOT FOR CENTRALIZED ANALYSIS
+                // Fetch final balance after payout for accurate export
+                let finalBalanceForExport = null;
+                try {
+                    finalBalanceForExport = await dbManager.getUserBalance(userId, guildId);
+                } catch (e) {
+                    logger.warn(`Failed to fetch final balance for export: ${e.message}`);
+                }
+
+                await uasDataExporter.exportGameResult({
+                    gameType: 'slots',
+                    userId: userId,
+                    guildId: guildId,
+                    betAmount: betAmount,
+                    payout: result.payout,
+                    won: result.won,
+                    multiplier: result.multiplier,
+                    houseEdgeApplied: transparentResult?.houseEdge || null,
+                    userWealthBefore: userBalance?.wallet || null,
+                    userWealthAfter: finalBalanceForExport?.wallet || null,
+                    metadata: {
+                        symbols: symbols,
+                        mode: mode,
+                        type: result.type,
+                        tuningApplied: tuningAdjustment?.payoutDelta || 0,
+                        aiAdjustment: aiResult?.multiplierAdjustment?.finalMultiplier || 1
+                    }
+                });
+                
+            } catch (recordError) {
+                logger.warn(`Failed to record slots game result: ${recordError.message}`);
+            }
+
+            // Add XP for game completion
+            try {
+                const levelingSystem = require('../UTILS/levelingSystem');
+                const specialResult = result.multiplier >= 5 ? 'big_win' : 
+                                   result.multiplier >= 20 ? 'massive_win' : null;
+                
+                const xpResult = await levelingSystem.handleGameComplete(userId, guildId, 'slots', result.won, specialResult);
+                
+                // Handle level up if occurred
+                if (xpResult && xpResult.levelUp) {
+                    const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
+                    
+                    // Award level-up rewards
+                    await levelingSystem.processLevelUpRewards(userId, guildId, xpResult.newLevel);
+                    
+                    // Send level up message in level up channel
+                    try {
+                        const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                        if (levelUpChannel) {
+                            await levelUpChannel.send({ embeds: [levelUpEmbed] });
+                        }
+                    } catch (levelError) {
+                        logger.debug(`Could not send level up message: ${levelError.message}`);
+                    }
+                }
+            } catch (xpError) {
+                logger.debug(`Could not award XP for slots: ${xpError.message}`);
+            }
+
+            // Get updated balance
+            const finalBalance = await dbManager.getUserBalance(userId, guildId);
+
+            // 🎰 PHASE 1: Text-based slot spinning animation for drama
+            const slotAnimation = createSlotAnimation();
+            const dramaticPauses = createDramaticPause();
+            
+            // Base embed template for animation
+            const tierColors = getTierColors(settings?.playerTier || 'Bronze');
+            const animationTemplate = {
+                title: `${LUXURY_ICONS.CROWN} ${interaction.user.displayName}'s Luxury Slots ${LUXURY_ICONS.CROWN}`,
+                color: tierColors[0],
                 fields: [
                     {
-                        name: '🎰 Slots Result',
-                        value: slotDisplay,
-                        inline: false
-                    },
-                    {
-                        name: '🎯 Result Type',
-                        value: payoutType,
+                        name: 'Bet Amount',
+                        value: formatLuxuryCurrency(betAmount),
                         inline: true
                     },
                     {
-                        name: '🎲 Multiplier',
-                        value: `${multiplier.toFixed(2)}x`,
-                        inline: true
-                    },
-                    {
-                        name: '💰 Your Tier',
-                        value: settings.tier || 'Unknown',
-                        inline: true
-                    },
-                    {
-                        name: '💰 Bet Amount',
-                        value: betAmount.toLocaleString(),
-                        inline: true
-                    },
-                    {
-                        name: outcome.won ? '💰 Payout' : '💸 Lost',
-                        value: outcome.won ? payout.toLocaleString() : betAmount.toLocaleString(),
-                        inline: true
-                    },
-                    {
-                        name: '💳 New Balance',
-                        value: finalResult.finalBalance.toLocaleString(),
+                        name: 'Mode',
+                        value: `${modeConfig.emoji || '⚖️'} **${modeConfig.name}**`,
                         inline: true
                     }
                 ],
-                color: outcome.won ? 0x00ff00 : 0xff0000,
-                footer: {
-                    text: `🎰 Powered by Engine System | Game ID: ${gameId.slice(-8)}`
-                },
-                timestamp: new Date()
+                footer: 'The luxury reels begin to turn...'
             };
+            
+            // Play the dramatic slot spinning animation
+            const allFrames = [...slotAnimation, ...dramaticPauses];
+            await playAnimation(interaction, allFrames, animationTemplate, 140);
+            
+            // 🎰 PHASE 2: Show animated GIF for extended spinning (no result/bet fields yet)
+            const animatedGIF = await createSpinningSlotGIF(symbols);
 
-            // 📊 RECORD ANALYTICS - Automatic business intelligence
-            await AnalyticsEngine.getInstance().recordGameEvent('GAME_COMPLETED', {
-                gameType: 'slots',
-                userId,
-                guildId,
-                betAmount,
-                payout,
-                won: outcome.won,
-                houseEdge: outcome.adjustments.houseEdge,
-                playerTier: settings.tier,
-                gameId,
-                metadata: {
-                    spinResult,
-                    multiplier,
-                    payoutType,
-                    mode,
-                    adjustedWinRate: outcome.adjustments.adjustedWinRate
-                }
+            // Build a luxury spinning embed with enhanced styling
+            const spinningEmbed = createLuxuryEmbed('slots', {
+                title: `${LUXURY_ICONS.CROWN} ${interaction.user.displayName}'s Luxury Slots ${LUXURY_ICONS.CROWN}`,
+                description: `${createProgressAnimation('slots', 'processing')}\nThe golden reels spin with precision...`,
+                color: LUXURY_COLORS.GOLD,
+                fields: [
+                    {
+                        name: 'Slot Status',
+                        value: `🎰 **SPINNING** 🎰\nMaximum fortune awaits...`,
+                        inline: false
+                    },
+                    {
+                        name: 'Bet Amount',
+                        value: formatLuxuryCurrency(betAmount),
+                        inline: true
+                    },
+                    {
+                        name: 'Mode',
+                        value: `${modeConfig.emoji || '⚖️'} **${modeConfig.name}**`,
+                        inline: true
+                    }
+                ],
+                footer: 'Fortune favors the bold at ATIVE Luxury Casino!'
             });
 
-            await interaction.editReply({ embeds: [embed] });
+            const animationData = { embeds: [spinningEmbed] };
+            if (animatedGIF) {
+                animationData.files = [{ attachment: animatedGIF, name: 'slots-animation.gif' }];
+                spinningEmbed.setImage('attachment://slots-animation.gif');
+            }
+
+            await interaction.editReply(animationData);
+
+            // PHASE 2: After GIF finishes, show static result
+            // Wait for animation to complete (GIF has 25 frames * 60ms = 1.5 seconds)
+            setTimeout(async () => {
+                try {
+                    // Check if interaction is still valid before proceeding
+                    if (interaction.replied || interaction.deferred) {
+                        const staticImage = await createSlotsImage(symbols, result.won);
+                        
+                        // Create final result embed
+                        const finalEmbed = await createSlotsEmbed(
+                            interaction.user,
+                            symbols,
+                            result,
+                            betAmount,
+                            finalBalance,
+                            oldWallet,
+                            aiResult
+                        );
+                        
+                        // Add mode information to the embed
+                        finalEmbed.addFields(
+                            { name: '🎮 Mode', value: `${modeConfig.name} ${modeConfig.description}`, inline: true }
+                        );
+                        
+                        // 🚀 ADD ENGINE ANALYTICS TO EMBED
+                        if (settings && engineGameId) {
+                            finalEmbed.addFields(
+                                { name: '🏆 Player Tier', value: settings.playerTier || 'Bronze', inline: true },
+                                { name: '🎯 Adjusted Rate', value: `${((settings.adjustedWinRate || 0) * 100).toFixed(1)}%`, inline: true },
+                                { name: '🎲 Game ID', value: `#${engineGameId.toString().slice(-6)}`, inline: true }
+                            );
+                        }
+
+                        // Add booster bonus info if applicable
+                        if (payoutResult.boosterBonus > 0) {
+                            finalEmbed.addFields(
+                                { name: '🚀 Booster Bonus', value: `+${fmt(payoutResult.boosterBonus)} (2% boost!)`, inline: true }
+                            );
+                            
+                            // Add celebration message for boosters
+                            if (result.won) {
+                                finalEmbed.setDescription(
+                                    (finalEmbed.data.description || '') + 
+                                    `\n\n✨ **Server Booster Bonus Applied!** You earned an extra 2% on your win!`
+                                );
+                            }
+                        }
+
+                        // Wealth tax notifications removed - using bulletproof economy
+                        if (false) { // aiResult is now null
+                            const taxNotificationEmbed = null;
+                            
+                            if (taxNotificationEmbed) {
+                                // Send tax notification as a follow-up message
+                                try {
+                                    await interaction.followUp({ 
+                                        embeds: [taxNotificationEmbed], 
+                                        flags: 64 
+                                    });
+                                } catch (followUpError) {
+                                    logger.warn(`Failed to send wealth tax notification: ${followUpError.message}`);
+                                }
+                            }
+                        }
+
+                        // Add help button
+                        const helpButton = new ActionRowBuilder()
+                            .addComponents(
+                                new ButtonBuilder()
+                                    .setCustomId('slots_help')
+                                    .setLabel('❓ How to Play')
+                                    .setStyle(ButtonStyle.Secondary)
+                            );
+
+                        const finalData = { 
+                            embeds: [finalEmbed], 
+                            attachments: [], 
+                            components: [helpButton] 
+                        };
+
+                        if (staticImage) {
+                            finalData.files = [{ attachment: staticImage, name: 'slots-result.png' }];
+                            finalEmbed.setImage('attachment://slots-result.png');
+                        }
+
+                        await interaction.editReply(finalData);
+                        
+                        // 🏁 END GAME WITH ENGINE SYSTEM
+                        await GameEngine.endGame(engineGameId, {
+                            outcome: result.won ? 'WIN' : 'LOSS',
+                            finalPayout: result.payout,
+                            playerData: {
+                                userId: userId,
+                                guildId: guildId,
+                                finalBalance: finalBalance
+                            },
+                            gameData: {
+                                symbols: symbols,
+                                multiplier: result.multiplier,
+                                winType: result.type
+                            }
+                        });
+                        
+                        // 📊 RECORD FINAL ANALYTICS
+                        await analyticsEngine.recordGameEvent(userId, guildId, 'slots_complete', {
+                            gameId: engineGameId,
+                            outcome: result.won ? 'WIN' : 'LOSS',
+                            finalPayout: result.payout,
+                            netChange: result.payout - betAmount,
+                            finalMultiplier: result.multiplier,
+                            winType: result.type,
+                            duration: Date.now() - engineGameResult.startTime
+                        });
+                        
+                        // Complete session after final result shown
+                        await sessionManager.endSession(sessionId, {
+                            outcome: result.won ? 'WIN' : 'LOSS',
+                            symbols,
+                            finalPayout: result.payout,
+                            multiplier: result.multiplier,
+                            won: result.won,
+                            netChange: result.payout - betAmount
+                        });
+                    } else {
+                        logger.warn(`Slots interaction expired for user ${userId}, cannot update to static result`);
+                    }
+                    
+                } catch (error) {
+                    logger.error(`Error updating slots to static result: ${error.message}`);
+                    // Don't throw here as it would crash the setTimeout callback
+                }
+            }, 2000); // 2 second delay for fast animation (25 frames * 60ms = 1.5s + 0.5s buffer)
+
+            // Log game result
+            await sendLogMessage(
+                interaction.client,
+                'game',
+                `Slots game: ${interaction.user.displayName} ${result.won ? 'won' : 'lost'} ${fmt(Math.abs(result.payout - betAmount))} (${result.multiplier.toFixed(2)}x)`,
+                userId,
+                guildId
+            );
+
+            // Log significant wins
+            if (result.won && result.multiplier >= 50) {
+                logger.info(`Big slots win: ${interaction.user.tag} (${userId}) won ${fmt(result.payout)} with ${result.multiplier}x multiplier`);
+            }
+
+            // Log game result with comprehensive logger
+            try {
+                await comprehensiveLogger.logGame(userId, username || 'Player', 'slots', result.won ? 'WIN' : 'LOSS', {
+                    betAmount,
+                    payout: result.payout,
+                    multiplier: result.multiplier,
+                    symbols: symbols,
+                    mode: mode,
+                    playForRecipient: global.playForContext?.recipientName || null
+                });
+            } catch (logError) {
+                logger.warn(`Failed to log slots game with comprehensive logger: ${logError.message}`);
+            }
+
+            // Log AI transaction result for audit
+            try {
+                // EconomyGuardianInterface logging removed - using bulletproof economy
+            } catch (logError) {
+                logger.warn(`Failed to log AI transaction result: ${logError.message}`);
+            }
 
         } catch (error) {
-            console.error(`Engine-powered slots error: ${error.message}`);
+            logger.error(`Error in slots command: ${error.message}`);
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `Slots error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
             
-            await interaction.editReply({
-                content: `❌ Game error: ${error.message}`,
-                ephemeral: true
-            });
-        }
-    },
-
-    // Calculate payout based on slot symbols with mode adjustments
-    calculateSlotsPayout(spinResult, betAmount, modeConfig) {
-        const symbols = spinResult;
-        
-        // Define symbol values (multipliers)
-        const symbolValues = {
-            '🍒': 2,   // Cherry - common
-            '🍋': 3,   // Lemon - common
-            '🍊': 4,   // Orange - uncommon
-            '🍇': 5,   // Grape - uncommon
-            '🔔': 8,   // Bell - rare
-            '💎': 12,  // Diamond - very rare
-            '🎰': 20,  // Slot - jackpot
-            '7️⃣': 25, // Seven - super jackpot
-            '🍀': 30   // Clover - mega jackpot
-        };
-        
-        // Check for matches
-        if (symbols[0] === symbols[1] && symbols[1] === symbols[2]) {
-            // Three of a kind - JACKPOT!
-            const baseMultiplier = symbolValues[symbols[0]] || 2;
-            const multiplier = Math.min(baseMultiplier, modeConfig.maxMultiplier);
-            return {
-                payout: betAmount * multiplier,
-                type: `🎰 Triple ${symbols[0]} (${multiplier}x)`
-            };
-        } else if (symbols[0] === symbols[1] || symbols[1] === symbols[2] || symbols[0] === symbols[2]) {
-            // Two of a kind
-            const matchingSymbol = symbols[0] === symbols[1] ? symbols[0] : 
-                                  symbols[1] === symbols[2] ? symbols[1] : symbols[0];
-            const baseMultiplier = Math.min((symbolValues[matchingSymbol] || 2) * 0.5, modeConfig.maxMultiplier * 0.6);
-            return {
-                payout: betAmount * baseMultiplier,
-                type: `🎯 Pair of ${matchingSymbol} (${baseMultiplier.toFixed(1)}x)`
-            };
-        } else {
-            // Check for special combinations
-            const uniqueSymbols = [...new Set(symbols)];
-            if (uniqueSymbols.length === 3) {
-                // All different - small consolation prize in higher modes
-                if (modeConfig.maxMultiplier >= 2.0) {
-                    return {
-                        payout: betAmount * 1.1,
-                        type: '🎲 All Different (1.1x)'
-                    };
+            // Handle game error with session cleanup and refund
+            // Handle session error and cleanup
+            try {
+                const userSession = sessionManager.getUserActiveSession(userId);
+                if (userSession) {
+                    await sessionManager.cancelSession(userSession.sessionId, 'Slots game error', true);
                 }
+            } catch (sessionError) {
+                logger.error(`Failed to handle session error: ${sessionError.message}`);
+            }
+            
+            const errorEmbed = new EmbedBuilder()
+                .setTitle('❌ Game Error')
+                .setDescription('An error occurred while playing slots. Your bet has been refunded.')
+                .setColor(0xFF0000);
+
+            try {
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.editReply({ embeds: [errorEmbed] });
+                } else {
+                    await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+                }
+            } catch (replyError) {
+                logger.error(`Failed to send slots error reply: ${replyError.message}`);
             }
         }
-        
-        return {
-            payout: 0,
-            type: 'No Match'
-        };
     }
 };

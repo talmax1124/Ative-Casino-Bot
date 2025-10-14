@@ -12,7 +12,7 @@ class GameEngine extends EventEmitter {
         super();
         this.activeGames = new Map(); // gameId -> gameInstance
         this.gameTypes = new Map();   // gameType -> gameClass
-        this.engineHealth = 'HEALTHY';
+        this.engineHealth = 'INITIALIZING';
         this.stats = {
             gamesStarted: 0,
             gamesCompleted: 0,
@@ -21,44 +21,20 @@ class GameEngine extends EventEmitter {
             totalBets: 0
         };
         
-        this.initializeEngine();
+        // Lazy initialization flags
+        this._engines = {};
+        this._initialized = false;
+        
+        // Fast sync initialization for immediate use
+        this.initializeBasicConfigs();
     }
 
     /**
-     * Initialize the Game Engine with all components
+     * Initialize basic configurations synchronously (fast startup)
      */
-    async initializeEngine() {
+    initializeBasicConfigs() {
         try {
-            // Load core dependencies safely
-            try {
-                this.economyEngine = require('./EconomyEngine');
-            } catch (error) {
-                logger.warn('EconomyEngine not available, using fallback');
-                this.economyEngine = this.createEconomyFallback();
-            }
-            
-            try {
-                this.securityEngine = require('./SecurityEngine');
-            } catch (error) {
-                logger.warn('SecurityEngine not available, using fallback');
-                this.securityEngine = this.createSecurityFallback();
-            }
-            
-            try {
-                this.userEngine = require('./UserEngine');
-            } catch (error) {
-                logger.warn('UserEngine not available, using fallback');
-                this.userEngine = this.createUserFallback();
-            }
-            
-            try {
-                this.dataEngine = require('./DataEngine');
-            } catch (error) {
-                logger.warn('DataEngine not available, using fallback');
-                this.dataEngine = this.createDataFallback();
-            }
-            
-            // Initialize game configurations
+            // Initialize game configurations synchronously - this is fast
             this.gameConfigs = {
                 blackjack: {
                     baseHouseEdge: 0.025,
@@ -139,14 +115,129 @@ class GameEngine extends EventEmitter {
                 }
             };
             
-            logger.info('🎰 GameEngine initialized successfully');
+            logger.info('🎰 GameEngine basic configs loaded');
             this.engineHealth = 'HEALTHY';
-            
         } catch (error) {
-            logger.error('❌ GameEngine initialization failed:', error);
+            logger.error('❌ GameEngine basic config failed:', error);
             this.engineHealth = 'UNHEALTHY';
-            throw error;
         }
+    }
+
+    /**
+     * Initialize heavy components lazily when first needed
+     */
+    async ensureEnginesInitialized() {
+        if (this._initialized) return;
+        
+        this._initialized = true;
+        
+        // Initialize engines asynchronously in parallel for speed
+        const initPromises = [
+            this.initializeUserEngine(),
+            this.initializeSecurityEngine(),
+            this.initializeEconomyEngine(),
+            this.initializeDataEngine()
+        ];
+        
+        await Promise.allSettled(initPromises);
+        logger.info('🎰 GameEngine fully initialized');
+    }
+
+    async initializeUserEngine() {
+        if (this._engines.user) return this._engines.user;
+        
+        try {
+            const UserEngine = require('./UserEngine');
+            this._engines.user = new UserEngine();
+            if (this._engines.user.initialize) {
+                await this._engines.user.initialize();
+            }
+        } catch (error) {
+            logger.warn('UserEngine not available, using fallback');
+            this._engines.user = this.createUserFallback();
+        }
+        
+        return this._engines.user;
+    }
+
+    async initializeSecurityEngine() {
+        if (this._engines.security) return this._engines.security;
+        
+        try {
+            const SecurityEngine = require('./SecurityEngine');
+            this._engines.security = new SecurityEngine();
+            if (this._engines.security.initialize) {
+                await this._engines.security.initialize();
+            }
+        } catch (error) {
+            logger.warn('SecurityEngine not available, using fallback');
+            this._engines.security = this.createSecurityFallback();
+        }
+        
+        return this._engines.security;
+    }
+
+    async initializeEconomyEngine() {
+        if (this._engines.economy) return this._engines.economy;
+        
+        try {
+            const EconomyEngine = require('./EconomyEngine');
+            this._engines.economy = new EconomyEngine();
+            if (this._engines.economy.initialize) {
+                await this._engines.economy.initialize();
+            }
+        } catch (error) {
+            logger.warn('EconomyEngine not available, using fallback');
+            this._engines.economy = this.createEconomyFallback();
+        }
+        
+        return this._engines.economy;
+    }
+
+    async initializeDataEngine() {
+        if (this._engines.data) return this._engines.data;
+        
+        try {
+            const DataEngine = require('./DataEngine');
+            this._engines.data = new DataEngine();
+            if (this._engines.data.initialize) {
+                await this._engines.data.initialize();
+            }
+        } catch (error) {
+            logger.warn('DataEngine not available, using fallback');
+            this._engines.data = this.createDataFallback();
+        }
+        
+        return this._engines.data;
+    }
+
+    // Lazy getters for engines
+    get userEngine() {
+        if (!this._engines.user) {
+            this._engines.user = this.createUserFallback();
+        }
+        return this._engines.user;
+    }
+
+    get securityEngine() {
+        if (!this._engines.security) {
+            this._engines.security = this.createSecurityFallback();
+        }
+        return this._engines.security;
+    }
+
+    get economyEngine() {
+        if (!this._engines.economy) {
+            this._engines.economy = this.createEconomyFallback();
+        }
+        return this._engines.economy;
+    }
+
+    get dataEngine() {
+        if (!this._engines.data) {
+            this._engines.data = this.createDataFallback();
+        }
+        return this._engines.data;
     }
 
     /**
@@ -155,6 +246,9 @@ class GameEngine extends EventEmitter {
      */
     async startGame(gameType, userId, guildId, betAmount, gameOptions = {}) {
         try {
+            // Ensure engines are initialized lazily (only when first game starts)
+            await this.ensureEnginesInitialized();
+            
             this.stats.gamesStarted++;
             
             // Generate unique game ID
@@ -428,10 +522,14 @@ class GameEngine extends EventEmitter {
             return { valid: false, reason: `Bet must be between ${config.minBet} and ${config.maxBet}` };
         }
         
-        // Check user balance
-        const userProfile = await this.userEngine.getUserProfile(userId, guildId);
-        if (userProfile.availableBalance < betAmount) {
-            return { valid: false, reason: 'Insufficient balance' };
+        // Skip balance check - original game logic handles this with PayoutManager
+        // This allows for proper balance validation and deduction timing
+        try {
+            const userProfile = await this.userEngine.getUserProfile(userId, guildId);
+            // Just get profile for analytics, don't validate balance here
+        } catch (error) {
+            // If user profile fails, just continue - original logic will handle user creation
+            logger.debug(`GameEngine: Could not get user profile for ${userId}, continuing with original logic`);
         }
         
         // Security checks

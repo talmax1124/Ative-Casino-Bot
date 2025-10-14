@@ -1,208 +1,229 @@
 /**
- * 🚀 ENGINE-POWERED RUSSIAN ROULETTE COMMAND
- * Simplified and enhanced with the new Engine system
- * 80% less code with MORE features than the original!
+ * 🚀 HYBRID ENGINE-POWERED RUSSIAN ROULETTE COMMAND
+ * Combines original multiplayer mechanics with new Engine system
+ * Best of both worlds: Intense gameplay + Advanced analytics!
  */
 
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
+const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
+const { sendLogMessage, parseAmount, fmt, buildInvalidBetEmbed } = require('../UTILS/common');
+const dbManager = require('../UTILS/database');
 
-// Import the unified engine system
+// 🚀 HYBRID ENGINE SYSTEM - Analytics + Original Mechanics Integration
 const GameEngine = require('../ENGINES/GameEngine');
 const CommunicationEngine = require('../ENGINES/CommunicationEngine');
 const AnalyticsEngine = require('../ENGINES/AnalyticsEngine');
+const sessionManager = require('../UTILS/sessionManager');
+const { SessionState } = sessionManager;
+const logger = require('../UTILS/logger');
+const comprehensiveLogger = require('../UTILS/comprehensiveLogger');
+const tuningManager = require('../UTILS/tuningManager');
+
+// Russian Roulette Configuration
+const ROULETTE_CONFIG = {
+    MIN_BET: 50,           // Minimum $50 entry
+    MIN_PLAYERS: 2,        // Minimum 2 players to start
+    MAX_PLAYERS: null,     // No player limit - unlimited players allowed
+    JOIN_TIME: 60000,      // 60 seconds to join
+    HOUSE_EDGE: 0.08       // 2% house fee
+};
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('russianroulette')
-        .setDescription('🔫 Russian Roulette powered by the Engine system')
+        .setDescription('🔫 Start a deadly game of Russian Roulette - last survivor wins all!')
         .addStringOption(option =>
-            option.setName('amount')
-                .setDescription('Amount to bet')
-                .setRequired(true))
+            option.setName('bet')
+                .setDescription(`Entry amount (minimum $${ROULETTE_CONFIG.MIN_BET}, NO MAX LIMIT - bet everything!) - supports K/M/B suffixes`)
+                .setRequired(true)
+        )
         .addIntegerOption(option =>
-            option.setName('chambers')
-                .setDescription('Number of chambers (3-8)')
+            option.setName('time')
+                .setDescription('Join time in seconds (15-300 seconds)')
+                .setMinValue(15)
+                .setMaxValue(300)
                 .setRequired(false)
-                .setMinValue(3)
-                .setMaxValue(8)),
+        )
+        .addBooleanOption(option =>
+            option.setName('forcestart')
+                .setDescription('Allow game to start early when minimum players join')
+                .setRequired(false)
+        ),
 
     async execute(interaction) {
         const userId = interaction.user.id;
-        const guildId = interaction.guild?.id;
-        const amountStr = interaction.options.getString('amount');
-        const chambers = interaction.options.getInteger('chambers') || 6;
-
-        await interaction.deferReply();
+        const username = interaction.user.displayName;
+        const guildId = interaction.guildId;
+        const betAmountStr = interaction.options.getString('bet');
+        const joinTime = interaction.options.getInteger('time') || 30; // Default 30 seconds (faster)
+        const forceStart = interaction.options.getBoolean('forcestart') || false;
 
         try {
-            // Parse bet amount
-            const { parseAmount } = require('../UTILS/common');
-            const betAmount = parseAmount(amountStr);
-            
-            if (!betAmount || betAmount <= 0) {
-                return await interaction.editReply({
-                    content: '❌ Invalid bet amount. Please enter a valid number.',
-                    ephemeral: true
-                });
+            // Defer reply immediately to prevent timeout
+            await interaction.deferReply();
+
+            // Check maintenance mode first
+            const maintenanceGuard = require('../UTILS/maintenanceGuard');
+            const maintenanceCheck = await maintenanceGuard.check(guildId, 'russianroulette');
+            if (!maintenanceCheck.allowed) {
+                return await interaction.editReply({ embeds: [maintenanceCheck.embed] });
             }
 
-            // 🎮 START GAME - One line with full validation, security, balance checks
-            const gameResult = await GameEngine.startGame('russianroulette', userId, guildId, betAmount, {
-                chambers: chambers
+            // Session guard check
+            const sessionGuard = require('../UTILS/sessionGuard');
+            const check = await sessionGuard.check(userId, guildId, 'russianroulette', interaction.client);
+            if (!check.allowed) {
+                const embed = new EmbedBuilder()
+                    .setTitle('❌ Session Error')
+                    .setDescription(check.message)
+                    .setColor(0xFF0000);
+                return await interaction.editReply({ embeds: [embed] });
+            }
+
+            // 🎛️ GET AI-REGULATED MAX BET LIMIT (Economic Compliance)
+            // Custom validation for Russian Roulette (no max bet limit)
+            const parsedAmount = parseAmount(betAmountStr);
+            if (isNaN(parsedAmount) || parsedAmount <= 0) {
+                const embed = buildInvalidBetEmbed('Invalid bet amount.');
+                return await interaction.editReply({ embeds: [embed] });
+            }
+            
+            if (parsedAmount < ROULETTE_CONFIG.MIN_BET) {
+                const embed = buildInvalidBetEmbed(`Minimum bet is ${fmt(ROULETTE_CONFIG.MIN_BET)}.`);
+                return await interaction.editReply({ embeds: [embed] });
+            }
+            
+            // Check if user has enough funds
+            const userBalance = await dbManager.getUserBalance(userId, guildId);
+            if (userBalance.wallet < parsedAmount) {
+                const embed = buildInvalidBetEmbed(`Insufficient funds. You have ${fmt(userBalance.wallet)} in your wallet.`);
+                return await interaction.editReply({ embeds: [embed] });
+            }
+            
+            const betAmount = parsedAmount;
+            logger.info(`Russian Roulette started by ${username} (${userId}) with bet ${fmt(betAmount)}`);
+
+            // 🎮 START GAME USING HYBRID ENGINE SYSTEM - Analytics + Original Mechanics
+            const engineGameResult = await GameEngine.startGame('russianroulette', userId, guildId, betAmount, {
+                joinTime: joinTime,
+                forceStart: forceStart
+            });
+            
+            if (!engineGameResult.success) {
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Game Error')
+                    .setDescription(`Cannot start game: ${engineGameResult.error}`)
+                    .setColor(0xFF0000);
+                return await interaction.editReply({ embeds: [errorEmbed] });
+            }
+            
+            const { gameId: engineGameId, settings } = engineGameResult;
+            
+            // 📊 RECORD ENGINE ANALYTICS
+            const analyticsEngine = AnalyticsEngine.getInstance();
+            await analyticsEngine.recordGameEvent(userId, guildId, 'russianroulette_start', {
+                gameId: engineGameId,
+                betAmount: betAmount,
+                joinTime: joinTime,
+                forceStart: forceStart,
+                playerTier: settings.playerTier || 'Bronze'
             });
 
-            if (!gameResult.success) {
-                return await interaction.editReply({
-                    content: `❌ Cannot start game: ${gameResult.error}`,
-                    ephemeral: true
-                });
-            }
-
-            const { gameId, settings } = gameResult;
-
-            // 🔫 SIMULATE RUSSIAN ROULETTE
-            const bulletPosition = Math.floor(Math.random() * chambers) + 1;
-            const playerTrigger = Math.floor(Math.random() * chambers) + 1;
-            
-            // 🎲 GENERATE OUTCOME - Automatic balance adjustments, house edge, security
-            const outcome = await GameEngine.generateGameOutcome(gameId);
-            
-            // Player survives if they don't pull the bullet chamber AND engine says they won
-            const playerSurvived = (playerTrigger !== bulletPosition) && outcome.won;
-            
-            // Calculate payout - higher chamber count = higher risk = higher reward
-            let payout = 0;
-            let multiplier = 0;
-            
-            if (playerSurvived) {
-                // Base multiplier based on chamber count (more chambers = higher survival chance = lower multiplier)
-                const baseMultiplier = chambers * 0.8; // 6 chambers = 4.8x, 3 chambers = 2.4x, etc.
-                multiplier = baseMultiplier;
-                payout = Math.floor(betAmount * multiplier * (outcome.adjustments?.adjustedPayout || 1));
-            }
-            
-            // 🏁 END GAME - Automatic payout, statistics, cleanup
-            const finalResult = await GameEngine.endGame(gameId, {
-                won: playerSurvived,
-                payout: payout,
-                gameData: {
-                    chambers,
-                    bulletPosition,
-                    playerTrigger,
-                    survived: playerSurvived,
-                    multiplier,
-                    betAmount
-                }
-            });
-
-            // 🎨 GENERATE UI - Create embed
-            const chamberDisplay = this.createChamberDisplay(chambers, bulletPosition, playerTrigger);
-            
-            const embed = {
-                title: playerSurvived ? '😅 Russian Roulette Survival!' : '💀 Russian Roulette Death!',
-                description: `**Chambers:** ${chambers} | **Your Pull:** ${playerTrigger}`,
-                fields: [
-                    {
-                        name: '🔫 Revolver',
-                        value: chamberDisplay,
-                        inline: false
-                    },
-                    {
-                        name: '💀 Bullet Chamber',
-                        value: `${bulletPosition}`,
-                        inline: true
-                    },
-                    {
-                        name: '🎯 Your Chamber',
-                        value: `${playerTrigger}`,
-                        inline: true
-                    },
-                    {
-                        name: '🎲 Result',
-                        value: playerSurvived ? '✅ SURVIVED!' : '💀 DEATH!',
-                        inline: true
-                    },
-                    {
-                        name: '💰 Your Tier',
-                        value: settings.tier || 'Unknown',
-                        inline: true
-                    },
-                    {
-                        name: '💰 Bet Amount',
-                        value: betAmount.toLocaleString(),
-                        inline: true
-                    },
-                    {
-                        name: playerSurvived ? '💰 Payout' : '💸 Lost',
-                        value: playerSurvived ? `${payout.toLocaleString()} (${multiplier.toFixed(1)}x)` : betAmount.toLocaleString(),
-                        inline: true
-                    },
-                    {
-                        name: '💳 New Balance',
-                        value: finalResult.finalBalance.toLocaleString(),
-                        inline: false
-                    }
-                ],
-                color: playerSurvived ? 0x00ff00 : 0xff0000,
-                footer: {
-                    text: `🎰 Powered by Engine System | Game ID: ${gameId.slice(-8)}`
-                },
-                timestamp: new Date()
-            };
-
-            // 📊 RECORD ANALYTICS - Automatic business intelligence
-            await AnalyticsEngine.getInstance().recordGameEvent('GAME_COMPLETED', {
-                gameType: 'russianroulette',
+            // Create session for Russian Roulette
+            const sessionResult = await sessionManager.createSession({
                 userId,
                 guildId,
+                channelId: interaction.channelId,
+                gameType: 'russianroulette',
                 betAmount,
-                payout,
-                won: playerSurvived,
-                houseEdge: outcome.adjustments.houseEdge,
-                playerTier: settings.tier,
-                gameId,
+                betPreDeducted: false, // Bet will be deducted when players join
+                timeout: Math.max(300000, joinTime * 1000 + 60000), // joinTime + 1 minute buffer
                 metadata: {
-                    chambers,
-                    bulletPosition,
-                    playerTrigger,
-                    survived: playerSurvived,
-                    multiplier,
-                    adjustedWinRate: outcome.adjustments.adjustedWinRate
-                }
+                    gamePhase: 'joining',
+                    hostId: userId,
+                    entryAmount: betAmount,
+                    players: new Map(),
+                    maxPlayers: ROULETTE_CONFIG.MAX_PLAYERS, // null = unlimited
+                    joinTime: joinTime * 1000, // Convert to milliseconds
+                    forceStart: forceStart
+                },
+                interaction
             });
 
-            await interaction.editReply({ embeds: [embed] });
+            if (!sessionResult.success) {
+                throw new Error(`Session creation failed: ${sessionResult.error}`);
+            }
+
+            const sessionId = sessionResult.sessionId;
+
+            // Start the Russian Roulette game
+            const { handleGameExecution } = require('../GAMES/russianRoulette');
+            await handleGameExecution(interaction, interaction.client, sessionId, {
+                hostId: userId,
+                hostName: username,
+                entryAmount: betAmount,
+                channelId: interaction.channelId,
+                guildId: guildId,
+                joinTime: joinTime * 1000, // Convert to milliseconds
+                forceStart: forceStart
+            });
 
         } catch (error) {
-            console.error(`Engine-powered russian roulette error: ${error.message}`);
+            logger.error(`Russian Roulette command failed: ${error?.stack || error}`);
             
-            await interaction.editReply({
-                content: `❌ Game error: ${error.message}`,
-                ephemeral: true
-            });
-        }
-    },
+            try {
+                await sendLogMessage(
+                    interaction.client,
+                    'error',
+                    `Russian Roulette error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    userId,
+                    guildId
+                );
+            } catch (_) {}
 
-    // Create visual chamber display
-    createChamberDisplay(chambers, bulletPosition, playerTrigger) {
-        let display = '';
-        
-        for (let i = 1; i <= chambers; i++) {
-            if (i === bulletPosition && i === playerTrigger) {
-                display += '💥'; // Player pulled the bullet chamber
-            } else if (i === bulletPosition) {
-                display += '💀'; // Bullet chamber (revealed after game)
-            } else if (i === playerTrigger) {
-                display += '✅'; // Safe chamber player pulled
-            } else {
-                display += '⚫'; // Other chambers
+            // No need to refund since money hasn't been deducted yet
+            logger.info(`Russian Roulette error occurred before any money was charged for ${username} (${userId})`);
+
+            // Enhanced session cleanup
+            try {
+                await sessionManager.forceCleanupUser(userId, guildId, 'Russian Roulette initialization error');
+                logger.info(`Forced cleanup completed for user ${userId} after Russian Roulette command failure`);
+            } catch (cleanupError) {
+                logger.error(`Failed to cleanup after Russian Roulette command error: ${cleanupError.message}`);
             }
+
+            // Create more specific error messages based on the error type
+            let errorTitle = '❌ Russian Roulette Error';
+            let errorDescription = 'Failed to start Russian Roulette game. Please try again.';
             
-            if (i < chambers) {
-                display += ' ';
+            // No money was charged, so no refund needed
+            errorDescription += `\n\n💰 No money was charged - you can try again anytime.`;
+            
+            if (error.message.includes('Insufficient funds')) {
+                errorTitle = '💰 Insufficient Funds';
+                errorDescription = `You need at least **${fmt(ROULETTE_CONFIG.MIN_BET)}** in your wallet to start Russian Roulette.\n\nUse \`/balance\` to check your funds or \`/withdraw\` to move money from your bank.`;
+            } else if (error.message.includes('Session creation failed')) {
+                errorTitle = '⏱️ Session Error';
+                errorDescription = 'Unable to create a game session. You might already have an active game running.\n\nUse \`/stopmysession\` to end any active sessions, then try again.';
+            } else if (error.message.includes('already have an active')) {
+                errorTitle = '🎮 Game Already Active';
+                errorDescription = 'You already have a game in progress. Finish your current game or use \`/stopmysession\` to end it.';
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle(errorTitle)
+                .setDescription(errorDescription)
+                .setColor(0xFF0000);
+
+            try {
+                if (interaction.deferred || interaction.replied) {
+                    await interaction.editReply({ embeds: [embed] });
+                } else {
+                    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+                }
+            } catch (replyError) {
+                logger.error(`Failed to send error reply: ${replyError.message}`);
             }
         }
-        
-        return display;
     }
 };

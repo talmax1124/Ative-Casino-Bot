@@ -393,6 +393,24 @@ class BlackjackGame {
         return true;
     }
 
+    canDoubleDown() {
+        return this.canDouble();
+    }
+
+    canHit() {
+        if (this.gameEnded) return false;
+        const currentHand = this.getCurrentHand();
+        if (!currentHand || !currentHand.cards) return false;
+        if (currentHand.isBusted()) return false;
+        if (currentHand.getValue() === 21) return false;
+        if (currentHand.isStood()) return false;
+        return true;
+    }
+
+    isGameOver() {
+        return this.gameEnded || this.allHandsComplete();
+    }
+
     split() {
         if (!this.canSplit()) return false;
 
@@ -676,6 +694,36 @@ class BlackjackGame {
         }
         
         return this.splitHands.filter(hand => hand && hand.cards).every(hand => hand.isBusted() || hand.isStood());
+    }
+
+    getGameResult() {
+        if (!this.gameEnded) {
+            return { result: 'in_progress', isBlackjack: false };
+        }
+
+        const playerHand = this.splitHands.length > 0 ? this.splitHands[0] : this.playerHand;
+        const playerValue = playerHand.getValue();
+        const dealerValue = this.dealerHand.getValue();
+        const isBlackjack = playerHand.isBlackjack();
+
+        // Check for player bust
+        if (playerHand.isBusted()) {
+            return { result: 'lose', isBlackjack: false };
+        }
+
+        // Check for dealer bust
+        if (this.dealerHand.isBusted()) {
+            return { result: 'win', isBlackjack };
+        }
+
+        // Compare hands
+        if (playerValue > dealerValue) {
+            return { result: 'win', isBlackjack };
+        } else if (playerValue < dealerValue) {
+            return { result: 'lose', isBlackjack: false };
+        } else {
+            return { result: 'push', isBlackjack };
+        }
     }
 }
 
