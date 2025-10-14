@@ -327,9 +327,9 @@ class BlackjackGame {
         this.currentWealth = currentWealth;
         this.modeConfig = modeConfig || {
             name: 'Balanced',
-            blackjackMultiplier: 2.5,  // Standard 3:2 payout (bet + 1.5x profit)
-            winMultiplier: 2.0,         // Standard 1:1 payout (bet + 1x profit)
-            houseEdge: 0.005            // 0.5% house edge
+            blackjackMultiplier: 2.45,  // Slightly reduced from 2.5 to 2.45 (45% profit)
+            winMultiplier: 1.98,        // Slightly reduced from 2.0 to 1.98 (98% profit)
+            houseEdge: 0.025            // 2.5% house edge (more balanced)
         };
         this.deck = new Deck();
         this.playerHand = new BlackjackHand();

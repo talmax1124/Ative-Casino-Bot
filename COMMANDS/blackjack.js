@@ -12,6 +12,7 @@ const { BlackjackGame } = require('../GAMES/blackjack');
 const GamePanel = require('../UTILS/gamePanel');
 const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
+const stuckGameRecovery = require('../UTILS/stuckGameRecovery');
 const dbManager = require('../UTILS/database');
 const logger = require('../UTILS/logger');
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
@@ -37,41 +38,41 @@ const SMGameType = { BLACKJACK: 'blackjack' };
 const BLACKJACK_MODES = {
     safe: {
         name: '🛡️ Safe',
-        description: 'Low stakes with standard payouts',
+        description: 'Low stakes with balanced payouts',
         minBet: 500,
-        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
-        winMultiplier: 2.0,          // Standard 1:1 win payout
-        houseEdge: 0.005,            // 0.5% house edge
+        blackjackMultiplier: 2.45,   // Slightly reduced 3:2 blackjack payout (45% profit)
+        winMultiplier: 1.98,         // Slightly reduced 1:1 win payout (98% profit)
+        houseEdge: 0.025,            // 2.5% house edge (balanced)
         emoji: '🛡️',
         color: '#4CAF50'
     },
     balanced: {
         name: '⚖️ Balanced',
-        description: 'Medium stakes with standard payouts',
+        description: 'Medium stakes with balanced payouts',
         minBet: 1000,
-        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
-        winMultiplier: 2.0,          // Standard 1:1 win payout
-        houseEdge: 0.005,            // 0.5% house edge
+        blackjackMultiplier: 2.45,   // Slightly reduced 3:2 blackjack payout (45% profit)
+        winMultiplier: 1.98,         // Slightly reduced 1:1 win payout (98% profit)
+        houseEdge: 0.025,            // 2.5% house edge (balanced)
         emoji: '⚖️',
         color: '#FF9800'
     },
     risky: {
         name: '⚡ Risky',
-        description: 'High stakes with standard payouts',
+        description: 'High stakes with balanced payouts',
         minBet: 2500,
-        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
-        winMultiplier: 2.0,          // Standard 1:1 win payout
-        houseEdge: 0.005,            // 0.5% house edge
+        blackjackMultiplier: 2.45,   // Slightly reduced 3:2 blackjack payout (45% profit)
+        winMultiplier: 1.98,         // Slightly reduced 1:1 win payout (98% profit)
+        houseEdge: 0.025,            // 2.5% house edge (balanced)
         emoji: '⚡',
         color: '#FF8800'
     },
     extreme: {
         name: '🔥 Extreme',
-        description: 'Very high stakes with standard payouts',
+        description: 'Very high stakes with balanced payouts',
         minBet: 5000,
-        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
-        winMultiplier: 2.0,          // Standard 1:1 win payout
-        houseEdge: 0.005,            // 0.5% house edge
+        blackjackMultiplier: 2.45,   // Slightly reduced 3:2 blackjack payout (45% profit)
+        winMultiplier: 1.98,         // Slightly reduced 1:1 win payout (98% profit)
+        houseEdge: 0.025,            // 2.5% house edge (balanced)
         emoji: '🔥',
         color: '#FF0000'
     }
@@ -440,8 +441,8 @@ module.exports = {
             });
         }
 
-        // Get balance adjustments for display purposes
-        const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.5, betAmount * 2.5, 0.005);
+        // Get balance adjustments for display purposes  
+        const balanceAdjustments = await gameIntegrator.getBalanceAdjustments(userId, guildId, 0.49, betAmount * 2.45, 0.025);
         if (balanceAdjustments) {
             logger.debug(`Balance adjustments for ${username}: ${JSON.stringify(balanceAdjustments)}`);
         }
@@ -487,6 +488,9 @@ module.exports = {
             const game = new BlackjackGame(userId, betAmount, modeConfig);
             game.dealInitialCards();
             game.sessionId = sessionId; // Link game to session
+            
+            // Register game for stuck game recovery monitoring
+            stuckGameRecovery.registerGame(sessionId, userId, guildId, 'blackjack', interaction);
             
             // Store game with AI result for later use
             const sessionData = {
@@ -678,6 +682,9 @@ module.exports = {
                     try {
                     // Hit
                     game.hit();
+                    
+                    // Update recovery monitoring to reset timer
+                    stuckGameRecovery.updateActivity(game.sessionId);
 
                     // Check if all hands are complete (hit() method already advances to next hand if current hand is complete)
                     if (game.allHandsComplete() || game.gameEnded) {
@@ -722,6 +729,9 @@ module.exports = {
             case 'stand': {
                 // Stand
                 game.stand();
+                
+                // Update recovery monitoring to reset timer
+                stuckGameRecovery.updateActivity(game.sessionId);
 
                 // Check if all hands are complete (stand() method already advances to next hand)
                 if (game.allHandsComplete() || game.gameEnded) {
@@ -780,6 +790,9 @@ module.exports = {
 
                     // Double down (this automatically advances to next hand)
                     game.doubleDown();
+                    
+                    // Update recovery monitoring to reset timer
+                    stuckGameRecovery.updateActivity(game.sessionId);
                     
                     // Check if all hands are complete (doubleDown() method already advances to next hand)
                     if (game.allHandsComplete() || game.gameEnded) {
@@ -1314,20 +1327,36 @@ module.exports = {
                 if (interaction.replied || interaction.deferred) {
                     await interaction.editReply(finalData);
                 } else {
-                    await interaction.update(finalData);
+                    // Check if interaction is still valid before updating
+                    if (Date.now() - interaction.createdTimestamp < 900000) { // 15 minute limit
+                        await interaction.update(finalData);
+                    } else {
+                        // Interaction is too old, try followUp instead
+                        await interaction.followUp({...finalData, ephemeral: false});
+                    }
                 }
                 logger.info(`Blackjack game successfully ended for user ${userId}`);
                 
             } catch (interactionError) {
                 logger.error(`Failed to update interaction for blackjack endGame: ${interactionError.message}`);
                 
-                // Don't attempt any fallback replies - just log the error
-                // The game logic completed successfully, interaction update just failed
+                // Try to send result as a followUp if update failed
+                try {
+                    await interaction.followUp({...finalData, ephemeral: false});
+                } catch (followUpError) {
+                    logger.error(`Failed to send followUp for blackjack endGame: ${followUpError.message}`);
+                }
             }
 
             // Send play again buttons in a separate message (if not a playfor game)
             if (!isPlayforGame) {
                 try {
+                    // Check if interaction has been deferred or replied to
+                    if (!interaction.replied && !interaction.deferred) {
+                        // If not, defer it first
+                        await interaction.deferUpdate().catch(() => {});
+                    }
+                    
                     await interaction.followUp({
                         content: '🎮 **Ready for another round?**',
                         components: GamePanel.createGameButtons({ 
@@ -1338,7 +1367,7 @@ module.exports = {
                         ephemeral: false
                     });
                 } catch (playAgainError) {
-                    logger.warn(`Failed to send play again buttons: ${playAgainError.message}`);
+                    logger.error(`Failed to send play again buttons: ${playAgainError.message}`);
                 }
             }
 
@@ -1368,6 +1397,9 @@ module.exports = {
             
             // Clean up after interaction update (success or failure)
             activeGames.delete(game.sessionId);
+            
+            // Unregister from stuck game recovery monitoring
+            stuckGameRecovery.unregisterGame(game.sessionId);
 
             // Log game end with proper outcome detection
             const netResult = netProfit; // include insurance

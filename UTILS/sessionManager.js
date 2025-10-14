@@ -767,6 +767,77 @@ class UnifiedSessionManager extends EventEmitter {
     }
 
     /**
+     * Force end a session (for stuck game recovery)
+     */
+    async forceEndSession(sessionId, reason = 'FORCED') {
+        try {
+            const session = this.sessions.get(sessionId);
+            if (!session) {
+                this.log('warn', `Force end requested for non-existent session: ${sessionId}`);
+                return { success: false, error: 'SESSION_NOT_FOUND' };
+            }
+
+            this.log('warn', `Force ending session ${sessionId} - Reason: ${reason}`);
+
+            // If bet was pre-deducted and game is being force-ended, refund the user
+            if (session.betPreDeducted && session.betAmount > 0) {
+                try {
+                    const dbManager = require('./database');
+                    await dbManager.updateBalance(session.userId, session.betAmount, 'add', session.guildId, {
+                        source: 'force_session_end',
+                        reason: `Refund for stuck ${session.gameType} game`,
+                        sessionId: sessionId
+                    });
+                    this.log('info', `Refunded ${session.betAmount} to user ${session.userId} for forced session end`);
+                } catch (refundError) {
+                    this.log('error', `Failed to refund user ${session.userId} for forced session end`, refundError);
+                }
+            }
+
+            // Clean up session
+            this.removeFromIndexes(sessionId, session);
+            this.sessions.delete(sessionId);
+
+            // Clear any timeouts
+            if (session.timeoutHandle) {
+                clearTimeout(session.timeoutHandle);
+            }
+
+            // Clean up NodeCache
+            const nodeCache = require('./nodeCache');
+            try {
+                await nodeCache.deleteGameSession(sessionId);
+            } catch (cacheError) {
+                this.log('debug', `NodeCache cleanup failed for ${sessionId}: ${cacheError.message}`);
+            }
+
+            // Clean up fallback system
+            const sessionFallback = require('./sessionFallback');
+            try {
+                sessionFallback.removeSession(sessionId);
+            } catch (fallbackError) {
+                this.log('debug', `Fallback cleanup failed for ${sessionId}: ${fallbackError.message}`);
+            }
+
+            this.stats.totalEnded++;
+            this.log('info', `Session ${sessionId} force-ended successfully (${reason})`);
+
+            return {
+                success: true,
+                reason: reason,
+                refunded: session.betPreDeducted ? session.betAmount : 0
+            };
+
+        } catch (error) {
+            this.log('error', `Error force-ending session ${sessionId}`, error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
      * Get session by ID with validation
      */
     async getSession(sessionId) {
