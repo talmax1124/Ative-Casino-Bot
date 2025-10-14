@@ -50,6 +50,29 @@ class AnalyticsEngine extends EventEmitter {
         }, 30000);
     }
 
+    updateRealtimeMetrics() {
+        // Update current minute metrics
+        const currentMinute = Math.floor(Date.now() / 60000);
+        const minuteKey = `realtime_${currentMinute}`;
+        
+        if (!this.realtimeMetrics.has(minuteKey)) {
+            this.realtimeMetrics.set(minuteKey, {
+                timestamp: Date.now(),
+                activeGames: 0,
+                totalBets: 0,
+                totalPayouts: 0,
+                uniqueUsers: new Set(),
+                gameTypes: new Map(),
+                lastUpdated: Date.now()
+            });
+        }
+        
+        // Update performance metrics
+        this.performanceMetrics.set('last_update', Date.now());
+        this.performanceMetrics.set('cache_size', this.metricsCache.size);
+        this.performanceMetrics.set('realtime_cache_size', this.realtimeMetrics.size);
+    }
+
     async recordGameEvent(eventType, gameData) {
         const timestamp = Date.now();
         const eventId = `${eventType}_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;

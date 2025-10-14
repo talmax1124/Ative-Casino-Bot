@@ -87,6 +87,55 @@ class GameEngine extends EventEmitter {
                     maxPayout: 36.0,
                     minBet: 25,
                     maxBet: 250000
+                },
+                crash: {
+                    baseHouseEdge: 0.03,
+                    baseWinRate: 0.45,
+                    maxPayout: 50.0,
+                    minBet: 500,
+                    maxBet: 500000
+                },
+                mines: {
+                    baseHouseEdge: 0.035,
+                    baseWinRate: 0.35,
+                    maxPayout: 25.0,
+                    minBet: 100,
+                    maxBet: 250000
+                },
+                plinko: {
+                    baseHouseEdge: 0.04,
+                    baseWinRate: 0.40,
+                    maxPayout: 100.0,
+                    minBet: 100,
+                    maxBet: 100000
+                },
+                bingo: {
+                    baseHouseEdge: 0.10,
+                    baseWinRate: 0.25,
+                    maxPayout: 10.0,
+                    minBet: 250,
+                    maxBet: 50000
+                },
+                keno: {
+                    baseHouseEdge: 0.30,
+                    baseWinRate: 0.20,
+                    maxPayout: 1000.0,
+                    minBet: 100,
+                    maxBet: 25000
+                },
+                scratch: {
+                    baseHouseEdge: 0.20,
+                    baseWinRate: 0.35,
+                    maxPayout: 20.0,
+                    minBet: 50,
+                    maxBet: 10000
+                },
+                russianroulette: {
+                    baseHouseEdge: 0.167,
+                    baseWinRate: 0.833,
+                    maxPayout: 6.0,
+                    minBet: 1000,
+                    maxBet: 100000
                 }
             };
             
@@ -121,10 +170,10 @@ class GameEngine extends EventEmitter {
             const userProfile = await this.userEngine.getUserProfile(userId, guildId);
             
             // Calculate dynamic game settings based on user tier
-            const gameSettings = await this.calculateGameSettings(gameType, userProfile, betAmount);
+            const gameSettings = await this.calculateGameSettings(gameType, userProfile, betAmount, gameOptions);
             
             // Create game session
-            const gameSession = await this.createGameSession(gameId, gameType, userId, guildId, betAmount, gameSettings);
+            const gameSession = await this.createGameSession(gameId, gameType, userId, guildId, betAmount, gameSettings, gameOptions);
             
             // Register with security monitoring
             this.securityEngine.registerGame(gameId, userId, guildId, gameType);
@@ -466,6 +515,79 @@ class GameEngine extends EventEmitter {
     }
 
     /**
+     * ⚙️ CALCULATE GAME SETTINGS
+     * Calculate dynamic game settings based on user profile and game type
+     */
+    async calculateGameSettings(gameType, userProfile, betAmount, gameOptions = {}) {
+        const config = this.gameConfigs[gameType];
+        if (!config) {
+            throw new Error(`Unsupported game type: ${gameType}`);
+        }
+
+        // Get balance tier from userEngine
+        const balanceTier = this.userEngine.getBalanceTier ? 
+            this.userEngine.getBalanceTier(userProfile.totalBalance) : 'NORMAL';
+
+        // Calculate balance-based adjustments
+        const adjustments = await this.calculateBalanceAdjustments({
+            gameType,
+            userId: userProfile.userId,
+            guildId: userProfile.guildId,
+            betAmount
+        });
+
+        // Merge with game options
+        const gameSettings = {
+            gameType,
+            betAmount,
+            baseWinRate: config.baseWinRate,
+            maxPayout: config.maxPayout,
+            minBet: config.minBet,
+            maxBet: config.maxBet,
+            houseEdge: config.baseHouseEdge,
+            tier: balanceTier,
+            adjustedWinRate: adjustments.adjustedWinRate,
+            adjustedPayout: adjustments.adjustedPayout,
+            adjustedHouseEdge: adjustments.adjustedHouseEdge,
+            offEconomy: adjustments.offEconomy,
+            ...gameOptions
+        };
+
+        logger.debug(`Game settings calculated for ${gameType}: tier=${balanceTier}, winRate=${adjustments.adjustedWinRate}`);
+        
+        return gameSettings;
+    }
+
+    /**
+     * 🎮 CREATE GAME SESSION
+     * Create a new game session with all necessary data
+     */
+    async createGameSession(gameId, gameType, userId, guildId, betAmount, gameSettings, gameOptions = {}) {
+        const session = {
+            gameId,
+            gameType,
+            userId,
+            guildId,
+            betAmount,
+            settings: gameSettings,
+            options: gameOptions,
+            startTime: Date.now(),
+            lastAction: Date.now(),
+            status: 'active',
+            outcome: null,
+            metadata: {
+                userAgent: 'GameEngine',
+                version: '1.0.0',
+                ...gameOptions
+            }
+        };
+
+        logger.debug(`Game session created: ${gameId} for ${gameType}`);
+        
+        return session;
+    }
+
+    /**
      * 🔄 FALLBACK METHODS FOR MISSING DEPENDENCIES
      */
     createEconomyFallback() {
@@ -479,7 +601,10 @@ class GameEngine extends EventEmitter {
         return {
             registerGame: () => true,
             unregisterGame: () => true,
-            checkUserSecurity: async () => ({ status: 'SAFE', riskLevel: 'LOW' }),
+            checkUserSecurity: async () => ({ allowed: true, status: 'SAFE', riskLevel: 'LOW' }),
+            checkGameSecurity: async () => ({ allowed: true, status: 'SAFE' }),
+            updateActivity: () => true,
+            logGameEnd: async () => true,
             isHealthy: () => true
         };
     }
@@ -490,7 +615,9 @@ class GameEngine extends EventEmitter {
                 userId,
                 guildId,
                 totalBalance: 10000,
-                tier: 'MEDIUM',
+                availableBalance: 10000,
+                tier: 'NORMAL',
+                offEconomy: false,
                 gameStats: {
                     totalGames: 50,
                     totalWins: 25,
@@ -500,7 +627,17 @@ class GameEngine extends EventEmitter {
                 achievements: [],
                 personalization: { theme: 'default' }
             }),
+            getBalanceTier: (balance) => {
+                if (balance < 1000) return 'ULTRA_LOW';
+                if (balance < 10000) return 'LOW';
+                if (balance < 100000) return 'NORMAL';
+                if (balance < 1000000) return 'HIGH';
+                if (balance < 10000000) return 'VERY_HIGH';
+                if (balance < 100000000) return 'ULTRA_HIGH';
+                return 'MEGA_WHALE';
+            },
             updateUserProfile: async () => true,
+            updateGameStats: async () => true,
             isHealthy: () => true
         };
     }
