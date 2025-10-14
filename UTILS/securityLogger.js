@@ -16,7 +16,7 @@ class SecurityLogger {
             severeBetting: 300,       // 300 bets in 5 minutes triggers lockout (increased from 100)
             extremeBetting: 500,      // 500 bets in 5 minutes triggers extended lockout (increased from 200)
             largeWinAmount: 1000000,  // 1M+ single win (increased from 500K)
-            totalWinToday: 10000000,  // 10M+ total wins today (increased from 5M)
+            totalWinToday: 25000000,  // 25M+ total wins today (increased from 10M for high rollers)
             negativeBalance: -1       // Any negative balance
         };
         this.userActivityWindows = new Map(); // Track activity windows
@@ -301,25 +301,43 @@ class SecurityLogger {
      */
     async sendSecurityAlert(userId, suspiciousPattern) {
         try {
-            // Throttle betting alerts to avoid spam
+            // Universal alert throttling to prevent spam
+            const key = `${userId}:${suspiciousPattern.type}`;
+            const now = Date.now();
+            const lastTime = this.lastAlertTime.get(key) || 0;
+            
+            // Different cooldown periods for different alert types
+            let cooldownPeriod = this.alertCooldownMs; // Default 2 minutes
+            
+            // Specific handling for different alert types
             if (suspiciousPattern.type === 'RAPID_BETTING' || 
                 suspiciousPattern.type === 'SEVERE_RAPID_BETTING' ||
                 suspiciousPattern.type === 'EXTREME_RAPID_BETTING') {
-                const key = `${userId}:RAPID_BETTING`;
-                const now = Date.now();
-                const lastTime = this.lastAlertTime.get(key) || 0;
                 const lastCount = this.lastRapidBetAlertCount.get(userId) || 0;
                 const currentCount = suspiciousPattern?.data?.betCount || 0;
 
                 // Only alert at step increases and with a time cooldown
                 const stepped = currentCount >= 50 && (currentCount === 50 || currentCount % 25 === 0 || currentCount - lastCount >= 25);
-                const cooled = now - lastTime >= this.alertCooldownMs;
+                const cooled = now - lastTime >= cooldownPeriod;
                 if (!stepped || !cooled) {
                     return; // Skip redundant alert
                 }
                 this.lastRapidBetAlertCount.set(userId, currentCount);
-                this.lastAlertTime.set(key, now);
+            } else if (suspiciousPattern.type === 'EXCESSIVE_DAILY_WINS') {
+                // Longer cooldown for daily wins alerts - 10 minutes
+                cooldownPeriod = 600000; 
+                if (now - lastTime < cooldownPeriod) {
+                    return; // Skip redundant alert
+                }
+            } else {
+                // Standard cooldown for other alerts
+                if (now - lastTime < cooldownPeriod) {
+                    return; // Skip redundant alert
+                }
             }
+            
+            // Update last alert time
+            this.lastAlertTime.set(key, now);
 
             const alertMessage = this.buildAlertMessage(userId, suspiciousPattern);
             

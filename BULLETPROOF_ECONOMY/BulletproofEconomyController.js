@@ -16,6 +16,7 @@ const EconomicOversightSystem = require('../UTILS/economicOversightSystem');
 const balanceBasedAdjuster = require('../UTILS/balanceBasedAdjuster');
 const dbManager = require('../UTILS/database');
 const EconomicStabilityManager = require('../UTILS/EconomicStabilityManager');
+const emergencyControls = require('../UTILS/emergencyControls');
 
 const crypto = require('crypto');
 const { secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
@@ -444,6 +445,14 @@ class BulletproofEconomyController {
                 );
                 houseEdge = Math.max(this.safeguards.minimumHouseEdge, houseEdge);
                 houseEdge = Math.min(0.12, houseEdge);
+                
+                // Apply emergency controls
+                const emergencyStatus = emergencyControls.getEmergencyAdjustments();
+                if (emergencyStatus.active) {
+                    houseEdge *= emergencyStatus.houseEdgeMultiplier;
+                    houseEdge = Math.min(0.15, houseEdge); // Cap at 15% even in emergency
+                    console.log(`🚨 Emergency mode active (Level ${emergencyStatus.level}): House edge adjusted to ${(houseEdge * 100).toFixed(2)}%`);
+                }
             } catch (edgeError) {
                 console.warn(`Dynamic house edge calculation failed for ${gameType}, using fallback: ${edgeError.message}`);
                 houseEdge = Math.max(this.safeguards.minimumHouseEdge, 0.03);
@@ -507,6 +516,13 @@ class BulletproofEconomyController {
                 if (won && stabilityDetails?.payoutMultiplier) {
                     payoutMultiplier *= stabilityDetails.payoutMultiplier;
                 }
+            }
+
+            // Apply emergency controls to payout
+            const emergencyStatus = emergencyControls.getEmergencyAdjustments();
+            if (emergencyStatus.active && won) {
+                payoutMultiplier *= emergencyStatus.payoutReduction;
+                console.log(`🚨 Emergency payout reduction applied: ${(emergencyStatus.payoutReduction * 100).toFixed(1)}%`);
             }
 
             // Clamp final multiplier to reasonable bounds (never punish below 90%, never boost above 130%)

@@ -73,10 +73,10 @@ class DynamicHouseEdgeSystem {
         });
         
         this.baseEdges.set('blackjack', {
-            minimum: 0.005,    // 0.5%
-            base: 0.01,        // 1% - realistic blackjack edge
-            maximum: 0.025,    // 2.5%
-            current: 0.01,
+            minimum: 0.015,    // 1.5%
+            base: 0.025,       // 2.5% - sustainable blackjack edge
+            maximum: 0.04,     // 4%
+            current: 0.025,
             strictMode: false
         });
         
