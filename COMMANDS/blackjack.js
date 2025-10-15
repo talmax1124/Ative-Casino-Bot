@@ -105,48 +105,16 @@ const gameIntegrator = new UniversalGameIntegrator('blackjack');
 // Game type constant
 const SMGameType = { BLACKJACK: 'blackjack' };
 
-// STANDARD BLACKJACK MODES with proper payouts
-const BLACKJACK_MODES = {
-    safe: {
-        name: '🛡️ Safe',
-        description: 'Low stakes with standard payouts',
-        minBet: 500,
-        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
-        winMultiplier: 2.0,          // Standard 1:1 win payout
-        houseEdge: 0.005,            // 0.5% house edge
-        emoji: '🛡️',
-        color: '#4CAF50'
-    },
-    balanced: {
-        name: '⚖️ Balanced',
-        description: 'Medium stakes with standard payouts',
-        minBet: 1000,
-        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
-        winMultiplier: 2.0,          // Standard 1:1 win payout
-        houseEdge: 0.005,            // 0.5% house edge
-        emoji: '⚖️',
-        color: '#FF9800'
-    },
-    risky: {
-        name: '⚡ Risky',
-        description: 'High stakes with standard payouts',
-        minBet: 2500,
-        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
-        winMultiplier: 2.0,          // Standard 1:1 win payout
-        houseEdge: 0.005,            // 0.5% house edge
-        emoji: '⚡',
-        color: '#FF8800'
-    },
-    extreme: {
-        name: '🔥 Extreme',
-        description: 'Very high stakes with standard payouts',
-        minBet: 5000,
-        blackjackMultiplier: 2.5,    // Standard 3:2 blackjack payout
-        winMultiplier: 2.0,          // Standard 1:1 win payout
-        houseEdge: 0.005,            // 0.5% house edge
-        emoji: '🔥',
-        color: '#FF0000'
-    }
+// SINGLE BALANCED BLACKJACK CONFIGURATION
+const BLACKJACK_CONFIG = {
+    name: 'Standard Blackjack',
+    description: 'Balanced payouts for fair gameplay',
+    minBet: 100,
+    blackjackMultiplier: 1.5,    // 50% profit on blackjack
+    winMultiplier: 1.0,          // Break even on regular wins
+    houseEdge: 0.015,            // 1.5% house edge
+    emoji: '🃏',
+    color: '#4CAF50'
 };
 
 // Active games storage (indexed by sessionId for better session management)
@@ -382,29 +350,14 @@ module.exports = {
             option.setName('amount')
                 .setDescription('Amount to bet (supports K/M/B, "all", "all in", "half")')
                 .setRequired(true)
-        )
-        .addStringOption(option =>
-            option.setName('mode')
-                .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
-                .setRequired(false)
-                .addChoices(
-                    { name: '🛡️ Safe (Min: $500)', value: 'safe' },
-                    { name: '⚖️ Balanced (Min: $1K)', value: 'balanced' },
-                    { name: '⚡ Risky (Min: $2.5K)', value: 'risky' },
-                    { name: '🔥 Extreme (Min: $5K)', value: 'extreme' }
-                )
         ),
 
     async execute(interaction) {
         const userId = interaction.user.id;
         const username = interaction.user.displayName;
         const amount = interaction.options.getString('amount');
-        const selectedMode = interaction.options.getString('mode') || 'balanced';
         const guildId = await getGuildId(interaction);
-        logger.debug(`Blackjack execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}' and mode '${selectedMode}'`);
-
-        // Get mode configuration
-        const modeConfig = BLACKJACK_MODES[selectedMode] || BLACKJACK_MODES.balanced;
+        logger.debug(`Blackjack execute called by ${username} (${userId}) in guild ${guildId} with amount '${amount}'`);
 
         let validation; // Declare validation at function scope
         
@@ -451,13 +404,13 @@ module.exports = {
             await tuningManager.initialize();
             await allInManager.initialize();
             
-            // Validate and deduct bet with mode-specific minimum (no max bet limit - bulletproof economy handles risk)
+            // Validate and deduct bet (no max bet limit - bulletproof economy handles risk)
             validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
                 GameType.BLACKJACK,
-                modeConfig.minBet,  // Mode-specific minimum bet
-                null                // No max bet limit
+                100,  // Minimum bet of $100
+                null  // No max bet limit
             );
             
             // Log all-in bets for monitoring
@@ -491,9 +444,7 @@ module.exports = {
                     gamePhase: 'dealing',
                     dealerHand: [],
                     playerHand: [],
-                    gameStarted: false,
-                    mode: selectedMode,
-                    modeConfig: modeConfig
+                    gameStarted: false
                 },
                 interaction
             });
@@ -506,10 +457,7 @@ module.exports = {
             logger.debug(`Blackjack session created: ${sessionId} for ${userId}`);
 
             // 🎮 START GAME USING HYBRID ENGINE SYSTEM - Analytics + Original Game Logic
-            const engineGameResult = await GameEngine.startGame('blackjack', userId, guildId, betAmount, {
-                mode: selectedMode,
-                modeConfig: modeConfig
-            });
+            const engineGameResult = await GameEngine.startGame('blackjack', userId, guildId, betAmount, {});
 
             if (!engineGameResult.success) {
                 return await interaction.editReply({
@@ -520,8 +468,8 @@ module.exports = {
 
             const { gameId: engineGameId, settings } = engineGameResult;
 
-            // Create new game with mode configuration and link to session
-            const game = new BlackjackGame(userId, betAmount, modeConfig);
+            // Create new game and link to session
+            const game = new BlackjackGame(userId, betAmount);
             game.dealInitialCards();
             game.sessionId = sessionId; // Link game to session
             game.engineGameId = engineGameId; // Link to engine system
@@ -574,8 +522,8 @@ module.exports = {
                         inline: true
                     },
                     {
-                        name: 'Mode',
-                        value: `${modeConfig.emoji} **${modeConfig.name}**`,
+                        name: 'Game',
+                        value: `${BLACKJACK_CONFIG.emoji} **${BLACKJACK_CONFIG.name}**`,
                         inline: true
                     }
                 ],
@@ -608,7 +556,6 @@ module.exports = {
                 betAmount,
                 gameId: engineGameId,
                 playerTier: settings.tier,
-                mode: selectedMode,
                 adjustedWinRate: settings.adjustedWinRate
             });
 
@@ -745,74 +692,129 @@ module.exports = {
             switch (actionId) {
                 case 'hit': {
                     try {
-                    // Hit
-                    game.hit();
+                        // Check interaction validity before processing
+                        if (!interaction || interaction.user.id !== userId) {
+                            logger.debug('Hit action: Invalid interaction or user mismatch');
+                            return;
+                        }
 
-                    // Check if all hands are complete (hit() method already advances to next hand if current hand is complete)
-                    if (game.allHandsComplete() || game.gameEnded) {
-                        // All hands complete, game should be over
-                        await module.exports.endGame(interaction, game, userId, guildId);
+                        // Hit
+                        game.hit();
+
+                        // Check if all hands are complete (hit() method already advances to next hand if current hand is complete)
+                        if (game.allHandsComplete() || game.gameEnded) {
+                            // All hands complete, game should be over
+                            await module.exports.endGame(interaction, game, userId, guildId);
+                            return;
+                        }
+
+                        // Update embed
+                        const hitEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
+                        const hitActionRows = createGameButtons(userId, game);
+                        const tableImage = await createGameTableImage(game, false);
+
+                        const updateData = {
+                            embeds: [hitEmbed], 
+                            components: hitActionRows
+                        };
+                        
+                        if (tableImage) {
+                            updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                            hitEmbed.setImage('attachment://blackjack-table.png');
+                        }
+
+                        // Safe interaction update with error handling
+                        try {
+                            await interaction.update(updateData);
+                        } catch (updateError) {
+                            if (updateError.code === 10062 || updateError.message.includes('Unknown interaction')) {
+                                logger.debug('Hit action: Interaction expired, game state updated but UI not refreshed');
+                                return;
+                            }
+                            throw updateError;
+                        }
+                    } catch (hitError) {
+                        logger.error(`Error in blackjack hit action: ${hitError.message}`);
+                        try {
+                            // Only attempt response if interaction is still valid
+                            if (interaction && !interaction.replied && !interaction.deferred) {
+                                await interaction.deferUpdate();
+                            }
+                            if (interaction && !hitError.message.includes('Unknown interaction')) {
+                                await interaction.followUp({ 
+                                    content: '❌ An error occurred while hitting. Please try again.', 
+                                    flags: 64 
+                                });
+                            }
+                        } catch (interactionError) {
+                            if (!interactionError.message.includes('Unknown interaction')) {
+                                logger.error(`Failed to send hit error response: ${interactionError.message}`);
+                            }
+                        }
+                    }
+                    break;
+                }
+
+            case 'stand': {
+                try {
+                    // Check interaction validity before processing
+                    if (!interaction || interaction.user.id !== userId) {
+                        logger.debug('Stand action: Invalid interaction or user mismatch');
                         return;
                     }
 
-                    // Update embed
-                    const hitEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
-                    const hitActionRows = createGameButtons(userId, game);
-                    const tableImage = await createGameTableImage(game, false);
+                    // Stand
+                    game.stand();
 
-                    const updateData = {
-                        embeds: [hitEmbed], 
-                        components: hitActionRows
-                    };
-                    
-                    if (tableImage) {
-                        updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
-                        hitEmbed.setImage('attachment://blackjack-table.png');
+                    // Check if all hands are complete (stand() method already advances to next hand)
+                    if (game.allHandsComplete() || game.gameEnded) {
+                        // Game complete
+                        await module.exports.endGame(interaction, game, userId, guildId);
+                    } else {
+                        // Update display for next hand
+                        const standEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
+                        const standActionRows = createGameButtons(userId, game);
+                        const tableImage = await createGameTableImage(game, false);
+
+                        const updateData = {
+                            embeds: [standEmbed], 
+                            components: standActionRows
+                        };
+                        
+                        if (tableImage) {
+                            updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
+                            standEmbed.setImage('attachment://blackjack-table.png');
+                        }
+
+                        // Safe interaction update with error handling
+                        try {
+                            await interaction.update(updateData);
+                        } catch (updateError) {
+                            if (updateError.code === 10062 || updateError.message.includes('Unknown interaction')) {
+                                logger.debug('Stand action: Interaction expired, game state updated but UI not refreshed');
+                                return;
+                            }
+                            throw updateError;
+                        }
                     }
-
-                    await interaction.update(updateData);
-                } catch (hitError) {
-                    logger.error(`Error in blackjack hit action: ${hitError.message}`);
+                } catch (standError) {
+                    logger.error(`Error in blackjack stand action: ${standError.message}`);
                     try {
-                        if (!interaction.replied && !interaction.deferred) {
+                        // Only attempt response if interaction is still valid
+                        if (interaction && !interaction.replied && !interaction.deferred) {
                             await interaction.deferUpdate();
                         }
-                        await interaction.followUp({ 
-                            content: '❌ An error occurred while hitting. Please try again.', 
-                            flags: 64 
-                        });
+                        if (interaction && !standError.message.includes('Unknown interaction')) {
+                            await interaction.followUp({ 
+                                content: '❌ An error occurred while standing. Please try again.', 
+                                flags: 64 
+                            });
+                        }
                     } catch (interactionError) {
-                        logger.error(`Failed to send hit error response: ${interactionError.message}`);
+                        if (!interactionError.message.includes('Unknown interaction')) {
+                            logger.error(`Failed to send stand error response: ${interactionError.message}`);
+                        }
                     }
-                }
-                break;
-            }
-
-            case 'stand': {
-                // Stand
-                game.stand();
-
-                // Check if all hands are complete (stand() method already advances to next hand)
-                if (game.allHandsComplete() || game.gameEnded) {
-                    // Game complete
-                    await module.exports.endGame(interaction, game, userId, guildId);
-                } else {
-                    // Update display for next hand
-                    const standEmbed = await createGameEmbed(game, interaction.user, false, userBalance);
-                    const standActionRows = createGameButtons(userId, game);
-                    const tableImage = await createGameTableImage(game, false);
-
-                    const updateData = {
-                        embeds: [standEmbed], 
-                        components: standActionRows
-                    };
-                    
-                    if (tableImage) {
-                        updateData.files = [{ attachment: tableImage, name: 'blackjack-table.png' }];
-                        standEmbed.setImage('attachment://blackjack-table.png');
-                    }
-
-                    await interaction.update(updateData);
                 }
                 break;
             }
@@ -1034,8 +1036,8 @@ module.exports = {
                         '**Split:** Split pairs into two hands (doubles bet)'
                     ],
                     tips: [
-                        'Blackjack pays 3:2 (2.5x your bet)',
-                        'Regular wins pay 1:1 (2x your bet)',
+                        'Blackjack pays 1.5x your bet (50% profit)',
+                        'Regular wins break even (no profit)',
                         'Dealer must hit on 16 and stand on 17',
                         'Push returns your original bet'
                     ]
@@ -1502,7 +1504,11 @@ module.exports = {
         } catch (error) {
             // Extra protection against logger failures
             try {
-                logger.error(`Error ending blackjack game: ${error.message}`);
+                if (logger && typeof logger.error === 'function') {
+                    logger.error(`Error ending blackjack game: ${error.message}`);
+                } else {
+                    console.error(`[ERROR] Error ending blackjack game: ${error.message}`);
+                }
             } catch (loggerError) {
                 console.error(`[ERROR] Error ending blackjack game: ${error.message}`);
                 console.error(`[ERROR] Logger also failed: ${loggerError.message}`);

@@ -12,7 +12,8 @@ const {
     StringSelectMenuBuilder,
     ModalBuilder,
     TextInputBuilder,
-    TextInputStyle
+    TextInputStyle,
+    MessageFlags
 } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage } = require('../UTILS/common');
@@ -197,9 +198,10 @@ module.exports = {
     async showCategoryItems(interaction, userId, guildId, category) {
         // Restrict role colors category to specific guild only
         if (category === 'roles' && guildId !== '1403244656845787167') {
-            await interaction.reply({
+            await interaction.update({
                 content: '❌ Role colors are not available in this server.',
-                flags: MessageFlags.Ephemeral
+                embeds: [],
+                components: []
             });
             return;
         }
@@ -857,9 +859,10 @@ module.exports = {
     async handleRolePurchase(interaction, userId, metadata) {
         // Restrict role purchases to specific guild only
         if (interaction.guildId !== '1403244656845787167') {
-            await interaction.reply({
+            await interaction.update({
                 content: '❌ Role color purchases are not available in this server.',
-                flags: MessageFlags.Ephemeral
+                embeds: [],
+                components: []
             });
             return;
         }

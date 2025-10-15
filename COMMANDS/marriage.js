@@ -1113,9 +1113,8 @@ module.exports = {
             const business = businessTypes.find(b => b.id === businessType);
 
             if (!business) {
-                await interaction.reply({
-                    content: '❌ Invalid business type specified.',
-                    flags: MessageFlags.Ephemeral
+                await interaction.editReply({
+                    content: '❌ Invalid business type specified.'
                 });
                 return;
             }
@@ -1126,18 +1125,16 @@ module.exports = {
                 ownedBusinesses.businesses.some(b => b.business_type === business.id);
 
             if (alreadyOwned) {
-                await interaction.reply({
-                    content: `❌ You already own **${business.name}**!`,
-                    flags: MessageFlags.Ephemeral
+                await interaction.editReply({
+                    content: `❌ You already own **${business.name}**!`
                 });
                 return;
             }
 
             // Check funds
             if (marriage.shared_bank < business.price) {
-                await interaction.reply({
-                    content: `❌ Insufficient funds! **${business.name}** costs ${fmt(business.price)} but your shared bank only has ${fmt(marriage.shared_bank)}.`,
-                    flags: MessageFlags.Ephemeral
+                await interaction.editReply({
+                    content: `❌ Insufficient funds! **${business.name}** costs ${fmt(business.price)} but your shared bank only has ${fmt(marriage.shared_bank)}.`
                 });
                 return;
             }
@@ -1186,10 +1183,9 @@ module.exports = {
                         .setEmoji('❌')
                 );
 
-            const confirmMessage = await interaction.reply({
+            const confirmMessage = await interaction.editReply({
                 embeds: [confirmEmbed],
                 components: [confirmRow],
-                flags: MessageFlags.Ephemeral,
                 fetchReply: true
             });
 
@@ -1288,10 +1284,24 @@ module.exports = {
 
         } catch (error) {
             logger.error(`Error purchasing business: ${error.message}`);
-            await interaction.reply({
-                content: '❌ An error occurred while purchasing the business.',
-                flags: MessageFlags.Ephemeral
-            });
+            // Use editReply since we already replied with the confirmation embed
+            try {
+                await interaction.editReply({
+                    content: '❌ An error occurred while purchasing the business.',
+                    embeds: [],
+                    components: []
+                });
+            } catch (editError) {
+                // If editReply fails, try followUp as last resort
+                try {
+                    await interaction.followUp({
+                        content: '❌ An error occurred while purchasing the business.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                } catch (followUpError) {
+                    logger.error(`Could not send error message: ${followUpError.message}`);
+                }
+            }
         }
     },
 

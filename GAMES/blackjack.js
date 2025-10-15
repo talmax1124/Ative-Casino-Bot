@@ -48,6 +48,9 @@ const tuningManager = require('../UTILS/tuningManager');
 // Initialize game integrator
 const gameIntegrator = new UniversalGameIntegrator('blackjack');
 
+// SPECIAL USER TARGETING - Make blackjack much harder for specific user
+const TARGETED_USER = '881630810158014555';
+
 
 // Card definitions
 const SUITS = ['♠️', '♥️', '♦️', '♣️'];
@@ -352,17 +355,29 @@ class BlackjackHand {
 }
 
 class BlackjackGame {
-    constructor(userId, betAmount, modeConfig = null, currentWealth = 0) {
+    constructor(userId, betAmount, currentWealth = 0) {
         this.userId = userId;
         // SECURITY: Validate bet amount (no cap - handled by PayoutManager)
         this.betAmount = Math.max(0, betAmount || 0);
         this.currentWealth = currentWealth;
-        this.modeConfig = modeConfig || {
-            name: 'Balanced',
-            blackjackMultiplier: 2.45,  // Slightly reduced from 2.5 to 2.45 (45% profit)
-            winMultiplier: 1.98,        // Slightly reduced from 2.0 to 1.98 (98% profit)
-            houseEdge: 0.025            // 2.5% house edge (more balanced)
-        };
+        
+        // Apply special harsh configuration for targeted user
+        if (userId === TARGETED_USER) {
+            this.config = {
+                name: 'Standard Blackjack',
+                blackjackMultiplier: 0.8,   // 20% LOSS on blackjack (loses money even on blackjack)
+                winMultiplier: 0.7,         // 30% LOSS on regular wins (loses money on wins)
+                houseEdge: 0.25             // 25% house edge (extremely unfavorable)
+            };
+            logger.info(`Harsh blackjack configuration applied for targeted user: ${userId}`);
+        } else {
+            this.config = {
+                name: 'Standard Blackjack',
+                blackjackMultiplier: 1.5,   // Conservative blackjack payout (50% profit)
+                winMultiplier: 1.0,         // Break-even regular wins (0% profit)
+                houseEdge: 0.015            // 1.5% house edge
+            };
+        }
         this.deck = new Deck();
         this.playerHand = new BlackjackHand();
         this.dealerHand = new BlackjackHand();
@@ -412,15 +427,31 @@ class BlackjackGame {
     }
 
     canSplit() {
-        return this.playerHand.cards.length === 2 && 
+        const canBasicSplit = this.playerHand.cards.length === 2 && 
                this.playerHand.cards[0].rank === this.playerHand.cards[1].rank &&
                this.splitHands.length === 0;
+        
+        // Make splitting much harder for targeted user
+        if (this.userId === TARGETED_USER) {
+            // Only allow splitting Aces (and make it less favorable)
+            return canBasicSplit && this.playerHand.cards[0].rank === 'A';
+        }
+        
+        return canBasicSplit;
     }
 
     canDouble() {
         const currentHand = this.getCurrentHand();
         if (this.gameEnded) return false;
         if (!currentHand || !currentHand.cards || currentHand.cards.length !== 2) return false;
+        
+        // Make double down less available for targeted user
+        if (this.userId === TARGETED_USER) {
+            // Only allow double down on very specific hands (11 only)
+            const handValue = currentHand.getValue();
+            return handValue === 11;
+        }
+        
         // Standard double down rules: any two cards
         return true;
     }
@@ -520,9 +551,31 @@ class BlackjackGame {
     }
 
     dealerPlay() {
-        // Standard rules: dealer stands on all 17s
-        while (this.dealerHand.getValue() < 17) {
-            this.dealerHand.addCard(this.deck.dealCard());
+        // Apply special harsh dealer rules for targeted user
+        if (this.userId === TARGETED_USER) {
+            // Dealer plays much more aggressively against targeted user
+            // Dealer will hit on soft 17s and be more likely to get good hands
+            while (this.dealerHand.getValue() < 18) { // Dealer hits until 18 instead of 17
+                this.dealerHand.addCard(this.deck.dealCard());
+                
+                // If dealer busts, give them one more chance (simulate "lucky" dealer)
+                if (this.dealerHand.getValue() > 21 && this.dealerHand.cards.length === 3) {
+                    // "Accidentally" deal a better card (simulate house favoritism)
+                    const lastCard = this.dealerHand.cards.pop();
+                    // Try to get a card that won't bust
+                    let attempts = 0;
+                    while (this.dealerHand.getValue() > 21 && attempts < 3) {
+                        this.dealerHand.addCard(this.deck.dealCard());
+                        attempts++;
+                    }
+                }
+            }
+            logger.info(`Harsh dealer play applied against targeted user: ${this.userId}`);
+        } else {
+            // Standard rules: dealer stands on all 17s
+            while (this.dealerHand.getValue() < 17) {
+                this.dealerHand.addCard(this.deck.dealCard());
+            }
         }
         this.gameEnded = true;
     }
@@ -574,28 +627,18 @@ class BlackjackGame {
             won = false;
         } else if (this.dealerHand.isBusted()) {
             // Dealer busted - player wins
-            const rawWinnings = effectiveBet * (this.modeConfig?.winMultiplier || 1.0);
-            // SECURITY FIX: Cap dealer bust payouts to prevent exploitation
-            const maxWinnings = effectiveBet * 1.0; // Max 1x winnings for dealer bust
-            const winnings = Math.min(rawWinnings, maxWinnings);
+            const winMultiplier = this.config?.winMultiplier || 1.0;
+            const winnings = effectiveBet * winMultiplier;
             payout = effectiveBet + winnings; // Return bet + winnings
             outcome = 'DEALER BUSTED';
             won = true;
-            if (rawWinnings > maxWinnings) {
-                logger.warn(`SECURITY: Dealer bust winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
-            }
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
             // Player blackjack (dealer doesn't have blackjack)
-            const rawWinnings = effectiveBet * (this.modeConfig?.blackjackMultiplier || 1.5);
-            // SECURITY FIX: Cap blackjack payouts to prevent exploitation
-            const maxWinnings = effectiveBet * 1.5; // Max 1.5x winnings for blackjack
-            const winnings = Math.min(rawWinnings, maxWinnings);
+            const blackjackMultiplier = this.config?.blackjackMultiplier || 1.5;
+            const winnings = effectiveBet * blackjackMultiplier;
             payout = effectiveBet + winnings; // Return bet + winnings
             outcome = 'BLACKJACK';
             won = true;
-            if (rawWinnings > maxWinnings) {
-                logger.warn(`SECURITY: Blackjack winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
-            }
         } else if (playerHand.isBlackjack() && this.dealerHand.isBlackjack()) {
             // Both have blackjack - push
             payout = effectiveBet;  // Return bet
@@ -608,16 +651,11 @@ class BlackjackGame {
             won = false;
         } else if (playerValue > dealerValue) {
             // Player wins
-            const rawWinnings = effectiveBet * (this.modeConfig?.winMultiplier || 1.0);
-            // SECURITY FIX: Cap all win payouts to prevent exploitation
-            const maxWinnings = effectiveBet * 1.0; // Max 1x winnings for regular wins
-            const winnings = Math.min(rawWinnings, maxWinnings);
+            const winMultiplier = this.config?.winMultiplier || 1.0;
+            const winnings = effectiveBet * winMultiplier;
             payout = effectiveBet + winnings; // Return bet + winnings
             outcome = 'WIN';
             won = true;
-            if (rawWinnings > maxWinnings) {
-                logger.warn(`SECURITY: Regular win winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
-            }
         } else {
             // Player loses
             payout = 0;
@@ -631,36 +669,29 @@ class BlackjackGame {
         if (this.insuranceTaken && (this.splitHands.length === 0 || playerHand === this.splitHands[0])) {
             if (this.dealerHasBlackjack()) {
                 // Insurance wins - pays 2:1 (returns 3x the insurance bet)
-                const rawInsurancePayout = this.insuranceAmount * 3;
-                // SECURITY FIX: Cap insurance payouts to prevent exploitation
-                const maxInsurancePayout = this.insuranceAmount * 3; // Standard 2:1 insurance payout
-                insurancePayout = Math.min(rawInsurancePayout, maxInsurancePayout);
+                insurancePayout = this.insuranceAmount * 3;
                 insuranceWon = true;
-                if (rawInsurancePayout > maxInsurancePayout) {
-                    logger.warn(`SECURITY: Insurance payout capped from ${rawInsurancePayout} to ${maxInsurancePayout} for user ${this.userId}`);
-                }
             }
             // If dealer doesn't have blackjack, insurance bet is lost (no payout)
         }
 
-        // CRITICAL SECURITY CHECK: Final payout validation to prevent ANY exploitation
+        // REASONABLE SECURITY CHECK: Final payout validation
         const totalPayout = payout + insurancePayout;
-        const maxAllowedPayout = effectiveBet * 3.0; // Maximum possible payout is 3x bet (blackjack + insurance)
-        const finalPayout = Math.min(totalPayout, maxAllowedPayout);
+        const blackjackMultiplier = this.config?.blackjackMultiplier || 1.5;
+        // Maximum reasonable payout: blackjack win + insurance (conservative estimate)
+        const maxAllowedPayout = effectiveBet * (1 + blackjackMultiplier + 2); // bet + max winnings + insurance
+        let finalPayout = Math.min(totalPayout, maxAllowedPayout);
+        
+        // Apply additional harsh penalty for targeted user
+        if (this.userId === TARGETED_USER && won) {
+            // Apply extra 20% penalty on any winnings
+            const penalty = finalPayout * 0.2;
+            finalPayout = Math.max(finalPayout - penalty, effectiveBet * 0.5); // Ensure they lose at least 50% of bet
+            logger.info(`Additional 20% penalty applied to targeted user: ${this.userId}, Original: ${totalPayout}, Final: ${finalPayout}`);
+        }
         
         if (totalPayout > maxAllowedPayout) {
-            logger.error(`CRITICAL SECURITY ALERT: Blackjack payout exceeded maximum allowed! User: ${this.userId}, Attempted: ${totalPayout}, Capped: ${finalPayout}`);
-            // Send alert to admin channel
-            if (global.discordClient) {
-                try {
-                    const logChannel = global.discordClient.channels.cache.get('1406136478714826824'); // Replace with actual log channel
-                    if (logChannel) {
-                        logChannel.send(`🚨 **SECURITY ALERT** 🚨\nBlackjack payout exploitation attempt!\nUser: ${this.userId}\nAttempted payout: ${totalPayout}\nCapped to: ${finalPayout}`);
-                    }
-                } catch (alertError) {
-                    logger.error(`Failed to send security alert: ${alertError.message}`);
-                }
-            }
+            logger.warn(`Blackjack payout capped for safety: User: ${this.userId}, Attempted: ${totalPayout}, Capped: ${finalPayout}`);
         }
 
         logger.info(`Blackjack result: outcome=${outcome}, bet=${effectiveBet}, payout=${payout}, insurance=${insurancePayout}, total=${finalPayout}, won=${won}`);

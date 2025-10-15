@@ -108,7 +108,13 @@ class EmergencyControls {
             const realtimeMetrics = await analytics.getRealtimeMetrics();
             
             if (realtimeMetrics && realtimeMetrics.summary) {
-                metrics.hourlyGameRate = realtimeMetrics.summary.avgGamesPerMinute * 60;
+                // Safely calculate hourly game rate with validation
+                const avgGamesPerMinute = realtimeMetrics.summary.avgGamesPerMinute;
+                if (typeof avgGamesPerMinute === 'number' && !isNaN(avgGamesPerMinute)) {
+                    metrics.hourlyGameRate = avgGamesPerMinute * 60;
+                } else {
+                    metrics.hourlyGameRate = 0;
+                }
                 metrics.dailyWins = realtimeMetrics.summary.totalPayouts || 0;
             }
         } catch (error) {
@@ -125,24 +131,28 @@ class EmergencyControls {
     calculateRequiredEmergencyLevel(metrics) {
         let requiredLevel = 0;
 
+        // Validate metrics to prevent NaN from triggering emergency
+        const dailyWins = typeof metrics.dailyWins === 'number' && !isNaN(metrics.dailyWins) ? metrics.dailyWins : 0;
+        const hourlyGameRate = typeof metrics.hourlyGameRate === 'number' && !isNaN(metrics.hourlyGameRate) ? metrics.hourlyGameRate : 0;
+
         // Check Level 4: Emergency
-        if (metrics.dailyWins >= this.emergencyThresholds.economicCollapse ||
-            metrics.hourlyGameRate >= this.emergencyThresholds.totalSystemFailure) {
+        if (dailyWins >= this.emergencyThresholds.economicCollapse ||
+            hourlyGameRate >= this.emergencyThresholds.totalSystemFailure) {
             requiredLevel = 4;
         }
         // Check Level 3: Critical
-        else if (metrics.dailyWins >= this.emergencyThresholds.catastrophicWins ||
-                 metrics.hourlyGameRate >= this.emergencyThresholds.systemOverload) {
+        else if (dailyWins >= this.emergencyThresholds.catastrophicWins ||
+                 hourlyGameRate >= this.emergencyThresholds.systemOverload) {
             requiredLevel = 3;
         }
         // Check Level 2: Alert
-        else if (metrics.dailyWins >= this.emergencyThresholds.extremeDailyWins ||
-                 metrics.hourlyGameRate >= this.emergencyThresholds.massiveGameRate) {
+        else if (dailyWins >= this.emergencyThresholds.extremeDailyWins ||
+                 hourlyGameRate >= this.emergencyThresholds.massiveGameRate) {
             requiredLevel = 2;
         }
         // Check Level 1: Caution
-        else if (metrics.dailyWins >= this.emergencyThresholds.excessiveDailyWins ||
-                 metrics.hourlyGameRate >= this.emergencyThresholds.rapidGameRate) {
+        else if (dailyWins >= this.emergencyThresholds.excessiveDailyWins ||
+                 hourlyGameRate >= this.emergencyThresholds.rapidGameRate) {
             requiredLevel = 1;
         }
 

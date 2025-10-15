@@ -911,4 +911,44 @@ module.exports = {
         });
     },
 
+    // Handle button interactions from main interaction handler
+    async handleButtonInteraction(interaction, customId) {
+        try {
+            const guildId = interaction.guild?.id;
+            const limit = 10; // Default limit
+            
+            switch (customId) {
+                case 'leaderboard_server':
+                    await this.showServerLeaderboard(interaction, guildId, limit, true);
+                    break;
+                case 'leaderboard_global':
+                    await this.showGlobalLeaderboard(interaction, limit, true);
+                    break;
+                case 'leaderboard_winloss':
+                    await this.showWinLossLeaderboard(interaction, guildId, limit, true);
+                    break;
+                case 'leaderboard_offeco':
+                    await this.showOffEconomyLeaderboard(interaction, guildId, limit, true);
+                    break;
+                case 'leaderboard_marriage':
+                    await this.showMarriageLeaderboard(interaction, guildId, limit, true);
+                    break;
+                default:
+                    if (!interaction.deferred && !interaction.replied) {
+                        await interaction.deferUpdate();
+                    }
+                    logger.warn(`Unknown leaderboard interaction: ${customId}`);
+            }
+        } catch (error) {
+            logger.error(`Leaderboard button interaction error (${customId}): ${error.message}`);
+            try {
+                if (!interaction.deferred && !interaction.replied) {
+                    await interaction.deferUpdate();
+                }
+            } catch (deferError) {
+                logger.debug('Failed to defer leaderboard interaction update');
+            }
+        }
+    },
+
 };
