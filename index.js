@@ -4356,6 +4356,24 @@ async function showAdvancedHelpContent(interaction, customId) {
 client.once('clientReady', () => {
     logger.info(`Bot is ready! Logged in as ${client.user.tag}`);
     
+    // Emergency reset security data on startup to prevent corrupted tracking
+    try {
+        const securityLogger = require('./UTILS/securityLogger');
+        const nodeCache = require('./UTILS/nodeCache');
+        
+        logger.info('🧹 Performing startup security data reset...');
+        
+        // Reset security tracking data
+        securityLogger.emergencyReset();
+        
+        // Clear NodeCache as well
+        nodeCache.flushAll();
+        
+        logger.info('✅ Startup security reset completed - tracking data cleared');
+    } catch (error) {
+        logger.error(`⚠️ Startup security reset failed: ${error.message}`);
+    }
+    
     // Rank.Top Manager disabled due to authentication issues
     // const RankTopManager = require('./UTILS/ranktopManager');
     // client.rankTopManager = new RankTopManager(client);
