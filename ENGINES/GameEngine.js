@@ -111,7 +111,7 @@ class GameEngine extends EventEmitter {
                     baseHouseEdge: 0.167,
                     baseWinRate: 0.833,
                     maxPayout: 6.0,
-                    minBet: 1000,
+                    minBet: 100,
                     maxBet: Number.MAX_SAFE_INTEGER
                 }
             };

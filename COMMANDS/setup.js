@@ -3,7 +3,7 @@
  * Comprehensive 7-step setup process for new servers
  */
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const SetupWizard = require('../UTILS/setupWizard');
 const { SetupInteractionHandler, activeSetups } = require('../UTILS/setupInteractionHandler');
 const logger = require('../UTILS/logger');

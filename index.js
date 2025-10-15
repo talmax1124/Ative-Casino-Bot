@@ -2118,11 +2118,12 @@ client.on('interactionCreate', async interaction => {
                     }
                 }, 2000);
             }
-            // Handle leaderboard buttons
+            // Handle leaderboard buttons - handled by command's own collector
             else if (customId.startsWith('leaderboard_')) {
-                const leaderboardCommand = client.commands.get('leaderboard');
-                if (leaderboardCommand && leaderboardCommand.handleButtonInteraction) {
-                    await leaderboardCommand.handleButtonInteraction(interaction, customId);
+                // Leaderboard buttons are handled by the command's own collector
+                // No action needed here - just acknowledge if not already handled
+                if (!interaction.deferred && !interaction.replied) {
+                    console.warn(`Unhandled leaderboard interaction: ${customId}`);
                 }
             }
             // Handle treasurevault buttons (namespace: treasurevault_...)

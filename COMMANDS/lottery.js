@@ -3,7 +3,7 @@
  * Unified interface for all lottery functionality
  */
 
-const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ButtonBuilder, ActionRowBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage } = require('../UTILS/common');
 const UITemplates = require('../UTILS/uiTemplates');

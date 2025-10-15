@@ -911,47 +911,4 @@ module.exports = {
         });
     },
 
-    async handleButtonInteraction(interaction, customId) {
-        try {
-            const guildId = await getGuildId(interaction);
-            const limit = 10; // Default limit for button interactions
-            
-            logger.info(`Leaderboard button interaction: ${customId}, user: ${interaction.user.id}, guild: ${guildId}`);
-            
-            await interaction.deferUpdate();
-            
-            switch (customId) {
-                case 'leaderboard_server':
-                    await this.showServerLeaderboard(interaction, guildId, limit, true);
-                    break;
-                case 'leaderboard_global':
-                    await this.showGlobalLeaderboard(interaction, guildId, limit, true);
-                    break;
-                case 'leaderboard_winloss':
-                    await this.showWinLossLeaderboard(interaction, guildId, limit, true);
-                    break;
-                case 'leaderboard_offeco':
-                    await this.showOffEconomyLeaderboard(interaction, guildId, limit, true);
-                    break;
-                case 'leaderboard_marriage':
-                    await this.showMarriageLeaderboard(interaction, guildId, limit, true);
-                    break;
-                default:
-                    logger.warn(`Unknown leaderboard button: ${customId}`);
-                    break;
-            }
-        } catch (error) {
-            logger.error(`Leaderboard button error (${customId}): ${error.message}`);
-            
-            // Try to respond if interaction hasn't been responded to
-            if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({
-                    content: '❌ An error occurred while updating the leaderboard.',
-                    ephemeral: true
-                }).catch(() => {
-                    // Ignore if we can't respond
-                });
-            }
-        }
-    }
 };

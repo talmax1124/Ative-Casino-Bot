@@ -386,6 +386,10 @@ class GameTrendAnalyzer {
             default:
                 // Generic choice recording
                 if (!gameData.choices) gameData.choices = new Map();
+                // Ensure choices is a Map (safety check)
+                if (!(gameData.choices instanceof Map)) {
+                    gameData.choices = new Map();
+                }
                 const count = gameData.choices.get(choice) || 0;
                 gameData.choices.set(choice, count + 1);
         }
@@ -1106,7 +1110,17 @@ class GameTrendAnalyzer {
      * Analyze generic game trends
      */
     analyzeGenericTrends(gameData) {
-        if (!gameData.choices || gameData.choices.size === 0) {
+        if (!gameData.choices) {
+            return { exploitation: 0, dominantStrategy: null, confidence: 0 };
+        }
+        
+        // Ensure choices is a Map (safety check)
+        if (!(gameData.choices instanceof Map)) {
+            gameData.choices = new Map();
+            return { exploitation: 0, dominantStrategy: null, confidence: 0 };
+        }
+        
+        if (gameData.choices.size === 0) {
             return { exploitation: 0, dominantStrategy: null, confidence: 0 };
         }
         
