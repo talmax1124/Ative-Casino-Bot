@@ -546,32 +546,34 @@ class BlackjackGame {
             won = false;
         } else if (this.dealerHand.isBusted()) {
             // Dealer busted - player wins
-            const rawPayout = effectiveBet * (this.modeConfig?.winMultiplier || 2.0);
+            const rawWinnings = effectiveBet * (this.modeConfig?.winMultiplier || 1.0);
             // SECURITY FIX: Cap dealer bust payouts to prevent exploitation
-            const maxPayout = effectiveBet * 2.0; // Max 2x for dealer bust
-            payout = Math.min(rawPayout, maxPayout);
+            const maxWinnings = effectiveBet * 1.0; // Max 1x winnings for dealer bust
+            const winnings = Math.min(rawWinnings, maxWinnings);
+            payout = effectiveBet + winnings; // Return bet + winnings
             outcome = 'DEALER BUSTED';
             won = true;
-            if (rawPayout > maxPayout) {
+            if (rawWinnings > maxWinnings) {
                 if (logger && logger.warn) {
-                    logger.warn(`SECURITY: Dealer bust payout capped from ${rawPayout} to ${maxPayout} for user ${this.userId}`);
+                    logger.warn(`SECURITY: Dealer bust winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
                 } else {
-                    console.warn(`SECURITY: Dealer bust payout capped from ${rawPayout} to ${maxPayout} for user ${this.userId}`);
+                    console.warn(`SECURITY: Dealer bust winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
                 }
             }
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
             // Player blackjack (dealer doesn't have blackjack)
-            const rawPayout = effectiveBet * (this.modeConfig?.blackjackMultiplier || 2.5);
+            const rawWinnings = effectiveBet * (this.modeConfig?.blackjackMultiplier || 1.5);
             // SECURITY FIX: Cap blackjack payouts to prevent exploitation
-            const maxPayout = effectiveBet * 2.5; // Max 2.5x even for blackjack
-            payout = Math.min(rawPayout, maxPayout);
+            const maxWinnings = effectiveBet * 1.5; // Max 1.5x winnings for blackjack
+            const winnings = Math.min(rawWinnings, maxWinnings);
+            payout = effectiveBet + winnings; // Return bet + winnings
             outcome = 'BLACKJACK';
             won = true;
-            if (rawPayout > maxPayout) {
+            if (rawWinnings > maxWinnings) {
                 if (logger && logger.warn) {
-                    logger.warn(`SECURITY: Blackjack payout capped from ${rawPayout} to ${maxPayout} for user ${this.userId}`);
+                    logger.warn(`SECURITY: Blackjack winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
                 } else {
-                    console.warn(`SECURITY: Blackjack payout capped from ${rawPayout} to ${maxPayout} for user ${this.userId}`);
+                    console.warn(`SECURITY: Blackjack winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
                 }
             }
         } else if (playerHand.isBlackjack() && this.dealerHand.isBlackjack()) {
@@ -586,17 +588,18 @@ class BlackjackGame {
             won = false;
         } else if (playerValue > dealerValue) {
             // Player wins
-            const rawPayout = effectiveBet * (this.modeConfig?.winMultiplier || 2.0);
+            const rawWinnings = effectiveBet * (this.modeConfig?.winMultiplier || 1.0);
             // SECURITY FIX: Cap all win payouts to prevent exploitation
-            const maxPayout = effectiveBet * 2.0; // Max 2x for regular wins
-            payout = Math.min(rawPayout, maxPayout);
+            const maxWinnings = effectiveBet * 1.0; // Max 1x winnings for regular wins
+            const winnings = Math.min(rawWinnings, maxWinnings);
+            payout = effectiveBet + winnings; // Return bet + winnings
             outcome = 'WIN';
             won = true;
-            if (rawPayout > maxPayout) {
+            if (rawWinnings > maxWinnings) {
                 if (logger && logger.warn) {
-                    logger.warn(`SECURITY: Blackjack win payout capped from ${rawPayout} to ${maxPayout} for user ${this.userId}`);
+                    logger.warn(`SECURITY: Regular win winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
                 } else {
-                    console.warn(`SECURITY: Blackjack win payout capped from ${rawPayout} to ${maxPayout} for user ${this.userId}`);
+                    console.warn(`SECURITY: Regular win winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
                 }
             }
         } else {
