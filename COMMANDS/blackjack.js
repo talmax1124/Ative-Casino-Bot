@@ -14,37 +14,55 @@ const { SessionState } = sessionManager;
 const dbManager = require('../UTILS/database');
 const loggerModule = require('../UTILS/logger');
 
-// Safe logger wrapper to prevent crashes
-const logger = {
+// Safe logger wrapper to prevent crashes - enhanced protection
+const createSafeLogger = () => ({
     info: (message) => {
-        if (loggerModule && loggerModule.info) {
-            loggerModule.info(message);
-        } else {
-            console.log(message);
+        try {
+            if (loggerModule && typeof loggerModule.info === 'function') {
+                loggerModule.info(message);
+            } else {
+                console.log(`[INFO] ${message}`);
+            }
+        } catch (error) {
+            console.log(`[INFO] ${message}`);
         }
     },
     warn: (message) => {
-        if (loggerModule && loggerModule.warn) {
-            loggerModule.warn(message);
-        } else {
-            console.warn(message);
+        try {
+            if (loggerModule && typeof loggerModule.warn === 'function') {
+                loggerModule.warn(message);
+            } else {
+                console.warn(`[WARN] ${message}`);
+            }
+        } catch (error) {
+            console.warn(`[WARN] ${message}`);
         }
     },
     error: (message) => {
-        if (loggerModule && loggerModule.error) {
-            loggerModule.error(message);
-        } else {
-            console.error(message);
+        try {
+            if (loggerModule && typeof loggerModule.error === 'function') {
+                loggerModule.error(message);
+            } else {
+                console.error(`[ERROR] ${message}`);
+            }
+        } catch (error) {
+            console.error(`[ERROR] ${message}`);
         }
     },
     debug: (message) => {
-        if (loggerModule && loggerModule.debug) {
-            loggerModule.debug(message);
-        } else {
-            console.log(message);
+        try {
+            if (loggerModule && typeof loggerModule.debug === 'function') {
+                loggerModule.debug(message);
+            } else {
+                console.log(`[DEBUG] ${message}`);
+            }
+        } catch (error) {
+            console.log(`[DEBUG] ${message}`);
         }
     }
-};
+});
+
+const logger = createSafeLogger();
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 
@@ -1482,7 +1500,13 @@ module.exports = {
             );
 
         } catch (error) {
-            logger.error(`Error ending blackjack game: ${error.message}`);
+            // Extra protection against logger failures
+            try {
+                logger.error(`Error ending blackjack game: ${error.message}`);
+            } catch (loggerError) {
+                console.error(`[ERROR] Error ending blackjack game: ${error.message}`);
+                console.error(`[ERROR] Logger also failed: ${loggerError.message}`);
+            }
         }
     },
 
