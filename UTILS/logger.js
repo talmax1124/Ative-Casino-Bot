@@ -141,4 +141,12 @@ if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
 }
 
-module.exports = logger;
+// Safety fallback for environments where winston might fail
+const safeLogger = {
+    info: logger?.info || console.log,
+    warn: logger?.warn || console.warn,
+    error: logger?.error || console.error,
+    debug: logger?.debug || console.log
+};
+
+module.exports = safeLogger;
