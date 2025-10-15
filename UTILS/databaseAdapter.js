@@ -3524,10 +3524,35 @@ class DatabaseAdapter {
      */
     async purchaseShopItem(userId, itemId, price) {
         const connection = await this.pool.getConnection();
+        logger.info(`🛒 SHOP PURCHASE START: User ${userId} attempting to purchase item ${itemId} for ${price}`);
+        
         try {
             await connection.beginTransaction();
+            logger.info(`🔄 Transaction started for purchase by user ${userId}`);
 
-            // Get item details
+            // STEP 1: Get current user balance BEFORE any changes
+            const [balanceBeforeResult] = await connection.execute(
+                'SELECT wallet, bank FROM user_balances WHERE user_id = ?',
+                [userId]
+            );
+
+            if (balanceBeforeResult.length === 0) {
+                await connection.rollback();
+                logger.error(`❌ User ${userId} not found in user_balances table`);
+                return false;
+            }
+
+            const balanceBefore = balanceBeforeResult[0];
+            logger.info(`💰 User ${userId} balance BEFORE purchase: Wallet: ${balanceBefore.wallet}, Bank: ${balanceBefore.bank}`);
+
+            // STEP 2: Validate user has sufficient funds
+            if (parseFloat(balanceBefore.wallet) < parseFloat(price)) {
+                await connection.rollback();
+                logger.warn(`❌ INSUFFICIENT FUNDS: User ${userId} has ${balanceBefore.wallet} but item costs ${price}`);
+                return false;
+            }
+
+            // STEP 3: Get item details
             const [itemResult] = await connection.execute(
                 'SELECT * FROM shop_items WHERE id = ? AND active = true',
                 [itemId]
@@ -3535,12 +3560,21 @@ class DatabaseAdapter {
 
             if (itemResult.length === 0) {
                 await connection.rollback();
+                logger.error(`❌ Item ${itemId} not found or inactive`);
                 return false;
             }
 
             const item = itemResult[0];
+            logger.info(`📦 Item details: ${item.name} (${item.category}) - Price: ${item.price}`);
 
-            // Check if user already has this permanent item
+            // STEP 4: Verify the price matches (prevent price manipulation)
+            if (parseFloat(item.price) !== parseFloat(price)) {
+                await connection.rollback();
+                logger.error(`❌ PRICE MISMATCH: Item ${itemId} actual price ${item.price} != provided price ${price}`);
+                return false;
+            }
+
+            // STEP 5: Check if user already has this permanent item
             if (!item.duration_hours) {
                 const [existingResult] = await connection.execute(
                     'SELECT id FROM user_shop_purchases WHERE user_id = ? AND item_id = ? AND active = true',
@@ -3549,40 +3583,71 @@ class DatabaseAdapter {
 
                 if (existingResult.length > 0) {
                     await connection.rollback();
-                    logger.warn(`User ${userId} already owns permanent item ${itemId}`);
+                    logger.warn(`❌ User ${userId} already owns permanent item ${itemId} (${item.name})`);
                     return false;
                 }
             }
 
-            // Deduct money from wallet
+            // STEP 6: Deduct money from wallet with additional verification
+            logger.info(`💸 Attempting to deduct ${price} from user ${userId} wallet`);
             const [updateResult] = await connection.execute(
                 'UPDATE user_balances SET wallet = wallet - ? WHERE user_id = ? AND wallet >= ?',
                 [price, userId, price]
             );
 
+            logger.info(`🔄 Balance update result: affectedRows = ${updateResult.affectedRows}, changedRows = ${updateResult.changedRows}`);
+
             if (updateResult.affectedRows === 0) {
                 await connection.rollback();
-                return false; // Insufficient funds
+                logger.error(`❌ BALANCE UPDATE FAILED: No rows affected for user ${userId}. This could indicate insufficient funds or user not found.`);
+                return false;
             }
 
-            // Calculate expiration time for time-limited items
+            // STEP 7: Verify the balance was actually deducted
+            const [balanceAfterResult] = await connection.execute(
+                'SELECT wallet, bank FROM user_balances WHERE user_id = ?',
+                [userId]
+            );
+
+            const balanceAfter = balanceAfterResult[0];
+            const expectedWallet = parseFloat(balanceBefore.wallet) - parseFloat(price);
+            const actualWallet = parseFloat(balanceAfter.wallet);
+            
+            logger.info(`💰 User ${userId} balance AFTER deduction: Wallet: ${balanceAfter.wallet}, Bank: ${balanceAfter.bank}`);
+            logger.info(`🧮 Balance verification: Expected wallet: ${expectedWallet}, Actual wallet: ${actualWallet}`);
+
+            if (Math.abs(actualWallet - expectedWallet) > 0.01) { // Allow for small floating point differences
+                await connection.rollback();
+                logger.error(`❌ BALANCE VERIFICATION FAILED: Expected ${expectedWallet}, got ${actualWallet}. Rolling back transaction.`);
+                return false;
+            }
+
+            // STEP 8: Calculate expiration time for time-limited items
             let expiresAt = null;
             if (item.duration_hours) {
                 expiresAt = new Date(Date.now() + (item.duration_hours * 60 * 60 * 1000));
+                logger.info(`⏰ Item expires at: ${expiresAt.toISOString()}`);
+            } else {
+                logger.info(`♾️ Item is permanent (no expiration)`);
             }
 
-            // Record purchase
-            await connection.execute(
+            // STEP 9: Record purchase
+            logger.info(`📝 Recording purchase in user_shop_purchases table`);
+            const [purchaseResult] = await connection.execute(
                 'INSERT INTO user_shop_purchases (user_id, item_id, expires_at) VALUES (?, ?, ?)',
                 [userId, itemId, expiresAt]
             );
+            
+            logger.info(`📝 Purchase record created with ID: ${purchaseResult.insertId}`);
 
-            // If it's a boost item, add to active boosts
+            // STEP 10: If it's a boost item, add to active boosts
             if (item.category === 'boosts') {
                 const metadata = item.metadata ? JSON.parse(item.metadata) : {};
                 const multiplier = metadata.multiplier || 1.5;
                 const boostType = metadata.boost_type || 'general';
 
+                logger.info(`⚡ Adding boost: Type=${boostType}, Multiplier=${multiplier}, Expires=${expiresAt?.toISOString()}`);
+                
                 await connection.execute(
                     `INSERT INTO user_active_boosts (user_id, boost_type, multiplier, expires_at) 
                      VALUES (?, ?, ?, ?) 
@@ -3591,17 +3656,38 @@ class DatabaseAdapter {
                      expires_at = VALUES(expires_at)`,
                     [userId, boostType, multiplier, expiresAt]
                 );
+                
+                logger.info(`⚡ Boost record updated for user ${userId}`);
             }
 
+            // STEP 11: Commit transaction
             await connection.commit();
-            logger.info(`User ${userId} purchased item ${itemId} for ${price}`);
+            logger.info(`✅ SHOP PURCHASE SUCCESSFUL: User ${userId} purchased ${item.name} for ${price}`);
+            logger.info(`💰 Final balance: Wallet ${balanceAfter.wallet} (deducted ${parseFloat(balanceBefore.wallet) - parseFloat(balanceAfter.wallet)})`);
+            
+            // STEP 12: Clear any relevant caches
+            try {
+                const nodeCache = require('./nodeCache');
+                if (nodeCache && typeof nodeCache.clearUserCache === 'function') {
+                    await nodeCache.clearUserCache(userId);
+                    logger.info(`🧹 Cleared cache for user ${userId}`);
+                } else {
+                    logger.debug(`🧹 Cache clearing not available or not needed`);
+                }
+            } catch (cacheError) {
+                logger.warn(`⚠️ Failed to clear cache for user ${userId}: ${cacheError.message}`);
+            }
+            
             return true;
+            
         } catch (error) {
             await connection.rollback();
-            logger.error(`Error purchasing shop item: ${error.message}`);
+            logger.error(`❌ SHOP PURCHASE ERROR for user ${userId}: ${error.message}`);
+            logger.error(`🔍 Error stack: ${error.stack}`);
             return false;
         } finally {
             connection.release();
+            logger.info(`🔓 Database connection released for user ${userId} purchase`);
         }
     }
 

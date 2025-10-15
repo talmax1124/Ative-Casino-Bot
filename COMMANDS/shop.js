@@ -335,10 +335,16 @@ module.exports = {
      * Handle purchase confirmation
      */
     async handlePurchaseConfirmation(interaction, userId, guildId, itemId) {
+        logger.info(`🛒 Purchase confirmation for User ${userId}, Item ${itemId}, Guild ${guildId}`);
+        
         const item = await dbManager.getShopItem(itemId);
         const balance = await dbManager.getUserBalance(userId, guildId);
 
+        logger.info(`📦 Item: ${item ? item.name : 'NOT FOUND'}, Price: ${item ? item.price : 'N/A'}`);
+        logger.info(`💰 User balance: Wallet ${balance.wallet}, Bank ${balance.bank}`);
+
         if (!item) {
+            logger.error(`❌ Item ${itemId} not found during confirmation`);
             const errorEmbed = buildSessionEmbed({
                 title: '❌ Item Not Found',
                 topFields: [
@@ -350,7 +356,22 @@ module.exports = {
             return await interaction.update({ embeds: [errorEmbed], components: [] });
         }
 
+        // Add validation to ensure item is still active
+        if (!item.active) {
+            logger.warn(`⚠️ Item ${itemId} (${item.name}) is inactive`);
+            const errorEmbed = buildSessionEmbed({
+                title: '❌ Item Unavailable',
+                topFields: [
+                    { name: '🚫 Error', value: 'This item is currently unavailable for purchase.' }
+                ],
+                stageText: 'ITEM INACTIVE',
+                color: 0xFF0000
+            });
+            return await interaction.update({ embeds: [errorEmbed], components: [] });
+        }
+
         if (balance.wallet < item.price) {
+            logger.warn(`❌ Insufficient funds: User ${userId} has ${balance.wallet}, needs ${item.price}`);
             const errorEmbed = buildSessionEmbed({
                 title: '❌ Insufficient Funds',
                 topFields: [
@@ -367,10 +388,12 @@ module.exports = {
 
         // Check if user already owns permanent item
         if (!item.duration_hours) {
+            logger.info(`🔍 Checking if user ${userId} already owns permanent item ${itemId}`);
             const purchases = await dbManager.getUserShopPurchases(userId, true);
             const alreadyOwned = purchases.some(p => p.item_id === itemId);
             
             if (alreadyOwned) {
+                logger.warn(`❌ User ${userId} already owns permanent item ${itemId} (${item.name})`);
                 const errorEmbed = buildSessionEmbed({
                     title: '❌ Already Owned',
                     topFields: [
@@ -469,10 +492,74 @@ module.exports = {
      * Process the actual purchase
      */
     async processPurchase(interaction, userId, guildId, itemId) {
+        logger.info(`🛒 Shop purchase process starting: User ${userId}, Item ${itemId}, Guild ${guildId}`);
+        
+        // STEP 1: Get item details and validate
         const item = await dbManager.getShopItem(itemId);
+        if (!item) {
+            logger.error(`❌ Item ${itemId} not found during purchase process`);
+            const errorEmbed = buildSessionEmbed({
+                title: '❌ Purchase Failed',
+                topFields: [
+                    { name: '🔧 Error', value: 'Item no longer available. Please try again.' }
+                ],
+                stageText: 'ITEM NOT FOUND',
+                color: 0xFF0000
+            });
+            return await interaction.update({ embeds: [errorEmbed], components: [] });
+        }
+
+        // STEP 2: Get user balance BEFORE purchase
+        const balanceBefore = await dbManager.getUserBalance(userId, guildId);
+        logger.info(`💰 User ${userId} balance before purchase: ${balanceBefore.wallet}`);
+
+        // STEP 3: Double-check user has sufficient funds
+        if (balanceBefore.wallet < item.price) {
+            logger.warn(`❌ Insufficient funds check: User ${userId} has ${balanceBefore.wallet}, needs ${item.price}`);
+            const errorEmbed = buildSessionEmbed({
+                title: '❌ Insufficient Funds',
+                topFields: [
+                    { name: '💰 Your Wallet', value: fmt(balanceBefore.wallet) },
+                    { name: '💸 Item Price', value: fmt(item.price) },
+                    { name: '❌ Shortfall', value: fmt(item.price - balanceBefore.wallet) }
+                ],
+                stageText: 'INSUFFICIENT FUNDS',
+                color: 0xFF0000,
+                footer: 'Your balance may have changed since the confirmation screen'
+            });
+            return await interaction.update({ embeds: [errorEmbed], components: [] });
+        }
+
+        // STEP 4: Attempt the purchase with comprehensive logging
+        logger.info(`💸 Attempting purchase: User ${userId}, Item ${item.name} (${itemId}), Price ${item.price}`);
         const success = await dbManager.purchaseShopItem(userId, itemId, item.price);
+        logger.info(`🔄 Purchase result: ${success ? 'SUCCESS' : 'FAILED'}`);
 
         if (success) {
+            // STEP 5: Get balance AFTER purchase to verify deduction
+            const balanceAfter = await dbManager.getUserBalance(userId, guildId);
+            const expectedBalance = balanceBefore.wallet - item.price;
+            const actualDeduction = balanceBefore.wallet - balanceAfter.wallet;
+            
+            logger.info(`💰 User ${userId} balance after purchase: ${balanceAfter.wallet}`);
+            logger.info(`🧮 Deduction verification: Expected ${item.price}, Actual ${actualDeduction}`);
+            
+            // STEP 6: Verify the purchase was recorded
+            const purchases = await dbManager.getUserShopPurchases(userId, true);
+            const recentPurchase = purchases.find(p => p.item_id === itemId);
+            
+            if (!recentPurchase) {
+                logger.error(`❌ CRITICAL ERROR: Purchase succeeded but no record found for user ${userId}, item ${itemId}`);
+                // This shouldn't happen, but if it does, we need to alert about it
+            } else {
+                logger.info(`✅ Purchase verified: Record ID ${recentPurchase.id} created for user ${userId}`);
+            }
+
+            // STEP 7: Alert if balance wasn't properly deducted
+            if (Math.abs(actualDeduction - item.price) > 0.01) {
+                logger.error(`🚨 BALANCE DEDUCTION MISMATCH: Expected ${item.price}, actual ${actualDeduction} for user ${userId}`);
+                // Continue anyway since the database transaction succeeded, but log the issue
+            }
             const balance = await dbManager.getUserBalance(userId, guildId);
             
             // Use proper role name for success message
