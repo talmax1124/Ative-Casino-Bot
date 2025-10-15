@@ -31,6 +31,7 @@ const { sendLogMessage, fmt } = require('./UTILS/common');
 const LogSummaryManager = require('./UTILS/logSummaryManager');
 const panelManager = require('./UTILS/panelManager');
 const SafeInteractionHandler = require('./UTILS/interactionHandler');
+const marriageBusinessIncomeGenerator = require('./UTILS/marriageBusinessIncomeGenerator');
 
 // Defer heavy game system imports until actually needed (saves ~65ms at startup)
 let LotteryGame = null;
@@ -719,6 +720,20 @@ client.once('clientReady', async () => {
             logger.info('Marriage XP system initialized successfully');
         } catch (error) {
             logger.error('Failed to initialize Marriage XP system:', error);
+        }
+
+        // Initialize Marriage Business Income Generator
+        try {
+            marriageBusinessIncomeGenerator.start();
+            logger.info('Marriage business income generator started successfully');
+            
+            // Add shutdown callback to stop income generator
+            gracefulShutdown.addShutdownCallback(() => {
+                marriageBusinessIncomeGenerator.stop();
+                logger.info('Marriage business income generator stopped');
+            });
+        } catch (error) {
+            logger.error('Failed to start marriage business income generator:', error);
         }
 
         // 🚀 Initialize NodeCache System
@@ -2776,6 +2791,14 @@ client.on('interactionCreate', async interaction => {
                     });
                 }
             }
+            // Handle marriage business buttons
+            else if (customId.startsWith('business_') || 
+                     (customId.startsWith('confirm_purchase_') && isNaN(parseInt(customId.replace('confirm_purchase_', '')))) ||
+                     customId.startsWith('business_purchase_')) {
+                // These are handled by the marriage command's own collectors
+                logger.debug('Marriage business button handled by marriage command collector');
+                return;
+            }
             // Handle shop buttons
             else if (customId === 'open_premium_shop' || customId === 'shop_help' || 
                      customId.startsWith('shop_') || customId.startsWith('confirm_purchase_') || 
@@ -2784,15 +2807,25 @@ client.on('interactionCreate', async interaction => {
                 if (shopCommand) {
                     // Handle different shop button types
                     if (customId.startsWith('confirm_purchase_')) {
-                        // Extract itemId from confirm_purchase_{itemId}
-                        const itemId = parseInt(customId.replace('confirm_purchase_', ''));
-                        const userId = interaction.user.id;
-                        const guildId = interaction.guildId || 'global';
-                        await shopCommand.processPurchase(interaction, userId, guildId, itemId);
+                        // Extract the ID part after confirm_purchase_
+                        const idPart = customId.replace('confirm_purchase_', '');
+                        const itemId = parseInt(idPart);
+                        
+                        // If the ID is numeric, it's a shop purchase; if NaN, it's a marriage business
+                        if (!isNaN(itemId)) {
+                            // Shop purchase
+                            const userId = interaction.user.id;
+                            const guildId = interaction.guildId || 'global';
+                            await shopCommand.processPurchase(interaction, userId, guildId, itemId);
+                        } else {
+                            // Marriage business purchase - let it be handled by the marriage command's collector
+                            logger.debug('Marriage business purchase confirmation - handled by marriage command collector');
+                            return;
+                        }
                     } else if (customId === 'cancel_purchase') {
-                        // Handle purchase cancellation - this is already handled by the shop's own collector
-                        // The shop command handles this internally, so we shouldn't interfere
-                        logger.debug('Purchase cancellation handled by shop collector');
+                        // Cancel purchase could be from shop or marriage business
+                        // Let the respective command collectors handle it
+                        logger.debug('Purchase cancellation - handled by respective command collector');
                         return;
                     } else if (customId.startsWith('shop_buy_')) {
                         // Extract itemId from shop_buy_{itemId}

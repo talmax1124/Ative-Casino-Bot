@@ -529,6 +529,40 @@ class DatabaseAdapter {
                 INDEX idx_completed_at (completed_at)
             ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
+            // Marriage business system tables
+            `CREATE TABLE IF NOT EXISTS marriage_businesses (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                marriage_id INT NOT NULL,
+                business_type ENUM('amore_estates', 'eternity_holdings', 'heartline_industries', 'royal_union_holdings') NOT NULL,
+                purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                purchase_price DECIMAL(20,2) NOT NULL,
+                hourly_rate DECIMAL(20,2) NOT NULL,
+                total_earned DECIMAL(20,2) NOT NULL DEFAULT 0.00,
+                last_income_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status ENUM('active', 'inactive') DEFAULT 'active',
+                
+                FOREIGN KEY (marriage_id) REFERENCES marriages(id) ON DELETE CASCADE,
+                UNIQUE KEY unique_marriage_business (marriage_id, business_type),
+                INDEX idx_marriage_id (marriage_id),
+                INDEX idx_business_type (business_type),
+                INDEX idx_status (status),
+                INDEX idx_last_income (last_income_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            `CREATE TABLE IF NOT EXISTS marriage_business_earnings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                business_id INT NOT NULL,
+                marriage_id INT NOT NULL,
+                amount DECIMAL(20,2) NOT NULL,
+                earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                
+                FOREIGN KEY (business_id) REFERENCES marriage_businesses(id) ON DELETE CASCADE,
+                FOREIGN KEY (marriage_id) REFERENCES marriages(id) ON DELETE CASCADE,
+                INDEX idx_business_id (business_id),
+                INDEX idx_marriage_id (marriage_id),
+                INDEX idx_earned_at (earned_at)
+            ) ENGINE=InnoDB CHARACTER SET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
             `CREATE TABLE IF NOT EXISTS guild_members (
                 id VARCHAR(50) PRIMARY KEY,
                 user_id VARCHAR(20) NOT NULL,
@@ -5548,6 +5582,232 @@ class DatabaseAdapter {
 
         } catch (error) {
             logger.error(`Error updating user roles: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // =================
+    // MARRIAGE BUSINESS METHODS
+    // =================
+
+    /**
+     * Get all available marriage businesses with their details
+     */
+    getMarriageBusinessTypes() {
+        return [
+            {
+                id: 'royal_union_holdings',
+                name: 'Royal Union Holdings',
+                description: 'Entry-level business venture perfect for new couples looking to build their empire together',
+                price: 10000000, // 10M
+                hourlyRate: 40000, // 40K/hour
+                image: 'royal-union-holdings.png'
+            },
+            {
+                id: 'heartline_industries',
+                name: 'Heartline Industries',
+                description: 'Mid-tier manufacturing business that creates products celebrating love and commitment',
+                price: 50000000, // 50M
+                hourlyRate: 80000, // 80K/hour
+                image: 'Heartline-Industries.png'
+            },
+            {
+                id: 'eternity_holdings',
+                name: 'Eternity Holdings',
+                description: 'High-tier investment firm specializing in long-term romantic partnerships',
+                price: 100000000, // 100M
+                hourlyRate: 120000, // 120K/hour
+                image: 'Eternity-Holdings.png'
+            },
+            {
+                id: 'amore_estates',
+                name: 'Amore Estates',
+                description: 'Premium luxury real estate empire for the most successful married couples',
+                price: 150000000, // 150M
+                hourlyRate: 150000, // 150K/hour
+                image: 'amore-estates.png'
+            }
+        ];
+    }
+
+    /**
+     * Get marriage businesses owned by a marriage
+     */
+    async getMarriageBusinesses(marriageId) {
+        try {
+            const query = `
+                SELECT * FROM marriage_businesses 
+                WHERE marriage_id = ? AND status = 'active'
+                ORDER BY business_type
+            `;
+            
+            const [rows] = await this.pool.execute(query, [marriageId]);
+            return { success: true, businesses: rows };
+            
+        } catch (error) {
+            logger.error(`Error getting marriage businesses: ${error.message}`);
+            return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * Purchase a marriage business
+     */
+    async purchaseMarriageBusiness(marriageId, businessType, purchasePrice, hourlyRate) {
+        const connection = await this.pool.getConnection();
+        
+        try {
+            await connection.beginTransaction();
+
+            // Check if business already owned
+            const [existing] = await connection.execute(
+                'SELECT id FROM marriage_businesses WHERE marriage_id = ? AND business_type = ?',
+                [marriageId, businessType]
+            );
+
+            if (existing.length > 0) {
+                await connection.rollback();
+                return { success: false, error: 'Business already owned' };
+            }
+
+            // Get marriage details for shared bank check
+            const [marriageRows] = await connection.execute(
+                'SELECT shared_bank FROM marriages WHERE id = ? AND status = ?',
+                [marriageId, 'active']
+            );
+
+            if (marriageRows.length === 0) {
+                await connection.rollback();
+                return { success: false, error: 'Marriage not found' };
+            }
+
+            const currentBank = marriageRows[0].shared_bank;
+            if (currentBank < purchasePrice) {
+                await connection.rollback();
+                return { success: false, error: 'Insufficient funds in shared bank' };
+            }
+
+            // Deduct purchase price from shared bank
+            await connection.execute(
+                'UPDATE marriages SET shared_bank = shared_bank - ? WHERE id = ?',
+                [purchasePrice, marriageId]
+            );
+
+            // Create business record
+            const [result] = await connection.execute(`
+                INSERT INTO marriage_businesses (marriage_id, business_type, purchase_price, hourly_rate)
+                VALUES (?, ?, ?, ?)
+            `, [marriageId, businessType, purchasePrice, hourlyRate]);
+
+            await connection.commit();
+
+            return { 
+                success: true, 
+                businessId: result.insertId,
+                message: 'Business purchased successfully'
+            };
+
+        } catch (error) {
+            await connection.rollback();
+            logger.error(`Error purchasing marriage business: ${error.message}`);
+            return { success: false, error: error.message };
+        } finally {
+            connection.release();
+        }
+    }
+
+    /**
+     * Generate income for all active marriage businesses
+     */
+    async generateMarriageBusinessIncome() {
+        const connection = await this.pool.getConnection();
+        
+        try {
+            await connection.beginTransaction();
+
+            // Get all active businesses that haven't earned in the last hour
+            const [businesses] = await connection.execute(`
+                SELECT mb.*, m.status as marriage_status
+                FROM marriage_businesses mb
+                JOIN marriages m ON mb.marriage_id = m.id
+                WHERE mb.status = 'active' 
+                AND m.status = 'active'
+                AND mb.last_income_at <= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+            `);
+
+            let totalProcessed = 0;
+            let totalEarnings = 0;
+
+            for (const business of businesses) {
+                // Calculate hours since last income (minimum 1 hour)
+                const hoursElapsed = Math.max(1, Math.floor(
+                    (Date.now() - new Date(business.last_income_at).getTime()) / (1000 * 60 * 60)
+                ));
+
+                // Cap at 24 hours to prevent excessive accumulation
+                const cappedHours = Math.min(hoursElapsed, 24);
+                const earnings = business.hourly_rate * cappedHours;
+
+                // Update business with new earnings
+                await connection.execute(`
+                    UPDATE marriage_businesses 
+                    SET total_earned = total_earned + ?, last_income_at = NOW()
+                    WHERE id = ?
+                `, [earnings, business.id]);
+
+                // Add earnings to shared bank
+                await connection.execute(`
+                    UPDATE marriages 
+                    SET shared_bank = shared_bank + ?
+                    WHERE id = ?
+                `, [earnings, business.marriage_id]);
+
+                // Record the earning
+                await connection.execute(`
+                    INSERT INTO marriage_business_earnings (business_id, marriage_id, amount)
+                    VALUES (?, ?, ?)
+                `, [business.id, business.marriage_id, earnings]);
+
+                totalProcessed++;
+                totalEarnings += earnings;
+            }
+
+            await connection.commit();
+
+            return { 
+                success: true, 
+                processed: totalProcessed,
+                totalEarnings: totalEarnings
+            };
+
+        } catch (error) {
+            await connection.rollback();
+            logger.error(`Error generating marriage business income: ${error.message}`);
+            return { success: false, error: error.message };
+        } finally {
+            connection.release();
+        }
+    }
+
+    /**
+     * Get marriage business earnings history
+     */
+    async getMarriageBusinessEarnings(marriageId, limit = 50) {
+        try {
+            const query = `
+                SELECT mbe.*, mb.business_type, mb.hourly_rate
+                FROM marriage_business_earnings mbe
+                JOIN marriage_businesses mb ON mbe.business_id = mb.id
+                WHERE mbe.marriage_id = ?
+                ORDER BY mbe.earned_at DESC
+                LIMIT ?
+            `;
+            
+            const [rows] = await this.pool.execute(query, [marriageId, limit]);
+            return { success: true, earnings: rows };
+            
+        } catch (error) {
+            logger.error(`Error getting marriage business earnings: ${error.message}`);
             return { success: false, error: error.message };
         }
     }

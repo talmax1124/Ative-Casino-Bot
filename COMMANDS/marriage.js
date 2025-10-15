@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/databaseAdapter');
 const { getGuildId, sendLogMessage, fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
@@ -77,6 +77,32 @@ module.exports = {
             subcommand
                 .setName('divorce')
                 .setDescription('Initiate divorce proceedings to end your marriage')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('business')
+                .setDescription('View and purchase marriage businesses')
+                .addStringOption(option =>
+                    option.setName('action')
+                        .setDescription('Action to perform')
+                        .addChoices(
+                            { name: 'View Available Businesses', value: 'view' },
+                            { name: 'Purchase Business', value: 'purchase' },
+                            { name: 'My Businesses', value: 'owned' }
+                        )
+                        .setRequired(true)
+                )
+                .addStringOption(option =>
+                    option.setName('business')
+                        .setDescription('Business to purchase (required for purchase action)')
+                        .addChoices(
+                            { name: 'Royal Union Holdings - 10M', value: 'royal_union_holdings' },
+                            { name: 'Heartline Industries - 50M', value: 'heartline_industries' },
+                            { name: 'Eternity Holdings - 100M', value: 'eternity_holdings' },
+                            { name: 'Amore Estates - 150M', value: 'amore_estates' }
+                        )
+                        .setRequired(false)
+                )
         ),
 
     async execute(interaction) {
@@ -94,6 +120,9 @@ module.exports = {
                 break;
             case 'divorce':
                 await this.handleDivorce(interaction);
+                break;
+            case 'business':
+                await this.handleBusiness(interaction);
                 break;
             default:
                 await interaction.reply({
@@ -886,6 +915,556 @@ module.exports = {
                 .setColor(0xFF0000);
 
             await interaction.followUp({ embeds: [errorEmbed] });
+        }
+    },
+
+    async handleBusiness(interaction) {
+        const userId = interaction.user.id;
+        const action = interaction.options.getString('action');
+        const businessType = interaction.options.getString('business');
+        const guildId = await getGuildId(interaction);
+
+        await interaction.deferReply();
+
+        try {
+            // Check if user is married
+            const marriageData = await dbManager.getUserMarriage(userId, guildId);
+            if (!marriageData.married) {
+                await interaction.editReply({
+                    content: '❌ You must be married to access marriage businesses! Use `/marriage propose` to start your journey.'
+                });
+                return;
+            }
+
+            const marriage = marriageData.marriage;
+
+            switch (action) {
+                case 'view':
+                    await this.handleViewBusinesses(interaction, marriage);
+                    break;
+                case 'purchase':
+                    if (!businessType) {
+                        await interaction.editReply({
+                            content: '❌ Please specify which business you want to purchase!'
+                        });
+                        return;
+                    }
+                    await this.handlePurchaseBusiness(interaction, marriage, businessType);
+                    break;
+                case 'owned':
+                    await this.handleOwnedBusinesses(interaction, marriage);
+                    break;
+                default:
+                    await interaction.editReply({
+                        content: '❌ Invalid business action.'
+                    });
+            }
+
+        } catch (error) {
+            logger.error(`Error in business subcommand: ${error.message}`);
+            await interaction.editReply({
+                content: '❌ An error occurred while processing your business request. Please try again later.'
+            });
+        }
+    },
+
+    async handleViewBusinesses(interaction, marriage) {
+        try {
+            const businessTypes = dbManager.getMarriageBusinessTypes();
+            const ownedBusinesses = await dbManager.getMarriageBusinesses(marriage.id);
+            
+            let currentPage = 0;
+            const itemsPerPage = 1;
+            const totalPages = businessTypes.length;
+
+            const generateEmbed = (page) => {
+                const business = businessTypes[page];
+                const isOwned = ownedBusinesses.businesses && 
+                    ownedBusinesses.businesses.some(b => b.business_type === business.id);
+
+                const embed = new EmbedBuilder()
+                    .setTitle('💼 Marriage Business Directory')
+                    .setDescription(`**${business.name}**\n${business.description}`)
+                    .addFields(
+                        {
+                            name: '💰 Purchase Price',
+                            value: fmt(business.price),
+                            inline: true
+                        },
+                        {
+                            name: '📈 Hourly Income',
+                            value: fmt(business.hourlyRate),
+                            inline: true
+                        },
+                        {
+                            name: '💳 Shared Bank Balance',
+                            value: fmt(marriage.shared_bank),
+                            inline: true
+                        },
+                        {
+                            name: '🏢 Status',
+                            value: isOwned ? '✅ **OWNED**' : '🔓 Available for Purchase',
+                            inline: false
+                        }
+                    )
+                    .setColor(isOwned ? 0x00FF00 : 0xFF69B4)
+                    .setFooter({ text: `Page ${page + 1} of ${totalPages} • 💒 ATIVE Casino Business Directory` })
+                    .setTimestamp();
+
+                // Add business image if it exists
+                const imagePath = path.join(__dirname, '..', 'assets', 'MarriageBusiness', business.image);
+                if (fs.existsSync(imagePath)) {
+                    const attachment = new AttachmentBuilder(imagePath, { name: business.image });
+                    embed.setImage(`attachment://${business.image}`);
+                    return { embed, attachment };
+                }
+
+                return { embed, attachment: null };
+            };
+
+            const updateMessage = async (page) => {
+                const { embed, attachment } = generateEmbed(page);
+                const business = businessTypes[page];
+                const isOwned = ownedBusinesses.businesses && 
+                    ownedBusinesses.businesses.some(b => b.business_type === business.id);
+
+                const row = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('business_prev')
+                            .setLabel('◀️ Previous')
+                            .setStyle(ButtonStyle.Secondary)
+                            .setDisabled(page === 0),
+                        new ButtonBuilder()
+                            .setCustomId('business_next')
+                            .setLabel('Next ▶️')
+                            .setStyle(ButtonStyle.Secondary)
+                            .setDisabled(page === totalPages - 1),
+                        new ButtonBuilder()
+                            .setCustomId(`business_purchase_${business.id}`)
+                            .setLabel(`Purchase ${business.name}`)
+                            .setStyle(ButtonStyle.Success)
+                            .setEmoji('💰')
+                            .setDisabled(isOwned || marriage.shared_bank < business.price)
+                    );
+
+                const messageOptions = {
+                    embeds: [embed],
+                    components: [row]
+                };
+
+                if (attachment) {
+                    messageOptions.files = [attachment];
+                }
+
+                return messageOptions;
+            };
+
+            const initialMessage = await updateMessage(currentPage);
+            const message = await interaction.editReply(initialMessage);
+
+            // Set up button collector
+            const collector = message.createMessageComponentCollector({
+                time: 300000 // 5 minutes
+            });
+
+            collector.on('collect', async (buttonInteraction) => {
+                if (buttonInteraction.user.id !== interaction.user.id) {
+                    await buttonInteraction.reply({
+                        content: '❌ You cannot interact with this business directory.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                    return;
+                }
+
+                if (buttonInteraction.customId === 'business_prev') {
+                    currentPage = Math.max(0, currentPage - 1);
+                    const updatedMessage = await updateMessage(currentPage);
+                    await buttonInteraction.update(updatedMessage);
+                } else if (buttonInteraction.customId === 'business_next') {
+                    currentPage = Math.min(totalPages - 1, currentPage + 1);
+                    const updatedMessage = await updateMessage(currentPage);
+                    await buttonInteraction.update(updatedMessage);
+                } else if (buttonInteraction.customId.startsWith('business_purchase_')) {
+                    const businessId = buttonInteraction.customId.replace('business_purchase_', '');
+                    await this.handleDirectBusinessPurchase(buttonInteraction, marriage, businessId);
+                }
+            });
+
+            collector.on('end', async () => {
+                try {
+                    await message.edit({ components: [] });
+                } catch (error) {
+                    // Message might be deleted, ignore error
+                }
+            });
+
+        } catch (error) {
+            logger.error(`Error viewing businesses: ${error.message}`);
+            await interaction.editReply({
+                content: '❌ An error occurred while viewing businesses.'
+            });
+        }
+    },
+
+    async handlePurchaseBusiness(interaction, marriage, businessType) {
+        try {
+            const businessTypes = dbManager.getMarriageBusinessTypes();
+            const business = businessTypes.find(b => b.id === businessType);
+
+            if (!business) {
+                await interaction.reply({
+                    content: '❌ Invalid business type specified.',
+                    flags: MessageFlags.Ephemeral
+                });
+                return;
+            }
+
+            // Check if already owned
+            const ownedBusinesses = await dbManager.getMarriageBusinesses(marriage.id);
+            const alreadyOwned = ownedBusinesses.businesses && 
+                ownedBusinesses.businesses.some(b => b.business_type === business.id);
+
+            if (alreadyOwned) {
+                await interaction.reply({
+                    content: `❌ You already own **${business.name}**!`,
+                    flags: MessageFlags.Ephemeral
+                });
+                return;
+            }
+
+            // Check funds
+            if (marriage.shared_bank < business.price) {
+                await interaction.reply({
+                    content: `❌ Insufficient funds! **${business.name}** costs ${fmt(business.price)} but your shared bank only has ${fmt(marriage.shared_bank)}.`,
+                    flags: MessageFlags.Ephemeral
+                });
+                return;
+            }
+
+            // Create confirmation embed
+            const confirmEmbed = new EmbedBuilder()
+                .setTitle('💼 Business Purchase Confirmation')
+                .setDescription(`Are you sure you want to purchase **${business.name}**?`)
+                .addFields(
+                    {
+                        name: '💰 Purchase Price',
+                        value: fmt(business.price),
+                        inline: true
+                    },
+                    {
+                        name: '📈 Hourly Income',
+                        value: fmt(business.hourlyRate),
+                        inline: true
+                    },
+                    {
+                        name: '💳 Remaining Balance',
+                        value: fmt(marriage.shared_bank - business.price),
+                        inline: true
+                    },
+                    {
+                        name: '📋 Business Details',
+                        value: business.description,
+                        inline: false
+                    }
+                )
+                .setColor(0xFFD700)
+                .setTimestamp()
+                .setFooter({ text: '💒 ATIVE Casino Business Purchase' });
+
+            const confirmRow = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`confirm_purchase_${business.id}`)
+                        .setLabel('Confirm Purchase')
+                        .setStyle(ButtonStyle.Success)
+                        .setEmoji('✅'),
+                    new ButtonBuilder()
+                        .setCustomId('cancel_purchase')
+                        .setLabel('Cancel')
+                        .setStyle(ButtonStyle.Danger)
+                        .setEmoji('❌')
+                );
+
+            const confirmMessage = await interaction.reply({
+                embeds: [confirmEmbed],
+                components: [confirmRow],
+                flags: MessageFlags.Ephemeral,
+                fetchReply: true
+            });
+
+            // Wait for confirmation using the message collector instead of channel collector
+            const filter = (i) => {
+                return i.user.id === interaction.user.id && 
+                       (i.customId.startsWith('confirm_purchase_') || i.customId === 'cancel_purchase');
+            };
+
+            const collector = confirmMessage.createMessageComponentCollector({
+                filter,
+                time: 60000,
+                max: 1
+            });
+
+            collector.on('collect', async (confirmInteraction) => {
+                if (confirmInteraction.customId === 'cancel_purchase') {
+                    await confirmInteraction.update({
+                        content: '❌ Business purchase cancelled.',
+                        embeds: [],
+                        components: []
+                    });
+                    return;
+                }
+
+                const businessId = confirmInteraction.customId.replace('confirm_purchase_', '');
+                const purchaseResult = await dbManager.purchaseMarriageBusiness(
+                    marriage.id, 
+                    businessId, 
+                    business.price, 
+                    business.hourlyRate
+                );
+
+                if (purchaseResult.success) {
+                    const successEmbed = new EmbedBuilder()
+                        .setTitle('🎉 Business Purchase Successful!')
+                        .setDescription(`Congratulations! You have successfully purchased **${business.name}**!`)
+                        .addFields(
+                            {
+                                name: '💰 Amount Paid',
+                                value: fmt(business.price),
+                                inline: true
+                            },
+                            {
+                                name: '📈 Hourly Income',
+                                value: fmt(business.hourlyRate),
+                                inline: true
+                            },
+                            {
+                                name: '💳 Remaining Balance',
+                                value: fmt(marriage.shared_bank - business.price),
+                                inline: true
+                            },
+                            {
+                                name: '📊 Income Generation',
+                                value: 'Your business will start generating income every hour automatically to your shared bank account!',
+                                inline: false
+                            }
+                        )
+                        .setColor(0x00FF00)
+                        .setTimestamp()
+                        .setFooter({ text: '💒 ATIVE Casino Business Empire' });
+
+                    await confirmInteraction.update({
+                        embeds: [successEmbed],
+                        components: []
+                    });
+
+                    // Log the purchase
+                    await sendLogMessage(
+                        interaction.client,
+                        'info',
+                        `Marriage business purchased: ${marriage.partner1_name} & ${marriage.partner2_name} bought ${business.name} for ${fmt(business.price)}`,
+                        interaction.user.id,
+                        await getGuildId(interaction)
+                    );
+
+                } else {
+                    await confirmInteraction.update({
+                        content: `❌ Purchase failed: ${purchaseResult.error}`,
+                        embeds: [],
+                        components: []
+                    });
+                }
+            });
+
+            collector.on('end', (collected) => {
+                if (collected.size === 0) {
+                    interaction.editReply({
+                        content: '❌ Purchase confirmation timed out.',
+                        embeds: [],
+                        components: []
+                    });
+                }
+            });
+
+        } catch (error) {
+            logger.error(`Error purchasing business: ${error.message}`);
+            await interaction.reply({
+                content: '❌ An error occurred while purchasing the business.',
+                flags: MessageFlags.Ephemeral
+            });
+        }
+    },
+
+    async handleOwnedBusinesses(interaction, marriage) {
+        try {
+            const ownedBusinessesResult = await dbManager.getMarriageBusinesses(marriage.id);
+            
+            if (!ownedBusinessesResult.success || ownedBusinessesResult.businesses.length === 0) {
+                await interaction.editReply({
+                    content: '🏢 You don\'t own any businesses yet! Use `/marriage business view` to browse available businesses.'
+                });
+                return;
+            }
+
+            const businesses = ownedBusinessesResult.businesses;
+            const businessTypes = dbManager.getMarriageBusinessTypes();
+
+            const embed = new EmbedBuilder()
+                .setTitle('🏢 Your Marriage Business Empire')
+                .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**`)
+                .setColor(0x00FF00)
+                .setTimestamp()
+                .setFooter({ text: '💒 ATIVE Casino Business Portfolio' });
+
+            let totalHourlyIncome = 0;
+            let totalInvested = 0;
+            let totalEarned = 0;
+
+            for (const business of businesses) {
+                const businessType = businessTypes.find(bt => bt.id === business.business_type);
+                if (businessType) {
+                    totalHourlyIncome += business.hourly_rate;
+                    totalInvested += business.purchase_price;
+                    totalEarned += business.total_earned;
+
+                    const hoursOwned = Math.floor((Date.now() - new Date(business.purchased_at).getTime()) / (1000 * 60 * 60));
+                    
+                    embed.addFields({
+                        name: `🏢 ${businessType.name}`,
+                        value: `**Purchase Price:** ${fmt(business.purchase_price)}\n**Hourly Rate:** ${fmt(business.hourly_rate)}\n**Total Earned:** ${fmt(business.total_earned)}\n**Owned for:** ${hoursOwned} hours`,
+                        inline: true
+                    });
+                }
+            }
+
+            embed.addFields(
+                {
+                    name: '📊 Portfolio Summary',
+                    value: `**Total Businesses:** ${businesses.length}\n**Total Invested:** ${fmt(totalInvested)}\n**Total Earned:** ${fmt(totalEarned)}\n**Hourly Income:** ${fmt(totalHourlyIncome)}`,
+                    inline: false
+                },
+                {
+                    name: '💰 Current Shared Bank',
+                    value: fmt(marriage.shared_bank),
+                    inline: true
+                },
+                {
+                    name: '📈 ROI Status',
+                    value: totalInvested > 0 ? `${((totalEarned / totalInvested) * 100).toFixed(1)}%` : '0%',
+                    inline: true
+                }
+            );
+
+            await interaction.editReply({ embeds: [embed] });
+
+        } catch (error) {
+            logger.error(`Error showing owned businesses: ${error.message}`);
+            await interaction.editReply({
+                content: '❌ An error occurred while retrieving your business portfolio.'
+            });
+        }
+    },
+
+    async handleDirectBusinessPurchase(interaction, marriage, businessType) {
+        try {
+            const businessTypes = dbManager.getMarriageBusinessTypes();
+            const business = businessTypes.find(b => b.id === businessType);
+
+            if (!business) {
+                await interaction.reply({
+                    content: '❌ Invalid business type specified.',
+                    flags: MessageFlags.Ephemeral
+                });
+                return;
+            }
+
+            // Check if already owned
+            const ownedBusinesses = await dbManager.getMarriageBusinesses(marriage.id);
+            const alreadyOwned = ownedBusinesses.businesses && 
+                ownedBusinesses.businesses.some(b => b.business_type === business.id);
+
+            if (alreadyOwned) {
+                await interaction.reply({
+                    content: `❌ You already own **${business.name}**!`,
+                    flags: MessageFlags.Ephemeral
+                });
+                return;
+            }
+
+            // Check funds
+            if (marriage.shared_bank < business.price) {
+                await interaction.reply({
+                    content: `❌ Insufficient funds! **${business.name}** costs ${fmt(business.price)} but your shared bank only has ${fmt(marriage.shared_bank)}.`,
+                    flags: MessageFlags.Ephemeral
+                });
+                return;
+            }
+
+            // Defer reply for processing time
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+            // Proceed with purchase directly
+            const purchaseResult = await dbManager.purchaseMarriageBusiness(
+                marriage.id, 
+                businessType, 
+                business.price, 
+                business.hourlyRate
+            );
+
+            if (purchaseResult.success) {
+                const successEmbed = new EmbedBuilder()
+                    .setTitle('🎉 Business Purchase Successful!')
+                    .setDescription(`Congratulations! You have successfully purchased **${business.name}**!`)
+                    .addFields(
+                        {
+                            name: '💰 Amount Paid',
+                            value: fmt(business.price),
+                            inline: true
+                        },
+                        {
+                            name: '📈 Hourly Income',
+                            value: fmt(business.hourlyRate),
+                            inline: true
+                        },
+                        {
+                            name: '💳 Remaining Balance',
+                            value: fmt(marriage.shared_bank - business.price),
+                            inline: true
+                        },
+                        {
+                            name: '📊 Income Generation',
+                            value: 'Your business will start generating income every hour automatically to your shared bank account!',
+                            inline: false
+                        }
+                    )
+                    .setColor(0x00FF00)
+                    .setTimestamp()
+                    .setFooter({ text: '💒 ATIVE Casino Business Empire' });
+
+                await interaction.editReply({
+                    embeds: [successEmbed]
+                });
+
+                // Log the purchase
+                await sendLogMessage(
+                    interaction.client,
+                    'info',
+                    `Marriage business purchased: ${marriage.partner1_name} & ${marriage.partner2_name} bought ${business.name} for ${fmt(business.price)}`,
+                    interaction.user.id,
+                    await getGuildId(interaction)
+                );
+
+            } else {
+                await interaction.editReply({
+                    content: `❌ Purchase failed: ${purchaseResult.error}`
+                });
+            }
+
+        } catch (error) {
+            logger.error(`Error in direct business purchase: ${error.message}`);
+            await interaction.editReply({
+                content: '❌ An error occurred while purchasing the business.'
+            });
         }
     }
 };
