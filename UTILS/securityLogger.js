@@ -725,19 +725,32 @@ class SecurityLogger {
     emergencyReset() {
         logger.warn('🚨 EMERGENCY RESET: Clearing all security tracking data');
         
-        // Clear all user activity tracking
-        this.userActivityWindows.clear();
-        
-        // Clear all advanced patterns
-        this.advancedPatterns.winMomentum.clear();
-        this.advancedPatterns.gameHopping.clear();
-        this.advancedPatterns.crossGameWins.clear();
-        
-        // Clear threat cache
-        this.threatCache.clear();
-        
-        logger.info('✅ Security data reset complete');
-        return true;
+        try {
+            // Clear all user activity tracking
+            if (this.userActivityWindows) this.userActivityWindows.clear();
+            if (this.suspiciousActivity) this.suspiciousActivity.clear();
+            if (this.lastAlertTime) this.lastAlertTime.clear();
+            if (this.lastRapidBetAlertCount) this.lastRapidBetAlertCount.clear();
+            if (this.lockouts) this.lockouts.clear();
+            
+            // Clear all advanced patterns
+            if (this.advancedPatterns) {
+                if (this.advancedPatterns.winMomentum) this.advancedPatterns.winMomentum.clear();
+                if (this.advancedPatterns.gameHopping) this.advancedPatterns.gameHopping.clear();
+                if (this.advancedPatterns.crossGameWins) this.advancedPatterns.crossGameWins.clear();
+                if (this.advancedPatterns.timePatterns) this.advancedPatterns.timePatterns.clear();
+                if (this.advancedPatterns.valueEscalation) this.advancedPatterns.valueEscalation.clear();
+            }
+            
+            // Clear threat cache if it exists
+            if (this.threatCache) this.threatCache.clear();
+            
+            logger.info('✅ Security data reset complete');
+            return true;
+        } catch (error) {
+            logger.error(`❌ Emergency reset error: ${error.message}`);
+            return false;
+        }
     }
 }
 
