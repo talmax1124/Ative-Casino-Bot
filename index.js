@@ -1224,6 +1224,21 @@ client.on('interactionCreate', async interaction => {
                 const { SetupInteractionHandler } = require('./UTILS/setupInteractionHandler');
                 await SetupInteractionHandler.handleSetupInteraction(interaction);
             }
+            // Handle shop category selection
+            else if (interaction.customId === 'shop_category_select') {
+                const shopCommand = client.commands.get('shop');
+                if (shopCommand) {
+                    const category = interaction.values[0];
+                    const userId = interaction.user.id;
+                    const guildId = interaction.guildId || 'global';
+                    await shopCommand.showCategoryItems(interaction, userId, guildId, category);
+                } else {
+                    await SafeInteractionHandler.safeReply(interaction, {
+                        content: '❌ Shop not available at the moment.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                }
+            }
             // Check if this is a panel-related select menu
             else if (interaction.customId.includes('panel_action')) {
                 const panelCommand = client.commands.get('panel');
@@ -2635,12 +2650,51 @@ client.on('interactionCreate', async interaction => {
                 }
             }
             // Handle shop buttons
-            else if (customId === 'open_premium_shop' || customId === 'shop_help') {
+            else if (customId === 'open_premium_shop' || customId === 'shop_help' || 
+                     customId.startsWith('shop_') || customId.startsWith('confirm_purchase_') || 
+                     customId === 'cancel_purchase') {
                 const shopCommand = client.commands.get('shop');
-                if (shopCommand && shopCommand.handleButtonInteraction) {
-                    await shopCommand.handleButtonInteraction(interaction);
+                if (shopCommand) {
+                    // Handle different shop button types
+                    if (customId.startsWith('confirm_purchase_')) {
+                        // Extract itemId from confirm_purchase_{itemId}
+                        const itemId = parseInt(customId.replace('confirm_purchase_', ''));
+                        const userId = interaction.user.id;
+                        const guildId = interaction.guildId || 'global';
+                        await shopCommand.processPurchase(interaction, userId, guildId, itemId);
+                    } else if (customId === 'cancel_purchase') {
+                        // Handle purchase cancellation - this is already handled by the shop's own collector
+                        // The shop command handles this internally, so we shouldn't interfere
+                        logger.debug('Purchase cancellation handled by shop collector');
+                        return;
+                    } else if (customId.startsWith('shop_buy_')) {
+                        // Extract itemId from shop_buy_{itemId}
+                        const itemId = parseInt(customId.replace('shop_buy_', ''));
+                        const userId = interaction.user.id;
+                        const guildId = interaction.guildId || 'global';
+                        await shopCommand.handlePurchaseConfirmation(interaction, userId, guildId, itemId);
+                    } else if (customId === 'shop_back') {
+                        const userId = interaction.user.id;
+                        const guildId = interaction.guildId || 'global';
+                        await shopCommand.handleBrowse(interaction, userId, guildId);
+                    } else if (customId === 'shop_inventory') {
+                        const userId = interaction.user.id;
+                        const guildId = interaction.guildId || 'global';
+                        await shopCommand.showInventory(interaction, userId, guildId);
+                    } else if (customId === 'shop_active_boosts') {
+                        const userId = interaction.user.id;
+                        const guildId = interaction.guildId || 'global';
+                        await shopCommand.showActiveBoosts(interaction, userId, guildId);
+                    } else if (customId === 'shop_back_to_browse') {
+                        const userId = interaction.user.id;
+                        const guildId = interaction.guildId || 'global';
+                        await shopCommand.handleBrowse(interaction, userId, guildId);
+                    } else if (shopCommand.handleButtonInteraction) {
+                        // Fallback to existing handler for other buttons
+                        await shopCommand.handleButtonInteraction(interaction);
+                    }
                 } else {
-                    await interaction.reply({
+                    await SafeInteractionHandler.safeReply(interaction, {
                         content: '❌ Shop not available at the moment.',
                         flags: MessageFlags.Ephemeral
                     });
