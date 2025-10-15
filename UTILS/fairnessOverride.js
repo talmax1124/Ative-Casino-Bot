@@ -55,66 +55,66 @@ class FairnessOverride {
         }
 
         try {
+            if (betAmount <= 0) {
+                return { payout: calculatedPayout, override: false };
+            }
+
             // First check if this is a legitimate loss - don't override losses!
-            const playerWon = gameResult.won || (calculatedPayout > betAmount);
+            const profit = calculatedPayout - betAmount;
+            const playerWon = (gameResult && gameResult.won) || profit > 0;
             if (!playerWon) {
                 // Player lost - losses should remain losses (0 payout is correct)
                 return { payout: calculatedPayout, override: false };
             }
-            
-            // Only check house edge for winning games
-            // For wins, the payout should be >= bet amount
-            // Calculate actual house edge from the calculated payout
-            const actualEdge = 1 - (calculatedPayout / betAmount);
+
+            if (profit <= 0) {
+                if (calculatedPayout !== betAmount) {
+                    this.overrideCount++;
+                    logger.warn(`🛡️ FAIRNESS OVERRIDE: ${gameType} - Win produced non-positive profit (${calculatedPayout.toFixed(2)}), restoring stake`);
+                }
+                return {
+                    payout: betAmount,
+                    originalPayout: calculatedPayout,
+                    override: calculatedPayout !== betAmount,
+                    reason: 'Win resulted in zero/negative profit',
+                    emergency: false
+                };
+            }
+
             const maxEdge = this.maxHouseEdges[gameType] || 0.05; // Default 5% max
+            const requiredProfit = betAmount * (1 - maxEdge);
 
-            // Check if the calculated payout is unfairly low for a WIN
-            // Only trigger if house edge is positive (meaning player gets less than bet back)
-            if (actualEdge > 0 && actualEdge > maxEdge) {
-                // Calculate fair payout based on max allowed edge
-                const fairPayout = betAmount * (1 - maxEdge);
-                
-                // Only apply override if it significantly helps the player
-                if (fairPayout > calculatedPayout * 1.1) { // At least 10% improvement
-                    this.overrideCount++;
-                    
-                    logger.warn(`🛡️ FAIRNESS OVERRIDE: ${gameType} - Won but unfair payout: ${calculatedPayout.toFixed(2)} (${(actualEdge * 100).toFixed(1)}% edge) → Fair payout: ${fairPayout.toFixed(2)} (${(maxEdge * 100).toFixed(1)}% edge)`);
-                    
-                    return {
-                        payout: fairPayout,
-                        originalPayout: calculatedPayout,
-                        override: true,
-                        reason: `House edge too high for win (${(actualEdge * 100).toFixed(1)}% > ${(maxEdge * 100).toFixed(1)}%)`,
-                        fairnessImprovement: ((fairPayout - calculatedPayout) / calculatedPayout * 100).toFixed(1) + '%'
-                    };
-                }
+            if (requiredProfit > 0 && profit + 1e-6 < requiredProfit) {
+                const fairProfit = requiredProfit;
+                const fairPayout = betAmount + fairProfit;
+
+                this.overrideCount++;
+                logger.warn(`🛡️ FAIRNESS OVERRIDE: ${gameType} - Win payout too low (${calculatedPayout.toFixed(2)}) → ${fairPayout.toFixed(2)} (min profit ${(fairProfit).toFixed(2)})`);
+
+                return {
+                    payout: fairPayout,
+                    originalPayout: calculatedPayout,
+                    override: true,
+                    reason: `House edge too high for win (profit ${(profit / betAmount * 100).toFixed(1)}% < min ${( (fairProfit) / betAmount * 100).toFixed(1)}%)`,
+                    fairnessImprovement: ((fairPayout - calculatedPayout) / Math.max(calculatedPayout, 1)).toFixed(1) + '%'
+                };
             }
 
-            // Additional check for absurdly low payouts (already confirmed player won above)
-            // This handles edge cases where a win has extremely low payout but still within house edge
-            {
-                // Only apply emergency payout logic to games where the player actually won
-                const isLottery = gameType && (gameType.includes('lottery') || gameType.includes('scratch'));
-                // For most games, winners should get at least their bet back (100% payout)
-                // For lotteries, the payout can be lower since they have higher volatility
-                const minWinPayout = isLottery ? betAmount * 0.5 : betAmount; 
+            const minWinPayout = betAmount; 
+            if (calculatedPayout < minWinPayout) {
+                const emergencyPayout = betAmount;
+                this.overrideCount++;
                 
-                if (calculatedPayout < minWinPayout) {
-                    const emergencyPayout = Math.max(minWinPayout, betAmount * 1.5); // Emergency: 150% return for wins
-                    this.overrideCount++;
-                    
-                    logger.error(`🚨 EMERGENCY FAIRNESS OVERRIDE: ${gameType} - Won but unfairly low payout: ${calculatedPayout.toFixed(2)} → ${emergencyPayout.toFixed(2)}`);
-                    
-                    return {
-                        payout: emergencyPayout,
-                        originalPayout: calculatedPayout,
-                        override: true,
-                        reason: 'Emergency: Winning payout below minimum threshold',
-                        emergency: true
-                    };
-                }
+                logger.error(`🚨 EMERGENCY FAIRNESS OVERRIDE: ${gameType} - Win payout below stake: ${calculatedPayout.toFixed(2)} → ${emergencyPayout.toFixed(2)}`);
+                
+                return {
+                    payout: emergencyPayout,
+                    originalPayout: calculatedPayout,
+                    override: true,
+                    reason: 'Emergency: Winning payout below stake',
+                    emergency: true
+                };
             }
-            // If player lost (won: false or calculatedPayout <= betAmount), don't override - losses should remain $0
 
             // Payout is fair, no override needed
             return { payout: calculatedPayout, override: false };

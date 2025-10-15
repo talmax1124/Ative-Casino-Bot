@@ -462,6 +462,12 @@ class PayoutManager {
             }
         }
         
+        // Ensure wins never reduce the player's stake before fairness override kicks in
+        if (won && payout > 0 && finalPayout < betAmount) {
+            logger.warn(`🛡️ Payout floor enforced before fairness override: ${gameType} returning ${fmt(finalPayout)} on bet ${fmt(betAmount)}; raising to stake`);
+            finalPayout = betAmount;
+        }
+
         // Apply fairness override to ensure reasonable house edges
         const fairnessOverride = require('./fairnessOverride');
         const fairnessResult = fairnessOverride.ensureFairPayout(gameType, betAmount, finalPayout, gameResult);

@@ -4,7 +4,39 @@
  */
 
 const { secureRandomShuffle, secureRandomFloat, secureRandomInt, secureRandomBytes } = require('../UTILS/rng');
-const logger = require('../UTILS/logger');
+const loggerModule = require('../UTILS/logger');
+
+// Safe logger wrapper to prevent crashes
+const logger = {
+    info: (message) => {
+        if (loggerModule && loggerModule.info) {
+            loggerModule.info(message);
+        } else {
+            console.log(message);
+        }
+    },
+    warn: (message) => {
+        if (loggerModule && loggerModule.warn) {
+            loggerModule.warn(message);
+        } else {
+            console.warn(message);
+        }
+    },
+    error: (message) => {
+        if (loggerModule && loggerModule.error) {
+            loggerModule.error(message);
+        } else {
+            console.error(message);
+        }
+    },
+    debug: (message) => {
+        if (loggerModule && loggerModule.debug) {
+            loggerModule.debug(message);
+        } else {
+            console.log(message);
+        }
+    }
+};
 const securityLogger = require('../UTILS/securityLogger');
 const GameInputValidator = require('../UTILS/gameInputValidator');
 // UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
@@ -105,11 +137,7 @@ class Deck {
         
         // SECURITY: Log excessive shuffling (potential manipulation attempt)
         if (this.shuffleCount > 10) {
-            if (logger && logger.warn) {
-                logger.warn(`SECURITY: Excessive deck shuffling detected: ${this.shuffleCount} shuffles`);
-            } else {
-                console.warn(`SECURITY: Excessive deck shuffling detected: ${this.shuffleCount} shuffles`);
-            }
+            logger.warn(`SECURITY: Excessive deck shuffling detected: ${this.shuffleCount} shuffles`);
         }
     }
 
@@ -554,11 +582,7 @@ class BlackjackGame {
             outcome = 'DEALER BUSTED';
             won = true;
             if (rawWinnings > maxWinnings) {
-                if (logger && logger.warn) {
-                    logger.warn(`SECURITY: Dealer bust winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
-                } else {
-                    console.warn(`SECURITY: Dealer bust winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
-                }
+                logger.warn(`SECURITY: Dealer bust winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
             }
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
             // Player blackjack (dealer doesn't have blackjack)
@@ -570,11 +594,7 @@ class BlackjackGame {
             outcome = 'BLACKJACK';
             won = true;
             if (rawWinnings > maxWinnings) {
-                if (logger && logger.warn) {
-                    logger.warn(`SECURITY: Blackjack winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
-                } else {
-                    console.warn(`SECURITY: Blackjack winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
-                }
+                logger.warn(`SECURITY: Blackjack winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
             }
         } else if (playerHand.isBlackjack() && this.dealerHand.isBlackjack()) {
             // Both have blackjack - push
@@ -596,11 +616,7 @@ class BlackjackGame {
             outcome = 'WIN';
             won = true;
             if (rawWinnings > maxWinnings) {
-                if (logger && logger.warn) {
-                    logger.warn(`SECURITY: Regular win winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
-                } else {
-                    console.warn(`SECURITY: Regular win winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
-                }
+                logger.warn(`SECURITY: Regular win winnings capped from ${rawWinnings} to ${maxWinnings} for user ${this.userId}`);
             }
         } else {
             // Player loses
@@ -621,11 +637,7 @@ class BlackjackGame {
                 insurancePayout = Math.min(rawInsurancePayout, maxInsurancePayout);
                 insuranceWon = true;
                 if (rawInsurancePayout > maxInsurancePayout) {
-                    if (logger && logger.warn) {
-                        logger.warn(`SECURITY: Insurance payout capped from ${rawInsurancePayout} to ${maxInsurancePayout} for user ${this.userId}`);
-                    } else {
-                        console.warn(`SECURITY: Insurance payout capped from ${rawInsurancePayout} to ${maxInsurancePayout} for user ${this.userId}`);
-                    }
+                    logger.warn(`SECURITY: Insurance payout capped from ${rawInsurancePayout} to ${maxInsurancePayout} for user ${this.userId}`);
                 }
             }
             // If dealer doesn't have blackjack, insurance bet is lost (no payout)

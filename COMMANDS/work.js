@@ -5,12 +5,27 @@
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const dbManager = require('../UTILS/database');
-const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
+const { fmt, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-// Removed global earnings cooldown - commands now run independently
 const shopManager = require('../UTILS/shopManager');
 const logger = require('../UTILS/logger');
+
+const WORK_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+function formatCooldown(ms) {
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (hours === 0 && seconds > 0) parts.push(`${seconds}s`);
+
+    return parts.length > 0 ? parts.join(' ') : '0s';
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -27,6 +42,47 @@ module.exports = {
 
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
+
+            const now = Date.now();
+            const lastWorkTs = balance.last_work_ts || 0;
+            const cooldownRemaining = (lastWorkTs + WORK_COOLDOWN_MS) - now;
+
+            if (cooldownRemaining > 0) {
+                const nextAvailable = lastWorkTs + WORK_COOLDOWN_MS;
+                const cooldownEmbed = buildSessionEmbed({
+                    title: `⏳ ${username}, take a break!`,
+                    topFields: [
+                        {
+                            name: 'Cooldown Active',
+                            value: `You can work again in **${formatCooldown(cooldownRemaining)}** (<t:${Math.floor(nextAvailable / 1000)}:R>).`,
+                            inline: false
+                        }
+                    ],
+                    bankFields: [
+                        {
+                            name: 'Last Shift',
+                            value: lastWorkTs > 0 ? `<t:${Math.floor(lastWorkTs / 1000)}:R>` : 'No history',
+                            inline: true
+                        },
+                        {
+                            name: 'Wallet',
+                            value: fmt(balance.wallet || 0),
+                            inline: true
+                        },
+                        {
+                            name: 'Next Shift',
+                            value: `<t:${Math.floor(nextAvailable / 1000)}:R>`,
+                            inline: true
+                        }
+                    ],
+                    stageText: 'ON BREAK',
+                    color: 0xFFA726,
+                    footer: 'Work Cooldown'
+                });
+
+                await interaction.editReply({ embeds: [cooldownEmbed] });
+                return;
+            }
 
 
             // Work scenarios (25K-150K range)
@@ -56,11 +112,29 @@ module.exports = {
 
             // Validate and sanitize balance values
             const currentWallet = parseFloat(balance.wallet) || 0;
-            const currentBank = parseFloat(balance.bank) || 0;
-            
-            // Update balance
-            const newWallet = currentWallet + totalEarning;
-            await dbManager.setUserBalance(userId, guildId, newWallet, currentBank);
+
+            const updateSuccess = await dbManager.updateUserBalance(
+                userId,
+                guildId,
+                totalEarning,
+                0,
+                { last_work_ts: now }
+            );
+
+            if (!updateSuccess) {
+                throw new Error('Failed to update balance for work payout');
+            }
+
+            // Refresh balance for accurate display
+            let refreshedBalance = null;
+            try {
+                refreshedBalance = await dbManager.getUserBalance(userId, guildId);
+            } catch (refreshError) {
+                logger.warn(`Could not refresh balance after work: ${refreshError.message}`);
+            }
+
+            const newWallet = refreshedBalance ? (parseFloat(refreshedBalance.wallet) || currentWallet + totalEarning) : (currentWallet + totalEarning);
+            const nextShiftTs = now + WORK_COOLDOWN_MS;
 
             // Build earnings display with shop and server boosts
             const hasShopBoosts = boostResult.boosted;
@@ -107,28 +181,31 @@ module.exports = {
                 bankFields.push(
                     { name: '💎 Total Earned', value: `${fmt(totalEarning)}${boostDisplay} + 🚀 +${fmt(boosterBonus)}`, inline: true },
                     { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                    { name: '🎯 Boosts Active', value: `Shop${boostDisplay} + Server (+5%)`, inline: true }
+                    { name: '🎯 Boosts Active', value: `Shop${boostDisplay} + Server (+5%)`, inline: true },
+                    { name: '⏱️ Next Shift', value: `<t:${Math.floor(nextShiftTs / 1000)}:R>`, inline: true }
                 );
             } else if (hasShopBoosts) {
                 // Shop boosts only
                 bankFields.push(
                     { name: '💎 Total Earned', value: `${fmt(totalEarning)}${boostDisplay}`, inline: true },
                     { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                    { name: '🚀 Shop Boosts', value: boostDisplay.trim(), inline: true }
+                    { name: '🚀 Shop Boosts', value: boostDisplay.trim(), inline: true },
+                    { name: '⏱️ Next Shift', value: `<t:${Math.floor(nextShiftTs / 1000)}:R>`, inline: true }
                 );
             } else if (hasServerBoost) {
                 // Server boost only
                 bankFields.push(
                     { name: '💎 Total Earned', value: `${fmt(totalEarning)} (🚀 +${fmt(boosterBonus)})`, inline: true },
                     { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                    { name: '🚀 Boost Active', value: 'Server (+5%)', inline: true }
+                    { name: '🚀 Boost Active', value: 'Server (+5%)', inline: true },
+                    { name: '⏱️ Next Shift', value: `<t:${Math.floor(nextShiftTs / 1000)}:R>`, inline: true }
                 );
             } else {
                 // No boosts
                 bankFields.push(
                     { name: '💎 Total Earned', value: fmt(totalEarning), inline: true },
                     { name: '💵 New Balance', value: fmt(newWallet), inline: true },
-                    { name: '🔄 Status', value: 'Ready anytime!', inline: true }
+                    { name: '⏱️ Next Shift', value: `<t:${Math.floor(nextShiftTs / 1000)}:R>`, inline: true }
                 );
             }
             

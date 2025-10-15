@@ -12,7 +12,39 @@ const GamePanel = require('../UTILS/gamePanel');
 const sessionManager = require('../UTILS/sessionManager');
 const { SessionState } = sessionManager;
 const dbManager = require('../UTILS/database');
-const logger = require('../UTILS/logger');
+const loggerModule = require('../UTILS/logger');
+
+// Safe logger wrapper to prevent crashes
+const logger = {
+    info: (message) => {
+        if (loggerModule && loggerModule.info) {
+            loggerModule.info(message);
+        } else {
+            console.log(message);
+        }
+    },
+    warn: (message) => {
+        if (loggerModule && loggerModule.warn) {
+            loggerModule.warn(message);
+        } else {
+            console.warn(message);
+        }
+    },
+    error: (message) => {
+        if (loggerModule && loggerModule.error) {
+            loggerModule.error(message);
+        } else {
+            console.error(message);
+        }
+    },
+    debug: (message) => {
+        if (loggerModule && loggerModule.debug) {
+            loggerModule.debug(message);
+        } else {
+            console.log(message);
+        }
+    }
+};
 const { GamePanelUtil } = require('../UTILS/gamePanelUtil');
 const { buildSessionEmbed, buildButtons } = require('../UTILS/gameSessionKit');
 
@@ -1045,7 +1077,7 @@ module.exports = {
             let totalBetAmount = 0;
             let totalInsuranceAmount = 0;
             let totalInsurancePayout = 0;
-            let anyWon = false;
+            let baseWinDetected = false;
 
             // Process each hand result
             for (const result of results) {
@@ -1053,7 +1085,7 @@ module.exports = {
                 totalBetAmount += result.betAmount || game.betAmount;
                 totalInsuranceAmount += result.insuranceAmount || 0;
                 totalInsurancePayout += result.insurancePayout || 0;
-                if (result.won) anyWon = true;
+                if (result.won) baseWinDetected = true;
             }
             
             // Check if this is a push (all hands are pushes)
@@ -1073,30 +1105,28 @@ module.exports = {
             let regulatedPayout = totalPayout;
             let tuningAdjustment = { originalPayout: totalPayout, adjustedPayout: totalPayout, payoutDelta: 0, feeApplied: false };
             
-            // Only apply adjustments to actual wins (not pushes or losses)
-            if (anyWon && totalPayout > totalBetAmount) {
-                // Apply ENGINE adjustments first
+            // Only apply adjustments to hands that produced a profit before regulation
+            if (baseWinDetected && totalPayout > totalBetAmount) {
                 if (engineOutcome && engineOutcome.adjustments?.adjustedPayout) {
-                    regulatedPayout = Math.floor(totalPayout * engineOutcome.adjustments.adjustedPayout);
-                    logger.info(`Engine adjustment applied: ${totalPayout} -> ${regulatedPayout}`);
+                    const engineMaxPayout = Math.floor(totalBetAmount * engineOutcome.adjustments.adjustedPayout);
+                    const cappedPayout = Math.min(regulatedPayout, engineMaxPayout);
+                    if (cappedPayout !== regulatedPayout) {
+                        logger.info(`Engine cap applied: ${regulatedPayout} -> ${cappedPayout} (max ${engineMaxPayout})`);
+                    }
+                    regulatedPayout = Math.max(cappedPayout, totalBetAmount);
                 }
-                
+
                 // Apply tuning system
                 tuningAdjustment = await tuningManager.getAdjustedPayout('blackjack', regulatedPayout, totalBetAmount);
                 regulatedPayout = tuningAdjustment.adjustedPayout;
+                regulatedPayout = Math.max(regulatedPayout, totalBetAmount);
                 
                 // Apply all-in system
                 const allInAdjustment = await allInManager.adjustGameResult(userId, totalBetAmount, regulatedPayout, true, 'blackjack');
                 regulatedPayout = allInAdjustment.adjustedPayout;
+                regulatedPayout = Math.max(regulatedPayout, totalBetAmount);
                 
                 logger.info(`Blackjack adjustments: original=${totalPayout}, engine=${engineOutcome?.adjustments?.adjustedPayout || 1}, tuned=${tuningAdjustment.adjustedPayout}, final=${regulatedPayout}`);
-            }
-            
-            // Apply engine outcome override if needed
-            if (engineOutcome && !engineOutcome.won && anyWon) {
-                logger.info(`Engine override: changing win to loss for game ${engineGameId}`);
-                regulatedPayout = 0;
-                anyWon = false;
             }
             
             // Final payout includes main payout plus insurance payouts
@@ -1105,7 +1135,7 @@ module.exports = {
             // Calculate net profit
             const totalInvested = totalBetAmount + totalInsuranceAmount;
             const netProfit = finalPayout - totalInvested;
-            const won = netProfit > 0
+            const won = netProfit > 0;
             
             // Log final result for debugging
             logger.info(`Blackjack final: bet=${totalBetAmount}, insurance=${totalInsuranceAmount}, payout=${finalPayout}, netProfit=${netProfit}, won=${won}, isPush=${isPush}`);
@@ -1183,7 +1213,7 @@ module.exports = {
                 // 🏁 END GAME USING ENGINE SYSTEM - Complete analytics cycle
                 if (engineGameId) {
                     await GameEngine.endGame(engineGameId, {
-                        won: anyWon,
+                        won,
                         payout: regulatedPayout,
                         gameData: {
                             playerHand: game.splitHands.length > 0 ? game.splitHands[0] : game.playerHand,
@@ -1202,7 +1232,7 @@ module.exports = {
                         guildId,
                         betAmount: totalBetAmount,
                         payout: finalPayout,
-                        won: anyWon,
+                        won,
                         gameId: engineGameId,
                         metadata: {
                             hands: results.length,
@@ -1314,25 +1344,23 @@ module.exports = {
                     const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
                     
                     // Display win/loss based on outcome
-                    if (result.outcome === 'PUSH') {
-                        // Push: bet is returned
+                    if (netProfit > 0) {
+                        if (result.outcome === 'BLACKJACK') {
+                            if (winningForSomeoneElse) {
+                                resultMessage = `🃏 **BLACKJACK!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
+                            } else {
+                                resultMessage = `🃏 **BLACKJACK!** Won ${fmt(netProfit)}`;
+                            }
+                        } else {
+                            if (winningForSomeoneElse) {
+                                resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
+                            } else {
+                                resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)}`;
+                            }
+                        }
+                    } else if (netProfit === 0) {
                         resultMessage = `🤝 **PUSH** - Your bet of ${fmt(totalBetAmount)} is returned.`;
-                    } else if (result.outcome === 'BLACKJACK') {
-                        // Blackjack win
-                        if (winningForSomeoneElse) {
-                            resultMessage = `🃏 **BLACKJACK!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
-                        } else {
-                            resultMessage = `🃏 **BLACKJACK!** Won ${fmt(netProfit)}`;
-                        }
-                    } else if (result.won) {
-                        // Regular win
-                        if (winningForSomeoneElse) {
-                            resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)} for **@${playForRecipient}**!`;
-                        } else {
-                            resultMessage = `🎉 **YOU WIN!** Won ${fmt(netProfit)}`;
-                        }
                     } else {
-                        // Loss
                         if (winningForSomeoneElse) {
                             resultMessage = `💸 **YOU LOSE!** @${playForRecipient} gets nothing.`;
                         } else {

@@ -3,7 +3,7 @@
  * Handles multiplayer UNO games with betting system
  */
 
-const { SlashCommandBuilder, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, StringSelectMenuBuilder, MessageFlags } = require('discord.js');
 const dbManager = require('../UTILS/database');
 const { fmt, getGuildId, sendLogMessage, buildErrorEmbedWithSupport } = require('../UTILS/common');
 const { PayoutManager, GameType, GameResult } = require('../UTILS/gameUtils');
