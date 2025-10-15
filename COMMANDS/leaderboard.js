@@ -246,7 +246,9 @@ module.exports = {
             const losses = parseInt(user.total_losses) || 0;
             const winRate = totalGames > 0 ? ((wins / totalGames) * 100).toFixed(1) : '0.0';
             
-            leaderboardText += `${medal} **${username}** ${tierDisplay}\n`;
+            // Add eco status indicator
+            const ecoStatus = user.off_economy ? ' 🔴' : ' 🟢';
+            leaderboardText += `${medal} **${username}**${ecoStatus} ${tierDisplay}\n`;
             leaderboardText += `\`\`\`💰 ${fmt(user.total_balance)} (💳${fmt(user.wallet)} 🏛️${fmt(user.bank)})\n`;
             leaderboardText += `🎮 ${totalGames} • 🏆${wins}W 💀${losses}L • ${winRate}%WR\`\`\`\n`;
         }
@@ -276,6 +278,9 @@ module.exports = {
             });
         }
 
+        // Add eco status legend
+        embed.setFooter({ text: '🟢 = On Economy (normal gameplay) | 🔴 = Off Economy (restricted access)' });
+
         return embed;
     },
 
@@ -292,12 +297,13 @@ module.exports = {
                     (ub.wallet + ub.bank) as total_balance,
                     ub.wallet,
                     ub.bank,
+                    ub.off_economy,
                     COALESCE(us.total_wins, 0) as total_wins,
                     COALESCE(us.total_losses, 0) as total_losses,
                     COALESCE(us.total_games_played, 0) as total_games
                 FROM user_balances ub
                 LEFT JOIN user_stats us ON ub.user_id = us.user_id
-                WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL)
+                WHERE 1=1
                     AND ub.user_id != '466050111680544798'
                 ORDER BY total_balance DESC
                 LIMIT ?
@@ -351,12 +357,13 @@ module.exports = {
                     (ub.wallet + ub.bank) as total_balance,
                     ub.wallet,
                     ub.bank,
+                    ub.off_economy,
                     COALESCE(us.total_wins, 0) as total_wins,
                     COALESCE(us.total_losses, 0) as total_losses,
                     COALESCE(us.total_games_played, 0) as total_games
                 FROM user_balances ub
                 LEFT JOIN user_stats us ON ub.user_id = us.user_id
-                WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL)
+                WHERE 1=1
                     AND ub.user_id != '466050111680544798'
                 ORDER BY total_balance DESC
                 LIMIT ?
@@ -409,6 +416,7 @@ module.exports = {
                     (ub.wallet + ub.bank) as total_balance,
                     ub.wallet,
                     ub.bank,
+                    ub.off_economy,
                     COALESCE(us.total_wins, 0) as total_wins,
                     COALESCE(us.total_losses, 0) as total_losses,
                     COALESCE(us.total_games_played, 0) as total_games,
@@ -419,7 +427,7 @@ module.exports = {
                     END as win_rate
                 FROM user_balances ub
                 LEFT JOIN user_stats us ON ub.user_id = us.user_id
-                WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL)
+                WHERE 1=1
                     AND ub.user_id != '466050111680544798'
                     AND COALESCE(us.total_games_played, 0) >= 5
                 ORDER BY win_rate DESC, total_games DESC
@@ -433,7 +441,7 @@ module.exports = {
                 SELECT COUNT(DISTINCT ub.user_id) as count
                 FROM user_balances ub
                 LEFT JOIN user_stats us ON ub.user_id = us.user_id
-                WHERE (ub.off_economy = FALSE OR ub.off_economy IS NULL)
+                WHERE 1=1
                     AND ub.user_id != '466050111680544798'
                     AND COALESCE(us.total_games_played, 0) >= 5
             `);
@@ -505,6 +513,7 @@ module.exports = {
                     (ub.wallet + ub.bank) as total_balance,
                     ub.wallet,
                     ub.bank,
+                    ub.off_economy,
                     COALESCE(us.total_wins, 0) as total_wins,
                     COALESCE(us.total_losses, 0) as total_losses,
                     COALESCE(us.total_games_played, 0) as total_games
@@ -900,5 +909,49 @@ module.exports = {
                 // Ignore errors if message was deleted
             });
         });
+    },
+
+    async handleButtonInteraction(interaction, customId) {
+        try {
+            const guildId = await getGuildId(interaction);
+            const limit = 10; // Default limit for button interactions
+            
+            logger.info(`Leaderboard button interaction: ${customId}, user: ${interaction.user.id}, guild: ${guildId}`);
+            
+            await interaction.deferUpdate();
+            
+            switch (customId) {
+                case 'leaderboard_server':
+                    await this.showServerLeaderboard(interaction, guildId, limit, true);
+                    break;
+                case 'leaderboard_global':
+                    await this.showGlobalLeaderboard(interaction, guildId, limit, true);
+                    break;
+                case 'leaderboard_winloss':
+                    await this.showWinLossLeaderboard(interaction, guildId, limit, true);
+                    break;
+                case 'leaderboard_offeco':
+                    await this.showOffEconomyLeaderboard(interaction, guildId, limit, true);
+                    break;
+                case 'leaderboard_marriage':
+                    await this.showMarriageLeaderboard(interaction, guildId, limit, true);
+                    break;
+                default:
+                    logger.warn(`Unknown leaderboard button: ${customId}`);
+                    break;
+            }
+        } catch (error) {
+            logger.error(`Leaderboard button error (${customId}): ${error.message}`);
+            
+            // Try to respond if interaction hasn't been responded to
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({
+                    content: '❌ An error occurred while updating the leaderboard.',
+                    ephemeral: true
+                }).catch(() => {
+                    // Ignore if we can't respond
+                });
+            }
+        }
     }
 };

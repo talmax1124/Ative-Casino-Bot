@@ -195,7 +195,7 @@ class DynamicHouseEdgeSystem {
         });
         
         // Card/social games with low edges to encourage play
-        ['uno', 'war', 'spades', '31', 'rps', 'duck', 'battleship', 'wordchain', 'yahtzee'].forEach(gameType => {
+        ['uno', 'war', 'spades', '31', 'rps', 'duck', 'duck_game', 'battleship', 'wordchain', 'yahtzee'].forEach(gameType => {
             this.baseEdges.set(gameType, {
                 minimum: 0.005,    // 0.5%
                 base: 0.015,       // 1.5%
@@ -928,14 +928,8 @@ class DynamicHouseEdgeSystem {
      * Utility methods
      */
     getMaxBetForGame(gameType) {
-        const maxBets = {
-            slots: 175000,
-            blackjack: 500000,
-            roulette: 10000000,
-            plinko: 175000,
-            crash: 175000
-        };
-        return maxBets[gameType] || 100000;
+        // No max bet limits - unlimited betting enabled
+        return Number.MAX_SAFE_INTEGER;
     }
 
     getGamePopularity(gameType) {

@@ -6,6 +6,7 @@
 
 const EventEmitter = require('events');
 const logger = require('../UTILS/logger');
+const { winLossValidator } = require('../UTILS/WinLossValidator');
 
 class GameEngine extends EventEmitter {
     constructor() {
@@ -41,77 +42,77 @@ class GameEngine extends EventEmitter {
                     baseWinRate: 0.49,
                     maxPayout: 2.45,
                     minBet: 100,
-                    maxBet: 1000000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 },
                 slots: {
                     baseHouseEdge: 0.25,
                     baseWinRate: 0.40,
                     maxPayout: 50.0,
                     minBet: 50,
-                    maxBet: 500000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 },
                 flip: {
                     baseHouseEdge: 0.05,
                     baseWinRate: 0.50,
                     maxPayout: 2.0,
                     minBet: 10,
-                    maxBet: 100000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 },
                 roulette: {
                     baseHouseEdge: 0.027,
                     baseWinRate: 0.486,
                     maxPayout: 36.0,
                     minBet: 25,
-                    maxBet: 250000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 },
                 crash: {
                     baseHouseEdge: 0.03,
                     baseWinRate: 0.45,
                     maxPayout: 50.0,
                     minBet: 500,
-                    maxBet: 500000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 },
                 mines: {
                     baseHouseEdge: 0.035,
                     baseWinRate: 0.35,
                     maxPayout: 25.0,
                     minBet: 100,
-                    maxBet: 250000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 },
                 plinko: {
                     baseHouseEdge: 0.04,
                     baseWinRate: 0.40,
                     maxPayout: 100.0,
                     minBet: 100,
-                    maxBet: 100000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 },
                 bingo: {
                     baseHouseEdge: 0.10,
                     baseWinRate: 0.25,
                     maxPayout: 10.0,
                     minBet: 250,
-                    maxBet: 50000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 },
                 keno: {
                     baseHouseEdge: 0.30,
                     baseWinRate: 0.20,
                     maxPayout: 1000.0,
                     minBet: 100,
-                    maxBet: 25000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 },
                 scratch: {
                     baseHouseEdge: 0.20,
                     baseWinRate: 0.35,
                     maxPayout: 20.0,
                     minBet: 50,
-                    maxBet: 10000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 },
                 russianroulette: {
                     baseHouseEdge: 0.167,
                     baseWinRate: 0.833,
                     maxPayout: 6.0,
                     minBet: 1000,
-                    maxBet: 100000
+                    maxBet: Number.MAX_SAFE_INTEGER
                 }
             };
             
@@ -340,18 +341,34 @@ class GameEngine extends EventEmitter {
             // Calculate payout with all adjustments
             const payoutResult = await this.calculatePayout(gameSession, won, balanceAdjustments);
             
+            // Validate the payout result to ensure no cheating
+            const gameResult = {
+                betAmount: gameSession.betAmount,
+                payout: payoutResult.finalPayout,
+                isWin: won,
+                gameType: gameSession.gameType,
+                userId: gameSession.userId,
+                multiplier: payoutResult.multiplier,
+                details: payoutResult
+            };
+            
+            const validatedResult = winLossValidator.validateGameOutcome(gameResult);
+            
+            // Use validated payout
+            const finalPayout = validatedResult.payout;
+            
             // Update game session
-            gameSession.outcome = { won, payout: payoutResult.finalPayout };
+            gameSession.outcome = { won, payout: finalPayout };
             gameSession.lastAction = Date.now();
             
-            logger.debug(`🎲 Outcome generated for ${gameId}: won=${won}, payout=${payoutResult.finalPayout}`);
+            logger.debug(`🎲 Outcome generated for ${gameId}: won=${won}, payout=${finalPayout}${validatedResult.validationApplied ? ' (validated)' : ''}`);
             
             return {
                 won,
-                payout: payoutResult.finalPayout,
+                payout: finalPayout,
                 multiplier: payoutResult.multiplier,
                 adjustments: balanceAdjustments,
-                details: payoutResult
+                details: { ...payoutResult, validationApplied: validatedResult.validationApplied }
             };
             
         } catch (error) {

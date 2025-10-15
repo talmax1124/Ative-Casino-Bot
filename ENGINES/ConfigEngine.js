@@ -540,7 +540,7 @@ class ConfigEngine extends EventEmitter {
                 baseWinRate: 0.50,
                 maxPayout: 2.0,
                 minBet: 10,
-                maxBet: 100000,
+                maxBet: Number.MAX_SAFE_INTEGER,
                 name: 'Coin Flip'
             },
             'game.blackjack': {
@@ -548,7 +548,7 @@ class ConfigEngine extends EventEmitter {
                 baseWinRate: 0.49,
                 maxPayout: 2.45,
                 minBet: 100,
-                maxBet: 1000000,
+                maxBet: Number.MAX_SAFE_INTEGER,
                 name: 'Blackjack'
             },
             'game.slots': {
@@ -556,7 +556,7 @@ class ConfigEngine extends EventEmitter {
                 baseWinRate: 0.40,
                 maxPayout: 50.0,
                 minBet: 50,
-                maxBet: 500000,
+                maxBet: Number.MAX_SAFE_INTEGER,
                 name: 'Slots'
             }
         };
@@ -624,7 +624,7 @@ class ConfigEngine extends EventEmitter {
             baseWinRate: 0.50,
             maxPayout: 2.0,
             minBet: 10,
-            maxBet: 100000,
+            maxBet: Number.MAX_SAFE_INTEGER,
             name: gameType
         };
     }
