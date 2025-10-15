@@ -718,6 +718,27 @@ class SecurityLogger {
             }
         };
     }
+
+    /**
+     * Emergency reset to clear all corrupted security data
+     */
+    emergencyReset() {
+        logger.warn('🚨 EMERGENCY RESET: Clearing all security tracking data');
+        
+        // Clear all user activity tracking
+        this.userActivityWindows.clear();
+        
+        // Clear all advanced patterns
+        this.advancedPatterns.winMomentum.clear();
+        this.advancedPatterns.gameHopping.clear();
+        this.advancedPatterns.crossGameWins.clear();
+        
+        // Clear threat cache
+        this.threatCache.clear();
+        
+        logger.info('✅ Security data reset complete');
+        return true;
+    }
 }
 
 // Export singleton instance
