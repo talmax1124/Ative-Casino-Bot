@@ -534,9 +534,9 @@ class GameEngine extends EventEmitter {
         
         const config = this.gameConfigs[gameType];
         
-        // Validate bet amount
-        if (betAmount < config.minBet || betAmount > config.maxBet) {
-            return { valid: false, reason: `Bet must be between ${config.minBet} and ${config.maxBet}` };
+        // Validate bet amount (only minimum bet, no maximum restriction)
+        if (betAmount < config.minBet) {
+            return { valid: false, reason: `Bet must be at least ${config.minBet}` };
         }
         
         // Skip balance check - original game logic handles this with PayoutManager
