@@ -14,7 +14,7 @@
     "Nodejs 18": "ghcr.io/ptero-eggs/yolks:nodejs_18"
   },
   "file_denylist": [],
-  "startup": "if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == \"1\" ]]; then echo '🔄 Force updating from GitHub...'; git stash push -u -m 'Auto-stash before update' 2>/dev/null || true; git fetch origin && git reset --hard origin/main && echo '✅ Successfully updated to latest commit' || echo '❌ Git update failed'; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then echo \"Installing all dependencies...\"; /usr/local/bin/npm install; echo \"🎨 Force rebuilding Canvas for container compatibility...\"; /usr/local/bin/npm install detect-libc@latest || echo \"detect-libc install failed\"; /usr/local/bin/npm rebuild canvas || (echo \"⚠️ Canvas rebuild failed, attempting clean install...\"; /usr/local/bin/npm uninstall canvas && /usr/local/bin/npm install canvas@2.11.2) || echo \"Canvas installation failed - bot will run with limited image functionality\"; fi; if [ -f /home/container/test-db-connection.js ]; then echo \"🧪 Testing database connection first...\"; /usr/local/bin/node /home/container/test-db-connection.js || echo \"⚠️ Database test failed, continuing anyway...\"; fi; if [ -f /home/container/startup.sh ]; then chmod +x /home/container/startup.sh && bash /home/container/startup.sh; else /usr/local/bin/node \"/home/container/${MAIN_FILE}\" ${NODE_ARGS}; fi",
+  "startup": "if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == \"1\" ]]; then echo '🔄 Checking for updates...'; git fetch origin -q && LOCAL=$(git rev-parse HEAD) && REMOTE=$(git rev-parse origin/main) && if [ \"$LOCAL\" != \"$REMOTE\" ]; then echo '📦 Updates found, pulling...'; git stash push -u -m 'Auto-stash' -q 2>/dev/null || true; git reset --hard origin/main -q && echo '✅ Updated successfully'; else echo '✅ Already up to date'; fi; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES} --silent; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES} --silent; fi; if [ -f /home/container/package.json ]; then if [ ! -d \"node_modules\" ] || [ ! -f \"node_modules/.bin/node-pre-gyp\" ]; then echo \"🔧 Installing dependencies...\"; /usr/local/bin/npm install --silent; else echo \"📦 Dependencies already installed, skipping...\"; fi; if [[ {{SKIP_CANVAS_REBUILD}} != \"1\" ]]; then if [ ! -f \"node_modules/canvas/lib/bindings.js\" ]; then echo \"🎨 Installing Canvas...\"; /usr/local/bin/npm install detect-libc@latest canvas@2.11.2 --silent || echo \"Canvas install failed\"; else echo \"🎨 Canvas already installed\"; fi; else echo \"⚡ Skipping Canvas rebuild for faster startup\"; fi; fi; if [ -f /home/container/test-db-connection.js ]; then echo \"🧪 Testing database...\"; /usr/local/bin/node /home/container/test-db-connection.js || echo \"⚠️ Database test failed\"; fi; if [ -f /home/container/startup.sh ]; then chmod +x /home/container/startup.sh && bash /home/container/startup.sh; else /usr/local/bin/node \"/home/container/${MAIN_FILE}\" ${NODE_ARGS}; fi",
   "config": {
     "files": "{}",
     "startup": "{\r\n    \"done\": [\r\n        \"Bot is ready!\",\r\n        \"Ready!\",\r\n        \"logged in\"\r\n    ]\r\n}",
@@ -167,6 +167,16 @@
       "user_viewable": true,
       "user_editable": true,
       "rules": "nullable|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Skip Canvas Rebuild",
+      "description": "Skip Canvas rebuild on startup for faster boot times (Canvas games may not work if disabled)",
+      "env_variable": "SKIP_CANVAS_REBUILD",
+      "default_value": "0",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|boolean",
       "field_type": "text"
     }
   ]
