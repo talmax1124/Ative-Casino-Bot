@@ -133,7 +133,7 @@ async function showMainHelp(interaction) {
         .addFields(
             {
                 name: '📋 Basic Commands Overview',
-                value: '```yaml\n🎰 Games:     /slots, /blackjack, /roulette, /crash\n💰 Earning:   /work, /vote, /crime, /beg, /dailytask\n🏦 Banking:   /balance, /sendmoney, /deposit, /withdraw\n🎟️ Lottery:   Every Tuesday & Saturday at 10AM EST\n💕 Marriage:  /marriage (propose, ceremony, profile, etc.)\n🎖️ Progress:  /leaderboard, /stats\n```',
+                value: '```yaml\n🎰 Games:     /slots, /blackjack, /roulette, /crash\n💰 Earning:   /work, /vote, /crime, /beg, /dailytask\n🏦 Banking:   /balance, /sendmoney, /deposit, /withdraw\n🎟️ Lottery:   Every Tuesday & Saturday at 10AM EST\n💕 Marriage:  /marriage propose, /marriage ceremony, /marriage profile\n🎖️ Progress:  /leaderboard, /stats\n```',
                 inline: false
             },
             {
@@ -300,7 +300,7 @@ function createEconomyHelp(interaction, categoryInfo) {
             },
             {
                 name: '🏦 Banking & Transfers',
-                value: '```ini\n[Check]    /balance [user]      - Wallet, bank, tier info\n[Store]    /deposit <amount>    - Bank money for interest\n[Access]   /withdraw <amount>   - Take from bank\n[Send]     /sendmoney <user>    - Transfer (5% fee to lottery)\n[Joint]    /marriage bank      - Marriage joint account\n\n• Bank money earns daily compound interest\n• Banked money protected from robbery\n```',
+                value: '```ini\n[Check]    /balance [user]      - Wallet, bank, tier info\n[Store]    /deposit <amount>    - Bank money for interest\n[Access]   /withdraw <amount>   - Take from bank\n[Send]     /sendmoney <user>    - Transfer (5% fee to lottery)\n[Joint]    /marriage profile   - Marriage joint account\n\n• Bank money earns daily compound interest\n• Banked money protected from robbery\n```',
                 inline: false
             },
             {

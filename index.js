@@ -2502,6 +2502,133 @@ client.on('interactionCreate', async interaction => {
                     });
                 }
             }
+            // Handle marriage proposal response buttons
+            else if (customId.startsWith('marriage_accept_') || customId.startsWith('marriage_reject_')) {
+                const action = customId.startsWith('marriage_accept_') ? 'accept' : 'reject';
+                const proposalId = customId.replace(`marriage_${action}_`, '');
+                
+                await interaction.deferReply({ flags: 64 });
+                
+                try {
+                    const guildId = interaction.guild?.id;
+                    const userId = interaction.user.id;
+                    
+                    // Get the proposal details
+                    const pendingProposals = await dbManager.getPendingMarriageProposals(userId, guildId);
+                    const proposal = pendingProposals.proposals.find(p => p.id == proposalId);
+                    
+                    if (!proposal) {
+                        await interaction.editReply({
+                            content: '❌ This proposal has expired or is no longer valid.'
+                        });
+                        return;
+                    }
+                    
+                    // Check if the user is the intended recipient
+                    if (proposal.recipient_id !== userId) {
+                        await interaction.editReply({
+                            content: '❌ This proposal is not for you!'
+                        });
+                        return;
+                    }
+                    
+                    // Process the response
+                    const responseResult = await dbManager.respondToMarriageProposal(proposalId, action === 'accept' ? 'accepted' : 'rejected');
+                    
+                    if (!responseResult.success) {
+                        await interaction.editReply({
+                            content: '❌ An error occurred while processing your response.'
+                        });
+                        return;
+                    }
+                    
+                    if (action === 'accept') {
+                        // Create acceptance embed
+                        const acceptEmbed = new EmbedBuilder()
+                            .setTitle('💍 Proposal Accepted!')
+                            .setDescription(`**${proposal.recipient_name}** has accepted **${proposal.proposer_name}**'s marriage proposal!`)
+                            .addFields(
+                                {
+                                    name: '🎉 Next Steps',
+                                    value: 'Use `/marriage ceremony` to begin your wedding ceremony!',
+                                    inline: false
+                                }
+                            )
+                            .setColor(0x00FF00)
+                            .setTimestamp();
+                            
+                        await interaction.editReply({
+                            embeds: [acceptEmbed]
+                        });
+                        
+                        // Update the original proposal message
+                        const updatedEmbed = new EmbedBuilder()
+                            .setTitle('💍 Marriage Proposal - ACCEPTED')
+                            .setDescription(`**${proposal.proposer_name}** proposed to **${proposal.recipient_name}**`)
+                            .addFields(
+                                {
+                                    name: '💌 Proposal Message',
+                                    value: `"${proposal.proposal_message}"`,
+                                    inline: false
+                                },
+                                {
+                                    name: '✅ Status',
+                                    value: 'Proposal accepted! Ready for wedding ceremony.',
+                                    inline: false
+                                }
+                            )
+                            .setColor(0x00FF00)
+                            .setTimestamp();
+                            
+                        await interaction.message.edit({
+                            embeds: [updatedEmbed],
+                            components: []
+                        });
+                        
+                    } else {
+                        // Create rejection embed
+                        const rejectEmbed = new EmbedBuilder()
+                            .setTitle('💔 Proposal Declined')
+                            .setDescription(`**${proposal.recipient_name}** has declined **${proposal.proposer_name}**'s marriage proposal.`)
+                            .setColor(0xFF0000)
+                            .setTimestamp();
+                            
+                        await interaction.editReply({
+                            embeds: [rejectEmbed]
+                        });
+                        
+                        // Update the original proposal message
+                        const updatedEmbed = new EmbedBuilder()
+                            .setTitle('💔 Marriage Proposal - DECLINED')
+                            .setDescription(`**${proposal.proposer_name}** proposed to **${proposal.recipient_name}**`)
+                            .addFields(
+                                {
+                                    name: '💌 Proposal Message',
+                                    value: `"${proposal.proposal_message}"`,
+                                    inline: false
+                                },
+                                {
+                                    name: '❌ Status',
+                                    value: 'Proposal declined.',
+                                    inline: false
+                                }
+                            )
+                            .setColor(0xFF0000)
+                            .setTimestamp();
+                            
+                        await interaction.message.edit({
+                            embeds: [updatedEmbed],
+                            components: []
+                        });
+                    }
+                    
+                } catch (error) {
+                    logger.error(`Error handling marriage proposal response: ${error.message}`);
+                    await interaction.editReply({
+                        content: '❌ An error occurred while processing your response. Please try again later.'
+                    });
+                }
+            }
             // Handle divorce confirmation buttons
             else if (customId.startsWith('divorce_confirm_') || customId.startsWith('divorce_cancel_')) {
                 const action = customId.startsWith('divorce_confirm_') ? 'confirm' : 'cancel';

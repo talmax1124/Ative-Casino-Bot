@@ -1,50 +1,247 @@
-const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const dbManager = require('../UTILS/databaseAdapter');
-const { getGuildId, sendLogMessage } = require('../UTILS/common');
+const { getGuildId, sendLogMessage, fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const fs = require('fs');
 const path = require('path');
 
 module.exports = {
     data: new SlashCommandBuilder()
-        .setName('start-marriage')
-        .setDescription('Start your wedding ceremony after proposal acceptance')
-        .addStringOption(option =>
-            option.setName('role')
-                .setDescription('Your role in the marriage')
-                .addChoices(
-                    { name: 'Husband', value: 'husband' },
-                    { name: 'Wife', value: 'wife' }
+        .setName('marriage')
+        .setDescription('Marriage system commands')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('propose')
+                .setDescription('Propose marriage to another user')
+                .addUserOption(option =>
+                    option.setName('user')
+                        .setDescription('The user you want to propose to')
+                        .setRequired(true)
                 )
-                .setRequired(true)
+                .addStringOption(option =>
+                    option.setName('message')
+                        .setDescription('Your proposal message (optional)')
+                        .setRequired(false)
+                )
         )
-        .addUserOption(option =>
-            option.setName('maid_of_honor')
-                .setDescription('Choose maid of honor (optional)')
-                .setRequired(false)
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('ceremony')
+                .setDescription('Start your wedding ceremony after proposal acceptance')
+                .addStringOption(option =>
+                    option.setName('role')
+                        .setDescription('Your role in the marriage')
+                        .addChoices(
+                            { name: 'Husband', value: 'husband' },
+                            { name: 'Wife', value: 'wife' }
+                        )
+                        .setRequired(true)
+                )
+                .addUserOption(option =>
+                    option.setName('maid_of_honor')
+                        .setDescription('Choose maid of honor (optional)')
+                        .setRequired(false)
+                )
+                .addUserOption(option =>
+                    option.setName('best_person')
+                        .setDescription('Choose best man/woman (optional)')
+                        .setRequired(false)
+                )
+                .addUserOption(option =>
+                    option.setName('flower_girl')
+                        .setDescription('Choose flower girl (optional)')
+                        .setRequired(false)
+                )
+                .addUserOption(option =>
+                    option.setName('ring_bearer')
+                        .setDescription('Choose ring bearer (optional)')
+                        .setRequired(false)
+                )
+                .addUserOption(option =>
+                    option.setName('officiant')
+                        .setDescription('Choose officiant (optional)')
+                        .setRequired(false)
+                )
         )
-        .addUserOption(option =>
-            option.setName('best_person')
-                .setDescription('Choose best man/woman (optional)')
-                .setRequired(false)
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('profile')
+                .setDescription('View your marriage profile and shared information')
+                .addUserOption(option =>
+                    option.setName('user')
+                        .setDescription('View another user\'s marriage profile (optional)')
+                        .setRequired(false)
+                )
         )
-        .addUserOption(option =>
-            option.setName('flower_girl')
-                .setDescription('Choose flower girl (optional)')
-                .setRequired(false)
-        )
-        .addUserOption(option =>
-            option.setName('ring_bearer')
-                .setDescription('Choose ring bearer (optional)')
-                .setRequired(false)
-        )
-        .addUserOption(option =>
-            option.setName('officiant')
-                .setDescription('Choose officiant (optional)')
-                .setRequired(false)
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('divorce')
+                .setDescription('Initiate divorce proceedings to end your marriage')
         ),
 
     async execute(interaction) {
+        const subcommand = interaction.options.getSubcommand();
+
+        switch (subcommand) {
+            case 'propose':
+                await this.handlePropose(interaction);
+                break;
+            case 'ceremony':
+                await this.handleCeremony(interaction);
+                break;
+            case 'profile':
+                await this.handleProfile(interaction);
+                break;
+            case 'divorce':
+                await this.handleDivorce(interaction);
+                break;
+            default:
+                await interaction.reply({
+                    content: '❌ Unknown marriage subcommand.',
+                    ephemeral: true
+                });
+        }
+    },
+
+    async handlePropose(interaction) {
+        const proposer = interaction.user;
+        const recipient = interaction.options.getUser('user');
+        const proposalMessage = interaction.options.getString('message') || 'Will you marry me? 💍';
+        const guildId = await getGuildId(interaction);
+
+        await interaction.deferReply();
+
+        try {
+            // Check if proposer is trying to propose to themselves
+            if (proposer.id === recipient.id) {
+                await interaction.editReply({
+                    content: '❌ You cannot propose to yourself! That would be quite lonely...'
+                });
+                return;
+            }
+
+            // Check if proposer is already married
+            const proposerMarriage = await dbManager.getUserMarriage(proposer.id, guildId);
+            if (proposerMarriage.married) {
+                await interaction.editReply({
+                    content: `❌ You are already married to **${proposerMarriage.marriage.partnerName}**! You cannot propose to someone else.`
+                });
+                return;
+            }
+
+            // Check if recipient is already married
+            const recipientMarriage = await dbManager.getUserMarriage(recipient.id, guildId);
+            if (recipientMarriage.married) {
+                await interaction.editReply({
+                    content: `❌ **${recipient.displayName}** is already married to someone else!`
+                });
+                return;
+            }
+
+            // Check if there's already a pending proposal between these users
+            const pendingProposals = await dbManager.getPendingMarriageProposals(recipient.id, guildId);
+            const existingProposal = pendingProposals.proposals.find(p => p.proposer_id === proposer.id);
+            
+            if (existingProposal) {
+                await interaction.editReply({
+                    content: `❌ You already have a pending proposal to **${recipient.displayName}**! Please wait for them to respond.`
+                });
+                return;
+            }
+
+            // Check if recipient has already proposed to the proposer
+            const recipientProposals = await dbManager.getPendingMarriageProposals(proposer.id, guildId);
+            const reciprocalProposal = recipientProposals.proposals.find(p => p.proposer_id === recipient.id);
+            
+            if (reciprocalProposal) {
+                await interaction.editReply({
+                    content: `❌ **${recipient.displayName}** has already proposed to you! Please respond to their proposal first using the buttons in their proposal message.`
+                });
+                return;
+            }
+
+            // Create the proposal
+            const proposalResult = await dbManager.createMarriageProposal(
+                proposer.id, proposer.displayName,
+                recipient.id, recipient.displayName,
+                guildId, proposalMessage
+            );
+
+            if (!proposalResult.success) {
+                await interaction.editReply({
+                    content: '❌ An error occurred while creating your proposal. Please try again later.'
+                });
+                return;
+            }
+
+            // Create proposal embed
+            const proposalEmbed = new EmbedBuilder()
+                .setTitle('💍 Marriage Proposal')
+                .setDescription(`**${proposer.displayName}** has proposed to **${recipient.displayName}**!`)
+                .addFields(
+                    {
+                        name: '💌 Proposal Message',
+                        value: `"${proposalMessage}"`,
+                        inline: false
+                    },
+                    {
+                        name: '💰 Marriage Benefits',
+                        value: '• Shared bank account\n• Reduced transfer taxes (2% instead of 5%)\n• Special marriage profile\n• Joint financial standing',
+                        inline: false
+                    },
+                    {
+                        name: '⏰ Response Time',
+                        value: 'This proposal will expire in 24 hours',
+                        inline: false
+                    }
+                )
+                .setColor(0xFF69B4)
+                .setTimestamp()
+                .setFooter({ text: '💒 ATIVE Casino Wedding Services' });
+
+            // Set thumbnail to proposer's avatar
+            proposalEmbed.setThumbnail(proposer.displayAvatarURL());
+
+            // Create response buttons
+            const proposalButtons = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`marriage_accept_${proposalResult.proposalId}`)
+                        .setLabel('Accept Proposal')
+                        .setStyle(ButtonStyle.Success)
+                        .setEmoji('💍'),
+                    new ButtonBuilder()
+                        .setCustomId(`marriage_reject_${proposalResult.proposalId}`)
+                        .setLabel('Decline Proposal')
+                        .setStyle(ButtonStyle.Danger)
+                        .setEmoji('💔')
+                );
+
+            await interaction.editReply({
+                content: `${recipient} 💍`,
+                embeds: [proposalEmbed],
+                components: [proposalButtons]
+            });
+
+            // Log the proposal
+            await sendLogMessage(
+                interaction.client,
+                'info',
+                `Marriage proposal created: ${proposer.displayName} proposed to ${recipient.displayName}`,
+                proposer.id,
+                guildId
+            );
+
+        } catch (error) {
+            logger.error(`Error in marriage propose subcommand: ${error.message}`);
+            
+            await interaction.editReply({
+                content: '❌ An error occurred while processing your proposal. Please try again later.'
+            });
+        }
+    },
+
+    async handleCeremony(interaction) {
         const userId = interaction.user.id;
         const userRole = interaction.options.getString('role');
         const maidOfHonor = interaction.options.getUser('maid_of_honor');
@@ -88,7 +285,7 @@ module.exports = {
             
             if (!validProposal) {
                 await interaction.editReply({
-                    content: '❌ You need an accepted marriage proposal before starting a ceremony! Use `/propose` first.'
+                    content: '❌ You need an accepted marriage proposal before starting a ceremony! Use `/marriage propose` first.'
                 });
                 return;
             }
@@ -123,7 +320,7 @@ module.exports = {
             await this.conductCeremony(interaction, userId, interaction.user.displayName, userRole, partnerId, partnerName, partnerRole, guildId, ceremonyData);
 
         } catch (error) {
-            logger.error(`Error in start-marriage command: ${error.message}`);
+            logger.error(`Error in marriage ceremony subcommand: ${error.message}`);
             
             await interaction.editReply({
                 content: '❌ An error occurred while starting your wedding ceremony. Please try again later.'
@@ -131,6 +328,231 @@ module.exports = {
         }
     },
 
+    async handleProfile(interaction) {
+        const targetUser = interaction.options.getUser('user') || interaction.user;
+        const guildId = await getGuildId(interaction);
+
+        await interaction.deferReply();
+
+        try {
+            // Get marriage information
+            const marriageData = await dbManager.getUserMarriage(targetUser.id, guildId);
+
+            if (!marriageData.married) {
+                const content = targetUser.id === interaction.user.id 
+                    ? '❌ You are not currently married! Use `/marriage propose` to start your love story.' 
+                    : `❌ **${targetUser.displayName}** is not currently married.`;
+                
+                await interaction.editReply({ content });
+                return;
+            }
+
+            const marriage = marriageData.marriage;
+            
+            // Calculate marriage duration
+            const marriedDate = new Date(marriage.married_at);
+            const now = new Date();
+            const durationMs = now - marriedDate;
+            const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
+            const durationHours = Math.floor((durationMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+            // Parse ceremony data
+            let ceremonyData = {};
+            try {
+                ceremonyData = typeof marriage.ceremony_data === 'string' 
+                    ? JSON.parse(marriage.ceremony_data) 
+                    : marriage.ceremony_data || {};
+            } catch (error) {
+                logger.warn(`Failed to parse ceremony data for marriage ${marriage.id}: ${error.message}`);
+            }
+
+            // Get both partners' balances for household wealth calculation
+            const userBalance = await dbManager.getUserBalance(targetUser.id, guildId);
+            const partnerBalance = await dbManager.getUserBalance(marriage.partnerId, guildId);
+
+            const householdWealth = (userBalance.wallet + userBalance.bank) + (partnerBalance.wallet + partnerBalance.bank);
+
+            // Create marriage profile embed
+            const profileEmbed = new EmbedBuilder()
+                .setTitle('💕 Marriage Profile')
+                .setDescription(`**${marriage.partner1_name}** & **${marriage.partner2_name}**`)
+                .addFields(
+                    {
+                        name: '👫 Married Couple',
+                        value: `**${marriage.partner1_name}** (${marriage.partner1_role.charAt(0).toUpperCase() + marriage.partner1_role.slice(1)})\n**${marriage.partner2_name}** (${marriage.partner2_role.charAt(0).toUpperCase() + marriage.partner2_role.slice(1)})`,
+                        inline: true
+                    },
+                    {
+                        name: '📅 Marriage Date',
+                        value: `<t:${Math.floor(marriedDate.getTime() / 1000)}:F>`,
+                        inline: true
+                    },
+                    {
+                        name: '⏰ Time Together',
+                        value: `${durationDays} days, ${durationHours} hours`,
+                        inline: true
+                    },
+                    {
+                        name: '💰 Shared Bank',
+                        value: fmt(marriage.shared_bank),
+                        inline: true
+                    },
+                    {
+                        name: '🏠 Household Wealth',
+                        value: fmt(householdWealth),
+                        inline: true
+                    },
+                    {
+                        name: '💎 Marriage Benefits',
+                        value: '• 2% transfer tax (instead of 5%)\n• Shared bank account\n• Joint financial standing',
+                        inline: true
+                    }
+                )
+                .setColor(0xFF69B4)
+                .setTimestamp()
+                .setFooter({ text: '💒 ATIVE Casino Marriage Registry' });
+
+            // Add wedding party information if available
+            if (ceremonyData.officiant || ceremonyData.maidOfHonor || ceremonyData.bestPerson || ceremonyData.flowerGirl || ceremonyData.ringBearer) {
+                let weddingParty = '';
+                
+                if (ceremonyData.officiant) {
+                    weddingParty += `**Officiant:** ${ceremonyData.officiant.name}\n`;
+                }
+                if (ceremonyData.maidOfHonor) {
+                    weddingParty += `**Maid of Honor:** ${ceremonyData.maidOfHonor.name}\n`;
+                }
+                if (ceremonyData.bestPerson) {
+                    weddingParty += `**Best Person:** ${ceremonyData.bestPerson.name}\n`;
+                }
+                if (ceremonyData.flowerGirl) {
+                    weddingParty += `**Flower Girl:** ${ceremonyData.flowerGirl.name}\n`;
+                }
+                if (ceremonyData.ringBearer) {
+                    weddingParty += `**Ring Bearer:** ${ceremonyData.ringBearer.name}\n`;
+                }
+
+                profileEmbed.addFields({
+                    name: '🎉 Wedding Party',
+                    value: weddingParty.trim(),
+                    inline: false
+                });
+            }
+
+            // Add ceremony location if available
+            if (ceremonyData.location) {
+                profileEmbed.addFields({
+                    name: '📍 Wedding Location',
+                    value: ceremonyData.location,
+                    inline: true
+                });
+            }
+
+            // Add anniversary countdown
+            const nextAnniversary = new Date(marriedDate);
+            nextAnniversary.setFullYear(now.getFullYear());
+            if (nextAnniversary < now) {
+                nextAnniversary.setFullYear(now.getFullYear() + 1);
+            }
+            
+            const daysToAnniversary = Math.ceil((nextAnniversary - now) / (1000 * 60 * 60 * 24));
+            
+            profileEmbed.addFields({
+                name: '🎂 Next Anniversary',
+                value: `${daysToAnniversary} days away`,
+                inline: true
+            });
+
+            // Set thumbnail to the requesting user's avatar
+            profileEmbed.setThumbnail(targetUser.displayAvatarURL());
+
+            await interaction.editReply({ embeds: [profileEmbed] });
+
+        } catch (error) {
+            logger.error(`Error in marriage profile subcommand: ${error.message}`);
+            
+            await interaction.editReply({
+                content: '❌ An error occurred while retrieving the marriage profile. Please try again later.'
+            });
+        }
+    },
+
+    async handleDivorce(interaction) {
+        const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
+
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            // Check if the user is married
+            const marriageData = await dbManager.getUserMarriage(userId, guildId);
+
+            if (!marriageData.married) {
+                await interaction.editReply({
+                    content: '❌ You are not currently married, so you cannot divorce.'
+                });
+                return;
+            }
+
+            const marriage = marriageData.marriage;
+            const sharedBankAmount = marriage.shared_bank || 0;
+            const sharedBankSplit = sharedBankAmount / 2;
+
+            // Create divorce confirmation embed
+            const divorceEmbed = new EmbedBuilder()
+                .setTitle('💔 Divorce Proceedings')
+                .setDescription('Are you sure you want to divorce your partner? This action cannot be undone.')
+                .addFields(
+                    {
+                        name: '👫 Current Marriage',
+                        value: `**${marriage.partner1_name}** & **${marriage.partner2_name}**`,
+                        inline: false
+                    },
+                    {
+                        name: '💰 Shared Bank Distribution',
+                        value: `Each partner will receive **${Math.floor(sharedBankSplit).toLocaleString()}** coins from the shared bank`,
+                        inline: false
+                    },
+                    {
+                        name: '⚠️ Consequences',
+                        value: '• Marriage benefits will be lost\n• Shared bank will be divided equally\n• Marriage roles will be removed\n• Your partner will be notified',
+                        inline: false
+                    }
+                )
+                .setColor(0xFF0000)
+                .setTimestamp()
+                .setFooter({ text: '💔 ATIVE Casino Divorce Proceedings' });
+
+            // Create confirmation buttons
+            const confirmRow = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`divorce_confirm_${marriage.id}`)
+                        .setLabel('Confirm Divorce')
+                        .setStyle(ButtonStyle.Danger)
+                        .setEmoji('💔'),
+                    new ButtonBuilder()
+                        .setCustomId(`divorce_cancel_${marriage.id}`)
+                        .setLabel('Cancel')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('✖️')
+                );
+
+            await interaction.editReply({
+                embeds: [divorceEmbed],
+                components: [confirmRow]
+            });
+
+        } catch (error) {
+            logger.error(`Error in marriage divorce subcommand: ${error.message}`);
+            
+            await interaction.editReply({
+                content: '❌ An error occurred while initiating divorce proceedings. Please try again later.'
+            });
+        }
+    },
+
+    // Copy the conductCeremony function from start-marriage.js (keeping it the same but updating references)
     async conductCeremony(interaction, partner1Id, partner1Name, partner1Role, partner2Id, partner2Name, partner2Role, guildId, ceremonyData) {
         const officiantName = ceremonyData.officiant.name;
         
@@ -422,7 +844,7 @@ module.exports = {
                         },
                         {
                             name: '📋 Next Steps',
-                            value: '• Use `/marriage-profile` to view your marriage\n• Send money to each other with reduced taxes\n• Use `/divorce` if needed (hopefully not!)',
+                            value: '• Use `/marriage profile` to view your marriage\n• Send money to each other with reduced taxes\n• Use `/marriage divorce` if needed (hopefully not!)',
                             inline: false
                         }
                     )
