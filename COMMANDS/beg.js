@@ -1,6 +1,6 @@
 /**
  * Beg command for earning small amounts of money
- * 5K-50K range with no cooldown
+ * 5K-50K range with 1 hour cooldown
  */
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
@@ -8,16 +8,31 @@ const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-// Removed global earnings cooldown - commands now run independently
 const { PayoutManager, GameResult } = require('../UTILS/gameUtils');
 const sessionManager = require('../UTILS/sessionManager');
 const tuningManager = require('../UTILS/tuningManager');
 const logger = require('../UTILS/logger');
 
+const BEG_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+function formatCooldown(ms) {
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (hours === 0 && seconds > 0) parts.push(`${seconds}s`);
+
+    return parts.length > 0 ? parts.join(' ') : '0s';
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('beg')
-        .setDescription('Beg for coins (5K-50K with no cooldown)'),
+        .setDescription('Beg for coins (5K-50K every hour)'),
 
     async execute(interaction) {
         const userId = interaction.user.id;
@@ -30,7 +45,46 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
-            // No cooldown restrictions - beg anytime!
+            const now = Date.now();
+            const lastBegTs = balance.last_beg_ts || 0;
+            const cooldownRemaining = (lastBegTs + BEG_COOLDOWN_MS) - now;
+
+            if (cooldownRemaining > 0) {
+                const nextAvailable = lastBegTs + BEG_COOLDOWN_MS;
+                const cooldownEmbed = buildSessionEmbed({
+                    title: `⏳ ${username}, have some dignity!`,
+                    topFields: [
+                        {
+                            name: 'Cooldown Active',
+                            value: `You can beg again in **${formatCooldown(cooldownRemaining)}** (<t:${Math.floor(nextAvailable / 1000)}:R>).`,
+                            inline: false
+                        }
+                    ],
+                    bankFields: [
+                        {
+                            name: 'Last Beg',
+                            value: lastBegTs > 0 ? `<t:${Math.floor(lastBegTs / 1000)}:R>` : 'No history',
+                            inline: true
+                        },
+                        {
+                            name: 'Wallet',
+                            value: fmt(balance.wallet || 0),
+                            inline: true
+                        },
+                        {
+                            name: 'Next Beg',
+                            value: `<t:${Math.floor(nextAvailable / 1000)}:R>`,
+                            inline: true
+                        }
+                    ],
+                    stageText: 'TOO SOON',
+                    color: 0xFFA726,
+                    footer: 'Beg Cooldown'
+                });
+
+                await interaction.editReply({ embeds: [cooldownEmbed] });
+                return;
+            }
 
             // Beg scenarios (5K-50K range)
             const begScenarios = [
@@ -75,9 +129,28 @@ module.exports = {
             // Process payout through modern payout manager
             const payoutResult = await PayoutManager.processGamePayout(gameResult, interaction);
             
-            // Update balance (no timestamp needed)
-            const newWallet = balance.wallet + totalEarning;
-            await dbManager.setUserBalance(userId, guildId, newWallet, balance.bank);
+            // Update balance with beg timestamp
+            const updateSuccess = await dbManager.updateUserBalance(
+                userId,
+                guildId,
+                totalEarning,
+                0,
+                { last_beg_ts: now }
+            );
+
+            if (!updateSuccess) {
+                throw new Error('Failed to update balance for beg payout');
+            }
+
+            // Refresh balance for accurate display
+            let refreshedBalance = null;
+            try {
+                refreshedBalance = await dbManager.getUserBalance(userId, guildId);
+            } catch (refreshError) {
+                logger.warn(`Could not refresh balance after beg: ${refreshError.message}`);
+            }
+
+            const newWallet = refreshedBalance ? (parseFloat(refreshedBalance.wallet) || balance.wallet + totalEarning) : (balance.wallet + totalEarning);
 
 
             // Build earnings display with tuning and booster bonus if applicable
@@ -116,7 +189,7 @@ module.exports = {
                 bankFields,
                 stageText,
                 color: 0x32CD32,
-                footer: '🤲 Beg • No cooldown • ATIVE Casino'
+                footer: '🤲 Beg • 1 hour cooldown • ATIVE Casino'
             });
 
             await interaction.editReply({ embeds: [embed] });

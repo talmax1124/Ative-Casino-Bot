@@ -110,7 +110,7 @@ module.exports = {
             .setTitle('🗳️ ATIVE Casino Bot - Voting Dashboard')
             .setDescription(`**${interaction.user.username}**, here's your complete voting overview!`)
             .setColor(status.canVoteNow ? 0x00D4FF : 0x64748b)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
             .setTimestamp();
 
         // Voting Status Section
@@ -164,7 +164,7 @@ module.exports = {
 
         embed.setFooter({ 
             text: '🎰 ATIVE Casino • Vote every 12 hours for maximum rewards!',
-            iconURL: interaction.client.user.displayAvatarURL()
+            iconURL: interaction.client?.user?.displayAvatarURL() || null
         });
 
         return embed;
@@ -441,7 +441,7 @@ module.exports = {
                 }
             )
             .setColor(0xFFD700)
-            .setThumbnail(interaction.client.user.displayAvatarURL())
+            .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
             .setFooter({ text: '🎰 ATIVE Casino • Every vote counts!' })
             .setTimestamp();
 
@@ -508,7 +508,7 @@ module.exports = {
                     }
                 )
                 .setColor(0xFFD700)
-                .setThumbnail(interaction.client.user.displayAvatarURL())
+                .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
                 .setFooter({ text: '🎰 ATIVE Casino • Compete for the top spot!' })
                 .setTimestamp();
 

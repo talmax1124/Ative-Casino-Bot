@@ -1,7 +1,7 @@
 /**
  * KENO Game Command - Number Selection Lottery
  * Players select 1-10 numbers from 1-80, system draws 20 numbers
- * Balanced payouts: 5 spots: 2 matches = 0.5x, 3 matches = 2x, 4 matches = 20x, 5 matches = 200x
+ * Balanced payouts: 5 spots: 2 matches = 1.2x, 3 matches = 1.5x, 4 matches = 2.5x, 5 matches = 3x
  */
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
@@ -113,7 +113,7 @@ module.exports = {
 
             // Session guard check
             const sessionGuard = require('../UTILS/sessionGuard');
-            const check = await sessionGuard.check(userId, guildId, 'keno', interaction.client);
+            const check = await sessionGuard.check(userId, guildId, 'keno', interaction.client || null);
             if (!check.allowed) {
                 const embed = new EmbedBuilder()
                     .setTitle('❌ Session Error')
@@ -181,7 +181,7 @@ module.exports = {
             // Start the KENO game
             const { handleKenoGame } = require('../GAMES/keno');
 
-            await handleKenoGame(interaction, interaction.client, sessionId, {
+            await handleKenoGame(interaction, interaction.client || null, sessionId, {
                 userId: userId,
                 username: username,
                 betAmount: betAmount,
@@ -200,15 +200,17 @@ module.exports = {
         } catch (error) {
             logger.error(`KENO command failed: ${error?.stack || error}`);
             
-            try {
-                await sendLogMessage(
-                    interaction.client,
-                    'error',
-                    `KENO error for ${interaction.user.tag} (${userId}) — ${error.message}`,
-                    userId,
-                    guildId
-                );
-            } catch (_) {}
+            if (interaction?.client) {
+                try {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `KENO error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                        userId,
+                        guildId
+                    );
+                } catch (_) {}
+            }
 
             // Enhanced session cleanup
             try {

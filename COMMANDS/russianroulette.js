@@ -172,13 +172,15 @@ module.exports = {
             logger.error(`Russian Roulette command failed: ${error?.stack || error}`);
             
             try {
-                await sendLogMessage(
-                    interaction.client,
-                    'error',
-                    `Russian Roulette error for ${interaction.user.tag} (${userId}) — ${error.message}`,
-                    userId,
-                    guildId
-                );
+                if (interaction?.client) {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `Russian Roulette error for ${interaction.user?.tag || 'Unknown'} (${userId}) — ${error.message}`,
+                        userId,
+                        guildId
+                    );
+                }
             } catch (_) {}
 
             // No need to refund since money hasn't been deducted yet

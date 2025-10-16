@@ -560,7 +560,7 @@ module.exports = {
             
             // Validate session using sessionGuard
             const sessionGuard = require('../UTILS/sessionGuard');
-            const check = await sessionGuard.check(userId, guildId, SMGameType.ROULETTE, interaction.client);
+            const check = await sessionGuard.check(userId, guildId, SMGameType.ROULETTE, interaction.client || null);
             logger.debug(`canCreateSession result for ${userId}: ${JSON.stringify({ allowed: check.allowed, reason: check.code })}`);
             if (!check.allowed) {
                 const { EmbedBuilder } = require('discord.js');
@@ -581,7 +581,7 @@ module.exports = {
             validation = await PayoutManager.validateAndDeductBet(
                 interaction,
                 amount,
-                GameType.BLACKJACK, // Using existing GameType, can create ROULETTE later
+                GameType.ROULETTE,
                 modeConfig.minBet,  // Mode-specific minimum bet
                 null                // No max bet limit - bulletproof economy handles risk
             );
@@ -712,25 +712,29 @@ module.exports = {
             logger.debug(`Initial roulette message sent for session ${sessionId}`);
 
             // Log game start
-            await sendLogMessage(
-                interaction.client,
-                'game',
-                `Roulette game started: ${interaction.user.displayName} with ${fmt(betAmount)} available to bet`,
-                userId,
-                guildId
-            );
-
-        } catch (error) {
-            logger.error(`Error in roulette command: ${error.message}`);
-            try {
+            if (interaction?.client) {
                 await sendLogMessage(
                     interaction.client,
-                    'error',
-                    `Roulette error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                    'game',
+                    `Roulette game started: ${interaction.user.displayName} with ${fmt(betAmount)} available to bet`,
                     userId,
                     guildId
                 );
-            } catch (_) {}
+            }
+
+        } catch (error) {
+            logger.error(`Error in roulette command: ${error.message}`);
+            if (interaction?.client) {
+                try {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `Roulette error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                        userId,
+                        guildId
+                    );
+                } catch (_) {}
+            }
             
             // Handle game error with session cleanup and refund
             let refundAmount = 0;
@@ -886,15 +890,17 @@ module.exports = {
             }
         } catch (actionError) {
             logger.error(`Roulette action error (${actionId}): ${actionError.message}`);
-            try {
-                await sendLogMessage(
-                    interaction.client,
-                    'error',
-                    `Roulette action error (${actionId}) for ${interaction.user.tag} (${userId}) — ${actionError.message}`,
-                    userId,
-                    guildId
-                );
-            } catch (_) {}
+            if (interaction?.client) {
+                try {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `Roulette action error (${actionId}) for ${interaction.user.tag} (${userId}) — ${actionError.message}`,
+                        userId,
+                        guildId
+                    );
+                } catch (_) {}
+            }
             // Since we already deferred, try to edit the reply
             try {
                 await interaction.editReply({ content: '❌ Error processing action.' });
@@ -1186,7 +1192,7 @@ module.exports = {
                 }
                 
                 try {
-                    const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
+                    const levelUpChannel = interaction.client?.channels?.cache?.get('1411018763008217208');
                     if (levelUpChannel) {
                         const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, xpResult.newLevel);
                         await levelUpChannel.send({ 
@@ -1263,13 +1269,15 @@ module.exports = {
             activeGames.delete(game.sessionId);
 
             // Log game end
-            await sendLogMessage(
-                interaction.client,
-                'game',
-                `Roulette game ended: ${interaction.user.displayName} ${won ? 'won' : 'lost'} ${fmt(Math.abs(payout - game.betAmount))} (Ball: ${result})`,
-                userId,
-                guildId
-            );
+            if (interaction?.client) {
+                await sendLogMessage(
+                    interaction.client,
+                    'game',
+                    `Roulette game ended: ${interaction.user.displayName} ${won ? 'won' : 'lost'} ${fmt(Math.abs(payout - game.betAmount))} (Ball: ${result})`,
+                    userId,
+                    guildId
+                );
+            }
 
         } catch (error) {
             logger.error(`Error ending roulette game: ${error.message}`);

@@ -76,6 +76,22 @@ module.exports = {
             const robberBalance = await dbManager.getUserBalance(userId, guildId);
             const targetBalance = await dbManager.getUserBalance(targetId, guildId);
 
+            // Check if target is off economy - cannot rob off-economy users
+            if (targetBalance.off_economy) {
+                const errorEmbed = buildSessionEmbed({
+                    title: '🛡️ Target Off Economy',
+                    topFields: [
+                        { name: '💳 Economy Status', value: `${targetUser.displayName} is **OFF ECONOMY** and cannot be robbed!` },
+                        { name: '🔒 Protection Active', value: 'Users who are off the economy system are protected from robberies.' }
+                    ],
+                    stageText: 'PROTECTED TARGET',
+                    color: 0xFF6B6B,
+                    footer: 'Find a target who is on the economy'
+                });
+
+                return await interaction.editReply({ embeds: [errorEmbed] });
+            }
+
             // No cooldown restrictions - robbery available anytime
             const now = Date.now() / 1000;
 

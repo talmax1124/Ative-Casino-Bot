@@ -1,7 +1,7 @@
 /**
  * KENO Game Logic - Number Selection Lottery
  * Players pick numbers, system draws 20, payouts based on matches
- * Balanced multipliers: 5 spots: 2 matches = 0.5x, 3 matches = 2x, 4 matches = 20x, 5 matches = 200x
+ * Balanced multipliers: 5 spots: 2 matches = 1.2x, 3 matches = 1.5x, 4 matches = 2.5x, 5 matches = 3x
  */
 
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
@@ -38,7 +38,7 @@ const PAYOUT_TABLE = {
     2: { 2: 3.0 },                           // 2 spots: need both to win = 3x (max payout)
     3: { 2: 1.8, 3: 3.0 },                   // 3 spots: 2 matches = 1.8x, all 3 = 3x (max payout)
     4: { 2: 1.2, 3: 2.5, 4: 3.0 },          // 4 spots: increasing payouts up to 3x
-    5: { 2: 0.8, 3: 1.5, 4: 2.5, 5: 3.0 }   // 5 spots: challenging but max 3x payout
+    5: { 2: 1.2, 3: 1.5, 4: 2.5, 5: 3.0 }   // 5 spots: fixed 1.2x minimum payout
 };
 
 class KenoGame {
@@ -66,7 +66,7 @@ class KenoGame {
      * Main game execution handler
      */
     async execute(interaction, client) {
-        this.client = client;
+        this.client = client || null;
         
         try {
             if (this.quickPick) {

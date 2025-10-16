@@ -355,7 +355,9 @@ module.exports = {
             await interaction.editReply({ embeds: [embed] });
 
             // Log the action
-            await sendLogMessage(interaction.client, 'info', `${interaction.user.tag} manually released ${clearedCount} sessions via /release`);
+            if (interaction?.client) {
+                await sendLogMessage(interaction.client, 'info', `${interaction.user.tag} manually released ${clearedCount} sessions via /release`);
+            }
 
         } catch (error) {
             logger.error(`Error clearing user sessions: ${error.message}`);
@@ -642,7 +644,9 @@ module.exports = {
                 .setTimestamp();
 
             await interaction.editReply({ embeds: [embed] });
-            await sendLogMessage(interaction.client, 'admin', `${interaction.user.tag} performed force session cleanup: ${result.cleaned} sessions cleaned`);
+            if (interaction?.client) {
+                await sendLogMessage(interaction.client, 'admin', `${interaction.user.tag} performed force session cleanup: ${result.cleaned} sessions cleaned`);
+            }
 
         } catch (error) {
             logger.error(`Force cleanup error: ${error.message}`);
@@ -704,7 +708,9 @@ module.exports = {
                 .setTimestamp();
 
             await interaction.editReply({ embeds: [embed] });
-            await sendLogMessage(interaction.client, 'warn', `🚨 EMERGENCY: ${interaction.user.tag} cleared ALL active sessions (${sessionCount + legacyCount} total)`);
+            if (interaction?.client) {
+                await sendLogMessage(interaction.client, 'warn', `🚨 EMERGENCY: ${interaction.user.tag} cleared ALL active sessions (${sessionCount + legacyCount} total)`);
+            }
 
         } catch (error) {
             logger.error(`Emergency clear error: ${error.message}`);

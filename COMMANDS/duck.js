@@ -469,24 +469,28 @@ module.exports = {
             activeGames.set(userId, { type: 'mode_select', betAmount, userBalance, guildId, sessionId: sessionResult.sessionId });
 
             // Log game start
-            await sendLogMessage(
-                interaction.client,
-                'game',
-                `Duck game initiated: ${interaction.user.displayName} bet ${fmt(betAmount)}`,
-                userId,
-                guildId
-            );
+            if (interaction?.client) {
+                await sendLogMessage(
+                    interaction.client,
+                    'game',
+                    `Duck game initiated: ${interaction.user.displayName} bet ${fmt(betAmount)}`,
+                    userId,
+                    guildId
+                );
+            }
 
         } catch (error) {
             logger.error(`Error in duck command: ${error.message}`);
             try {
-                await sendLogMessage(
-                    interaction.client,
-                    'error',
-                    `Duck error for ${interaction.user.tag} (${userId}) — ${error.message}`,
-                    userId,
-                    guildId
-                );
+                if (interaction?.client) {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `Duck error for ${interaction.user?.tag || 'Unknown'} (${userId}) — ${error.message}`,
+                        userId,
+                        guildId
+                    );
+                }
             } catch (_) {}
             
             const errorEmbed = new EmbedBuilder()
@@ -632,15 +636,17 @@ module.exports = {
         } catch (error) {
             logger.error(`Duck action error (${actionId}): ${error.message}`);
             try {
-                await sendLogMessage(
-                    interaction.client,
-                    'error',
-                    `Duck action error (${actionId}) for ${interaction.user.tag} (${userId}) — ${error.message}`,
-                    userId,
-                    guildId
-                );
+                if (interaction?.client) {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `Duck action error (${actionId}) for ${interaction.user?.tag || 'Unknown'} (${userId}) — ${error.message}`,
+                        userId,
+                        guildId
+                    );
+                }
             } catch (_) {}
-            if (!interaction.replied && !interaction.deferred) {
+            if (interaction && !interaction.replied && !interaction.deferred) {
                 await interaction.reply({ content: '❌ Error processing action.', flags: MessageFlags.Ephemeral });
             }
         }
@@ -811,13 +817,15 @@ module.exports = {
             }
 
             // Log game end
-            await sendLogMessage(
-                interaction.client,
-                'game',
-                `Duck game ended: ${interaction.user.displayName} ${won ? 'won' : 'lost'} ${fmt(Math.abs(payout - gameSession.betAmount))}`,
-                gameSession.userId,
-                gameSession.guildId
-            );
+            if (interaction?.client) {
+                await sendLogMessage(
+                    interaction.client,
+                    'game',
+                    `Duck game ended: ${interaction.user.displayName} ${won ? 'won' : 'lost'} ${fmt(Math.abs(payout - gameSession.betAmount))}`,
+                    gameSession.userId,
+                    gameSession.guildId
+                );
+            }
 
         } catch (error) {
             logger.error(`Error ending duck game: ${error.message}`);

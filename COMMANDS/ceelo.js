@@ -30,7 +30,7 @@ const CEELO_MODES = {
         name: '🛡️ Safe',
         description: 'Conservative mode with reduced payouts',
         minBet: 500,
-        evenMoneyMultiplier: 0.98, // IMPROVED: 98% payout (2% house edge)
+        evenMoneyMultiplier: 1.9, // FIXED: 1.9x payout (90% profit)
         emoji: '🛡️',
         color: '#4CAF50'
     },
@@ -38,7 +38,7 @@ const CEELO_MODES = {
         name: '⚖️ Balanced',
         description: 'Standard mode with moderate house edge',
         minBet: 1000,
-        evenMoneyMultiplier: 0.97, // IMPROVED: 97% payout (3% house edge)
+        evenMoneyMultiplier: 1.8, // FIXED: 1.8x payout (80% profit)
         emoji: '⚖️',
         color: '#FF9800'
     },
@@ -46,7 +46,7 @@ const CEELO_MODES = {
         name: '⚡ Risky',
         description: 'High risk with lower payouts',
         minBet: 2500,
-        evenMoneyMultiplier: 0.95, // IMPROVED: 95% payout (5% house edge)
+        evenMoneyMultiplier: 1.7, // FIXED: 1.7x payout (70% profit)
         emoji: '⚡',
         color: '#FF8800'
     },
@@ -54,7 +54,7 @@ const CEELO_MODES = {
         name: '🔥 Extreme',
         description: 'Maximum risk with minimal payouts',
         minBet: 5000,
-        evenMoneyMultiplier: 0.93, // IMPROVED: 93% payout (7% house edge)
+        evenMoneyMultiplier: 1.6, // FIXED: 1.6x payout (60% profit)
         emoji: '🔥',
         color: '#FF0000'
     }
@@ -104,7 +104,7 @@ module.exports = {
 
             // Session guard check
             const sessionGuard = require('../UTILS/sessionGuard');
-            const check = await sessionGuard.check(userId, guildId, 'ceelo', interaction.client);
+            const check = await sessionGuard.check(userId, guildId, 'ceelo', interaction.client || null);
             if (!check.allowed) {
                 const embed = new EmbedBuilder()
                     .setTitle('❌ Session Error')
@@ -169,7 +169,7 @@ module.exports = {
             // Start the CEELO game
             const { handleCeeloGame } = require('../GAMES/ceelo');
 
-            await handleCeeloGame(interaction, interaction.client, sessionId, {
+            await handleCeeloGame(interaction, interaction.client || null, sessionId, {
                 userId: userId,
                 username: username,
                 betAmount: betAmount,
@@ -180,15 +180,17 @@ module.exports = {
         } catch (error) {
             logger.error(`CEELO command failed: ${error?.stack || error}`);
             
-            try {
-                await sendLogMessage(
-                    interaction.client,
-                    'error',
-                    `CEELO error for ${interaction.user.tag} (${userId}) — ${error.message}`,
-                    userId,
-                    guildId
-                );
-            } catch (_) {}
+            if (interaction?.client) {
+                try {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `CEELO error for ${interaction.user.tag} (${userId}) — ${error.message}`,
+                        userId,
+                        guildId
+                    );
+                } catch (_) {}
+            }
 
             // Enhanced session cleanup
             try {

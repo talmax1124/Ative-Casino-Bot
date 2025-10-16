@@ -1043,7 +1043,7 @@ class RussianRouletteGame {
         }
 
         // Log to suspicious activity if high winnings
-        if (winnings > 100000) {
+        if (winnings > 100000 && this.client) {
             try {
                 await sendLogMessage(
                     this.client,

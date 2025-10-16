@@ -103,6 +103,11 @@ module.exports = {
                         )
                         .setRequired(false)
                 )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('withdraw')
+                .setDescription('Withdraw earnings from your marriage businesses')
         ),
 
     async execute(interaction) {
@@ -123,6 +128,9 @@ module.exports = {
                 break;
             case 'business':
                 await this.handleBusiness(interaction);
+                break;
+            case 'withdraw':
+                await this.handleWithdraw(interaction);
                 break;
             default:
                 await interaction.reply({
@@ -253,13 +261,15 @@ module.exports = {
             });
 
             // Log the proposal
-            await sendLogMessage(
-                interaction.client,
-                'info',
-                `Marriage proposal created: ${proposer.displayName} proposed to ${recipient.displayName}`,
-                proposer.id,
-                guildId
-            );
+            if (interaction?.client) {
+                await sendLogMessage(
+                    interaction.client,
+                    'info',
+                    `Marriage proposal created: ${proposer.displayName} proposed to ${recipient.displayName}`,
+                    proposer.id,
+                    guildId
+                );
+            }
 
         } catch (error) {
             logger.error(`Error in marriage propose subcommand: ${error.message}`);
@@ -884,13 +894,15 @@ module.exports = {
                 await interaction.followUp({ embeds: [celebrationEmbed] });
 
                 // Log the marriage
-                await sendLogMessage(
-                    interaction.client,
-                    'info',
-                    `Marriage completed: ${partner1Name} (${partner1Role}) & ${partner2Name} (${partner2Role})`,
-                    partner1Id,
-                    guildId
-                );
+                if (interaction?.client) {
+                    await sendLogMessage(
+                        interaction.client,
+                        'info',
+                        `Marriage completed: ${partner1Name} (${partner1Role}) & ${partner2Name} (${partner2Role})`,
+                        partner1Id,
+                        guildId
+                    );
+                }
 
                 // Update the original proposal to mark it as completed
                 try {
@@ -1255,13 +1267,15 @@ module.exports = {
                     });
 
                     // Log the purchase
-                    await sendLogMessage(
-                        interaction.client,
-                        'info',
-                        `Marriage business purchased: ${marriage.partner1_name} & ${marriage.partner2_name} bought ${business.name} for ${fmt(business.price)}`,
-                        interaction.user.id,
-                        await getGuildId(interaction)
-                    );
+                    if (interaction?.client) {
+                        await sendLogMessage(
+                            interaction.client,
+                            'info',
+                            `Marriage business purchased: ${marriage.partner1_name} & ${marriage.partner2_name} bought ${business.name} for ${fmt(business.price)}`,
+                            interaction.user.id,
+                            await getGuildId(interaction)
+                        );
+                    }
 
                 } else {
                     await confirmInteraction.update({
@@ -1456,13 +1470,15 @@ module.exports = {
                 });
 
                 // Log the purchase
-                await sendLogMessage(
-                    interaction.client,
-                    'info',
-                    `Marriage business purchased: ${marriage.partner1_name} & ${marriage.partner2_name} bought ${business.name} for ${fmt(business.price)}`,
-                    interaction.user.id,
-                    await getGuildId(interaction)
-                );
+                if (interaction?.client) {
+                    await sendLogMessage(
+                        interaction.client,
+                        'info',
+                        `Marriage business purchased: ${marriage.partner1_name} & ${marriage.partner2_name} bought ${business.name} for ${fmt(business.price)}`,
+                        interaction.user.id,
+                        await getGuildId(interaction)
+                    );
+                }
 
             } else {
                 await interaction.editReply({
@@ -1474,6 +1490,91 @@ module.exports = {
             logger.error(`Error in direct business purchase: ${error.message}`);
             await interaction.editReply({
                 content: '❌ An error occurred while purchasing the business.'
+            });
+        }
+    },
+
+    async handleWithdraw(interaction) {
+        const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
+
+        await interaction.deferReply();
+
+        try {
+            // Check if user is married
+            const marriageData = await dbManager.getUserMarriage(userId, guildId);
+            if (!marriageData.married) {
+                await interaction.editReply({
+                    content: '❌ You must be married to withdraw from marriage businesses! Use `/marriage propose` to start your journey.'
+                });
+                return;
+            }
+
+            const marriage = marriageData.marriage;
+
+            // Get all marriage businesses for this marriage
+            const businesses = await dbManager.getMarriageBusinesses(marriage.id);
+            
+            if (!businesses || businesses.length === 0) {
+                await interaction.editReply({
+                    content: '❌ You don\'t own any marriage businesses yet! Use `/marriage business view` to see available businesses.'
+                });
+                return;
+            }
+
+            // Trigger income generation for this specific marriage
+            const incomeResult = await dbManager.generateMarriageBusinessIncome(marriage.id);
+            
+            if (incomeResult.success && incomeResult.totalEarnings > 0) {
+                // Create success embed
+                const withdrawEmbed = new EmbedBuilder()
+                    .setTitle('💰 Marriage Business Withdrawal Successful!')
+                    .setDescription(`Successfully withdrew earnings from your marriage businesses.`)
+                    .addFields(
+                        { name: '🏢 Businesses', value: `${businesses.length} business${businesses.length !== 1 ? 'es' : ''}`, inline: true },
+                        { name: '💵 Total Withdrawn', value: fmt(incomeResult.totalEarnings), inline: true },
+                        { name: '👥 Marriage', value: `${marriage.partner1_name} & ${marriage.partner2_name}`, inline: false }
+                    )
+                    .setColor(0x00ff00)
+                    .setTimestamp();
+
+                await interaction.editReply({ embeds: [withdrawEmbed] });
+
+                // Log the withdrawal
+                if (interaction?.client) {
+                    await sendLogMessage(
+                        interaction.client,
+                        'info',
+                        `Marriage business withdrawal: ${marriage.partner1_name} & ${marriage.partner2_name} withdrew ${fmt(incomeResult.totalEarnings)} from ${businesses.length} business${businesses.length !== 1 ? 'es' : ''}`,
+                        userId,
+                        guildId
+                    );
+                }
+
+            } else if (incomeResult.success && incomeResult.totalEarnings === 0) {
+                // No earnings available
+                const noEarningsEmbed = new EmbedBuilder()
+                    .setTitle('📊 Marriage Business Status')
+                    .setDescription('No earnings are currently available to withdraw.')
+                    .addFields(
+                        { name: '🏢 Your Businesses', value: businesses.map(b => `• ${b.business_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`).join('\n') || 'None', inline: false },
+                        { name: '⏰ Next Income', value: 'Businesses generate income hourly. Check back later!', inline: false }
+                    )
+                    .setColor(0xFFA500)
+                    .setTimestamp();
+
+                await interaction.editReply({ embeds: [noEarningsEmbed] });
+
+            } else {
+                await interaction.editReply({
+                    content: `❌ Failed to withdraw earnings: ${incomeResult.error || 'Unknown error'}`
+                });
+            }
+
+        } catch (error) {
+            logger.error(`Error in marriage withdraw: ${error.message}`);
+            await interaction.editReply({
+                content: '❌ An error occurred while processing your withdrawal.'
             });
         }
     }

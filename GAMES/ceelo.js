@@ -79,7 +79,7 @@ class CeeloGame {
      * Main game execution handler
      */
     async execute(interaction, client) {
-        this.client = client;
+        this.client = client || null;
         
         try {
             // Get mode configuration from session metadata
@@ -103,7 +103,7 @@ class CeeloGame {
                 this.payout = this.betAmount * multiplier;
             } else if (this.winner === 'tie') {
                 // Ties return most of the bet (small house edge)
-                this.payout = this.betAmount * 0.98; // Return 98% of bet on tie (2% house edge)
+                this.payout = this.betAmount * 1.0; // FIXED: Return full bet on tie (fair)
             } else {
                 this.payout = 0; // No payout on loss
             }

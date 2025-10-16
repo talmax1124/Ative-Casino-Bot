@@ -143,10 +143,10 @@ async function showMainHelp(interaction) {
             }
         )
         .setColor(0x3498DB) // Clean blue color
-        .setThumbnail(interaction.client.user.displayAvatarURL({ size: 256 }))
+        .setThumbnail(interaction.client?.user?.displayAvatarURL({ size: 256 }) || null)
         .setFooter({ 
             text: `ATIVE Casino Help Center • Use the dropdown menu to explore categories`, 
-            iconURL: interaction.client.user.displayAvatarURL() 
+            iconURL: interaction.client?.user?.displayAvatarURL() || null 
         })
         .setTimestamp();
 

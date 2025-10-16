@@ -122,7 +122,7 @@ module.exports = {
                 })
                 .setColor(0xE74C3C)
                 .setThumbnail(interaction.client?.user?.displayAvatarURL() || null)
-                .setFooter({ text: '🛠️ Setup Error • ATIVE Casino Bot', iconURL: interaction.client.user.displayAvatarURL() })
+                .setFooter({ text: '🛠️ Setup Error • ATIVE Casino Bot', iconURL: interaction.client?.user?.displayAvatarURL() || null })
                 .setTimestamp();
 
             await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });

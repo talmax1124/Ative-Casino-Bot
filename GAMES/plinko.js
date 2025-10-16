@@ -33,26 +33,26 @@ class PlinkoGameSession {
             easy: {
                 name: '🟢 Easy',
                 description: 'Lower risk, moderate rewards (~15% house edge)',
-                multipliers: [0.2, 0.4, 0.6, 0.8, 1.2, 0.8, 0.6, 0.4, 0.2], // Max 1.2x multiplier
-                maxMultiplier: 1.2
+                multipliers: [1.1, 1.2, 1.3, 1.4, 1.8, 1.4, 1.3, 1.2, 1.1], // Fixed: all multipliers > 1.0
+                maxMultiplier: 1.8
             },
             medium: {
                 name: '🟡 Medium', 
                 description: 'Balanced risk and reward (~20% house edge)',
-                multipliers: [0.1, 0.2, 0.3, 0.5, 0.8, 1.0, 1.5, 1.0, 0.8], // Max 1.5x multiplier
-                maxMultiplier: 1.5
+                multipliers: [1.1, 1.2, 1.3, 1.5, 1.8, 2.0, 2.5, 2.0, 1.8], // Fixed: all multipliers > 1.0
+                maxMultiplier: 2.5
             },
             hard: {
                 name: '🔴 Hard',
                 description: 'High risk, high reward (~25% house edge)',
-                multipliers: [0.0, 0.1, 0.2, 0.3, 0.5, 0.8, 1.8, 0.8, 0.5], // Max 1.8x multiplier
-                maxMultiplier: 1.8
+                multipliers: [1.1, 1.2, 1.3, 1.4, 1.5, 1.8, 2.8, 1.8, 1.5], // Fixed: all multipliers > 1.0
+                maxMultiplier: 2.8
             },
             nightmare: {
                 name: '💀 Nightmare',
                 description: 'Maximum risk for maximum reward (~30% house edge)',
-                multipliers: [0.0, 0.0, 0.1, 0.2, 0.3, 0.4, 2.0, 0.4, 0.3], // Max 2.0x multiplier
-                maxMultiplier: 2.0
+                multipliers: [1.1, 1.2, 1.3, 1.4, 1.5, 1.8, 3.0, 1.8, 1.5], // Fixed: all multipliers > 1.0
+                maxMultiplier: 3.0
             }
         };
         

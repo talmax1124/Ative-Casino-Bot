@@ -78,7 +78,7 @@ class ScratchTicketSystem {
      */
     async initializeDropScheduling() {
         try {
-            const guilds = this.client.guilds.cache;
+            const guilds = this.client?.guilds?.cache;
             
             for (const [guildId, guild] of guilds) {
                 await this.scheduleNextDrop(guildId);
@@ -159,7 +159,7 @@ class ScratchTicketSystem {
      */
     async attemptDrop(guildId) {
         try {
-            const guild = this.client.guilds.cache.get(guildId);
+            const guild = this.client?.guilds?.cache?.get(guildId);
             if (!guild) {
                 logger.warn(`Guild ${guildId} not found for scratch ticket drop`);
                 return;
@@ -675,16 +675,18 @@ class ScratchTicketSystem {
                     await PayoutManager.processGamePayout(gameResult);
 
                     // Send win notification
-                    await sendLogMessage(
-                        interaction.client,
-                        'info',
-                        `🎫 **Scratch Ticket Win!**\n` +
-                        `**User:** ${interaction.user.displayName}\n` +
-                        `**Ticket:** #${ticketId}\n` +
-                        `**Prize:** ${fmtFull(winAmount)}`,
-                        userId,
-                        interaction.guildId
-                    );
+                    if (interaction?.client) {
+                        await sendLogMessage(
+                            interaction.client,
+                            'info',
+                            `🎫 **Scratch Ticket Win!**\n` +
+                            `**User:** ${interaction.user.displayName}\n` +
+                            `**Ticket:** #${ticketId}\n` +
+                            `**Prize:** ${fmtFull(winAmount)}`,
+                            userId,
+                            interaction.guildId
+                        );
+                    }
                 }
             }
 
@@ -789,8 +791,8 @@ class ScratchTicketSystem {
      */
     async adminDrop(guildId, channelId, adminUserId) {
         try {
-            const guild = this.client.guilds.cache.get(guildId);
-            const channel = guild?.channels.cache.get(channelId);
+            const guild = this.client?.guilds?.cache?.get(guildId);
+            const channel = guild?.channels?.cache?.get(channelId);
             
             if (!guild || !channel) {
                 return { success: false, error: 'Guild or channel not found' };

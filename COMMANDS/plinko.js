@@ -270,13 +270,15 @@ module.exports = {
         } catch (error) {
             logger.error(`Error in plinko command: ${error.message}`);
             try {
-                await sendLogMessage(
-                    interaction.client,
-                    'error',
-                    `Plinko error for ${interaction.user.tag} (${userId}) — ${error.message}`,
-                    userId,
-                    guildId
-                );
+                if (interaction?.client) {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `Plinko error for ${interaction.user?.tag || 'Unknown'} (${userId}) — ${error.message}`,
+                        userId,
+                        guildId
+                    );
+                }
             } catch (_) {}
             
             // Try to cancel session and refund on error
@@ -670,9 +672,10 @@ async function showFinalResults(interaction, gameData, finalImage, finalSlot, fi
     await interaction.editReply({ embeds: [embed], files: [attachment] });
 
     // Log the result
-    await sendLogMessage(
-        interaction.client,
-        won ? 'info' : 'warn',
+    if (interaction?.client) {
+        await sendLogMessage(
+            interaction.client,
+            won ? 'info' : 'warn',
         `**Plinko Game Result**\n` +
         `**User:** ${username} (\`${userId}\`)\n` +
         `**Mode:** ${mode}\n` +

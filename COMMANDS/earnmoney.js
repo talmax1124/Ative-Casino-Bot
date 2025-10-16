@@ -259,13 +259,15 @@ module.exports = {
             
             logMessage += ` - New Balance: ${fmt(newWallet)}`;
             
-            await sendLogMessage(
-                interaction.client,
-                'economy',
-                logMessage,
-                userId,
-                guildId
-            );
+            if (interaction?.client) {
+                await sendLogMessage(
+                    interaction.client,
+                    'economy',
+                    logMessage,
+                    userId,
+                    guildId
+                );
+            }
 
         } catch (error) {
             logger.error(`Error processing earnmoney command: ${error.message}`);
@@ -288,13 +290,15 @@ module.exports = {
                 }
 
                 // Send error log
-                await sendLogMessage(
-                    interaction.client,
-                    'error',
-                    `EarnMoney error for ${username} (${userId}) — ${error.message}`,
-                    userId,
-                    guildId
-                );
+                if (interaction?.client) {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `EarnMoney error for ${username} (${userId}) — ${error.message}`,
+                        userId,
+                        guildId
+                    );
+                }
             } catch (replyError) {
                 logger.error(`Failed to send earnmoney error reply: ${replyError.message}`);
             }

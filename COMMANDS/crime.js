@@ -1,6 +1,6 @@
 /**
  * Crime command for quick petty crimes
- * 1K-5K range with 30 minute cooldown
+ * 5K-25K range with 30 minute cooldown
  */
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
@@ -8,11 +8,26 @@ const dbManager = require('../UTILS/database');
 const { fmt, fmtDelta, getGuildId, sendLogMessage, calculateBoosterBonus } = require('../UTILS/common');
 const { secureRandomChoice, secureRandomInt } = require('../UTILS/rng');
 const { buildSessionEmbed } = require('../UTILS/gameSessionKit');
-// Removed global earnings cooldown - commands now run independently
 const { PayoutManager, GameResult } = require('../UTILS/gameUtils');
 const sessionManager = require('../UTILS/sessionManager');
 const tuningManager = require('../UTILS/tuningManager');
 const logger = require('../UTILS/logger');
+
+const CRIME_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes
+
+function formatCooldown(ms) {
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (hours === 0 && seconds > 0) parts.push(`${seconds}s`);
+
+    return parts.length > 0 ? parts.join(' ') : '0s';
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -30,6 +45,46 @@ module.exports = {
             await dbManager.ensureUser(userId, username);
             const balance = await dbManager.getUserBalance(userId, guildId);
 
+            const now = Date.now();
+            const lastCrimeTs = balance.last_crime_ts || 0;
+            const cooldownRemaining = (lastCrimeTs + CRIME_COOLDOWN_MS) - now;
+
+            if (cooldownRemaining > 0) {
+                const nextAvailable = lastCrimeTs + CRIME_COOLDOWN_MS;
+                const cooldownEmbed = buildSessionEmbed({
+                    title: `⏳ ${username}, lay low for a bit!`,
+                    topFields: [
+                        {
+                            name: 'Cooldown Active',
+                            value: `You can commit another crime in **${formatCooldown(cooldownRemaining)}** (<t:${Math.floor(nextAvailable / 1000)}:R>).`,
+                            inline: false
+                        }
+                    ],
+                    bankFields: [
+                        {
+                            name: 'Last Crime',
+                            value: lastCrimeTs > 0 ? `<t:${Math.floor(lastCrimeTs / 1000)}:R>` : 'No history',
+                            inline: true
+                        },
+                        {
+                            name: 'Wallet',
+                            value: fmt(balance.wallet || 0),
+                            inline: true
+                        },
+                        {
+                            name: 'Next Crime',
+                            value: `<t:${Math.floor(nextAvailable / 1000)}:R>`,
+                            inline: true
+                        }
+                    ],
+                    stageText: 'LAYING LOW',
+                    color: 0xFFA726,
+                    footer: 'Crime Cooldown'
+                });
+
+                await interaction.editReply({ embeds: [cooldownEmbed] });
+                return;
+            }
 
             // Crime scenarios (5K-25K range)
             const crimeScenarios = [
@@ -78,10 +133,28 @@ module.exports = {
             const currentWallet = parseFloat(balance.wallet) || 0;
             const currentBank = parseFloat(balance.bank) || 0;
             
-            // Update balance
-            const newWallet = currentWallet + totalEarning;
-            await dbManager.setUserBalance(userId, guildId, newWallet, currentBank);
+            // Update balance with crime timestamp
+            const updateSuccess = await dbManager.updateUserBalance(
+                userId,
+                guildId,
+                totalEarning,
+                0,
+                { last_crime_ts: now }
+            );
 
+            if (!updateSuccess) {
+                throw new Error('Failed to update balance for crime payout');
+            }
+
+            // Refresh balance for accurate display
+            let refreshedBalance = null;
+            try {
+                refreshedBalance = await dbManager.getUserBalance(userId, guildId);
+            } catch (refreshError) {
+                logger.warn(`Could not refresh balance after crime: ${refreshError.message}`);
+            }
+
+            const newWallet = refreshedBalance ? (parseFloat(refreshedBalance.wallet) || currentWallet + totalEarning) : (currentWallet + totalEarning);
 
             // Build earnings display with tuning and booster bonus if applicable
             let earningsDisplay = `+ Base Earnings: ${fmt(tuningAdjustment.originalPayout)}`;

@@ -224,13 +224,15 @@ module.exports = {
         } catch (error) {
             logger.error(`Battleship /execute error: ${error.message}`);
             try {
-                await sendLogMessage(
-                    interaction.client,
-                    'error',
-                    `Battleship error for ${interaction.user.tag} (${userId}) — ${error.message}`,
-                    userId,
-                    guildId
-                );
+                if (interaction?.client) {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `Battleship error for ${interaction.user?.tag || 'Unknown'} (${userId}) — ${error.message}`,
+                        userId,
+                        guildId
+                    );
+                }
             } catch (_) {}
             const embed = UITemplates.createErrorEmbed('❌ Game Error', 'Failed to start Battleship game.');
             await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => {});
@@ -324,16 +326,18 @@ module.exports = {
         } catch (error) {
             logger.error(`Battleship button error (${action}): ${error.message}`);
             try {
-                await sendLogMessage(
-                    interaction.client,
-                    'error',
-                    `Battleship action error (${action}) for ${interaction.user.tag} (${userId}) — ${error.message}`,
-                    userId,
-                    guildId
-                );
+                if (interaction?.client) {
+                    await sendLogMessage(
+                        interaction.client,
+                        'error',
+                        `Battleship action error (${action}) for ${interaction.user?.tag || 'Unknown'} (${userId}) — ${error.message}`,
+                        userId,
+                        guildId
+                    );
+                }
             } catch (_) {}
             const embed = UITemplates.createErrorEmbed('❌ Button Error', 'Error processing button action.');
-            if (!interaction.replied && !interaction.deferred) {
+            if (interaction && !interaction.replied && !interaction.deferred) {
                 await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
             }
         }

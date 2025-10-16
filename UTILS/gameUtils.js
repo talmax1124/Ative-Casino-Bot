@@ -74,6 +74,7 @@ const GameType = {
     SPADES: 'spades',
     THIRTYONE: '31',
     ROCKPAPERSCISSORS: 'rps',
+    RPS: 'rps',
     MATRIX_SLOTS: 'matrix_slots',
     DUCK_GAME: 'duck_game',
     MULTI_SLOTS: 'multi_slots',
@@ -86,7 +87,8 @@ const GameType = {
     CEELO: 'ceelo',
     TREASURE_VAULT: 'treasurevault',
     QUIZ: 'quiz',
-    MINES: 'mines'
+    MINES: 'mines',
+    FLIP: 'flip'
 };
 
 // ========================= DATA CLASSES =========================
@@ -399,9 +401,9 @@ class PayoutManager {
             'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
             'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
             'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
-            'roulette','heist','quiz','mines'
+            'roulette','heist','quiz','mines','flip'
         ];
-        if (!modernGames.includes(gameType.toLowerCase())) {
+        if (gameType && !modernGames.includes(gameType.toLowerCase())) {
             setActiveGame(userId, gameType);
         }
         
@@ -661,7 +663,7 @@ class PayoutManager {
                 'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
                 'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
                 'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
-                'roulette','heist','mines'
+                'roulette','heist','mines','flip'
             ];
             if (gameType && !modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);
@@ -719,7 +721,7 @@ class PayoutManager {
                 'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
                 'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
                 'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
-                'roulette','heist','mines'
+                'roulette','heist','mines','flip'
             ];
             if (gameType && !modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);
@@ -768,7 +770,7 @@ class PayoutManager {
                                 reason.includes('wordchain') ? 'wordchain' :
                                 reason.includes('fishing') ? 'fishing' :
                                 reason.includes('battleship') ? 'battleship' : 'unknown';
-                if (!modernGames.includes(gameType.toLowerCase())) {
+                if (gameType && !modernGames.includes(gameType.toLowerCase())) {
                     clearActiveGame(userId);
                 }
                 logger.info(`Refunded ${fmt(amount)} to user ${userId}: ${reason}`);
