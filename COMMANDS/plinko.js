@@ -21,6 +21,386 @@ const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
 const securityLogger = require('../UTILS/securityLogger');
 const gameIntegrator = new UniversalGameIntegrator('plinko');
 
+/**
+ * Play the full animated plinko game
+ */
+async function playAnimatedPlinko(interaction, gameData, guildId) {
+    const { userId, username, betAmount, mode, modeData, multipliers, slots, dropSlot } = gameData;
+    
+    // Get mode colors
+    const modeColors = {
+        Easy: 0x00FF00,      // Green
+        Medium: 0xFFFF00,    // Yellow  
+        Hard: 0xFF0000,      // Red
+        Nightmare: 0x800080  // Purple
+    };
+    
+    const rows = 10; // Fixed number of rows
+    
+    try {
+        // Map slot to simulation coordinates
+        const startPos = dropSlot - ((slots - 1) / 2);
+
+        // Run simulation to get ball path
+        const { slotIndex: finalSlot, path: ballPath } = simulatePlinkoDrop(
+            rows,
+            slots,
+            startPos
+        );
+
+        // Use unified multipliers for both UI and payout 
+        const finalMultiplier = multipliers[finalSlot];
+        
+        // Calculate winnings using the same multiplier shown in UI
+        const winnings = Math.round((betAmount * finalMultiplier) * 100) / 100;
+        const won = winnings > betAmount; // Win if they get more than their bet back
+
+        // Create animation frames using the same multipliers shown to player
+        const animationFrames = [];
+        
+        // Initial frame
+        animationFrames.push(createPlinkoImage(
+            rows,
+            slots,
+            multipliers,
+            null,
+            -1,
+            mode
+        ));
+
+        // Animation frames showing ball dropping
+        for (let i = 0; i <= Math.min(ballPath.length, rows + 1); i++) {
+            animationFrames.push(createPlinkoImage(
+                rows,
+                slots,
+                multipliers,
+                ballPath,
+                i,
+                mode
+            ));
+        }
+
+        // Final frame with winning slot highlighted
+        animationFrames.push(createPlinkoImage(
+            rows,
+            slots,
+            multipliers,
+            ballPath,
+            rows + 1,
+            mode,
+            finalSlot
+        ));
+
+        // Show ball drop starting
+        const topFields = [
+            { name: 'Ball Released!', value: `🔴 Ball dropped from random position!\nWatch it bounce through the pegs...` }
+        ];
+        
+        // Check if this is a playfor game
+        const playForRecipient = global.playForContext?.recipientName;
+        const playingForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+        
+        if (playingForSomeoneElse) {
+            topFields.splice(0, 0, {
+                name: '🎁 Playing For',
+                value: `@${playForRecipient}`,
+                inline: true
+            });
+        }
+        
+        let embed = buildSessionEmbed({
+            title: `🎯 ${username}'s ${mode} Plinko`,
+            topFields,
+            stageText: 'BALL DROPPING',
+            color: modeColors[mode] || 0x00FF00,
+            footer: 'Plinko • Ball in motion!'
+        });
+
+        const attachment = new AttachmentBuilder(animationFrames[0], { name: 'plinko_initial.png' });
+        embed.image = 'attachment://plinko_initial.png';
+
+        await interaction.editReply({ embeds: [embed], files: [attachment] });
+
+        // Animate through frames with delays
+        for (let i = 1; i < animationFrames.length - 1; i++) {
+            await new Promise(resolve => setTimeout(resolve, 500)); // Shorter delay for smoother animation
+
+            const frameTopFields = [
+                { name: 'Ball Bouncing', value: `⚡ Ball bouncing through pegs...\nRow ${Math.min(i, rows)}/${rows}` }
+            ];
+            
+            if (playingForSomeoneElse) {
+                frameTopFields.splice(0, 0, {
+                    name: '🎁 Playing For',
+                    value: `@${playForRecipient}`,
+                    inline: true
+                });
+            }
+
+            const frameEmbed = buildSessionEmbed({
+                title: `🎯 ${username}'s ${mode} Plinko`,
+                topFields: frameTopFields,
+                stageText: 'BALL BOUNCING',
+                color: modeColors[mode] || 0x00FF00,
+                footer: 'Plinko • Almost there!',
+                image: `attachment://plinko_frame_${i}.png`
+            });
+
+            const frameAttachment = new AttachmentBuilder(animationFrames[i], { name: `plinko_frame_${i}.png` });
+
+            await interaction.editReply({ embeds: [frameEmbed], files: [frameAttachment] });
+        }
+
+        // Final pause before results
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Show final results
+        await showFinalResults(interaction, gameData, animationFrames[animationFrames.length - 1], finalSlot, finalMultiplier, winnings, won, guildId);
+
+    } catch (error) {
+        logger.error(`Error in animated plinko game: ${error.message}`);
+        throw error;
+    }
+}
+
+/**
+ * Show final game results
+ */
+async function showFinalResults(interaction, gameData, finalImage, finalSlot, finalMultiplier, winnings, won, guildId) {
+    const { userId, username, betAmount, mode, modeData, newWallet, sessionId } = gameData;
+    
+    // Calculate net change (winnings - bet since bet was already deducted)
+    const netChange = winnings - betAmount;
+    
+    // Winnings will be processed by PayoutManager
+    const finalWallet = newWallet + winnings;
+
+    // Complete the session
+    try {
+        await sessionManager.endSession(sessionId, {
+            finalSlot,
+            finalMultiplier,
+            winnings,
+            won,
+            netChange,
+            completedAt: Date.now()
+        });
+    } catch (sessionError) {
+        logger.error(`Failed to complete plinko session: ${sessionError.message}`);
+    }
+
+    // BULLETPROOF ECONOMY AND SECURITY PROCESSING
+    let processedWinnings = winnings;
+    try {
+        const processedResult = await gameIntegrator.processGameResult({
+            userId,
+            guildId,
+            gameType: 'plinko',
+            betAmount,
+            originalPayout: winnings,
+            won
+        });
+        
+        if (processedResult.success) {
+            processedWinnings = processedResult.finalPayout;
+            
+            // Security logging for game result
+            await securityLogger.logSecurityEvent(userId, won ? 'GAME_WIN' : 'GAME_LOSS', {
+                amount: processedWinnings,
+                game: 'plinko',
+                originalPayout: winnings,
+                adjustedPayout: processedResult.finalPayout,
+                multiplier: finalMultiplier,
+                mode: mode
+            }, guildId);
+        }
+    } catch (gameError) {
+        logger.warn(`Game result processing failed: ${gameError.message}`);
+    }
+
+    // Record game result
+    const gameResult = new GameResult({
+        userId,
+        guildId,
+        gameType: GameType.PLINKO,
+        betAmount,
+        payout: processedWinnings,
+        won,
+        metadata: {
+            mode,
+            dropSlot: finalSlot,
+            finalMultiplier,
+            housedEdge: 0.25 // 15% house edge
+        }
+    });
+
+    await PayoutManager.processGamePayout(gameResult);
+
+    // Export to UAS for centralized analysis
+    try {
+        await uasDataExporter.exportGameResult({
+            userId,
+            guildId,
+            gameType: 'plinko',
+            betAmount,
+            winnings,
+            won,
+            metadata: {
+                mode,
+                finalSlot,
+                finalMultiplier,
+                dropSlot: finalSlot,
+                houseEdge: 0.15,
+                gameTimestamp: Date.now()
+            }
+        });
+    } catch (exportError) {
+        logger.debug(`Failed to export plinko result to UAS: ${exportError.message}`);
+    }
+
+    // Record game result for AI learning
+    try {
+        await dbManager.recordGameResult(
+            userId,
+            guildId,
+            'plinko',
+            won,
+            betAmount,
+            winnings,
+            {
+                mode: mode,
+                slot: finalSlot,
+                multiplier: finalMultiplier,
+                houseEdge: 0.15,
+                gameType: 'plinko'
+            }
+        );
+    } catch (aiError) {
+        logger.error(`Failed to record plinko game result for AI: ${aiError.message}`);
+    }
+
+    // Award XP for playing Plinko
+    try {
+        const levelingSystem = require('../UTILS/levelingSystem');
+        const specialResult = winnings >= betAmount * 5 ? 'big_win' : 
+                            winnings >= betAmount * 20 ? 'massive_win' : null;
+        
+        const levelResult = await levelingSystem.handleGameComplete(userId, guildId, 'plinko', won, specialResult);
+        
+        // Handle level up if occurred
+        if (levelResult && levelResult.levelUp) {
+            const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, levelResult.newLevel);
+            
+            // Award level-up rewards
+            await levelingSystem.processLevelUpRewards(userId, guildId, levelResult.newLevel);
+            
+            // Send level up message in level up channel
+            try {
+                const levelUpChannel = interaction.client?.channels?.cache?.get('1411018763008217208');
+                if (levelUpChannel) {
+                    await levelUpChannel.send({ embeds: [levelUpEmbed] });
+                }
+            } catch (levelError) {
+                logger.debug(`Could not send level up message: ${levelError.message}`);
+            }
+        }
+    } catch (xpError) {
+        logger.debug(`Could not award XP for plinko: ${xpError.message}`);
+    }
+
+    // Check if this is a playfor game
+    const playForRecipient = global.playForContext?.recipientName;
+    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
+
+    // Determine result type
+    let resultTitle, resultEmoji, resultColor;
+    if (winnings >= betAmount * 20) {
+        resultTitle = winningForSomeoneElse ? `💰 MASSIVE WIN for @${playForRecipient}! 💰` : '💰 MASSIVE WIN! 💰';
+        resultEmoji = '🌟';
+        resultColor = 0xFFD700;
+    } else if (winnings >= betAmount * 5) {
+        resultTitle = winningForSomeoneElse ? `🎉 BIG WIN for @${playForRecipient}!` : '🎉 BIG WIN!';
+        resultEmoji = '🎊';
+        resultColor = 0x00FF00;
+    } else if (winnings > betAmount) {
+        resultTitle = winningForSomeoneElse ? `✅ WIN for @${playForRecipient}!` : '✅ WIN!';
+        resultEmoji = '🎯';
+        resultColor = 0x32CD32;
+    } else if (winnings === betAmount) {
+        resultTitle = '🤝 BREAK EVEN';
+        resultEmoji = '⚖️';
+        resultColor = 0xFFD700;
+    } else {
+        resultTitle = '💥 LOSS';
+        resultEmoji = '😢';
+        resultColor = 0xFF0000;
+    }
+
+    const netText = netChange >= 0 ? `+${fmtFull(netChange)}` : fmtFull(netChange);
+
+    const topFields = [
+        { name: 'Result', value: `**${resultTitle}**` },
+        { name: 'Mode', value: `${modeData.emoji} ${mode}`, inline: true },
+        { name: 'Landing Slot', value: `**#${finalSlot + 1}** of ${gameData.slots}`, inline: true },
+        { name: 'Multiplier', value: `**${finalMultiplier.toFixed(2)}x**`, inline: true }
+    ];
+    
+    // Add playfor context if applicable
+    if (winningForSomeoneElse) {
+        topFields.splice(1, 0, {
+            name: '🎁 Playing For',
+            value: `@${playForRecipient}`,
+            inline: true
+        });
+    }
+    
+    let stageText = won ? 'WINNER!' : 'BETTER LUCK NEXT TIME';
+    if (winningForSomeoneElse && won) {
+        stageText = `WON FOR @${playForRecipient}!`;
+    }
+    
+    let footer = `🏠 House Edge: 15% | Full Animation Complete!`;
+    if (winningForSomeoneElse && won) {
+        footer = `Winnings sent to @${playForRecipient}! | Full Animation Complete!`;
+    }
+
+    const embed = buildSessionEmbed({
+        title: `${resultEmoji} ${username}'s Plinko Result`,
+        topFields,
+        bankFields: [
+            { name: 'Bet Amount', value: fmtFull(betAmount), inline: true },
+            { name: 'Winnings', value: fmtFull(winnings), inline: true },
+            { name: 'Net Change', value: netText, inline: true },
+            { name: 'New Wallet', value: fmtFull(finalWallet), inline: true }
+        ],
+        stageText,
+        color: resultColor,
+        footer,
+        image: 'attachment://plinko_final.png'
+    });
+
+    const attachment = new AttachmentBuilder(finalImage, { name: 'plinko_final.png' });
+
+    await interaction.editReply({ embeds: [embed], files: [attachment] });
+
+    // Log the result
+    if (interaction?.client) {
+        await sendLogMessage(
+            interaction.client,
+            won ? 'info' : 'warn',
+            `**Plinko Game Result**\n` +
+            `**User:** ${username} (\`${userId}\`)\n` +
+            `**Mode:** ${mode}\n` +
+            `**Bet:** ${fmtFull(betAmount)}\n` +
+            `**Slot:** #${finalSlot + 1} (${finalMultiplier.toFixed(2)}x)\n` +
+            `**Winnings:** ${fmtFull(winnings)}\n` +
+            `**Net:** ${netText}`,
+            userId,
+            guildId
+        );
+    }
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('plinko')
@@ -308,382 +688,3 @@ module.exports = {
         }
     }
 };
-
-/**
- * Play the full animated plinko game
- */
-async function playAnimatedPlinko(interaction, gameData, guildId) {
-    const { userId, username, betAmount, mode, modeData, multipliers, slots, dropSlot } = gameData;
-    
-    // Get mode colors
-    const modeColors = {
-        Easy: 0x00FF00,      // Green
-        Medium: 0xFFFF00,    // Yellow  
-        Hard: 0xFF0000,      // Red
-        Nightmare: 0x800080  // Purple
-    };
-    
-    const rows = 10; // Fixed number of rows
-    
-    try {
-        // Map slot to simulation coordinates
-        const startPos = dropSlot - ((slots - 1) / 2);
-
-        // Run simulation to get ball path
-        const { slotIndex: finalSlot, path: ballPath } = simulatePlinkoDrop(
-            rows,
-            slots,
-            startPos
-        );
-
-        // Use unified multipliers for both UI and payout 
-        const finalMultiplier = multipliers[finalSlot];
-        
-        // Calculate winnings using the same multiplier shown in UI
-        const winnings = Math.round((betAmount * finalMultiplier) * 100) / 100;
-        const won = winnings > betAmount; // Win if they get more than their bet back
-
-        // Create animation frames using the same multipliers shown to player
-        const animationFrames = [];
-        
-        // Initial frame
-        animationFrames.push(createPlinkoImage(
-            rows,
-            slots,
-            multipliers,
-            null,
-            -1,
-            mode
-        ));
-
-        // Animation frames showing ball dropping
-        for (let i = 0; i <= Math.min(ballPath.length, rows + 1); i++) {
-            animationFrames.push(createPlinkoImage(
-                rows,
-                slots,
-                multipliers,
-                ballPath,
-                i,
-                mode
-            ));
-        }
-
-        // Final frame with winning slot highlighted
-        animationFrames.push(createPlinkoImage(
-            rows,
-            slots,
-            multipliers,
-            ballPath,
-            rows + 1,
-            mode,
-            finalSlot
-        ));
-
-        // Show ball drop starting
-        const topFields = [
-            { name: 'Ball Released!', value: `🔴 Ball dropped from random position!\nWatch it bounce through the pegs...` }
-        ];
-        
-        // Check if this is a playfor game
-        const playForRecipient = global.playForContext?.recipientName;
-        const playingForSomeoneElse = playForRecipient && global.playForContext.recipientId;
-        
-        if (playingForSomeoneElse) {
-            topFields.splice(0, 0, {
-                name: '🎁 Playing For',
-                value: `@${playForRecipient}`,
-                inline: true
-            });
-        }
-        
-        let embed = buildSessionEmbed({
-            title: `🎯 ${username}'s ${mode} Plinko`,
-            topFields,
-            stageText: 'BALL DROPPING',
-            color: modeColors[mode] || 0x00FF00,
-            footer: 'Plinko • Ball in motion!'
-        });
-
-        const attachment = new AttachmentBuilder(animationFrames[0], { name: 'plinko_initial.png' });
-        embed.image = 'attachment://plinko_initial.png';
-
-        await interaction.editReply({ embeds: [embed], files: [attachment] });
-
-        // Animate through frames with delays
-        for (let i = 1; i < animationFrames.length - 1; i++) {
-            await new Promise(resolve => setTimeout(resolve, 500)); // Shorter delay for smoother animation
-
-            const frameTopFields = [
-                { name: 'Ball Bouncing', value: `⚡ Ball bouncing through pegs...\nRow ${Math.min(i, rows)}/${rows}` }
-            ];
-            
-            if (playingForSomeoneElse) {
-                frameTopFields.splice(0, 0, {
-                    name: '🎁 Playing For',
-                    value: `@${playForRecipient}`,
-                    inline: true
-                });
-            }
-
-            const frameEmbed = buildSessionEmbed({
-                title: `🎯 ${username}'s ${mode} Plinko`,
-                topFields: frameTopFields,
-                stageText: 'BALL BOUNCING',
-                color: modeColors[mode] || 0x00FF00,
-                footer: 'Plinko • Almost there!',
-                image: `attachment://plinko_frame_${i}.png`
-            });
-
-            const frameAttachment = new AttachmentBuilder(animationFrames[i], { name: `plinko_frame_${i}.png` });
-
-            await interaction.editReply({ embeds: [frameEmbed], files: [frameAttachment] });
-        }
-
-        // Final pause before results
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        // Show final results
-        await showFinalResults(interaction, gameData, animationFrames[animationFrames.length - 1], finalSlot, finalMultiplier, winnings, won, guildId);
-
-    } catch (error) {
-        logger.error(`Error in animated plinko game: ${error.message}`);
-        throw error;
-    }
-}
-
-/**
- * Show final game results
- */
-async function showFinalResults(interaction, gameData, finalImage, finalSlot, finalMultiplier, winnings, won, guildId) {
-    const { userId, username, betAmount, mode, modeData, newWallet, sessionId } = gameData;
-    
-    // Calculate net change (winnings - bet since bet was already deducted)
-    const netChange = winnings - betAmount;
-    
-    // Winnings will be processed by PayoutManager
-    const finalWallet = newWallet + winnings;
-
-    // Complete the session
-    try {
-        await sessionManager.endSession(sessionId, {
-            finalSlot,
-            finalMultiplier,
-            winnings,
-            won,
-            netChange,
-            completedAt: Date.now()
-        });
-    } catch (sessionError) {
-        logger.error(`Failed to complete plinko session: ${sessionError.message}`);
-    }
-
-    // BULLETPROOF ECONOMY AND SECURITY PROCESSING
-    let processedWinnings = winnings;
-    try {
-        const processedResult = await gameIntegrator.processGameResult({
-            userId,
-            guildId,
-            gameType: 'plinko',
-            betAmount,
-            originalPayout: winnings,
-            won
-        });
-        
-        if (processedResult.success) {
-            processedWinnings = processedResult.finalPayout;
-            
-            // Security logging for game result
-            await securityLogger.logSecurityEvent(userId, won ? 'GAME_WIN' : 'GAME_LOSS', {
-                amount: processedWinnings,
-                game: 'plinko',
-                originalPayout: winnings,
-                adjustedPayout: processedResult.finalPayout,
-                multiplier: finalMultiplier,
-                mode: mode
-            }, guildId);
-        }
-    } catch (gameError) {
-        logger.warn(`Game result processing failed: ${gameError.message}`);
-    }
-
-    // Record game result
-    const gameResult = new GameResult({
-        userId,
-        guildId,
-        gameType: GameType.PLINKO,
-        betAmount,
-        payout: processedWinnings,
-        won,
-        metadata: {
-            mode,
-            dropSlot: finalSlot,
-            finalMultiplier,
-            housedEdge: 0.25 // 15% house edge
-        }
-    });
-
-    await PayoutManager.processGamePayout(gameResult);
-
-    // Export to UAS for centralized analysis
-    try {
-        await uasDataExporter.exportGameResult({
-            userId,
-            guildId,
-            gameType: 'plinko',
-            betAmount,
-            winnings,
-            won,
-            metadata: {
-                mode,
-                finalSlot,
-                finalMultiplier,
-                dropSlot: finalSlot,
-                houseEdge: 0.15,
-                gameTimestamp: Date.now()
-            }
-        });
-    } catch (exportError) {
-        logger.debug(`Failed to export plinko result to UAS: ${exportError.message}`);
-    }
-
-    // Record game result for AI learning
-    try {
-        await dbManager.recordGameResult(
-            userId,
-            guildId,
-            'plinko',
-            won,
-            betAmount,
-            winnings,
-            {
-                mode: mode,
-                slot: finalSlot,
-                multiplier: finalMultiplier,
-                houseEdge: 0.15,
-                gameType: 'plinko'
-            }
-        );
-    } catch (aiError) {
-        logger.error(`Failed to record plinko game result for AI: ${aiError.message}`);
-    }
-
-    // Award XP for playing Plinko
-    try {
-        const levelingSystem = require('../UTILS/levelingSystem');
-        const specialResult = winnings >= betAmount * 5 ? 'big_win' : 
-                            winnings >= betAmount * 20 ? 'massive_win' : null;
-        
-        const levelResult = await levelingSystem.handleGameComplete(userId, guildId, 'plinko', won, specialResult);
-        
-        // Handle level up if occurred
-        if (levelResult && levelResult.levelUp) {
-            const levelUpEmbed = levelingSystem.createLevelUpEmbed(interaction.user, levelResult.newLevel);
-            
-            // Award level-up rewards
-            await levelingSystem.processLevelUpRewards(userId, guildId, levelResult.newLevel);
-            
-            // Send level up message in level up channel
-            try {
-                const levelUpChannel = interaction.client.channels.cache.get('1411018763008217208');
-                if (levelUpChannel) {
-                    await levelUpChannel.send({ embeds: [levelUpEmbed] });
-                }
-            } catch (levelError) {
-                logger.debug(`Could not send level up message: ${levelError.message}`);
-            }
-        }
-    } catch (xpError) {
-        logger.debug(`Could not award XP for plinko: ${xpError.message}`);
-    }
-
-    // Check if this is a playfor game
-    const playForRecipient = global.playForContext?.recipientName;
-    const winningForSomeoneElse = playForRecipient && global.playForContext.recipientId;
-
-    // Determine result type
-    let resultTitle, resultEmoji, resultColor;
-    if (winnings >= betAmount * 20) {
-        resultTitle = winningForSomeoneElse ? `💰 MASSIVE WIN for @${playForRecipient}! 💰` : '💰 MASSIVE WIN! 💰';
-        resultEmoji = '🌟';
-        resultColor = 0xFFD700;
-    } else if (winnings >= betAmount * 5) {
-        resultTitle = winningForSomeoneElse ? `🎉 BIG WIN for @${playForRecipient}!` : '🎉 BIG WIN!';
-        resultEmoji = '🎊';
-        resultColor = 0x00FF00;
-    } else if (winnings > betAmount) {
-        resultTitle = winningForSomeoneElse ? `✅ WIN for @${playForRecipient}!` : '✅ WIN!';
-        resultEmoji = '🎯';
-        resultColor = 0x32CD32;
-    } else if (winnings === betAmount) {
-        resultTitle = '🤝 BREAK EVEN';
-        resultEmoji = '⚖️';
-        resultColor = 0xFFD700;
-    } else {
-        resultTitle = '💥 LOSS';
-        resultEmoji = '😢';
-        resultColor = 0xFF0000;
-    }
-
-    const netText = netChange >= 0 ? `+${fmtFull(netChange)}` : fmtFull(netChange);
-
-    const topFields = [
-        { name: 'Result', value: `**${resultTitle}**` },
-        { name: 'Mode', value: `${modeData.emoji} ${mode}`, inline: true },
-        { name: 'Landing Slot', value: `**#${finalSlot + 1}** of ${gameData.slots}`, inline: true },
-        { name: 'Multiplier', value: `**${finalMultiplier.toFixed(2)}x**`, inline: true }
-    ];
-    
-    // Add playfor context if applicable
-    if (winningForSomeoneElse) {
-        topFields.splice(1, 0, {
-            name: '🎁 Playing For',
-            value: `@${playForRecipient}`,
-            inline: true
-        });
-    }
-    
-    let stageText = won ? 'WINNER!' : 'BETTER LUCK NEXT TIME';
-    if (winningForSomeoneElse && won) {
-        stageText = `WON FOR @${playForRecipient}!`;
-    }
-    
-    let footer = `🏠 House Edge: 15% | Full Animation Complete!`;
-    if (winningForSomeoneElse && won) {
-        footer = `Winnings sent to @${playForRecipient}! | Full Animation Complete!`;
-    }
-
-    const embed = buildSessionEmbed({
-        title: `${resultEmoji} ${username}'s Plinko Result`,
-        topFields,
-        bankFields: [
-            { name: 'Bet Amount', value: fmtFull(betAmount), inline: true },
-            { name: 'Winnings', value: fmtFull(winnings), inline: true },
-            { name: 'Net Change', value: netText, inline: true },
-            { name: 'New Wallet', value: fmtFull(finalWallet), inline: true }
-        ],
-        stageText,
-        color: resultColor,
-        footer,
-        image: 'attachment://plinko_final.png'
-    });
-
-    const attachment = new AttachmentBuilder(finalImage, { name: 'plinko_final.png' });
-
-    await interaction.editReply({ embeds: [embed], files: [attachment] });
-
-    // Log the result
-    if (interaction?.client) {
-        await sendLogMessage(
-            interaction.client,
-            won ? 'info' : 'warn',
-        `**Plinko Game Result**\n` +
-        `**User:** ${username} (\`${userId}\`)\n` +
-        `**Mode:** ${mode}\n` +
-        `**Bet:** ${fmtFull(betAmount)}\n` +
-        `**Slot:** #${finalSlot + 1} (${finalMultiplier.toFixed(2)}x)\n` +
-        `**Winnings:** ${fmtFull(winnings)}\n` +
-        `**Net:** ${netText}`,
-        userId,
-        guildId
-    );
-}
