@@ -4695,22 +4695,59 @@ class DatabaseAdapter {
                 return { success: false, error: 'User is not married' };
             }
 
-            // Update shared bank balance
-            await this.pool.execute(
-                'UPDATE marriages SET shared_bank = shared_bank + ? WHERE id = ? AND status = ?',
-                [amount, marriageData.marriage.id, 'active']
-            );
+            // Get user's current balance to check if they have enough money
+            const userBalance = await this.getUserBalance(userId, guildId);
+            if (userBalance.wallet < amount) {
+                return { success: false, error: 'Insufficient funds in wallet' };
+            }
 
-            // Get updated balance
-            const [updatedMarriage] = await this.pool.execute(
-                'SELECT shared_bank FROM marriages WHERE id = ?',
-                [marriageData.marriage.id]
-            );
+            // Start transaction
+            const connection = await this.pool.getConnection();
+            try {
+                await connection.beginTransaction();
 
-            return { 
-                success: true, 
-                newSharedBalance: updatedMarriage[0].shared_bank 
-            };
+                // Deduct from user's wallet
+                await connection.execute(
+                    'UPDATE user_balances SET wallet = wallet - ? WHERE user_id = ? AND wallet >= ?',
+                    [amount, userId, amount]
+                );
+
+                // Add to shared bank
+                await connection.execute(
+                    'UPDATE marriages SET shared_bank = shared_bank + ? WHERE id = ? AND status = ?',
+                    [amount, marriageData.marriage.id, 'active']
+                );
+
+                await connection.commit();
+                
+                // Invalidate user's balance cache after successful transaction
+                try {
+                    const nodeCache = require('./nodeCache');
+                    const cacheKey = `casino:balance:${userId}:${guildId}`;
+                    await nodeCache.del(cacheKey);
+                    logger.debug(`🗑️ Invalidated cache for ${userId} after marriage deposit`);
+                } catch (cacheError) {
+                    logger.debug(`Cache invalidation failed: ${cacheError.message}`);
+                }
+
+                // Get updated balance
+                const [updatedMarriage] = await this.pool.execute(
+                    'SELECT shared_bank FROM marriages WHERE id = ?',
+                    [marriageData.marriage.id]
+                );
+
+                logger.info(`${amount} added to shared bank by user ${userId}`);
+                return { 
+                    success: true, 
+                    newSharedBalance: updatedMarriage[0].shared_bank 
+                };
+
+            } catch (error) {
+                await connection.rollback();
+                throw error;
+            } finally {
+                connection.release();
+            }
 
         } catch (error) {
             logger.error(`Error adding to shared bank: ${error.message}`);

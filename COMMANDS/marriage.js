@@ -1631,7 +1631,7 @@ module.exports = {
                 return;
             }
 
-            // Get user's balance
+            // Get user's balance for "all" and "half" calculations
             const userBalance = await dbManager.getUserBalance(userId, guildId);
             
             // Parse deposit amount
@@ -1652,14 +1652,6 @@ module.exports = {
                 }
             }
 
-            // Check if user has enough money
-            if (depositAmount > userBalance.wallet) {
-                await interaction.editReply({
-                    content: `❌ You don't have enough money! You only have ${fmt(userBalance.wallet)} in your wallet.`
-                });
-                return;
-            }
-
             // Minimum deposit check
             if (depositAmount < 100) {
                 await interaction.editReply({
@@ -1670,16 +1662,7 @@ module.exports = {
 
             const marriage = marriageData.marriage;
 
-            // Deduct from user's wallet first
-            const deductResult = await dbManager.removeMoney(userId, guildId, depositAmount);
-            if (!deductResult.success) {
-                await interaction.editReply({
-                    content: `❌ Failed to deduct money from your wallet: ${deductResult.error}`
-                });
-                return;
-            }
-
-            // Add to shared bank
+            // Add to shared bank (this will automatically deduct from wallet)
             const result = await dbManager.addToSharedBank(userId, guildId, depositAmount);
             
             if (result.success) {
@@ -1707,10 +1690,8 @@ module.exports = {
                     );
                 }
             } else {
-                // Refund the user if shared bank deposit failed
-                await dbManager.addMoney(userId, guildId, depositAmount);
                 await interaction.editReply({
-                    content: `❌ Deposit failed: ${result.error}. Your money has been refunded.`
+                    content: `❌ Deposit failed: ${result.error}`
                 });
             }
 
