@@ -106,8 +106,18 @@ module.exports = {
         )
         .addSubcommand(subcommand =>
             subcommand
+                .setName('deposit')
+                .setDescription('Deposit money into your marriage shared bank')
+                .addStringOption(option =>
+                    option.setName('amount')
+                        .setDescription('Amount to deposit (supports K/M/B, "all", "half")')
+                        .setRequired(true)
+                )
+        )
+        .addSubcommand(subcommand =>
+            subcommand
                 .setName('withdraw')
-                .setDescription('Withdraw earnings from your marriage businesses')
+                .setDescription('Withdraw money from your marriage shared bank')
         ),
 
     async execute(interaction) {
@@ -128,6 +138,9 @@ module.exports = {
                 break;
             case 'business':
                 await this.handleBusiness(interaction);
+                break;
+            case 'deposit':
+                await this.handleDeposit(interaction);
                 break;
             case 'withdraw':
                 await this.handleWithdraw(interaction);
@@ -1505,76 +1518,226 @@ module.exports = {
             const marriageData = await dbManager.getUserMarriage(userId, guildId);
             if (!marriageData.married) {
                 await interaction.editReply({
-                    content: '❌ You must be married to withdraw from marriage businesses! Use `/marriage propose` to start your journey.'
+                    content: '❌ You must be married to withdraw from the shared bank! Use `/marriage propose` to start your journey.'
                 });
                 return;
             }
 
             const marriage = marriageData.marriage;
 
-            // Get all marriage businesses for this marriage
-            const businesses = await dbManager.getMarriageBusinesses(marriage.id);
-            
-            if (!businesses || businesses.length === 0) {
+            // Check shared bank balance
+            if (!marriage.shared_bank || marriage.shared_bank <= 0) {
                 await interaction.editReply({
-                    content: '❌ You don\'t own any marriage businesses yet! Use `/marriage business view` to see available businesses.'
+                    content: '❌ Your marriage shared bank is empty! Use `/marriage deposit` to add money to the shared account.'
                 });
                 return;
             }
 
-            // Trigger income generation for this specific marriage
-            const incomeResult = await dbManager.generateMarriageBusinessIncome(marriage.id);
+            // Show withdrawal modal/interface
+            const withdrawEmbed = new EmbedBuilder()
+                .setTitle('💰 Marriage Bank Withdrawal')
+                .setDescription('How much would you like to withdraw from your shared bank?')
+                .addFields(
+                    { name: '🏦 Shared Bank Balance', value: fmt(marriage.shared_bank), inline: true },
+                    { name: '👥 Marriage', value: `${marriage.partner1_name} & ${marriage.partner2_name}`, inline: true },
+                    { name: '💡 Instructions', value: 'Reply with the amount you want to withdraw (e.g., "1000", "all", "half")', inline: false }
+                )
+                .setColor(0x3498DB)
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [withdrawEmbed] });
+
+            // Set up message collector for amount
+            const filter = (message) => {
+                return message.author.id === userId && message.channel.id === interaction.channelId;
+            };
+
+            const collector = interaction.channel.createMessageCollector({
+                filter,
+                time: 30000, // 30 seconds
+                max: 1
+            });
+
+            collector.on('collect', async (message) => {
+                try {
+                    const input = message.content.trim().toLowerCase();
+                    let withdrawAmount;
+
+                    if (input === 'all') {
+                        withdrawAmount = marriage.shared_bank;
+                    } else if (input === 'half') {
+                        withdrawAmount = Math.floor(marriage.shared_bank / 2);
+                    } else {
+                        withdrawAmount = parseAmount(input);
+                        if (withdrawAmount <= 0) {
+                            await message.reply('❌ Please enter a valid positive amount.');
+                            return;
+                        }
+                    }
+
+                    if (withdrawAmount > marriage.shared_bank) {
+                        await message.reply(`❌ You can't withdraw ${fmt(withdrawAmount)}! Your shared bank only has ${fmt(marriage.shared_bank)}.`);
+                        return;
+                    }
+
+                    // Perform the withdrawal
+                    const result = await dbManager.withdrawFromSharedBank(userId, guildId, withdrawAmount);
+                    
+                    if (result.success) {
+                        const successEmbed = new EmbedBuilder()
+                            .setTitle('✅ Withdrawal Successful!')
+                            .setDescription(`Successfully withdrew ${fmt(withdrawAmount)} from your marriage shared bank.`)
+                            .addFields(
+                                { name: '💵 Amount Withdrawn', value: fmt(withdrawAmount), inline: true },
+                                { name: '🏦 Remaining Balance', value: fmt(result.newSharedBalance), inline: true },
+                                { name: '👥 Marriage', value: `${marriage.partner1_name} & ${marriage.partner2_name}`, inline: false }
+                            )
+                            .setColor(0x00ff00)
+                            .setTimestamp();
+
+                        await message.reply({ embeds: [successEmbed] });
+
+                        // Log the withdrawal
+                        if (interaction?.client) {
+                            await sendLogMessage(
+                                interaction.client,
+                                'info',
+                                `Marriage bank withdrawal: ${interaction.user.displayName} withdrew ${fmt(withdrawAmount)} from shared bank (${marriage.partner1_name} & ${marriage.partner2_name})`,
+                                userId,
+                                guildId
+                            );
+                        }
+                    } else {
+                        await message.reply(`❌ Withdrawal failed: ${result.error}`);
+                    }
+
+                } catch (error) {
+                    logger.error(`Error processing withdrawal amount: ${error.message}`);
+                    await message.reply('❌ An error occurred while processing your withdrawal.');
+                }
+            });
+
+            collector.on('end', (collected, reason) => {
+                if (reason === 'time' && collected.size === 0) {
+                    interaction.followUp({
+                        content: '⏰ Withdrawal request timed out. Please use `/marriage withdraw` again.',
+                        flags: MessageFlags.Ephemeral
+                    });
+                }
+            });
+
+        } catch (error) {
+            logger.error(`Error in marriage withdraw: ${error.message}`);
+            await interaction.editReply({
+                content: '❌ An error occurred while accessing the marriage bank. Please try again later.'
+            });
+        }
+    },
+
+    async handleDeposit(interaction) {
+        const userId = interaction.user.id;
+        const guildId = await getGuildId(interaction);
+        const amountInput = interaction.options.getString('amount');
+
+        await interaction.deferReply();
+
+        try {
+            // Check if user is married
+            const marriageData = await dbManager.getUserMarriage(userId, guildId);
+            if (!marriageData.married) {
+                await interaction.editReply({
+                    content: '❌ You must be married to deposit into the shared bank! Use `/marriage propose` to start your journey.'
+                });
+                return;
+            }
+
+            // Get user's balance
+            const userBalance = await dbManager.getUserBalance(userId, guildId);
             
-            if (incomeResult.success && incomeResult.totalEarnings > 0) {
-                // Create success embed
-                const withdrawEmbed = new EmbedBuilder()
-                    .setTitle('💰 Marriage Business Withdrawal Successful!')
-                    .setDescription(`Successfully withdrew earnings from your marriage businesses.`)
+            // Parse deposit amount
+            let depositAmount;
+            const input = amountInput.trim().toLowerCase();
+            
+            if (input === 'all') {
+                depositAmount = userBalance.wallet;
+            } else if (input === 'half') {
+                depositAmount = Math.floor(userBalance.wallet / 2);
+            } else {
+                depositAmount = parseAmount(input);
+                if (depositAmount <= 0) {
+                    await interaction.editReply({
+                        content: '❌ Please enter a valid positive amount.'
+                    });
+                    return;
+                }
+            }
+
+            // Check if user has enough money
+            if (depositAmount > userBalance.wallet) {
+                await interaction.editReply({
+                    content: `❌ You don't have enough money! You only have ${fmt(userBalance.wallet)} in your wallet.`
+                });
+                return;
+            }
+
+            // Minimum deposit check
+            if (depositAmount < 100) {
+                await interaction.editReply({
+                    content: '❌ Minimum deposit amount is $100.'
+                });
+                return;
+            }
+
+            const marriage = marriageData.marriage;
+
+            // Deduct from user's wallet first
+            const deductResult = await dbManager.removeMoney(userId, guildId, depositAmount);
+            if (!deductResult.success) {
+                await interaction.editReply({
+                    content: `❌ Failed to deduct money from your wallet: ${deductResult.error}`
+                });
+                return;
+            }
+
+            // Add to shared bank
+            const result = await dbManager.addToSharedBank(userId, guildId, depositAmount);
+            
+            if (result.success) {
+                const successEmbed = new EmbedBuilder()
+                    .setTitle('✅ Deposit Successful!')
+                    .setDescription(`Successfully deposited ${fmt(depositAmount)} into your marriage shared bank.`)
                     .addFields(
-                        { name: '🏢 Businesses', value: `${businesses.length} business${businesses.length !== 1 ? 'es' : ''}`, inline: true },
-                        { name: '💵 Total Withdrawn', value: fmt(incomeResult.totalEarnings), inline: true },
+                        { name: '💵 Amount Deposited', value: fmt(depositAmount), inline: true },
+                        { name: '🏦 New Shared Balance', value: fmt(result.newSharedBalance), inline: true },
                         { name: '👥 Marriage', value: `${marriage.partner1_name} & ${marriage.partner2_name}`, inline: false }
                     )
                     .setColor(0x00ff00)
                     .setTimestamp();
 
-                await interaction.editReply({ embeds: [withdrawEmbed] });
+                await interaction.editReply({ embeds: [successEmbed] });
 
-                // Log the withdrawal
+                // Log the deposit
                 if (interaction?.client) {
                     await sendLogMessage(
                         interaction.client,
                         'info',
-                        `Marriage business withdrawal: ${marriage.partner1_name} & ${marriage.partner2_name} withdrew ${fmt(incomeResult.totalEarnings)} from ${businesses.length} business${businesses.length !== 1 ? 'es' : ''}`,
+                        `Marriage bank deposit: ${interaction.user.displayName} deposited ${fmt(depositAmount)} to shared bank (${marriage.partner1_name} & ${marriage.partner2_name})`,
                         userId,
                         guildId
                     );
                 }
-
-            } else if (incomeResult.success && incomeResult.totalEarnings === 0) {
-                // No earnings available
-                const noEarningsEmbed = new EmbedBuilder()
-                    .setTitle('📊 Marriage Business Status')
-                    .setDescription('No earnings are currently available to withdraw.')
-                    .addFields(
-                        { name: '🏢 Your Businesses', value: businesses.map(b => `• ${b.business_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`).join('\n') || 'None', inline: false },
-                        { name: '⏰ Next Income', value: 'Businesses generate income hourly. Check back later!', inline: false }
-                    )
-                    .setColor(0xFFA500)
-                    .setTimestamp();
-
-                await interaction.editReply({ embeds: [noEarningsEmbed] });
-
             } else {
+                // Refund the user if shared bank deposit failed
+                await dbManager.addMoney(userId, guildId, depositAmount);
                 await interaction.editReply({
-                    content: `❌ Failed to withdraw earnings: ${incomeResult.error || 'Unknown error'}`
+                    content: `❌ Deposit failed: ${result.error}. Your money has been refunded.`
                 });
             }
 
         } catch (error) {
-            logger.error(`Error in marriage withdraw: ${error.message}`);
+            logger.error(`Error in marriage deposit: ${error.message}`);
             await interaction.editReply({
-                content: '❌ An error occurred while processing your withdrawal.'
+                content: '❌ An error occurred while processing your deposit. Please try again later.'
             });
         }
     }
