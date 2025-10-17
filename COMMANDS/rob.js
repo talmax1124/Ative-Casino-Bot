@@ -14,12 +14,12 @@ const logger = require('../UTILS/logger');
 const robStatsManager = require('../UTILS/robStatsManager');
 
 const DEVELOPER_ID = '466050111680544798'; // From CLAUDE.md
-// Cooldown functionality removed
+const ROB_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour cooldown to prevent abuse
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('rob')
-        .setDescription('Attempt to rob another user (8% success, 4% penalty on failure)')
+        .setDescription('Attempt to rob another user (8% success, 4% penalty on failure, 1 hour cooldown)')
         .addUserOption(option =>
             option.setName('target')
                 .setDescription('User to rob')
@@ -92,8 +92,55 @@ module.exports = {
                 return await interaction.editReply({ embeds: [errorEmbed] });
             }
 
-            // No cooldown restrictions - robbery available anytime
-            const now = Date.now() / 1000;
+            // Check rob cooldown
+            const now = Date.now();
+            const lastRobTs = robberBalance.last_rob_ts || 0;
+            const cooldownRemaining = (lastRobTs + ROB_COOLDOWN_MS) - now;
+
+            if (cooldownRemaining > 0) {
+                const nextAvailable = lastRobTs + ROB_COOLDOWN_MS;
+                const hours = Math.floor(cooldownRemaining / (60 * 60 * 1000));
+                const minutes = Math.floor((cooldownRemaining % (60 * 60 * 1000)) / (60 * 1000));
+                const seconds = Math.floor((cooldownRemaining % (60 * 1000)) / 1000);
+
+                const cooldownEmbed = buildSessionEmbed({
+                    title: `⏳ ${username}, wait before robbing again!`,
+                    topFields: [
+                        {
+                            name: 'Cooldown Active',
+                            value: `You can attempt another robbery in **${hours}h ${minutes}m ${seconds}s** (<t:${Math.floor(nextAvailable / 1000)}:R>).`,
+                            inline: false
+                        },
+                        {
+                            name: '🚨 Anti-Abuse Protection',
+                            value: 'Robberies have a 1-hour cooldown to ensure fair gameplay for everyone.',
+                            inline: false
+                        }
+                    ],
+                    bankFields: [
+                        {
+                            name: 'Last Robbery',
+                            value: lastRobTs > 0 ? `<t:${Math.floor(lastRobTs / 1000)}:R>` : 'No history',
+                            inline: true
+                        },
+                        {
+                            name: 'Your Wallet',
+                            value: fmt(robberBalance.wallet || 0),
+                            inline: true
+                        },
+                        {
+                            name: 'Next Robbery',
+                            value: `<t:${Math.floor(nextAvailable / 1000)}:R>`,
+                            inline: true
+                        }
+                    ],
+                    stageText: 'ROBBERY COOLDOWN',
+                    color: 0xFFA726,
+                    footer: 'Rob Cooldown • 1 hour between attempts'
+                });
+
+                return await interaction.editReply({ embeds: [cooldownEmbed] });
+            }
 
             // Check tier restrictions
             const robberTier = getEconomicTier(robberBalance.wallet + robberBalance.bank);
@@ -153,7 +200,7 @@ module.exports = {
 
                 // Update balances (target bank remains unchanged)
                 await dbManager.setUserBalance(targetId, guildId, newTargetWallet, targetBalance.bank);
-                await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank);
+                await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank, { last_rob_ts: now });
 
                 resultEmbed = buildSessionEmbed({
                     title: `🎭 ${username}'s Robbery Success!`,
@@ -170,7 +217,7 @@ module.exports = {
                     ],
                     stageText: 'ROBBERY SUCCESS',
                     color: 0x8B0000,
-                    footer: '🎭 Rob Command • Ready for another attempt • ATIVE Casino'
+                    footer: '🎭 Rob Command • 1 hour cooldown • ATIVE Casino'
                 });
 
                 // Log successful robbery
@@ -187,7 +234,7 @@ module.exports = {
                 actualPenalty = Math.min(penaltyAmount, robberBalance.wallet);
                 const newRobberWallet = robberBalance.wallet - actualPenalty;
 
-                await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank);
+                await dbManager.setUserBalance(userId, guildId, newRobberWallet, robberBalance.bank, { last_rob_ts: now });
 
                 resultEmbed = buildSessionEmbed({
                     title: `🚨 ${username}'s Robbery Failed!`,
@@ -205,7 +252,7 @@ module.exports = {
                     ],
                     stageText: 'ROBBERY FAILED',
                     color: 0xFF0000,
-                    footer: '🚨 Rob Command • Failed attempts have consequences • ATIVE Casino'
+                    footer: '🚨 Rob Command • 1 hour cooldown • Failed attempts have consequences • ATIVE Casino'
                 });
 
                 // Log failed robbery
