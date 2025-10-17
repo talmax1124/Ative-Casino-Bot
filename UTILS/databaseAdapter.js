@@ -860,6 +860,9 @@ class DatabaseAdapter {
                     last_beg_ts: parseFloat(row.last_beg_ts),
                     last_crime_ts: parseFloat(row.last_crime_ts),
                     last_heist_ts: parseFloat(row.last_heist_ts),
+                    last_earnmoney_ts: parseFloat(row.last_earnmoney_ts),
+                    last_dailytask_ts: parseFloat(row.last_dailytask_ts),
+                    last_quiz_ts: parseFloat(row.last_quiz_ts),
                     off_economy: Boolean(row.off_economy || false),
                     created_at: row.created_at,
                     updated_at: row.updated_at
@@ -877,6 +880,9 @@ class DatabaseAdapter {
                     last_beg_ts: 0.0,
                     last_crime_ts: 0.0,
                     last_heist_ts: 0.0,
+                    last_earnmoney_ts: 0.0,
+                    last_dailytask_ts: 0.0,
+                    last_quiz_ts: 0.0,
                     off_economy: false,
                     created_at: new Date(),
                     updated_at: new Date()
@@ -885,9 +891,10 @@ class DatabaseAdapter {
                 await this.executeQuery(
                     `INSERT IGNORE INTO user_balances 
                      (user_id, wallet, bank, last_earn_ts, last_rob_ts, game_active, 
-                      last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0]
+                      last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts,
+                      last_earnmoney_ts, last_dailytask_ts, last_quiz_ts) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
                 );
 
                 // Re-fetch the user data in case it was already created by another process
@@ -909,6 +916,9 @@ class DatabaseAdapter {
                         last_beg_ts: parseFloat(row.last_beg_ts),
                         last_crime_ts: parseFloat(row.last_crime_ts),
                         last_heist_ts: parseFloat(row.last_heist_ts),
+                        last_earnmoney_ts: parseFloat(row.last_earnmoney_ts),
+                        last_dailytask_ts: parseFloat(row.last_dailytask_ts),
+                        last_quiz_ts: parseFloat(row.last_quiz_ts),
                         off_economy: Boolean(row.off_economy || false),
                         created_at: row.created_at,
                         updated_at: row.updated_at

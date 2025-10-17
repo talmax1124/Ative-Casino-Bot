@@ -50,16 +50,17 @@ module.exports = {
             
             // Get current balance and check cooldowns
             const balance = await dbManager.getUserBalance(userId, guildId);
-            const now = Date.now() / 1000;
+            const now = Date.now();
             
             // Check overall earnmoney cooldown (prevent spam - 5 minute cooldown)
             const lastEarnmoney = balance.last_earnmoney_ts || 0;
-            const earnmoneyCooldown = 300; // 5 minutes
+            const earnmoneyCooldown = 5 * 60 * 1000; // 5 minutes
             
             if (now - lastEarnmoney < earnmoneyCooldown) {
-                const remainingTime = Math.ceil(earnmoneyCooldown - (now - lastEarnmoney));
-                const minutes = Math.floor(remainingTime / 60);
-                const seconds = remainingTime % 60;
+                const remainingMs = Math.max(0, earnmoneyCooldown - (now - lastEarnmoney));
+                const totalSeconds = Math.ceil(remainingMs / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
 
                 const cooldownEmbed = buildSessionEmbed({
                     title: '⏰ EarnMoney Cooldown Active',
@@ -103,8 +104,10 @@ module.exports = {
                 const cooldowns = Object.entries(results)
                     .filter(([_, result]) => result.cooldownRemaining > 0)
                     .map(([command, result]) => {
-                        const minutes = Math.floor(result.cooldownRemaining / 60);
-                        const seconds = Math.floor(result.cooldownRemaining % 60);
+                        const remainingMs = Math.max(0, result.cooldownRemaining);
+                        const totalSeconds = Math.ceil(remainingMs / 1000);
+                        const minutes = Math.floor(totalSeconds / 60);
+                        const seconds = totalSeconds % 60;
                         return `${this.getCommandEmoji(command)} **${command}**: ${minutes}m ${seconds}s`;
                     });
 
@@ -310,7 +313,7 @@ module.exports = {
      */
     async processEarn(balance, now) {
         const lastEarn = balance.last_earn_ts || 0;
-        const cooldown = 3600; // 1 hour
+        const cooldown = 60 * 60 * 1000; // 1 hour
         
         if (now - lastEarn < cooldown) {
             return { earned: 0, cooldownRemaining: cooldown - (now - lastEarn), description: '' };
@@ -329,7 +332,7 @@ module.exports = {
      */
     async processWork(balance, now) {
         const lastWork = balance.last_work_ts || 0;
-        const cooldown = 3600; // 1 hour
+        const cooldown = 60 * 60 * 1000; // 1 hour
         
         if (now - lastWork < cooldown) {
             return { earned: 0, cooldownRemaining: cooldown - (now - lastWork), description: '' };
@@ -359,7 +362,7 @@ module.exports = {
      */
     async processBeg(balance, now) {
         const lastBeg = balance.last_beg_ts || 0;
-        const cooldown = 3600; // 1 hour
+        const cooldown = 60 * 60 * 1000; // 1 hour
         
         if (now - lastBeg < cooldown) {
             return { earned: 0, cooldownRemaining: cooldown - (now - lastBeg), description: '' };
@@ -388,7 +391,7 @@ module.exports = {
      */
     async processCrime(balance, now) {
         const lastCrime = balance.last_crime_ts || 0;
-        const cooldown = 1800; // 30 minutes
+        const cooldown = 30 * 60 * 1000; // 30 minutes
         
         if (now - lastCrime < cooldown) {
             return { earned: 0, cooldownRemaining: cooldown - (now - lastCrime), description: '' };
@@ -419,7 +422,7 @@ module.exports = {
      */
     async processHeist(balance, now) {
         const lastHeist = balance.last_heist_ts || 0;
-        const cooldown = 9000; // 2.5 hours
+        const cooldown = 150 * 60 * 1000; // 2.5 hours
         
         if (now - lastHeist < cooldown) {
             return { earned: 0, cooldownRemaining: cooldown - (now - lastHeist), description: '' };
@@ -448,7 +451,7 @@ module.exports = {
      */
     async processDailyTask(balance, now) {
         const lastTask = balance.last_dailytask_ts || 0;
-        const cooldown = 86400; // 24 hours
+        const cooldown = 24 * 60 * 60 * 1000; // 24 hours
         
         if (now - lastTask < cooldown) {
             return { earned: 0, cooldownRemaining: cooldown - (now - lastTask), description: '' };
@@ -478,7 +481,7 @@ module.exports = {
      */
     async processQuiz(balance, now) {
         const lastQuiz = balance.last_quiz_ts || 0;
-        const cooldown = 7200; // 2 hours
+        const cooldown = 2 * 60 * 60 * 1000; // 2 hours
         
         if (now - lastQuiz < cooldown) {
             return { earned: 0, cooldownRemaining: cooldown - (now - lastQuiz), description: '' };

@@ -259,6 +259,9 @@ class PostgresManager {
                     last_beg_ts: parseFloat(row.last_beg_ts),
                     last_crime_ts: parseFloat(row.last_crime_ts),
                     last_heist_ts: parseFloat(row.last_heist_ts),
+                    last_earnmoney_ts: parseFloat(row.last_earnmoney_ts),
+                    last_dailytask_ts: parseFloat(row.last_dailytask_ts),
+                    last_quiz_ts: parseFloat(row.last_quiz_ts),
                     created_at: row.created_at,
                     updated_at: row.updated_at
                 };
@@ -275,6 +278,9 @@ class PostgresManager {
                     last_beg_ts: 0.0,
                     last_crime_ts: 0.0,
                     last_heist_ts: 0.0,
+                    last_earnmoney_ts: 0.0,
+                    last_dailytask_ts: 0.0,
+                    last_quiz_ts: 0.0,
                     created_at: new Date(),
                     updated_at: new Date()
                 };
@@ -282,9 +288,10 @@ class PostgresManager {
                 await this.query(
                     `INSERT INTO user_balances 
                      (user_id, wallet, bank, last_earn_ts, last_rob_ts, game_active, 
-                      last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts) 
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                    [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0]
+                      last_work_ts, last_beg_ts, last_crime_ts, last_heist_ts,
+                      last_earnmoney_ts, last_dailytask_ts, last_quiz_ts) 
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+                    [userId, 1000.0, 0.0, 0.0, 0.0, false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
                 );
 
                 return defaultBalance;

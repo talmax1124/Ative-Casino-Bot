@@ -75,6 +75,9 @@ class DatabaseFallbackSystem {
             last_beg_ts: Date.now(),
             last_crime_ts: Date.now(),
             last_heist_ts: Date.now(),
+            last_earnmoney_ts: Date.now(),
+            last_dailytask_ts: Date.now(),
+            last_quiz_ts: Date.now(),
             created_at: new Date(),
             updated_at: new Date(),
             fallback_mode: true, // Mark as fallback data
