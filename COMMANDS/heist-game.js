@@ -3,7 +3,7 @@
  * Allows testing individual heist games for development purposes
  */
 
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { fmt } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 

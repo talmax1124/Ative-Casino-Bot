@@ -8,6 +8,7 @@ const GIFEncoder = require('gif-encoder-2');
 const path = require('path');
 const logger = require('../UTILS/logger');
 const { secureRandomFloat, secureRandomInt, secureRandomChoice, secureRandomBytes } = require('../UTILS/rng');
+const securityLogger = require('../UTILS/securityLogger');
 
 // BASE slot symbols - These get automatically adapted based on player wealth
 // Players always see honest multipliers - the symbols adapt behind the scenes

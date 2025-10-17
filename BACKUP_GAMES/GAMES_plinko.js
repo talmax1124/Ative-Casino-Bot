@@ -8,6 +8,7 @@ const { secureRandomInt } = require('../UTILS/rng');
 const { fmt, sendLogMessage } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const adaptiveGameMechanics = require('../UTILS/adaptiveGameMechanics');
+const securityLogger = require('../UTILS/securityLogger');
 
 class PlinkoGameSession {
     constructor(userId, username, betAmount, channelId, mode = 'easy', currentWealth = 0) {

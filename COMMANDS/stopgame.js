@@ -416,7 +416,7 @@ module.exports = {
                 const result = await sessionManager.cancelSession(
                     session.sessionId,
                     'Developer force stop',
-                    interaction.user.id
+                    true  // refund = true
                 );
                 results.push({
                     success: result.success,

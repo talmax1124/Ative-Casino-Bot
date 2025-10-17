@@ -1335,10 +1335,10 @@ class UnifiedSessionManager extends EventEmitter {
     }
 
     /**
-     * Cancel session (already exists, adding alias for compatibility)
+     * Cancel session with source tracking (alias for compatibility)
      */
-    async cancelSession(sessionId, reason, source) {
-        return await this.endSession(sessionId, { reason, refund: true });
+    async cancelSessionWithSource(sessionId, reason, source) {
+        return await this.endSession(sessionId, { reason, refund: true, source });
     }
 
     /**

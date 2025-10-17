@@ -8,6 +8,7 @@ const { secureRandomInt, secureRandomFloat, secureRandomBytes } = require('../UT
 const { fmt, sendLogMessage } = require('../UTILS/common');
 const logger = require('../UTILS/logger');
 const adaptiveGameMechanics = require('../UTILS/adaptiveGameMechanics');
+const securityLogger = require('../UTILS/securityLogger');
 
 // UNIVERSAL GAME INTEGRATION - ALL SYSTEMS
 const UniversalGameIntegrator = require('../UTILS/UniversalGameIntegrator');
