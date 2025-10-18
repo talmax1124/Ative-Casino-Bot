@@ -47,6 +47,19 @@ function buildSessionEmbed(ui) {
     image = null // Support for embedded images
   } = ui;
 
+  const discordMarkupRegex = /<(?:(?:t:\d+:[a-zA-Z])|@!?|#|a?:)/;
+
+  const shouldWrap = (value) => {
+    if (!value) return false;
+    const hasPreformattedMarkdown =
+      value.includes('```') ||
+      value.includes('**') ||
+      value.includes('•');
+    if (hasPreformattedMarkdown) return false;
+    if (discordMarkupRegex.test(value)) return false;
+    return true;
+  };
+
   const e = new EmbedBuilder()
     .setTitle(title || "Game Session")
     .setColor(color)
@@ -56,10 +69,10 @@ function buildSessionEmbed(ui) {
   if (topFields.length) {
     topFields.forEach(field => {
       // For content already containing markdown or code fences, don't wrap again
-      const hasMarkdown = field.value.includes('**') || field.value.includes('•') || field.value.includes('```');
+      const wrapTopField = field.wrap === true ? true : (field.wrap === false ? false : shouldWrap(field.value));
       const styledField = {
         name: `**${field.name}**`,
-        value: hasMarkdown ? field.value : `\`\`\`\n${field.value}\n\`\`\``,
+        value: wrapTopField ? `\`\`\`\n${field.value}\n\`\`\`` : field.value,
         inline: field.inline || false
       };
       e.addFields(styledField);
@@ -75,9 +88,10 @@ function buildSessionEmbed(ui) {
     });
 
     bankFields.forEach((field) => {
+      const wrapBankField = field.wrap === true ? true : (field.wrap === false ? false : shouldWrap(field.value));
       const styledBankField = {
         name: `**${field.name}**`,
-        value: `\`\`\`yaml\n${field.value}\n\`\`\``,
+        value: wrapBankField ? `\`\`\`yaml\n${field.value}\n\`\`\`` : field.value,
         inline: field.inline !== false // Default to inline for banking
       };
       e.addFields(styledBankField);
