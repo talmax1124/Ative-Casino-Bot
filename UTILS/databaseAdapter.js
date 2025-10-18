@@ -7,7 +7,6 @@ const mysql = require('mysql2/promise');
 const logger = require('./logger');
 const { secureRandomInt } = require('./rng');
 const { gameDataCollector } = require('./gameDataCollector');
-const botBanSystem = require('./botBanSystem');
 
 class DatabaseAdapter {
     constructor() {
@@ -978,17 +977,6 @@ class DatabaseAdapter {
             const newWallet = Math.max(0, safeAdd(current.wallet, walletChangeValue)); // Prevent negative wallet
             const newBank = Math.max(0, safeAdd(current.bank, bankChangeValue)); // Prevent negative bank
             
-            // BOT BAN CHECK: Check if new balance would trigger a ban
-            const futureBalance = { wallet: newWallet, bank: newBank };
-            try {
-                const banCheck = await botBanSystem.checkAndBanUser(userId, futureBalance, global.discordClient);
-                if (banCheck.banned) {
-                    logger.error(`🚫 BLOCKED BALANCE UPDATE in databaseAdapter: User ${userId} would be auto-banned for ${banCheck.reason} (${botBanSystem.formatAmount(banCheck.amount)})`);
-                    return false; // Block the update that would trigger a ban
-                }
-            } catch (banError) {
-                logger.error(`Bot ban check failed in databaseAdapter: ${banError.message}`);
-            }
 
             const updateFields = ['wallet = ?', 'bank = ?', 'updated_at = NOW()'];
             const updateValues = [newWallet, newBank];
