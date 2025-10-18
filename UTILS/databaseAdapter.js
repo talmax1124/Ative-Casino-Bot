@@ -1007,7 +1007,11 @@ class DatabaseAdapter {
                 'last_dailytask_ts',
                 'last_quiz_ts',
                 'daily_sent',
-                'last_send_reset'
+                'last_send_reset',
+                'banned',
+                'ban_reason',
+                'ban_timestamp',
+                'original_amount'
             ];
 
             const timestampFields = new Set([
@@ -1119,7 +1123,11 @@ class DatabaseAdapter {
                 'last_dailytask_ts',
                 'last_quiz_ts',
                 'daily_sent',
-                'last_send_reset'
+                'last_send_reset',
+                'banned',
+                'ban_reason',
+                'ban_timestamp',
+                'original_amount'
             ];
 
             const timestampFields = new Set([

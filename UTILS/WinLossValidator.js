@@ -142,9 +142,6 @@ class WinLossValidator {
                 return this.validateSlotsResult(gameResult);
             case 'roulette':
                 return this.validateRouletteResult(gameResult);
-            case 'flip':
-            case 'coinflip':
-                return this.validateCoinFlipResult(gameResult);
             default:
                 return gameResult;
         }
@@ -216,27 +213,6 @@ class WinLossValidator {
                 validatedResult.payout = minExpectedPayout;
                 this.logCorrection('roulette', gameResult, validatedResult.payout, 
                     `Roulette ${betType} win payout too low (expected min: ${minExpectedPayout})`);
-            }
-        }
-
-        return validatedResult;
-    }
-
-    /**
-     * Validate coin flip-specific rules
-     */
-    validateCoinFlipResult(gameResult) {
-        const { isWin, betAmount, payout } = gameResult;
-        let validatedResult = { ...gameResult };
-
-        if (isWin) {
-            // Coin flip win should be 2x the bet (bet + bet as profit)
-            const expectedPayout = betAmount * 2;
-            
-            if (payout < expectedPayout - 0.01) {
-                validatedResult.payout = expectedPayout;
-                this.logCorrection('coinflip', gameResult, validatedResult.payout, 
-                    `Coin flip win should be 2x bet amount (expected: ${expectedPayout})`);
             }
         }
 

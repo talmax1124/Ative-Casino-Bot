@@ -48,6 +48,13 @@ module.exports = {
                         .setDescription('User to check')
                         .setRequired(true)))
         .addSubcommand(subcommand =>
+            subcommand.setName('checkid')
+                .setDescription('Check if a user is banned by their ID (database check)')
+                .addStringOption(option =>
+                    option.setName('userid')
+                        .setDescription('Discord User ID to check')
+                        .setRequired(true)))
+        .addSubcommand(subcommand =>
             subcommand.setName('list')
                 .setDescription('List all banned users'))
         .addSubcommand(subcommand =>
@@ -80,6 +87,9 @@ module.exports = {
                     break;
                 case 'check':
                     await this.handleCheck(interaction);
+                    break;
+                case 'checkid':
+                    await this.handleCheckId(interaction);
                     break;
                 case 'list':
                     await this.handleList(interaction);
@@ -276,6 +286,90 @@ module.exports = {
                 .setTimestamp();
 
             await interaction.editReply({ embeds: [embed] });
+        }
+    },
+
+    async handleCheckId(interaction) {
+        const userId = interaction.options.getString('userid');
+        
+        // Validate Discord user ID format
+        if (!/^\d{17,19}$/.test(userId)) {
+            return await interaction.editReply('❌ Invalid Discord User ID format. Please provide a valid 17-19 digit user ID.');
+        }
+
+        try {
+            // Check database directly for ban status
+            const banStatus = await botBanSystem.isUserBannedInDatabase(userId);
+            
+            if (banStatus.error) {
+                return await interaction.editReply(`❌ Error checking user: ${banStatus.error}`);
+            }
+
+            if (banStatus.banned) {
+                const embed = new EmbedBuilder()
+                    .setTitle('🚫 User Ban Status (Database Check)')
+                    .setDescription(`User ID **${userId}** is **BANNED** in the database.`)
+                    .addFields(
+                        {
+                            name: '👤 User ID',
+                            value: userId,
+                            inline: true
+                        },
+                        {
+                            name: '⚠️ Ban Reason',
+                            value: banStatus.reason.replace(/_/g, ' '),
+                            inline: true
+                        },
+                        {
+                            name: '💰 Balance/Amount',
+                            value: banStatus.amount ? botBanSystem.formatAmount(banStatus.amount) : 
+                                   banStatus.originalAmount ? botBanSystem.formatAmount(banStatus.originalAmount) : 'Unknown',
+                            inline: true
+                        },
+                        {
+                            name: '🕐 Ban Timestamp',
+                            value: banStatus.banTimestamp ? `<t:${Math.floor(new Date(banStatus.banTimestamp).getTime() / 1000)}:F>` : 'Unknown',
+                            inline: true
+                        },
+                        {
+                            name: '🚨 Status',
+                            value: '**BLOCKED FROM ALL BOT USAGE**',
+                            inline: false
+                        }
+                    )
+                    .setColor(0xFF0000)
+                    .setTimestamp();
+
+                await interaction.editReply({ embeds: [embed] });
+            } else {
+                const embed = new EmbedBuilder()
+                    .setTitle('✅ User Ban Status (Database Check)')
+                    .setDescription(`User ID **${userId}** is **NOT BANNED**.`)
+                    .addFields(
+                        {
+                            name: '👤 User ID',
+                            value: userId,
+                            inline: true
+                        },
+                        {
+                            name: '💰 Current Balance',
+                            value: banStatus.amount !== undefined ? botBanSystem.formatAmount(banStatus.amount) : 'Unknown',
+                            inline: true
+                        },
+                        {
+                            name: '🛡️ Status',
+                            value: 'Can use bot normally',
+                            inline: true
+                        }
+                    )
+                    .setColor(0x00FF00)
+                    .setTimestamp();
+
+                await interaction.editReply({ embeds: [embed] });
+            }
+        } catch (error) {
+            logger.error(`Error in checkid command: ${error.message}`);
+            await interaction.editReply('❌ An error occurred while checking the user ID.');
         }
     },
 

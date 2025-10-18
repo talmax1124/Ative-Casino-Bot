@@ -51,13 +51,6 @@ class GameEngine extends EventEmitter {
                     minBet: 50,
                     maxBet: Number.MAX_SAFE_INTEGER
                 },
-                flip: {
-                    baseHouseEdge: 0.05,
-                    baseWinRate: 0.50,
-                    maxPayout: 2.0,
-                    minBet: 10,
-                    maxBet: Number.MAX_SAFE_INTEGER
-                },
                 roulette: {
                     baseHouseEdge: 0.027,
                     baseWinRate: 0.486,

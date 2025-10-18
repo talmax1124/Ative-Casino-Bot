@@ -447,8 +447,8 @@ class UserEngine extends EventEmitter {
                 });
             } else if (gameStats.winRate < 40) {
                 recommendations.push({
-                    game: 'flip',
-                    reason: 'Simple and fair odds',
+                    game: 'slots',
+                    reason: 'Simple and fun gameplay',
                     confidence: 0.8
                 });
             }
@@ -698,7 +698,7 @@ class UserEngine extends EventEmitter {
             totalWon: 25000,
             netProfit: -25000,
             winRate: 50,
-            favoriteGame: 'flip',
+            favoriteGame: 'slots',
             currentStreak: 0,
             longestWinStreak: 5,
             longestLossStreak: 3,

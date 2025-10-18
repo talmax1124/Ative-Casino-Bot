@@ -535,14 +535,6 @@ class ConfigEngine extends EventEmitter {
     async loadGameConfigurations() {
         // Load default game configurations
         const gameConfigs = {
-            'game.flip': {
-                baseHouseEdge: 0.05,
-                baseWinRate: 0.50,
-                maxPayout: 2.0,
-                minBet: 10,
-                maxBet: Number.MAX_SAFE_INTEGER,
-                name: 'Coin Flip'
-            },
             'game.blackjack': {
                 baseHouseEdge: 0.025,
                 baseWinRate: 0.49,

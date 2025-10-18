@@ -87,8 +87,7 @@ const GameType = {
     CEELO: 'ceelo',
     TREASURE_VAULT: 'treasurevault',
     QUIZ: 'quiz',
-    MINES: 'mines',
-    FLIP: 'flip'
+    MINES: 'mines'
 };
 
 // ========================= DATA CLASSES =========================
@@ -401,7 +400,7 @@ class PayoutManager {
             'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
             'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
             'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
-            'roulette','heist','quiz','mines','flip'
+            'roulette','heist','quiz','mines'
         ];
         if (gameType && !modernGames.includes(gameType.toLowerCase())) {
             setActiveGame(userId, gameType);
@@ -663,7 +662,7 @@ class PayoutManager {
                 'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
                 'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
                 'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
-                'roulette','heist','mines','flip'
+                'roulette','heist','mines'
             ];
             if (gameType && !modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);
@@ -721,7 +720,7 @@ class PayoutManager {
                 'blackjack','slots','crash','plinko','uno','wordchain','fishing','battleship','rps',
                 'bingo','duck','duck_game','multi_slots','matrix_slots','yahtzee','treasurevault',
                 'war','keno','spades','31','thirtyone','poker','lottery','ceelo','russianroulette',
-                'roulette','heist','mines','flip'
+                'roulette','heist','mines'
             ];
             if (gameType && !modernGames.includes(gameType.toLowerCase())) {
                 clearActiveGame(userId);

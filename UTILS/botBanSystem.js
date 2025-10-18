@@ -181,12 +181,57 @@ class BotBanSystem {
     }
 
     /**
-     * Check if a user is currently banned
+     * Check if a user is currently banned (checks in-memory cache)
      * @param {string} userId - Discord user ID
      * @returns {boolean} Ban status
      */
     isUserBanned(userId) {
         return this.bannedUsers.has(userId);
+    }
+
+    /**
+     * Check if a user is banned by checking database directly
+     * @param {string} userId - Discord user ID
+     * @returns {Object} Ban status and details
+     */
+    async isUserBannedInDatabase(userId) {
+        try {
+            const dbManager = require('./database');
+            const userBalance = await dbManager.getUserBalance(userId, null);
+            
+            // Check if user has banned flag in database
+            if (userBalance && userBalance.banned === true) {
+                return {
+                    banned: true,
+                    reason: userBalance.ban_reason || 'UNKNOWN',
+                    banTimestamp: userBalance.ban_timestamp || null,
+                    originalAmount: userBalance.original_amount || 0
+                };
+            }
+            
+            // Also check if they have excessive amounts that would trigger auto-ban
+            const totalWealth = (userBalance.wallet || 0) + (userBalance.bank || 0);
+            if (totalWealth >= this.BAN_THRESHOLDS.THREE_BILLION) {
+                return {
+                    banned: true,
+                    reason: 'EXCESSIVE_BALANCE_AUTO_BAN',
+                    amount: totalWealth,
+                    threshold: this.BAN_THRESHOLDS.THREE_BILLION
+                };
+            }
+            
+            return {
+                banned: false,
+                amount: totalWealth
+            };
+            
+        } catch (error) {
+            logger.error(`Error checking database ban status for ${userId}: ${error.message}`);
+            return {
+                banned: false,
+                error: error.message
+            };
+        }
     }
 
     /**

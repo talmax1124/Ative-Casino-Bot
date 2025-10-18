@@ -132,19 +132,6 @@ const GAME_LUXURY = {
             spinning: '🎯💫🎯💫🎯',
             landing: '✨🎯✨'
         }
-    },
-    
-    flip: {
-        colors: [LUXURY_COLORS.GOLD, LUXURY_COLORS.PLATINUM],
-        icons: {
-            heads: `${LUXURY_ICONS.CROWN}🪙`,
-            tails: `🪙${LUXURY_ICONS.STAR}`,
-            flip: '🪙💫🪙'
-        },
-        animations: {
-            flipping: '🪙💫🪙💫🪙',
-            landing: '✨🪙✨'
-        }
     }
 };
 
