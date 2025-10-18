@@ -6,6 +6,7 @@
 const logger = require('./logger');
 const { secureRandomInt } = require('./rng');
 const nodeCache = require('./nodeCache');
+const botBanSystem = require('./botBanSystem');
 
 // Fallback system for database operations
 class DatabaseFallbackSystem {
@@ -203,6 +204,19 @@ class DatabaseManager {
             const cachedBalance = await nodeCache.getUserBalance(userId, guildId);
             if (cachedBalance) {
                 logger.debug(`💾 Cache HIT: User balance for ${userId} from NodeCache`);
+                
+                // BOT BAN CHECK: Check cached balance for ban thresholds
+                try {
+                    const banCheck = await botBanSystem.checkAndBanUser(userId, cachedBalance, global.discordClient);
+                    if (banCheck.banned) {
+                        logger.error(`🚫 User ${userId} auto-banned for ${banCheck.reason} (${botBanSystem.formatAmount(banCheck.amount)})`);
+                        // Return zero balance for banned users
+                        return { wallet: 0, bank: 0, banned: true, ban_reason: banCheck.reason };
+                    }
+                } catch (banError) {
+                    logger.error(`Bot ban check failed for cached balance: ${banError.message}`);
+                }
+                
                 return cachedBalance;
             }
         } catch (cacheError) {
@@ -216,6 +230,18 @@ class DatabaseManager {
                 const result = await this.databaseAdapter.getUserBalance(userId, guildId);
                 
                 if (result) {
+                    // BOT BAN CHECK: Check database result for ban thresholds
+                    try {
+                        const banCheck = await botBanSystem.checkAndBanUser(userId, result, global.discordClient);
+                        if (banCheck.banned) {
+                            logger.error(`🚫 User ${userId} auto-banned for ${banCheck.reason} (${botBanSystem.formatAmount(banCheck.amount)})`);
+                            // Return zero balance for banned users
+                            return { wallet: 0, bank: 0, banned: true, ban_reason: banCheck.reason };
+                        }
+                    } catch (banError) {
+                        logger.error(`Bot ban check failed for database result: ${banError.message}`);
+                    }
+                    
                     // 🚀 Cache successful result in NodeCache (async, don't wait)
                     nodeCache.cacheUserBalance(userId, guildId, result).catch(err => 
                         logger.debug(`NodeCache set failed: ${err.message}`)

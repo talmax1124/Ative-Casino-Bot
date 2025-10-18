@@ -211,6 +211,25 @@ module.exports = {
                 });
             }
 
+            // Check if player is banned
+            const botBanSystem = require('../UTILS/botBanSystem');
+            if (botBanSystem.isUserBanned(userId)) {
+                const banReason = botBanSystem.getBanReason(userId);
+                return await interaction.editReply({
+                    content: `🚫 **You are banned from the economy system.**\n\n**Reason:** ${banReason.reason.replace(/_/g, ' ')}\n**Amount:** ${botBanSystem.formatAmount(banReason.amount)}\n\nContact server administrators if you believe this is an error.`,
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            // Check if recipient is banned
+            if (botBanSystem.isUserBanned(recipient.id)) {
+                const banReason = botBanSystem.getBanReason(recipient.id);
+                return await interaction.editReply({
+                    content: `❌ **Cannot play for this user.**\n\nThe recipient is banned from the economy system.\n**Reason:** ${banReason.reason.replace(/_/g, ' ')}`,
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
             // Ensure both users exist in the database
             await dbManager.ensureUser(userId, interaction.user.displayName || interaction.user.globalName || 'Player');
             await dbManager.ensureUser(recipient.id, recipient.displayName || recipient.globalName || recipient.username || 'Recipient');
@@ -259,12 +278,12 @@ module.exports = {
                 .setFooter({ text: 'You have 30 seconds to confirm' });
 
             const confirmButton = new ButtonBuilder()
-                .setCustomId(`playfor_confirm_${subcommand}`)
+                .setCustomId(`playfor_confirm_${subcommand}_${userId}_${recipient.id}`)
                 .setLabel('✅ Confirm')
                 .setStyle(ButtonStyle.Success);
 
             const cancelButton = new ButtonBuilder()
-                .setCustomId('playfor_cancel')
+                .setCustomId(`playfor_cancel_${userId}`)
                 .setLabel('❌ Cancel')
                 .setStyle(ButtonStyle.Danger);
 
@@ -282,13 +301,28 @@ module.exports = {
                     time: 30000
                 });
 
-                if (buttonInteraction.customId === 'playfor_cancel') {
+                if (buttonInteraction.customId.startsWith('playfor_cancel')) {
                     await buttonInteraction.update({
                         content: '❌ Play for cancelled.',
                         embeds: [],
                         components: []
                     });
                     return;
+                }
+
+                // Validate the button interaction matches the intended recipient
+                const buttonParts = buttonInteraction.customId.split('_');
+                if (buttonParts.length >= 5) {
+                    const buttonUserId = buttonParts[3];
+                    const buttonRecipientId = buttonParts[4];
+                    
+                    if (buttonUserId !== userId || buttonRecipientId !== recipient.id) {
+                        await buttonInteraction.reply({
+                            content: '❌ This confirmation is not for you.',
+                            ephemeral: true
+                        });
+                        return;
+                    }
                 }
 
                 // Process the game
@@ -313,6 +347,39 @@ module.exports = {
 
     async processPlayFor(interaction, game, playerId, recipient, bet, guildId) {
         try {
+            // Additional validation before processing
+            const botBanSystem = require('../UTILS/botBanSystem');
+            
+            // Re-check ban status (in case it changed during confirmation period)
+            if (botBanSystem.isUserBanned(playerId)) {
+                await interaction.editReply({
+                    content: '🚫 **Playfor cancelled:** You have been banned from the economy system.',
+                    embeds: [],
+                    components: []
+                });
+                return;
+            }
+            
+            if (botBanSystem.isUserBanned(recipient.id)) {
+                await interaction.editReply({
+                    content: '🚫 **Playfor cancelled:** The recipient has been banned from the economy system.',
+                    embeds: [],
+                    components: []
+                });
+                return;
+            }
+
+            // Verify player still has sufficient balance
+            const currentBalance = await dbManager.getUserBalance(playerId, guildId);
+            if (currentBalance.wallet < bet) {
+                await interaction.editReply({
+                    content: `❌ **Playfor cancelled:** Insufficient balance. You need ${fmt(bet)} but only have ${fmt(currentBalance.wallet)}.`,
+                    embeds: [],
+                    components: []
+                });
+                return;
+            }
+
             // Store play-for context globally for the session manager to pick up
             global.playForContext = {
                 recipientId: recipient.id,
@@ -331,7 +398,18 @@ module.exports = {
             logger.info(`PlayFor: Setting global context for ${playerId} -> ${recipient.id} (${game}, ${bet})`);
 
             // Load the game command
-            const gameCommand = require(`./${game}.js`);
+            let gameCommand;
+            try {
+                gameCommand = require(`./${game}.js`);
+            } catch (gameLoadError) {
+                logger.error(`Failed to load game command ${game}: ${gameLoadError.message}`);
+                await interaction.editReply({
+                    content: `❌ **Playfor failed:** Could not load the ${game} game. Please try again later.`,
+                    embeds: [],
+                    components: []
+                });
+                return;
+            }
             
             // Create a properly wrapped interaction that preserves all methods
             const playForInteraction = {
