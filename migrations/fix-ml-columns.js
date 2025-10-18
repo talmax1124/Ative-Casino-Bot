@@ -40,12 +40,15 @@ async function fixMLColumns() {
             FROM information_schema.columns 
             WHERE table_name = 'ml_game_data' 
             AND table_schema = ?
-            AND column_name IN ('user_wealth_before', 'user_wealth_after')
+            AND column_name IN ('user_wealth_before', 'user_wealth_after', 'bet_amount', 'payout', 'net_result')
         `, [process.env.DATABASE_NAME]);
 
         let needsMigration = false;
         for (const column of columns) {
-            if (column.numeric_precision < 20) {
+            if (
+                (['user_wealth_before', 'user_wealth_after'].includes(column.column_name) && column.numeric_precision < 20) ||
+                (['bet_amount', 'payout', 'net_result'].includes(column.column_name) && column.numeric_precision < 24)
+            ) {
                 needsMigration = true;
                 console.log(`Column ${column.column_name} has precision ${column.numeric_precision}, needs migration`);
             }
@@ -67,6 +70,24 @@ async function fixMLColumns() {
         await connection.execute(`
             ALTER TABLE ml_game_data 
             MODIFY COLUMN user_wealth_after DECIMAL(20,2) NOT NULL
+        `);
+
+        console.log('Updating bet_amount column...');
+        await connection.execute(`
+            ALTER TABLE ml_game_data 
+            MODIFY COLUMN bet_amount DECIMAL(24,2) NOT NULL
+        `);
+
+        console.log('Updating payout column...');
+        await connection.execute(`
+            ALTER TABLE ml_game_data 
+            MODIFY COLUMN payout DECIMAL(24,2) NOT NULL
+        `);
+
+        console.log('Updating net_result column...');
+        await connection.execute(`
+            ALTER TABLE ml_game_data 
+            MODIFY COLUMN net_result DECIMAL(24,2) NOT NULL
         `);
 
         console.log('✅ Migration completed successfully');

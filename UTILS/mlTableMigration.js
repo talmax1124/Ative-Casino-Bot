@@ -66,7 +66,13 @@ class MLTableMigration {
                 SELECT column_name, data_type, numeric_precision, numeric_scale 
                 FROM information_schema.columns 
                 WHERE table_name = 'ml_game_data' 
-                AND column_name IN ('user_wealth_before', 'user_wealth_after')
+                AND column_name IN (
+                    'user_wealth_before',
+                    'user_wealth_after',
+                    'bet_amount',
+                    'payout',
+                    'net_result'
+                )
             `;
             const result = await dbManager.databaseAdapter.executeQuery(query);
             return result;
@@ -80,6 +86,10 @@ class MLTableMigration {
         for (const column of columns) {
             if ((column.column_name === 'user_wealth_before' || column.column_name === 'user_wealth_after') &&
                 column.numeric_precision < 20) {
+                return true;
+            }
+            if ((column.column_name === 'bet_amount' || column.column_name === 'payout' || column.column_name === 'net_result') &&
+                column.numeric_precision < 24) {
                 return true;
             }
         }
@@ -98,6 +108,24 @@ class MLTableMigration {
             await dbManager.databaseAdapter.executeQuery(`
                 ALTER TABLE ml_game_data 
                 MODIFY COLUMN user_wealth_after DECIMAL(20,2) NOT NULL
+            `);
+
+            logger.info('Modifying bet_amount column...');
+            await dbManager.databaseAdapter.executeQuery(`
+                ALTER TABLE ml_game_data 
+                MODIFY COLUMN bet_amount DECIMAL(24,2) NOT NULL
+            `);
+
+            logger.info('Modifying payout column...');
+            await dbManager.databaseAdapter.executeQuery(`
+                ALTER TABLE ml_game_data 
+                MODIFY COLUMN payout DECIMAL(24,2) NOT NULL
+            `);
+
+            logger.info('Modifying net_result column...');
+            await dbManager.databaseAdapter.executeQuery(`
+                ALTER TABLE ml_game_data 
+                MODIFY COLUMN net_result DECIMAL(24,2) NOT NULL
             `);
 
             logger.info('Column modifications completed');

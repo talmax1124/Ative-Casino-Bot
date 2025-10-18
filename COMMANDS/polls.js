@@ -213,41 +213,85 @@ module.exports = {
                 expires_at: expiresAt.toISOString(),
                 active: true,
                 votes: {},
-                voters: []
+                voters: [],
+                message_id: null
             };
-
-            // Store in database
-            const success = await dbManager.storePoll(pollId, pollData);
-            if (!success) {
-                throw new Error('Failed to store poll in database');
-            }
-
-            // Store in memory for quick access
-            activePolls.set(pollId, pollData);
 
             // Create poll embed and buttons
             const embed = createPollEmbed(pollData);
             const buttons = createPollButtons(pollData);
 
-            await interaction.reply({ embeds: [embed], components: buttons });
+            const sentMessage = await interaction.reply({ embeds: [embed], components: buttons, fetchReply: true });
+
+            if (sentMessage && sentMessage.id) {
+                pollData.message_id = sentMessage.id;
+                pollData.channel_id = sentMessage.channelId ?? pollData.channel_id;
+            }
+
+            // Store in database
+            const success = await dbManager.storePoll(pollId, pollData);
+            if (!success) {
+                pollData.active = false;
+                activePolls.delete(pollId);
+
+                const errorEmbed = new EmbedBuilder()
+                    .setTitle('❌ Poll Error')
+                    .setDescription('Failed to store poll data. This poll has been cancelled.')
+                    .setColor(0xFF0000);
+
+                await sentMessage.edit({ embeds: [errorEmbed], components: [] });
+                return;
+            }
+
+            // Store in memory for quick access
+            activePolls.set(pollId, pollData);
 
             // Set timeout to automatically end poll
+            const client = interaction.client;
             setTimeout(async () => {
                 try {
-                    const pollData = activePolls.get(pollId);
-                    if (pollData && pollData.active) {
-                        pollData.active = false;
+                    let storedPoll = activePolls.get(pollId);
+                    if (!storedPoll) {
+                        storedPoll = await dbManager.getPoll(pollId);
+                        if (storedPoll) {
+                            activePolls.set(pollId, storedPoll);
+                        }
+                    }
+
+                    if (storedPoll && Boolean(storedPoll.active)) {
+                        storedPoll.active = false;
                         await dbManager.endPoll(pollId);
                         activePolls.delete(pollId);
 
-                        // Update the message
-                        const endedEmbed = createPollEmbed(pollData, true);
-                        endedEmbed.setTitle(`📊 ${pollData.question} (ENDED)`);
-                        
-                        await interaction.editReply({ 
-                            embeds: [endedEmbed], 
-                            components: [] 
-                        });
+                        const endedEmbed = createPollEmbed(storedPoll, true);
+                        endedEmbed.setTitle(`📊 ${storedPoll.question} (ENDED)`);
+
+                        if (storedPoll.message_id) {
+                            try {
+                                const channel = await client.channels.fetch(storedPoll.channel_id).catch(() => null);
+                                if (channel && typeof channel.isTextBased === 'function' && channel.isTextBased()) {
+                                    const message = await channel.messages.fetch(storedPoll.message_id).catch(() => null);
+                                    if (message) {
+                                        await message.edit({ embeds: [endedEmbed], components: [] });
+                                    } else {
+                                        logger.warn(`Poll auto-end: message ${storedPoll.message_id} not found for ${pollId}`);
+                                    }
+                                } else if (channel && channel.messages && typeof channel.messages.fetch === 'function') {
+                                    const message = await channel.messages.fetch(storedPoll.message_id).catch(() => null);
+                                    if (message) {
+                                        await message.edit({ embeds: [endedEmbed], components: [] });
+                                    } else {
+                                        logger.warn(`Poll auto-end: message ${storedPoll.message_id} not found for ${pollId}`);
+                                    }
+                                } else {
+                                    logger.warn(`Poll auto-end: channel ${storedPoll.channel_id} not text-based for ${pollId}`);
+                                }
+                            } catch (messageError) {
+                                logger.error(`Poll auto-end message edit failed for ${pollId}: ${messageError.message}`);
+                            }
+                        } else {
+                            logger.warn(`Poll auto-end: missing message_id for ${pollId}`);
+                        }
                     }
                 } catch (error) {
                     logger.error(`Error auto-ending poll ${pollId}: ${error.message}`);
@@ -264,7 +308,11 @@ module.exports = {
                 .setDescription('Failed to create poll. Please try again.')
                 .setColor(0xFF0000);
 
-            await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral });
+            if (interaction.deferred || interaction.replied) {
+                await interaction.followUp({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral }).catch(() => {});
+            } else {
+                await interaction.reply({ embeds: [errorEmbed], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
         }
     }
 };

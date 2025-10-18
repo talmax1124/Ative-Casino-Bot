@@ -622,6 +622,11 @@ class DatabaseAdapter {
                 `ALTER TABLE user_balances ADD COLUMN last_earnmoney_ts BIGINT NOT NULL DEFAULT 0`,
                 `ALTER TABLE user_balances ADD COLUMN last_dailytask_ts BIGINT NOT NULL DEFAULT 0`,
                 `ALTER TABLE user_balances ADD COLUMN last_quiz_ts BIGINT NOT NULL DEFAULT 0`,
+                // Normalize cooldown column types in case of legacy INT definitions
+                `ALTER TABLE user_balances MODIFY COLUMN last_earnmoney_ts BIGINT NOT NULL DEFAULT 0`,
+                `ALTER TABLE user_balances MODIFY COLUMN last_dailytask_ts BIGINT NOT NULL DEFAULT 0`,
+                `ALTER TABLE user_balances MODIFY COLUMN last_quiz_ts BIGINT NOT NULL DEFAULT 0`,
+                `ALTER TABLE user_balances MODIFY COLUMN last_send_reset BIGINT NOT NULL DEFAULT 0`,
                 // Add tier column to lottery tables for multi-tier lottery support
                 `ALTER TABLE lottery_tickets ADD COLUMN tier TINYINT DEFAULT 1`,
                 `ALTER TABLE lottery_info ADD COLUMN tier TINYINT DEFAULT 1`,
@@ -633,7 +638,11 @@ class DatabaseAdapter {
                 `ALTER TABLE lottery_tickets ADD INDEX idx_tier (tier)`,
                 `ALTER TABLE lottery_info ADD INDEX idx_tier (tier)`,
                 // Fix lottery_info_tier2 current_week_start column type to match main table
-                `ALTER TABLE lottery_info_tier2 MODIFY COLUMN current_week_start DATE`
+                `ALTER TABLE lottery_info_tier2 MODIFY COLUMN current_week_start DATE`,
+                // Expand ML data columns to support high-roller bets
+                `ALTER TABLE ml_game_data MODIFY COLUMN bet_amount DECIMAL(24,2) NOT NULL`,
+                `ALTER TABLE ml_game_data MODIFY COLUMN payout DECIMAL(24,2) NOT NULL`,
+                `ALTER TABLE ml_game_data MODIFY COLUMN net_result DECIMAL(24,2) NOT NULL`
             ];
             
             for (const query of alterQueries) {
@@ -987,12 +996,45 @@ class DatabaseAdapter {
                 'daily_sent',
                 'last_send_reset'
             ];
+
+            const timestampFields = new Set([
+                'last_earn_ts',
+                'last_work_ts',
+                'last_beg_ts',
+                'last_crime_ts',
+                'last_heist_ts',
+                'last_rob_ts',
+                'last_earnmoney_ts',
+                'last_dailytask_ts',
+                'last_quiz_ts',
+                'last_send_reset'
+            ]);
             
             for (const [key, value] of Object.entries(kwargs)) {
                 // Only allow whitelisted fields and exclude metadata
                 if (safeFields.includes(key) && key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
+                    let sanitizedValue = value;
+
+                    if (timestampFields.has(key)) {
+                        let numericValue = Number(value);
+                        if (!Number.isFinite(numericValue)) {
+                            logger.warn(`updateUserBalance: Invalid timestamp for ${key} on user ${userId}, defaulting to 0 (value: ${value})`);
+                            numericValue = 0;
+                        }
+                        numericValue = Math.floor(numericValue);
+                        if (numericValue < 0) {
+                            logger.warn(`updateUserBalance: Negative timestamp for ${key} on user ${userId}, clamping to 0 (value: ${numericValue})`);
+                            numericValue = 0;
+                        }
+                        if (numericValue > Number.MAX_SAFE_INTEGER) {
+                            logger.warn(`updateUserBalance: Timestamp for ${key} on user ${userId} exceeds safe integer range, clamping to ${Number.MAX_SAFE_INTEGER}`);
+                            numericValue = Number.MAX_SAFE_INTEGER;
+                        }
+                        sanitizedValue = numericValue;
+                    }
+
                     updateFields.push(`${key} = ?`);
-                    updateValues.push(value);
+                    updateValues.push(sanitizedValue);
                 } else if (!safeFields.includes(key) && key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
                     // Log potential security issue
                     logger.warn(`updateUserBalance: Blocked unsafe field update attempt: ${key} = ${value} for user ${userId}`);
@@ -1066,12 +1108,45 @@ class DatabaseAdapter {
                 'daily_sent',
                 'last_send_reset'
             ];
+
+            const timestampFields = new Set([
+                'last_earn_ts',
+                'last_work_ts',
+                'last_beg_ts',
+                'last_crime_ts',
+                'last_heist_ts',
+                'last_rob_ts',
+                'last_earnmoney_ts',
+                'last_dailytask_ts',
+                'last_quiz_ts',
+                'last_send_reset'
+            ]);
             
             for (const [key, value] of Object.entries(kwargs)) {
                 // Only allow whitelisted fields and exclude metadata
                 if (safeFields.includes(key) && key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
+                    let sanitizedValue = value;
+
+                    if (timestampFields.has(key)) {
+                        let numericValue = Number(value);
+                        if (!Number.isFinite(numericValue)) {
+                            logger.warn(`setUserBalance: Invalid timestamp for ${key} on user ${userId}, defaulting to 0 (value: ${value})`);
+                            numericValue = 0;
+                        }
+                        numericValue = Math.floor(numericValue);
+                        if (numericValue < 0) {
+                            logger.warn(`setUserBalance: Negative timestamp for ${key} on user ${userId}, clamping to 0 (value: ${numericValue})`);
+                            numericValue = 0;
+                        }
+                        if (numericValue > Number.MAX_SAFE_INTEGER) {
+                            logger.warn(`setUserBalance: Timestamp for ${key} on user ${userId} exceeds safe integer range, clamping to ${Number.MAX_SAFE_INTEGER}`);
+                            numericValue = Number.MAX_SAFE_INTEGER;
+                        }
+                        sanitizedValue = numericValue;
+                    }
+
                     updateFields.push(`${key} = ?`);
-                    updateValues.push(value);
+                    updateValues.push(sanitizedValue);
                 } else if (!safeFields.includes(key) && key !== 'user_id' && key !== 'guild_id' && key !== 'playFor' && key !== 'excludeFromPlayfor') {
                     // Log potential security issue
                     logger.warn(`setUserBalance: Blocked unsafe field update attempt: ${key} = ${value} for user ${userId}`);
@@ -1871,9 +1946,9 @@ class DatabaseAdapter {
             const query = `
                 INSERT INTO polls (
                     poll_id, question, description, options, votes, voters,
-                    creator_id, creator_name, guild_id, channel_id,
+                    creator_id, creator_name, guild_id, channel_id, message_id,
                     expires_at, active, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
 
             await this.executeQuery(query, [
@@ -1887,6 +1962,7 @@ class DatabaseAdapter {
                 pollData.creator_name,
                 pollData.guild_id,
                 pollData.channel_id,
+                pollData.message_id || null,
                 pollData.expires_at ? new Date(pollData.expires_at) : null,
                 pollData.active ? 1 : 0,
                 pollData.created_at ? new Date(pollData.created_at) : new Date()
@@ -1960,6 +2036,10 @@ class DatabaseAdapter {
                 poll.options = JSON.parse(poll.options || '[]');
                 poll.votes = JSON.parse(poll.votes || '{}');
                 poll.voters = JSON.parse(poll.voters || '[]');
+                poll.active = Boolean(poll.active);
+                if (poll.message_id === undefined) {
+                    poll.message_id = null;
+                }
                 return poll;
             }
             
@@ -2013,6 +2093,7 @@ class DatabaseAdapter {
                     creator_name VARCHAR(255) NOT NULL,
                     guild_id VARCHAR(20) NOT NULL,
                     channel_id VARCHAR(20) NOT NULL,
+                    message_id VARCHAR(20) DEFAULT NULL,
                     expires_at TIMESTAMP NULL,
                     ended_at TIMESTAMP NULL,
                     active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -2025,6 +2106,20 @@ class DatabaseAdapter {
             `;
 
             await this.executeQuery(createTableQuery);
+
+            const alterQueries = [
+                `ALTER TABLE polls ADD COLUMN message_id VARCHAR(20) DEFAULT NULL AFTER channel_id`
+            ];
+
+            for (const query of alterQueries) {
+                try {
+                    await this.executeQuery(query);
+                } catch (alterError) {
+                    if (!alterError.message.includes('Duplicate column name')) {
+                        logger.debug(`Polls table alter note: ${alterError.message}`);
+                    }
+                }
+            }
             logger.debug('Polls table ensured');
             return true;
         } catch (error) {
