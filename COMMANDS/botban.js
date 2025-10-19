@@ -28,7 +28,25 @@ module.exports = {
                         .setRequired(true)
                         .addChoices(
                             { name: 'Quintillion Threshold Exceeded', value: 'QUINTILLION_THRESHOLD' },
-                            { name: 'Three Billion Threshold Exceeded', value: 'THREE_BILLION_THRESHOLD' },
+                            { name: 'Ten Billion Threshold Exceeded', value: 'TEN_BILLION_THRESHOLD' },
+                            { name: 'Extreme Amount Detected', value: 'EXTREME_AMOUNT_THRESHOLD' },
+                            { name: 'Exploit/Abuse Detected', value: 'MANUAL_EXPLOIT' },
+                            { name: 'Economy System Abuse', value: 'ECONOMY_ABUSE' }
+                        )))
+        .addSubcommand(subcommand =>
+            subcommand.setName('userid')
+                .setDescription('Ban a user by their Discord ID')
+                .addStringOption(option =>
+                    option.setName('userid')
+                        .setDescription('Discord User ID to ban')
+                        .setRequired(true))
+                .addStringOption(option =>
+                    option.setName('reason')
+                        .setDescription('Ban reason')
+                        .setRequired(true)
+                        .addChoices(
+                            { name: 'Quintillion Threshold Exceeded', value: 'QUINTILLION_THRESHOLD' },
+                            { name: 'Ten Billion Threshold Exceeded', value: 'TEN_BILLION_THRESHOLD' },
                             { name: 'Extreme Amount Detected', value: 'EXTREME_AMOUNT_THRESHOLD' },
                             { name: 'Exploit/Abuse Detected', value: 'MANUAL_EXPLOIT' },
                             { name: 'Economy System Abuse', value: 'ECONOMY_ABUSE' }
@@ -81,6 +99,9 @@ module.exports = {
             switch (subcommand) {
                 case 'user':
                     await this.handleUserBan(interaction);
+                    break;
+                case 'userid':
+                    await this.handleUserIdBan(interaction);
                     break;
                 case 'unban':
                     await this.handleUnban(interaction);
@@ -137,7 +158,7 @@ module.exports = {
             reason: reason,
             amount: totalAmount,
             threshold: reason.includes('QUINTILLION') ? 1e18 : 
-                      reason.includes('THREE_BILLION') ? 3e9 :
+                      reason.includes('TEN_BILLION') ? 10e9 :
                       reason.includes('EXTREME') ? 1e15 : totalAmount,
             severity: 'MANUAL'
         };
@@ -182,6 +203,88 @@ module.exports = {
             await interaction.editReply({ embeds: [embed] });
             
             logger.info(`Manual bot ban executed by ${interaction.user.id} on ${target.id} for ${reason}`);
+        } else {
+            await interaction.editReply('❌ Failed to ban user. Check logs for details.');
+        }
+    },
+
+    async handleUserIdBan(interaction) {
+        const userId = interaction.options.getString('userid');
+        const reason = interaction.options.getString('reason');
+
+        // Validate Discord user ID format
+        if (!/^\d{17,19}$/.test(userId)) {
+            return await interaction.editReply('❌ Invalid Discord User ID format. Please provide a valid 17-19 digit user ID.');
+        }
+
+        if (userId === DEVELOPER_USER_ID) {
+            return await interaction.editReply('❌ Cannot ban the developer.');
+        }
+
+        // Check if already banned
+        if (botBanSystem.isUserBanned(userId)) {
+            const banReason = botBanSystem.getBanReason(userId);
+            return await interaction.editReply(
+                `❌ User ID **${userId}** is already banned.\n` +
+                `**Reason:** ${banReason.reason.replace(/_/g, ' ')}\n` +
+                `**Amount:** ${botBanSystem.formatAmount(banReason.amount)}`
+            );
+        }
+
+        // Get current balance
+        const balance = await dbManager.getUserBalance(userId);
+        const totalAmount = (balance.wallet || 0) + (balance.bank || 0);
+
+        // Create manual ban decision
+        const banDecision = {
+            reason: reason,
+            amount: totalAmount,
+            threshold: reason.includes('QUINTILLION') ? 1e18 : 
+                      reason.includes('TEN_BILLION') ? 10e9 :
+                      reason.includes('EXTREME') ? 1e15 : totalAmount,
+            severity: 'MANUAL'
+        };
+
+        // Execute the ban
+        const success = await botBanSystem.executeBan(userId, banDecision, interaction.client);
+
+        if (success) {
+            const embed = new EmbedBuilder()
+                .setTitle('🚫 User Banned Successfully')
+                .setDescription(`User ID **${userId}** has been banned from the economy system.`)
+                .addFields(
+                    {
+                        name: '👤 Target User ID',
+                        value: userId,
+                        inline: true
+                    },
+                    {
+                        name: '⚠️ Reason',
+                        value: reason.replace(/_/g, ' '),
+                        inline: true
+                    },
+                    {
+                        name: '💰 Balance at Ban',
+                        value: botBanSystem.formatAmount(totalAmount),
+                        inline: true
+                    },
+                    {
+                        name: '👮 Banned By',
+                        value: `<@${interaction.user.id}>`,
+                        inline: true
+                    },
+                    {
+                        name: '⏰ Ban Time',
+                        value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+                        inline: true
+                    }
+                )
+                .setColor(0xFF0000)
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embed] });
+            
+            logger.info(`Manual bot ban executed by ${interaction.user.id} on ${userId} for ${reason}`);
         } else {
             await interaction.editReply('❌ Failed to ban user. Check logs for details.');
         }
@@ -429,7 +532,7 @@ module.exports = {
                 },
                 {
                     name: '🎯 Thresholds',
-                    value: `• Quintillion: ${botBanSystem.formatAmount(stats.thresholds.QUINTILLION)}\n• Three Billion: ${botBanSystem.formatAmount(stats.thresholds.THREE_BILLION)}\n• Extreme: ${botBanSystem.formatAmount(stats.thresholds.EXTREME_AMOUNT)}`,
+                    value: `• Quintillion: ${botBanSystem.formatAmount(stats.thresholds.QUINTILLION)}\n• Ten Billion: ${botBanSystem.formatAmount(stats.thresholds.THREE_BILLION)}\n• Extreme: ${botBanSystem.formatAmount(stats.thresholds.EXTREME_AMOUNT)}`,
                     inline: false
                 }
             )

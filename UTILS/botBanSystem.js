@@ -1,6 +1,6 @@
 /**
  * Bot Ban System for ATIVE Casino Bot
- * Automatically bans users with excessive amounts (Quintillions or >3 Billion)
+ * Automatically bans users with excessive amounts (Quintillions or >10 Billion)
  * Prevents exploiters from continuing to abuse the system
  */
 
@@ -11,7 +11,7 @@ class BotBanSystem {
     constructor() {
         this.BAN_THRESHOLDS = {
             QUINTILLION: 1e18,        // 1 Quintillion
-            THREE_BILLION: 3e9,       // 3 Billion
+            THREE_BILLION: 10e9,      // 10 Billion
             EXTREME_AMOUNT: 1e15      // 1 Quadrillion (additional threshold)
         };
         
@@ -42,11 +42,11 @@ class BotBanSystem {
                 };
             }
             
-            // Check for 3 billion threshold
+            // Check for 10 billion threshold
             if (totalWealth >= this.BAN_THRESHOLDS.THREE_BILLION) {
                 return {
                     shouldBan: true,
-                    reason: 'THREE_BILLION_THRESHOLD',
+                    reason: 'TEN_BILLION_THRESHOLD',
                     amount: totalWealth,
                     threshold: this.BAN_THRESHOLDS.THREE_BILLION,
                     severity: 'HIGH'
