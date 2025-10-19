@@ -144,7 +144,7 @@ class BotBanSystem {
     async checkAndBanUser(userId, balance, discordClient = null) {
         try {
             // Skip if already banned
-            if (this.isUserBanned(userId)) {
+            if (await this.isUserBanned(userId)) {
                 return {
                     alreadyBanned: true,
                     reason: this.banReasons.get(userId)?.reason || 'UNKNOWN'
@@ -181,12 +181,37 @@ class BotBanSystem {
     }
 
     /**
-     * Check if a user is currently banned (checks in-memory cache)
+     * Check if a user is currently banned (checks both cache and database)
      * @param {string} userId - Discord user ID
-     * @returns {boolean} Ban status
+     * @returns {Promise<boolean>} Ban status
      */
-    isUserBanned(userId) {
-        return this.bannedUsers.has(userId);
+    async isUserBanned(userId) {
+        // First check in-memory cache for performance
+        if (this.bannedUsers.has(userId)) {
+            return true;
+        }
+        
+        // If not in cache, check database to handle bot restarts
+        try {
+            const dbResult = await this.isUserBannedInDatabase(userId);
+            if (dbResult.banned) {
+                // Add to cache if found in database
+                this.bannedUsers.add(userId);
+                // Restore ban reason if available
+                if (dbResult.reason) {
+                    this.banReasons.set(userId, {
+                        reason: dbResult.reason,
+                        amount: dbResult.originalAmount || dbResult.amount || 0,
+                        severity: 'DATABASE_RESTORED'
+                    });
+                }
+                return true;
+            }
+        } catch (error) {
+            logger.error(`Error checking database ban status in isUserBanned: ${error.message}`);
+        }
+        
+        return false;
     }
 
     /**
@@ -407,10 +432,13 @@ class BotBanSystem {
      */
     async unbanUser(userId, adminId) {
         try {
-            if (!this.isUserBanned(userId)) {
+            // Check if user is banned (this now checks both cache and database)
+            const isBanned = await this.isUserBanned(userId);
+            if (!isBanned) {
                 return false;
             }
             
+            // Remove from in-memory cache
             this.bannedUsers.delete(userId);
             const banReason = this.banReasons.get(userId);
             this.banReasons.delete(userId);

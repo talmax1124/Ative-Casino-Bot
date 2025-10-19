@@ -59,6 +59,13 @@ module.exports = {
                         .setDescription('User to unban')
                         .setRequired(true)))
         .addSubcommand(subcommand =>
+            subcommand.setName('unbanid')
+                .setDescription('Unban a user by their Discord ID')
+                .addStringOption(option =>
+                    option.setName('userid')
+                        .setDescription('Discord User ID to unban')
+                        .setRequired(true)))
+        .addSubcommand(subcommand =>
             subcommand.setName('check')
                 .setDescription('Check if a user is banned')
                 .addUserOption(option =>
@@ -106,6 +113,9 @@ module.exports = {
                 case 'unban':
                     await this.handleUnban(interaction);
                     break;
+                case 'unbanid':
+                    await this.handleUnbanId(interaction);
+                    break;
                 case 'check':
                     await this.handleCheck(interaction);
                     break;
@@ -140,7 +150,7 @@ module.exports = {
         }
 
         // Check if already banned
-        if (botBanSystem.isUserBanned(target.id)) {
+        if (await botBanSystem.isUserBanned(target.id)) {
             const banReason = botBanSystem.getBanReason(target.id);
             return await interaction.editReply(
                 `❌ User **${target.username}** is already banned.\n` +
@@ -222,7 +232,7 @@ module.exports = {
         }
 
         // Check if already banned
-        if (botBanSystem.isUserBanned(userId)) {
+        if (await botBanSystem.isUserBanned(userId)) {
             const banReason = botBanSystem.getBanReason(userId);
             return await interaction.editReply(
                 `❌ User ID **${userId}** is already banned.\n` +
@@ -293,7 +303,7 @@ module.exports = {
     async handleUnban(interaction) {
         const target = interaction.options.getUser('target');
 
-        if (!botBanSystem.isUserBanned(target.id)) {
+        if (!(await botBanSystem.isUserBanned(target.id))) {
             return await interaction.editReply(`❌ User **${target.username}** is not banned.`);
         }
 
@@ -336,9 +346,64 @@ module.exports = {
         }
     },
 
+    async handleUnbanId(interaction) {
+        const userId = interaction.options.getString('userid');
+
+        // Validate Discord user ID format
+        if (!/^\d{17,19}$/.test(userId)) {
+            return await interaction.editReply('❌ Invalid Discord User ID format. Please provide a valid 17-19 digit user ID.');
+        }
+
+        if (userId === DEVELOPER_USER_ID) {
+            return await interaction.editReply('❌ Cannot unban the developer.');
+        }
+
+        if (!(await botBanSystem.isUserBanned(userId))) {
+            return await interaction.editReply(`❌ User ID **${userId}** is not banned.`);
+        }
+
+        const success = await botBanSystem.unbanUser(userId, interaction.user.id);
+
+        if (success) {
+            const embed = new EmbedBuilder()
+                .setTitle('✅ User Unbanned Successfully')
+                .setDescription(`User ID **${userId}** has been unbanned and restored to the economy system.`)
+                .addFields(
+                    {
+                        name: '👤 Target User ID',
+                        value: userId,
+                        inline: true
+                    },
+                    {
+                        name: '👮 Unbanned By',
+                        value: `<@${interaction.user.id}>`,
+                        inline: true
+                    },
+                    {
+                        name: '⏰ Unban Time',
+                        value: `<t:${Math.floor(Date.now() / 1000)}:F>`,
+                        inline: true
+                    },
+                    {
+                        name: '💰 Starting Balance',
+                        value: '$1,000',
+                        inline: true
+                    }
+                )
+                .setColor(0x00FF00)
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [embed] });
+            
+            logger.info(`Manual unban executed by ${interaction.user.id} on ${userId}`);
+        } else {
+            await interaction.editReply('❌ Failed to unban user. Check logs for details.');
+        }
+    },
+
     async handleCheck(interaction) {
         const target = interaction.options.getUser('target');
-        const isBanned = botBanSystem.isUserBanned(target.id);
+        const isBanned = await botBanSystem.isUserBanned(target.id);
 
         if (isBanned) {
             const banReason = botBanSystem.getBanReason(target.id);
