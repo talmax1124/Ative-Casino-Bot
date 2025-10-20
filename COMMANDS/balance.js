@@ -173,7 +173,14 @@ module.exports = {
                     guildId
                 );
             } catch (replyError) {
-                logger.error(`Failed to send balance error reply: ${replyError.message}`);
+                // Handle specific Discord interaction errors gracefully
+                if (replyError.message && replyError.message.includes('Unknown interaction')) {
+                    logger.debug(`Balance interaction expired for user ${interaction.user.id} - command processed but couldn't send reply`);
+                } else if (replyError.code === 10062) {
+                    logger.debug(`Balance interaction expired (code 10062) for user ${interaction.user.id} - command processed but couldn't send reply`);
+                } else {
+                    logger.error(`Failed to send balance error reply: ${replyError.message}`);
+                }
             }
         }
     },

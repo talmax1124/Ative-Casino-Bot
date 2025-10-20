@@ -1117,8 +1117,13 @@ module.exports = {
             let engineOutcome = null;
             
             if (engineGameId) {
-                engineOutcome = await GameEngine.generateGameOutcome(engineGameId);
-                logger.info(`Engine outcome for ${engineGameId}: won=${engineOutcome.won}, adjustments=${JSON.stringify(engineOutcome.adjustments)}`);
+                try {
+                    engineOutcome = await GameEngine.generateGameOutcome(engineGameId);
+                    logger.info(`Engine outcome for ${engineGameId}: won=${engineOutcome.won}, adjustments=${JSON.stringify(engineOutcome.adjustments)}`);
+                } catch (engineError) {
+                    logger.warn(`Engine outcome generation failed for ${engineGameId}: ${engineError.message}`);
+                    engineOutcome = null;
+                }
             }
             
             // Apply tuning and all-in adjustments ONLY to wins
@@ -1232,38 +1237,42 @@ module.exports = {
 
                 // 🏁 END GAME USING ENGINE SYSTEM - Complete analytics cycle
                 if (engineGameId) {
-                    await GameEngine.endGame(engineGameId, {
-                        won,
-                        payout: regulatedPayout,
-                        gameData: {
-                            playerHand: game.splitHands.length > 0 ? game.splitHands[0] : game.playerHand,
-                            dealerHand: game.dealerHand,
-                            gameResult: results[0],
-                            resultType: results[0]?.outcome || 'unknown',
-                            finalPayout: finalPayout,
-                            netProfit
-                        }
-                    });
+                    try {
+                        await GameEngine.endGame(engineGameId, {
+                            won,
+                            payout: regulatedPayout,
+                            gameData: {
+                                playerHand: game.splitHands.length > 0 ? game.splitHands[0] : game.playerHand,
+                                dealerHand: game.dealerHand,
+                                gameResult: results[0],
+                                resultType: results[0]?.outcome || 'unknown',
+                                finalPayout: finalPayout,
+                                netProfit
+                            }
+                        });
 
-                    // 📊 RECORD GAME COMPLETION WITH ENGINE ANALYTICS
-                    await AnalyticsEngine.getInstance().recordGameEvent('GAME_COMPLETED', {
-                        gameType: 'blackjack',
-                        userId,
-                        guildId,
-                        betAmount: totalBetAmount,
-                        payout: finalPayout,
-                        won,
-                        gameId: engineGameId,
-                        metadata: {
-                            hands: results.length,
-                            dealerScore: game.dealerHand.getValue(),
-                            playerScore: (game.splitHands.length > 0 ? game.splitHands[0] : game.playerHand).getValue(),
-                            resultType: results[0]?.outcome || 'unknown',
-                            isPush,
-                            netProfit,
-                            engineAdjustments: engineOutcome?.adjustments || null
-                        }
-                    });
+                        // 📊 RECORD GAME COMPLETION WITH ENGINE ANALYTICS
+                        await AnalyticsEngine.getInstance().recordGameEvent('GAME_COMPLETED', {
+                            gameType: 'blackjack',
+                            userId,
+                            guildId,
+                            betAmount: totalBetAmount,
+                            payout: finalPayout,
+                            won,
+                            gameId: engineGameId,
+                            metadata: {
+                                hands: results.length,
+                                dealerScore: game.dealerHand.getValue(),
+                                playerScore: (game.splitHands.length > 0 ? game.splitHands[0] : game.playerHand).getValue(),
+                                resultType: results[0]?.outcome || 'unknown',
+                                isPush,
+                                netProfit,
+                                engineAdjustments: engineOutcome?.adjustments || null
+                            }
+                        });
+                    } catch (engineEndError) {
+                        logger.warn(`Engine endGame failed for ${engineGameId}: ${engineEndError.message}`);
+                    }
                 }
                 
             } catch (recordError) {
@@ -1449,7 +1458,14 @@ module.exports = {
                 logger.info(`Blackjack game successfully ended for user ${userId}`);
                 
             } catch (interactionError) {
-                logger.error(`Failed to update interaction for blackjack endGame: ${interactionError.message}`);
+                // Handle specific Discord interaction errors gracefully
+                if (interactionError.message && interactionError.message.includes('Unknown interaction')) {
+                    logger.debug(`Blackjack interaction expired for user ${userId} - game completed but couldn't update display`);
+                } else if (interactionError.code === 10062) {
+                    logger.debug(`Blackjack interaction expired (code 10062) for user ${userId} - game completed but couldn't update display`);
+                } else {
+                    logger.error(`Failed to update interaction for blackjack endGame: ${interactionError.message}`);
+                }
                 
                 // Don't attempt any fallback replies - just log the error
                 // The game logic completed successfully, interaction update just failed
