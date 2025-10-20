@@ -960,56 +960,7 @@ async function handlePremiumRoleAssignment(userId) {
 }
 
 client.on('interactionCreate', async interaction => {
-    // 🚫 CRITICAL: Bot-wide ban check - Block ALL interactions from banned users
-    if (interaction.user && !interaction.user.bot) {
-        try {
-            const botBanSystem = require('./UTILS/botBanSystem');
-            const banStatus = await botBanSystem.isUserBannedInDatabase(interaction.user.id);
-            
-            if (banStatus.banned) {
-                const embed = new EmbedBuilder()
-                    .setTitle('🚫 **ACCESS DENIED**')
-                    .setDescription('Your account has been permanently suspended from using this bot.')
-                    .addFields(
-                        {
-                            name: '⚠️ Reason',
-                            value: banStatus.reason.replace(/_/g, ' '),
-                            inline: true
-                        },
-                        {
-                            name: '💰 Detected Amount',
-                            value: banStatus.amount ? botBanSystem.formatAmount(banStatus.amount) : 'N/A',
-                            inline: true
-                        },
-                        {
-                            name: '📝 Details',
-                            value: 'Your account violated economy system rules and has been permanently banned from all bot functionality.',
-                            inline: false
-                        }
-                    )
-                    .setColor(0xFF0000)
-                    .setTimestamp();
-
-                // Log the blocked attempt
-                logger.warn(`🚫 BLOCKED: Banned user ${interaction.user.id} attempted to use command: ${interaction.commandName || 'unknown'}`);
-                
-                try {
-                    await interaction.reply({ embeds: [embed], ephemeral: true });
-                } catch (replyError) {
-                    try {
-                        await interaction.followUp({ embeds: [embed], ephemeral: true });
-                    } catch (followUpError) {
-                        logger.error(`Failed to send ban message to ${interaction.user.id}: ${followUpError.message}`);
-                    }
-                }
-                
-                return; // Block all further processing
-            }
-        } catch (banCheckError) {
-            logger.error(`Error checking ban status for ${interaction.user.id}: ${banCheckError.message}`);
-            // Continue processing if ban check fails to avoid blocking legitimate users
-        }
-    }
+    // Ban system removed - all users can interact with the bot
     
     // Cache member data when user interacts (reduces need for Server Members Intent)
     if (interaction.member && interaction.guildId) {

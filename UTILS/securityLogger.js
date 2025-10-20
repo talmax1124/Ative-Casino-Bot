@@ -196,16 +196,17 @@ class SecurityLogger {
             };
         }
 
-        // Pattern 5: Excessive daily winnings
-        if (userActivity.totalWinsToday >= this.alertThresholds.totalWinToday) {
-            return {
-                detected: true,
-                type: 'EXCESSIVE_DAILY_WINS',
-                severity: 'CRITICAL',
-                details: `Total daily wins: ${userActivity.totalWinsToday}`,
-                data: { totalWins: userActivity.totalWinsToday }
-            };
-        }
+        // Pattern 5: Excessive daily winnings - DISABLED
+        // Large daily wins are now allowed - ban system removed
+        // if (userActivity.totalWinsToday >= this.alertThresholds.totalWinToday) {
+        //     return {
+        //         detected: true,
+        //         type: 'EXCESSIVE_DAILY_WINS',
+        //         severity: 'CRITICAL',
+        //         details: `Total daily wins: ${userActivity.totalWinsToday}`,
+        //         data: { totalWins: userActivity.totalWinsToday }
+        //     };
+        // }
 
         // Pattern 6: Negative balance
         if (eventType === 'NEGATIVE_BALANCE') {
@@ -324,11 +325,12 @@ class SecurityLogger {
                 }
                 this.lastRapidBetAlertCount.set(userId, currentCount);
             } else if (suspiciousPattern.type === 'EXCESSIVE_DAILY_WINS') {
-                // Longer cooldown for daily wins alerts - 10 minutes
-                cooldownPeriod = 600000; 
-                if (now - lastTime < cooldownPeriod) {
-                    return; // Skip redundant alert
-                }
+                // EXCESSIVE_DAILY_WINS alerts disabled - ban system removed
+                return; // Skip all daily wins alerts
+                // cooldownPeriod = 600000; 
+                // if (now - lastTime < cooldownPeriod) {
+                //     return; // Skip redundant alert
+                // }
             } else {
                 // Standard cooldown for other alerts
                 if (now - lastTime < cooldownPeriod) {

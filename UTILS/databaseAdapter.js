@@ -996,10 +996,6 @@ class DatabaseAdapter {
                 'last_quiz_ts',
                 'daily_sent',
                 'last_send_reset',
-                'banned',
-                'ban_reason',
-                'ban_timestamp',
-                'original_amount'
             ];
 
             const timestampFields = new Set([
@@ -1112,10 +1108,6 @@ class DatabaseAdapter {
                 'last_quiz_ts',
                 'daily_sent',
                 'last_send_reset',
-                'banned',
-                'ban_reason',
-                'ban_timestamp',
-                'original_amount'
             ];
 
             const timestampFields = new Set([
@@ -2132,8 +2124,13 @@ class DatabaseAdapter {
             logger.debug('Polls table ensured');
             return true;
         } catch (error) {
-            logger.error(`Error ensuring polls table: ${error.message}`);
-            throw error;
+            // Suppress duplicate column errors as they're expected
+            if (!error.message.includes('Duplicate column name')) {
+                logger.error(`Error ensuring polls table: ${error.message}`);
+                throw error;
+            }
+            // Duplicate column errors are expected and can be ignored
+            logger.debug(`Polls table alter note: ${error.message}`);
         }
     }
 

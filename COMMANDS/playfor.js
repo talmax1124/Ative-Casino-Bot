@@ -211,24 +211,6 @@ module.exports = {
                 });
             }
 
-            // Check if player is banned
-            const botBanSystem = require('../UTILS/botBanSystem');
-            if (botBanSystem.isUserBanned(userId)) {
-                const banReason = botBanSystem.getBanReason(userId);
-                return await interaction.editReply({
-                    content: `🚫 **You are banned from the economy system.**\n\n**Reason:** ${banReason.reason.replace(/_/g, ' ')}\n**Amount:** ${botBanSystem.formatAmount(banReason.amount)}\n\nContact server administrators if you believe this is an error.`,
-                    flags: MessageFlags.Ephemeral
-                });
-            }
-
-            // Check if recipient is banned
-            if (botBanSystem.isUserBanned(recipient.id)) {
-                const banReason = botBanSystem.getBanReason(recipient.id);
-                return await interaction.editReply({
-                    content: `❌ **Cannot play for this user.**\n\nThe recipient is banned from the economy system.\n**Reason:** ${banReason.reason.replace(/_/g, ' ')}`,
-                    flags: MessageFlags.Ephemeral
-                });
-            }
 
             // Ensure both users exist in the database
             await dbManager.ensureUser(userId, interaction.user.displayName || interaction.user.globalName || 'Player');
@@ -348,26 +330,6 @@ module.exports = {
     async processPlayFor(interaction, game, playerId, recipient, bet, guildId) {
         try {
             // Additional validation before processing
-            const botBanSystem = require('../UTILS/botBanSystem');
-            
-            // Re-check ban status (in case it changed during confirmation period)
-            if (botBanSystem.isUserBanned(playerId)) {
-                await interaction.editReply({
-                    content: '🚫 **Playfor cancelled:** You have been banned from the economy system.',
-                    embeds: [],
-                    components: []
-                });
-                return;
-            }
-            
-            if (botBanSystem.isUserBanned(recipient.id)) {
-                await interaction.editReply({
-                    content: '🚫 **Playfor cancelled:** The recipient has been banned from the economy system.',
-                    embeds: [],
-                    components: []
-                });
-                return;
-            }
 
             // Verify player still has sufficient balance
             const currentBalance = await dbManager.getUserBalance(playerId, guildId);

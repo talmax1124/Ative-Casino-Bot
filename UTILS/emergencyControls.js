@@ -64,9 +64,10 @@ class EmergencyControls {
             }
         };
         
-        this.monitoringInterval = setInterval(() => {
-            this.performEmergencyCheck();
-        }, 60000); // Check every minute
+        // Emergency monitoring disabled - ban system removed
+        // this.monitoringInterval = setInterval(() => {
+        //     this.performEmergencyCheck();
+        // }, 60000); // Check every minute
     }
 
     /**
@@ -167,8 +168,9 @@ class EmergencyControls {
         this.emergencyLevel = newLevel;
         this.lastEmergencyTime = Date.now();
         
-        logger.error(`🚨 EMERGENCY ESCALATION: Level ${oldLevel} → Level ${newLevel}`);
-        logger.error(`📊 Metrics: Daily Wins: ${metrics.dailyWins.toLocaleString()}, Hourly Games: ${metrics.hourlyGameRate}`);
+        // Emergency escalation logging disabled
+        // logger.error(`🚨 EMERGENCY ESCALATION: Level ${oldLevel} → Level ${newLevel}`);
+        // logger.error(`📊 Metrics: Daily Wins: ${metrics.dailyWins.toLocaleString()}, Hourly Games: ${metrics.hourlyGameRate}`);
         
         // Activate emergency measures
         if (this.emergencyActions[newLevel]) {
@@ -186,7 +188,8 @@ class EmergencyControls {
         const oldLevel = this.emergencyLevel;
         this.emergencyLevel = newLevel;
         
-        logger.info(`✅ EMERGENCY DEESCALATION: Level ${oldLevel} → Level ${newLevel}`);
+        // Emergency deescalation logging disabled
+        // logger.info(`✅ EMERGENCY DEESCALATION: Level ${oldLevel} → Level ${newLevel}`);
         
         if (newLevel === 0) {
             this.emergencyMode = false;
