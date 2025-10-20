@@ -6,6 +6,7 @@
 
 const logger = require('./logger');
 const dbManager = require('./database');
+const { formatMoney } = require('./moneyFormatter');
 
 class BotBanSystem {
     constructor() {
@@ -523,7 +524,7 @@ class BotBanSystem {
                 bank: newBank
             });
             
-            logger.warn(`Wealth reduction applied: User ${userId} had ${this.formatMoney(reductionAmount)} removed (${reductionPercent}% reduction) - Reason: ${reason}`);
+            logger.warn(`Wealth reduction applied: User ${userId} had ${formatMoney(reductionAmount)} removed (${reductionPercent}% reduction) - Reason: ${reason}`);
             
             return {
                 success: true,

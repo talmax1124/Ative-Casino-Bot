@@ -1812,12 +1812,12 @@ class DatabaseAdapter {
      * Record game result for statistics
      */
     async recordGameResult(userId, guildId, gameType, won, betAmount, payout, metadata = {}) {
-        if (!this.pool) {
-            logger.warn('recordGameResult skipped: database pool not initialized');
-            return false;
-        }
-
         try {
+            if (!this.pool) {
+                logger.warn('recordGameResult skipped: database pool not initialized');
+                return false;
+            }
+
             // Convert undefined to null for SQL compatibility
             const safeUserId = userId ?? null;
             const safeGuildId = guildId ?? null;
