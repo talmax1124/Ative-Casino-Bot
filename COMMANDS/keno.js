@@ -24,13 +24,13 @@ const KENO_CONFIG = {
     DRAW_COUNT: 20         // 20 numbers drawn
 };
 
-// PROGRESSIVE DIFFICULTY MODES
+// PROGRESSIVE DIFFICULTY MODES - BALANCED
 const KENO_MODES = {
     safe: {
         name: '🛡️ Safe',
         description: 'Conservative mode with standard payouts',
         minBet: 500,
-        maxSingleMatchMultiplier: 2.0,
+        maxSingleMatchMultiplier: 1.8,
         emoji: '🛡️',
         color: '#4CAF50'
     },
@@ -38,7 +38,7 @@ const KENO_MODES = {
         name: '⚖️ Balanced',
         description: 'Standard mode with traditional payouts',
         minBet: 1000,
-        maxSingleMatchMultiplier: 3.0,
+        maxSingleMatchMultiplier: 2.2,
         emoji: '⚖️',
         color: '#FF9800'
     },
@@ -46,7 +46,7 @@ const KENO_MODES = {
         name: '⚡ Risky',
         description: 'High risk with enhanced payouts',
         minBet: 2500,
-        maxSingleMatchMultiplier: 3.0,
+        maxSingleMatchMultiplier: 2.5,
         emoji: '⚡',
         color: '#FF8800'
     },
@@ -54,7 +54,7 @@ const KENO_MODES = {
         name: '🔥 Extreme',
         description: 'Maximum risk with premium payouts',
         minBet: 5000,
-        maxSingleMatchMultiplier: 3.0,
+        maxSingleMatchMultiplier: 2.5,
         emoji: '🔥',
         color: '#FF0000'
     }
@@ -81,10 +81,10 @@ module.exports = {
                 .setDescription('Risk mode (higher modes have better payouts but higher minimum bets)')
                 .setRequired(false)
                 .addChoices(
-                    { name: '🛡️ Safe (Min: $500, Max Single Match: 2x)', value: 'safe' },
-                    { name: '⚖️ Balanced (Min: $1K, Max Single Match: 3x)', value: 'balanced' },
-                    { name: '⚡ Risky (Min: $2.5K, Max Single Match: 3x)', value: 'risky' },
-                    { name: '🔥 Extreme (Min: $5K, Max Single Match: 3x)', value: 'extreme' }
+                    { name: '🛡️ Safe (Min: $500, Max Single Match: 1.8x)', value: 'safe' },
+                    { name: '⚖️ Balanced (Min: $1K, Max Single Match: 2.2x)', value: 'balanced' },
+                    { name: '⚡ Risky (Min: $2.5K, Max Single Match: 2.5x)', value: 'risky' },
+                    { name: '🔥 Extreme (Min: $5K, Max Single Match: 2.5x)', value: 'extreme' }
                 )
         ),
 

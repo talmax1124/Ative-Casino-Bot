@@ -22,19 +22,19 @@ const activeGames = new Map();
 const GAME_MODES = {
     'Easy': { 
         lanes: 7, 
-        multipliers: [1.10, 1.15, 1.25, 1.90, 2.20, 2.25, 2.40],
+        multipliers: [0.8, 1.0, 1.1, 1.3, 1.6, 1.8, 2.0],
         color: 0x00FF00,
         emoji: '🟢'
     },
     'Medium': { 
         lanes: 5, 
-        multipliers: [1.05, 1.25, 1.70, 2.00, 2.40],
+        multipliers: [0.6, 1.0, 1.4, 1.8, 2.2],
         color: 0xFFFF00,
         emoji: '🟡'
     },
     'Hard': { 
         lanes: 3, 
-        multipliers: [1.50, 2.25, 3.00],
+        multipliers: [0.4, 1.5, 2.5],
         color: 0xFF0000,
         emoji: '🔴'
     }

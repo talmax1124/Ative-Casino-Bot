@@ -17,8 +17,8 @@ class AdaptiveGameMechanics {
                 baseWinChance: 0.45
             },
             plinko: {
-                baseMultipliers: [0.5, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0],
-                baseWinChance: 0.5
+                baseMultipliers: [0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.5],
+                baseWinChance: 0.4
             },
             crash: {
                 baseCrashPoints: [1.2, 1.5, 2.0, 3.0, 5.0, 10.0, 50.0],
@@ -208,7 +208,7 @@ class AdaptiveGameMechanics {
      */
     async getAdaptedPlinkoMultipliers(userId, currentWealth, betAmount) {
         const adaptedConfig = await this.getAdaptedGameConfig('plinko', userId, currentWealth, betAmount);
-        return adaptedConfig?.adaptedMultipliers || adaptedConfig?.baseMultipliers || [0.5, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0];
+        return adaptedConfig?.adaptedMultipliers || adaptedConfig?.baseMultipliers || [0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.5];
     }
 
     /**

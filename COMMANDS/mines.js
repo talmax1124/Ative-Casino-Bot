@@ -27,7 +27,7 @@ const allInManager = require('../UTILS/allInManager');
 // Game type constant
 const SMGameType = { MINES: 'mines' };
 
-// PROGRESSIVE DIFFICULTY MODES - Economy compliant with incremental house edge
+// PROGRESSIVE DIFFICULTY MODES - BALANCED FOR ECONOMIC PROTECTION
 const MINES_MODES = {
     safe: {
         name: '🛡️ Safe',
@@ -35,8 +35,8 @@ const MINES_MODES = {
         minBet: 500,
         mineCount: 3,
         gridSize: 16, // 4x4 grid
-        maxMultiplier: 2.0,
-        houseEdge: 0.08,
+        maxMultiplier: 1.6,
+        houseEdge: 0.20,
         emoji: '🛡️',
         color: '#4CAF50'
     },
@@ -46,8 +46,8 @@ const MINES_MODES = {
         minBet: 1000,
         mineCount: 5,
         gridSize: 25, // 5x5 grid
-        maxMultiplier: 3.0,
-        houseEdge: 0.10,
+        maxMultiplier: 2.0,
+        houseEdge: 0.25,
         emoji: '⚖️',
         color: '#FF9800'
     },
@@ -57,8 +57,8 @@ const MINES_MODES = {
         minBet: 2500,
         mineCount: 7,
         gridSize: 36, // 6x6 grid
-        maxMultiplier: 5.0,
-        houseEdge: 0.12,
+        maxMultiplier: 2.3,
+        houseEdge: 0.30,
         emoji: '⚡',
         color: '#FF8800'
     },
@@ -68,8 +68,8 @@ const MINES_MODES = {
         minBet: 5000,
         mineCount: 10,
         gridSize: 49, // 7x7 grid
-        maxMultiplier: 8.0,
-        houseEdge: 0.15,
+        maxMultiplier: 2.5,
+        houseEdge: 0.35,
         emoji: '🔥',
         color: '#FF0000'
     }
@@ -302,10 +302,10 @@ module.exports = {
                 .setDescription('Risk mode (higher modes have more mines but higher multipliers)')
                 .setRequired(false)
                 .addChoices(
-                    { name: '🛡️ Safe (3 mines, 4x4 grid, Max: 2x)', value: 'safe' },
-                    { name: '⚖️ Balanced (5 mines, 5x5 grid, Max: 3x)', value: 'balanced' },
-                    { name: '⚡ Risky (7 mines, 6x6 grid, Max: 5x)', value: 'risky' },
-                    { name: '🔥 Extreme (10 mines, 7x7 grid, Max: 8x)', value: 'extreme' }
+                    { name: '🛡️ Safe (3 mines, 4x4 grid, Max: 1.6x)', value: 'safe' },
+                    { name: '⚖️ Balanced (5 mines, 5x5 grid, Max: 2.0x)', value: 'balanced' },
+                    { name: '⚡ Risky (7 mines, 6x6 grid, Max: 2.3x)', value: 'risky' },
+                    { name: '🔥 Extreme (10 mines, 7x7 grid, Max: 2.5x)', value: 'extreme' }
                 )
         ),
 

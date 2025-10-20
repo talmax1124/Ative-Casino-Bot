@@ -30,7 +30,7 @@ const SMGameType = { TEXAS_HOLDEM: 'texas_holdem' };
 
 // Minimum and maximum buy-in amounts
 const MIN_BUY_IN = 1000;
-const MAX_BUY_IN = 10000000;
+const MAX_BUY_IN = 100000; // Reduced for economic balance
 
 // Action timeout in milliseconds
 const ACTION_TIMEOUT = 45000; // 45 seconds

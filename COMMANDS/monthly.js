@@ -87,8 +87,8 @@ module.exports = {
 
             // Calculate reward based on subscription tier
             const isRuby = subscription.subscription_type === 'ruby_subscription';
-            const baseReward = 10000000; // 10M base
-            const rubyBonus = 2000000; // +2M for Ruby (20% more)
+            const baseReward = 500000; // 500K base - reduced for economic balance
+            const rubyBonus = 100000; // +100K for Ruby (20% more)
             const finalReward = isRuby ? baseReward + rubyBonus : baseReward;
 
             // Grant the reward

@@ -94,7 +94,7 @@ class FastCommandLoader {
         const specialFiles = {
             'dev.js': ['reloadCommand', 'logsCommand', 'stopCrashCommand', 'cogCommand'],
             'general.js': ['profileCommand', 'leaderboardCommand', 'testXpCommand', 'setXpCommand', 'debugXpCommand', 'fixXpCommand'],
-            'admin.js': ['drawLotteryCommand', 'portalAnnouncementCommand', 'portalCommand']
+            // admin.js removed - moved to UAS-Standalone-Bot
         };
 
         const commandNames = specialFiles[file];

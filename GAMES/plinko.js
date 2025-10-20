@@ -28,32 +28,32 @@ class PlinkoGameSession {
         this.winAmount = 0;
         this.currentWealth = currentWealth;
         
-        // UPDATED BALANCED MULTIPLIERS - ECONOMICALLY BALANCED
-        // Most slots should result in losses to maintain house edge
+        // BALANCED MULTIPLIERS - PROPER HOUSE EDGE
+        // Most slots should result in losses or small wins to maintain proper house edge
         this.baseModes = {
             easy: {
                 name: '🟢 Easy',
-                description: 'Lower risk, moderate rewards (~15% house edge)',
-                multipliers: [1.1, 1.2, 1.3, 1.4, 1.8, 1.4, 1.3, 1.2, 1.1], // Fixed: all multipliers > 1.0
-                maxMultiplier: 1.8
+                description: 'Lower risk, moderate rewards (~25% house edge)',
+                multipliers: [0.7, 0.8, 1.0, 1.1, 1.4, 1.1, 1.0, 0.8, 0.7], // Mostly losses with occasional wins
+                maxMultiplier: 1.4
             },
             medium: {
                 name: '🟡 Medium', 
-                description: 'Balanced risk and reward (~20% house edge)',
-                multipliers: [1.1, 1.2, 1.3, 1.5, 1.8, 2.0, 2.5, 2.0, 1.8], // Fixed: all multipliers > 1.0
-                maxMultiplier: 2.5
+                description: 'Balanced risk and reward (~30% house edge)',
+                multipliers: [0.5, 0.7, 1.0, 1.2, 1.8, 1.2, 1.0, 0.7, 0.5], // Higher volatility
+                maxMultiplier: 1.8
             },
             hard: {
                 name: '🔴 Hard',
-                description: 'High risk, high reward (~25% house edge)',
-                multipliers: [1.1, 1.2, 1.3, 1.4, 1.5, 1.8, 2.8, 1.8, 1.5], // Fixed: all multipliers > 1.0
-                maxMultiplier: 2.8
+                description: 'High risk, high reward (~35% house edge)',
+                multipliers: [0.3, 0.5, 0.8, 1.0, 2.2, 1.0, 0.8, 0.5, 0.3], // Very high risk
+                maxMultiplier: 2.2
             },
             nightmare: {
                 name: '💀 Nightmare',
-                description: 'Maximum risk for maximum reward (~30% house edge)',
-                multipliers: [1.1, 1.2, 1.3, 1.4, 1.5, 1.8, 3.0, 1.8, 1.5], // Fixed: all multipliers > 1.0
-                maxMultiplier: 3.0
+                description: 'Maximum risk for maximum reward (~40% house edge)',
+                multipliers: [0.1, 0.3, 0.5, 0.8, 2.5, 0.8, 0.5, 0.3, 0.1], // Extreme risk/reward
+                maxMultiplier: 2.5
             }
         };
         
@@ -92,7 +92,7 @@ class PlinkoGameSession {
         }
         
         // CRITICAL SECURITY: Validate and cap ALL multipliers to prevent exploitation
-        const ABSOLUTE_MAX_MULTIPLIER = 3.0; // Hard cap - NO EXCEPTIONS
+        const ABSOLUTE_MAX_MULTIPLIER = 2.5; // Hard cap - NO EXCEPTIONS
         const validatedMultipliers = multipliers.map((multiplier, index) => {
             // Validate multiplier is a finite positive number
             if (!Number.isFinite(multiplier) || multiplier < 0) {
@@ -212,7 +212,7 @@ class PlinkoGameSession {
         let multiplier = multipliers[finalSlot];
         
         // SECURITY: Final validation of multiplier (should already be capped by getFinalMultipliers)
-        const ABSOLUTE_MAX_MULTIPLIER = 3.0;
+        const ABSOLUTE_MAX_MULTIPLIER = 2.5;
         if (!Number.isFinite(multiplier) || multiplier < 0) {
             logger.error(`CRITICAL: Invalid multiplier at slot ${finalSlot}: ${multiplier}, using 0.0`);
             multiplier = 0.0;

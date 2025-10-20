@@ -50,14 +50,14 @@ const gameIntegrator = new UniversalGameIntegrator('crash');
 
 // Global crash parameters
 const GLOBAL_CRASH_MIN = 0.6; // Start multiplier
-const GLOBAL_CRASH_MAX = 2.0; // Absolute cap
+const GLOBAL_CRASH_MAX = 2.2; // Absolute cap
 const GROWTH_PER_SECOND = 0.05; // Small increment per update tick (1s)
 
 const CRASH_MODES = {
-  safe:   { name: '🛡️ Safe',    minBet: 500,  maxMultiplier: 1.5, color: 0x4CAF50 },
-  balanced:{ name: '⚖️ Balanced', minBet: 1000, maxMultiplier: 2.0, color: 0xFF9800 },
-  risky:  { name: '⚡ Risky',   minBet: 2500, maxMultiplier: 2.5, color: 0xF44336 },
-  extreme:{ name: '🔥 Extreme', minBet: 5000, maxMultiplier: 3.0, color: 0x9C27B0 }
+  safe:   { name: '🛡️ Safe',    minBet: 500,  maxMultiplier: 1.4, color: 0x4CAF50 },
+  balanced:{ name: '⚖️ Balanced', minBet: 1000, maxMultiplier: 1.8, color: 0xFF9800 },
+  risky:  { name: '⚡ Risky',   minBet: 2500, maxMultiplier: 2.0, color: 0xF44336 },
+  extreme:{ name: '🔥 Extreme', minBet: 5000, maxMultiplier: 2.2, color: 0x9C27B0 }
 };
 
 // SECURE CRYPTOGRAPHIC RANDOM NUMBER GENERATION

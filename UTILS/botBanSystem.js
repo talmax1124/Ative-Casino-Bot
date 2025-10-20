@@ -11,8 +11,14 @@ class BotBanSystem {
     constructor() {
         this.BAN_THRESHOLDS = {
             QUINTILLION: 1e18,        // 1 Quintillion
-            THREE_BILLION: 10e9,      // 10 Billion
+            TEN_BILLION: 10e9,        // 10 Billion - RESTORED
             EXTREME_AMOUNT: 1e15      // 1 Quadrillion (additional threshold)
+        };
+        
+        this.WEALTH_REDUCTION_THRESHOLDS = {
+            WARNING: 500e6,           // 500 Million - warning
+            REDUCTION: 750e6,         // 750 Million - forced wealth reduction
+            SEVERE: 900e6             // 900 Million - severe reduction
         };
         
         this.bannedUsers = new Set();
@@ -42,13 +48,13 @@ class BotBanSystem {
                 };
             }
             
-            // Check for 10 billion threshold
-            if (totalWealth >= this.BAN_THRESHOLDS.THREE_BILLION) {
+            // Check for 10 billion threshold  
+            if (totalWealth >= this.BAN_THRESHOLDS.TEN_BILLION) {
                 return {
                     shouldBan: true,
                     reason: 'TEN_BILLION_THRESHOLD',
                     amount: totalWealth,
-                    threshold: this.BAN_THRESHOLDS.THREE_BILLION,
+                    threshold: this.BAN_THRESHOLDS.TEN_BILLION,
                     severity: 'HIGH'
                 };
             }
@@ -64,6 +70,39 @@ class BotBanSystem {
                 };
             }
             
+            // Check for wealth reduction thresholds (non-ban measures)
+            if (totalWealth >= this.WEALTH_REDUCTION_THRESHOLDS.SEVERE) {
+                return {
+                    shouldBan: false,
+                    wealthReduction: true,
+                    severity: 'SEVERE',
+                    reason: 'SEVERE_WEALTH_REDUCTION',
+                    amount: totalWealth,
+                    reductionPercent: 50 // Reduce by 50%
+                };
+            }
+            
+            if (totalWealth >= this.WEALTH_REDUCTION_THRESHOLDS.REDUCTION) {
+                return {
+                    shouldBan: false,
+                    wealthReduction: true,
+                    severity: 'MODERATE',
+                    reason: 'WEALTH_REDUCTION',
+                    amount: totalWealth,
+                    reductionPercent: 25 // Reduce by 25%
+                };
+            }
+            
+            if (totalWealth >= this.WEALTH_REDUCTION_THRESHOLDS.WARNING) {
+                return {
+                    shouldBan: false,
+                    warning: true,
+                    reason: 'WEALTH_WARNING',
+                    amount: totalWealth,
+                    message: 'Your wealth is approaching concerning levels. Consider spending some money to avoid automatic reductions.'
+                };
+            }
+
             return {
                 shouldBan: false,
                 amount: totalWealth,
@@ -459,6 +498,43 @@ class BotBanSystem {
         } catch (error) {
             logger.error(`Failed to unban user ${userId}: ${error.message}`);
             return false;
+        }
+    }
+
+    /**
+     * Apply wealth reduction to a user
+     * @param {string} userId - Discord user ID
+     * @param {string} guildId - Guild ID
+     * @param {number} reductionPercent - Percentage to reduce (0-100)
+     * @param {string} reason - Reason for reduction
+     */
+    async applyWealthReduction(userId, guildId, reductionPercent, reason) {
+        try {
+            const balance = await dbManager.getUserBalance(userId, guildId);
+            const totalWealth = (balance.wallet || 0) + (balance.bank || 0);
+            
+            const reductionAmount = Math.floor(totalWealth * (reductionPercent / 100));
+            const newWallet = Math.floor(balance.wallet * (1 - reductionPercent / 100));
+            const newBank = Math.floor(balance.bank * (1 - reductionPercent / 100));
+            
+            // Update the user's balance
+            await dbManager.updateUserBalance(userId, guildId, {
+                wallet: newWallet,
+                bank: newBank
+            });
+            
+            logger.warn(`Wealth reduction applied: User ${userId} had ${this.formatMoney(reductionAmount)} removed (${reductionPercent}% reduction) - Reason: ${reason}`);
+            
+            return {
+                success: true,
+                originalWealth: totalWealth,
+                reductionAmount,
+                newWealth: newWallet + newBank,
+                reductionPercent
+            };
+        } catch (error) {
+            logger.error(`Failed to apply wealth reduction to user ${userId}: ${error.message}`);
+            return { success: false, error: error.message };
         }
     }
 }

@@ -13,7 +13,6 @@
     "test:health": "node test-health-check.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "setup": "node setup.js",
     "postinstall": "echo 'Bot dependencies installed successfully'"
   },
   "keywords": [

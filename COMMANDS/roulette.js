@@ -121,18 +121,18 @@ async function createPayoutEmbed(user, balance, currentBet = null) {
     // FAIR CASINO PAYOUTS - Standard rates
     const personalizedConfig = { 
         colorPayout: 2.0,     // 1:1 bets (red/black/odd/even/low/high)
-        dozenPayout: 3.0,     // 2:1 bets (dozens/columns)
-        singleNumberPayout: 36.0,  // 35:1 single number
-        greenPayout: 36.0,    // 35:1 green
-        basketPayout: 7.0     // 6:1 basket
+        dozenPayout: 2.5,     // BALANCED: reduced from 3.0x
+        singleNumberPayout: 2.5,  // BALANCED: reduced from 36.0x
+        greenPayout: 2.5,    // BALANCED: reduced from 36.0x
+        basketPayout: 2.3     // BALANCED: reduced from 7.0x
     };
     
     // Use FAIR payouts in the UI display
     const colorPayout = (personalizedConfig.colorPayout || 2.0).toFixed(1);
-    const dozenPayout = (personalizedConfig.dozenPayout || 3.0).toFixed(1);  
-    const numberPayout = (personalizedConfig.singleNumberPayout || 36.0).toFixed(1);
-    const greenPayout = (personalizedConfig.greenPayout || 36.0).toFixed(1);
-    const basketPayout = (personalizedConfig.basketPayout || 7.0).toFixed(1);
+    const dozenPayout = (personalizedConfig.dozenPayout || 2.5).toFixed(1);  
+    const numberPayout = (personalizedConfig.singleNumberPayout || 2.5).toFixed(1);
+    const greenPayout = (personalizedConfig.greenPayout || 2.5).toFixed(1);
+    const basketPayout = (personalizedConfig.basketPayout || 2.3).toFixed(1);
     
     // Show personalization status
     const personalizationStatus = '';

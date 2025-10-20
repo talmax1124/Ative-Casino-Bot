@@ -616,6 +616,35 @@ class PayoutManager {
                 };
             }
             
+            // Check for wealth reduction/ban after balance update
+            try {
+                const botBanSystem = require('./botBanSystem');
+                const updatedBalance = await dbManager.getUserBalance(userId, guildId);
+                const wealthCheck = await botBanSystem.checkForBan(userId, updatedBalance);
+                
+                if (wealthCheck.shouldBan) {
+                    logger.warn(`🚫 AUTOMATIC BAN TRIGGERED: User ${userId} exceeded ${wealthCheck.reason} with ${botBanSystem.formatAmount(wealthCheck.amount)}`);
+                    
+                    // Execute the ban
+                    await botBanSystem.executeBan(userId, wealthCheck);
+                    
+                } else if (wealthCheck.wealthReduction) {
+                    logger.warn(`💰 AUTOMATIC WEALTH REDUCTION: User ${userId} has ${botBanSystem.formatAmount(wealthCheck.amount)} - applying ${wealthCheck.reductionPercent}% reduction`);
+                    
+                    // Apply wealth reduction
+                    const reductionResult = await botBanSystem.applyWealthReduction(userId, guildId, wealthCheck.reductionPercent, wealthCheck.reason);
+                    
+                    if (reductionResult.success) {
+                        logger.warn(`💰 Wealth reduction completed: ${userId} reduced from ${botBanSystem.formatAmount(reductionResult.originalWealth)} to ${botBanSystem.formatAmount(reductionResult.newWealth)}`);
+                    }
+                    
+                } else if (wealthCheck.warning) {
+                    logger.info(`⚠️ WEALTH WARNING: User ${userId} approaching limits with ${botBanSystem.formatAmount(wealthCheck.amount)}`);
+                }
+            } catch (wealthError) {
+                logger.error(`Wealth check error for user ${userId}: ${wealthError.message}`);
+            }
+            
             // Calculate new wallet for return value
             newWallet = safeAdd(balance.wallet, totalPayoutWithBonus);
             

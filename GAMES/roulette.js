@@ -296,20 +296,20 @@ class RouletteGame {
             case 'column1':
             case 'column2':
             case 'column3':
-                // 2:1 odds - returns triple the bet (bet + 2x profit)
-                payout = amount * 3;
+                // BALANCED: 2.5x payout for economic protection
+                payout = amount * 2.5;
                 break;
             case 'number':
-                // 35:1 odds - returns 36x the bet (bet + 35x profit)
-                payout = amount * 36;
+                // BALANCED: 2.5x payout for economic protection
+                payout = amount * 2.5;
                 break;
             case 'green':
-                // 35:1 odds - returns 36x the bet (same as single number)
-                payout = amount * 36;
+                // BALANCED: 2.5x payout for economic protection  
+                payout = amount * 2.5;
                 break;
             case 'basket':
-                // 6:1 odds - returns 7x the bet (bet + 6x profit)
-                payout = amount * 7;
+                // BALANCED: 2.3x payout for economic protection
+                payout = amount * 2.3;
                 break;
             default:
                 payout = 0;
@@ -471,20 +471,20 @@ const gameIntegrator = new UniversalGameIntegrator('roulette');
             case 'column1':
             case 'column2':
             case 'column3':
-                // 2:1 odds - returns triple the bet (bet + 2x profit)
-                payout = amount * 3;
+                // BALANCED: 2.5x payout for economic protection
+                payout = amount * 2.5;
                 break;
             case 'number':
-                // 35:1 odds - returns 36x the bet (bet + 35x profit)
-                payout = amount * 36;
+                // BALANCED: 2.5x payout for economic protection
+                payout = amount * 2.5;
                 break;
             case 'green':
-                // 35:1 odds - returns 36x the bet (same as single number)
-                payout = amount * 36;
+                // BALANCED: 2.5x payout for economic protection  
+                payout = amount * 2.5;
                 break;
             case 'basket':
-                // 6:1 odds - returns 7x the bet (bet + 6x profit)
-                payout = amount * 7;
+                // BALANCED: 2.3x payout for economic protection
+                payout = amount * 2.3;
                 break;
             default:
                 payout = 0;
@@ -671,7 +671,7 @@ const gameIntegrator = new UniversalGameIntegrator('roulette');
             quickBets: [
                 { type: 'red', label: '🔴 Red', odds: '2x' },
                 { type: 'black', label: '⚫ Black', odds: '2x' },
-                { type: 'green', label: '🟢 Green', odds: '36x' },
+                { type: 'green', label: '🟢 Green', odds: '2.5x' },
                 { type: 'odd', label: '🔢 Odd', odds: '2x' },
                 { type: 'even', label: '🔢 Even', odds: '2x' },
                 { type: 'low', label: '📉 Low (1-18)', odds: '2x' },

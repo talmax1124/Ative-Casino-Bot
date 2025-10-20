@@ -415,10 +415,10 @@ module.exports = {
                 .setDescription('Difficulty mode (higher modes have higher minimum bets)')
                 .setRequired(false)
                 .addChoices(
-                    { name: '🟢 Easy (Min: $500)', value: 'Easy' },
-                    { name: '🟡 Medium (Min: $1K)', value: 'Medium' },
-                    { name: '🔴 Hard (Min: $2.5K)', value: 'Hard' },
-                    { name: '💀 Nightmare (Min: $5K, Max: 3.0x)', value: 'Nightmare' }
+                    { name: '🟢 Easy (Min: $500, Max: 1.4x)', value: 'Easy' },
+                    { name: '🟡 Medium (Min: $1K, Max: 1.8x)', value: 'Medium' },
+                    { name: '🔴 Hard (Min: $2.5K, Max: 2.2x)', value: 'Hard' },
+                    { name: '💀 Nightmare (Min: $5K, Max: 2.5x)', value: 'Nightmare' }
                 )
         ), // Removed slot option - drop position is always random
 
