@@ -373,7 +373,7 @@ class BlackjackGame {
         } else {
             this.config = {
                 name: 'Standard Blackjack',
-                blackjackMultiplier: 1.5,   // Conservative blackjack payout (50% profit)
+                blackjackMultiplier: 0.0,   // Standard 1:1 blackjack payout (even money)
                 winMultiplier: 1.0,         // Break-even regular wins (0% profit)
                 houseEdge: 0.015            // 1.5% house edge
             };
@@ -634,7 +634,7 @@ class BlackjackGame {
             won = true;
         } else if (playerHand.isBlackjack() && !this.dealerHand.isBlackjack()) {
             // Player blackjack (dealer doesn't have blackjack)
-            const blackjackMultiplier = this.config?.blackjackMultiplier || 1.5;
+            const blackjackMultiplier = this.config?.blackjackMultiplier || 0.0;
             const winnings = effectiveBet * blackjackMultiplier;
             payout = effectiveBet + winnings; // Return bet + winnings
             outcome = 'BLACKJACK';
@@ -677,7 +677,7 @@ class BlackjackGame {
 
         // REASONABLE SECURITY CHECK: Final payout validation
         const totalPayout = payout + insurancePayout;
-        const blackjackMultiplier = this.config?.blackjackMultiplier || 1.5;
+        const blackjackMultiplier = this.config?.blackjackMultiplier || 0.0;
         // Maximum reasonable payout: blackjack win + insurance (conservative estimate)
         const maxAllowedPayout = effectiveBet * (1 + blackjackMultiplier + 2); // bet + max winnings + insurance
         let finalPayout = Math.min(totalPayout, maxAllowedPayout);

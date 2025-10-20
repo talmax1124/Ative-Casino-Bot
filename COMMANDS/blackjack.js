@@ -110,7 +110,7 @@ const BLACKJACK_CONFIG = {
     name: 'Standard Blackjack',
     description: 'Balanced payouts for fair gameplay',
     minBet: 100,
-    blackjackMultiplier: 1.5,    // 50% profit on blackjack
+    blackjackMultiplier: 0.0,    // Even money on blackjack
     winMultiplier: 1.0,          // Break even on regular wins
     houseEdge: 0.015,            // 1.5% house edge
     emoji: '🃏',

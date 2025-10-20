@@ -32,7 +32,7 @@ class DynamicGameAdjuster {
             blackjack: {
                 baseMultipliers: {
                     win: 2.0,
-                    blackjack: 2.5,
+                    blackjack: 1.0,
                     push: 1.0
                 }
             },

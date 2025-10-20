@@ -50,7 +50,7 @@ class GameBalanceController {
             slots_regular: 1.1,      // Min 1.1x (10% profit on wins)
             slots_matrix: 1.1,       // Min 1.1x
             blackjack_win: 1.2,      // Min 1.2x (at least get bet back + 20%)
-            blackjack_bj: 1.5,       // Min 1.5x for blackjack
+            blackjack_bj: 1.0,       // Min 1.0x for blackjack (even money)
             roulette_color: 1.3,     // Min 1.3x for red/black (30% profit)
             roulette_dozen: 1.5,     // Min 1.5x for dozens (50% profit)
             roulette_number: 3.0     // Min 3x for single number (down from 36x, but still 3x profit!)
@@ -280,7 +280,7 @@ class GameBalanceController {
         const adjustedConfig = {
             ...baseModeConfig,
             blackjackMultiplier: this.applyWealthScaling(
-                baseModeConfig.blackjackMultiplier || 2.5,
+                baseModeConfig.blackjackMultiplier || 0.0,
                 wealth,
                 'blackjack_bj'
             ),
